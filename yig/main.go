@@ -5,8 +5,8 @@ package main
 
 import (
 	"github.com/codegangsta/martini"
-	"git.letv.cn/yig/nettimeout"
-	"git.letv.cn/yig/rados"
+	"git.letv.cn/yig/yig/nettimeout"
+	"git.letv.cn/yig/yig/rados"
 	"time"
 	"errors"
 	"net/http"
