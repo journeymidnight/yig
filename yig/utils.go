@@ -5,12 +5,12 @@
 package main
 
 import (
+	"crypto/subtle"
 	"fmt"
 	"os"
 	"strconv"
-	"syscall"
-	"crypto/subtle"
 	"sync"
+	"syscall"
 )
 
 func CreatePidfile(pidFile string) error {
@@ -25,7 +25,7 @@ func CreatePidfile(pidFile string) error {
 func RemovePidfile(pidFile string) {
 	if pidFile != "" {
 		if err := os.Remove(pidFile); err != nil {
-			slog.Printf("error to remove pidfile %s:", err)
+			logger.Printf("error to remove pidfile %s:", err)
 		}
 	}
 }
@@ -75,7 +75,6 @@ func WritePid(pidfile string) error {
 	return nil
 }
 
-
 // From https://github.com/codegangsta/martini-contrib/blob/master/auth/util.go
 // SecureCompare performs a constant time compare of two strings to limit timing attacks.
 func SecureCompare(given string, actual string) bool {
@@ -87,17 +86,16 @@ func SecureCompare(given string, actual string) bool {
 	}
 }
 
-
 type SafeMap struct {
 	lock *sync.RWMutex
-	bm map[interface{}]interface{}
+	bm   map[interface{}]interface{}
 }
 
 // NewSafeMap return new safemap
 func NewSafeMap() *SafeMap {
 	return &SafeMap{
 		lock: new(sync.RWMutex),
-		bm: make(map[interface{}]interface{}),
+		bm:   make(map[interface{}]interface{}),
 	}
 }
 

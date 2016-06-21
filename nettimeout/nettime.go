@@ -3,8 +3,8 @@ package nettimeout
 import (
 	"github.com/hydrogen18/stoppableListener"
 	"net"
-	"time"
 	"strconv"
+	"time"
 )
 
 // Listener wraps a net.Listener, and gives a place to store the timeout
@@ -30,7 +30,7 @@ func (l *Listener) Accept() (net.Conn, error) {
 }
 
 func (l *Listener) Stop() {
-	l.StoppableListener.Stop();
+	l.StoppableListener.Stop()
 }
 
 // Conn wraps a net.Conn, and sets a deadline for every read
@@ -57,8 +57,8 @@ func (c *Conn) Write(b []byte) (int, error) {
 	return c.Conn.Write(b)
 }
 
-func NewListener(port int, readTimeout, writeTimeout time.Duration) (*Listener, error){
-	originalListener, err := net.Listen("tcp", ":" + strconv.Itoa(port))
+func NewListener(port int, readTimeout, writeTimeout time.Duration) (*Listener, error) {
+	originalListener, err := net.Listen("tcp", ":"+strconv.Itoa(port))
 	if err != nil {
 		return nil, err
 	}
@@ -69,9 +69,9 @@ func NewListener(port int, readTimeout, writeTimeout time.Duration) (*Listener, 
 	}
 
 	tl := &Listener{
-		StoppableListener:     sl,
-		ReadTimeout:  readTimeout,
-		WriteTimeout: writeTimeout,
+		StoppableListener: sl,
+		ReadTimeout:       readTimeout,
+		WriteTimeout:      writeTimeout,
 	}
 	return tl, nil
 }
