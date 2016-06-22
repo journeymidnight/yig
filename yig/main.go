@@ -4,7 +4,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"git.letv.cn/yig/yig/nettimeout"
 	"git.letv.cn/yig/yig/rados"
@@ -34,6 +33,10 @@ var (
 	CONCURRENT_REQUEST_LIMIT               = 100
 	PORT				       = 3000
 	TCP_TIMEOUT			       = 10 /* Seconds */
+	HOST_URL			       = "127.0.0.1" /* should be something like
+								s3.lecloud.com
+								for production servers
+							     */
 
 	/* global variables */
 	logger                    *log.Logger
@@ -75,40 +78,9 @@ func (r *LimitedNumber) size() int {
 
 func WrapContext() martini.Handler {
 	return func(res http.ResponseWriter, req *http.Request, c martini.Context) {
-		r := &ConnnectContext{0}
+		r := &RequestContext{}
 		c.Map(r)
 	}
-}
-
-func InfoHandler(params martini.Params, w http.ResponseWriter, r *http.Request, conn *rados.Conn) {
-	poolname := params["pool"]
-	soid := params["soid"]
-	pool, err := conn.OpenPool(poolname)
-	if err != nil {
-		logger.Println("URL:", r.URL, "open pool failed")
-		ErrorHandler(w, r, http.StatusNotFound)
-		return
-	}
-	defer pool.Destroy()
-
-	striper, err := pool.CreateStriper()
-	if err != nil {
-		logger.Println("URL:", r.URL, "Create Striper failed")
-		ErrorHandler(w, r, http.StatusNotFound)
-		return
-	}
-	defer striper.Destroy()
-
-	size, _, err := striper.State(soid)
-	if err != nil {
-		logger.Println("URL:%s, failed to get object "+soid, r.URL)
-		ErrorHandler(w, r, http.StatusNotFound)
-		return
-	}
-	/* use json format */
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(fmt.Sprintf("{\"size\":%d}", size)))
-	return
 }
 
 func RequestLimit() martini.Handler {
@@ -120,21 +92,16 @@ func RequestLimit() martini.Handler {
 		/* limit concurrent requests */
 		if err := concurrentRequestNumber.inc(); err != nil {
 			logger.Println("URL:", r.URL, ", too many concurrent requests")
-			ErrorHandler(w, r, http.StatusServiceUnavailable)
+			responseWithError(w, &ErrorResponse{
+					StatusCode: http.StatusServiceUnavailable,
+					Code:"ServiceUnavailable",
+					Message:"Too many concurrent requests for this server",
+				})
 			return
 		}
 		defer concurrentRequestNumber.dec()
 		c.Next()
 	}
-}
-
-func CephStatusHandler(params martini.Params, w http.ResponseWriter, r *http.Request, conn *rados.Conn) {
-	c, err := conn.Status()
-	if err != nil {
-		ErrorHandler(w, r, 504)
-		return
-	}
-	w.Write([]byte(c))
 }
 
 func set_stripe_layout(p *rados.StriperPool) int {
@@ -151,9 +118,9 @@ func set_stripe_layout(p *rados.StriperPool) int {
 	return ret
 }
 
-/* this could be a context */
-type ConnnectContext struct {
+type RequestContext struct {
 	byteSend int64
+	requestBody *[]byte
 }
 
 func createMartini() *martini.ClassicMartini {
@@ -176,8 +143,9 @@ func main() {
 	logger = log.New(f, "[yig]", log.LstdFlags)
 
 	m := createMartini()
+	m.Use(awsAuth)
 	m.Use(WrapContext())
-	m.Use(func(w http.ResponseWriter, r *http.Request, conn *rados.Conn, context *ConnnectContext, c martini.Context) {
+	m.Use(func(w http.ResponseWriter, r *http.Request, context *RequestContext, c martini.Context) {
 		start := time.Now()
 		addr := r.Header.Get("X-Real-IP")
 		if addr == "" {
@@ -220,12 +188,7 @@ func main() {
 
 	concurrentRequestNumber.Init(CONCURRENT_REQUEST_LIMIT)
 
-	m.Get("/threads", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, fmt.Sprintf("%d\n", concurrentRequestNumber.size()))
-	})
-	m.Get("/cephstatus", RequestLimit(), CephStatusHandler)
-
-	m.Get("/info/(?P<pool>[A-Za-z0-9]+)/(?P<soid>[^/]+)", RequestLimit(), InfoHandler)
+	setupHandlers(m)
 
 	// port, read/write timeout
 	stoppableListener, err := nettimeout.NewListener(PORT, TCP_TIMEOUT*time.Second, TCP_TIMEOUT*time.Second)
@@ -271,22 +234,3 @@ func main() {
 	}
 }
 
-func ErrorHandler(w http.ResponseWriter, r *http.Request, status int) {
-	switch status {
-	case http.StatusForbidden:
-		w.WriteHeader(status)
-		w.Write([]byte("Forbidden"))
-	case http.StatusNotFound:
-		w.WriteHeader(status)
-		w.Write([]byte("object not found"))
-	case http.StatusRequestTimeout:
-		w.WriteHeader(status)
-		w.Write([]byte("server is too busy,timeout"))
-	case http.StatusUnauthorized:
-		w.WriteHeader(status)
-		w.Write([]byte("UnAuthorized"))
-	case http.StatusInternalServerError:
-		w.WriteHeader(status)
-		w.Write([]byte("Internal Server Error"))
-	}
-}
