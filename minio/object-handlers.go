@@ -32,6 +32,7 @@ import (
 	"time"
 
 	mux "github.com/gorilla/mux"
+	"git.letv.cn/yig/yig/minio/datatype"
 )
 
 // supportedGetReqParams - supported request parameters for GET presigned request.
@@ -949,7 +950,7 @@ func (api objectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 		writeErrorResponse(w, r, ErrInternalError, r.URL.Path)
 		return
 	}
-	complMultipartUpload := &completeMultipartUpload{}
+	complMultipartUpload := &datatype.CompleteMultipartUpload{}
 	if err = xml.Unmarshal(completeMultipartBytes, complMultipartUpload); err != nil {
 		errorIf(err, "Unable to parse complete multipart upload XML.")
 		writeErrorResponse(w, r, ErrMalformedXML, r.URL.Path)
@@ -959,12 +960,12 @@ func (api objectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 		writeErrorResponse(w, r, ErrMalformedXML, r.URL.Path)
 		return
 	}
-	if !sort.IsSorted(completedParts(complMultipartUpload.Parts)) {
+	if !sort.IsSorted(datatype.CompletedParts(complMultipartUpload.Parts)) {
 		writeErrorResponse(w, r, ErrInvalidPartOrder, r.URL.Path)
 		return
 	}
 	// Complete parts.
-	var completeParts []CompletePart
+	var completeParts []datatype.CompletePart
 	for _, part := range complMultipartUpload.Parts {
 		part.ETag = strings.TrimPrefix(part.ETag, "\"")
 		part.ETag = strings.TrimSuffix(part.ETag, "\"")

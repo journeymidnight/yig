@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package minio
+package datatype
 
 import "time"
 
@@ -93,7 +93,7 @@ type ListPartsInfo struct {
 	IsTruncated bool
 
 	// List of all parts.
-	Parts []partInfo
+	Parts []PartInfo
 
 	EncodingType string // Not supported yet.
 }
@@ -128,7 +128,7 @@ type ListMultipartsInfo struct {
 	IsTruncated bool
 
 	// List of all pending uploads.
-	Uploads []uploadMetadata
+	Uploads []UploadMetadata
 
 	// When a prefix is provided in the request, The result contains only keys
 	// starting with the specified prefix.
@@ -169,7 +169,7 @@ type ListObjectsInfo struct {
 }
 
 // partInfo - represents individual part metadata.
-type partInfo struct {
+type PartInfo struct {
 	// Part number that identifies the part. This is a positive integer between
 	// 1 and 10,000.
 	PartNumber int
@@ -185,7 +185,7 @@ type partInfo struct {
 }
 
 // uploadMetadata - represents metadata in progress multipart upload.
-type uploadMetadata struct {
+type UploadMetadata struct {
 	// Object name for which the multipart upload was initiated.
 	Object string
 
@@ -209,13 +209,13 @@ type CompletePart struct {
 }
 
 // completedParts - is a collection satisfying sort.Interface.
-type completedParts []CompletePart
+type CompletedParts []CompletePart
 
-func (a completedParts) Len() int           { return len(a) }
-func (a completedParts) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a completedParts) Less(i, j int) bool { return a[i].PartNumber < a[j].PartNumber }
+func (a CompletedParts) Len() int           { return len(a) }
+func (a CompletedParts) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a CompletedParts) Less(i, j int) bool { return a[i].PartNumber < a[j].PartNumber }
 
 // completeMultipartUpload - represents input fields for completing multipart upload.
-type completeMultipartUpload struct {
+type CompleteMultipartUpload struct {
 	Parts []CompletePart `xml:"Part"`
 }

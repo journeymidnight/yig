@@ -21,8 +21,8 @@ import (
 	"crypto/rand"
 	"encoding/xml"
 	"net/http"
-	"runtime"
 	"strconv"
+	"git.letv.cn/yig/yig/minio/datatype"
 )
 
 //// helpers
@@ -44,7 +44,7 @@ func generateRequestID() []byte {
 func setCommonHeaders(w http.ResponseWriter) {
 	// Set unique request ID for each reply.
 	w.Header().Set("X-Amz-Request-Id", string(generateRequestID()))
-	w.Header().Set("Server", ("Minio/" + minioReleaseTag + " (" + runtime.GOOS + "; " + runtime.GOARCH + ")"))
+	w.Header().Set("Server", "LeCloud YIG")
 	w.Header().Set("Accept-Ranges", "bytes")
 }
 
@@ -58,7 +58,7 @@ func encodeResponse(response interface{}) []byte {
 }
 
 // Write object header
-func setObjectHeaders(w http.ResponseWriter, objInfo ObjectInfo, contentRange *httpRange) {
+func setObjectHeaders(w http.ResponseWriter, objInfo datatype.ObjectInfo, contentRange *httpRange) {
 	// set common headers
 	setCommonHeaders(w)
 

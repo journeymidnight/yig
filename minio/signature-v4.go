@@ -154,7 +154,7 @@ func doesPolicySignatureMatch(formValues map[string]string) APIErrorCode {
 	cred := serverConfig.GetCredential()
 
 	// Server region.
-	region := serverConfig.GetRegion()
+	region := serverConfig.Region
 
 	// Parse credential tag.
 	credHeader, err := parseCredentialHeader("Credential=" + formValues["X-Amz-Credential"])
@@ -200,7 +200,7 @@ func doesPresignedSignatureMatch(hashedPayload string, r *http.Request, validate
 	cred := serverConfig.GetCredential()
 
 	// Server region.
-	region := serverConfig.GetRegion()
+	region := serverConfig.Region
 
 	// Copy request
 	req := *r
@@ -317,7 +317,7 @@ func doesSignatureMatch(hashedPayload string, r *http.Request, validateRegion bo
 	cred := serverConfig.GetCredential()
 
 	// Server region.
-	region := serverConfig.GetRegion()
+	region := serverConfig.Region
 
 	// Copy request.
 	req := *r

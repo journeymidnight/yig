@@ -49,15 +49,16 @@ func (c *rateLimit) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	c.releaseOnce.Do(c.release)
 }
 
-// setRateLimitHandler limits the number of concurrent http requests based on MINIO_MAXCONN.
+// setRateLimitHandler limits the number of concurrent http requests based on
+// CONCURRENT_REQUEST_LIMIT.
 func setRateLimitHandler(handler http.Handler) http.Handler {
-	if globalMaxConn == 0 {
+	if serverConfig.MaxConcurrentRequest == 0 {
 		return handler
 	} // else proceed to rate limiting.
 
 	// For max connection limit of > '0' we initialize rate limit handler.
 	return &rateLimit{
 		handler: handler,
-		rqueue:  make(chan struct{}, globalMaxConn),
+		rqueue:  make(chan struct{}, serverConfig.MaxConcurrentRequest),
 	}
 }

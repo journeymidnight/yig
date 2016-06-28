@@ -27,16 +27,6 @@ import (
 	"strings"
 )
 
-// Verify if request has JWT.
-func isRequestJWT(r *http.Request) bool {
-	if _, ok := r.Header["Authorization"]; ok {
-		if strings.HasPrefix(r.Header.Get("Authorization"), jwtAlgorithm) {
-			return true
-		}
-	}
-	return false
-}
-
 // Verify if request has AWS Signature Version '4'.
 func isRequestSignatureV4(r *http.Request) bool {
 	if _, ok := r.Header["Authorization"]; ok {
@@ -75,7 +65,6 @@ const (
 	authTypePresigned
 	authTypePostPolicy
 	authTypeSigned
-	authTypeJWT
 )
 
 // Get request authentication type.
@@ -84,8 +73,6 @@ func getRequestAuthType(r *http.Request) authType {
 		return authTypeSigned
 	} else if isRequestPresignedSignatureV4(r) {
 		return authTypePresigned
-	} else if isRequestJWT(r) {
-		return authTypeJWT
 	} else if isRequestPostPolicySignatureV4(r) {
 		return authTypePostPolicy
 	} else if _, ok := r.Header["Authorization"]; !ok {
@@ -153,13 +140,6 @@ func (a authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// signed requests.
 		a.handler.ServeHTTP(w, r)
 		return
-	case authTypeJWT:
-		// Validate Authorization header if its valid for JWT request.
-		if !isJWTReqAuthenticated(r) {
-			w.WriteHeader(http.StatusUnauthorized)
-			return
-		}
-		a.handler.ServeHTTP(w, r)
 	default:
 		writeErrorResponse(w, r, ErrSignatureVersionNotSupported, r.URL.Path)
 		return

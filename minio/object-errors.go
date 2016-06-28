@@ -61,10 +61,6 @@ func toObjectErr(err error, params ...string) error {
 				Object: params[1],
 			}
 		}
-	case errXLReadQuorum:
-		return InsufficientReadQuorum{}
-	case errXLWriteQuorum:
-		return InsufficientWriteQuorum{}
 	case io.ErrUnexpectedEOF, io.ErrShortWrite:
 		return IncompleteBody{}
 	}

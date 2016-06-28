@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"path"
 	"time"
+	"git.letv.cn/yig/yig/minio/datatype"
 )
 
 const (
@@ -248,7 +249,7 @@ type DeleteObjectsResponse struct {
 	XMLName xml.Name `xml:"http://s3.amazonaws.com/doc/2006-03-01/ DeleteResult" json:"-"`
 
 	// Collection of all deleted objects
-	DeletedObjects []ObjectIdentifier `xml:"Deleted,omitempty"`
+	DeletedObjects []datatype.ObjectIdentifier `xml:"Deleted,omitempty"`
 
 	// Collection of errors deleting certain objects.
 	Errors []DeleteError `xml:"Error,omitempty"`
@@ -270,7 +271,7 @@ func getObjectLocation(bucketName string, key string) string {
 //
 // output:
 // populated struct that can be serialized to match xml and json api spec output
-func generateListBucketsResponse(buckets []BucketInfo) ListBucketsResponse {
+func generateListBucketsResponse(buckets []datatype.BucketInfo) ListBucketsResponse {
 	var listbuckets []Bucket
 	var data = ListBucketsResponse{}
 	var owner = Owner{}
@@ -292,7 +293,8 @@ func generateListBucketsResponse(buckets []BucketInfo) ListBucketsResponse {
 }
 
 // generates an ListObjects response for the said bucket with other enumerated options.
-func generateListObjectsResponse(bucket, prefix, marker, delimiter string, maxKeys int, resp ListObjectsInfo) ListObjectsResponse {
+func generateListObjectsResponse(bucket, prefix, marker, delimiter string, maxKeys int,
+resp datatype.ListObjectsInfo) ListObjectsResponse {
 	var contents []Object
 	var prefixes []CommonPrefix
 	var owner = Owner{}
@@ -337,7 +339,8 @@ func generateListObjectsResponse(bucket, prefix, marker, delimiter string, maxKe
 }
 
 // generates an ListObjects response for the said bucket with other enumerated options.
-func generateListObjectsV2Response(bucket, prefix, token, startAfter, delimiter string, maxKeys int, resp ListObjectsInfo) ListObjectsV2Response {
+func generateListObjectsV2Response(bucket, prefix, token, startAfter, delimiter string,
+maxKeys int, resp datatype.ListObjectsInfo) ListObjectsV2Response {
 	var contents []Object
 	var prefixes []CommonPrefix
 	var owner = Owner{}
@@ -409,7 +412,7 @@ func generateCompleteMultpartUploadResponse(bucket, key, location, etag string) 
 }
 
 // generateListPartsResult
-func generateListPartsResponse(partsInfo ListPartsInfo) ListPartsResponse {
+func generateListPartsResponse(partsInfo datatype.ListPartsInfo) ListPartsResponse {
 	// TODO - support EncodingType in xml decoding
 	listPartsResponse := ListPartsResponse{}
 	listPartsResponse.Bucket = partsInfo.Bucket
@@ -439,7 +442,8 @@ func generateListPartsResponse(partsInfo ListPartsInfo) ListPartsResponse {
 }
 
 // generateListMultipartUploadsResponse
-func generateListMultipartUploadsResponse(bucket string, multipartsInfo ListMultipartsInfo) ListMultipartUploadsResponse {
+func generateListMultipartUploadsResponse(bucket string,
+multipartsInfo datatype.ListMultipartsInfo) ListMultipartUploadsResponse {
 	listMultipartUploadsResponse := ListMultipartUploadsResponse{}
 	listMultipartUploadsResponse.Bucket = bucket
 	listMultipartUploadsResponse.Delimiter = multipartsInfo.Delimiter
@@ -469,7 +473,8 @@ func generateListMultipartUploadsResponse(bucket string, multipartsInfo ListMult
 }
 
 // generate multi objects delete response.
-func generateMultiDeleteResponse(quiet bool, deletedObjects []ObjectIdentifier, errs []DeleteError) DeleteObjectsResponse {
+func generateMultiDeleteResponse(quiet bool, deletedObjects []datatype.ObjectIdentifier,
+errs []DeleteError) DeleteObjectsResponse {
 	deleteResp := DeleteObjectsResponse{}
 	if !quiet {
 		deleteResp.DeletedObjects = deletedObjects

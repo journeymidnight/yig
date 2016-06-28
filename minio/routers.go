@@ -60,6 +60,17 @@ func configureServerHandler(c *ServerConfig) http.Handler {
 		// invalid/unsupported signatures.
 		setAuthHandler,
 		// Add new handlers here.
+
+		// TODO request logger
+		// func LogRequest(c *iris.Context)  {
+		// start := time.Now()
+		// addr := c.RemoteAddr()
+		// c.Next()
+		// logger.Printf("COMPLETE %s %s %s %v %d in %s\n",
+		// addr, c.Method(), c.Path(), c.Response.StatusCode(),
+		// c.GetInt("bytesSent"), time.Since(start))
+		// }
+
 	}
 
 	// Register rest of the handlers.

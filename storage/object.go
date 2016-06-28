@@ -2,14 +2,14 @@ package storage
 
 import (
 	"io"
-	"git.letv.cn/yig/yig/minio"
+	"git.letv.cn/yig/yig/minio/datatype"
 )
 
 func GetObject(bucket, object string, startOffset int64, length int64, writer io.Writer) (err error) {
 	return
 }
 
-func GetObjectInfo(bucket, object string) (objInfo minio.ObjectInfo, err error) {
+func GetObjectInfo(bucket, object string) (objInfo datatype.ObjectInfo, err error) {
 	return
 }
 

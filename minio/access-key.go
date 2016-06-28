@@ -31,8 +31,8 @@ type credential struct {
 
 // stringer colorized access keys.
 func (a credential) String() string {
-	accessStr := colorMagenta("AccessKey: ") + colorWhite(a.AccessKeyID)
-	secretStr := colorMagenta("SecretKey: ") + colorWhite(a.SecretAccessKey)
+	accessStr := "AccessKey: " + a.AccessKeyID
+	secretStr := "SecretKey: " + a.SecretAccessKey
 	return fmt.Sprint(accessStr + "  " + secretStr)
 }
 

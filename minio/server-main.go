@@ -31,6 +31,8 @@ import (
 	"git.letv.cn/yig/yig/storage"
 )
 
+var serverConfig *ServerConfig
+
 type ServerConfig struct  {
 	Address string
 	KeyFilePath string // path for SSL key file
@@ -38,6 +40,12 @@ type ServerConfig struct  {
 	Region string // region name of current server
 	Logger *log.Logger // global logger
 	ObjectLayer *storage.YigStorage
+	MaxConcurrentRequest int // used in rate limit
+}
+
+func (c *ServerConfig) GetCredential() credential {
+	// TODO
+	return
 }
 
 // configureServer configure a new server instance
@@ -175,10 +183,11 @@ func isSSL(c *ServerConfig)  bool {
 }
 
 // blocks after server started
-func startApiServer(c *ServerConfig) {
+func StartApiServer(c *ServerConfig) {
 	// use YIG's global logger
 	logger = c.Logger
 
+	serverConfig = c
 	serverAddress := c.Address
 
 	host, port, _ := net.SplitHostPort(serverAddress)

@@ -1,9 +1,9 @@
 package storage
 
 import (
-	"git.letv.cn/yig/yig/minio"
+	"git.letv.cn/yig/yig/minio/datatype"
 )
 
-func StorageInfo() minio.StorageInfo {
+func StorageInfo() datatype.StorageInfo {
 	return
 }

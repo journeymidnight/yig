@@ -29,6 +29,7 @@ import (
 	"strings"
 
 	mux "github.com/gorilla/mux"
+	"git.letv.cn/yig/yig/minio/datatype"
 )
 
 // http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
@@ -125,7 +126,7 @@ func (api objectAPIHandlers) GetBucketLocationHandler(w http.ResponseWriter, r *
 	// Generate response.
 	encodedSuccessResponse := encodeResponse(LocationResponse{})
 	// Get current region.
-	region := serverConfig.GetRegion()
+	region := serverConfig.Region
 	if region != "us-east-1" {
 		encodedSuccessResponse = encodeResponse(LocationResponse{
 			Location: region,
@@ -378,7 +379,7 @@ func (api objectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	}
 
 	// Unmarshal list of keys to be deleted.
-	deleteObjects := &DeleteObjectsRequest{}
+	deleteObjects := &datatype.DeleteObjectsRequest{}
 	if err := xml.Unmarshal(deleteXMLBytes, deleteObjects); err != nil {
 		errorIf(err, "Unable to unmarshal delete objects request XML.")
 		writeErrorResponse(w, r, ErrMalformedXML, r.URL.Path)
@@ -386,12 +387,12 @@ func (api objectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	}
 
 	var deleteErrors []DeleteError
-	var deletedObjects []ObjectIdentifier
+	var deletedObjects []datatype.ObjectIdentifier
 	// Loop through all the objects and delete them sequentially.
 	for _, object := range deleteObjects.Objects {
 		err := api.ObjectAPI.DeleteObject(bucket, object.ObjectName)
 		if err == nil {
-			deletedObjects = append(deletedObjects, ObjectIdentifier{
+			deletedObjects = append(deletedObjects, datatype.ObjectIdentifier{
 				ObjectName: object.ObjectName,
 			})
 		} else {
@@ -435,7 +436,7 @@ func (api objectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 	// the location value in the request body should match the Region in serverConfig.
 	// other values of location are not accepted.
 	// make bucket fails in such cases.
-	errCode := isValidLocationContraint(r.Body, serverConfig.GetRegion())
+	errCode := isValidLocationContraint(r.Body, serverConfig.Region)
 	if errCode != ErrNone {
 		writeErrorResponse(w, r, errCode, r.URL.Path)
 		return

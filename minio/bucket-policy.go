@@ -17,37 +17,7 @@
 package minio
 
 import (
-	"io/ioutil"
-	"os"
-	"path/filepath"
 )
-
-// getBucketsConfigPath - get buckets path.
-func getBucketsConfigPath() (string, error) {
-	configPath, err := getConfigPath()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(configPath, "buckets"), nil
-}
-
-// getBucketConfigPath - get bucket config path.
-func getBucketConfigPath(bucket string) (string, error) {
-	bucketsConfigPath, err := getBucketsConfigPath()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(bucketsConfigPath, bucket), nil
-}
-
-// createBucketConfigPath - create bucket config directory.
-func createBucketConfigPath(bucket string) error {
-	bucketConfigPath, err := getBucketConfigPath(bucket)
-	if err != nil {
-		return err
-	}
-	return os.MkdirAll(bucketConfigPath, 0700)
-}
 
 // readBucketPolicy - read bucket policy.
 func readBucketPolicy(bucket string) ([]byte, error) {
@@ -56,20 +26,8 @@ func readBucketPolicy(bucket string) ([]byte, error) {
 		return nil, BucketNameInvalid{Bucket: bucket}
 	}
 
-	bucketConfigPath, err := getBucketConfigPath(bucket)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get policy file.
-	bucketPolicyFile := filepath.Join(bucketConfigPath, "access-policy.json")
-	if _, err = os.Stat(bucketPolicyFile); err != nil {
-		if os.IsNotExist(err) {
-			return nil, BucketPolicyNotFound{Bucket: bucket}
-		}
-		return nil, err
-	}
-	return ioutil.ReadFile(bucketPolicyFile)
+	// TODO re-implement
+	return
 }
 
 // removeBucketPolicy - remove bucket policy.
@@ -79,23 +37,8 @@ func removeBucketPolicy(bucket string) error {
 		return BucketNameInvalid{Bucket: bucket}
 	}
 
-	bucketConfigPath, err := getBucketConfigPath(bucket)
-	if err != nil {
-		return err
-	}
-
-	// Get policy file.
-	bucketPolicyFile := filepath.Join(bucketConfigPath, "access-policy.json")
-	if _, err = os.Stat(bucketPolicyFile); err != nil {
-		if os.IsNotExist(err) {
-			return BucketPolicyNotFound{Bucket: bucket}
-		}
-		return err
-	}
-	if err := os.Remove(bucketPolicyFile); err != nil {
-		return err
-	}
-	return nil
+	// TODO re-implement
+	return
 }
 
 // writeBucketPolicy - save bucket policy.
@@ -105,24 +48,6 @@ func writeBucketPolicy(bucket string, accessPolicyBytes []byte) error {
 		return BucketNameInvalid{Bucket: bucket}
 	}
 
-	// Create bucket config path.
-	if err := createBucketConfigPath(bucket); err != nil {
-		return err
-	}
-
-	bucketConfigPath, err := getBucketConfigPath(bucket)
-	if err != nil {
-		return err
-	}
-
-	// Get policy file.
-	bucketPolicyFile := filepath.Join(bucketConfigPath, "access-policy.json")
-	if _, err := os.Stat(bucketPolicyFile); err != nil {
-		if !os.IsNotExist(err) {
-			return err
-		}
-	}
-
-	// Write bucket policy.
-	return ioutil.WriteFile(bucketPolicyFile, accessPolicyBytes, 0600)
+	// TODO re-implement
+	return
 }

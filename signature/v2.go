@@ -1,8 +1,7 @@
-package main
+package signature
 
 import (
 	"net/http"
-	"github.com/codegangsta/martini"
 	"strings"
 	"io/ioutil"
 	"encoding/hex"
@@ -13,9 +12,8 @@ import (
 	"net/url"
 	"crypto/hmac"
 	"crypto/sha1"
-	"github.com/kataras/iris"
 )
-
+/*
 func postRequestAuth(c *iris.Context) {
 
 }
@@ -144,15 +142,13 @@ func authorizationHeaderAuth(c *iris.Context) {
 			})
 			return
 		}
-		/*
-		StringToSign = HTTP-Verb + "\n" +
-			Content-MD5 + "\n" +
-			Content-Type + "\n" +
-			Date + "\n" +
-			CanonicalizedAmzHeaders +
-			CanonicalizedResource;
-		Content-MD5 and Content-Type are optional
-		 */
+		// StringToSign = HTTP-Verb + "\n" +
+		// 	Content-MD5 + "\n" +
+		// 	Content-Type + "\n" +
+		// 	Date + "\n" +
+		// 	CanonicalizedAmzHeaders +
+		// 	CanonicalizedResource;
+		// Content-MD5 and Content-Type are optional
 		stringToSign := c.MethodString() + "\n"
 
 		if md5 := c.RequestHeader("Content-MD5"); md5 != "" {
@@ -241,3 +237,4 @@ func awsAuth(c *iris.Context)  {
 		queryParameterAuth(c)
 	}
 }
+*/
