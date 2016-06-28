@@ -20,14 +20,14 @@ import (
 )
 
 // readBucketPolicy - read bucket policy.
-func readBucketPolicy(bucket string) ([]byte, error) {
+func readBucketPolicy(bucket string) (policy []byte, err error) {
 	// Verify bucket is valid.
 	if !IsValidBucketName(bucket) {
 		return nil, BucketNameInvalid{Bucket: bucket}
 	}
 
 	// TODO re-implement
-	return
+	return 
 }
 
 // removeBucketPolicy - remove bucket policy.
@@ -38,7 +38,7 @@ func removeBucketPolicy(bucket string) error {
 	}
 
 	// TODO re-implement
-	return
+	return nil 
 }
 
 // writeBucketPolicy - save bucket policy.
@@ -49,5 +49,5 @@ func writeBucketPolicy(bucket string, accessPolicyBytes []byte) error {
 	}
 
 	// TODO re-implement
-	return
+	return nil
 }

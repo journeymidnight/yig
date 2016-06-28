@@ -1,17 +1,6 @@
 package signature
 
 import (
-	"net/http"
-	"strings"
-	"io/ioutil"
-	"encoding/hex"
-	"crypto/md5"
-	"time"
-	"encoding/base64"
-	"sort"
-	"net/url"
-	"crypto/hmac"
-	"crypto/sha1"
 )
 /*
 func postRequestAuth(c *iris.Context) {

@@ -4,6 +4,6 @@ import (
 	"git.letv.cn/yig/yig/minio/datatype"
 )
 
-func StorageInfo() datatype.StorageInfo {
+func (yig *YigStorage) StorageInfo() (info datatype.StorageInfo) {
 	return
 }

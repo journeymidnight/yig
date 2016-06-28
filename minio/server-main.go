@@ -43,7 +43,7 @@ type ServerConfig struct  {
 	MaxConcurrentRequest int // used in rate limit
 }
 
-func (c *ServerConfig) GetCredential() credential {
+func (config *ServerConfig) GetCredential() (c credential) {
 	// TODO
 	return
 }
