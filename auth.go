@@ -13,15 +13,16 @@ import (
 	"net/url"
 	"crypto/hmac"
 	"crypto/sha1"
-	"text/scanner"
+	"github.com/kataras/iris"
 )
 
-func postRequestAuth(req *http.Request, res http.ResponseWriter, context martini.Context) {
+func postRequestAuth(c *iris.Context) {
 
 }
 
-func ensureRequestBody(req *http.Request, requestContext *RequestContext) error {
-	if requestContext.requestBody == nil {
+func ensureRequestBody(c *iris.Context) error {
+	c.Request.Body()
+	if c.Get("requestBody") == nil {
 		body, err := ioutil.ReadAll(req.Body)
 		if err != nil {
 			return err
@@ -109,15 +110,15 @@ func getSecretKey(accessKey string) (secretKey string, err error) {
 	// should use a cache with timeout
 }
 
-func authorizationHeaderAuth(req *http.Request, res http.ResponseWriter, requestContext *RequestContext) {
-	authorizationHeader := req.Header.Get("Authorization")
+func authorizationHeaderAuth(c *iris.Context) {
+	authorizationHeader := c.RequestHeader("Authorization")
 	splitHeader := strings.Split(authorizationHeader, " ")
 	version := splitHeader[0]
 	if version == "AWS" { // v2
 		// Authorization = "AWS" + " " + AWSAccessKeyId + ":" + Signature;
 		splitSignature := strings.Split(splitHeader[1], ":")
 		if len(splitSignature) != 2 {
-			responseWithError(res, &ErrorResponse{
+			c.XML(http.StatusBadRequest, ErrorResponse{
 				StatusCode:http.StatusBadRequest,
 				Code: "InvalidRequest",
 				Message: "Malformed authorization header",
@@ -127,7 +128,7 @@ func authorizationHeaderAuth(req *http.Request, res http.ResponseWriter, request
 		accessKey := splitSignature[0]
 		secretKey, err := getSecretKey(accessKey)
 		if err != nil {
-			responseWithError(res, &ErrorResponse{
+			c.XML(iris.StatusForbidden, &ErrorResponse{
 				StatusCode:http.StatusForbidden,
 				Code:"AccessDenied",
 				Message:"Your access key does not exist",
@@ -136,7 +137,7 @@ func authorizationHeaderAuth(req *http.Request, res http.ResponseWriter, request
 		}
 		signature, err := base64.StdEncoding.DecodeString(splitSignature[1])
 		if err != nil {
-			responseWithError(res, &ErrorResponse{
+			c.XML(iris.StatusBadRequest, &ErrorResponse{
 				StatusCode:http.StatusBadRequest,
 				Code:"InvalidRequest",
 				Message:"Authorization signature cannot be decoded",
@@ -152,10 +153,10 @@ func authorizationHeaderAuth(req *http.Request, res http.ResponseWriter, request
 			CanonicalizedResource;
 		Content-MD5 and Content-Type are optional
 		 */
-		stringToSign := req.Method + "\n"
+		stringToSign := c.MethodString() + "\n"
 
-		if md5 := req.Header.Get("Content-MD5"); md5 != "" {
-			err := ensureRequestBody(req, requestContext)
+		if md5 := c.RequestHeader("Content-MD5"); md5 != "" {
+			err := ensureRequestBody(c)
 			if err != nil {
 				responseWithError(res, &ErrorResponse{
 					StatusCode:http.StatusBadRequest,
@@ -227,17 +228,16 @@ func authorizationHeaderAuth(req *http.Request, res http.ResponseWriter, request
 	}
 }
 
-func queryParameterAuth(req *http.Request, res http.ResponseWriter, context martini.Context) {
+func queryParameterAuth(c *iris.Context) {
 
 }
 
-func awsAuth(req *http.Request, res http.ResponseWriter, context martini.Context,
-requestContext *RequestContext)  {
-	if req.Method == "POST" {
-		postRequestAuth(req, res, context)
-	} else if req.Header.Get("Authorization") != "" {
-		authorizationHeaderAuth(req, res, requestContext)
+func awsAuth(c *iris.Context)  {
+	if c.MethodString() == "POST" {
+		postRequestAuth(c)
+	} else if c.RequestHeader("Authorization") != "" {
+		authorizationHeaderAuth(c)
 	} else {
-		queryParameterAuth(req, res, context)
+		queryParameterAuth(c)
 	}
 }
