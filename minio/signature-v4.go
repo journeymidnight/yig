@@ -34,6 +34,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	. "git.letv.cn/yig/yig/minio/datatype"
 )
 
 // AWS Signature Version '4' constants.

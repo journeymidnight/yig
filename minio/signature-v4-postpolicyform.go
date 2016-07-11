@@ -23,6 +23,8 @@ import (
 	"reflect"
 	"strings"
 	"time"
+
+	. "git.letv.cn/yig/yig/minio/datatype"
 )
 
 // toString - Safely convert interface to string without causing panic.

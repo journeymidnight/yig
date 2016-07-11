@@ -26,10 +26,7 @@ var (
 	STRIPE_COUNT                           = uint(4)
 	CONCURRENT_REQUEST_LIMIT               = 100 // 0 for "no limit"
 	BIND_ADDRESS			       = "0.0.0.0:3000"
-	HOST_URL			       = "127.0.0.1" /* should be something like
-								s3.lecloud.com
-								for production servers
-							     */
+
 	SSL_KEY_PATH		       	      = ""
 	SSL_CERT_PATH			      = ""
 	REGION				      = "cn-bj-1"

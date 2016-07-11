@@ -20,6 +20,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	. "git.letv.cn/yig/yig/minio/datatype"
 )
 
 // credentialHeader data type represents structured form of Credential

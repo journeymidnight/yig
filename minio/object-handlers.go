@@ -32,7 +32,7 @@ import (
 	"time"
 
 	mux "github.com/gorilla/mux"
-	"git.letv.cn/yig/yig/minio/datatype"
+	. "git.letv.cn/yig/yig/minio/datatype"
 )
 
 // supportedGetReqParams - supported request parameters for GET presigned request.
@@ -100,7 +100,7 @@ func (api objectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	objInfo, err := api.ObjectAPI.GetObjectInfo(bucket, object)
 	if err != nil {
 		errorIf(err, "Unable to fetch object info.")
-		apiErr := toAPIErrorCode(err)
+		apiErr := ToAPIErrorCode(err)
 		if apiErr == ErrNoSuchKey {
 			apiErr = errAllowableObjectNotFound(bucket, r)
 		}
@@ -280,7 +280,7 @@ func (api objectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 	objInfo, err := api.ObjectAPI.GetObjectInfo(bucket, object)
 	if err != nil {
 		errorIf(err, "Unable to fetch object info.")
-		apiErr := toAPIErrorCode(err)
+		apiErr := ToAPIErrorCode(err)
 		if apiErr == ErrNoSuchKey {
 			apiErr = errAllowableObjectNotFound(bucket, r)
 		}
@@ -366,7 +366,7 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	objInfo, err := api.ObjectAPI.GetObjectInfo(sourceBucket, sourceObject)
 	if err != nil {
 		errorIf(err, "Unable to fetch object info.")
-		writeErrorResponse(w, r, toAPIErrorCode(err), objectSource)
+		writeErrorResponse(w, r, ToAPIErrorCode(err), objectSource)
 		return
 	}
 	// Verify before writing.
@@ -418,14 +418,14 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	md5Sum, err := api.ObjectAPI.PutObject(bucket, object, size, pipeReader, metadata)
 	if err != nil {
 		errorIf(err, "Unable to create an object.")
-		writeErrorResponse(w, r, toAPIErrorCode(err), r.URL.Path)
+		writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 		return
 	}
 
 	objInfo, err = api.ObjectAPI.GetObjectInfo(bucket, object)
 	if err != nil {
 		errorIf(err, "Unable to fetch object info.")
-		writeErrorResponse(w, r, toAPIErrorCode(err), r.URL.Path)
+		writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 		return
 	}
 
@@ -624,9 +624,9 @@ func (api objectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 			var sErr error
 			if s3Error != ErrNone {
 				if s3Error == ErrSignatureDoesNotMatch {
-					sErr = errSignatureMismatch
+					sErr = ErrSignatureMismatch
 				} else {
-					sErr = fmt.Errorf("%v", getAPIError(s3Error))
+					sErr = fmt.Errorf("%v", GetAPIError(s3Error))
 				}
 				writer.CloseWithError(sErr)
 				return
@@ -643,7 +643,7 @@ func (api objectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 	if err != nil {
 		errorIf(err, "Unable to create an object.")
-		writeErrorResponse(w, r, toAPIErrorCode(err), r.URL.Path)
+		writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 		return
 	}
 	if md5Sum != "" {
@@ -696,7 +696,7 @@ func (api objectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 	uploadID, err := api.ObjectAPI.NewMultipartUpload(bucket, object, metadata)
 	if err != nil {
 		errorIf(err, "Unable to initiate new multipart upload id.")
-		writeErrorResponse(w, r, toAPIErrorCode(err), r.URL.Path)
+		writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 		return
 	}
 
@@ -794,9 +794,9 @@ func (api objectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 			}
 			if s3Error != ErrNone {
 				if s3Error == ErrSignatureDoesNotMatch {
-					err = errSignatureMismatch
+					err = ErrSignatureMismatch
 				} else {
-					err = fmt.Errorf("%v", getAPIError(s3Error))
+					err = fmt.Errorf("%v", GetAPIError(s3Error))
 				}
 				writer.CloseWithError(err)
 				return
@@ -814,7 +814,7 @@ func (api objectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 	if err != nil {
 		errorIf(err, "Unable to create object part.")
 		// Verify if the underlying error is signature mismatch.
-		writeErrorResponse(w, r, toAPIErrorCode(err), r.URL.Path)
+		writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 		return
 	}
 	if partMD5 != "" {
@@ -850,7 +850,7 @@ func (api objectAPIHandlers) AbortMultipartUploadHandler(w http.ResponseWriter, 
 	uploadID, _, _, _ := getObjectResources(r.URL.Query())
 	if err := api.ObjectAPI.AbortMultipartUpload(bucket, object, uploadID); err != nil {
 		errorIf(err, "Unable to abort multipart upload.")
-		writeErrorResponse(w, r, toAPIErrorCode(err), r.URL.Path)
+		writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 		return
 	}
 	writeSuccessNoContent(w)
@@ -905,7 +905,7 @@ func (api objectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 	listPartsInfo, err := api.ObjectAPI.ListObjectParts(bucket, object, uploadID, partNumberMarker, maxParts)
 	if err != nil {
 		errorIf(err, "Unable to list uploaded parts.")
-		writeErrorResponse(w, r, toAPIErrorCode(err), r.URL.Path)
+		writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 		return
 	}
 	response := generateListPartsResponse(listPartsInfo)
@@ -950,7 +950,7 @@ func (api objectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 		writeErrorResponse(w, r, ErrInternalError, r.URL.Path)
 		return
 	}
-	complMultipartUpload := &datatype.CompleteMultipartUpload{}
+	complMultipartUpload := &CompleteMultipartUpload{}
 	if err = xml.Unmarshal(completeMultipartBytes, complMultipartUpload); err != nil {
 		errorIf(err, "Unable to parse complete multipart upload XML.")
 		writeErrorResponse(w, r, ErrMalformedXML, r.URL.Path)
@@ -960,12 +960,12 @@ func (api objectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 		writeErrorResponse(w, r, ErrMalformedXML, r.URL.Path)
 		return
 	}
-	if !sort.IsSorted(datatype.CompletedParts(complMultipartUpload.Parts)) {
+	if !sort.IsSorted(CompletedParts(complMultipartUpload.Parts)) {
 		writeErrorResponse(w, r, ErrInvalidPartOrder, r.URL.Path)
 		return
 	}
 	// Complete parts.
-	var completeParts []datatype.CompletePart
+	var completeParts []CompletePart
 	for _, part := range complMultipartUpload.Parts {
 		part.ETag = strings.TrimPrefix(part.ETag, "\"")
 		part.ETag = strings.TrimSuffix(part.ETag, "\"")
@@ -987,7 +987,7 @@ func (api objectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 
 	if err != nil {
 		errorIf(err, "Unable to complete multipart upload.")
-		writeErrorResponseNoHeader(w, r, getAPIError(toAPIErrorCode(err)), r.URL.Path)
+		writeErrorResponseNoHeader(w, r, GetAPIError(ToAPIErrorCode(err)), r.URL.Path)
 		return
 	}
 

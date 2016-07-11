@@ -21,7 +21,7 @@ import (
 	"net/http"
 	"path"
 	"time"
-	"git.letv.cn/yig/yig/minio/datatype"
+	. "git.letv.cn/yig/yig/minio/datatype"
 )
 
 const (
@@ -271,7 +271,7 @@ func getObjectLocation(bucketName string, key string) string {
 //
 // output:
 // populated struct that can be serialized to match xml and json api spec output
-func generateListBucketsResponse(buckets []datatype.BucketInfo) ListBucketsResponse {
+func generateListBucketsResponse(buckets []BucketInfo) ListBucketsResponse {
 	var listbuckets []Bucket
 	var data = ListBucketsResponse{}
 	var owner = Owner{}
@@ -294,7 +294,7 @@ func generateListBucketsResponse(buckets []datatype.BucketInfo) ListBucketsRespo
 
 // generates an ListObjects response for the said bucket with other enumerated options.
 func generateListObjectsResponse(bucket, prefix, marker, delimiter string, maxKeys int,
-resp datatype.ListObjectsInfo) ListObjectsResponse {
+resp ListObjectsInfo) ListObjectsResponse {
 	var contents []Object
 	var prefixes []CommonPrefix
 	var owner = Owner{}
@@ -340,7 +340,7 @@ resp datatype.ListObjectsInfo) ListObjectsResponse {
 
 // generates an ListObjects response for the said bucket with other enumerated options.
 func generateListObjectsV2Response(bucket, prefix, token, startAfter, delimiter string,
-maxKeys int, resp datatype.ListObjectsInfo) ListObjectsV2Response {
+maxKeys int, resp ListObjectsInfo) ListObjectsV2Response {
 	var contents []Object
 	var prefixes []CommonPrefix
 	var owner = Owner{}
@@ -412,7 +412,7 @@ func generateCompleteMultpartUploadResponse(bucket, key, location, etag string) 
 }
 
 // generateListPartsResult
-func generateListPartsResponse(partsInfo datatype.ListPartsInfo) ListPartsResponse {
+func generateListPartsResponse(partsInfo ListPartsInfo) ListPartsResponse {
 	// TODO - support EncodingType in xml decoding
 	listPartsResponse := ListPartsResponse{}
 	listPartsResponse.Bucket = partsInfo.Bucket
@@ -443,7 +443,7 @@ func generateListPartsResponse(partsInfo datatype.ListPartsInfo) ListPartsRespon
 
 // generateListMultipartUploadsResponse
 func generateListMultipartUploadsResponse(bucket string,
-multipartsInfo datatype.ListMultipartsInfo) ListMultipartUploadsResponse {
+multipartsInfo ListMultipartsInfo) ListMultipartUploadsResponse {
 	listMultipartUploadsResponse := ListMultipartUploadsResponse{}
 	listMultipartUploadsResponse.Bucket = bucket
 	listMultipartUploadsResponse.Delimiter = multipartsInfo.Delimiter
@@ -473,7 +473,7 @@ multipartsInfo datatype.ListMultipartsInfo) ListMultipartUploadsResponse {
 }
 
 // generate multi objects delete response.
-func generateMultiDeleteResponse(quiet bool, deletedObjects []datatype.ObjectIdentifier,
+func generateMultiDeleteResponse(quiet bool, deletedObjects []ObjectIdentifier,
 errs []DeleteError) DeleteObjectsResponse {
 	deleteResp := DeleteObjectsResponse{}
 	if !quiet {
@@ -502,7 +502,7 @@ func writeSuccessNoContent(w http.ResponseWriter) {
 
 // writeErrorRespone write error headers
 func writeErrorResponse(w http.ResponseWriter, req *http.Request, errorCode APIErrorCode, resource string) {
-	error := getAPIError(errorCode)
+	error := GetAPIError(errorCode)
 	// set common headers
 	setCommonHeaders(w)
 	// write Header
@@ -512,7 +512,7 @@ func writeErrorResponse(w http.ResponseWriter, req *http.Request, errorCode APIE
 
 func writeErrorResponseNoHeader(w http.ResponseWriter, req *http.Request, error APIError, resource string) {
 	// generate error response
-	errorResponse := getAPIErrorResponse(error, resource)
+	errorResponse := GetAPIErrorResponse(error, resource)
 	encodedErrorResponse := encodeResponse(errorResponse)
 	// HEAD should have no body, do not attempt to write to it
 	if req.Method != "HEAD" {

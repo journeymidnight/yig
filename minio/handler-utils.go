@@ -18,7 +18,7 @@ package minio
 
 import (
 	"io"
-	"git.letv.cn/yig/yig/minio/datatype"
+	. "git.letv.cn/yig/yig/minio/datatype"
 )
 
 // validates location constraint from the request body.
@@ -26,7 +26,7 @@ import (
 // other values of location are not accepted.
 // make bucket fails in such cases.
 func isValidLocationContraint(reqBody io.Reader, serverRegion string) APIErrorCode {
-	var locationContraint datatype.CreateBucketLocationConfiguration
+	var locationContraint CreateBucketLocationConfiguration
 	var errCode APIErrorCode
 	errCode = ErrNone
 	e := xmlDecoder(reqBody, &locationContraint)

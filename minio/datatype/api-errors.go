@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package minio
+package datatype
 
 import (
 	"encoding/xml"
@@ -115,7 +115,7 @@ const (
 
 // error code to APIError structure, these fields carry respective
 // descriptions for all the error responses.
-var errorCodeResponse = map[APIErrorCode]APIError{
+var ErrorCodeResponse = map[APIErrorCode]APIError{
 	ErrInvalidCopyDest: {
 		Code:           "InvalidRequest",
 		Description:    "This copy request is illegal because it is trying to copy an object to itself.",
@@ -288,7 +288,7 @@ var errorCodeResponse = map[APIErrorCode]APIError{
 	},
 	ErrAuthorizationHeaderMalformed: {
 		Code:           "AuthorizationHeaderMalformed",
-		Description:    "The authorization header is malformed; the region is wrong; expecting 'us-east-1'.",
+		Description:    "The authorization header is malformed.",
 		HTTPStatusCode: http.StatusBadRequest,
 	},
 	ErrMalformedPOSTRequest: {
@@ -430,15 +430,15 @@ var errorCodeResponse = map[APIErrorCode]APIError{
 	// Add your error structure here.
 }
 
-// toAPIErrorCode - Converts embedded errors. Convenience
+// ToAPIErrorCode - Converts embedded errors. Convenience
 // function written to handle all cases where we have known types of
 // errors returned by underlying layers.
-func toAPIErrorCode(err error) (apiErr APIErrorCode) {
+func ToAPIErrorCode(err error) (apiErr APIErrorCode) {
 	if err == nil {
 		return ErrNone
 	}
 	// Verify if the underlying error is signature mismatch.
-	if err == errSignatureMismatch {
+	if err == ErrSignatureMismatch {
 		return ErrSignatureDoesNotMatch
 	}
 	switch err.(type) {
@@ -478,14 +478,14 @@ func toAPIErrorCode(err error) (apiErr APIErrorCode) {
 	return apiErr
 }
 
-// getAPIError provides API Error for input API error code.
-func getAPIError(code APIErrorCode) APIError {
-	return errorCodeResponse[code]
+// GetAPIError provides API Error for input API error code.
+func GetAPIError(code APIErrorCode) APIError {
+	return ErrorCodeResponse[code]
 }
 
-// getErrorResponse gets in standard error and resource value and
+// GetErrorResponse gets in standard error and resource value and
 // provides a encodable populated response values
-func getAPIErrorResponse(err APIError, resource string) APIErrorResponse {
+func GetAPIErrorResponse(err APIError, resource string) APIErrorResponse {
 	var data = APIErrorResponse{}
 	data.Code = err.Code
 	data.Message = err.Description

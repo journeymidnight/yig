@@ -25,28 +25,41 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+
+	"git.letv.cn/yig/yig/signature"
+	. "git.letv.cn/yig/yig/minio/datatype"
 )
 
-// Verify if request has AWS Signature Version '4'.
-func isRequestSignatureV4(r *http.Request) bool {
+// Verify if request has AWS Signature
+// for v2, the Authorization header starts with "AWS ",
+// for v4, starts with "AWS4-HMAC-SHA256 " (notice the space after string)
+func isRequestSignature(r *http.Request) (bool, authType) {
 	if _, ok := r.Header["Authorization"]; ok {
-		if strings.HasPrefix(r.Header.Get("Authorization"), signV4Algorithm) {
-			return true
+		header := r.Header.Get("Authorization")
+		if strings.HasPrefix(header, signV4Algorithm + " ") {
+			return true, authTypeSigned
+		} else if strings.HasPrefix(header, signature.SignV2Algorithm + " ") {
+			return true, authTypeSignedV2
 		}
 	}
-	return false
+	return false, nil
 }
 
-// Verify if request has AWS Presignature Version '4'.
-func isRequestPresignedSignatureV4(r *http.Request) bool {
+// Verify if request is AWS presigned
+func isRequestPresigned(r *http.Request) (bool, authType) {
 	if _, ok := r.URL.Query()["X-Amz-Credential"]; ok {
-		return true
+		return true, authTypePresigned
+	} else if _, ok := r.URL.Query()["AWSAccessKeyId"]; ok {
+		return true, authTypePresignedV2
 	}
-	return false
+	return false, nil
 }
 
-// Verify if request has AWS Post policy Signature Version '4'.
-func isRequestPostPolicySignatureV4(r *http.Request) bool {
+// Verify if request is of type AWS POST policy Signature
+func isRequestPostPolicySignature(r *http.Request) bool {
+	if r.Method != "POST" {
+		return false
+	}
 	if _, ok := r.Header["Content-Type"]; ok {
 		if strings.Contains(r.Header.Get("Content-Type"), "multipart/form-data") && r.Method == "POST" {
 			return true
@@ -62,18 +75,20 @@ type authType int
 const (
 	authTypeUnknown authType = iota
 	authTypeAnonymous
-	authTypePresigned
-	authTypePostPolicy
-	authTypeSigned
+	authTypePresigned  // v4
+	authTypePresignedV2
+	authTypePostPolicy // including v2 and v4, handled specially in API endpoint
+	authTypeSigned  // v4
+	authTypeSignedV2
 )
 
 // Get request authentication type.
 func getRequestAuthType(r *http.Request) authType {
-	if isRequestSignatureV4(r) {
-		return authTypeSigned
-	} else if isRequestPresignedSignatureV4(r) {
-		return authTypePresigned
-	} else if isRequestPostPolicySignatureV4(r) {
+	if isSignature, version := isRequestSignature(r); isSignature {
+		return version
+	} else if isPresigned, version := isRequestPresigned(r); isPresigned {
+		return version
+	} else if isRequestPostPolicySignature(r) {
 		return authTypePostPolicy
 	} else if _, ok := r.Header["Authorization"]; !ok {
 		return authTypeAnonymous
@@ -95,7 +110,7 @@ func sumMD5(data []byte) []byte {
 	return hash.Sum(nil)
 }
 
-// Verify if request has valid AWS Signature Version '4'.
+// A helper function to verify if request has valid AWS Signature
 func isReqAuthenticated(r *http.Request) (s3Error APIErrorCode) {
 	if r == nil {
 		return ErrInternalError
@@ -112,11 +127,16 @@ func isReqAuthenticated(r *http.Request) (s3Error APIErrorCode) {
 	}
 	// Populate back the payload.
 	r.Body = ioutil.NopCloser(bytes.NewReader(payload))
-	validateRegion := true // Validate region.
-	if isRequestSignatureV4(r) {
-		return doesSignatureMatch(hex.EncodeToString(sum256(payload)), r, validateRegion)
-	} else if isRequestPresignedSignatureV4(r) {
+	validateRegion := true // TODO: Validate region.
+	switch getRequestAuthType(r) {
+	case authTypePresigned:
 		return doesPresignedSignatureMatch(hex.EncodeToString(sum256(payload)), r, validateRegion)
+	case authTypeSigned:
+		return doesSignatureMatch(hex.EncodeToString(sum256(payload)), r, validateRegion)
+	case authTypePresignedV2:
+		return signature.DoesPresignedSignatureMatch(r)
+	case authTypeSignedV2:
+		return signature.DoesSignatureMatchV2(r)
 	}
 	return ErrAccessDenied
 }
@@ -135,13 +155,13 @@ func setAuthHandler(h http.Handler) http.Handler {
 // handler for validating incoming authorization headers.
 func (a authHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch getRequestAuthType(r) {
-	case authTypeAnonymous, authTypePresigned, authTypeSigned, authTypePostPolicy:
+	case authTypeUnknown:
+		writeErrorResponse(w, r, ErrSignatureVersionNotSupported, r.URL.Path)
+		return
+	default:
 		// Let top level caller validate for anonymous and known
 		// signed requests.
 		a.handler.ServeHTTP(w, r)
-		return
-	default:
-		writeErrorResponse(w, r, ErrSignatureVersionNotSupported, r.URL.Path)
 		return
 	}
 }

@@ -29,7 +29,7 @@ import (
 	"strings"
 
 	mux "github.com/gorilla/mux"
-	"git.letv.cn/yig/yig/minio/datatype"
+	. "git.letv.cn/yig/yig/minio/datatype"
 )
 
 // http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
@@ -119,7 +119,7 @@ func (api objectAPIHandlers) GetBucketLocationHandler(w http.ResponseWriter, r *
 
 	if _, err := api.ObjectAPI.GetBucketInfo(bucket); err != nil {
 		errorIf(err, "Unable to fetch bucket info.")
-		writeErrorResponse(w, r, toAPIErrorCode(err), r.URL.Path)
+		writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 		return
 	}
 
@@ -182,7 +182,7 @@ func (api objectAPIHandlers) ListMultipartUploadsHandler(w http.ResponseWriter, 
 	listMultipartsInfo, err := api.ObjectAPI.ListMultipartUploads(bucket, prefix, keyMarker, uploadIDMarker, delimiter, maxUploads)
 	if err != nil {
 		errorIf(err, "Unable to list multipart uploads.")
-		writeErrorResponse(w, r, toAPIErrorCode(err), r.URL.Path)
+		writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 		return
 	}
 	// generate response
@@ -274,7 +274,7 @@ func (api objectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 	errorIf(err, "Unable to list objects.")
-	writeErrorResponse(w, r, toAPIErrorCode(err), r.URL.Path)
+	writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 }
 
 // ListBucketsHandler - GET Service
@@ -328,7 +328,7 @@ func (api objectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 	errorIf(err, "Unable to list buckets.")
-	writeErrorResponse(w, r, toAPIErrorCode(err), r.URL.Path)
+	writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 }
 
 // DeleteMultipleObjectsHandler - deletes multiple objects.
@@ -379,7 +379,7 @@ func (api objectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	}
 
 	// Unmarshal list of keys to be deleted.
-	deleteObjects := &datatype.DeleteObjectsRequest{}
+	deleteObjects := &DeleteObjectsRequest{}
 	if err := xml.Unmarshal(deleteXMLBytes, deleteObjects); err != nil {
 		errorIf(err, "Unable to unmarshal delete objects request XML.")
 		writeErrorResponse(w, r, ErrMalformedXML, r.URL.Path)
@@ -387,19 +387,19 @@ func (api objectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	}
 
 	var deleteErrors []DeleteError
-	var deletedObjects []datatype.ObjectIdentifier
+	var deletedObjects []ObjectIdentifier
 	// Loop through all the objects and delete them sequentially.
 	for _, object := range deleteObjects.Objects {
 		err := api.ObjectAPI.DeleteObject(bucket, object.ObjectName)
 		if err == nil {
-			deletedObjects = append(deletedObjects, datatype.ObjectIdentifier{
+			deletedObjects = append(deletedObjects, ObjectIdentifier{
 				ObjectName: object.ObjectName,
 			})
 		} else {
 			errorIf(err, "Unable to delete object.")
 			deleteErrors = append(deleteErrors, DeleteError{
-				Code:    errorCodeResponse[toAPIErrorCode(err)].Code,
-				Message: errorCodeResponse[toAPIErrorCode(err)].Description,
+				Code:    ErrorCodeResponse[ToAPIErrorCode(err)].Code,
+				Message: ErrorCodeResponse[ToAPIErrorCode(err)].Description,
 				Key:     object.ObjectName,
 			})
 		}
@@ -445,7 +445,7 @@ func (api objectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 	err := api.ObjectAPI.MakeBucket(bucket)
 	if err != nil {
 		errorIf(err, "Unable to create a bucket.")
-		writeErrorResponse(w, r, toAPIErrorCode(err), r.URL.Path)
+		writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 		return
 	}
 	// Make sure to add Location information here only for bucket
@@ -521,7 +521,7 @@ func (api objectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *h
 	md5Sum, err := api.ObjectAPI.PutObject(bucket, object, -1, fileBody, metadata)
 	if err != nil {
 		errorIf(err, "Unable to create object.")
-		writeErrorResponse(w, r, toAPIErrorCode(err), r.URL.Path)
+		writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 		return
 	}
 	if md5Sum != "" {
@@ -567,7 +567,7 @@ func (api objectAPIHandlers) HeadBucketHandler(w http.ResponseWriter, r *http.Re
 
 	if _, err := api.ObjectAPI.GetBucketInfo(bucket); err != nil {
 		errorIf(err, "Unable to fetch bucket info.")
-		writeErrorResponse(w, r, toAPIErrorCode(err), r.URL.Path)
+		writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 		return
 	}
 	writeSuccessResponse(w, nil)
@@ -592,7 +592,7 @@ func (api objectAPIHandlers) DeleteBucketHandler(w http.ResponseWriter, r *http.
 
 	if err := api.ObjectAPI.DeleteBucket(bucket); err != nil {
 		errorIf(err, "Unable to delete a bucket.")
-		writeErrorResponse(w, r, toAPIErrorCode(err), r.URL.Path)
+		writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 		return
 	}
 

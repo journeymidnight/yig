@@ -17,6 +17,7 @@
 package minio
 
 import (
+	. "git.letv.cn/yig/yig/minio/datatype"
 )
 
 // readBucketPolicy - read bucket policy.

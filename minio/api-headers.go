@@ -22,7 +22,7 @@ import (
 	"encoding/xml"
 	"net/http"
 	"strconv"
-	"git.letv.cn/yig/yig/minio/datatype"
+	. "git.letv.cn/yig/yig/minio/datatype"
 )
 
 //// helpers
@@ -58,7 +58,7 @@ func encodeResponse(response interface{}) []byte {
 }
 
 // Write object header
-func setObjectHeaders(w http.ResponseWriter, objInfo datatype.ObjectInfo, contentRange *httpRange) {
+func setObjectHeaders(w http.ResponseWriter, objInfo ObjectInfo, contentRange *httpRange) {
 	// set common headers
 	setCommonHeaders(w)
 

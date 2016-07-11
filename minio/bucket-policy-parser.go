@@ -25,6 +25,8 @@ import (
 	"path"
 	"sort"
 	"strings"
+
+	. "git.letv.cn/yig/yig/minio/datatype"
 )
 
 const (
