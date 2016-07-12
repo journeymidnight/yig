@@ -105,12 +105,20 @@ const (
 	ErrBucketAlreadyOwnedByYou
 	// Add new error codes here.
 
+	// S3 extended errors.
+	ErrContentSHA256Mismatch
+	// Add new extended error codes here.
+
 	// Minio extended errors.
 	ErrReadQuorum
 	ErrWriteQuorum
 	ErrStorageFull
 	ErrObjectExistsAsDirectory
 	ErrPolicyNesting
+	ErrInvalidObjectName
+	// Add new extended error codes here.
+	// Please open a https://github.com/minio/minio/issues before adding
+	// new error codes here.
 )
 
 // error code to APIError structure, these fields carry respective
@@ -133,17 +141,17 @@ var ErrorCodeResponse = map[APIErrorCode]APIError{
 	},
 	ErrInvalidMaxUploads: {
 		Code:           "InvalidArgument",
-		Description:    "Argument maxUploads must be an integer between 0 and 2147483647.",
+		Description:    "Argument max-uploads must be an integer between 0 and 2147483647",
 		HTTPStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidMaxKeys: {
 		Code:           "InvalidArgument",
-		Description:    "Argument maxKeys must be an integer between 0 and 2147483647.",
+		Description:    "Argument maxKeys must be an integer between 0 and 2147483647",
 		HTTPStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidMaxParts: {
 		Code:           "InvalidArgument",
-		Description:    "Argument maxParts must be an integer between 1 and 10000.",
+		Description:    "Argument max-parts must be an integer between 0 and 2147483647",
 		HTTPStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidPartNumberMarker: {
@@ -208,7 +216,7 @@ var ErrorCodeResponse = map[APIErrorCode]APIError{
 	},
 	ErrInvalidRange: {
 		Code:           "InvalidRange",
-		Description:    "The requested range cannot be satisfied.",
+		Description:    "The requested range is not satisfiable",
 		HTTPStatusCode: http.StatusRequestedRangeNotSatisfiable,
 	},
 	ErrMalformedXML: {
@@ -233,7 +241,7 @@ var ErrorCodeResponse = map[APIErrorCode]APIError{
 	},
 	ErrNoSuchBucket: {
 		Code:           "NoSuchBucket",
-		Description:    "The specified bucket does not exist.",
+		Description:    "The specified bucket does not exist",
 		HTTPStatusCode: http.StatusNotFound,
 	},
 	ErrNoSuchBucketPolicy: {
@@ -253,12 +261,12 @@ var ErrorCodeResponse = map[APIErrorCode]APIError{
 	},
 	ErrNotImplemented: {
 		Code:           "NotImplemented",
-		Description:    "A header you provided implies functionality that is not implemented.",
+		Description:    "A header you provided implies functionality that is not implemented",
 		HTTPStatusCode: http.StatusNotImplemented,
 	},
 	ErrPreconditionFailed: {
 		Code:           "PreconditionFailed",
-		Description:    "At least one of the preconditions you specified did not hold.",
+		Description:    "At least one of the pre-conditions you specified did not hold",
 		HTTPStatusCode: http.StatusPreconditionFailed,
 	},
 	ErrRequestTimeTooSkewed: {
@@ -401,6 +409,14 @@ var ErrorCodeResponse = map[APIErrorCode]APIError{
 		Description:    "Your previous request to create the named bucket succeeded and you already own it.",
 		HTTPStatusCode: http.StatusConflict,
 	},
+
+	/// S3 extensions.
+	ErrContentSHA256Mismatch: {
+		Code:           "XAmzContentSHA256Mismatch",
+		Description:    "The provided 'x-amz-content-sha256' header does not match what was computed.",
+		HTTPStatusCode: http.StatusBadRequest,
+	},
+
 	/// Minio extensions.
 	ErrStorageFull: {
 		Code:           "XMinioStorageFull",
@@ -427,6 +443,11 @@ var ErrorCodeResponse = map[APIErrorCode]APIError{
 		Description:    "Policy nesting conflict has occurred.",
 		HTTPStatusCode: http.StatusConflict,
 	},
+	ErrInvalidObjectName: {
+		Code:           "XMinioInvalidObjectName",
+		Description:    "Object name contains unsupported characters. Unsupported characters are `^*|\\\"",
+		HTTPStatusCode: http.StatusBadRequest,
+	},
 	// Add your error structure here.
 }
 
@@ -438,8 +459,15 @@ func ToAPIErrorCode(err error) (apiErr APIErrorCode) {
 		return ErrNone
 	}
 	// Verify if the underlying error is signature mismatch.
-	if err == ErrSignatureMismatch {
-		return ErrSignatureDoesNotMatch
+	switch err {
+	case ErrSignatureMismatch:
+		apiErr = ErrSignatureDoesNotMatch
+	case ErrContentSHA256Mismatch:
+		apiErr = ErrContentSHA256Mismatch
+	}
+	if apiErr != ErrNone {
+		// If there was a match in the above switch case.
+		return apiErr
 	}
 	switch err.(type) {
 	case StorageFull:
@@ -461,7 +489,7 @@ func ToAPIErrorCode(err error) (apiErr APIErrorCode) {
 	case ObjectNotFound:
 		apiErr = ErrNoSuchKey
 	case ObjectNameInvalid:
-		apiErr = ErrNoSuchKey
+		apiErr = ErrInvalidObjectName
 	case InvalidUploadID:
 		apiErr = ErrNoSuchUpload
 	case InvalidPart:

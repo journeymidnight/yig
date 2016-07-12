@@ -17,6 +17,7 @@
 package datatype
 
 import (
+	"errors"
 	"fmt"
 	"io"
 )
@@ -61,6 +62,10 @@ func toObjectErr(err error, params ...string) error {
 				Object: params[1],
 			}
 		}
+	case errXLReadQuorum:
+		return InsufficientReadQuorum{}
+	case errXLWriteQuorum:
+		return InsufficientWriteQuorum{}
 	case io.ErrUnexpectedEOF, io.ErrShortWrite:
 		return IncompleteBody{}
 	}
@@ -193,21 +198,26 @@ func (e ObjectNameInvalid) Error() string {
 	return "Object name invalid: " + e.Bucket + "#" + e.Object
 }
 
-// UnExpectedDataSize - Reader contains more/less data than specified.
-type UnExpectedDataSize struct {
-	Size int
-}
-
-func (e UnExpectedDataSize) Error() string {
-	return fmt.Sprintf("Contains more data than specified size of %d bytes.", e.Size)
-}
-
 // IncompleteBody You did not provide the number of bytes specified by the Content-Length HTTP header.
 type IncompleteBody GenericError
 
 // Return string an error formatted as the given text.
 func (e IncompleteBody) Error() string {
 	return e.Bucket + "#" + e.Object + "has incomplete body"
+}
+
+// ErrInvalidRange - returned when given range value is not valid.
+var ErrInvalidRange = errors.New("Invalid range")
+
+// InvalidRange - invalid range typed error.
+type InvalidRange struct {
+	offsetBegin  int64
+	offsetEnd    int64
+	resourceSize int64
+}
+
+func (e InvalidRange) Error() string {
+	return fmt.Sprintf("The requested range \"bytes %d-%d/%d\" is not satisfiable.", e.offsetBegin, e.offsetEnd, e.resourceSize)
 }
 
 /// Multipart related errors.
@@ -237,18 +247,13 @@ func (e InvalidPart) Error() string {
 	return "One or more of the specified parts could not be found"
 }
 
-// InvalidPartOrder parts are not ordered as Requested
-type InvalidPartOrder struct {
-	UploadID string
-}
-
-func (e InvalidPartOrder) Error() string {
-	return "Invalid part order sent for " + e.UploadID
-}
-
 // PartTooSmall - error if part size is less than 5MB.
-type PartTooSmall struct{}
+type PartTooSmall struct {
+	PartSize   int64
+	PartNumber int
+	PartETag   string
+}
 
 func (e PartTooSmall) Error() string {
-	return "Part size should be atleast 5MB"
+	return fmt.Sprintf("Part size for %d should be atleast 5MB", e.PartNumber)
 }

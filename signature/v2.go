@@ -20,7 +20,7 @@ import (
 const (
 	SignV2Algorithm = "AWS"
 	iso8601Format   = "20060102T150405Z"
-	yyyymmdd        = "20060102
+	yyyymmdd        = "20060102"
 	HOST_URL	= "127.0.0.1" /* should be something like
 					s3.lecloud.com
 					for production servers
@@ -57,17 +57,17 @@ func verifyNotExpires(dateString string) (bool, error) {
 	return true, nil
 }
 
-func buildCanonicalizedAmzHeaders(headers *map[string][]string)  string {
+func buildCanonicalizedAmzHeaders(headers *http.Header)  string {
 	var amzHeaders []string
-	for k, _ := range(headers) {
+	for k, _ := range *headers {
 		if strings.HasPrefix(strings.ToLower(k), "x-amz-") {
 			amzHeaders = append(amzHeaders, k)
 		}
 	}
 	sort.Strings(amzHeaders)
 	ans := ""
-	for _, h := range(amzHeaders) {
-		values := headers[h]
+	for _, h := range amzHeaders {
+		values := (*headers)[h]  // Don't use Header.Get() here because we need ALL values
 		ans += strings.ToLower(h) + ":" + strings.Join(values, ",") + "\n"
 	}
 	return ans

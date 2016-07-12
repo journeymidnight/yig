@@ -1,5 +1,5 @@
 /*
- * Minio Cloud Storage, (C) 2015 Minio, Inc.
+ * Minio Cloud Storage, (C) 2015, 2016 Minio, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,112 +17,120 @@
 package minio
 
 import (
-	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
+
+	. "git.letv.cn/yig/yig/minio/datatype"
 )
 
 const (
-	b = "bytes="
+	byteRangePrefix = "bytes="
 )
 
-// InvalidRange - invalid range
-type InvalidRange struct{}
-
-func (e InvalidRange) Error() string {
-	return "The requested range is not satisfiable"
-}
+// Valid byte position regexp
+var validBytePos = regexp.MustCompile(`^[0-9]+$`)
 
 // HttpRange specifies the byte range to be sent to the client.
 type httpRange struct {
-	start, length, size int64
+	offsetBegin  int64
+	offsetEnd    int64
+	resourceSize int64
 }
 
 // String populate range stringer interface
-func (r *httpRange) String() string {
-	return fmt.Sprintf("bytes %d-%d/%d", r.start, r.start+r.length-1, r.size)
+func (hrange httpRange) String() string {
+	return fmt.Sprintf("bytes %d-%d/%d", hrange.offsetBegin, hrange.offsetEnd, hrange.resourceSize)
 }
 
-// Grab new range from request header
-func getRequestedRange(hrange string, size int64) (*httpRange, error) {
-	r := &httpRange{
-		start:  0,
-		length: 0,
-		size:   0,
-	}
-	r.size = size
-	if hrange != "" {
-		err := r.parseRange(hrange)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return r, nil
+// getlength - get length from the range.
+func (hrange httpRange) getLength() int64 {
+	return 1 + hrange.offsetEnd - hrange.offsetBegin
 }
 
-func (r *httpRange) parse(ra string) error {
-	i := strings.Index(ra, "-")
-	if i < 0 {
-		return InvalidRange{}
+func parseRequestRange(rangeString string, resourceSize int64) (hrange *httpRange, err error) {
+	// Return error if given range string doesn't start with byte range prefix.
+	if !strings.HasPrefix(rangeString, byteRangePrefix) {
+		return nil, fmt.Errorf("'%s' does not start with '%s'", rangeString, byteRangePrefix)
 	}
-	start, end := strings.TrimSpace(ra[:i]), strings.TrimSpace(ra[i+1:])
-	if start == "" {
-		// If no start is specified, end specifies the
-		// range start relative to the end of the file.
-		i, err := strconv.ParseInt(end, 10, 64)
-		if err != nil {
-			return InvalidRange{}
+
+	// Trim byte range prefix.
+	byteRangeString := strings.TrimPrefix(rangeString, byteRangePrefix)
+
+	// Check if range string contains delimiter '-', else return error. eg. "bytes=8"
+	sepIndex := strings.Index(byteRangeString, "-")
+	if sepIndex == -1 {
+		return nil, fmt.Errorf("'%s' does not have a valid range value", rangeString)
+	}
+
+	offsetBeginString := byteRangeString[:sepIndex]
+	offsetBegin := int64(-1)
+	// Convert offsetBeginString only if its not empty.
+	if len(offsetBeginString) > 0 {
+		if !validBytePos.MatchString(offsetBeginString) {
+			return nil, fmt.Errorf("'%s' does not have a valid first byte position value", rangeString)
 		}
-		if i > r.size {
-			i = r.size
+
+		if offsetBegin, err = strconv.ParseInt(offsetBeginString, 10, 64); err != nil {
+			return nil, fmt.Errorf("'%s' does not have a valid first byte position value", rangeString)
 		}
-		r.start = r.size - i
-		r.length = r.size - r.start
-	} else {
-		i, err := strconv.ParseInt(start, 10, 64)
-		if err != nil || i > r.size || i < 0 {
-			return InvalidRange{}
+	}
+
+	offsetEndString := byteRangeString[sepIndex+1:]
+	offsetEnd := int64(-1)
+	// Convert offsetEndString only if its not empty.
+	if len(offsetEndString) > 0 {
+		if !validBytePos.MatchString(offsetEndString) {
+			return nil, fmt.Errorf("'%s' does not have a valid last byte position value", rangeString)
 		}
-		r.start = i
-		if end == "" {
-			// If no end is specified, range extends to end of the file.
-			r.length = r.size - r.start
+
+		if offsetEnd, err = strconv.ParseInt(offsetEndString, 10, 64); err != nil {
+			return nil, fmt.Errorf("'%s' does not have a valid last byte position value", rangeString)
+		}
+	}
+
+	// rangeString contains first and last byte positions. eg. "bytes=2-5"
+	if offsetBegin > -1 && offsetEnd > -1 {
+		if offsetBegin > offsetEnd {
+			// Last byte position is not greater than first byte position. eg. "bytes=5-2"
+			return nil, fmt.Errorf("'%s' does not have valid range value", rangeString)
+		}
+
+		// First and last byte positions should not be >= resourceSize.
+		if offsetBegin >= resourceSize {
+			return nil, ErrInvalidRange
+		}
+
+		if offsetEnd >= resourceSize {
+			offsetEnd = resourceSize - 1
+		}
+	} else if offsetBegin > -1 {
+		// rangeString contains only first byte position. eg. "bytes=8-"
+		if offsetBegin >= resourceSize {
+			// First byte position should not be >= resourceSize.
+			return nil, ErrInvalidRange
+		}
+
+		offsetEnd = resourceSize - 1
+	} else if offsetEnd > -1 {
+		// rangeString contains only last byte position. eg. "bytes=-3"
+		if offsetEnd == 0 {
+			// Last byte position should not be zero eg. "bytes=-0"
+			return nil, ErrInvalidRange
+		}
+
+		if offsetEnd >= resourceSize {
+			offsetBegin = 0
 		} else {
-			i, err := strconv.ParseInt(end, 10, 64)
-			if err != nil || r.start > i {
-				return InvalidRange{}
-			}
-			if i >= r.size {
-				i = r.size - 1
-			}
-			r.length = i - r.start + 1
+			offsetBegin = resourceSize - offsetEnd
 		}
-	}
-	return nil
-}
 
-// parseRange parses a Range header string as per RFC 2616.
-func (r *httpRange) parseRange(s string) error {
-	if s == "" {
-		return errors.New("header not present")
-	}
-	if !strings.HasPrefix(s, b) {
-		return InvalidRange{}
+		offsetEnd = resourceSize - 1
+	} else {
+		// rangeString contains first and last byte positions missing. eg. "bytes=-"
+		return nil, fmt.Errorf("'%s' does not have valid range value", rangeString)
 	}
 
-	ras := strings.Split(s[len(b):], ",")
-	if len(ras) == 0 {
-		return errors.New("invalid request")
-	}
-	// Just pick the first one and ignore the rest, we only support one range per object
-	if len(ras) > 1 {
-		return errors.New("multiple ranges specified")
-	}
-
-	ra := strings.TrimSpace(ras[0])
-	if ra == "" {
-		return InvalidRange{}
-	}
-	return r.parse(ra)
+	return &httpRange{offsetBegin, offsetEnd, resourceSize}, nil
 }

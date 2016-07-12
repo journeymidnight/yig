@@ -17,10 +17,8 @@
 package minio
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/xml"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -28,7 +26,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	mux "github.com/gorilla/mux"
@@ -67,6 +64,13 @@ func errAllowableObjectNotFound(bucket string, r *http.Request) APIErrorCode {
 		}
 	}
 	return ErrNoSuchKey
+}
+
+// Simple way to convert a func to io.Writer type.
+type funcToWriter func([]byte) (int, error)
+
+func (f funcToWriter) Write(p []byte) (int, error) {
+	return f(p)
 }
 
 // GetObjectHandler - GET Object
@@ -108,146 +112,71 @@ func (api objectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// Get request range.
 	var hrange *httpRange
-	hrange, err = getRequestedRange(r.Header.Get("Range"), objInfo.Size)
-	if err != nil {
-		writeErrorResponse(w, r, ErrInvalidRange, r.URL.Path)
-		return
+	rangeHeader := r.Header.Get("Range")
+	if rangeHeader != "" {
+		if hrange, err = parseRequestRange(rangeHeader, objInfo.Size); err != nil {
+			// Handle only errInvalidRange
+			// Ignore other parse error and treat it as regular Get request like Amazon S3.
+			if err == ErrInvalidRange {
+				writeErrorResponse(w, r, ErrInvalidRange, r.URL.Path)
+				return
+			}
+
+			// log the error.
+			errorIf(err, "Invalid request range")
+		}
+
 	}
 
-	// Set standard object headers.
-	setObjectHeaders(w, objInfo, hrange)
-
-	// Set any additional requested response headers.
-	setGetRespHeaders(w, r.URL.Query())
-
-	// Verify 'If-Modified-Since' and 'If-Unmodified-Since'.
-	lastModified := objInfo.ModTime
-	if checkLastModified(w, r, lastModified) {
-		return
-	}
-	// Verify 'If-Match' and 'If-None-Match'.
-	if checkETag(w, r) {
+	// Validate pre-conditions if any.
+	if checkPreconditions(w, r, objInfo) {
 		return
 	}
 
 	// Get the object.
-	startOffset := hrange.start
-	length := hrange.length
-	if length == 0 {
-		length = objInfo.Size - startOffset
+	startOffset := int64(0)
+	length := objInfo.Size
+	if hrange != nil {
+		startOffset = hrange.offsetBegin
+		length = hrange.getLength()
 	}
-	if err := api.ObjectAPI.GetObject(bucket, object, startOffset, length, w); err != nil {
-		errorIf(err, "Writing to client failed.")
-		// Do not send error response here, client would have already died.
+	// Indicates if any data was written to the http.ResponseWriter
+	dataWritten := false
+	// io.Writer type which keeps track if any data was written.
+	writer := funcToWriter(func(p []byte) (int, error) {
+		if !dataWritten {
+			// Set headers on the first write.
+			// Set standard object headers.
+			setObjectHeaders(w, objInfo, hrange)
+
+			// Set any additional requested response headers.
+			setGetRespHeaders(w, r.URL.Query())
+
+			dataWritten = true
+		}
+		return w.Write(p)
+	})
+	// Reads the object at startOffset and writes to mw.
+	if err := api.ObjectAPI.GetObject(bucket, object, startOffset, length, writer); err != nil {
+		errorIf(err, "Unable to write to client.")
+		if !dataWritten {
+			// Error response only if no data has been written to client yet. i.e if
+			// partial data has already been written before an error
+			// occurred then no point in setting StatusCode and
+			// sending error XML.
+			apiErr := ToAPIErrorCode(err)
+			writeErrorResponse(w, r, apiErr, r.URL.Path)
+		}
 		return
 	}
-}
-
-var unixEpochTime = time.Unix(0, 0)
-
-// checkLastModified implements If-Modified-Since and
-// If-Unmodified-Since checks.
-//
-// modtime is the modification time of the resource to be served, or
-// IsZero(). return value is whether this request is now complete.
-func checkLastModified(w http.ResponseWriter, r *http.Request, modtime time.Time) bool {
-	if modtime.IsZero() || modtime.Equal(unixEpochTime) {
-		// If the object doesn't have a modtime (IsZero), or the modtime
-		// is obviously garbage (Unix time == 0), then ignore modtimes
-		// and don't process the If-Modified-Since header.
-		return false
+	if !dataWritten {
+		// If ObjectAPI.GetObject did not return error and no data has
+		// been written it would mean that it is a 0-byte object.
+		// call wrter.Write(nil) to set appropriate headers.
+		writer.Write(nil)
 	}
-
-	// The Date-Modified header truncates sub-second precision, so
-	// use mtime < t+1s instead of mtime <= t to check for unmodified.
-	if _, ok := r.Header["If-Modified-Since"]; ok {
-		// Return the object only if it has been modified since the
-		// specified time, otherwise return a 304 (not modified).
-		t, err := time.Parse(http.TimeFormat, r.Header.Get("If-Modified-Since"))
-		if err == nil && modtime.Before(t.Add(1*time.Second)) {
-			h := w.Header()
-			// Remove following headers if already set.
-			delete(h, "Content-Type")
-			delete(h, "Content-Length")
-			delete(h, "Content-Range")
-			w.WriteHeader(http.StatusNotModified)
-			return true
-		}
-	} else if _, ok := r.Header["If-Unmodified-Since"]; ok {
-		// Return the object only if it has not been modified since
-		// the specified time, otherwise return a 412 (precondition failed).
-		t, err := time.Parse(http.TimeFormat, r.Header.Get("If-Unmodified-Since"))
-		if err == nil && modtime.After(t.Add(1*time.Second)) {
-			h := w.Header()
-			// Remove following headers if already set.
-			delete(h, "Content-Type")
-			delete(h, "Content-Length")
-			delete(h, "Content-Range")
-			w.WriteHeader(http.StatusPreconditionFailed)
-			return true
-		}
-	}
-	w.Header().Set("Last-Modified", modtime.UTC().Format(http.TimeFormat))
-	return false
-}
-
-// canonicalizeETag returns ETag with leading and trailing double-quotes removed,
-// if any present
-func canonicalizeETag(etag string) string {
-	canonicalETag := strings.TrimPrefix(etag, "\"")
-	return strings.TrimSuffix(canonicalETag, "\"")
-}
-
-// isETagEqual return true if the canonical representations of two ETag strings
-// are equal, false otherwise
-func isETagEqual(left, right string) bool {
-	return canonicalizeETag(left) == canonicalizeETag(right)
-}
-
-// checkETag implements If-None-Match and If-Match checks.
-//
-// The ETag must have been previously set in the ResponseWriter's
-// headers. The return value is whether this request is now considered
-// done.
-func checkETag(w http.ResponseWriter, r *http.Request) bool {
-	// writer always has quoted string
-	// transform reader's etag to
-	if r.Method != "GET" && r.Method != "HEAD" {
-		return false
-	}
-	etag := w.Header().Get("ETag")
-	// Must know ETag.
-	if etag == "" {
-		return false
-	}
-	if inm := r.Header.Get("If-None-Match"); !isETagEqual(inm, "") {
-		// Return the object only if its entity tag (ETag) is
-		// different from the one specified; otherwise, return a 304
-		// (not modified).
-		if isETagEqual(inm, etag) || isETagEqual(inm, "*") {
-			h := w.Header()
-			// Remove following headers if already set.
-			delete(h, "Content-Type")
-			delete(h, "Content-Length")
-			delete(h, "Content-Range")
-			w.WriteHeader(http.StatusNotModified)
-			return true
-		}
-	} else if im := r.Header.Get("If-Match"); !isETagEqual(im, "") {
-		// Return the object only if its entity tag (ETag) is the same
-		// as the one specified; otherwise, return a 412 (precondition failed).
-		if !isETagEqual(im, etag) {
-			h := w.Header()
-			// Remove following headers if already set.
-			delete(h, "Content-Type")
-			delete(h, "Content-Length")
-			delete(h, "Content-Range")
-			writeErrorResponse(w, r, ErrPreconditionFailed, r.URL.Path)
-			return true
-		}
-	}
-	return false
 }
 
 // HeadObjectHandler - HEAD Object
@@ -288,19 +217,13 @@ func (api objectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	// Validate pre-conditions if any.
+	if checkPreconditions(w, r, objInfo) {
+		return
+	}
+
 	// Set standard object headers.
 	setObjectHeaders(w, objInfo, nil)
-
-	// Verify 'If-Modified-Since' and 'If-Unmodified-Since'.
-	lastModified := objInfo.ModTime
-	if checkLastModified(w, r, lastModified) {
-		return
-	}
-
-	// Verify 'If-Match' and 'If-None-Match'.
-	if checkETag(w, r) {
-		return
-	}
 
 	// Successfull response.
 	w.WriteHeader(http.StatusOK)
@@ -333,11 +256,14 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	// TODO: Reject requests where body/payload is present, for now we
-	// don't even read it.
+	// TODO: Reject requests where body/payload is present, for now we don't even read it.
 
 	// objectSource
-	objectSource := r.Header.Get("X-Amz-Copy-Source")
+	objectSource, err := url.QueryUnescape(r.Header.Get("X-Amz-Copy-Source"))
+	if err != nil {
+		// Save unescaped string as is.
+		objectSource = r.Header.Get("X-Amz-Copy-Source")
+	}
 
 	// Skip the first element if it is '/', split the rest.
 	if strings.HasPrefix(objectSource, "/") {
@@ -369,18 +295,9 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		writeErrorResponse(w, r, ToAPIErrorCode(err), objectSource)
 		return
 	}
-	// Verify before writing.
 
-	// Verify x-amz-copy-source-if-modified-since and
-	// x-amz-copy-source-if-unmodified-since.
-	lastModified := objInfo.ModTime
-	if checkCopySourceLastModified(w, r, lastModified) {
-		return
-	}
-
-	// Verify x-amz-copy-source-if-match and
-	// x-amz-copy-source-if-none-match.
-	if checkCopySourceETag(w, r) {
+	// Verify before x-amz-copy-source preconditions before continuing with CopyObject.
+	if checkCopyObjectPreconditions(w, r, objInfo) {
 		return
 	}
 
@@ -437,98 +354,6 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	writeSuccessResponse(w, encodedSuccessResponse)
 	// Explicitly close the reader, to avoid fd leaks.
 	pipeReader.Close()
-}
-
-// checkCopySource implements x-amz-copy-source-if-modified-since and
-// x-amz-copy-source-if-unmodified-since checks.
-//
-// modtime is the modification time of the resource to be served, or
-// IsZero(). return value is whether this request is now complete.
-func checkCopySourceLastModified(w http.ResponseWriter, r *http.Request, modtime time.Time) bool {
-	if modtime.IsZero() || modtime.Equal(unixEpochTime) {
-		// If the object doesn't have a modtime (IsZero), or the modtime
-		// is obviously garbage (Unix time == 0), then ignore modtimes
-		// and don't process the If-Modified-Since header.
-		return false
-	}
-	// The Date-Modified header truncates sub-second precision, so
-	// use mtime < t+1s instead of mtime <= t to check for unmodified.
-	if _, ok := r.Header["x-amz-copy-source-if-modified-since"]; ok {
-		// Return the object only if it has been modified since the
-		// specified time, otherwise return a 304 error (not modified).
-		t, err := time.Parse(http.TimeFormat, r.Header.Get("x-amz-copy-source-if-modified-since"))
-		if err == nil && modtime.Before(t.Add(1*time.Second)) {
-			h := w.Header()
-			// Remove Content headers if set
-			delete(h, "Content-Type")
-			delete(h, "Content-Length")
-			delete(h, "Content-Range")
-			w.WriteHeader(http.StatusNotModified)
-			return true
-		}
-	} else if _, ok := r.Header["x-amz-copy-source-if-unmodified-since"]; ok {
-		// Return the object only if it has not been modified since the
-		// specified time, otherwise return a 412 error (precondition failed).
-		t, err := time.Parse(http.TimeFormat, r.Header.Get("x-amz-copy-source-if-unmodified-since"))
-		if err == nil && modtime.After(t.Add(1*time.Second)) {
-			h := w.Header()
-			// Remove Content headers if set
-			delete(h, "Content-Type")
-			delete(h, "Content-Length")
-			delete(h, "Content-Range")
-			w.WriteHeader(http.StatusPreconditionFailed)
-			return true
-		}
-	}
-	w.Header().Set("Last-Modified", modtime.UTC().Format(http.TimeFormat))
-	return false
-}
-
-// checkCopySourceETag implements x-amz-copy-source-if-match and
-// x-amz-copy-source-if-none-match checks.
-//
-// The ETag must have been previously set in the ResponseWriter's
-// headers. The return value is whether this request is now considered
-// complete.
-func checkCopySourceETag(w http.ResponseWriter, r *http.Request) bool {
-	etag := w.Header().Get("ETag")
-	// Tag must be provided...
-	if etag == "" {
-		return false
-	}
-	if inm := r.Header.Get("x-amz-copy-source-if-none-match"); inm != "" {
-		// Return the object only if its entity tag (ETag) is different
-		// from the one specified; otherwise, return a 304 (not modified).
-		if r.Method != "PUT" {
-			return false
-		}
-		if inm == etag || inm == "*" {
-			h := w.Header()
-			// Remove Content headers if set
-			delete(h, "Content-Type")
-			delete(h, "Content-Length")
-			delete(h, "Content-Range")
-			w.WriteHeader(http.StatusNotModified)
-			return true
-		}
-	} else if inm := r.Header.Get("x-amz-copy-source-if-match"); inm != "" {
-		// Return the object only if its entity tag (ETag) is the same
-		// as the one specified; otherwise, return a 412 (precondition failed).
-		if r.Method != "PUT" {
-			return false
-		}
-		if inm != etag {
-			h := w.Header()
-			// Remove Content headers if set
-			delete(h, "Content-Type")
-			delete(h, "Content-Length")
-			delete(h, "Content-Range")
-			w.WriteHeader(http.StatusPreconditionFailed)
-			return true
-		}
-	}
-	return false
-
 }
 
 // PutObjectHandler - PUT Object
@@ -595,51 +420,10 @@ func (api objectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		// Create anonymous object.
 		md5Sum, err = api.ObjectAPI.PutObject(bucket, object, size, r.Body, metadata)
 	case authTypePresigned, authTypeSigned:
-		// Initialize a pipe for data pipe line.
-		reader, writer := io.Pipe()
-		var wg = &sync.WaitGroup{}
-		// Start writing in a routine.
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			shaWriter := sha256.New()
-			multiWriter := io.MultiWriter(shaWriter, writer)
-			if _, wErr := io.CopyN(multiWriter, r.Body, size); wErr != nil {
-				// Pipe closed.
-				if wErr == io.ErrClosedPipe {
-					return
-				}
-				errorIf(wErr, "Unable to read from HTTP body.")
-				writer.CloseWithError(wErr)
-				return
-			}
-			shaPayload := shaWriter.Sum(nil)
-			validateRegion := true // Validate region.
-			var s3Error APIErrorCode
-			if isRequestSignatureV4(r) {
-				s3Error = doesSignatureMatch(hex.EncodeToString(shaPayload), r, validateRegion)
-			} else if isRequestPresignedSignatureV4(r) {
-				s3Error = doesPresignedSignatureMatch(hex.EncodeToString(shaPayload), r, validateRegion)
-			}
-			var sErr error
-			if s3Error != ErrNone {
-				if s3Error == ErrSignatureDoesNotMatch {
-					sErr = ErrSignatureMismatch
-				} else {
-					sErr = fmt.Errorf("%v", GetAPIError(s3Error))
-				}
-				writer.CloseWithError(sErr)
-				return
-			}
-			writer.Close()
-		}()
-
+		// Initialize signature verifier.
+		reader := newSignVerify(r)
 		// Create object.
 		md5Sum, err = api.ObjectAPI.PutObject(bucket, object, size, reader, metadata)
-		// Close the pipe.
-		reader.Close()
-		// Wait for all the routines to finish.
-		wg.Wait()
 	}
 	if err != nil {
 		errorIf(err, "Unable to create an object.")
@@ -750,6 +534,7 @@ func (api objectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 	}
 
 	var partMD5 string
+	incomingMD5 := hex.EncodeToString(md5Bytes)
 	switch getRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
@@ -761,55 +546,12 @@ func (api objectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 			writeErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
-		// No need to verify signature, anonymous request access is
-		// already allowed.
-		hexMD5 := hex.EncodeToString(md5Bytes)
-		partMD5, err = api.ObjectAPI.PutObjectPart(bucket, object, uploadID, partID, size, r.Body, hexMD5)
+		// No need to verify signature, anonymous request access is already allowed.
+		partMD5, err = api.ObjectAPI.PutObjectPart(bucket, object, uploadID, partID, size, r.Body, incomingMD5)
 	case authTypePresigned, authTypeSigned:
-		// Initialize a pipe for data pipe line.
-		reader, writer := io.Pipe()
-		var wg = &sync.WaitGroup{}
-		// Start writing in a routine.
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			shaWriter := sha256.New()
-			multiWriter := io.MultiWriter(shaWriter, writer)
-			if _, wErr := io.CopyN(multiWriter, r.Body, size); wErr != nil {
-				// Pipe closed, just ignore it.
-				if wErr == io.ErrClosedPipe {
-					return
-				}
-				errorIf(wErr, "Unable to read from HTTP request body.")
-				writer.CloseWithError(wErr)
-				return
-			}
-			shaPayload := shaWriter.Sum(nil)
-			validateRegion := true // Validate region.
-			var s3Error APIErrorCode
-			if isRequestSignatureV4(r) {
-				s3Error = doesSignatureMatch(hex.EncodeToString(shaPayload), r, validateRegion)
-			} else if isRequestPresignedSignatureV4(r) {
-				s3Error = doesPresignedSignatureMatch(hex.EncodeToString(shaPayload), r, validateRegion)
-			}
-			if s3Error != ErrNone {
-				if s3Error == ErrSignatureDoesNotMatch {
-					err = ErrSignatureMismatch
-				} else {
-					err = fmt.Errorf("%v", GetAPIError(s3Error))
-				}
-				writer.CloseWithError(err)
-				return
-			}
-			// Close the writer.
-			writer.Close()
-		}()
-		md5SumHex := hex.EncodeToString(md5Bytes)
-		partMD5, err = api.ObjectAPI.PutObjectPart(bucket, object, uploadID, partID, size, reader, md5SumHex)
-		// Close the pipe.
-		reader.Close()
-		// Wait for all the routines to finish.
-		wg.Wait()
+		// Initialize signature verifier.
+		reader := newSignVerify(r)
+		partMD5, err = api.ObjectAPI.PutObjectPart(bucket, object, uploadID, partID, size, reader, incomingMD5)
 	}
 	if err != nil {
 		errorIf(err, "Unable to create object part.")
@@ -975,6 +717,14 @@ func (api objectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	// Send 200 OK
 	setCommonHeaders(w)
 	w.WriteHeader(http.StatusOK)
+	// Xml headers need to be sent before we possibly send whitespace characters
+	// to the client.
+	_, err = w.Write([]byte(xml.Header))
+	if err != nil {
+		errorIf(err, "Unable to write XML header for complete multipart upload")
+		writeErrorResponseNoHeader(w, r, ErrInternalError, r.URL.Path)
+		return
+	}
 
 	doneCh := make(chan struct{})
 	// Signal that completeMultipartUpload is over via doneCh
@@ -987,7 +737,14 @@ func (api objectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 
 	if err != nil {
 		errorIf(err, "Unable to complete multipart upload.")
-		writeErrorResponseNoHeader(w, r, GetAPIError(ToAPIErrorCode(err)), r.URL.Path)
+		switch oErr := err.(type) {
+		case PartTooSmall:
+			// Write part too small error.
+			writePartSmallErrorResponse(w, r, oErr)
+		default:
+			// Handle all other generic issues.
+			writeErrorResponseNoHeader(w, r, ToAPIErrorCode(err), r.URL.Path)
+		}
 		return
 	}
 
@@ -995,7 +752,12 @@ func (api objectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	location := getLocation(r)
 	// Generate complete multipart response.
 	response := generateCompleteMultpartUploadResponse(bucket, object, location, md5Sum)
-	encodedSuccessResponse := encodeResponse(response)
+	encodedSuccessResponse, err := xml.Marshal(response)
+	if err != nil {
+		errorIf(err, "Unable to parse CompleteMultipartUpload response")
+		writeErrorResponseNoHeader(w, r, ErrInternalError, r.URL.Path)
+		return
+	}
 	// write success response.
 	w.Write(encodedSuccessResponse)
 	w.(http.Flusher).Flush()

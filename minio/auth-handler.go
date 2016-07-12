@@ -30,6 +30,11 @@ import (
 	. "git.letv.cn/yig/yig/minio/datatype"
 )
 
+// Verify if the request http Header "x-amz-content-sha256" == "UNSIGNED-PAYLOAD"
+func isRequestUnsignedPayload(r *http.Request) bool {
+	return r.Header.Get("x-amz-content-sha256") == unsignedPayload
+}
+
 // Verify if request has AWS Signature
 // for v2, the Authorization header starts with "AWS ",
 // for v4, starts with "AWS4-HMAC-SHA256 " (notice the space after string)
@@ -42,7 +47,7 @@ func isRequestSignature(r *http.Request) (bool, authType) {
 			return true, authTypeSignedV2
 		}
 	}
-	return false, nil
+	return false, authTypeUnknown
 }
 
 // Verify if request is AWS presigned
@@ -52,7 +57,7 @@ func isRequestPresigned(r *http.Request) (bool, authType) {
 	} else if _, ok := r.URL.Query()["AWSAccessKeyId"]; ok {
 		return true, authTypePresignedV2
 	}
-	return false, nil
+	return false, authTypeUnknown
 }
 
 // Verify if request is of type AWS POST policy Signature

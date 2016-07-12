@@ -26,7 +26,21 @@ import (
 	"unicode/utf8"
 )
 
+// http Header "x-amz-content-sha256" == "UNSIGNED-PAYLOAD" indicates that the
+// client did not calculate sha256 of the payload.
+const unsignedPayload = "UNSIGNED-PAYLOAD"
+
+// http Header "x-amz-content-sha256" == "UNSIGNED-PAYLOAD" indicates that the
+// client did not calculate sha256 of the payload. Hence we skip calculating sha256.
+// We also skip calculating sha256 for presigned requests without "x-amz-content-sha256" header.
+func skipContentSha256Cksum(r *http.Request) bool {
+	contentSha256 := r.Header.Get("X-Amz-Content-Sha256")
+	isPreSigned, _ := isRequestPresigned(r)
+	return isRequestUnsignedPayload(r) || (isPreSigned && contentSha256 == "")
+}
+
 // isValidRegion - verify if incoming region value is valid with configured Region.
+// TODO
 func isValidRegion(reqRegion string, confRegion string) bool {
 	if confRegion == "" || confRegion == "US" {
 		confRegion = "us-east-1"
@@ -46,6 +60,9 @@ func sumHMAC(key []byte, data []byte) []byte {
 	return hash.Sum(nil)
 }
 
+// Reserved string regexp.
+var reservedNames = regexp.MustCompile("^[a-zA-Z0-9-_.~/]+$")
+
 // getURLEncodedName encode the strings from UTF-8 byte representations to HTML hex escape sequences
 //
 // This is necessary since regular url.Parse() and url.Encode() functions do not support UTF-8
@@ -55,7 +72,6 @@ func sumHMAC(key []byte, data []byte) []byte {
 // pretty much every UTF-8 character.
 func getURLEncodedName(name string) string {
 	// if object matches reserved string, no need to encode them
-	reservedNames := regexp.MustCompile("^[a-zA-Z0-9-_.~/]+$")
 	if reservedNames.MatchString(name) {
 		return name
 	}
