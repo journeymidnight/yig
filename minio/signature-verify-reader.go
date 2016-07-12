@@ -82,7 +82,7 @@ func (v *signVerifyReader) Verify() error {
 	if s3Error != ErrNone {
 		switch s3Error {
 		case ErrContentSHA256Mismatch:
-			sErr = ErrContentSHA256Mismatch
+			sErr = ErrorContentSHA256Mismatch
 		case ErrSignatureDoesNotMatch:
 			sErr = ErrSignatureMismatch
 		default:
