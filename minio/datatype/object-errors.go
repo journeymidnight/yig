@@ -62,10 +62,6 @@ func toObjectErr(err error, params ...string) error {
 				Object: params[1],
 			}
 		}
-	case errXLReadQuorum:
-		return InsufficientReadQuorum{}
-	case errXLWriteQuorum:
-		return InsufficientWriteQuorum{}
 	case io.ErrUnexpectedEOF, io.ErrShortWrite:
 		return IncompleteBody{}
 	}
@@ -207,7 +203,9 @@ func (e IncompleteBody) Error() string {
 }
 
 // ErrInvalidRange - returned when given range value is not valid.
-var ErrInvalidRange = errors.New("Invalid range")
+func (e ErrInvalidRange) Error() string {
+	return "Invalid range"
+}
 
 // InvalidRange - invalid range typed error.
 type InvalidRange struct {

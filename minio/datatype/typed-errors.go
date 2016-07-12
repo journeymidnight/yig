@@ -24,8 +24,11 @@ var ErrSyslogNotSupported = errors.New("Syslog logger not supported on windows")
 // errInvalidArgument means that input argument is invalid.
 var ErrInvalidArgument = errors.New("Invalid arguments specified")
 
-// ErrSignatureMismatch means signature did not match.
-var ErrSignatureMismatch = errors.New("Signature does not match")
+// errSignatureMismatch means signature did not match.
+var errSignatureMismatch = errors.New("Signature does not match")
 
 // used when token used for authentication by the MinioBrowser has expired
 var ErrInvalidToken = errors.New("Invalid token")
+
+// If x-amz-content-sha256 header value mismatches with what we calculate.
+var errContentSHA256Mismatch = errors.New("sha256 mismatch")
