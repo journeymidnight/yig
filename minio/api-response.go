@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"path"
 	"time"
+
 	. "git.letv.cn/yig/yig/minio/datatype"
 )
 
@@ -293,8 +294,7 @@ func generateListBucketsResponse(buckets []BucketInfo) ListBucketsResponse {
 }
 
 // generates an ListObjects response for the said bucket with other enumerated options.
-func generateListObjectsResponse(bucket, prefix, marker, delimiter string, maxKeys int,
-resp ListObjectsInfo) ListObjectsResponse {
+func generateListObjectsResponse(bucket, prefix, marker, delimiter string, maxKeys int, resp ListObjectsInfo) ListObjectsResponse {
 	var contents []Object
 	var prefixes []CommonPrefix
 	var owner = Owner{}
@@ -339,8 +339,7 @@ resp ListObjectsInfo) ListObjectsResponse {
 }
 
 // generates an ListObjects response for the said bucket with other enumerated options.
-func generateListObjectsV2Response(bucket, prefix, token, startAfter, delimiter string,
-maxKeys int, resp ListObjectsInfo) ListObjectsV2Response {
+func generateListObjectsV2Response(bucket, prefix, token, startAfter, delimiter string, maxKeys int, resp ListObjectsInfo) ListObjectsV2Response {
 	var contents []Object
 	var prefixes []CommonPrefix
 	var owner = Owner{}
@@ -442,8 +441,7 @@ func generateListPartsResponse(partsInfo ListPartsInfo) ListPartsResponse {
 }
 
 // generateListMultipartUploadsResponse
-func generateListMultipartUploadsResponse(bucket string,
-multipartsInfo ListMultipartsInfo) ListMultipartUploadsResponse {
+func generateListMultipartUploadsResponse(bucket string, multipartsInfo ListMultipartsInfo) ListMultipartUploadsResponse {
 	listMultipartUploadsResponse := ListMultipartUploadsResponse{}
 	listMultipartUploadsResponse.Bucket = bucket
 	listMultipartUploadsResponse.Delimiter = multipartsInfo.Delimiter
@@ -473,8 +471,7 @@ multipartsInfo ListMultipartsInfo) ListMultipartUploadsResponse {
 }
 
 // generate multi objects delete response.
-func generateMultiDeleteResponse(quiet bool, deletedObjects []ObjectIdentifier,
-errs []DeleteError) DeleteObjectsResponse {
+func generateMultiDeleteResponse(quiet bool, deletedObjects []ObjectIdentifier, errs []DeleteError) DeleteObjectsResponse {
 	deleteResp := DeleteObjectsResponse{}
 	if !quiet {
 		deleteResp.DeletedObjects = deletedObjects
@@ -507,11 +504,12 @@ func writeErrorResponse(w http.ResponseWriter, req *http.Request, errorCode APIE
 	setCommonHeaders(w)
 	// write Header
 	w.WriteHeader(error.HTTPStatusCode)
-	writeErrorResponseNoHeader(w, req, error, resource)
+	writeErrorResponseNoHeader(w, req, errorCode, resource)
 }
 
-func writeErrorResponseNoHeader(w http.ResponseWriter, req *http.Request, error APIError, resource string) {
-	// generate error response
+func writeErrorResponseNoHeader(w http.ResponseWriter, req *http.Request, errorCode APIErrorCode, resource string) {
+	error := GetAPIError(errorCode)
+	// Generate error response.
 	errorResponse := GetAPIErrorResponse(error, resource)
 	encodedErrorResponse := encodeResponse(errorResponse)
 	// HEAD should have no body, do not attempt to write to it
