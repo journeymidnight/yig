@@ -117,9 +117,9 @@ func (api objectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	rangeHeader := r.Header.Get("Range")
 	if rangeHeader != "" {
 		if hrange, err = parseRequestRange(rangeHeader, objInfo.Size); err != nil {
-			// Handle only errInvalidRange
+			// Handle only ErrorInvalidRange
 			// Ignore other parse error and treat it as regular Get request like Amazon S3.
-			if err == ErrInvalidRange {
+			if err == ErrorInvalidRange {
 				writeErrorResponse(w, r, ErrInvalidRange, r.URL.Path)
 				return
 			}

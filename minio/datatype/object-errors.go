@@ -202,10 +202,8 @@ func (e IncompleteBody) Error() string {
 	return e.Bucket + "#" + e.Object + "has incomplete body"
 }
 
-// ErrInvalidRange - returned when given range value is not valid.
-func (e ErrInvalidRange) Error() string {
-	return "Invalid range"
-}
+// ErrorInvalidRange - returned when given range value is not valid.
+var ErrorInvalidRange = errors.New("Invalid range")
 
 // InvalidRange - invalid range typed error.
 type InvalidRange struct {

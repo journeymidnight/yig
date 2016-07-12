@@ -99,7 +99,7 @@ func parseRequestRange(rangeString string, resourceSize int64) (hrange *httpRang
 
 		// First and last byte positions should not be >= resourceSize.
 		if offsetBegin >= resourceSize {
-			return nil, ErrInvalidRange
+			return nil, ErrorInvalidRange
 		}
 
 		if offsetEnd >= resourceSize {
@@ -109,7 +109,7 @@ func parseRequestRange(rangeString string, resourceSize int64) (hrange *httpRang
 		// rangeString contains only first byte position. eg. "bytes=8-"
 		if offsetBegin >= resourceSize {
 			// First byte position should not be >= resourceSize.
-			return nil, ErrInvalidRange
+			return nil, ErrorInvalidRange
 		}
 
 		offsetEnd = resourceSize - 1
@@ -117,7 +117,7 @@ func parseRequestRange(rangeString string, resourceSize int64) (hrange *httpRang
 		// rangeString contains only last byte position. eg. "bytes=-3"
 		if offsetEnd == 0 {
 			// Last byte position should not be zero eg. "bytes=-0"
-			return nil, ErrInvalidRange
+			return nil, ErrorInvalidRange
 		}
 
 		if offsetEnd >= resourceSize {
