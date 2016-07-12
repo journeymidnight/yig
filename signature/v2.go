@@ -12,6 +12,7 @@ import (
 	"crypto/sha1"
 
 	"git.letv.cn/yig/yig/minio/datatype"
+	"strconv"
 )
 
 
@@ -38,6 +39,19 @@ func verifyDate(dateString string) (bool, error) {
 	now := time.Now()
 	diff := now.Sub(date)
 	if diff > 15 * time.Minute || diff < -15 * time.Minute {
+		return false, nil
+	}
+	return true, nil
+}
+
+func verifyNotExpires(dateString string) (bool, error) {
+	t, err := strconv.ParseInt(dateString, 10, 64)
+	if err != nil {
+		return false, err
+	}
+	expires := time.Unix(t, 0)
+	now := time.Now()
+	if now.After(expires) {
 		return false, nil
 	}
 	return true, nil
@@ -143,7 +157,6 @@ func DoesSignatureMatchV2(r *http.Request) datatype.APIErrorCode {
 	stringToSign += date + "\n"
 
 	stringToSign += buildCanonicalizedAmzHeaders(&r.Header)
-
 	stringToSign += buildCanonicalizedResource(r)
 
 	mac := hmac.New(sha1.New, []byte(secretKey))
@@ -156,6 +169,44 @@ func DoesSignatureMatchV2(r *http.Request) datatype.APIErrorCode {
 }
 
 func DoesPresignedSignatureMatch(r *http.Request) datatype.APIErrorCode {
+	query := r.URL.Query()
+	accessKey := query.Get("AWSAccessKeyId")
+	expires := query.Get("Expires")
+	signatureString := query.Get("Signature")
+
+	secretKey, err := getSecretKey(accessKey)
+	if err != nil {
+		return datatype.ErrInvalidAccessKeyID
+	}
+	signature, err := base64.StdEncoding.DecodeString(signatureString)
+	if err != nil {
+		return datatype.ErrAuthorizationHeaderMalformed
+	}
+	if verified, err := verifyNotExpires(expires); err != nil {
+		return datatype.ErrMalformedDate
+	} else if !verified {
+		return datatype.ErrExpiredPresignRequest
+
+	}
+	// StringToSign = HTTP-VERB + "\n" +
+	// Content-MD5 + "\n" +
+	// Content-Type + "\n" +
+	// Expires + "\n" +
+	// CanonicalizedAmzHeaders +
+	// CanonicalizedResource;
+	stringToSign := r.Method + "\n"
+	stringToSign += r.Header.Get("Content-Md5") + "\n"
+	stringToSign += r.Header.Get("Content-Type") + "\n"
+	stringToSign += expires + "\n"
+	stringToSign += buildCanonicalizedAmzHeaders(&r.Header)
+	stringToSign += buildCanonicalizedResource(r)
+
+	mac := hmac.New(sha1.New, []byte(secretKey))
+	mac.Write([]byte(stringToSign))
+	expectedMac := mac.Sum(nil)
+	if !hmac.Equal(expectedMac, signature) {
+		return datatype.ErrAccessDenied
+	}
 	return datatype.ErrNone
 }
 
