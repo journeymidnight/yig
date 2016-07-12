@@ -460,9 +460,9 @@ func ToAPIErrorCode(err error) (apiErr APIErrorCode) {
 	}
 	// Verify if the underlying error is signature mismatch.
 	switch err {
-	case errSignatureMismatch:
+	case ErrSignatureMismatch:
 		apiErr = ErrSignatureDoesNotMatch
-	case errContentSHA256Mismatch:
+	case ErrorContentSHA256Mismatch:
 		apiErr = ErrContentSHA256Mismatch
 	}
 	if apiErr != ErrNone {
