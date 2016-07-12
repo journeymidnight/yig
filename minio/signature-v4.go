@@ -101,8 +101,6 @@ func getSignedHeaders(signedHeaders http.Header) string {
 func getCanonicalRequest(extractedSignedHeaders http.Header, payload, queryStr, urlPath, method, host string) string {
 	rawQuery := strings.Replace(queryStr, "+", "%20", -1)
 	encodedPath := getURLEncodedName(urlPath)
-	// Convert any space strings back to "+".
-	encodedPath = strings.Replace(encodedPath, "+", "%20", -1)
 	canonicalRequest := strings.Join([]string{
 		method,
 		encodedPath,
@@ -218,6 +216,12 @@ func doesPresignedSignatureMatch(hashedPayload string, r *http.Request, validate
 		return ErrInvalidAccessKeyID
 	}
 
+	// Hashed payload mismatch, return content sha256 mismatch.
+	contentSha256 := req.URL.Query().Get("X-Amz-Content-Sha256")
+	if contentSha256 != "" && hashedPayload != contentSha256 {
+		return ErrContentSHA256Mismatch
+	}
+
 	// Verify if region is valid.
 	sRegion := preSignValues.Credential.scope.region
 	// Should validate region, only if region is set. Some operations
@@ -235,11 +239,10 @@ func doesPresignedSignatureMatch(hashedPayload string, r *http.Request, validate
 
 	// Construct new query.
 	query := make(url.Values)
-	if req.URL.Query().Get("X-Amz-Content-Sha256") != "" {
+	if contentSha256 != "" {
 		query.Set("X-Amz-Content-Sha256", hashedPayload)
-	} else {
-		hashedPayload = "UNSIGNED-PAYLOAD"
 	}
+
 	query.Set("X-Amz-Algorithm", signV4Algorithm)
 
 	if time.Now().UTC().Sub(preSignValues.Date) > time.Duration(preSignValues.Expires) {
@@ -331,6 +334,11 @@ func doesSignatureMatch(hashedPayload string, r *http.Request, validateRegion bo
 	signV4Values, err := parseSignV4(v4Auth)
 	if err != ErrNone {
 		return err
+	}
+
+	// Hashed payload mismatch, return content sha256 mismatch.
+	if hashedPayload != req.Header.Get("X-Amz-Content-Sha256") {
+		return ErrContentSHA256Mismatch
 	}
 
 	// Extract all the signed headers along with its values.
