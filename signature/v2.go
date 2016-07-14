@@ -13,14 +13,13 @@ import (
 
 	"git.letv.cn/yig/yig/minio/datatype"
 	"strconv"
+	"git.letv.cn/yig/yig/iam"
 )
 
 
 
 const (
 	SignV2Algorithm = "AWS"
-	iso8601Format   = "20060102T150405Z"
-	yyyymmdd        = "20060102"
 	HOST_URL	= "127.0.0.1" /* should be something like
 					s3.lecloud.com
 					for production servers
@@ -32,9 +31,9 @@ func postRequestAuth(c *iris.Context) {
 }
 
 func verifyDate(dateString string) (bool, error) {
-	date, err := time.Parse("Mon, 02 Jan 2006 15:04:05 -0700", dateString)
-	if err != nil {
-		return false, err
+	date, err := datatype.ParseAmzDate(dateString)
+	if err != datatype.ErrNone {
+		return false, error("ErrMalformedDate")
 	}
 	now := time.Now()
 	diff := now.Sub(date)
@@ -66,6 +65,7 @@ func buildCanonicalizedAmzHeaders(headers *http.Header)  string {
 	}
 	sort.Strings(amzHeaders)
 	ans := ""
+	// TODO use bytes.Buffer
 	for _, h := range amzHeaders {
 		values := (*headers)[h]  // Don't use Header.Get() here because we need ALL values
 		ans += strings.ToLower(h) + ":" + strings.Join(values, ",") + "\n"
@@ -108,12 +108,6 @@ func buildCanonicalizedResource(req *http.Request)  string {
 	return ans
 }
 
-func getSecretKey(accessKey string) (secretKey string, err error) {
-	// should use a cache with timeout
-	// TODO
-	return
-}
-
 func DoesSignatureMatchV2(r *http.Request) datatype.APIErrorCode {
 	authorizationHeader := r.Header.Get("Authorization")
 	splitHeader := strings.Split(authorizationHeader, " ")
@@ -123,7 +117,7 @@ func DoesSignatureMatchV2(r *http.Request) datatype.APIErrorCode {
 		return datatype.ErrMissingSignTag
 	}
 	accessKey := splitSignature[0]
-	secretKey, err := getSecretKey(accessKey)
+	secretKey, err := iam.GetSecretKey(accessKey)
 	if err != nil {
 		return datatype.ErrInvalidAccessKeyID
 	}
@@ -174,7 +168,7 @@ func DoesPresignedSignatureMatch(r *http.Request) datatype.APIErrorCode {
 	expires := query.Get("Expires")
 	signatureString := query.Get("Signature")
 
-	secretKey, err := getSecretKey(accessKey)
+	secretKey, err := iam.GetSecretKey(accessKey)
 	if err != nil {
 		return datatype.ErrInvalidAccessKeyID
 	}

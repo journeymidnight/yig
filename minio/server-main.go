@@ -29,6 +29,7 @@ import (
 
 	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/storage"
+	"git.letv.cn/yig/yig/iam"
 )
 
 var serverConfig *ServerConfig
@@ -43,7 +44,7 @@ type ServerConfig struct  {
 	MaxConcurrentRequest int // used in rate limit
 }
 
-func (config *ServerConfig) GetCredential() (c credential) {
+func (config *ServerConfig) GetCredential() (c iam.Credential) {
 	// TODO
 	return
 }

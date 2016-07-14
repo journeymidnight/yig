@@ -41,16 +41,11 @@ func skipContentSha256Cksum(r *http.Request) bool {
 
 // isValidRegion - verify if incoming region value is valid with configured Region.
 // TODO
-func isValidRegion(reqRegion string, confRegion string) bool {
-	if confRegion == "" || confRegion == "US" {
-		confRegion = "us-east-1"
+func isValidRegion(reqRegion string) bool {
+	if reqRegion == "" {
+		return true
 	}
-	// Some older s3 clients set region as "US" instead of
-	// "us-east-1", handle it.
-	if reqRegion == "US" {
-		reqRegion = "us-east-1"
-	}
-	return reqRegion == confRegion
+	return reqRegion == serverConfig.Region
 }
 
 // sumHMAC calculate hmac between two input byte array.
@@ -102,10 +97,10 @@ func getURLEncodedName(name string) string {
 }
 
 // extractSignedHeaders extract signed headers from Authorization header
-func extractSignedHeaders(signedHeaders []string, reqHeaders http.Header) http.Header {
+func extractSignedHeaders(signedHeaders []string, req http.Request) http.Header {
 	extractedSignedHeaders := make(http.Header)
 	for _, header := range signedHeaders {
-		val, ok := reqHeaders[http.CanonicalHeaderKey(header)]
+		val, ok := req.Header[http.CanonicalHeaderKey(header)]
 		if !ok {
 			// Golang http server strips off 'Expect' header, if the
 			// client sent this as part of signed headers we need to
@@ -125,6 +120,11 @@ func extractSignedHeaders(signedHeaders []string, reqHeaders http.Header) http.H
 			// doesn't filter out the 'Expect' header.
 			if header == "expect" {
 				extractedSignedHeaders[header] = []string{"100-continue"}
+			}
+			// Golang http server promotes 'Host' header to Request.Host field
+			// and removed from the Header map.
+			if header == "host" {
+				extractedSignedHeaders[header] = []string{req.Host}
 			}
 			// If not found continue, we will fail later.
 			continue

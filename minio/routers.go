@@ -41,15 +41,8 @@ func configureServerHandler(c *ServerConfig) http.Handler {
 	var handlerFns = []HandlerFunc{
 		// Limits the number of concurrent http requests.
 		setRateLimitHandler,
-		// Redirect some pre-defined browser request paths to a static
-		// location prefix.
-		setBrowserRedirectHandler,
-		// Validates if incoming request is for restricted buckets.
-		setPrivateBucketHandler,
-		// Adds cache control for all browser requests.
+		// TODO: Adds cache control for all browser requests.
 		setBrowserCacheControlHandler,
-		// Validates all incoming requests to have a valid date header.
-		setTimeValidityHandler,
 		// CORS setting for all browser API requests.
 		setCorsHandler,
 		// Validates all incoming URL resources, for invalid/unsupported

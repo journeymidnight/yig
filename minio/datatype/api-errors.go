@@ -94,6 +94,8 @@ const (
 	ErrInvalidRequestVersion
 	ErrMissingSignTag
 	ErrMissingSignHeadersTag
+	ErrMissingRequiredSignedHeader
+	ErrSignedHeadersNotSorted
 	ErrPolicyAlreadyExpired
 	ErrMalformedDate
 	ErrMalformedExpires
@@ -369,6 +371,16 @@ var ErrorCodeResponse = map[APIErrorCode]APIError{
 		Description:    "Signature header missing SignedHeaders field.",
 		HTTPStatusCode: http.StatusBadRequest,
 	},
+	ErrMissingRequiredSignedHeader: {
+		Code: "InvalidArgument",
+		Description: "Missing one or more required signed header",
+		HTTPStatusCode: http.StatusBadRequest,
+	},
+	ErrSignedHeadersNotSorted: {
+		Code: "InvalidArgument",
+		Description: "Signed headers are not ordered",
+		HTTPStatusCode: http.StatusBadRequest,
+	},
 	ErrPolicyAlreadyExpired: {
 		Code:           "AccessDenied",
 		Description:    "Invalid according to Policy: Policy expired.",
@@ -376,7 +388,7 @@ var ErrorCodeResponse = map[APIErrorCode]APIError{
 	},
 	ErrMalformedExpires: {
 		Code:           "MalformedExpires",
-		Description:    "Malformed expires header, expected non-zero number.",
+		Description:    "Malformed expires value, should be between 1 and 604800(seven days)",
 		HTTPStatusCode: http.StatusBadRequest,
 	},
 	ErrAuthHeaderEmpty: {
