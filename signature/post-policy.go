@@ -13,7 +13,7 @@ const (
 	PostPolicyAnonymous
 )
 
-const (
+var (
 	// Convert to Canonical Form before compare
 	EqPolicyRegExpV2 = regexp.MustCompile("Acl|Cache-Control|Content-Type|Content-Disposition" +
 		"|Content-Encoding|Expires|Key|Success_action_redirect|Redirect|Success_action_status" +

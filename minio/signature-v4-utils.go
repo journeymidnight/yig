@@ -97,7 +97,7 @@ func getURLEncodedName(name string) string {
 }
 
 // extractSignedHeaders extract signed headers from Authorization header
-func extractSignedHeaders(signedHeaders []string, req http.Request) http.Header {
+func extractSignedHeaders(signedHeaders []string, req *http.Request) http.Header {
 	extractedSignedHeaders := make(http.Header)
 	for _, header := range signedHeaders {
 		val, ok := req.Header[http.CanonicalHeaderKey(header)]

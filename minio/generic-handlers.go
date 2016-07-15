@@ -18,10 +18,7 @@ package minio
 
 import (
 	"net/http"
-	"path"
-	"regexp"
 	"strings"
-	"time"
 
 	. "git.letv.cn/yig/yig/minio/datatype"
 	router "github.com/gorilla/mux"

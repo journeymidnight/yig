@@ -81,7 +81,7 @@ func getSignedHeaders(signedHeaders http.Header) string {
 //  <HashedPayload>
 //
 func getCanonicalRequest(extractedSignedHeaders http.Header, payload, queryStr,
-	urlPath, method, signedHeaders []string) string {
+	urlPath, method string, signedHeaders []string) string {
 	rawQuery := strings.Replace(queryStr, "+", "%20", -1)
 	encodedPath := getURLEncodedName(urlPath)
 	canonicalRequest := strings.Join([]string{
@@ -151,8 +151,8 @@ func doesPolicySignatureMatch(formValues map[string]string) APIErrorCode {
 		return ErrMalformedDate
 	}
 
-	secretKey, err := iam.GetSecretKey(credHeader.accessKey)
-	if err != nil {
+	secretKey, e := iam.GetSecretKey(credHeader.accessKey)
+	if e != nil {
 		return ErrInvalidAccessKeyID
 	}
 	// Get signing key.
@@ -194,7 +194,7 @@ func doesPresignedSignatureMatch(r *http.Request, validateRegion bool) APIErrorC
 	}
 
 	// Extract all the signed headers along with its values.
-	extractedSignedHeaders := extractSignedHeaders(preSignValues.SignedHeaders, r.Header)
+	extractedSignedHeaders := extractSignedHeaders(preSignValues.SignedHeaders, r)
 
 	/// Verify finally if signature is same.
 

@@ -13,6 +13,7 @@ import (
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/minio/datatype"
 	"strconv"
+	"github.com/kataras/iris/errors"
 )
 
 const (
@@ -27,7 +28,7 @@ const (
 func verifyDate(dateString string) (bool, error) {
 	date, err := datatype.ParseAmzDate(dateString)
 	if err != datatype.ErrNone {
-		return false, error("ErrMalformedDate")
+		return false, errors.New("ErrMalformedDate")
 	}
 	now := time.Now()
 	diff := now.Sub(date)
@@ -103,7 +104,7 @@ func buildCanonicalizedResource(req *http.Request) string {
 }
 
 // Calculate HMAC and compare with signature from client
-func dictate(secretKey string, stringToSign string, signature string) datatype.APIErrorCode {
+func dictate(secretKey string, stringToSign string, signature []byte) datatype.APIErrorCode {
 	mac := hmac.New(sha1.New, []byte(secretKey))
 	mac.Write([]byte(stringToSign))
 	expectedMac := mac.Sum(nil)

@@ -30,7 +30,7 @@ import (
 	"regexp"
 )
 
-const (
+var (
 	// Convert to Canonical Form before compare
 	EqPolicyRegExp = regexp.MustCompile("Acl|Bucket|Cache-Control|Content-Type|Content-Disposition" +
 		"|Content-Encoding|Expires|Key|Success_action_redirect|Redirect|Success_action_status" +
