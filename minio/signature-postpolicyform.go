@@ -25,6 +25,19 @@ import (
 	"time"
 
 	. "git.letv.cn/yig/yig/minio/datatype"
+	"git.letv.cn/yig/yig/signature"
+	"net/http"
+	"regexp"
+)
+
+const (
+	// Convert to Canonical Form before compare
+	EqPolicyRegExp = regexp.MustCompile("Acl|Bucket|Cache-Control|Content-Type|Content-Disposition" +
+		"|Content-Encoding|Expires|Key|Success_action_redirect|Redirect|Success_action_status" +
+		"|X-Amz-.+|X-Amz-Meta-.+")
+	StartsWithPolicyRegExp = regexp.MustCompile("Acl|Cache-Control|Content-Type|Content-Disposition" +
+		"|Content-Encoding|Expires|Key|Success_action_redirect|Redirect|X-Amz-Meta-.+")
+	IgnoredFormRegExp = regexp.MustCompile("X-Amz-Signature|File|Policy|X-Ignore-.+")
 )
 
 // toString - Safely convert interface to string without causing panic.
@@ -69,8 +82,9 @@ type PostPolicyForm struct {
 	}
 }
 
-// parsePostPolicyFormV4 - Parse JSON policy string into typed POostPolicyForm structure.
-func parsePostPolicyFormV4(policy string) (PostPolicyForm, error) {
+// parsePostPolicyFormV4 - Parse JSON policy string into typed PostPolicyForm structure.
+func parsePostPolicyForm(policy string,
+	eqPolicyRegExp *regexp.Regexp, startsWithPolicyRegExp *regexp.Regexp) (PostPolicyForm, error) {
 	// Convert po into interfaces and
 	// perform strict type conversion using reflection.
 	var rawPolicy struct {
@@ -102,11 +116,16 @@ func parsePostPolicyFormV4(policy string) (PostPolicyForm, error) {
 			for k, v := range condt {
 				if !isString(v) { // Pre-check value type.
 					// All values must be of type string.
-					return parsedPolicy, fmt.Errorf("Unknown type %s of conditional field value %s found in POST policy form.", reflect.TypeOf(condt).String(), condt)
+					return parsedPolicy,
+						fmt.Errorf("Unknown type %s of conditional field value %s found in POST policy form.",
+							reflect.TypeOf(condt).String(), condt)
+				}
+				if !eqPolicyRegExp.MatchString(k) {
+					return parsedPolicy, fmt.Errorf("eq is not supported for %s", k)
 				}
 				// {"acl": "public-read" } is an alternate way to indicate - [ "eq", "$acl", "public-read" ]
 				// In this case we will just collapse this into "eq" for all use cases.
-				parsedPolicy.Conditions.Policies["$"+k] = struct {
+				parsedPolicy.Conditions.Policies[k] = struct {
 					Operator string
 					Value    string
 				}{
@@ -116,17 +135,29 @@ func parsePostPolicyFormV4(policy string) (PostPolicyForm, error) {
 			}
 		case []interface{}: // Handle array types.
 			if len(condt) != 3 { // Return error if we have insufficient elements.
-				return parsedPolicy, fmt.Errorf("Malformed conditional fields %s of type %s found in POST policy form.", condt, reflect.TypeOf(condt).String())
+				return parsedPolicy,
+					fmt.Errorf("Malformed conditional fields %s of type %s found in POST policy form.",
+						condt, reflect.TypeOf(condt).String())
 			}
-			switch toString(condt[0]) {
+			operator := toString(condt[0])
+			switch operator {
 			case "eq", "starts-with":
 				for _, v := range condt { // Pre-check all values for type.
 					if !isString(v) {
 						// All values must be of type string.
-						return parsedPolicy, fmt.Errorf("Unknown type %s of conditional field value %s found in POST policy form.", reflect.TypeOf(condt).String(), condt)
+						return parsedPolicy,
+							fmt.Errorf("Unknown type %s of conditional field value %s found in POST policy form.",
+								reflect.TypeOf(condt).String(), condt)
 					}
 				}
-				operator, matchType, value := toString(condt[0]), toString(condt[1]), toString(condt[2])
+				matchType := http.CanonicalHeaderKey(strings.TrimPrefix(toString(condt[1]), "$"))
+				value := toString(condt[2])
+				if operator == "eq" && !eqPolicyRegExp.MatchString(matchType) {
+					return parsedPolicy, fmt.Errorf("eq is not supported for %s", matchType)
+				}
+				if operator == "starts-with" && !startsWithPolicyRegExp.MatchString(matchType) {
+					return parsedPolicy, fmt.Errorf("starts-with is not supported for %s", matchType)
+				}
 				parsedPolicy.Conditions.Policies[matchType] = struct {
 					Operator string
 					Value    string
@@ -144,61 +175,68 @@ func parsePostPolicyFormV4(policy string) (PostPolicyForm, error) {
 				}
 			default:
 				// Condition should be valid.
-				return parsedPolicy, fmt.Errorf("Unknown type %s of conditional field value %s found in POST policy form.", reflect.TypeOf(condt).String(), condt)
+				return parsedPolicy,
+					fmt.Errorf("Unknown type %s of conditional field value %s found in POST policy form.",
+						reflect.TypeOf(condt).String(), condt)
 			}
 		default:
-			return parsedPolicy, fmt.Errorf("Unknown field %s of type %s found in POST policy form.", condt, reflect.TypeOf(condt).String())
+			return parsedPolicy,
+				fmt.Errorf("Unknown field %s of type %s found in POST policy form.",
+					condt, reflect.TypeOf(condt).String())
 		}
 	}
 	return parsedPolicy, nil
 }
 
 // checkPostPolicy - apply policy conditions and validate input values.
-func checkPostPolicy(formValues map[string]string) APIErrorCode {
-	if formValues["X-Amz-Algorithm"] != signV4Algorithm {
-		return ErrSignatureVersionNotSupported
+func checkPostPolicy(formValues map[string]string,
+	postPolicyVersion signature.PostPolicyType) APIErrorCode {
+	var eqPolicyRegExp, startswithPolicyRegExp, ignoredFormRegExp *regexp.Regexp
+	switch postPolicyVersion {
+	case signature.PostPolicyV2:
+		eqPolicyRegExp, startswithPolicyRegExp, ignoredFormRegExp =
+			signature.EqPolicyRegExpV2, signature.StartsWithPolicyRegExpV2, signature.IgnoredFormRegExpV2
+	case signature.PostPolicyV4:
+		eqPolicyRegExp, startswithPolicyRegExp, ignoredFormRegExp =
+			EqPolicyRegExp, StartsWithPolicyRegExp, IgnoredFormRegExp
+	case signature.PostPolicyAnonymous:
+		// TODO
+		return ErrNotImplemented
+	default:
+		return ErrNotImplemented
 	}
 	/// Decoding policy
 	policyBytes, err := base64.StdEncoding.DecodeString(formValues["Policy"])
 	if err != nil {
 		return ErrMalformedPOSTRequest
 	}
-	postPolicyForm, err := parsePostPolicyFormV4(string(policyBytes))
+	postPolicyForm, err := parsePostPolicyForm(string(policyBytes),
+		eqPolicyRegExp, startswithPolicyRegExp)
 	if err != nil {
 		return ErrMalformedPOSTRequest
 	}
-	if !postPolicyForm.Expiration.After(time.Now().UTC()) {
+	if !postPolicyForm.Expiration.After(time.Now()) {
 		return ErrPolicyAlreadyExpired
 	}
-	if postPolicyForm.Conditions.Policies["$bucket"].Operator == "eq" {
-		if formValues["Bucket"] != postPolicyForm.Conditions.Policies["$bucket"].Value {
+	for name, value := range formValues {
+		if ignoredFormRegExp.MatchString(name) {
+			continue
+		}
+		if condition, ok := postPolicyForm.Conditions.Policies[name]; ok {
+			switch condition.Operator {
+			case "eq":
+				if condition.Value != value {
+					return ErrPolicyViolation
+				}
+			case "starts-with":
+				if !strings.HasPrefix(value, condition.Value) {
+					return ErrPolicyViolation
+				}
+			}
+		} else { // field exists in form but not in policy
 			return ErrMissingFields
 		}
 	}
-	if postPolicyForm.Conditions.Policies["$x-amz-date"].Operator == "eq" {
-		if formValues["X-Amz-Date"] != postPolicyForm.Conditions.Policies["$x-amz-date"].Value {
-			return ErrMissingFields
-		}
-	}
-	if postPolicyForm.Conditions.Policies["$Content-Type"].Operator == "starts-with" {
-		if !strings.HasPrefix(formValues["Content-Type"], postPolicyForm.Conditions.Policies["$Content-Type"].Value) {
-			return ErrMissingFields
-		}
-	}
-	if postPolicyForm.Conditions.Policies["$Content-Type"].Operator == "eq" {
-		if formValues["Content-Type"] != postPolicyForm.Conditions.Policies["$Content-Type"].Value {
-			return ErrMissingFields
-		}
-	}
-	if postPolicyForm.Conditions.Policies["$key"].Operator == "starts-with" {
-		if !strings.HasPrefix(formValues["Key"], postPolicyForm.Conditions.Policies["$key"].Value) {
-			return ErrMissingFields
-		}
-	}
-	if postPolicyForm.Conditions.Policies["$key"].Operator == "eq" {
-		if formValues["Key"] != postPolicyForm.Conditions.Policies["$key"].Value {
-			return ErrMissingFields
-		}
-	}
+	// TODO: verify ContentLengthRange
 	return ErrNone
 }

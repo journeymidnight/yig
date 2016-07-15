@@ -1,34 +1,28 @@
 package signature
 
 import (
-	"github.com/kataras/iris"
 	"crypto/hmac"
-	"strings"
-	"sort"
-	"time"
-	"encoding/base64"
-	"net/url"
-	"net/http"
 	"crypto/sha1"
+	"encoding/base64"
+	"net/http"
+	"net/url"
+	"sort"
+	"strings"
+	"time"
 
+	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/minio/datatype"
 	"strconv"
-	"git.letv.cn/yig/yig/iam"
 )
-
-
 
 const (
 	SignV2Algorithm = "AWS"
-	HOST_URL	= "127.0.0.1" /* should be something like
-					s3.lecloud.com
-					for production servers
-					*/
+	SignV4Algorithm = "AWS4-HMAC-SHA256"
+	HOST_URL        = "127.0.0.1" /* should be something like
+	s3.lecloud.com
+	for production servers
+	*/
 )
-
-func postRequestAuth(c *iris.Context) {
-
-}
 
 func verifyDate(dateString string) (bool, error) {
 	date, err := datatype.ParseAmzDate(dateString)
@@ -37,7 +31,7 @@ func verifyDate(dateString string) (bool, error) {
 	}
 	now := time.Now()
 	diff := now.Sub(date)
-	if diff > 15 * time.Minute || diff < -15 * time.Minute {
+	if diff > 15*time.Minute || diff < -15*time.Minute {
 		return false, nil
 	}
 	return true, nil
@@ -56,7 +50,7 @@ func verifyNotExpires(dateString string) (bool, error) {
 	return true, nil
 }
 
-func buildCanonicalizedAmzHeaders(headers *http.Header)  string {
+func buildCanonicalizedAmzHeaders(headers *http.Header) string {
 	var amzHeaders []string
 	for k, _ := range *headers {
 		if strings.HasPrefix(strings.ToLower(k), "x-amz-") {
@@ -67,18 +61,18 @@ func buildCanonicalizedAmzHeaders(headers *http.Header)  string {
 	ans := ""
 	// TODO use bytes.Buffer
 	for _, h := range amzHeaders {
-		values := (*headers)[h]  // Don't use Header.Get() here because we need ALL values
+		values := (*headers)[h] // Don't use Header.Get() here because we need ALL values
 		ans += strings.ToLower(h) + ":" + strings.Join(values, ",") + "\n"
 	}
 	return ans
 }
 
-func buildCanonicalizedResource(req *http.Request)  string {
+func buildCanonicalizedResource(req *http.Request) string {
 	ans := ""
-	if strings.HasSuffix(req.Host, "." + HOST_URL) {
-		bucket := strings.TrimSuffix(req.Host, "." + HOST_URL)
+	if strings.HasSuffix(req.Host, "."+HOST_URL) {
+		bucket := strings.TrimSuffix(req.Host, "."+HOST_URL)
 		ans += "/" + bucket
-	} else if req.Host != "" && req.Host != HOST_URL{
+	} else if req.Host != "" && req.Host != HOST_URL {
 		ans += "/" + req.Host
 	}
 	ans += req.URL.RawPath
@@ -97,7 +91,7 @@ func buildCanonicalizedResource(req *http.Request)  string {
 	}
 	requestQuery := req.URL.Query()
 	queryToSign := url.Values{}
-	for _, q := range(requiredQuery) {
+	for _, q := range requiredQuery {
 		if v, ok := requestQuery[q]; ok {
 			queryToSign[q] = v
 		}
@@ -106,6 +100,17 @@ func buildCanonicalizedResource(req *http.Request)  string {
 		ans += "?" + encodedQueryToSign
 	}
 	return ans
+}
+
+// Calculate HMAC and compare with signature from client
+func dictate(secretKey string, stringToSign string, signature string) datatype.APIErrorCode {
+	mac := hmac.New(sha1.New, []byte(secretKey))
+	mac.Write([]byte(stringToSign))
+	expectedMac := mac.Sum(nil)
+	if !hmac.Equal(expectedMac, signature) {
+		return datatype.ErrAccessDenied
+	}
+	return datatype.ErrNone
 }
 
 func DoesSignatureMatchV2(r *http.Request) datatype.APIErrorCode {
@@ -153,13 +158,7 @@ func DoesSignatureMatchV2(r *http.Request) datatype.APIErrorCode {
 	stringToSign += buildCanonicalizedAmzHeaders(&r.Header)
 	stringToSign += buildCanonicalizedResource(r)
 
-	mac := hmac.New(sha1.New, []byte(secretKey))
-	mac.Write([]byte(stringToSign))
-	expectedMac := mac.Sum(nil)
-	if !hmac.Equal(expectedMac, signature) {
-		return datatype.ErrAccessDenied
-	}
-	return datatype.ErrNone
+	return dictate(secretKey, stringToSign, signature)
 }
 
 func DoesPresignedSignatureMatch(r *http.Request) datatype.APIErrorCode {
@@ -195,12 +194,34 @@ func DoesPresignedSignatureMatch(r *http.Request) datatype.APIErrorCode {
 	stringToSign += buildCanonicalizedAmzHeaders(&r.Header)
 	stringToSign += buildCanonicalizedResource(r)
 
-	mac := hmac.New(sha1.New, []byte(secretKey))
-	mac.Write([]byte(stringToSign))
-	expectedMac := mac.Sum(nil)
-	if !hmac.Equal(expectedMac, signature) {
-		return datatype.ErrAccessDenied
-	}
-	return datatype.ErrNone
+	return dictate(secretKey, stringToSign, signature)
 }
 
+func DoesPolicySignatureMatch(formValues map[string]string) datatype.APIErrorCode {
+	var secretKey string
+	var err error
+	if accessKey, ok := formValues["Awsaccesskeyid"]; ok {
+		secretKey, err = iam.GetSecretKey(accessKey)
+		if err != nil {
+			return datatype.ErrInvalidAccessKeyID
+		}
+	} else {
+		return datatype.ErrMissingFields
+	}
+
+	var signatureString string
+	var ok bool
+	if signatureString, ok = formValues["Signature"]; !ok {
+		return datatype.ErrMissingFields
+	}
+	signature, err := base64.StdEncoding.DecodeString(signatureString)
+	if err != nil {
+		return datatype.ErrMalformedPOSTRequest
+	}
+	var policy string
+	if policy, ok = formValues["Policy"]; !ok {
+		return datatype.ErrMissingFields
+	}
+
+	return dictate(secretKey, policy, signature)
+}

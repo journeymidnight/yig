@@ -25,8 +25,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	. "git.letv.cn/yig/yig/minio/datatype"
+	"github.com/skyrings/skyring-common/tools/uuid"
 )
 
 const (

@@ -33,8 +33,8 @@ import (
 	"strings"
 	"time"
 
-	. "git.letv.cn/yig/yig/minio/datatype"
 	"git.letv.cn/yig/yig/iam"
+	. "git.letv.cn/yig/yig/minio/datatype"
 )
 
 // AWS Signature Version '4' constants.
@@ -81,7 +81,7 @@ func getSignedHeaders(signedHeaders http.Header) string {
 //  <HashedPayload>
 //
 func getCanonicalRequest(extractedSignedHeaders http.Header, payload, queryStr,
-urlPath, method, signedHeaders []string) string {
+	urlPath, method, signedHeaders []string) string {
 	rawQuery := strings.Replace(queryStr, "+", "%20", -1)
 	encodedPath := getURLEncodedName(urlPath)
 	canonicalRequest := strings.Join([]string{
@@ -171,7 +171,7 @@ func doesPolicySignatureMatch(formValues map[string]string) APIErrorCode {
 // doesPresignedSignatureMatch - Verify query headers with presigned signature
 //     - http://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html
 // returns true if matches, false otherwise. if error is not nil then it is always false
-func doesPresignedSignatureMatch(hashedPayload string, r *http.Request, validateRegion bool) APIErrorCode {
+func doesPresignedSignatureMatch(r *http.Request, validateRegion bool) APIErrorCode {
 	// Parse request query string.
 	preSignValues, err := parsePreSignV4(r.URL.Query(), r.Header)
 	if err != ErrNone {
@@ -199,7 +199,7 @@ func doesPresignedSignatureMatch(hashedPayload string, r *http.Request, validate
 	/// Verify finally if signature is same.
 
 	// Get canonical request.
-	presignedCanonicalReq := getCanonicalRequest(extractedSignedHeaders, "UNSIGNED-PAYLOAD",
+	presignedCanonicalReq := getCanonicalRequest(extractedSignedHeaders, unsignedPayload,
 		r.URL.Query().Encode(), r.URL.Path, r.Method, preSignValues.SignedHeaders)
 
 	// Get string to sign from canonical request.
@@ -268,7 +268,7 @@ func doesSignatureMatch(hashedPayload string, r *http.Request, validateRegion bo
 		return ErrMalformedDate
 	}
 	diff := time.Now().Sub(t)
-	if diff > 15 * time.Minute || diff < -15 * time.Minute {
+	if diff > 15*time.Minute || diff < -15*time.Minute {
 		return ErrRequestTimeTooSkewed
 	}
 

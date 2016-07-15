@@ -26,8 +26,8 @@ import (
 	"net/http"
 	"strings"
 
-	"git.letv.cn/yig/yig/signature"
 	. "git.letv.cn/yig/yig/minio/datatype"
+	"git.letv.cn/yig/yig/signature"
 )
 
 // Verify if the request http Header "x-amz-content-sha256" == "UNSIGNED-PAYLOAD"
@@ -41,9 +41,9 @@ func isRequestUnsignedPayload(r *http.Request) bool {
 func isRequestSignature(r *http.Request) (bool, authType) {
 	if _, ok := r.Header["Authorization"]; ok {
 		header := r.Header.Get("Authorization")
-		if strings.HasPrefix(header, signV4Algorithm + " ") {
+		if strings.HasPrefix(header, signV4Algorithm+" ") {
 			return true, authTypeSigned
-		} else if strings.HasPrefix(header, signature.SignV2Algorithm + " ") {
+		} else if strings.HasPrefix(header, signature.SignV2Algorithm+" ") {
 			return true, authTypeSignedV2
 		}
 	}
@@ -66,7 +66,7 @@ func isRequestPostPolicySignature(r *http.Request) bool {
 		return false
 	}
 	if _, ok := r.Header["Content-Type"]; ok {
-		if strings.Contains(r.Header.Get("Content-Type"), "multipart/form-data") && r.Method == "POST" {
+		if strings.Contains(r.Header.Get("Content-Type"), "multipart/form-data") {
 			return true
 		}
 	}
@@ -80,10 +80,10 @@ type authType int
 const (
 	authTypeUnknown authType = iota
 	authTypeAnonymous
-	authTypePresigned  // v4
+	authTypePresigned // v4
 	authTypePresignedV2
 	authTypePostPolicy // including v2 and v4, handled specially in API endpoint
-	authTypeSigned  // v4
+	authTypeSigned     // v4
 	authTypeSignedV2
 )
 
@@ -135,7 +135,7 @@ func isReqAuthenticated(r *http.Request) (s3Error APIErrorCode) {
 	validateRegion := true // TODO: Validate region.
 	switch getRequestAuthType(r) {
 	case authTypePresigned:
-		return doesPresignedSignatureMatch(hex.EncodeToString(sum256(payload)), r, validateRegion)
+		return doesPresignedSignatureMatch(r, validateRegion)
 	case authTypeSigned:
 		return doesSignatureMatch(hex.EncodeToString(sum256(payload)), r, validateRegion)
 	case authTypePresignedV2:

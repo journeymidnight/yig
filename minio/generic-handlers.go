@@ -23,9 +23,9 @@ import (
 	"strings"
 	"time"
 
+	. "git.letv.cn/yig/yig/minio/datatype"
 	router "github.com/gorilla/mux"
 	"github.com/rs/cors"
-	. "git.letv.cn/yig/yig/minio/datatype"
 )
 
 // HandlerFunc - useful to chain different middleware http.Handler

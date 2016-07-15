@@ -19,12 +19,12 @@ package minio
 import (
 	"bufio"
 	"bytes"
+	"log"
 	"os"
 	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
-	"log"
 
 	"github.com/dustin/go-humanize"
 )

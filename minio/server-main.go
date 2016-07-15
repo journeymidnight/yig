@@ -18,6 +18,7 @@ package minio
 
 import (
 	"errors"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -25,22 +26,21 @@ import (
 	"strings"
 	"syscall"
 	"time"
-	"log"
 
 	"git.letv.cn/yig/yig/helper"
-	"git.letv.cn/yig/yig/storage"
 	"git.letv.cn/yig/yig/iam"
+	"git.letv.cn/yig/yig/storage"
 )
 
 var serverConfig *ServerConfig
 
-type ServerConfig struct  {
-	Address string
-	KeyFilePath string // path for SSL key file
-	CertFilePath string // path for SSL certificate file
-	Region string // region name of current server
-	Logger *log.Logger // global logger
-	ObjectLayer *storage.YigStorage
+type ServerConfig struct {
+	Address              string
+	KeyFilePath          string      // path for SSL key file
+	CertFilePath         string      // path for SSL certificate file
+	Region               string      // region name of current server
+	Logger               *log.Logger // global logger
+	ObjectLayer          *storage.YigStorage
 	MaxConcurrentRequest int // used in rate limit
 }
 
@@ -176,7 +176,7 @@ func checkPortAvailability(port int) {
 	}
 }
 
-func isSSL(c *ServerConfig)  bool {
+func isSSL(c *ServerConfig) bool {
 	if helper.FileExists(c.KeyFilePath) && helper.FileExists(c.CertFilePath) {
 		return true
 	}

@@ -21,8 +21,8 @@ import (
 	"strings"
 	"time"
 
-	. "git.letv.cn/yig/yig/minio/datatype"
 	"git.letv.cn/yig/yig/iam"
+	. "git.letv.cn/yig/yig/minio/datatype"
 	"net/http"
 	"sort"
 )
@@ -107,7 +107,7 @@ func headerSigned(header string, headers []string) bool {
 }
 
 func parseSignedHeadersContent(signedHeader string, headers http.Header,
-requireContentType bool)  ([]string, APIErrorCode){
+	requireContentType bool) ([]string, APIErrorCode) {
 	signedHeaders := strings.Split(signedHeader, ";")
 	// It's implied in the calculation process that the headers are sorted
 	if !sort.StringsAreSorted(signedHeaders) {
@@ -142,7 +142,7 @@ requireContentType bool)  ([]string, APIErrorCode){
 // SignedHeaders is a semicolon-separated list of request headers names used to
 // compute signature, must be in lowercase. e.g. host;range;x-amz-date
 func parseSignedHeaders(signedHdrElement string, headers http.Header,
-requireContentType bool) ([]string, APIErrorCode) {
+	requireContentType bool) ([]string, APIErrorCode) {
 	signedHdrFields := strings.Split(strings.TrimSpace(signedHdrElement), "=")
 	if len(signedHdrFields) != 2 {
 		return nil, ErrMissingFields

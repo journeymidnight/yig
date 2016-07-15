@@ -97,6 +97,7 @@ const (
 	ErrMissingRequiredSignedHeader
 	ErrSignedHeadersNotSorted
 	ErrPolicyAlreadyExpired
+	ErrPolicyViolation
 	ErrMalformedDate
 	ErrMalformedExpires
 	ErrAuthHeaderEmpty
@@ -372,18 +373,23 @@ var ErrorCodeResponse = map[APIErrorCode]APIError{
 		HTTPStatusCode: http.StatusBadRequest,
 	},
 	ErrMissingRequiredSignedHeader: {
-		Code: "InvalidArgument",
-		Description: "Missing one or more required signed header",
+		Code:           "InvalidArgument",
+		Description:    "Missing one or more required signed header",
 		HTTPStatusCode: http.StatusBadRequest,
 	},
 	ErrSignedHeadersNotSorted: {
-		Code: "InvalidArgument",
-		Description: "Signed headers are not ordered",
+		Code:           "InvalidArgument",
+		Description:    "Signed headers are not ordered",
 		HTTPStatusCode: http.StatusBadRequest,
 	},
 	ErrPolicyAlreadyExpired: {
 		Code:           "AccessDenied",
 		Description:    "Invalid according to Policy: Policy expired.",
+		HTTPStatusCode: http.StatusBadRequest,
+	},
+	ErrPolicyViolation: {
+		Code:           "AccessDenied",
+		Description:    "File uploading policy violatedd.",
 		HTTPStatusCode: http.StatusBadRequest,
 	},
 	ErrMalformedExpires: {

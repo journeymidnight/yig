@@ -1,8 +1,8 @@
 package storage
 
 import (
-	"io"
 	"git.letv.cn/yig/yig/minio/datatype"
+	"io"
 )
 
 func (yig *YigStorage) ListMultipartUploads(bucket, prefix, keyMarker, uploadIDMarker, delimiter string, maxUploads int) (result datatype.ListMultipartsInfo, err error) {

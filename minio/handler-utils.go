@@ -17,8 +17,8 @@
 package minio
 
 import (
-	"io"
 	. "git.letv.cn/yig/yig/minio/datatype"
+	"io"
 )
 
 // validates location constraint from the request body.

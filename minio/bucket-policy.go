@@ -28,7 +28,7 @@ func readBucketPolicy(bucket string) (policy []byte, err error) {
 	}
 
 	// TODO re-implement
-	return 
+	return
 }
 
 // removeBucketPolicy - remove bucket policy.
@@ -39,7 +39,7 @@ func removeBucketPolicy(bucket string) error {
 	}
 
 	// TODO re-implement
-	return nil 
+	return nil
 }
 
 // writeBucketPolicy - save bucket policy.

@@ -28,8 +28,8 @@ import (
 	"strings"
 	"time"
 
-	mux "github.com/gorilla/mux"
 	. "git.letv.cn/yig/yig/minio/datatype"
+	mux "github.com/gorilla/mux"
 )
 
 // supportedGetReqParams - supported request parameters for GET presigned request.

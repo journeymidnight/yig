@@ -26,8 +26,9 @@ import (
 	"net/url"
 	"strings"
 
-	mux "github.com/gorilla/mux"
 	. "git.letv.cn/yig/yig/minio/datatype"
+	"git.letv.cn/yig/yig/signature"
+	mux "github.com/gorilla/mux"
 )
 
 // http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
@@ -455,17 +456,27 @@ func (api objectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *h
 		writeErrorResponse(w, r, ErrMalformedPOSTRequest, r.URL.Path)
 		return
 	}
-	bucket := mux.Vars(r)["bucket"]
-	formValues["Bucket"] = bucket
-	object := formValues["Key"]
 
-	// Verify policy signature.
-	apiErr := doesPolicySignatureMatch(formValues)
+	bucket := mux.Vars(r)["bucket"]
+
+	postPolicyType := signature.GetPostPolicyType(formValues)
+	var apiErr APIErrorCode
+	switch postPolicyType {
+	case signature.PostPolicyV2:
+		apiErr = signature.DoesPolicySignatureMatch(formValues)
+	case signature.PostPolicyV4:
+		apiErr = doesPolicySignatureMatch(formValues)
+		formValues["Bucket"] = bucket
+	case signature.PostPolicyUnknown:
+		writeErrorResponse(w, r, ErrMalformedPOSTRequest, r.URL.Path)
+		return
+	}
 	if apiErr != ErrNone {
 		writeErrorResponse(w, r, apiErr, r.URL.Path)
 		return
 	}
-	if apiErr = checkPostPolicy(formValues); apiErr != ErrNone {
+
+	if apiErr = checkPostPolicy(formValues, postPolicyType); apiErr != ErrNone {
 		writeErrorResponse(w, r, apiErr, r.URL.Path)
 		return
 	}
@@ -474,6 +485,7 @@ func (api objectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *h
 	metadata := make(map[string]string)
 	// Nothing to store right now.
 
+	object := formValues["Key"]
 	md5Sum, err := api.ObjectAPI.PutObject(bucket, object, -1, fileBody, metadata)
 	if err != nil {
 		errorIf(err, "Unable to create object.")

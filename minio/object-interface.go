@@ -17,8 +17,8 @@
 package minio
 
 import (
-	"io"
 	. "git.letv.cn/yig/yig/minio/datatype"
+	"io"
 )
 
 // ObjectLayer implements primitives for object API layer.

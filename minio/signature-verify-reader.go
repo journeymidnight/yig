@@ -70,7 +70,7 @@ func (v *signVerifyReader) Verify() error {
 		if version == authTypePresignedV2 {
 			s3Error = signature.DoesPresignedSignatureMatch(v.Request)
 		} else { // v4
-			s3Error = doesPresignedSignatureMatch(shaPayloadHex, v.Request, validateRegion)
+			s3Error = doesPresignedSignatureMatch(v.Request, validateRegion)
 		}
 	} else {
 		// Couldn't figure out the request type, set the error as AccessDenied.

@@ -1,8 +1,8 @@
 package storage
 
 import (
-	"io"
 	"git.letv.cn/yig/yig/minio/datatype"
+	"io"
 )
 
 func (yig *YigStorage) GetObject(bucket, object string, startOffset int64, length int64, writer io.Writer) (err error) {

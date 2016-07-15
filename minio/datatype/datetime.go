@@ -3,8 +3,8 @@ package datatype
 import "time"
 
 const (
-	Iso8601Format = "20060102T150405Z"
-	YYYYMMDD = "20060102"
+	Iso8601Format           = "20060102T150405Z"
+	YYYYMMDD                = "20060102"
 	PresignedUrlExpireLimit = 7 * 24 * time.Hour
 )
 
@@ -26,4 +26,3 @@ func ParseAmzDate(amzDateStr string) (amzDate time.Time, apiErr APIErrorCode) {
 	}
 	return time.Time{}, ErrMalformedDate
 }
-
