@@ -205,8 +205,8 @@ func doesPresignedSignatureMatch(r *http.Request, validateRegion bool) APIErrorC
 	// Get string to sign from canonical request.
 	presignedStringToSign := getStringToSign(presignedCanonicalReq, preSignValues.Date, region)
 
-	secretKey, err := iam.GetSecretKey(preSignValues.Credential.accessKey)
-	if err != nil {
+	secretKey, e := iam.GetSecretKey(preSignValues.Credential.accessKey)
+	if e != nil {
 		return ErrInvalidAccessKeyID
 	}
 	// Get hmac presigned signing key.
@@ -263,8 +263,8 @@ func doesSignatureMatch(hashedPayload string, r *http.Request, validateRegion bo
 		}
 	}
 	// Parse date header.
-	t, e := ParseAmzDate(date)
-	if e != ErrNone {
+	t, err := ParseAmzDate(date)
+	if err != ErrNone {
 		return ErrMalformedDate
 	}
 	diff := time.Now().Sub(t)
@@ -282,8 +282,8 @@ func doesSignatureMatch(hashedPayload string, r *http.Request, validateRegion bo
 	// Get string to sign from canonical request.
 	stringToSign := getStringToSign(canonicalRequest, t, region)
 
-	secretKey, err := iam.GetSecretKey(signV4Values.Credential.accessKey)
-	if err != nil {
+	secretKey, e := iam.GetSecretKey(signV4Values.Credential.accessKey)
+	if e != nil {
 		return ErrInvalidAccessKeyID
 	}
 	// Get hmac signing key.
