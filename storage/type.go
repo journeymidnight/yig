@@ -2,8 +2,8 @@ package storage
 
 import (
 	"git.letv.cn/zhangdongmao/radoshttpd/rados"
-	"github.com/labstack/echo/log"
 	"github.com/tsuna/gohbase"
+	"log"
 )
 
 const (

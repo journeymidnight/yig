@@ -35,7 +35,6 @@ import (
 
 	"git.letv.cn/yig/yig/iam"
 	. "git.letv.cn/yig/yig/minio/datatype"
-	"github.com/aws/aws-sdk-go/aws/credentials"
 )
 
 // AWS Signature Version '4' constants.

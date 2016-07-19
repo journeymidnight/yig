@@ -3,8 +3,8 @@ package storage
 import (
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/minio/datatype"
-	"github.com/kataras/iris/errors"
 	"github.com/tsuna/gohbase/hrpc"
+	"errors"
 	"golang.org/x/net/context"
 )
 
@@ -18,12 +18,12 @@ func (yig *YigStorage) MakeBucket(bucket string, credential iam.Credential) erro
 	}
 	put, err := hrpc.NewPutStr(context.Background(), BUCKET_TABLE, bucket, values)
 	if err != nil {
-		yig.Logger("Error making hbase put: ", err)
+		yig.Logger.Println("Error making hbase put: ", err)
 		return errors.New("Make bucket error")
 	}
 	processed, err := yig.Hbase.CheckAndPut(put, BUCKET_COLUMN_FAMILY, "UID", []byte{})
 	if err != nil {
-		yig.Logger("Error checkandput: ", err)
+		yig.Logger.Println("Error checkandput: ", err)
 		return errors.New("Make bucket error")
 	}
 	if !processed {
