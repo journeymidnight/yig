@@ -62,15 +62,15 @@ func (v *signVerifyReader) Verify() error {
 	var s3Error APIErrorCode
 	if isSignature, version := isRequestSignature(v.Request); isSignature {
 		if version == authTypeSignedV2 {
-			s3Error = signature.DoesSignatureMatchV2(v.Request)
+			_, s3Error = signature.DoesSignatureMatchV2(v.Request)
 		} else { // v4
-			s3Error = doesSignatureMatch(shaPayloadHex, v.Request, validateRegion)
+			_, s3Error = doesSignatureMatch(shaPayloadHex, v.Request, validateRegion)
 		}
 	} else if isPresigned, version := isRequestPresigned(v.Request); isPresigned {
 		if version == authTypePresignedV2 {
-			s3Error = signature.DoesPresignedSignatureMatch(v.Request)
+			_, s3Error = signature.DoesPresignedSignatureMatch(v.Request)
 		} else { // v4
-			s3Error = doesPresignedSignatureMatch(v.Request, validateRegion)
+			_, s3Error = doesPresignedSignatureMatch(v.Request, validateRegion)
 		}
 	} else {
 		// Couldn't figure out the request type, set the error as AccessDenied.

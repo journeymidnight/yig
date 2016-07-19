@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"git.letv.cn/yig/yig/helper"
-	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/storage"
 )
 

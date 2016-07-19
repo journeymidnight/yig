@@ -28,7 +28,7 @@ type YigStorage struct {
 	// TODO
 }
 
-func New(logger log.Logger) *YigStorage {
+func New(logger *log.Logger) *YigStorage {
 	// you must have admin keyring
 	Rados, err := rados.NewConn("admin")
 	if err != nil {

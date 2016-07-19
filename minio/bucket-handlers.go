@@ -458,9 +458,9 @@ func (api objectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *h
 	var apiErr APIErrorCode
 	switch postPolicyType {
 	case signature.PostPolicyV2:
-		apiErr = signature.DoesPolicySignatureMatch(formValues)
+		_, apiErr = signature.DoesPolicySignatureMatch(formValues)
 	case signature.PostPolicyV4:
-		apiErr = doesPolicySignatureMatch(formValues)
+		_, apiErr = doesPolicySignatureMatch(formValues)
 		formValues["Bucket"] = bucket
 	case signature.PostPolicyUnknown:
 		writeErrorResponse(w, r, ErrMalformedPOSTRequest, r.URL.Path)
