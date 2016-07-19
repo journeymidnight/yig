@@ -26,6 +26,7 @@ import (
 	"net/url"
 	"strings"
 
+	"git.letv.cn/yig/yig/iam"
 	. "git.letv.cn/yig/yig/minio/datatype"
 	"git.letv.cn/yig/yig/signature"
 	mux "github.com/gorilla/mux"
@@ -89,7 +90,7 @@ func (api objectAPIHandlers) GetBucketLocationHandler(w http.ResponseWriter, r *
 			return
 		}
 	case authTypeSigned, authTypePresigned:
-		if s3Error := isReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := isReqAuthenticated(r); s3Error != ErrNone {
 			writeErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
@@ -138,7 +139,7 @@ func (api objectAPIHandlers) ListMultipartUploadsHandler(w http.ResponseWriter, 
 			return
 		}
 	case authTypePresigned, authTypeSigned:
-		if s3Error := isReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := isReqAuthenticated(r); s3Error != ErrNone {
 			writeErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
@@ -194,7 +195,7 @@ func (api objectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 			return
 		}
 	case authTypeSigned, authTypePresigned:
-		if s3Error := isReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := isReqAuthenticated(r); s3Error != ErrNone {
 			writeErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
@@ -267,7 +268,7 @@ func (api objectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.R
 		writeErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	case authTypeSigned, authTypePresigned:
-		if s3Error := isReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := isReqAuthenticated(r); s3Error != ErrNone {
 			writeErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
@@ -305,7 +306,7 @@ func (api objectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 			return
 		}
 	case authTypePresigned, authTypeSigned:
-		if s3Error := isReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := isReqAuthenticated(r); s3Error != ErrNone {
 			writeErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
@@ -377,17 +378,11 @@ func (api objectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
-	// Set http request for signature.
-	switch getRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		writeErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+	var credential iam.Credential
+	var s3Error APIErrorCode
+	if credential, s3Error = isReqAuthenticated(r); s3Error != ErrNone {
+		writeErrorResponse(w, r, s3Error, r.URL.Path)
 		return
-	case authTypePresigned, authTypeSigned:
-		if s3Error := isReqAuthenticated(r); s3Error != ErrNone {
-			writeErrorResponse(w, r, s3Error, r.URL.Path)
-			return
-		}
 	}
 
 	// the location value in the request body should match the Region in serverConfig.
@@ -399,7 +394,7 @@ func (api objectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 	// Make bucket.
-	err := api.ObjectAPI.MakeBucket(bucket)
+	err := api.ObjectAPI.MakeBucket(bucket, credential)
 	if err != nil {
 		errorIf(err, "Unable to create a bucket.")
 		writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
@@ -527,7 +522,7 @@ func (api objectAPIHandlers) HeadBucketHandler(w http.ResponseWriter, r *http.Re
 			return
 		}
 	case authTypePresigned, authTypeSigned:
-		if s3Error := isReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := isReqAuthenticated(r); s3Error != ErrNone {
 			writeErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
@@ -552,7 +547,7 @@ func (api objectAPIHandlers) DeleteBucketHandler(w http.ResponseWriter, r *http.
 		writeErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	case authTypePresigned, authTypeSigned:
-		if s3Error := isReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := isReqAuthenticated(r); s3Error != ErrNone {
 			writeErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}

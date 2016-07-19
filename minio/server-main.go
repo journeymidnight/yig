@@ -44,11 +44,6 @@ type ServerConfig struct {
 	MaxConcurrentRequest int // used in rate limit
 }
 
-func (config *ServerConfig) GetCredential() (c iam.Credential) {
-	// TODO
-	return
-}
-
 // configureServer configure a new server instance
 func configureServer(c *ServerConfig) *http.Server {
 	apiServer := &http.Server{

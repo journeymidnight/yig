@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"strings"
 
+	"git.letv.cn/yig/yig/iam"
 	. "git.letv.cn/yig/yig/minio/datatype"
 	"git.letv.cn/yig/yig/signature"
 )
@@ -116,18 +117,18 @@ func sumMD5(data []byte) []byte {
 }
 
 // A helper function to verify if request has valid AWS Signature
-func isReqAuthenticated(r *http.Request) (s3Error APIErrorCode) {
+func isReqAuthenticated(r *http.Request) (c iam.Credential, e APIErrorCode) {
 	if r == nil {
-		return ErrInternalError
+		return c, ErrInternalError
 	}
 	payload, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		return ErrInternalError
+		return c, ErrInternalError
 	}
 	// Verify Content-Md5, if payload is set.
 	if r.Header.Get("Content-Md5") != "" {
 		if r.Header.Get("Content-Md5") != base64.StdEncoding.EncodeToString(sumMD5(payload)) {
-			return ErrBadDigest
+			return c, ErrBadDigest
 		}
 	}
 	// Populate back the payload.
@@ -143,7 +144,7 @@ func isReqAuthenticated(r *http.Request) (s3Error APIErrorCode) {
 	case authTypeSignedV2:
 		return signature.DoesSignatureMatchV2(r)
 	}
-	return ErrAccessDenied
+	return c, ErrAccessDenied
 }
 
 // authHandler - handles all the incoming authorization headers and

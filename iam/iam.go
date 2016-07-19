@@ -7,8 +7,9 @@ import (
 
 // credential container for access and secret keys.
 type Credential struct {
-	AccessKeyID     string `json:"accessKey"`
-	SecretAccessKey string `json:"secretKey"`
+	UserId          string
+	AccessKeyID     string
+	SecretAccessKey string
 }
 
 // stringer colorized access keys.
@@ -24,8 +25,12 @@ var IsValidSecretKey = regexp.MustCompile(`^.{8,40}$`)
 // IsValidAccessKey - validate access key.
 var IsValidAccessKey = regexp.MustCompile(`^[a-zA-Z0-9\\-\\.\\_\\~]{5,20}$`)
 
-func GetSecretKey(accessKey string) (secretKey string, err error) {
+func GetCredential(accessKey string) (credential Credential, err error) {
 	// should use a cache with timeout
 	// TODO
-	return "hehehehe", nil // For test now
+	return Credential{
+		UserId:          "hehehehe",
+		AccessKeyID:     accessKey,
+		SecretAccessKey: "hehehehe",
+	}, nil // For test now
 }

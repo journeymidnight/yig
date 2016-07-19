@@ -17,6 +17,7 @@
 package minio
 
 import (
+	"git.letv.cn/yig/yig/iam"
 	. "git.letv.cn/yig/yig/minio/datatype"
 	"io"
 )
@@ -27,7 +28,7 @@ type ObjectLayer interface {
 	StorageInfo() StorageInfo
 
 	// Bucket operations.
-	MakeBucket(bucket string) error
+	MakeBucket(bucket string, credential iam.Credential) error
 	GetBucketInfo(bucket string) (bucketInfo BucketInfo, err error)
 	ListBuckets() (buckets []BucketInfo, err error)
 	DeleteBucket(bucket string) error

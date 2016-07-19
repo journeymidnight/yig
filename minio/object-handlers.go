@@ -95,7 +95,7 @@ func (api objectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			return
 		}
 	case authTypePresigned, authTypeSigned:
-		if s3Error := isReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := isReqAuthenticated(r); s3Error != ErrNone {
 			writeErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
@@ -200,7 +200,7 @@ func (api objectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 			return
 		}
 	case authTypePresigned, authTypeSigned:
-		if s3Error := isReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := isReqAuthenticated(r); s3Error != ErrNone {
 			writeErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
@@ -250,7 +250,7 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 			return
 		}
 	case authTypePresigned, authTypeSigned:
-		if s3Error := isReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := isReqAuthenticated(r); s3Error != ErrNone {
 			writeErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
@@ -457,7 +457,7 @@ func (api objectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 			return
 		}
 	case authTypePresigned, authTypeSigned:
-		if s3Error := isReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := isReqAuthenticated(r); s3Error != ErrNone {
 			writeErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
@@ -583,7 +583,7 @@ func (api objectAPIHandlers) AbortMultipartUploadHandler(w http.ResponseWriter, 
 			return
 		}
 	case authTypePresigned, authTypeSigned:
-		if s3Error := isReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := isReqAuthenticated(r); s3Error != ErrNone {
 			writeErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
@@ -629,7 +629,7 @@ func (api objectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 			return
 		}
 	case authTypePresigned, authTypeSigned:
-		if s3Error := isReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := isReqAuthenticated(r); s3Error != ErrNone {
 			writeErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
@@ -681,7 +681,7 @@ func (api objectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 			return
 		}
 	case authTypePresigned, authTypeSigned:
-		if s3Error := isReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := isReqAuthenticated(r); s3Error != ErrNone {
 			writeErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
@@ -783,7 +783,7 @@ func (api objectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 			return
 		}
 	case authTypeSigned, authTypePresigned:
-		if s3Error := isReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := isReqAuthenticated(r); s3Error != ErrNone {
 			writeErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
