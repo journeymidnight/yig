@@ -27,7 +27,7 @@ func (yig *YigStorage) MakeBucket(bucket string, credential iam.Credential) erro
 		return errors.New("Make bucket error")
 	}
 	if !processed {
-		return errors.New("Bucket already exists")
+		return datatype.BucketExists{Bucket: bucket}
 	}
 	// TODO: update users table
 	return nil

@@ -19,7 +19,7 @@ import (
 const (
 	SignV2Algorithm = "AWS"
 	SignV4Algorithm = "AWS4-HMAC-SHA256"
-	HOST_URL        = "127.0.0.1" /* should be something like
+	HOST_URL        = "10.75.144.116:3000" /* should be something like
 	s3.lecloud.com
 	for production servers
 	*/
@@ -76,7 +76,7 @@ func buildCanonicalizedResource(req *http.Request) string {
 	} else if req.Host != "" && req.Host != HOST_URL {
 		ans += "/" + req.Host
 	}
-	ans += req.URL.RawPath
+	ans += req.URL.EscapedPath()
 	requiredQuery := []string{
 		"acl", "delete", "lifecycle", "location",
 		"logging", "notification", "partNumber",
