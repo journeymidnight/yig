@@ -39,7 +39,7 @@ func (yig *YigStorage) MakeBucket(bucket string, credential iam.Credential) erro
 			yig.Logger.Println("Error get bucket: ", bucket, "with error: ",  err)
 			return datatype.BucketExists{Bucket: bucket}
 		}
-		if b.Cells[0].Value == credential.UserId {
+		if string(b.Cells[0].Value) == credential.UserId {
 			return datatype.BucketExistsAndOwned{Bucket: bucket}
 		} else {
 			return datatype.BucketExists{Bucket: bucket}
