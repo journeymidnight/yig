@@ -503,6 +503,8 @@ func ToAPIErrorCode(err error) (apiErr APIErrorCode) {
 	case BucketNotEmpty:
 		apiErr = ErrBucketNotEmpty
 	case BucketExists:
+		apiErr = ErrBucketAlreadyExists
+	case BucketExistsAndOwned:
 		apiErr = ErrBucketAlreadyOwnedByYou
 	case ObjectNotFound:
 		apiErr = ErrNoSuchKey

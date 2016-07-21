@@ -23,11 +23,27 @@ func (yig *YigStorage) MakeBucket(bucket string, credential iam.Credential) erro
 	}
 	processed, err := yig.Hbase.CheckAndPut(put, BUCKET_COLUMN_FAMILY, "UID", []byte{})
 	if err != nil {
-		yig.Logger.Println("Error checkandput: ", err)
+		yig.Logger.Println("Error making hbase checkandput: ", err)
 		return errors.New("Make bucket error")
 	}
 	if !processed {
-		return datatype.BucketExists{Bucket: bucket}
+		family := map[string][]string{BUCKET_COLUMN_FAMILY: []string{"UID"}}
+		get, err := hrpc.NewGetStr(context.Background(), BUCKET_TABLE, bucket,
+			hrpc.Families(family))
+		if err != nil {
+			yig.Logger.Println("Error making hbase get: ",  err)
+			return errors.New("Make bucket error")
+		}
+		b, err := yig.Hbase.Get(get)
+		if err != nil {
+			yig.Logger.Println("Error get bucket: ", bucket, "with error: ",  err)
+			return datatype.BucketExists{Bucket: bucket}
+		}
+		if b.Cells[0].Value == credential.UserId {
+			return datatype.BucketExistsAndOwned{Bucket: bucket}
+		} else {
+			return datatype.BucketExists{Bucket: bucket}
+		}
 	}
 	// TODO: update users table
 	return nil

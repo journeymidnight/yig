@@ -123,11 +123,18 @@ func (e ObjectExistsAsDirectory) Error() string {
 	return "Object exists on : " + e.Bucket + " as directory " + e.Object
 }
 
-// BucketExists bucket exists.
+// BucketExists bucket exists and owned by some other people
 type BucketExists GenericError
 
 func (e BucketExists) Error() string {
 	return "Bucket exists: " + e.Bucket
+}
+
+// BucketExistsAndOwned: bucket exists and owned by the requester
+type BucketExistsAndOwned GenericError
+
+func (e BucketExistsAndOwned) Error() string {
+	return "Bucket exists: " + e.Bucket + " and owned by you"
 }
 
 // BadDigest - Content-MD5 you specified did not match what we received.
