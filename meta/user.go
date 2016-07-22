@@ -51,11 +51,6 @@ func (m *Meta) AddBucketForUser(bucket string, userId string) error {
 			continue
 		}
 		// TODO check user bucket number limit
-		currentUserData := map[string]map[string][]byte {
-			USER_COLUMN_FAMILY: map[string][]byte{
-				"buckets": currentUser.Cells[0].Value,
-			},
-		}
 
 		newBuckets := append(currentBuckets, bucket)
 		newBucketsMarshaled, err := json.Marshal(newBuckets)
@@ -74,7 +69,7 @@ func (m *Meta) AddBucketForUser(bucket string, userId string) error {
 			continue
 		}
 		processed, err := m.Hbase.CheckAndPut(newUserPut, USER_COLUMN_FAMILY,
-			"buckets", currentUserData)
+			"buckets", currentUser.Cells[0].Value)
 		if err != nil {
 			m.Logger.Println("Error CheckAndPut: ", err)
 			continue
