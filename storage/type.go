@@ -2,28 +2,20 @@ package storage
 
 import (
 	"git.letv.cn/zhangdongmao/radoshttpd/rados"
-	"github.com/tsuna/gohbase"
 	"log"
+	"git.letv.cn/yig/yig/meta"
 )
 
 const (
 	CEPH_CONFIG_PATH  = "./conf/ceph.conf"
 	MONTIMEOUT        = "10"
 	OSDTIMEOUT        = "10"
-	ZOOKEEPER_ADDRESS = "10.116.77.35:2181,10.116.77.36:2181,10.116.77.37:2181"
-
-	BUCKET_TABLE         = "buckets"
-	BUCKET_COLUMN_FAMILY = "b"
-	USER_TABLE           = "users"
-	USER_COLUMN_FAMILY   = "u"
-	OBJECT_TABLE         = "objects"
-	OBJECT_COLUMN_FAMILY = "o"
 )
 
 // *YigStorage implements minio.ObjectLayer
 type YigStorage struct {
-	Rados  *rados.Conn
-	Hbase  gohbase.Client
+	DataStorage *rados.Conn
+	MetaStorage *meta.Meta
 	Logger *log.Logger
 	// TODO
 }
@@ -49,12 +41,12 @@ func New(logger *log.Logger) *YigStorage {
 	}
 	defer Rados.Shutdown()
 
-	hbase := gohbase.NewClient(ZOOKEEPER_ADDRESS)
+	metaStorage := meta.New(logger)
 
-	yig := &YigStorage{
-		Rados:  Rados,
-		Hbase:  hbase,
+	yig := YigStorage{
+		DataStorage:  Rados,
+		MetaStorage:  metaStorage,
 		Logger: logger,
 	}
-	return yig
+	return &yig
 }
