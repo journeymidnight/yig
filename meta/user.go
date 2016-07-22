@@ -2,9 +2,9 @@ package meta
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
-	"errors"
 )
 
 func (m *Meta) ensureUserExists(userId string) error {
@@ -58,7 +58,7 @@ func (m *Meta) AddBucketForUser(bucket string, userId string) error {
 			m.Logger.Println("Error marshalling json: ", err)
 			continue
 		}
-		newUser := map[string]map[string][]byte {
+		newUser := map[string]map[string][]byte{
 			USER_COLUMN_FAMILY: map[string][]byte{
 				"buckets": newBucketsMarshaled,
 			},

@@ -1,22 +1,22 @@
 package storage
 
 import (
+	"git.letv.cn/yig/yig/meta"
 	"git.letv.cn/zhangdongmao/radoshttpd/rados"
 	"log"
-	"git.letv.cn/yig/yig/meta"
 )
 
 const (
-	CEPH_CONFIG_PATH  = "./conf/ceph.conf"
-	MONTIMEOUT        = "10"
-	OSDTIMEOUT        = "10"
+	CEPH_CONFIG_PATH = "./conf/ceph.conf"
+	MONTIMEOUT       = "10"
+	OSDTIMEOUT       = "10"
 )
 
 // *YigStorage implements minio.ObjectLayer
 type YigStorage struct {
 	DataStorage *rados.Conn
 	MetaStorage *meta.Meta
-	Logger *log.Logger
+	Logger      *log.Logger
 	// TODO
 }
 
@@ -44,9 +44,9 @@ func New(logger *log.Logger) *YigStorage {
 	metaStorage := meta.New(logger)
 
 	yig := YigStorage{
-		DataStorage:  Rados,
-		MetaStorage:  metaStorage,
-		Logger: logger,
+		DataStorage: Rados,
+		MetaStorage: metaStorage,
+		Logger:      logger,
 	}
 	return &yig
 }

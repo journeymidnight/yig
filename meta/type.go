@@ -7,7 +7,7 @@ import (
 
 const (
 	ZOOKEEPER_ADDRESS = "10.116.77.35:2181,10.116.77.36:2181,10.116.77.37:2181"
-	RETRY_LIMIT = 3
+	RETRY_LIMIT       = 3
 
 	BUCKET_TABLE         = "buckets"
 	BUCKET_COLUMN_FAMILY = "b"
@@ -18,7 +18,7 @@ const (
 )
 
 type Meta struct {
-	Hbase gohbase.Client
+	Hbase  gohbase.Client
 	Logger *log.Logger
 	// TODO Redis and more
 }
@@ -26,7 +26,7 @@ type Meta struct {
 func New(logger *log.Logger) *Meta {
 	hbase := gohbase.NewClient(ZOOKEEPER_ADDRESS)
 	meta := Meta{
-		Hbase: hbase,
+		Hbase:  hbase,
 		Logger: logger,
 	}
 	return &meta
