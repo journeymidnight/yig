@@ -14,13 +14,13 @@ const (
 )
 
 func (yig *YigStorage) MakeBucket(bucket string, credential iam.Credential) error {
-	now := time.Now().Format(CREATE_TIME_LAYOUT)
+	now := time.Now().UTC().Format(CREATE_TIME_LAYOUT)
 	values := map[string]map[string][]byte{
 		meta.BUCKET_COLUMN_FAMILY: map[string][]byte{
 			"CORS":       []byte{}, // TODO
 			"UID":        []byte(credential.UserId),
 			"ACL":        []byte{}, // TODO
-			"createTime": []byte{now},
+			"createTime": []byte(now),
 		},
 	}
 	put, err := hrpc.NewPutStr(context.Background(), meta.BUCKET_TABLE, bucket, values)
