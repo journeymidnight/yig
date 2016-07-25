@@ -2,7 +2,7 @@ package storage
 
 import (
 	"git.letv.cn/yig/yig/meta"
-	"git.letv.cn/zhangdongmao/radoshttpd/rados"
+	"git.letv.cn/ceph/radoshttpd/rados"
 	"log"
 )
 

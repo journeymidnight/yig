@@ -5,7 +5,7 @@ package main
 import (
 	"git.letv.cn/yig/yig/minio"
 	"git.letv.cn/yig/yig/storage"
-	"git.letv.cn/zhangdongmao/radoshttpd/rados"
+	"git.letv.cn/ceph/radoshttpd/rados"
 	"log"
 	"os"
 )

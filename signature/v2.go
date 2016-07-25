@@ -12,7 +12,7 @@ import (
 
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/minio/datatype"
-	"github.com/kataras/iris/errors"
+	"errors"
 	"strconv"
 )
 
