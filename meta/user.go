@@ -47,7 +47,7 @@ func (m *Meta) GetUserBuckets(userId string) (buckets []string, err error) {
 }
 
 func (m *Meta) GetBucketInfo(bucketName string) (bucket Bucket, err error) {
-	getRequest, err := hrpc.NewGetStr(context.Background(), BUCKET_TABLE, bucket)
+	getRequest, err := hrpc.NewGetStr(context.Background(), BUCKET_TABLE, bucketName)
 	if err != nil {
 		return
 	}
@@ -56,7 +56,7 @@ func (m *Meta) GetBucketInfo(bucketName string) (bucket Bucket, err error) {
 		return
 	}
 	if len(response.Cells) == 0 {
-		err = datatype.BucketNotFound{Bucket: bucket}
+		err = datatype.BucketNotFound{Bucket: bucketName}
 		return
 	}
 	for _, cell := range response.Cells {

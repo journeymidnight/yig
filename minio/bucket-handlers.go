@@ -264,19 +264,14 @@ func (api objectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 // owned by the authenticated sender of the request.
 func (api objectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.Request) {
 	// List buckets does not support bucket policies.
-	switch getRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		writeErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+	var credential iam.Credential
+	var s3Error APIErrorCode
+	if credential, s3Error = isReqAuthenticated(r); s3Error != ErrNone {
+		writeErrorResponse(w, r, s3Error, r.URL.Path)
 		return
-	case authTypeSigned, authTypePresigned:
-		if _, s3Error := isReqAuthenticated(r); s3Error != ErrNone {
-			writeErrorResponse(w, r, s3Error, r.URL.Path)
-			return
-		}
 	}
 
-	bucketsInfo, err := api.ObjectAPI.ListBuckets()
+	bucketsInfo, err := api.ObjectAPI.ListBuckets(credential)
 	if err == nil {
 		// generate response
 		response := generateListBucketsResponse(bucketsInfo)

@@ -97,7 +97,7 @@ err error) {
 	for _, bucketName := range bucketNames {
 		bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
 		if err != nil {
-			return
+			return buckets, err
 		}
 		buckets = append(buckets, datatype.BucketInfo{
 			Name:bucket.Name,
