@@ -31,3 +31,13 @@ func New(logger *log.Logger) *Meta {
 	}
 	return &meta
 }
+
+type Bucket struct {
+	Name string
+	// Date and time when the bucket was created,
+	// in format "2006-01-02T15:04:05.000Z"
+	CreateTime string
+	OwnerId string
+	CORS string
+	ACL string
+}

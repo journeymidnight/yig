@@ -72,38 +72,38 @@ func (yig *YigStorage) MakeBucket(bucket string, credential iam.Credential) erro
 	return err
 }
 
-func (yig *YigStorage) GetBucketInfo(bucket string,
+func (yig *YigStorage) GetBucketInfo(bucketName string,
 credential iam.Credential) (bucketInfo datatype.BucketInfo, err error) {
-	getRequest, err := hrpc.NewGetStr(context.Background(), meta.BUCKET_TABLE, bucket)
+	bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
 	if err != nil {
 		return
 	}
-	response, err := yig.MetaStorage.Hbase.Get(getRequest)
-	if err != nil {
+	if bucket.OwnerId != credential.UserId {
+		err = datatype.BucketAccessForbidden{Bucket: bucketName}
 		return
+		// TODO validate bucket policy
 	}
-	if len(response.Cells) == 0 {
-		err = datatype.BucketNotFound{Bucket: bucket}
-		return
-	}
-	for _, cell := range response.Cells {
-		switch string(cell.Qualifier) {
-		case "createTime":
-			bucketInfo.Created = string(cell.Value)
-		case "UID":
-			if string(cell.Value) != credential.UserId {
-				err = datatype.BucketAccessForbidden{Bucket: bucket}
-				return
-				// TODO validate bucket policy
-			}
-		default:
-		}
-	}
-	bucketInfo.Name = bucket
+	bucketInfo.Name = bucket.Name
+	bucketInfo.Created = bucket.CreateTime
 	return
 }
 
-func (yig *YigStorage) ListBuckets() (buckets []datatype.BucketInfo, err error) {
+func (yig *YigStorage) ListBuckets(credential iam.Credential) (buckets []datatype.BucketInfo,
+err error) {
+	bucketNames, err := yig.MetaStorage.GetUserBuckets(credential.UserId)
+	if err != nil {
+		return
+	}
+	for _, bucketName := range bucketNames {
+		bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
+		if err != nil {
+			return
+		}
+		buckets = append(buckets, datatype.BucketInfo{
+			Name:bucket.Name,
+			Created:bucket.CreateTime,
+		})
+	}
 	return
 }
 

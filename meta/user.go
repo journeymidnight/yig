@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
+	"git.letv.cn/yig/yig/minio/datatype"
 )
 
 func (m *Meta) ensureUserExists(userId string) error {
@@ -23,6 +24,56 @@ func (m *Meta) ensureUserExists(userId string) error {
 	}
 	_, err = m.Hbase.CheckAndPut(put, USER_COLUMN_FAMILY, "buckets", []byte{})
 	return err
+}
+
+func (m *Meta) GetUserBuckets(userId string) (buckets []string, err error) {
+	family := hrpc.Families(map[string][]string{USER_COLUMN_FAMILY: []string{"buckets"}})
+	getRequest, err := hrpc.NewGetStr(context.Background(), USER_TABLE, userId, family)
+	if err != nil {
+		return
+	}
+	userBuckets, err := m.Hbase.Get(getRequest)
+	if err != nil {
+		m.Logger.Println("Error getting user info, with error ", err)
+		return
+	}
+	err = json.Unmarshal(userBuckets.Cells[0].Value, &buckets)
+	if err != nil {
+		m.Logger.Println("Error unmarshalling user buckets for ", userId,
+			"with error ", err)
+		return
+	}
+	return buckets, nil
+}
+
+func (m *Meta) GetBucketInfo(bucketName string) (bucket Bucket, err error) {
+	getRequest, err := hrpc.NewGetStr(context.Background(), BUCKET_TABLE, bucket)
+	if err != nil {
+		return
+	}
+	response, err := m.Hbase.Get(getRequest)
+	if err != nil {
+		return
+	}
+	if len(response.Cells) == 0 {
+		err = datatype.BucketNotFound{Bucket: bucket}
+		return
+	}
+	for _, cell := range response.Cells {
+		switch string(cell.Qualifier) {
+		case "createTime":
+			bucket.CreateTime = string(cell.Value)
+		case "UID":
+			bucket.OwnerId = string(cell.Value)
+		case "CORS":
+			bucket.CORS = string(cell.Value)
+		case "ACL":
+			bucket.ACL = string(cell.Value)
+		default:
+		}
+	}
+	bucket.Name = bucketName
+	return
 }
 
 func (m *Meta) AddBucketForUser(bucket string, userId string) error {

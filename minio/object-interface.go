@@ -30,7 +30,7 @@ type ObjectLayer interface {
 	// Bucket operations.
 	MakeBucket(bucket string, credential iam.Credential) error
 	GetBucketInfo(bucket string, credential iam.Credential) (bucketInfo BucketInfo, err error)
-	ListBuckets() (buckets []BucketInfo, err error)
+	ListBuckets(credential iam.Credential) (buckets []BucketInfo, err error)
 	DeleteBucket(bucket string) error
 	ListObjects(bucket, prefix, marker, delimiter string, maxKeys int) (result ListObjectsInfo, err error)
 
