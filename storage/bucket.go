@@ -81,11 +81,18 @@ func (yig *YigStorage) GetBucketInfo(bucket string) (bucketInfo datatype.BucketI
 	if err != nil {
 		return
 	}
-	if !*response.Exists || *response.Stale {
+	if len(response.Cells) == 0 {
 		err = datatype.BucketNotEmpty{Bucket: bucket}
 		return
 	}
-	yig.Logger.Println(string(response.Cells[0].Value))
+	for _, cell := range response.Cells {
+		switch string(cell.Qualifier) {
+		case "createTime": // TODO: more bucketInfo
+			bucketInfo.Created = string(cell.Value)
+		default:
+		}
+	}
+	bucketInfo.Name = bucket
 	return
 }
 

@@ -283,7 +283,7 @@ func generateListBucketsResponse(buckets []BucketInfo) ListBucketsResponse {
 	for _, bucket := range buckets {
 		var listbucket = Bucket{}
 		listbucket.Name = bucket.Name
-		listbucket.CreationDate = bucket.Created.Format(timeFormatAMZ)
+		listbucket.CreationDate = bucket.Created
 		listbuckets = append(listbuckets, listbucket)
 	}
 

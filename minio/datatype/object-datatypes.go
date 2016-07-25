@@ -31,8 +31,9 @@ type BucketInfo struct {
 	// Name of the bucket.
 	Name string
 
-	// Date and time when the bucket was created.
-	Created time.Time
+	// Date and time when the bucket was created,
+	// in format "2006-01-02T15:04:05.000Z"
+	Created string
 }
 
 // ObjectInfo - represents object metadata.
