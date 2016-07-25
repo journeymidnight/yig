@@ -81,11 +81,11 @@ func (yig *YigStorage) GetBucketInfo(bucket string) (bucketInfo datatype.BucketI
 	if err != nil {
 		return
 	}
-	if !response.Exists || response.Stale {
+	if !*response.Exists || *response.Stale {
 		err = datatype.BucketNotEmpty{Bucket: bucket}
 		return
 	}
-	yig.Logger.Println(string(response.Cells[0]))
+	yig.Logger.Println(string(response.Cells[0].Value))
 	return
 }
 

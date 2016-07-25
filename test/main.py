@@ -38,7 +38,18 @@ def create_bucket():
             print 'create_bucket() done for ', name
 
 
-TESTS = [create_bucket, ]
+def head_bucket():
+    for name, c in clients.iteritems():
+        try:
+            c.head_bucket(Bucket=name+'hehe')
+        except Exception as e:
+            print 'head_bucket() failed for ', name
+            print 'Exception: ', e
+        else:
+            print 'head_bucket() done for ', name
+
+
+TESTS = [create_bucket, head_bucket]
 if __name__ == '__main__':
     for t in TESTS:
         t()
