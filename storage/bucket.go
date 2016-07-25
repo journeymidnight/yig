@@ -73,6 +73,19 @@ func (yig *YigStorage) MakeBucket(bucket string, credential iam.Credential) erro
 }
 
 func (yig *YigStorage) GetBucketInfo(bucket string) (bucketInfo datatype.BucketInfo, err error) {
+	getRequest, err := hrpc.NewGetStr(context.Background(), meta.BUCKET_TABLE, bucket)
+	if err != nil {
+		return
+	}
+	response, err := yig.MetaStorage.Hbase.Get(getRequest)
+	if err != nil {
+		return
+	}
+	if !response.Exists || response.Stale {
+		err = datatype.BucketNotEmpty{Bucket: bucket}
+		return
+	}
+	yig.Logger.Println(string(response.Cells[0]))
 	return
 }
 
