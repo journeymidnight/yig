@@ -72,7 +72,8 @@ func (yig *YigStorage) MakeBucket(bucket string, credential iam.Credential) erro
 	return err
 }
 
-func (yig *YigStorage) GetBucketInfo(bucket string) (bucketInfo datatype.BucketInfo, err error) {
+func (yig *YigStorage) GetBucketInfo(bucket string,
+credential iam.Credential) (bucketInfo datatype.BucketInfo, err error) {
 	getRequest, err := hrpc.NewGetStr(context.Background(), meta.BUCKET_TABLE, bucket)
 	if err != nil {
 		return
@@ -82,13 +83,19 @@ func (yig *YigStorage) GetBucketInfo(bucket string) (bucketInfo datatype.BucketI
 		return
 	}
 	if len(response.Cells) == 0 {
-		err = datatype.BucketNotEmpty{Bucket: bucket}
+		err = datatype.BucketNotFound{Bucket: bucket}
 		return
 	}
 	for _, cell := range response.Cells {
 		switch string(cell.Qualifier) {
-		case "createTime": // TODO: more bucketInfo
+		case "createTime":
 			bucketInfo.Created = string(cell.Value)
+		case "UID":
+			if string(cell.Value) != credential.UserId {
+				err = datatype.BucketAccessForbidden{Bucket: bucket}
+				return
+				// TODO validate bucket policy
+			}
 		default:
 		}
 	}

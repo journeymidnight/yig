@@ -84,7 +84,7 @@ const (
 	ErrMalformedPOSTRequest
 	ErrSignatureVersionNotSupported
 	ErrBucketNotEmpty
-	ErrAllAccessDisabled
+	ErrBucketAccessForbidden
 	ErrMalformedPolicy
 	ErrMissingFields
 	ErrMissingCredTag
@@ -317,9 +317,9 @@ var ErrorCodeResponse = map[APIErrorCode]APIError{
 		Description:    "The bucket you tried to delete is not empty.",
 		HTTPStatusCode: http.StatusConflict,
 	},
-	ErrAllAccessDisabled: {
-		Code:           "AllAccessDisabled",
-		Description:    "All access to this bucket has been disabled.",
+	ErrBucketAccessForbidden: {
+		Code:           "BucketAccessForbidden",
+		Description:    "You have no access to this bucket.",
 		HTTPStatusCode: http.StatusForbidden,
 	},
 	ErrMalformedPolicy: {
@@ -506,6 +506,8 @@ func ToAPIErrorCode(err error) (apiErr APIErrorCode) {
 		apiErr = ErrBucketAlreadyExists
 	case BucketExistsAndOwned:
 		apiErr = ErrBucketAlreadyOwnedByYou
+	case BucketAccessForbidden:
+		apiErr = ErrBucketAccessForbidden
 	case ObjectNotFound:
 		apiErr = ErrNoSuchKey
 	case ObjectNameInvalid:

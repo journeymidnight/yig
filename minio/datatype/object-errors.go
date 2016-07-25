@@ -137,6 +137,12 @@ func (e BucketExistsAndOwned) Error() string {
 	return "Bucket exists: " + e.Bucket + " and owned by you"
 }
 
+type BucketAccessForbidden GenericError
+
+func (e BucketAccessForbidden) Error() string {
+	return "You have no access to bucket " + e.Bucket
+}
+
 // BadDigest - Content-MD5 you specified did not match what we received.
 type BadDigest struct {
 	ExpectedMD5   string

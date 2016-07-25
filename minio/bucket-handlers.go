@@ -78,6 +78,8 @@ func (api objectAPIHandlers) GetBucketLocationHandler(w http.ResponseWriter, r *
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
+	var credential iam.Credential
+	var s3Error APIErrorCode
 	switch getRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
@@ -89,14 +91,14 @@ func (api objectAPIHandlers) GetBucketLocationHandler(w http.ResponseWriter, r *
 			writeErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
-	case authTypeSigned, authTypePresigned:
-		if _, s3Error := isReqAuthenticated(r); s3Error != ErrNone {
+	case authTypeSigned, authTypePresigned, authTypePresignedV2, authTypeSignedV2:
+		if credential, s3Error = isReqAuthenticated(r); s3Error != ErrNone {
 			writeErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
 	}
 
-	if _, err := api.ObjectAPI.GetBucketInfo(bucket); err != nil {
+	if _, err := api.ObjectAPI.GetBucketInfo(bucket, credential); err != nil {
 		errorIf(err, "Unable to fetch bucket info.")
 		writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 		return
@@ -510,6 +512,8 @@ func (api objectAPIHandlers) HeadBucketHandler(w http.ResponseWriter, r *http.Re
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
+	var credential iam.Credential
+	var s3Error APIErrorCode
 	switch getRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
@@ -517,18 +521,18 @@ func (api objectAPIHandlers) HeadBucketHandler(w http.ResponseWriter, r *http.Re
 		return
 	case authTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
-		if s3Error := enforceBucketPolicy("s3:ListBucket", bucket, r.URL); s3Error != ErrNone {
+		if s3Error = enforceBucketPolicy("s3:ListBucket", bucket, r.URL); s3Error != ErrNone {
 			writeErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
-	case authTypePresigned, authTypeSigned:
-		if _, s3Error := isReqAuthenticated(r); s3Error != ErrNone {
+	case authTypePresigned, authTypeSigned, authTypePresignedV2, authTypeSignedV2:
+		if credential, s3Error = isReqAuthenticated(r); s3Error != ErrNone {
 			writeErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
 	}
 
-	if _, err := api.ObjectAPI.GetBucketInfo(bucket); err != nil {
+	if _, err := api.ObjectAPI.GetBucketInfo(bucket, credential); err != nil {
 		errorIf(err, "Unable to fetch bucket info.")
 		writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 		return
