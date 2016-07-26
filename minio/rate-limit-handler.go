@@ -18,7 +18,6 @@ package minio
 
 import (
 	"net/http"
-	"sync"
 )
 
 // rateLimit - represents datatype of the functionality implemented to
@@ -26,7 +25,6 @@ import (
 type rateLimit struct {
 	handler     http.Handler
 	rqueue      chan struct{}
-	releaseOnce sync.Once
 }
 
 // acquire and release implement a way to send and receive from the
@@ -45,8 +43,8 @@ func (c *rateLimit) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Serves the request.
 	c.handler.ServeHTTP(w, r)
 
-	// Release by draining the channel once.
-	c.releaseOnce.Do(c.release)
+	// Release by draining the channel
+	c.release()
 }
 
 // setRateLimitHandler limits the number of concurrent http requests based on

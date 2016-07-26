@@ -60,7 +60,17 @@ def head_bucket_nonexist():
             print 'head_bucket_nonexist() failed for ', name
 
 
-TESTS = [create_bucket, head_bucket, head_bucket_nonexist]
+def list_buckets():
+    for name, c in clients.iteritems():
+        try:
+            ans = c.list_buckets()
+        except Exception as e:
+            print 'list_buckets() failed for', name
+            print 'Exception: ', e
+        else:
+            print 'list_buckets() done: ', ans
+
+TESTS = [create_bucket, head_bucket, head_bucket_nonexist, list_buckets]
 if __name__ == '__main__':
     for t in TESTS:
         t()

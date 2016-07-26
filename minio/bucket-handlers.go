@@ -274,7 +274,7 @@ func (api objectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.R
 	bucketsInfo, err := api.ObjectAPI.ListBuckets(credential)
 	if err == nil {
 		// generate response
-		response := generateListBucketsResponse(bucketsInfo)
+		response := generateListBucketsResponse(bucketsInfo, credential)
 		encodedSuccessResponse := encodeResponse(response)
 		// write headers
 		setCommonHeaders(w)

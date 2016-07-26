@@ -8,6 +8,7 @@ import (
 // credential container for access and secret keys.
 type Credential struct {
 	UserId          string
+	DisplayName     string
 	AccessKeyID     string
 	SecretAccessKey string
 }
@@ -30,6 +31,7 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 	// TODO
 	return Credential{
 		UserId:          "hehehehe",
+		DisplayName:     "hehehehe",
 		AccessKeyID:     accessKey,
 		SecretAccessKey: "hehehehe",
 	}, nil // For test now

@@ -23,6 +23,7 @@ import (
 	"time"
 
 	. "git.letv.cn/yig/yig/minio/datatype"
+	"git.letv.cn/yig/yig/iam"
 )
 
 const (
@@ -272,13 +273,13 @@ func getObjectLocation(bucketName string, key string) string {
 //
 // output:
 // populated struct that can be serialized to match xml and json api spec output
-func generateListBucketsResponse(buckets []BucketInfo) ListBucketsResponse {
+func generateListBucketsResponse(buckets []BucketInfo, credential iam.Credential) ListBucketsResponse {
 	var listbuckets []Bucket
 	var data = ListBucketsResponse{}
 	var owner = Owner{}
 
-	owner.ID = "minio"
-	owner.DisplayName = "minio"
+	owner.ID = credential.UserId
+	owner.DisplayName = credential.DisplayName
 
 	for _, bucket := range buckets {
 		var listbucket = Bucket{}
