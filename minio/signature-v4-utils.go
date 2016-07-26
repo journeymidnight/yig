@@ -105,7 +105,7 @@ func getURLEncodedName(name string) string {
 // Lowercase(<HeaderNameN>)+":"+Trim(<value>)+"\n"
 
 // Return ErrMissingRequiredSignedHeader if a header is missing in http header but exists in signedHeaders
-func getCanonicalHeaders(signedHeaders []string, req *http.Request) (string, datatype.APIError) {
+func getCanonicalHeaders(signedHeaders []string, req *http.Request) (string, datatype.APIErrorCode) {
 	canonicalHeaders := ""
 	for _, header := range signedHeaders {
 		values, ok := req.Header[http.CanonicalHeaderKey(header)]
@@ -138,6 +138,7 @@ func getCanonicalHeaders(signedHeaders []string, req *http.Request) (string, dat
 		if !ok {
 			return "", datatype.ErrMissingRequiredSignedHeader
 		}
+		canonicalHeaders += header + ":"
 		for idx, v := range values {
 			if idx > 0 {
 				canonicalHeaders += ","
