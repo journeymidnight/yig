@@ -135,21 +135,20 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 	if err != nil { // roll back bucket table, i.e. re-add removed bucket entry
 		values := map[string]map[string][]byte{
 			meta.BUCKET_COLUMN_FAMILY: map[string][]byte{
-				"CORS":       []byte{bucket.CORS},
+				"CORS":       []byte(bucket.CORS),
 				"UID":        []byte(bucket.OwnerId),
-				"ACL":        []byte{bucket.ACL},
+				"ACL":        []byte(bucket.ACL),
 				"createTime": []byte(bucket.CreateTime),
 			},
 		}
-		put, err := hrpc.NewPutStr(context.Background(), meta.BUCKET_TABLE, bucket, values)
+		put, err := hrpc.NewPutStr(context.Background(), meta.BUCKET_TABLE, bucketName, values)
 		if err != nil {
 			yig.Logger.Println("Error making hbase put: ", err)
 			yig.Logger.Println("Inconsistent data: bucket ", bucketName,
 				"should be removed for user ", credential.UserId)
 			return err
 		}
-		_, err = yig.MetaStorage.Hbase.Put(put, meta.BUCKET_COLUMN_FAMILY,
-			"UID", []byte{})
+		_, err = yig.MetaStorage.Hbase.Put(put)
 		if err != nil {
 			yig.Logger.Println("Error making hbase put: ", err)
 			yig.Logger.Println("Inconsistent data: bucket ", bucketName,
