@@ -27,75 +27,66 @@ for addressStyle in ['path']: #['path', 'virtual']:
         clients[addressStyle+'-'+signatureVersion] = client
 
 
-def create_bucket():
-    for name, c in clients.iteritems():
-        try:
-            c.create_bucket(Bucket=name+'hehe')
-        except Exception as e:
-            print 'create_bucket() failed for ', name
-            print "Exception: ", e
-        else:
-            print 'create_bucket() done for ', name
+def create_bucket(name, client):
+        client.create_bucket(Bucket=name+'hehe')
 
 
-def head_bucket():
-    for name, c in clients.iteritems():
-        try:
-            c.head_bucket(Bucket=name+'hehe')
-        except Exception as e:
-            print 'head_bucket() failed for ', name
-            print 'Exception: ', e
-        else:
-            print 'head_bucket() done for ', name
+def head_bucket(name, client):
+        client.head_bucket(Bucket=name+'hehe')
 
 
-def head_bucket_nonexist():
-    for name, c in clients.iteritems():
-        try:
-            c.head_bucket(Bucket=name+'haha')
-        except Exception as e:
-            print 'head_bucket_nonexist() done for ', name
-            print 'Exception: ', e
-        else:
-            print 'head_bucket_nonexist() failed for ', name
+def head_bucket_nonexist(name, client):
+        client.head_bucket(Bucket=name+'haha')
 
 
-def list_buckets():
-    for name, c in clients.iteritems():
-        try:
-            ans = c.list_buckets()
-        except Exception as e:
-            print 'list_buckets() failed for', name
-            print 'Exception: ', e
-        else:
-            print 'list_buckets() done: ', ans
+def list_buckets(name, client):
+        ans = client.list_buckets()
+        print 'List buckets: ', ans
 
 
-def delete_bucket():
-    for name, c in clients.iteritems():
-        try:
-            c.delete_bucket(Bucket=name+'hehe')
-        except Exception as e:
-            print 'delete_bucket() failed for ', name
-            print 'Exception: ', e
-        else:
-            print 'delete_bucket() done for ', name
+def delete_bucket(name, client):
+        client.delete_bucket(Bucket=name+'hehe')
 
 
-def delete_bucket_nonexist():
-    for name, c in clients.iteritems():
-        try:
-            c.delete_bucket(Bucket=name+'haha')
-        except Exception as e:
-            print 'delete_bucket_nonexist() done for ', name
-            print 'Exception: ', e
-        else:
-            print 'delete_bucket_nonexist() failed for ', name
+def delete_bucket_nonexist(name, client):
+        client.delete_bucket(Bucket=name+'haha')
+
+
+def is_a_fail_test(testFunction):
+    fail_name_patterns = ['nonexist']
+    for pattern in fail_name_patterns:
+        if pattern in testFunction.__name__:
+            return True
+    return False
 
 TESTS = [create_bucket,
          head_bucket, head_bucket_nonexist,
          list_buckets,
          delete_bucket, delete_bucket_nonexist]
+
 if __name__ == '__main__':
+    good_count = 0
+    fail_count = 0
+    failed_tests = []
     for t in TESTS:
-        t()
+        for name, client in clients.iteritems():
+            print '-' * 60
+            e = None
+            try:
+                t(name, client)
+            except Exception as e:
+                print 'Exception: ', e
+            if (e is None and not is_a_fail_test(t)) or (e and is_a_fail_test(t)):
+                print t.__name__ + '()', 'done for ', name
+                good_count += 1
+            else:
+                print t.__name__ + '()', 'failed for ', name
+                fail_count += 1
+                failed_tests.append(t.__name__)
+
+    print '=' * 60
+    print fail_count, 'out of', good_count + fail_count, 'tests failed'
+    if fail_count != 0:
+        print 'Failed test(s): '
+        print failed_tests
+
