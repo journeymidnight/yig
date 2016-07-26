@@ -25,7 +25,6 @@
 package minio
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"net/http"
@@ -41,23 +40,6 @@ import (
 const (
 	signV4Algorithm = "AWS4-HMAC-SHA256"
 )
-
-// getCanonicalHeaders generate a list of request headers with their values
-func getCanonicalHeaders(signedHeaders http.Header) string {
-	var buf bytes.Buffer
-	for k, values := range signedHeaders {
-		buf.WriteString(k)
-		buf.WriteByte(':')
-		for idx, v := range values {
-			if idx > 0 {
-				buf.WriteByte(',')
-			}
-			buf.WriteString(v)
-		}
-		buf.WriteByte('\n')
-	}
-	return buf.String()
-}
 
 // getSignedHeaders generate a string i.e alphabetically sorted, semicolon-separated list of lowercase request header names
 func getSignedHeaders(signedHeaders http.Header) string {
@@ -80,7 +62,7 @@ func getSignedHeaders(signedHeaders http.Header) string {
 //  <SignedHeaders>\n
 //  <HashedPayload>
 //
-func getCanonicalRequest(extractedSignedHeaders http.Header, payload, queryStr,
+func getCanonicalRequest(canonicalHeaderString string, payload, queryStr,
 	urlPath, method string, signedHeaders []string) string {
 	rawQuery := strings.Replace(queryStr, "+", "%20", -1)
 	encodedPath := getURLEncodedName(urlPath)
@@ -88,7 +70,7 @@ func getCanonicalRequest(extractedSignedHeaders http.Header, payload, queryStr,
 		method,
 		encodedPath,
 		rawQuery,
-		getCanonicalHeaders(extractedSignedHeaders),
+		canonicalHeaderString,
 		strings.Join(signedHeaders, ";"),
 		payload,
 	}, "\n")
@@ -195,12 +177,12 @@ func doesPresignedSignatureMatch(r *http.Request,
 	}
 
 	// Extract all the signed headers along with its values.
-	extractedSignedHeaders := extractSignedHeaders(preSignValues.SignedHeaders, r)
+	canonicalHeaderString, err := getCanonicalHeaders(preSignValues.SignedHeaders, r)
 
 	/// Verify finally if signature is same.
 
 	// Get canonical request.
-	presignedCanonicalReq := getCanonicalRequest(extractedSignedHeaders, unsignedPayload,
+	presignedCanonicalReq := getCanonicalRequest(canonicalHeaderString, unsignedPayload,
 		r.URL.Query().Encode(), r.URL.Path, r.Method, preSignValues.SignedHeaders)
 
 	// Get string to sign from canonical request.
@@ -247,7 +229,10 @@ func doesSignatureMatch(hashedPayload string, r *http.Request,
 	}
 
 	// Extract all the signed headers along with its values.
-	extractedSignedHeaders := extractSignedHeaders(signV4Values.SignedHeaders, r)
+	canonicalHeaderString, err := getCanonicalHeaders(signV4Values.SignedHeaders, r)
+	if err != ErrNone {
+		return credential, err
+	}
 
 	// Verify if region is valid.
 	region := signV4Values.Credential.scope.region
@@ -278,7 +263,7 @@ func doesSignatureMatch(hashedPayload string, r *http.Request,
 	queryStr := r.URL.Query().Encode()
 
 	// Get canonical request.
-	canonicalRequest := getCanonicalRequest(extractedSignedHeaders, hashedPayload, queryStr,
+	canonicalRequest := getCanonicalRequest(canonicalHeaderString, hashedPayload, queryStr,
 		r.URL.Path, r.Method, signV4Values.SignedHeaders)
 
 	// Get string to sign from canonical request.

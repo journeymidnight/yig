@@ -116,7 +116,7 @@ func parseSignedHeadersContent(signedHeader string, headers http.Header,
 
 	// Check if all required headers are signed, i.e.
 	//  Host
-	//  Content-Type(if present, not needed in presigned auth)
+	//  Content-Type(required if present in request, not needed in presigned auth)
 	//  X-Amz-* headers
 	for k, _ := range headers {
 		lower := strings.ToLower(k)
@@ -243,7 +243,7 @@ func parseSignV4(v4Auth string, headers http.Header) (signValues, APIErrorCode) 
 	signV4Values := signValues{}
 
 	var err APIErrorCode
-	// Save credentail values.
+	// Save credential values.
 	signV4Values.Credential, err = parseCredentialHeader(authFields[0])
 	if err != ErrNone {
 		return signValues{}, err

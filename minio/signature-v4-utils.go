@@ -24,6 +24,7 @@ import (
 	"regexp"
 	"strings"
 	"unicode/utf8"
+	"git.letv.cn/yig/yig/minio/datatype"
 )
 
 // http Header "x-amz-content-sha256" == "UNSIGNED-PAYLOAD" indicates that the
@@ -96,40 +97,54 @@ func getURLEncodedName(name string) string {
 	return encodedName
 }
 
-// extractSignedHeaders extract signed headers from Authorization header
-func extractSignedHeaders(signedHeaders []string, req *http.Request) http.Header {
-	extractedSignedHeaders := make(http.Header)
+// extractSignedHeaders extract signed headers from Authorization header and form the required string:
+
+// Lowercase(<HeaderName1>)+":"+Trim(<value>)+"\n"
+// Lowercase(<HeaderName2>)+":"+Trim(<value>)+"\n"
+// ...
+// Lowercase(<HeaderNameN>)+":"+Trim(<value>)+"\n"
+
+// Return ErrMissingRequiredSignedHeader if a header is missing in http header but exists in signedHeaders
+func getCanonicalHeaders(signedHeaders []string, req *http.Request) (string, datatype.APIError) {
+	canonicalHeaders := ""
 	for _, header := range signedHeaders {
-		val, ok := req.Header[http.CanonicalHeaderKey(header)]
-		if !ok {
-			// Golang http server strips off 'Expect' header, if the
-			// client sent this as part of signed headers we need to
-			// handle otherwise we would see a signature mismatch.
-			// `aws-cli` sets this as part of signed headers.
-			//
-			// According to
-			// http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.20
-			// Expect header is always of form:
-			//
-			//   Expect       =  "Expect" ":" 1#expectation
-			//   expectation  =  "100-continue" | expectation-extension
-			//
-			// So it safe to assume that '100-continue' is what would
-			// be sent, for the time being keep this work around.
-			// Adding a *TODO* to remove this later when Golang server
-			// doesn't filter out the 'Expect' header.
-			if header == "expect" {
-				extractedSignedHeaders[header] = []string{"100-continue"}
-			}
-			// Golang http server promotes 'Host' header to Request.Host field
-			// and removed from the Header map.
-			if header == "host" {
-				extractedSignedHeaders[header] = []string{req.Host}
-			}
-			// If not found continue, we will fail later.
-			continue
+		values, ok := req.Header[http.CanonicalHeaderKey(header)]
+		// Golang http server strips off 'Expect' header, if the
+		// client sent this as part of signed headers we need to
+		// handle otherwise we would see a signature mismatch.
+		// `aws-cli` sets this as part of signed headers.
+		//
+		// According to
+		// http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.20
+		// Expect header is always of form:
+		//
+		//   Expect       =  "Expect" ":" 1#expectation
+		//   expectation  =  "100-continue" | expectation-extension
+		//
+		// So it safe to assume that '100-continue' is what would
+		// be sent, for the time being keep this work around.
+		// Adding a *TODO* to remove this later when Golang server
+		// doesn't filter out the 'Expect' header.
+		if header == "expect" {
+			values = []string{"100-continue"}
+			ok = true
 		}
-		extractedSignedHeaders[header] = val
+		// Golang http server promotes 'Host' header to Request.Host field
+		// and removed from the Header map.
+		if header == "host" {
+			values = []string{req.Host}
+			ok = true
+		}
+		if !ok {
+			return "", datatype.ErrMissingRequiredSignedHeader
+		}
+		for idx, v := range values {
+			if idx > 0 {
+				canonicalHeaders += ","
+			}
+			canonicalHeaders += v
+		}
+		canonicalHeaders += "\n"
 	}
-	return extractedSignedHeaders
+	return canonicalHeaders, datatype.ErrNone
 }
