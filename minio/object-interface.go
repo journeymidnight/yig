@@ -24,9 +24,6 @@ import (
 
 // ObjectLayer implements primitives for object API layer.
 type ObjectLayer interface {
-	// Storage operations.
-	StorageInfo() StorageInfo
-
 	// Bucket operations.
 	MakeBucket(bucket string, credential iam.Credential) error
 	GetBucketInfo(bucket string, credential iam.Credential) (bucketInfo BucketInfo, err error)

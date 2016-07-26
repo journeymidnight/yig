@@ -70,7 +70,32 @@ def list_buckets():
         else:
             print 'list_buckets() done: ', ans
 
-TESTS = [create_bucket, head_bucket, head_bucket_nonexist, list_buckets]
+
+def delete_bucket():
+    for name, c in clients.iteritems():
+        try:
+            c.delete_bucket(Bucket=name+'hehe')
+        except Exception as e:
+            print 'delete_bucket() failed for ', name
+            print 'Exception: ', e
+        else:
+            print 'delete_bucket() done for ', name
+
+
+def delete_bucket_nonexist():
+    for name, c in clients.iteritems():
+        try:
+            c.delete_bucket(Bucket=name+'haha')
+        except Exception as e:
+            print 'delete_bucket_nonexist() done for ', name
+            print 'Exception: ', e
+        else:
+            print 'delete_bucket_nonexist() failed for ', name
+
+TESTS = [create_bucket,
+         head_bucket, head_bucket_nonexist,
+         list_buckets,
+         delete_bucket, delete_bucket_nonexist]
 if __name__ == '__main__':
     for t in TESTS:
         t()
