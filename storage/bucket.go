@@ -113,8 +113,7 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 		return err
 	}
 	if bucket.OwnerId != credential.UserId {
-		err = datatype.BucketAccessForbidden{Bucket: bucketName}
-		return
+		return datatype.BucketAccessForbidden{Bucket: bucketName}
 		// TODO validate bucket policy
 	}
 	// TODO validate bucket is empty
