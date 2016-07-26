@@ -540,19 +540,14 @@ func (api objectAPIHandlers) DeleteBucketHandler(w http.ResponseWriter, r *http.
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
-	switch getRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		writeErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+	var credential iam.Credential
+	var s3Error APIErrorCode
+	if credential, s3Error = isReqAuthenticated(r); s3Error != ErrNone {
+		writeErrorResponse(w, r, s3Error, r.URL.Path)
 		return
-	case authTypePresigned, authTypeSigned:
-		if _, s3Error := isReqAuthenticated(r); s3Error != ErrNone {
-			writeErrorResponse(w, r, s3Error, r.URL.Path)
-			return
-		}
 	}
 
-	if err := api.ObjectAPI.DeleteBucket(bucket); err != nil {
+	if err := api.ObjectAPI.DeleteBucket(bucket, credential); err != nil {
 		errorIf(err, "Unable to delete a bucket.")
 		writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 		return

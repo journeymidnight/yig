@@ -6,6 +6,7 @@ import (
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
 	"git.letv.cn/yig/yig/minio/datatype"
+	"git.letv.cn/yig/yig/helper"
 )
 
 func (m *Meta) ensureUserExists(userId string) error {
@@ -130,4 +131,57 @@ func (m *Meta) AddBucketForUser(bucket string, userId string) error {
 		}
 	}
 	return errors.New("Cannot add bucket " + bucket + " for user " + userId)
+}
+
+func (m *Meta) RemoveBucketForUser(bucketName string, userId string) error {
+	family := hrpc.Families(map[string][]string{USER_COLUMN_FAMILY: []string{"buckets"}})
+	getRequest, err := hrpc.NewGetStr(context.Background(), USER_TABLE, userId, family)
+	if err != nil {
+		return err
+	}
+	tries := 0
+	for tries < RETRY_LIMIT {
+		tries += 1
+		currentUser, err := m.Hbase.Get(getRequest)
+		if err != nil {
+			m.Logger.Println("Error getting user info, with error ", err)
+			continue
+		}
+		var currentBuckets []string
+		err = json.Unmarshal(currentUser.Cells[0].Value, &currentBuckets)
+		if err != nil {
+			m.Logger.Println("Error unmarshalling user buckets for ", userId,
+				"with error ", err)
+			continue
+		}
+
+		newBuckets := helper.Filter(currentBuckets, func(x string) bool {
+			return x != bucketName
+		})
+		newBucketsMarshaled, err := json.Marshal(newBuckets)
+		if err != nil {
+			m.Logger.Println("Error marshalling json: ", err)
+			continue
+		}
+		newUser := map[string]map[string][]byte{
+			USER_COLUMN_FAMILY: map[string][]byte{
+				"buckets": newBucketsMarshaled,
+			},
+		}
+		newUserPut, err := hrpc.NewPutStr(context.Background(), USER_TABLE, userId, newUser)
+		if err != nil {
+			m.Logger.Println("Error making hbase put: ", err)
+			continue
+		}
+		processed, err := m.Hbase.CheckAndPut(newUserPut, USER_COLUMN_FAMILY,
+			"buckets", currentUser.Cells[0].Value)
+		if err != nil {
+			m.Logger.Println("Error CheckAndPut: ", err)
+			continue
+		}
+		if processed {
+			return nil
+		}
+	}
+	return errors.New("Cannot remove bucket " + bucketName + " for user " + userId)
 }

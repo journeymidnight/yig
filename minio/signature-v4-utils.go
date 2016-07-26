@@ -97,13 +97,13 @@ func getURLEncodedName(name string) string {
 	return encodedName
 }
 
-// extractSignedHeaders extract signed headers from Authorization header and form the required string:
-
+// getCanonicalHeaders extract signed headers from Authorization header and form the required string:
+//
 // Lowercase(<HeaderName1>)+":"+Trim(<value>)+"\n"
 // Lowercase(<HeaderName2>)+":"+Trim(<value>)+"\n"
 // ...
 // Lowercase(<HeaderNameN>)+":"+Trim(<value>)+"\n"
-
+//
 // Return ErrMissingRequiredSignedHeader if a header is missing in http header but exists in signedHeaders
 func getCanonicalHeaders(signedHeaders []string, req *http.Request) (string, datatype.APIErrorCode) {
 	canonicalHeaders := ""

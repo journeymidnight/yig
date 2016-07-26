@@ -34,7 +34,7 @@ func (yig *YigStorage) MakeBucket(bucket string, credential iam.Credential) erro
 		yig.Logger.Println("Error making hbase checkandput: ", err)
 		return err
 	}
-	if !processed {
+	if !processed { // bucket already exists, return accurate message
 		family := map[string][]string{meta.BUCKET_COLUMN_FAMILY: []string{"UID"}}
 		get, err := hrpc.NewGetStr(context.Background(), meta.BUCKET_TABLE, bucket,
 			hrpc.Families(family))
@@ -107,7 +107,56 @@ err error) {
 	return
 }
 
-func (yig *YigStorage) DeleteBucket(bucket string) error {
+func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential) error {
+	bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
+	if err != nil {
+		return err
+	}
+	if bucket.OwnerId != credential.UserId {
+		err = datatype.BucketAccessForbidden{Bucket: bucketName}
+		return
+		// TODO validate bucket policy
+	}
+	// TODO validate bucket is empty
+
+	values := map[string]map[string][]byte{
+		meta.BUCKET_COLUMN_FAMILY: map[string][]byte{},
+	}
+	deleteRequest, err := hrpc.NewDelStr(context.Background(), meta.BUCKET_TABLE, bucketName, values)
+	if err != nil {
+		return err
+	}
+	_, err = yig.MetaStorage.Hbase.Delete(deleteRequest)
+	if err != nil {
+		return err
+	}
+
+	err = yig.MetaStorage.RemoveBucketForUser(bucketName, credential.UserId)
+	if err != nil { // roll back bucket table, i.e. re-add removed bucket entry
+		values := map[string]map[string][]byte{
+			meta.BUCKET_COLUMN_FAMILY: map[string][]byte{
+				"CORS":       []byte{bucket.CORS},
+				"UID":        []byte(bucket.OwnerId),
+				"ACL":        []byte{bucket.ACL},
+				"createTime": []byte(bucket.CreateTime),
+			},
+		}
+		put, err := hrpc.NewPutStr(context.Background(), meta.BUCKET_TABLE, bucket, values)
+		if err != nil {
+			yig.Logger.Println("Error making hbase put: ", err)
+			yig.Logger.Println("Inconsistent data: bucket ", bucketName,
+				"should be removed for user ", credential.UserId)
+			return err
+		}
+		_, err = yig.MetaStorage.Hbase.Put(put, meta.BUCKET_COLUMN_FAMILY,
+			"UID", []byte{})
+		if err != nil {
+			yig.Logger.Println("Error making hbase put: ", err)
+			yig.Logger.Println("Inconsistent data: bucket ", bucketName,
+				"should be removed for user ", credential.UserId)
+			return err
+		}
+	}
 	return nil
 }
 
