@@ -1,4 +1,5 @@
 import botocore.session
+import time
 from botocore.client import Config
 
 
@@ -72,15 +73,18 @@ if __name__ == '__main__':
         for name, client in clients.iteritems():
             print '-' * 60
             e = None
+            before = time.time()
             try:
                 t(name, client)
             except Exception as e:
                 print 'Exception: ', e
+            after = time.time()
+            print 'Time elapsed: ', after - before, 'sec'
             if (e is None and not is_a_fail_test(t)) or (e and is_a_fail_test(t)):
-                print t.__name__ + '()', 'done for ', name
+                print t.__name__ + '()', 'done for', name
                 good_count += 1
             else:
-                print t.__name__ + '()', 'failed for ', name
+                print t.__name__ + '()', 'failed for', name
                 fail_count += 1
                 failed_tests.append(t.__name__)
 
