@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"errors"
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/minio/datatype"
-	"errors"
 	"strconv"
 )
 

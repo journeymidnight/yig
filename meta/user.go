@@ -3,10 +3,10 @@ package meta
 import (
 	"encoding/json"
 	"errors"
+	"git.letv.cn/yig/yig/helper"
+	"git.letv.cn/yig/yig/minio/datatype"
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
-	"git.letv.cn/yig/yig/minio/datatype"
-	"git.letv.cn/yig/yig/helper"
 )
 
 func (m *Meta) ensureUserExists(userId string) error {

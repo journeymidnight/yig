@@ -26,19 +26,20 @@ import (
 
 	. "git.letv.cn/yig/yig/minio/datatype"
 	"git.letv.cn/yig/yig/signature"
+	"git.letv.cn/yig/yig/iam"
 )
 
-// signVerifyReader represents an io.Reader compatible interface which
+// SignVerifyReader represents an io.Reader compatible interface which
 // transparently calculates sha256, caller should call `Verify()` to
 // validate the signature header.
-type signVerifyReader struct {
+type SignVerifyReader struct {
 	Request    *http.Request // HTTP request to be validated and read.
 	HashWriter hash.Hash     // sha256 hash writer.
 }
 
 // Initializes a new signature verify reader.
-func newSignVerify(req *http.Request) *signVerifyReader {
-	return &signVerifyReader{
+func newSignVerify(req *http.Request) *SignVerifyReader {
+	return &SignVerifyReader{
 		Request:    req,          // Save the request.
 		HashWriter: sha256.New(), // Inititalize sha256.
 	}
@@ -46,12 +47,12 @@ func newSignVerify(req *http.Request) *signVerifyReader {
 
 // isSignVerify - is given reader a `signVerifyReader`.
 func isSignVerify(reader io.Reader) bool {
-	_, ok := reader.(*signVerifyReader)
+	_, ok := reader.(*SignVerifyReader)
 	return ok
 }
 
 // Verify - verifies signature and returns error upon signature mismatch.
-func (v *signVerifyReader) Verify() error {
+func (v *SignVerifyReader) Verify() (credential iam.Credential, err error) {
 	validateRegion := true // Defaults to validating region.
 	shaPayloadHex := hex.EncodeToString(v.HashWriter.Sum(nil))
 	if skipContentSha256Cksum(v.Request) {
@@ -62,35 +63,33 @@ func (v *signVerifyReader) Verify() error {
 	var s3Error APIErrorCode
 	if isSignature, version := isRequestSignature(v.Request); isSignature {
 		if version == authTypeSignedV2 {
-			_, s3Error = signature.DoesSignatureMatchV2(v.Request)
+			credential, s3Error = signature.DoesSignatureMatchV2(v.Request)
 		} else { // v4
-			_, s3Error = doesSignatureMatch(shaPayloadHex, v.Request, validateRegion)
+			credential, s3Error = doesSignatureMatch(shaPayloadHex, v.Request, validateRegion)
 		}
 	} else if isPresigned, version := isRequestPresigned(v.Request); isPresigned {
 		if version == authTypePresignedV2 {
-			_, s3Error = signature.DoesPresignedSignatureMatch(v.Request)
+			credential, s3Error = signature.DoesPresignedSignatureMatch(v.Request)
 		} else { // v4
-			_, s3Error = doesPresignedSignatureMatch(v.Request, validateRegion)
+			credential, s3Error = doesPresignedSignatureMatch(v.Request, validateRegion)
 		}
 	} else {
 		// Couldn't figure out the request type, set the error as AccessDenied.
 		s3Error = ErrAccessDenied
 	}
-	// Set signature error as 'errSignatureMismatch' if possible.
-	var sErr error
 	// Validate if we have received signature mismatch or sha256 mismatch.
 	if s3Error != ErrNone {
 		switch s3Error {
 		case ErrContentSHA256Mismatch:
-			sErr = ErrorContentSHA256Mismatch
+			err = ErrorContentSHA256Mismatch
 		case ErrSignatureDoesNotMatch:
-			sErr = ErrSignatureMismatch
+			err = ErrSignatureMismatch
 		default:
-			sErr = fmt.Errorf("%v", GetAPIError(s3Error))
+			err = fmt.Errorf("%v", GetAPIError(s3Error))
 		}
-		return sErr
+		return
 	}
-	return nil
+	return
 }
 
 // Reads from request body and writes to hash writer. All reads performed
@@ -99,7 +98,7 @@ func (v *signVerifyReader) Verify() error {
 // Any error encountered while writing is reported as a read error. As a
 // special case `Read()` skips writing to hash writer if the client requested
 // for the payload to be skipped.
-func (v *signVerifyReader) Read(b []byte) (n int, err error) {
+func (v *SignVerifyReader) Read(b []byte) (n int, err error) {
 	n, err = v.Request.Body.Read(b)
 	if n > 0 {
 		// Skip calculating the hash.

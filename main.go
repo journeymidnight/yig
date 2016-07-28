@@ -5,7 +5,6 @@ package main
 import (
 	"git.letv.cn/yig/yig/minio"
 	"git.letv.cn/yig/yig/storage"
-	"git.letv.cn/ceph/radoshttpd/rados"
 	"log"
 	"os"
 )
@@ -18,9 +17,6 @@ const (
 	BUFFERSIZE               = 4 << 20 /* 4M */
 	AIOCONCURRENT            = 4
 	MAX_CHUNK_SIZE           = BUFFERSIZE * 2
-	STRIPE_UNIT              = uint(512 << 10) /* 512K */
-	OBJECT_SIZE              = uint(4 << 20)   /* 4M */
-	STRIPE_COUNT             = uint(4)
 	CONCURRENT_REQUEST_LIMIT = 100 // 0 for "no limit"
 	BIND_ADDRESS             = "0.0.0.0:3000"
 
@@ -28,20 +24,6 @@ const (
 	SSL_CERT_PATH = ""
 	REGION        = "cn-bj-1"
 )
-
-func set_stripe_layout(p *rados.StriperPool) int {
-	var ret int = 0
-	if ret = p.SetLayoutStripeUnit(STRIPE_UNIT); ret < 0 {
-		return ret
-	}
-	if ret = p.SetLayoutObjectSize(OBJECT_SIZE); ret < 0 {
-		return ret
-	}
-	if ret = p.SetLayoutStripeCount(STRIPE_COUNT); ret < 0 {
-		return ret
-	}
-	return ret
-}
 
 func main() {
 	f, err := os.OpenFile(LOGPATH, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)

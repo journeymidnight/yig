@@ -390,20 +390,8 @@ func (api objectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	// Save metadata.
-	metadata := make(map[string]string)
-	// Make sure we hex encode md5sum here.
+	metadata := extractMetadataFromHeader(r.Header)
 	metadata["md5Sum"] = hex.EncodeToString(md5Bytes)
-	// Save other metadata if available.
-	metadata["content-type"] = r.Header.Get("Content-Type")
-	metadata["content-encoding"] = r.Header.Get("Content-Encoding")
-	for key := range r.Header {
-		cKey := http.CanonicalHeaderKey(key)
-		if strings.HasPrefix(cKey, "x-amz-meta-") {
-			metadata[cKey] = r.Header.Get(cKey)
-		} else if strings.HasPrefix(key, "x-minio-meta-") {
-			metadata[cKey] = r.Header.Get(cKey)
-		}
-	}
 
 	var md5Sum string
 	switch getRequestAuthType(r) {
@@ -419,7 +407,7 @@ func (api objectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		}
 		// Create anonymous object.
 		md5Sum, err = api.ObjectAPI.PutObject(bucket, object, size, r.Body, metadata)
-	case authTypePresigned, authTypeSigned:
+	case authTypePresigned, authTypeSigned, authTypePresignedV2, authTypeSignedV2:
 		// Initialize signature verifier.
 		reader := newSignVerify(r)
 		// Create object.

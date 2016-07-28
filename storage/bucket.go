@@ -73,7 +73,7 @@ func (yig *YigStorage) MakeBucket(bucket string, credential iam.Credential) erro
 }
 
 func (yig *YigStorage) GetBucketInfo(bucketName string,
-credential iam.Credential) (bucketInfo datatype.BucketInfo, err error) {
+	credential iam.Credential) (bucketInfo datatype.BucketInfo, err error) {
 	bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
 	if err != nil {
 		return
@@ -89,7 +89,7 @@ credential iam.Credential) (bucketInfo datatype.BucketInfo, err error) {
 }
 
 func (yig *YigStorage) ListBuckets(credential iam.Credential) (buckets []datatype.BucketInfo,
-err error) {
+	err error) {
 	bucketNames, err := yig.MetaStorage.GetUserBuckets(credential.UserId)
 	if err != nil {
 		return
@@ -100,8 +100,8 @@ err error) {
 			return buckets, err
 		}
 		buckets = append(buckets, datatype.BucketInfo{
-			Name:bucket.Name,
-			Created:bucket.CreateTime,
+			Name:    bucket.Name,
+			Created: bucket.CreateTime,
 		})
 	}
 	return

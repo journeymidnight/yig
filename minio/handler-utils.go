@@ -19,6 +19,8 @@ package minio
 import (
 	. "git.letv.cn/yig/yig/minio/datatype"
 	"io"
+	"strings"
+	"net/http"
 )
 
 // validates location constraint from the request body.
@@ -52,4 +54,32 @@ func isValidLocationContraint(reqBody io.Reader, serverRegion string) APIErrorCo
 		}
 	}
 	return errCode
+}
+
+// Supported headers that needs to be extracted.
+var supportedHeaders = []string{
+	"Content-Type",
+	"Cache-Control",
+	"Content-Encoding",
+	"Content-Disposition",
+	// Add more supported headers here, in "canonical" form
+}
+
+// extractMetadataFromHeader extracts metadata from HTTP header.
+func extractMetadataFromHeader(header http.Header) map[string]string {
+	metadata := make(map[string]string)
+	// Save standard supported headers.
+	for _, supportedHeader := range supportedHeaders {
+		if h := header.Get(supportedHeader); h != "" {
+			metadata[supportedHeader] = h
+		}
+	}
+	// Go through all other headers for any additional headers that needs to be saved.
+	for key := range header {
+		if strings.HasPrefix(key, "X-Amz-Meta-") {
+			metadata[key] = header.Get(key)
+		}
+	}
+	// Return.
+	return metadata
 }
