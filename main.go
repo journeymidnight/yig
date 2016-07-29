@@ -5,7 +5,6 @@ package main
 import (
 	"git.letv.cn/yig/yig/minio"
 	"git.letv.cn/yig/yig/storage"
-	"git.letv.cn/ceph/radoshttpd/rados"
 	"log"
 	"os"
 )
@@ -28,20 +27,6 @@ const (
 	SSL_CERT_PATH = ""
 	REGION        = "cn-bj-1"
 )
-
-func set_stripe_layout(p *rados.StriperPool) int {
-	var ret int = 0
-	if ret = p.SetLayoutStripeUnit(STRIPE_UNIT); ret < 0 {
-		return ret
-	}
-	if ret = p.SetLayoutObjectSize(OBJECT_SIZE); ret < 0 {
-		return ret
-	}
-	if ret = p.SetLayoutStripeCount(STRIPE_COUNT); ret < 0 {
-		return ret
-	}
-	return ret
-}
 
 func main() {
 	f, err := os.OpenFile(LOGPATH, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
