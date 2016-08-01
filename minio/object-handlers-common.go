@@ -45,7 +45,7 @@ func checkCopyObjectPreconditions(w http.ResponseWriter, r *http.Request, objInf
 	// Headers to be set of object content is not going to be written to the client.
 	writeHeaders := func() {
 		// set common headers
-		setCommonHeaders(w)
+		SetCommonHeaders(w)
 
 		// set object-related metadata headers
 		w.Header().Set("Last-Modified", objInfo.ModTime.UTC().Format(http.TimeFormat))
@@ -61,7 +61,7 @@ func checkCopyObjectPreconditions(w http.ResponseWriter, r *http.Request, objInf
 		if !ifModifiedSince(objInfo.ModTime, ifModifiedSinceHeader) {
 			// If the object is not modified since the specified time.
 			writeHeaders()
-			writeErrorResponse(w, r, ErrPreconditionFailed, r.URL.Path)
+			WriteErrorResponse(w, r, ErrPreconditionFailed, r.URL.Path)
 			return true
 		}
 	}
@@ -73,7 +73,7 @@ func checkCopyObjectPreconditions(w http.ResponseWriter, r *http.Request, objInf
 		if ifModifiedSince(objInfo.ModTime, ifUnmodifiedSinceHeader) {
 			// If the object is modified since the specified time.
 			writeHeaders()
-			writeErrorResponse(w, r, ErrPreconditionFailed, r.URL.Path)
+			WriteErrorResponse(w, r, ErrPreconditionFailed, r.URL.Path)
 			return true
 		}
 	}
@@ -85,7 +85,7 @@ func checkCopyObjectPreconditions(w http.ResponseWriter, r *http.Request, objInf
 		if !isETagEqual(objInfo.MD5Sum, ifMatchETagHeader) {
 			// If the object ETag does not match with the specified ETag.
 			writeHeaders()
-			writeErrorResponse(w, r, ErrPreconditionFailed, r.URL.Path)
+			WriteErrorResponse(w, r, ErrPreconditionFailed, r.URL.Path)
 			return true
 		}
 	}
@@ -97,7 +97,7 @@ func checkCopyObjectPreconditions(w http.ResponseWriter, r *http.Request, objInf
 		if isETagEqual(objInfo.MD5Sum, ifNoneMatchETagHeader) {
 			// If the object ETag matches with the specified ETag.
 			writeHeaders()
-			writeErrorResponse(w, r, ErrPreconditionFailed, r.URL.Path)
+			WriteErrorResponse(w, r, ErrPreconditionFailed, r.URL.Path)
 			return true
 		}
 	}
@@ -126,7 +126,7 @@ func checkPreconditions(w http.ResponseWriter, r *http.Request, objInfo ObjectIn
 	// Headers to be set of object content is not going to be written to the client.
 	writeHeaders := func() {
 		// set common headers
-		setCommonHeaders(w)
+		SetCommonHeaders(w)
 
 		// set object-related metadata headers
 		w.Header().Set("Last-Modified", objInfo.ModTime.UTC().Format(http.TimeFormat))
@@ -154,7 +154,7 @@ func checkPreconditions(w http.ResponseWriter, r *http.Request, objInfo ObjectIn
 		if ifModifiedSince(objInfo.ModTime, ifUnmodifiedSinceHeader) {
 			// If the object is modified since the specified time.
 			writeHeaders()
-			writeErrorResponse(w, r, ErrPreconditionFailed, r.URL.Path)
+			WriteErrorResponse(w, r, ErrPreconditionFailed, r.URL.Path)
 			return true
 		}
 	}
@@ -166,7 +166,7 @@ func checkPreconditions(w http.ResponseWriter, r *http.Request, objInfo ObjectIn
 		if !isETagEqual(objInfo.MD5Sum, ifMatchETagHeader) {
 			// If the object ETag does not match with the specified ETag.
 			writeHeaders()
-			writeErrorResponse(w, r, ErrPreconditionFailed, r.URL.Path)
+			WriteErrorResponse(w, r, ErrPreconditionFailed, r.URL.Path)
 			return true
 		}
 	}

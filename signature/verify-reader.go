@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package minio
+package signature
 
 import (
 	"crypto/sha256"
@@ -25,7 +25,6 @@ import (
 	"net/http"
 
 	. "git.letv.cn/yig/yig/minio/datatype"
-	"git.letv.cn/yig/yig/signature"
 	"git.letv.cn/yig/yig/iam"
 )
 

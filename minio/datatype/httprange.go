@@ -14,15 +14,13 @@
  * limitations under the License.
  */
 
-package minio
+package datatype
 
 import (
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
-
-	. "git.letv.cn/yig/yig/minio/datatype"
 )
 
 const (
@@ -33,23 +31,23 @@ const (
 var validBytePos = regexp.MustCompile(`^[0-9]+$`)
 
 // HttpRange specifies the byte range to be sent to the client.
-type httpRange struct {
-	offsetBegin  int64
-	offsetEnd    int64
-	resourceSize int64
+type HttpRange struct {
+	OffsetBegin  int64
+	OffsetEnd    int64
+	ResourceSize int64
 }
 
 // String populate range stringer interface
-func (hrange httpRange) String() string {
-	return fmt.Sprintf("bytes %d-%d/%d", hrange.offsetBegin, hrange.offsetEnd, hrange.resourceSize)
+func (hrange HttpRange) String() string {
+	return fmt.Sprintf("bytes %d-%d/%d", hrange.OffsetBegin, hrange.OffsetEnd, hrange.ResourceSize)
 }
 
 // getlength - get length from the range.
-func (hrange httpRange) getLength() int64 {
-	return 1 + hrange.offsetEnd - hrange.offsetBegin
+func (hrange HttpRange) GetLength() int64 {
+	return 1 + hrange.OffsetEnd - hrange.OffsetBegin
 }
 
-func parseRequestRange(rangeString string, resourceSize int64) (hrange *httpRange, err error) {
+func ParseRequestRange(rangeString string, resourceSize int64) (hrange *HttpRange, err error) {
 	// Return error if given range string doesn't start with byte range prefix.
 	if !strings.HasPrefix(rangeString, byteRangePrefix) {
 		return nil, fmt.Errorf("'%s' does not start with '%s'", rangeString, byteRangePrefix)
@@ -132,5 +130,5 @@ func parseRequestRange(rangeString string, resourceSize int64) (hrange *httpRang
 		return nil, fmt.Errorf("'%s' does not have valid range value", rangeString)
 	}
 
-	return &httpRange{offsetBegin, offsetEnd, resourceSize}, nil
+	return &HttpRange{offsetBegin, offsetEnd, resourceSize}, nil
 }

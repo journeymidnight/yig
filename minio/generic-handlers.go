@@ -92,20 +92,20 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// level resource queries.
 	if bucketName != "" && objectName == "" {
 		if ignoreNotImplementedBucketResources(r) {
-			writeErrorResponse(w, r, ErrNotImplemented, r.URL.Path)
+			WriteErrorResponse(w, r, ErrNotImplemented, r.URL.Path)
 			return
 		}
 	}
 	// If bucketName and objectName are present check for its resource queries.
 	if bucketName != "" && objectName != "" {
 		if ignoreNotImplementedObjectResources(r) {
-			writeErrorResponse(w, r, ErrNotImplemented, r.URL.Path)
+			WriteErrorResponse(w, r, ErrNotImplemented, r.URL.Path)
 			return
 		}
 	}
 	// A put method on path "/" doesn't make sense, ignore it.
 	if r.Method == "PUT" && r.URL.Path == "/" {
-		writeErrorResponse(w, r, ErrNotImplemented, r.URL.Path)
+		WriteErrorResponse(w, r, ErrNotImplemented, r.URL.Path)
 		return
 	}
 	h.handler.ServeHTTP(w, r)

@@ -80,41 +80,42 @@ func (api objectAPIHandlers) GetBucketLocationHandler(w http.ResponseWriter, r *
 
 	var credential iam.Credential
 	var s3Error APIErrorCode
-	switch getRequestAuthType(r) {
+	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
-		writeErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
-	case authTypeAnonymous:
+	case signature.AuthTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
 		if s3Error := enforceBucketPolicy("s3:GetBucketLocation", bucket, r.URL); s3Error != ErrNone {
-			writeErrorResponse(w, r, s3Error, r.URL.Path)
+			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
-	case authTypeSigned, authTypePresigned, authTypePresignedV2, authTypeSignedV2:
-		if credential, s3Error = isReqAuthenticated(r); s3Error != ErrNone {
-			writeErrorResponse(w, r, s3Error, r.URL.Path)
+	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
+		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
+		if credential, s3Error = signature.IsReqAuthenticated(r); s3Error != ErrNone {
+			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
 	}
 
 	if _, err := api.ObjectAPI.GetBucketInfo(bucket, credential); err != nil {
 		errorIf(err, "Unable to fetch bucket info.")
-		writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
+		WriteErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 		return
 	}
 
 	// Generate response.
-	encodedSuccessResponse := encodeResponse(LocationResponse{})
+	encodedSuccessResponse := EncodeResponse(LocationResponse{})
 	// Get current region.
 	region := serverConfig.Region
 	if region != "us-east-1" {
-		encodedSuccessResponse = encodeResponse(LocationResponse{
+		encodedSuccessResponse = EncodeResponse(LocationResponse{
 			Location: region,
 		})
 	}
-	setCommonHeaders(w) // Write headers.
-	writeSuccessResponse(w, encodedSuccessResponse)
+	SetCommonHeaders(w) // Write headers.
+	WriteSuccessResponse(w, encodedSuccessResponse)
 }
 
 // ListMultipartUploadsHandler - GET Bucket (List Multipart uploads)
@@ -129,33 +130,33 @@ func (api objectAPIHandlers) ListMultipartUploadsHandler(w http.ResponseWriter, 
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
-	switch getRequestAuthType(r) {
+	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
-		writeErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
-	case authTypeAnonymous:
+	case signature.AuthTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/mpuAndPermissions.html
 		if s3Error := enforceBucketPolicy("s3:ListBucketMultipartUploads", bucket, r.URL); s3Error != ErrNone {
-			writeErrorResponse(w, r, s3Error, r.URL.Path)
+			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
-	case authTypePresigned, authTypeSigned:
-		if _, s3Error := isReqAuthenticated(r); s3Error != ErrNone {
-			writeErrorResponse(w, r, s3Error, r.URL.Path)
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
+		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != ErrNone {
+			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
 	}
 
 	prefix, keyMarker, uploadIDMarker, delimiter, maxUploads, _ := getBucketMultipartResources(r.URL.Query())
 	if maxUploads < 0 {
-		writeErrorResponse(w, r, ErrInvalidMaxUploads, r.URL.Path)
+		WriteErrorResponse(w, r, ErrInvalidMaxUploads, r.URL.Path)
 		return
 	}
 	if keyMarker != "" {
 		// Marker not common with prefix is not implemented.
 		if !strings.HasPrefix(keyMarker, prefix) {
-			writeErrorResponse(w, r, ErrNotImplemented, r.URL.Path)
+			WriteErrorResponse(w, r, ErrNotImplemented, r.URL.Path)
 			return
 		}
 	}
@@ -163,16 +164,16 @@ func (api objectAPIHandlers) ListMultipartUploadsHandler(w http.ResponseWriter, 
 	listMultipartsInfo, err := api.ObjectAPI.ListMultipartUploads(bucket, prefix, keyMarker, uploadIDMarker, delimiter, maxUploads)
 	if err != nil {
 		errorIf(err, "Unable to list multipart uploads.")
-		writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
+		WriteErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 		return
 	}
 	// generate response
-	response := generateListMultipartUploadsResponse(bucket, listMultipartsInfo)
-	encodedSuccessResponse := encodeResponse(response)
+	response := GenerateListMultipartUploadsResponse(bucket, listMultipartsInfo)
+	encodedSuccessResponse := EncodeResponse(response)
 	// write headers.
-	setCommonHeaders(w)
+	SetCommonHeaders(w)
 	// write success response.
-	writeSuccessResponse(w, encodedSuccessResponse)
+	WriteSuccessResponse(w, encodedSuccessResponse)
 }
 
 // ListObjectsHandler - GET Bucket (List Objects)
@@ -185,20 +186,20 @@ func (api objectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
-	switch getRequestAuthType(r) {
+	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
-		writeErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
-	case authTypeAnonymous:
+	case signature.AuthTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
 		if s3Error := enforceBucketPolicy("s3:ListBucket", bucket, r.URL); s3Error != ErrNone {
-			writeErrorResponse(w, r, s3Error, r.URL.Path)
+			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
-	case authTypeSigned, authTypePresigned:
-		if _, s3Error := isReqAuthenticated(r); s3Error != ErrNone {
-			writeErrorResponse(w, r, s3Error, r.URL.Path)
+	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4:
+		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != ErrNone {
+			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
 	}
@@ -219,19 +220,19 @@ func (api objectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 		prefix, marker, delimiter, maxkeys, _ = getListObjectsV1Args(r.URL.Query())
 	}
 	if maxkeys < 0 {
-		writeErrorResponse(w, r, ErrInvalidMaxKeys, r.URL.Path)
+		WriteErrorResponse(w, r, ErrInvalidMaxKeys, r.URL.Path)
 		return
 	}
 	// Verify if delimiter is anything other than '/', which we do not support.
 	if delimiter != "" && delimiter != "/" {
-		writeErrorResponse(w, r, ErrNotImplemented, r.URL.Path)
+		WriteErrorResponse(w, r, ErrNotImplemented, r.URL.Path)
 		return
 	}
 	// If marker is set unescape.
 	if marker != "" {
 		// Marker not common with prefix is not implemented.
 		if !strings.HasPrefix(marker, prefix) {
-			writeErrorResponse(w, r, ErrNotImplemented, r.URL.Path)
+			WriteErrorResponse(w, r, ErrNotImplemented, r.URL.Path)
 			return
 		}
 	}
@@ -242,20 +243,20 @@ func (api objectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 		var encodedSuccessResponse []byte
 		// generate response
 		if listV2 {
-			response := generateListObjectsV2Response(bucket, prefix, token, startAfter, delimiter, maxkeys, listObjectsInfo)
-			encodedSuccessResponse = encodeResponse(response)
+			response := GenerateListObjectsV2Response(bucket, prefix, token, startAfter, delimiter, maxkeys, listObjectsInfo)
+			encodedSuccessResponse = EncodeResponse(response)
 		} else {
-			response := generateListObjectsResponse(bucket, prefix, marker, delimiter, maxkeys, listObjectsInfo)
-			encodedSuccessResponse = encodeResponse(response)
+			response := GenerateListObjectsResponse(bucket, prefix, marker, delimiter, maxkeys, listObjectsInfo)
+			encodedSuccessResponse = EncodeResponse(response)
 		}
 		// Write headers
-		setCommonHeaders(w)
+		SetCommonHeaders(w)
 		// Write success response.
-		writeSuccessResponse(w, encodedSuccessResponse)
+		WriteSuccessResponse(w, encodedSuccessResponse)
 		return
 	}
 	errorIf(err, "Unable to list objects.")
-	writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
+	WriteErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 }
 
 // ListBucketsHandler - GET Service
@@ -266,24 +267,24 @@ func (api objectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.R
 	// List buckets does not support bucket policies.
 	var credential iam.Credential
 	var s3Error APIErrorCode
-	if credential, s3Error = isReqAuthenticated(r); s3Error != ErrNone {
-		writeErrorResponse(w, r, s3Error, r.URL.Path)
+	if credential, s3Error = signature.IsReqAuthenticated(r); s3Error != ErrNone {
+		WriteErrorResponse(w, r, s3Error, r.URL.Path)
 		return
 	}
 
 	bucketsInfo, err := api.ObjectAPI.ListBuckets(credential)
 	if err == nil {
 		// generate response
-		response := generateListBucketsResponse(bucketsInfo, credential)
-		encodedSuccessResponse := encodeResponse(response)
+		response := GenerateListBucketsResponse(bucketsInfo, credential)
+		encodedSuccessResponse := EncodeResponse(response)
 		// write headers
-		setCommonHeaders(w)
+		SetCommonHeaders(w)
 		// write response
-		writeSuccessResponse(w, encodedSuccessResponse)
+		WriteSuccessResponse(w, encodedSuccessResponse)
 		return
 	}
 	errorIf(err, "Unable to list buckets.")
-	writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
+	WriteErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 }
 
 // DeleteMultipleObjectsHandler - deletes multiple objects.
@@ -291,20 +292,20 @@ func (api objectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
-	switch getRequestAuthType(r) {
+	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
-		writeErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
-	case authTypeAnonymous:
+	case signature.AuthTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
 		if s3Error := enforceBucketPolicy("s3:DeleteObject", bucket, r.URL); s3Error != ErrNone {
-			writeErrorResponse(w, r, s3Error, r.URL.Path)
+			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
-	case authTypePresigned, authTypeSigned:
-		if _, s3Error := isReqAuthenticated(r); s3Error != ErrNone {
-			writeErrorResponse(w, r, s3Error, r.URL.Path)
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
+		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != ErrNone {
+			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
 	}
@@ -312,14 +313,14 @@ func (api objectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	// Content-Length is required and should be non-zero
 	// http://docs.aws.amazon.com/AmazonS3/latest/API/multiobjectdeleteapi.html
 	if r.ContentLength <= 0 {
-		writeErrorResponse(w, r, ErrMissingContentLength, r.URL.Path)
+		WriteErrorResponse(w, r, ErrMissingContentLength, r.URL.Path)
 		return
 	}
 
 	// Content-Md5 is requied should be set
 	// http://docs.aws.amazon.com/AmazonS3/latest/API/multiobjectdeleteapi.html
 	if _, ok := r.Header["Content-Md5"]; !ok {
-		writeErrorResponse(w, r, ErrMissingContentMD5, r.URL.Path)
+		WriteErrorResponse(w, r, ErrMissingContentMD5, r.URL.Path)
 		return
 	}
 
@@ -329,7 +330,7 @@ func (api objectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	// Read incoming body XML bytes.
 	if _, err := io.ReadFull(r.Body, deleteXMLBytes); err != nil {
 		errorIf(err, "Unable to read HTTP body.")
-		writeErrorResponse(w, r, ErrInternalError, r.URL.Path)
+		WriteErrorResponse(w, r, ErrInternalError, r.URL.Path)
 		return
 	}
 
@@ -337,7 +338,7 @@ func (api objectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	deleteObjects := &DeleteObjectsRequest{}
 	if err := xml.Unmarshal(deleteXMLBytes, deleteObjects); err != nil {
 		errorIf(err, "Unable to unmarshal delete objects request XML.")
-		writeErrorResponse(w, r, ErrMalformedXML, r.URL.Path)
+		WriteErrorResponse(w, r, ErrMalformedXML, r.URL.Path)
 		return
 	}
 
@@ -360,12 +361,12 @@ func (api objectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 		}
 	}
 	// Generate response
-	response := generateMultiDeleteResponse(deleteObjects.Quiet, deletedObjects, deleteErrors)
-	encodedSuccessResponse := encodeResponse(response)
+	response := GenerateMultiDeleteResponse(deleteObjects.Quiet, deletedObjects, deleteErrors)
+	encodedSuccessResponse := EncodeResponse(response)
 	// Write headers
-	setCommonHeaders(w)
+	SetCommonHeaders(w)
 	// Write success response.
-	writeSuccessResponse(w, encodedSuccessResponse)
+	WriteSuccessResponse(w, encodedSuccessResponse)
 }
 
 // PutBucketHandler - PUT Bucket
@@ -377,8 +378,8 @@ func (api objectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 
 	var credential iam.Credential
 	var s3Error APIErrorCode
-	if credential, s3Error = isReqAuthenticated(r); s3Error != ErrNone {
-		writeErrorResponse(w, r, s3Error, r.URL.Path)
+	if credential, s3Error = signature.IsReqAuthenticated(r); s3Error != ErrNone {
+		WriteErrorResponse(w, r, s3Error, r.URL.Path)
 		return
 	}
 
@@ -387,19 +388,19 @@ func (api objectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 	// make bucket fails in such cases.
 	errCode := isValidLocationContraint(r.Body, serverConfig.Region)
 	if errCode != ErrNone {
-		writeErrorResponse(w, r, errCode, r.URL.Path)
+		WriteErrorResponse(w, r, errCode, r.URL.Path)
 		return
 	}
 	// Make bucket.
 	err := api.ObjectAPI.MakeBucket(bucket, credential)
 	if err != nil {
 		errorIf(err, "Unable to create a bucket.")
-		writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
+		WriteErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 		return
 	}
 	// Make sure to add Location information here only for bucket
-	w.Header().Set("Location", getLocation(r))
-	writeSuccessResponse(w, nil)
+	w.Header().Set("Location", GetLocation(r))
+	WriteSuccessResponse(w, nil)
 }
 
 func extractHTTPFormValues(reader *multipart.Reader) (io.Reader, map[string]string, error) {
@@ -438,14 +439,14 @@ func (api objectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *h
 	reader, err := r.MultipartReader()
 	if err != nil {
 		errorIf(err, "Unable to initialize multipart reader.")
-		writeErrorResponse(w, r, ErrMalformedPOSTRequest, r.URL.Path)
+		WriteErrorResponse(w, r, ErrMalformedPOSTRequest, r.URL.Path)
 		return
 	}
 
 	fileBody, formValues, err := extractHTTPFormValues(reader)
 	if err != nil {
 		errorIf(err, "Unable to parse form values.")
-		writeErrorResponse(w, r, ErrMalformedPOSTRequest, r.URL.Path)
+		WriteErrorResponse(w, r, ErrMalformedPOSTRequest, r.URL.Path)
 		return
 	}
 
@@ -455,21 +456,21 @@ func (api objectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *h
 	var apiErr APIErrorCode
 	switch postPolicyType {
 	case signature.PostPolicyV2:
-		_, apiErr = signature.DoesPolicySignatureMatch(formValues)
+		_, apiErr = signature.DoesPolicySignatureMatchV2(formValues)
 	case signature.PostPolicyV4:
-		_, apiErr = doesPolicySignatureMatch(formValues)
+		_, apiErr = signature.DoesPolicySignatureMatchV4(formValues)
 		formValues["Bucket"] = bucket
 	case signature.PostPolicyUnknown:
-		writeErrorResponse(w, r, ErrMalformedPOSTRequest, r.URL.Path)
+		WriteErrorResponse(w, r, ErrMalformedPOSTRequest, r.URL.Path)
 		return
 	}
 	if apiErr != ErrNone {
-		writeErrorResponse(w, r, apiErr, r.URL.Path)
+		WriteErrorResponse(w, r, apiErr, r.URL.Path)
 		return
 	}
 
-	if apiErr = checkPostPolicy(formValues, postPolicyType); apiErr != ErrNone {
-		writeErrorResponse(w, r, apiErr, r.URL.Path)
+	if apiErr = signature.CheckPostPolicy(formValues, postPolicyType); apiErr != ErrNone {
+		WriteErrorResponse(w, r, apiErr, r.URL.Path)
 		return
 	}
 
@@ -481,20 +482,20 @@ func (api objectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *h
 	md5Sum, err := api.ObjectAPI.PutObject(bucket, object, -1, fileBody, metadata)
 	if err != nil {
 		errorIf(err, "Unable to create object.")
-		writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
+		WriteErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 		return
 	}
 	if md5Sum != "" {
 		w.Header().Set("ETag", "\""+md5Sum+"\"")
 	}
-	encodedSuccessResponse := encodeResponse(PostResponse{
-		Location: getObjectLocation(bucket, object), // TODO Full URL is preferred
+	encodedSuccessResponse := EncodeResponse(PostResponse{
+		Location: GetObjectLocation(bucket, object), // TODO Full URL is preferred
 		Bucket:   bucket,
 		Key:      object,
 		ETag:     md5Sum,
 	})
-	setCommonHeaders(w)
-	writeSuccessResponse(w, encodedSuccessResponse)
+	SetCommonHeaders(w)
+	WriteSuccessResponse(w, encodedSuccessResponse)
 }
 
 // HeadBucketHandler - HEAD Bucket
@@ -509,30 +510,31 @@ func (api objectAPIHandlers) HeadBucketHandler(w http.ResponseWriter, r *http.Re
 
 	var credential iam.Credential
 	var s3Error APIErrorCode
-	switch getRequestAuthType(r) {
+	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
-		writeErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
-	case authTypeAnonymous:
+	case signature.AuthTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
 		if s3Error = enforceBucketPolicy("s3:ListBucket", bucket, r.URL); s3Error != ErrNone {
-			writeErrorResponse(w, r, s3Error, r.URL.Path)
+			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
-	case authTypePresigned, authTypeSigned, authTypePresignedV2, authTypeSignedV2:
-		if credential, s3Error = isReqAuthenticated(r); s3Error != ErrNone {
-			writeErrorResponse(w, r, s3Error, r.URL.Path)
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4, 
+		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
+		if credential, s3Error = signature.IsReqAuthenticated(r); s3Error != ErrNone {
+			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
 	}
 
 	if _, err := api.ObjectAPI.GetBucketInfo(bucket, credential); err != nil {
 		errorIf(err, "Unable to fetch bucket info.")
-		writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
+		WriteErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 		return
 	}
-	writeSuccessResponse(w, nil)
+	WriteSuccessResponse(w, nil)
 }
 
 // DeleteBucketHandler - Delete bucket
@@ -542,14 +544,14 @@ func (api objectAPIHandlers) DeleteBucketHandler(w http.ResponseWriter, r *http.
 
 	var credential iam.Credential
 	var s3Error APIErrorCode
-	if credential, s3Error = isReqAuthenticated(r); s3Error != ErrNone {
-		writeErrorResponse(w, r, s3Error, r.URL.Path)
+	if credential, s3Error = signature.IsReqAuthenticated(r); s3Error != ErrNone {
+		WriteErrorResponse(w, r, s3Error, r.URL.Path)
 		return
 	}
 
 	if err := api.ObjectAPI.DeleteBucket(bucket, credential); err != nil {
 		errorIf(err, "Unable to delete a bucket.")
-		writeErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
+		WriteErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 		return
 	}
 
@@ -557,5 +559,5 @@ func (api objectAPIHandlers) DeleteBucketHandler(w http.ResponseWriter, r *http.
 	removeBucketPolicy(bucket)
 
 	// Write success response.
-	writeSuccessNoContent(w)
+	WriteSuccessNoContent(w)
 }

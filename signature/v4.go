@@ -22,7 +22,7 @@
 // - Based on Authorization header.
 // - Based on Query parameters.
 // - Based on Form POST policy.
-package minio
+package signature
 
 import (
 	"crypto/sha256"
@@ -114,7 +114,7 @@ func getSignature(signingKey []byte, stringToSign string) string {
 // doesPolicySignatureMatch - Verify query headers with post policy
 //     - http://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-HTTPPOSTConstructPolicy.html
 // returns true if matches, false otherwise. if error is not nil then it is always false
-func doesPolicySignatureMatch(formValues map[string]string) (credential iam.Credential, err APIErrorCode) {
+func DoesPolicySignatureMatchV4(formValues map[string]string) (credential iam.Credential, err APIErrorCode) {
 	// Parse credential tag.
 	credHeader, err := parseCredential(formValues["X-Amz-Credential"])
 	if err != ErrNone {
@@ -153,7 +153,7 @@ func doesPolicySignatureMatch(formValues map[string]string) (credential iam.Cred
 // doesPresignedSignatureMatch - Verify query headers with presigned signature
 //     - http://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html
 // returns true if matches, false otherwise. if error is not nil then it is always false
-func doesPresignedSignatureMatch(r *http.Request,
+func DoesPresignedSignatureMatchV4(r *http.Request,
 	validateRegion bool) (credential iam.Credential, err APIErrorCode) {
 	// Parse request query string.
 	preSignValues, err := parsePreSignV4(r.URL.Query(), r.Header)
@@ -208,7 +208,7 @@ func doesPresignedSignatureMatch(r *http.Request,
 // doesSignatureMatch - Verify authorization header with calculated header in accordance with
 //     - http://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-authenticating-requests.html
 // returns true if matches, false otherwise. if error is not nil then it is always false
-func doesSignatureMatch(hashedPayload string, r *http.Request,
+func DoesSignatureMatchV4(hashedPayload string, r *http.Request,
 	validateRegion bool) (credential iam.Credential, err APIErrorCode) {
 	// Save authorization header.
 	v4Auth := r.Header.Get("Authorization")

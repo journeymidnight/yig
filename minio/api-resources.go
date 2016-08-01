@@ -19,6 +19,8 @@ package minio
 import (
 	"net/url"
 	"strconv"
+
+	. "git.letv.cn/yig/yig/minio/datatype"
 )
 
 // Parse bucket url queries
@@ -29,7 +31,7 @@ func getListObjectsV1Args(values url.Values) (prefix, marker, delimiter string, 
 	if values.Get("max-keys") != "" {
 		maxkeys, _ = strconv.Atoi(values.Get("max-keys"))
 	} else {
-		maxkeys = maxObjectList
+		maxkeys = MaxObjectList
 	}
 	encodingType = values.Get("encoding-type")
 	return
@@ -43,7 +45,7 @@ func getListObjectsV2Args(values url.Values) (prefix, token, startAfter, delimit
 	if values.Get("max-keys") != "" {
 		maxkeys, _ = strconv.Atoi(values.Get("max-keys"))
 	} else {
-		maxkeys = maxObjectList
+		maxkeys = MaxObjectList
 	}
 	encodingType = values.Get("encoding-type")
 	token = values.Get("continuation-token")
@@ -61,7 +63,7 @@ func getBucketResources(values url.Values) (listType int, prefix, marker, delimi
 	if values.Get("max-keys") != "" {
 		maxkeys, _ = strconv.Atoi(values.Get("max-keys"))
 	} else {
-		maxkeys = maxObjectList
+		maxkeys = MaxObjectList
 	}
 	encodingType = values.Get("encoding-type")
 	return
@@ -76,7 +78,7 @@ func getBucketMultipartResources(values url.Values) (prefix, keyMarker, uploadID
 	if values.Get("max-uploads") != "" {
 		maxUploads, _ = strconv.Atoi(values.Get("max-uploads"))
 	} else {
-		maxUploads = maxUploadsList
+		maxUploads = MaxUploadsList
 	}
 	encodingType = values.Get("encoding-type")
 	return
@@ -89,7 +91,7 @@ func getObjectResources(values url.Values) (uploadID string, partNumberMarker, m
 	if values.Get("max-parts") != "" {
 		maxParts, _ = strconv.Atoi(values.Get("max-parts"))
 	} else {
-		maxParts = maxPartsList
+		maxParts = MaxPartsList
 	}
 	encodingType = values.Get("encoding-type")
 	return

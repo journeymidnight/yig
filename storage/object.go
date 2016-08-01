@@ -6,12 +6,12 @@ import (
 	"errors"
 	"git.letv.cn/ceph/radoshttpd/rados"
 	"git.letv.cn/yig/yig/meta"
-	"git.letv.cn/yig/yig/minio"
 	"git.letv.cn/yig/yig/minio/datatype"
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
 	"io"
 	"time"
+	"git.letv.cn/yig/yig/signature"
 )
 
 func (yig *YigStorage) GetObject(bucket, object string, startOffset int64, length int64, writer io.Writer) (err error) {
@@ -105,7 +105,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 		}
 	}
 
-	credential, err := data.(*minio.SignVerifyReader).Verify()
+	credential, err := data.(*signature.SignVerifyReader).Verify()
 	if err != nil {
 		return "", err
 	}

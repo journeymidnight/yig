@@ -20,6 +20,7 @@ import (
 	"net/http"
 
 	router "github.com/gorilla/mux"
+	"git.letv.cn/yig/yig/signature"
 )
 
 // configureServer handler returns final handler for the http server.
@@ -51,7 +52,7 @@ func configureServerHandler(c *ServerConfig) http.Handler {
 		// Auth handler verifies incoming authorization headers and
 		// routes them accordingly. Client receives a HTTP error for
 		// invalid/unsupported signatures.
-		setAuthHandler,
+		signature.SetAuthHandler,
 		// Add new handlers here.
 
 		// TODO request logger

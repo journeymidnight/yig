@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package minio
+package signature
 
 import (
 	"encoding/base64"
@@ -25,7 +25,6 @@ import (
 	"time"
 
 	. "git.letv.cn/yig/yig/minio/datatype"
-	"git.letv.cn/yig/yig/signature"
 	"net/http"
 	"regexp"
 )
@@ -189,17 +188,17 @@ func parsePostPolicyForm(policy string,
 }
 
 // checkPostPolicy - apply policy conditions and validate input values.
-func checkPostPolicy(formValues map[string]string,
-	postPolicyVersion signature.PostPolicyType) APIErrorCode {
+func CheckPostPolicy(formValues map[string]string,
+	postPolicyVersion PostPolicyType) APIErrorCode {
 	var eqPolicyRegExp, startswithPolicyRegExp, ignoredFormRegExp *regexp.Regexp
 	switch postPolicyVersion {
-	case signature.PostPolicyV2:
+	case PostPolicyV2:
 		eqPolicyRegExp, startswithPolicyRegExp, ignoredFormRegExp =
-			signature.EqPolicyRegExpV2, signature.StartsWithPolicyRegExpV2, signature.IgnoredFormRegExpV2
-	case signature.PostPolicyV4:
+			EqPolicyRegExpV2, StartsWithPolicyRegExpV2, IgnoredFormRegExpV2
+	case PostPolicyV4:
 		eqPolicyRegExp, startswithPolicyRegExp, ignoredFormRegExp =
 			EqPolicyRegExp, StartsWithPolicyRegExp, IgnoredFormRegExp
-	case signature.PostPolicyAnonymous:
+	case PostPolicyAnonymous:
 		// TODO
 		return ErrNotImplemented
 	default:

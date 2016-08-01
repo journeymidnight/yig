@@ -46,7 +46,7 @@ func writePartSmallErrorResponse(w http.ResponseWriter, r *http.Request, err Par
 	// Generate complete multipart error response.
 	errorResponse := GetAPIErrorResponse(GetAPIError(ToAPIErrorCode(err)), r.URL.Path)
 	cmpErrResp := completeMultipartAPIError{err.PartSize, int64(5242880), err.PartNumber, err.PartETag, errorResponse}
-	encodedErrorResponse := encodeResponse(cmpErrResp)
+	encodedErrorResponse := EncodeResponse(cmpErrResp)
 	// Write error body
 	w.Write(encodedErrorResponse)
 	w.(http.Flusher).Flush()

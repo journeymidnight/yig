@@ -162,7 +162,7 @@ func DoesSignatureMatchV2(r *http.Request) (credential iam.Credential, err datat
 	return credential, dictate(credential.SecretAccessKey, stringToSign, signature)
 }
 
-func DoesPresignedSignatureMatch(r *http.Request) (credential iam.Credential, err datatype.APIErrorCode) {
+func DoesPresignedSignatureMatchV2(r *http.Request) (credential iam.Credential, err datatype.APIErrorCode) {
 	query := r.URL.Query()
 	accessKey := query.Get("AWSAccessKeyId")
 	expires := query.Get("Expires")
@@ -198,7 +198,7 @@ func DoesPresignedSignatureMatch(r *http.Request) (credential iam.Credential, er
 	return credential, dictate(credential.SecretAccessKey, stringToSign, signature)
 }
 
-func DoesPolicySignatureMatch(formValues map[string]string) (credential iam.Credential,
+func DoesPolicySignatureMatchV2(formValues map[string]string) (credential iam.Credential,
 	e datatype.APIErrorCode) {
 	var secretKey string
 	var err error

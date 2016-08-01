@@ -41,7 +41,7 @@ func isValidLocationContraint(reqBody io.Reader, serverRegion string) APIErrorCo
 		} else {
 			// Failed due to malformed configuration.
 			errCode = ErrMalformedXML
-			//writeErrorResponse(w, r, ErrMalformedXML, r.URL.Path)
+			//WriteErrorResponse(w, r, ErrMalformedXML, r.URL.Path)
 		}
 	} else {
 		// Region obtained from the body.
@@ -49,7 +49,7 @@ func isValidLocationContraint(reqBody io.Reader, serverRegion string) APIErrorCo
 		// Else ErrInvalidRegion returned.
 		// For empty value location will be to set to  default value from the serverConfig.
 		if locationContraint.Location != "" && serverRegion != locationContraint.Location {
-			//writeErrorResponse(w, r, ErrInvalidRegion, r.URL.Path)
+			//WriteErrorResponse(w, r, ErrInvalidRegion, r.URL.Path)
 			errCode = ErrInvalidRegion
 		}
 	}

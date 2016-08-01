@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package minio
+package datatype
 
 import (
 	"bytes"
@@ -22,8 +22,6 @@ import (
 	"encoding/xml"
 	"net/http"
 	"strconv"
-
-	. "git.letv.cn/yig/yig/minio/datatype"
 )
 
 //// helpers
@@ -42,7 +40,7 @@ func generateRequestID() []byte {
 }
 
 // Write http common headers
-func setCommonHeaders(w http.ResponseWriter) {
+func SetCommonHeaders(w http.ResponseWriter) {
 	// Set unique request ID for each reply.
 	w.Header().Set("X-Amz-Request-Id", string(generateRequestID()))
 	w.Header().Set("Server", "LeCloud YIG")
@@ -50,7 +48,7 @@ func setCommonHeaders(w http.ResponseWriter) {
 }
 
 // Encodes the response headers into XML format.
-func encodeResponse(response interface{}) []byte {
+func EncodeResponse(response interface{}) []byte {
 	var bytesBuffer bytes.Buffer
 	bytesBuffer.WriteString(xml.Header)
 	e := xml.NewEncoder(&bytesBuffer)
@@ -59,9 +57,9 @@ func encodeResponse(response interface{}) []byte {
 }
 
 // Write object header
-func setObjectHeaders(w http.ResponseWriter, objInfo ObjectInfo, contentRange *httpRange) {
+func SetObjectHeaders(w http.ResponseWriter, objInfo ObjectInfo, contentRange *HttpRange) {
 	// set common headers
-	setCommonHeaders(w)
+	SetCommonHeaders(w)
 
 	// set object-related metadata headers
 	lastModified := objInfo.ModTime.UTC().Format(http.TimeFormat)
@@ -75,9 +73,9 @@ func setObjectHeaders(w http.ResponseWriter, objInfo ObjectInfo, contentRange *h
 	w.Header().Set("Content-Length", strconv.FormatInt(objInfo.Size, 10))
 
 	// for providing ranged content
-	if contentRange != nil && contentRange.offsetBegin > -1 {
+	if contentRange != nil && contentRange.OffsetBegin > -1 {
 		// Override content-length
-		w.Header().Set("Content-Length", strconv.FormatInt(contentRange.getLength(), 10))
+		w.Header().Set("Content-Length", strconv.FormatInt(contentRange.GetLength(), 10))
 		w.Header().Set("Content-Range", contentRange.String())
 		w.WriteHeader(http.StatusPartialContent)
 	}

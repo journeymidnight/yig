@@ -26,6 +26,7 @@ import (
 
 	. "git.letv.cn/yig/yig/minio/datatype"
 	mux "github.com/gorilla/mux"
+	"git.letv.cn/yig/yig/signature"
 )
 
 // maximum supported access policy size.
@@ -159,14 +160,14 @@ func (api objectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *ht
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
-	switch getRequestAuthType(r) {
+	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
-		writeErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
-	case authTypePresigned, authTypeSigned:
-		if _, s3Error := isReqAuthenticated(r); s3Error != ErrNone {
-			writeErrorResponse(w, r, s3Error, r.URL.Path)
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
+		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != ErrNone {
+			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
 	}
@@ -176,12 +177,12 @@ func (api objectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *ht
 	// incoming request is not chunked.
 	if !contains(r.TransferEncoding, "chunked") {
 		if r.ContentLength == -1 || r.ContentLength == 0 {
-			writeErrorResponse(w, r, ErrMissingContentLength, r.URL.Path)
+			WriteErrorResponse(w, r, ErrMissingContentLength, r.URL.Path)
 			return
 		}
 		// If Content-Length is greater than maximum allowed policy size.
 		if r.ContentLength > maxAccessPolicySize {
-			writeErrorResponse(w, r, ErrEntityTooLarge, r.URL.Path)
+			WriteErrorResponse(w, r, ErrEntityTooLarge, r.URL.Path)
 			return
 		}
 	}
@@ -192,7 +193,7 @@ func (api objectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *ht
 	bucketPolicyBuf, err := ioutil.ReadAll(io.LimitReader(r.Body, maxAccessPolicySize))
 	if err != nil {
 		errorIf(err, "Unable to read bucket policy.")
-		writeErrorResponse(w, r, ErrInternalError, r.URL.Path)
+		WriteErrorResponse(w, r, ErrInternalError, r.URL.Path)
 		return
 	}
 
@@ -200,13 +201,13 @@ func (api objectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *ht
 	bucketPolicy, err := parseBucketPolicy(bucketPolicyBuf)
 	if err != nil {
 		errorIf(err, "Unable to parse bucket policy.")
-		writeErrorResponse(w, r, ErrInvalidPolicyDocument, r.URL.Path)
+		WriteErrorResponse(w, r, ErrInvalidPolicyDocument, r.URL.Path)
 		return
 	}
 
 	// Parse check bucket policy.
 	if s3Error := checkBucketPolicyResources(bucket, bucketPolicy); s3Error != ErrNone {
-		writeErrorResponse(w, r, s3Error, r.URL.Path)
+		WriteErrorResponse(w, r, s3Error, r.URL.Path)
 		return
 	}
 
@@ -215,13 +216,13 @@ func (api objectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *ht
 		errorIf(err, "Unable to write bucket policy.")
 		switch err.(type) {
 		case BucketNameInvalid:
-			writeErrorResponse(w, r, ErrInvalidBucketName, r.URL.Path)
+			WriteErrorResponse(w, r, ErrInvalidBucketName, r.URL.Path)
 		default:
-			writeErrorResponse(w, r, ErrInternalError, r.URL.Path)
+			WriteErrorResponse(w, r, ErrInternalError, r.URL.Path)
 		}
 		return
 	}
-	writeSuccessNoContent(w)
+	WriteSuccessNoContent(w)
 }
 
 // DeleteBucketPolicyHandler - DELETE Bucket policy
@@ -232,14 +233,14 @@ func (api objectAPIHandlers) DeleteBucketPolicyHandler(w http.ResponseWriter, r 
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
-	switch getRequestAuthType(r) {
+	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
-		writeErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
-	case authTypePresigned, authTypeSigned:
-		if _, s3Error := isReqAuthenticated(r); s3Error != ErrNone {
-			writeErrorResponse(w, r, s3Error, r.URL.Path)
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
+		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != ErrNone {
+			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
 	}
@@ -249,15 +250,15 @@ func (api objectAPIHandlers) DeleteBucketPolicyHandler(w http.ResponseWriter, r 
 		errorIf(err, "Unable to remove bucket policy.")
 		switch err.(type) {
 		case BucketNameInvalid:
-			writeErrorResponse(w, r, ErrInvalidBucketName, r.URL.Path)
+			WriteErrorResponse(w, r, ErrInvalidBucketName, r.URL.Path)
 		case BucketPolicyNotFound:
-			writeErrorResponse(w, r, ErrNoSuchBucketPolicy, r.URL.Path)
+			WriteErrorResponse(w, r, ErrNoSuchBucketPolicy, r.URL.Path)
 		default:
-			writeErrorResponse(w, r, ErrInternalError, r.URL.Path)
+			WriteErrorResponse(w, r, ErrInternalError, r.URL.Path)
 		}
 		return
 	}
-	writeSuccessNoContent(w)
+	WriteSuccessNoContent(w)
 }
 
 // GetBucketPolicyHandler - GET Bucket policy
@@ -268,14 +269,14 @@ func (api objectAPIHandlers) GetBucketPolicyHandler(w http.ResponseWriter, r *ht
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
-	switch getRequestAuthType(r) {
+	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
-		writeErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
-	case authTypePresigned, authTypeSigned:
-		if _, s3Error := isReqAuthenticated(r); s3Error != ErrNone {
-			writeErrorResponse(w, r, s3Error, r.URL.Path)
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
+		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != ErrNone {
+			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
 	}
@@ -286,11 +287,11 @@ func (api objectAPIHandlers) GetBucketPolicyHandler(w http.ResponseWriter, r *ht
 		errorIf(err, "Unable to read bucket policy.")
 		switch err.(type) {
 		case BucketNameInvalid:
-			writeErrorResponse(w, r, ErrInvalidBucketName, r.URL.Path)
+			WriteErrorResponse(w, r, ErrInvalidBucketName, r.URL.Path)
 		case BucketPolicyNotFound:
-			writeErrorResponse(w, r, ErrNoSuchBucketPolicy, r.URL.Path)
+			WriteErrorResponse(w, r, ErrNoSuchBucketPolicy, r.URL.Path)
 		default:
-			writeErrorResponse(w, r, ErrInternalError, r.URL.Path)
+			WriteErrorResponse(w, r, ErrInternalError, r.URL.Path)
 		}
 		return
 	}

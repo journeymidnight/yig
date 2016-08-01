@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package minio
+package datatype
 
 import (
 	"encoding/xml"
@@ -22,15 +22,14 @@ import (
 	"path"
 	"time"
 
-	. "git.letv.cn/yig/yig/minio/datatype"
 	"git.letv.cn/yig/yig/iam"
 )
 
 const (
 	timeFormatAMZ  = "2006-01-02T15:04:05.000Z" // Reply date format
-	maxObjectList  = 1000                       // Limit number of objects in a listObjectsResponse.
-	maxUploadsList = 1000                       // Limit number of uploads in a listUploadsResponse.
-	maxPartsList   = 1000                       // Limit number of parts in a listPartsResponse.
+	MaxObjectList  = 1000                       // Limit number of objects in a listObjectsResponse.
+	MaxUploadsList = 1000                       // Limit number of uploads in a listUploadsResponse.
+	MaxPartsList   = 1000                       // Limit number of parts in a listPartsResponse.
 )
 
 // LocationResponse - format for location response.
@@ -258,12 +257,12 @@ type DeleteObjectsResponse struct {
 }
 
 // getLocation get URL location.
-func getLocation(r *http.Request) string {
+func GetLocation(r *http.Request) string {
 	return path.Clean(r.URL.Path) // Clean any trailing slashes.
 }
 
 // getObjectLocation gets the relative URL for an object
-func getObjectLocation(bucketName string, key string) string {
+func GetObjectLocation(bucketName string, key string) string {
 	return "/" + bucketName + "/" + key
 }
 
@@ -273,7 +272,7 @@ func getObjectLocation(bucketName string, key string) string {
 //
 // output:
 // populated struct that can be serialized to match xml and json api spec output
-func generateListBucketsResponse(buckets []BucketInfo, credential iam.Credential) ListBucketsResponse {
+func GenerateListBucketsResponse(buckets []BucketInfo, credential iam.Credential) ListBucketsResponse {
 	var listbuckets []Bucket
 	var data = ListBucketsResponse{}
 	var owner = Owner{}
@@ -295,7 +294,7 @@ func generateListBucketsResponse(buckets []BucketInfo, credential iam.Credential
 }
 
 // generates an ListObjects response for the said bucket with other enumerated options.
-func generateListObjectsResponse(bucket, prefix, marker, delimiter string, maxKeys int, resp ListObjectsInfo) ListObjectsResponse {
+func GenerateListObjectsResponse(bucket, prefix, marker, delimiter string, maxKeys int, resp ListObjectsInfo) ListObjectsResponse {
 	var contents []Object
 	var prefixes []CommonPrefix
 	var owner = Owner{}
@@ -340,7 +339,7 @@ func generateListObjectsResponse(bucket, prefix, marker, delimiter string, maxKe
 }
 
 // generates an ListObjects response for the said bucket with other enumerated options.
-func generateListObjectsV2Response(bucket, prefix, token, startAfter, delimiter string, maxKeys int, resp ListObjectsInfo) ListObjectsV2Response {
+func GenerateListObjectsV2Response(bucket, prefix, token, startAfter, delimiter string, maxKeys int, resp ListObjectsInfo) ListObjectsV2Response {
 	var contents []Object
 	var prefixes []CommonPrefix
 	var owner = Owner{}
@@ -384,8 +383,8 @@ func generateListObjectsV2Response(bucket, prefix, token, startAfter, delimiter 
 	return data
 }
 
-// generateCopyObjectResponse
-func generateCopyObjectResponse(etag string, lastModified time.Time) CopyObjectResponse {
+// GenerateCopyObjectResponse
+func GenerateCopyObjectResponse(etag string, lastModified time.Time) CopyObjectResponse {
 	return CopyObjectResponse{
 		ETag:         "\"" + etag + "\"",
 		LastModified: lastModified.UTC().Format(timeFormatAMZ),
@@ -442,7 +441,7 @@ func generateListPartsResponse(partsInfo ListPartsInfo) ListPartsResponse {
 }
 
 // generateListMultipartUploadsResponse
-func generateListMultipartUploadsResponse(bucket string, multipartsInfo ListMultipartsInfo) ListMultipartUploadsResponse {
+func GenerateListMultipartUploadsResponse(bucket string, multipartsInfo ListMultipartsInfo) ListMultipartUploadsResponse {
 	listMultipartUploadsResponse := ListMultipartUploadsResponse{}
 	listMultipartUploadsResponse.Bucket = bucket
 	listMultipartUploadsResponse.Delimiter = multipartsInfo.Delimiter
@@ -472,7 +471,7 @@ func generateListMultipartUploadsResponse(bucket string, multipartsInfo ListMult
 }
 
 // generate multi objects delete response.
-func generateMultiDeleteResponse(quiet bool, deletedObjects []ObjectIdentifier, errs []DeleteError) DeleteObjectsResponse {
+func GenerateMultiDeleteResponse(quiet bool, deletedObjects []ObjectIdentifier, errs []DeleteError) DeleteObjectsResponse {
 	deleteResp := DeleteObjectsResponse{}
 	if !quiet {
 		deleteResp.DeletedObjects = deletedObjects
@@ -482,8 +481,8 @@ func generateMultiDeleteResponse(quiet bool, deletedObjects []ObjectIdentifier, 
 }
 
 // writeSuccessResponse write success headers and response if any.
-func writeSuccessResponse(w http.ResponseWriter, response []byte) {
-	setCommonHeaders(w)
+func WriteSuccessResponse(w http.ResponseWriter, response []byte) {
+	SetCommonHeaders(w)
 	if response == nil {
 		w.WriteHeader(http.StatusOK)
 		return
@@ -493,16 +492,16 @@ func writeSuccessResponse(w http.ResponseWriter, response []byte) {
 }
 
 // writeSuccessNoContent write success headers with http status 204
-func writeSuccessNoContent(w http.ResponseWriter) {
-	setCommonHeaders(w)
+func WriteSuccessNoContent(w http.ResponseWriter) {
+	SetCommonHeaders(w)
 	w.WriteHeader(http.StatusNoContent)
 }
 
 // writeErrorRespone write error headers
-func writeErrorResponse(w http.ResponseWriter, req *http.Request, errorCode APIErrorCode, resource string) {
+func WriteErrorResponse(w http.ResponseWriter, req *http.Request, errorCode APIErrorCode, resource string) {
 	error := GetAPIError(errorCode)
 	// set common headers
-	setCommonHeaders(w)
+	SetCommonHeaders(w)
 	// write Header
 	w.WriteHeader(error.HTTPStatusCode)
 	writeErrorResponseNoHeader(w, req, errorCode, resource)
@@ -512,7 +511,7 @@ func writeErrorResponseNoHeader(w http.ResponseWriter, req *http.Request, errorC
 	error := GetAPIError(errorCode)
 	// Generate error response.
 	errorResponse := GetAPIErrorResponse(error, resource)
-	encodedErrorResponse := encodeResponse(errorResponse)
+	encodedErrorResponse := EncodeResponse(errorResponse)
 	// HEAD should have no body, do not attempt to write to it
 	if req.Method != "HEAD" {
 		// write error body

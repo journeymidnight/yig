@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package minio
+package signature
 
 import (
 	"crypto/hmac"
