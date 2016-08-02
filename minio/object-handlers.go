@@ -352,7 +352,7 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	// write headers
 	SetCommonHeaders(w)
 	// write success response.
-	writeSuccessResponse(w, encodedSuccessResponse)
+	WriteSuccessResponse(w, encodedSuccessResponse)
 	// Explicitly close the reader, to avoid fd leaks.
 	pipeReader.Close()
 }
@@ -408,9 +408,10 @@ func (api objectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		}
 		// Create anonymous object.
 		md5Sum, err = api.ObjectAPI.PutObject(bucket, object, size, r.Body, metadata)
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4, authTypePresignedV2, authTypeSignedV2:
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
+		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		// Initialize signature verifier.
-		reader := newSignVerify(r)
+		reader := signature.NewSignVerify(r)
 		// Create object.
 		md5Sum, err = api.ObjectAPI.PutObject(bucket, object, size, reader, metadata)
 	}
@@ -422,7 +423,7 @@ func (api objectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	if md5Sum != "" {
 		w.Header().Set("ETag", "\""+md5Sum+"\"")
 	}
-	writeSuccessResponse(w, nil)
+	WriteSuccessResponse(w, nil)
 }
 
 /// Multipart objectAPIHandlers
@@ -473,12 +474,12 @@ func (api objectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 		return
 	}
 
-	response := generateInitiateMultipartUploadResponse(bucket, object, uploadID)
+	response := GenerateInitiateMultipartUploadResponse(bucket, object, uploadID)
 	encodedSuccessResponse := EncodeResponse(response)
 	// write headers
 	SetCommonHeaders(w)
 	// write success response.
-	writeSuccessResponse(w, encodedSuccessResponse)
+	WriteSuccessResponse(w, encodedSuccessResponse)
 }
 
 // PutObjectPartHandler - Upload part
@@ -539,7 +540,7 @@ func (api objectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 		partMD5, err = api.ObjectAPI.PutObjectPart(bucket, object, uploadID, partID, size, r.Body, incomingMD5)
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
 		// Initialize signature verifier.
-		reader := newSignVerify(r)
+		reader := signature.NewSignVerify(r)
 		partMD5, err = api.ObjectAPI.PutObjectPart(bucket, object, uploadID, partID, size, reader, incomingMD5)
 	}
 	if err != nil {
@@ -551,7 +552,7 @@ func (api objectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 	if partMD5 != "" {
 		w.Header().Set("ETag", "\""+partMD5+"\"")
 	}
-	writeSuccessResponse(w, nil)
+	WriteSuccessResponse(w, nil)
 }
 
 // AbortMultipartUploadHandler - Abort multipart upload
@@ -584,7 +585,7 @@ func (api objectAPIHandlers) AbortMultipartUploadHandler(w http.ResponseWriter, 
 		WriteErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 		return
 	}
-	writeSuccessNoContent(w)
+	WriteSuccessNoContent(w)
 }
 
 // Send whitespace character, once every 5secs, until CompleteMultipartUpload is done.
@@ -639,12 +640,12 @@ func (api objectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 		WriteErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
 		return
 	}
-	response := generateListPartsResponse(listPartsInfo)
+	response := GenerateListPartsResponse(listPartsInfo)
 	encodedSuccessResponse := EncodeResponse(response)
 	// Write headers.
 	SetCommonHeaders(w)
 	// Write success response.
-	writeSuccessResponse(w, encodedSuccessResponse)
+	WriteSuccessResponse(w, encodedSuccessResponse)
 }
 
 // CompleteMultipartUploadHandler - Complete multipart upload
@@ -711,7 +712,7 @@ func (api objectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	_, err = w.Write([]byte(xml.Header))
 	if err != nil {
 		errorIf(err, "Unable to write XML header for complete multipart upload")
-		writeErrorResponseNoHeader(w, r, ErrInternalError, r.URL.Path)
+		WriteErrorResponseNoHeader(w, r, ErrInternalError, r.URL.Path)
 		return
 	}
 
@@ -732,19 +733,19 @@ func (api objectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 			writePartSmallErrorResponse(w, r, oErr)
 		default:
 			// Handle all other generic issues.
-			writeErrorResponseNoHeader(w, r, ToAPIErrorCode(err), r.URL.Path)
+			WriteErrorResponseNoHeader(w, r, ToAPIErrorCode(err), r.URL.Path)
 		}
 		return
 	}
 
 	// Get object location.
-	location := getLocation(r)
+	location := GetLocation(r)
 	// Generate complete multipart response.
-	response := generateCompleteMultpartUploadResponse(bucket, object, location, md5Sum)
+	response := GenerateCompleteMultpartUploadResponse(bucket, object, location, md5Sum)
 	encodedSuccessResponse, err := xml.Marshal(response)
 	if err != nil {
 		errorIf(err, "Unable to parse CompleteMultipartUpload response")
-		writeErrorResponseNoHeader(w, r, ErrInternalError, r.URL.Path)
+		WriteErrorResponseNoHeader(w, r, ErrInternalError, r.URL.Path)
 		return
 	}
 	// write success response.
@@ -781,5 +782,5 @@ func (api objectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 	/// Ignore delete object errors, since we are suppposed to reply
 	/// only 204.
 	api.ObjectAPI.DeleteObject(bucket, object)
-	writeSuccessNoContent(w)
+	WriteSuccessNoContent(w)
 }

@@ -37,7 +37,7 @@ type SignVerifyReader struct {
 }
 
 // Initializes a new signature verify reader.
-func newSignVerify(req *http.Request) *SignVerifyReader {
+func NewSignVerify(req *http.Request) *SignVerifyReader {
 	return &SignVerifyReader{
 		Request:    req,          // Save the request.
 		HashWriter: sha256.New(), // Inititalize sha256.

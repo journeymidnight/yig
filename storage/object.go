@@ -116,7 +116,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 	}
 
 	if bucket.OwnerId != credential.UserId {
-		return datatype.BucketAccessForbidden{Bucket: bucketName}
+		return "", datatype.BucketAccessForbidden{Bucket: bucketName}
 		// TODO validate bucket policy and ACL
 	}
 
@@ -134,8 +134,16 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 		// TODO CustomAttributes
 	}
 
+	rowkey, err := object.GetRowkey()
+	if err != nil {
+		return "", err
+	}
+	values, err := object.GetValues()
+	if err != nil {
+		return "", err
+	}
 	put, err := hrpc.NewPutStr(context.Background(), meta.OBJECT_TABLE,
-		object.GetRowkey(), object.GetValues())
+		rowkey, values)
 	if err != nil {
 		return "", err
 	}

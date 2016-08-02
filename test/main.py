@@ -52,6 +52,9 @@ def delete_bucket(name, client):
 def delete_bucket_nonexist(name, client):
         client.delete_bucket(Bucket=name+'haha')
 
+def put_object
+
+# =====================================================
 
 def is_a_fail_test(testFunction):
     fail_name_patterns = ['nonexist']

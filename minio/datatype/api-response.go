@@ -391,8 +391,8 @@ func GenerateCopyObjectResponse(etag string, lastModified time.Time) CopyObjectR
 	}
 }
 
-// generateInitiateMultipartUploadResponse
-func generateInitiateMultipartUploadResponse(bucket, key, uploadID string) InitiateMultipartUploadResponse {
+// GenerateInitiateMultipartUploadResponse
+func GenerateInitiateMultipartUploadResponse(bucket, key, uploadID string) InitiateMultipartUploadResponse {
 	return InitiateMultipartUploadResponse{
 		Bucket:   bucket,
 		Key:      key,
@@ -400,8 +400,8 @@ func generateInitiateMultipartUploadResponse(bucket, key, uploadID string) Initi
 	}
 }
 
-// generateCompleteMultipartUploadResponse
-func generateCompleteMultpartUploadResponse(bucket, key, location, etag string) CompleteMultipartUploadResponse {
+// GenerateCompleteMultipartUploadResponse
+func GenerateCompleteMultpartUploadResponse(bucket, key, location, etag string) CompleteMultipartUploadResponse {
 	return CompleteMultipartUploadResponse{
 		Location: location,
 		Bucket:   bucket,
@@ -410,8 +410,8 @@ func generateCompleteMultpartUploadResponse(bucket, key, location, etag string) 
 	}
 }
 
-// generateListPartsResult
-func generateListPartsResponse(partsInfo ListPartsInfo) ListPartsResponse {
+// GenerateListPartsResult
+func GenerateListPartsResponse(partsInfo ListPartsInfo) ListPartsResponse {
 	// TODO - support EncodingType in xml decoding
 	listPartsResponse := ListPartsResponse{}
 	listPartsResponse.Bucket = partsInfo.Bucket
@@ -480,7 +480,7 @@ func GenerateMultiDeleteResponse(quiet bool, deletedObjects []ObjectIdentifier, 
 	return deleteResp
 }
 
-// writeSuccessResponse write success headers and response if any.
+// WriteSuccessResponse write success headers and response if any.
 func WriteSuccessResponse(w http.ResponseWriter, response []byte) {
 	SetCommonHeaders(w)
 	if response == nil {
@@ -504,10 +504,10 @@ func WriteErrorResponse(w http.ResponseWriter, req *http.Request, errorCode APIE
 	SetCommonHeaders(w)
 	// write Header
 	w.WriteHeader(error.HTTPStatusCode)
-	writeErrorResponseNoHeader(w, req, errorCode, resource)
+	WriteErrorResponseNoHeader(w, req, errorCode, resource)
 }
 
-func writeErrorResponseNoHeader(w http.ResponseWriter, req *http.Request, errorCode APIErrorCode, resource string) {
+func WriteErrorResponseNoHeader(w http.ResponseWriter, req *http.Request, errorCode APIErrorCode, resource string) {
 	error := GetAPIError(errorCode)
 	// Generate error response.
 	errorResponse := GetAPIErrorResponse(error, resource)
