@@ -57,7 +57,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 	var limitedDataReader io.Reader
 	var pool *rados.Pool
 	var poolName string
-	var bufferSize int
+	var bufferSize int64
 	if size > 0 { // request.ContentLength is -1 if length is unknown
 		limitedDataReader = io.LimitReader(data, size)
 		if size > BIG_FILE_THRESHOLD {
