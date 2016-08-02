@@ -54,6 +54,20 @@ def put_object(name, client):
     )
 
 
+def get_object(name, client):
+    ans = client.get_object(
+        Bucket=name+'hehe',
+        Key=name+'hehe',
+    )
+    print 'Get object:', ans
+
+
+def get_object_nonexist(name, client):
+    client.get_object(
+        Bucket=name+'haha',
+        Key=name+'haha'
+    )
+
 def delete_bucket(name, client):
         client.delete_bucket(Bucket=name+'hehe')
 
@@ -75,6 +89,7 @@ TESTS = [create_bucket,
          head_bucket, head_bucket_nonexist,
          list_buckets,
          put_object,
+         get_object, get_object_nonexist,
          delete_bucket, delete_bucket_nonexist]
 
 if __name__ == '__main__':

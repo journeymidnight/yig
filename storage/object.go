@@ -14,6 +14,7 @@ import (
 	"io"
 	"strings"
 	"time"
+	"bytes"
 )
 
 func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size int64) (cluster *CephStorage, poolName string) {
@@ -66,7 +67,7 @@ func (yig *YigStorage) GetObjectInfo(bucket, object string) (objInfo datatype.Ob
 		case "lastModified":
 			objInfo.ModTime = time.Parse(string(cell.Value), meta.CREATE_TIME_LAYOUT)
 		case "size":
-			err = binary.Read(cell.Value, binary.BigEndian, &objInfo.Size)
+			err = binary.Read(bytes.NewReader(cell.Value), binary.BigEndian, &objInfo.Size)
 			if err != nil {
 				return
 			}
