@@ -95,7 +95,8 @@ func (api objectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
+		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != ErrNone {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
@@ -160,7 +161,7 @@ func (api objectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		return w.Write(p)
 	})
 	// Reads the object at startOffset and writes to mw.
-	if err := api.ObjectAPI.GetObject(bucket, object, startOffset, length, writer); err != nil {
+	if err := api.ObjectAPI.GetObject(objInfo, startOffset, length, writer); err != nil {
 		errorIf(err, "Unable to write to client.")
 		if !dataWritten {
 			// Error response only if no data has been written to client yet. i.e if
@@ -312,7 +313,7 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	go func() {
 		startOffset := int64(0) // Read the whole file.
 		// Get the object.
-		gErr := api.ObjectAPI.GetObject(sourceBucket, sourceObject, startOffset, objInfo.Size, pipeWriter)
+		gErr := api.ObjectAPI.GetObject(objInfo, startOffset, objInfo.Size, pipeWriter)
 		if gErr != nil {
 			errorIf(gErr, "Unable to read an object.")
 			pipeWriter.CloseWithError(gErr)
