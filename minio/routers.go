@@ -55,6 +55,7 @@ func configureServerHandler(c *ServerConfig) http.Handler {
 		signature.SetAuthHandler,
 		// Add new handlers here.
 
+		setLogHandler,
 		// TODO request logger
 		// func LogRequest(c *iris.Context)  {
 		// start := time.Now()

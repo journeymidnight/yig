@@ -3,8 +3,6 @@ package storage
 import (
 	"crypto/md5"
 	"encoding/hex"
-	"errors"
-	"git.letv.cn/ceph/radoshttpd/rados"
 	"git.letv.cn/yig/yig/meta"
 	"git.letv.cn/yig/yig/minio/datatype"
 	"github.com/tsuna/gohbase/hrpc"
@@ -14,6 +12,20 @@ import (
 	"git.letv.cn/yig/yig/signature"
 )
 
+
+
+func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size int64) (cluster *CephStorage, poolName string) {
+	// always choose the first cluster for testing
+	if size < 0 {  // request.ContentLength is -1 if length is unknown
+		return yig.DataStorage["2fc32752-04a3-48dc-8297-40fb4dd11ff5"], BIG_FILE_THRESHOLD
+	}
+	if size < BIG_FILE_THRESHOLD {
+		return yig.DataStorage["2fc32752-04a3-48dc-8297-40fb4dd11ff5"], SMALL_FILE_POOLNAME
+	} else {
+		return yig.DataStorage["2fc32752-04a3-48dc-8297-40fb4dd11ff5"], BIG_FILE_POOLNAME
+	}
+}
+
 func (yig *YigStorage) GetObject(bucket, object string, startOffset int64, length int64, writer io.Writer) (err error) {
 	return
 }
@@ -22,69 +34,23 @@ func (yig *YigStorage) GetObjectInfo(bucket, object string) (objInfo datatype.Ob
 	return
 }
 
-func getWriter(objectName string, pool *rados.Pool) (io.Writer, error) {
-	ioContext, err := pool.CreateStriper()
-
-	if err != nil {
-		return nil, err
-	}
-	if ret := ioContext.SetLayoutStripeUnit(STRIPE_UNIT); ret < 0 {
-		return nil, errors.New("Cannot set stripe unit")
-	}
-	if ret := ioContext.SetLayoutObjectSize(OBJECT_SIZE); ret < 0 {
-		return nil, errors.New("Cannot set object size")
-	}
-	if ret := ioContext.SetLayoutStripeCount(STRIPE_COUNT); ret < 0 {
-		return nil, errors.New("cannot set stripe count")
-	}
-
-	return IoContextWrapper{
-		oid:     objectName,
-		striper: &ioContext,
-		offset:  0,
-	}, nil
-}
-
-func getMappedObjectName(bucketName string, objectName string) string {
-	return bucketName + objectName
-}
-
 func (yig *YigStorage) PutObject(bucketName string, objectName string, size int64,
 	data io.Reader, metadata map[string]string) (md5String string, err error) {
 	md5Writer := md5.New()
 
 	// Limit the reader to its provided size if specified.
 	var limitedDataReader io.Reader
-	var pool *rados.Pool
-	var poolName string
-	var bufferSize int64
 	if size > 0 { // request.ContentLength is -1 if length is unknown
 		limitedDataReader = io.LimitReader(data, size)
-		if size > BIG_FILE_THRESHOLD {
-			pool = yig.DataStorage.BigFilePool
-			poolName = BIG_FILE_POOL_NAME
-		} else {
-			pool = yig.DataStorage.SmallFilePool
-			poolName = SMALL_FILE_POOL_NAME
-		}
-		if size > BUFFER_SIZE {
-			bufferSize = BUFFER_SIZE
-		} else {
-			bufferSize = size
-		}
 	} else {
 		limitedDataReader = data
-		pool = yig.DataStorage.BigFilePool
-		poolName = BIG_FILE_POOL_NAME
-		bufferSize = BUFFER_SIZE
 	}
+	cephCluster, poolName := yig.PickOneClusterAndPool(bucketName, objectName, size)
 
-	mappedObjectName := getMappedObjectName(bucketName, objectName)
-	storageWriter, err := getWriter(mappedObjectName, pool)
-
-	buffer := make([]byte, bufferSize)
+	// Mapping a shorter name for the object
+	oid := cephCluster.GetUniqUploadName()
 	storageReader := io.TeeReader(limitedDataReader, md5Writer)
-	bytesWritten, err := io.CopyBuffer(storageWriter, storageReader, buffer)
+	bytesWritten, err := cephCluster.put(poolName, oid, storageReader)
 	if err != nil {
 		return "", err
 	}
@@ -127,7 +93,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 		Pool:             poolName,
 		OwnerId:          credential.UserId,
 		Size:             bytesWritten,
-		ObjectId:         mappedObjectName,
+		ObjectId:         oid,
 		LastModifiedTime: time.Now(),
 		Etag:             calculatedMd5,
 		ContentType:      metadata["Content-Type"],
@@ -157,3 +123,4 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 func (yig *YigStorage) DeleteObject(bucket, object string) error {
 	return nil
 }
+
