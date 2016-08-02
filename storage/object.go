@@ -62,10 +62,10 @@ func (yig *YigStorage) GetObjectInfo(bucket, object string) (objInfo datatype.Ob
 		return
 	}
 	for _, cell := range scanResponse[0].Cells {
-		yig.Logger.Println("CELL: ", cell)
+		yig.Logger.Println("CELL: ", string(cell))
 		switch string(cell.Qualifier) {
 		case "lastModified":
-			objInfo.ModTime, err = time.Parse(string(cell.Value), meta.CREATE_TIME_LAYOUT)
+			objInfo.ModTime, err = time.Parse(meta.CREATE_TIME_LAYOUT, string(cell.Value))
 			if err != nil {
 				return
 			}
@@ -157,7 +157,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 		OwnerId:          credential.UserId,
 		Size:             bytesWritten,
 		ObjectId:         oid,
-		LastModifiedTime: time.Now(),
+		LastModifiedTime: time.Now().UTC(),
 		Etag:             calculatedMd5,
 		ContentType:      metadata["Content-Type"],
 		// TODO CustomAttributes
