@@ -27,6 +27,9 @@ for addressStyle in ['path']: #['path', 'virtual']:
                                        ))
         clients[addressStyle+'-'+signatureVersion] = client
 
+SMALL_TEST_FILE = bytes('a' * 1024 * 1024)  # 1M
+
+# =====================================================
 
 def create_bucket(name, client):
         client.create_bucket(Bucket=name+'hehe')
@@ -48,7 +51,7 @@ def list_buckets(name, client):
 def put_object(name, client):
     """Single part upload"""
     client.put_object(
-        Body=bytes('a' * 1024 * 1024),  # 1M
+        Body=SMALL_TEST_FILE,
         Bucket=name+'hehe',
         Key=name+'hehe'
     )
@@ -59,6 +62,8 @@ def get_object(name, client):
         Bucket=name+'hehe',
         Key=name+'hehe',
     )
+    body = ans['Body'].read()
+    assert body == SMALL_TEST_FILE
     print 'Get object:', ans
 
 
