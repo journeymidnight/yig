@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"git.letv.cn/ceph/radoshttpd/rados"
 	"git.letv.cn/yig/yig/meta"
 	"log"
 	"path/filepath"
@@ -10,13 +9,6 @@ import (
 const (
 	CEPH_CONFIG_PATTERN  = "conf/*.conf"
 )
-
-// indicates a Ceph cluster
-type CephStorage struct {
-	RadosConnection *rados.Conn
-	BigFilePool     *rados.Pool
-	SmallFilePool   *rados.Pool
-}
 
 // *YigStorage implements minio.ObjectLayer
 type YigStorage struct {

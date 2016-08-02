@@ -17,7 +17,7 @@ import (
 func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size int64) (cluster *CephStorage, poolName string) {
 	// always choose the first cluster for testing
 	if size < 0 {  // request.ContentLength is -1 if length is unknown
-		return yig.DataStorage["2fc32752-04a3-48dc-8297-40fb4dd11ff5"], BIG_FILE_THRESHOLD
+		return yig.DataStorage["2fc32752-04a3-48dc-8297-40fb4dd11ff5"], BIG_FILE_POOLNAME
 	}
 	if size < BIG_FILE_THRESHOLD {
 		return yig.DataStorage["2fc32752-04a3-48dc-8297-40fb4dd11ff5"], SMALL_FILE_POOLNAME

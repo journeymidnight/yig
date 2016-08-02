@@ -201,10 +201,10 @@ func (cluster *CephStorage) put(poolname string, oid string, data io.Reader) (si
 				return 0, errors.New("Bad io")
 			}
 		}
-		offset += uint64(len(bl))
+		offset += int64(len(bl))
 	}
 
-	size = offset + len(pending_data)
+	size = offset + int64(len(pending_data))
 	//write all remaining data
 	if len(pending_data) > 0 {
 		c = new(rados.AioCompletion)
