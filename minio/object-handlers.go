@@ -95,7 +95,8 @@ func (api objectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
+		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != ErrNone {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return

@@ -62,7 +62,7 @@ func (yig *YigStorage) GetObjectInfo(bucket, object string) (objInfo datatype.Ob
 		return
 	}
 	for _, cell := range scanResponse[0].Cells {
-		yig.Logger.Println("CELL: ", string(cell))
+		yig.Logger.Println("CELL: ", cell)
 		switch string(cell.Qualifier) {
 		case "lastModified":
 			objInfo.ModTime, err = time.Parse(meta.CREATE_TIME_LAYOUT, string(cell.Value))
