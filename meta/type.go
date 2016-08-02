@@ -71,12 +71,12 @@ type Object struct {
 func (o Object) GetRowkey() (string, error) {
 	var rowkey bytes.Buffer
 	rowkey.WriteString(o.BucketName)
-	err := binary.Write(rowkey, binary.BigEndian, uint16(strings.Count(o.Name, "/")))
+	err := binary.Write(&rowkey, binary.BigEndian, uint16(strings.Count(o.Name, "/")))
 	if err != nil {
 		return "", err
 	}
 	rowkey.WriteString(o.Name)
-	err = binary.Write(rowkey, binary.BigEndian,
+	err = binary.Write(&rowkey, binary.BigEndian,
 		math.MaxUint64-uint64(o.LastModifiedTime.UnixNano()))
 	if err != nil {
 		return "", err
