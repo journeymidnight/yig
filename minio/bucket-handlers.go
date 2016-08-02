@@ -521,7 +521,7 @@ func (api objectAPIHandlers) HeadBucketHandler(w http.ResponseWriter, r *http.Re
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4, 
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, s3Error = signature.IsReqAuthenticated(r); s3Error != ErrNone {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)

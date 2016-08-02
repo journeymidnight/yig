@@ -25,8 +25,8 @@ import (
 	"strings"
 
 	. "git.letv.cn/yig/yig/minio/datatype"
-	mux "github.com/gorilla/mux"
 	"git.letv.cn/yig/yig/signature"
+	mux "github.com/gorilla/mux"
 )
 
 // maximum supported access policy size.

@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	CEPH_CONFIG_PATTERN  = "conf/*.conf"
+	CEPH_CONFIG_PATTERN = "conf/*.conf"
 )
 
 // *YigStorage implements minio.ObjectLayer
@@ -21,21 +21,20 @@ type YigStorage struct {
 func New(logger *log.Logger) *YigStorage {
 	metaStorage := meta.New(logger)
 	yig := YigStorage{
-		DataStorage:make(map[string]*CephStorage),
+		DataStorage: make(map[string]*CephStorage),
 		MetaStorage: metaStorage,
 		Logger:      logger,
 	}
 
-	cephConfs, err  := filepath.Glob(CEPH_CONFIG_PATTERN)
+	cephConfs, err := filepath.Glob(CEPH_CONFIG_PATTERN)
 	if err != nil {
 		panic("No ceph conf found")
 	}
 
 	for _, conf := range cephConfs {
 		c := NewCephStorage(conf, logger)
-		yig.DataStorage[c.Name]=c
+		yig.DataStorage[c.Name] = c
 	}
 
 	return &yig
 }
-

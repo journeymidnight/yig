@@ -55,7 +55,7 @@ type Object struct {
 	Location         string // which Ceph cluster this object locates
 	Pool             string // which Ceph pool this object locates
 	OwnerId          string
-	Size             int64    // file size
+	Size             int64     // file size
 	ObjectId         string    // object name in Ceph
 	LastModifiedTime time.Time // in format "2006-01-02T15:04:05.000Z"
 	Etag             string

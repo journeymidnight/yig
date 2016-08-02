@@ -20,18 +20,18 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"git.letv.cn/yig/yig/minio/datatype"
 	"net/http"
 	"regexp"
 	"strings"
 	"unicode/utf8"
-	"git.letv.cn/yig/yig/minio/datatype"
 )
 
 // http Header "x-amz-content-sha256" == "UNSIGNED-PAYLOAD" indicates that the
 // client did not calculate sha256 of the payload.
 const (
 	unsignedPayload = "UNSIGNED-PAYLOAD"
-	REGION = "cn-bj-1"
+	REGION          = "cn-bj-1"
 )
 
 // http Header "x-amz-content-sha256" == "UNSIGNED-PAYLOAD" indicates that the

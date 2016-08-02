@@ -19,8 +19,8 @@ package minio
 import (
 	"net/http"
 
-	router "github.com/gorilla/mux"
 	"git.letv.cn/yig/yig/signature"
+	router "github.com/gorilla/mux"
 )
 
 // configureServer handler returns final handler for the http server.

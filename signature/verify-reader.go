@@ -24,8 +24,8 @@ import (
 	"io"
 	"net/http"
 
-	. "git.letv.cn/yig/yig/minio/datatype"
 	"git.letv.cn/yig/yig/iam"
+	. "git.letv.cn/yig/yig/minio/datatype"
 )
 
 // SignVerifyReader represents an io.Reader compatible interface which

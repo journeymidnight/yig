@@ -23,8 +23,8 @@ import (
 // rateLimit - represents datatype of the functionality implemented to
 // limit the number of concurrent http requests.
 type rateLimit struct {
-	handler     http.Handler
-	rqueue      chan struct{}
+	handler http.Handler
+	rqueue  chan struct{}
 }
 
 // acquire and release implement a way to send and receive from the
