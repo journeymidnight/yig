@@ -65,7 +65,10 @@ func (yig *YigStorage) GetObjectInfo(bucket, object string) (objInfo datatype.Ob
 		yig.Logger.Println("CELL: ", cell)
 		switch string(cell.Qualifier) {
 		case "lastModified":
-			objInfo.ModTime = time.Parse(string(cell.Value), meta.CREATE_TIME_LAYOUT)
+			objInfo.ModTime, err = time.Parse(string(cell.Value), meta.CREATE_TIME_LAYOUT)
+			if err != nil {
+				return
+			}
 		case "size":
 			err = binary.Read(bytes.NewReader(cell.Value), binary.BigEndian, &objInfo.Size)
 			if err != nil {
