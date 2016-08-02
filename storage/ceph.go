@@ -21,7 +21,7 @@ const (
 	MAX_CHUNK_SIZE      = 4 * BUFFER_SIZE /* 4M */
 	SMALL_FILE_POOLNAME = "rabbit"
 	BIG_FILE_POOLNAME   = "tiger"
-	BIG_FILE_THRESHOLD  = 512 << 10
+	BIG_FILE_THRESHOLD  = 256 << 10
 	AIO_CONCURRENT      = 4
 )
 
