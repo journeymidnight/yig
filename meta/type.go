@@ -86,7 +86,7 @@ func (o Object) GetRowkey() (string, error) {
 
 func (o Object) GetValues() (values map[string]map[string][]byte, err error) {
 	var size bytes.Buffer
-	err = binary.Write(size, binary.BigEndian, o.Size)
+	err = binary.Write(&size, binary.BigEndian, o.Size)
 	if err != nil {
 		return
 	}
