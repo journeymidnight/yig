@@ -55,6 +55,14 @@ type ObjectInfo struct {
 	// what decoding mechanisms must be applied to obtain the object referenced
 	// by the Content-Type header field.
 	ContentEncoding string
+
+	// the object name in Ceph
+	ObjectId string
+
+	// Ceph cluster
+	Location string
+
+	PoolName string
 }
 
 // ListPartsInfo - represents list of all parts.

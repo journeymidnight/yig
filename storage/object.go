@@ -2,13 +2,17 @@ package storage
 
 import (
 	"crypto/md5"
+	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"git.letv.cn/yig/yig/meta"
 	"git.letv.cn/yig/yig/minio/datatype"
 	"git.letv.cn/yig/yig/signature"
+	"github.com/tsuna/gohbase/filter"
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
 	"io"
+	"strings"
 	"time"
 )
 
@@ -24,11 +28,68 @@ func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size 
 	}
 }
 
-func (yig *YigStorage) GetObject(bucket, object string, startOffset int64, length int64, writer io.Writer) (err error) {
+func (yig *YigStorage) GetObject(object datatype.ObjectInfo, startOffset int64,
+	length int64, writer io.Writer) (err error) {
+	cephCluster, ok := yig.DataStorage[object.Location]
+	if !ok {
+		return errors.New("Cannot find specified ceph cluster: " + object.Location)
+	}
+	err = cephCluster.get(object.PoolName, object.ObjectId, startOffset, length, writer)
 	return
 }
 
 func (yig *YigStorage) GetObjectInfo(bucket, object string) (objInfo datatype.ObjectInfo, err error) {
+	objectRowkeyPrefix, err := meta.GetObjectRowkeyPrefix(bucket, object)
+	if err != nil {
+		return
+	}
+	filter := filter.NewPrefixFilter(objectRowkeyPrefix)
+	scanRequest, err := hrpc.NewScanRangeStr(context.Background(), meta.OBJECT_TABLE,
+		string(objectRowkeyPrefix), "", hrpc.Filters(filter), hrpc.NumberOfRows(1))
+	if err != nil {
+		return
+	}
+	scanResponse, err := yig.MetaStorage.Hbase.Scan(scanRequest)
+	if err != nil {
+		return
+	}
+	if len(scanResponse) == 0 {
+		err = datatype.ObjectNotFound{
+			Bucket: bucket,
+			Object: object,
+		}
+		return
+	}
+	for _, cell := range scanResponse[0].Cells {
+		yig.Logger.Println("CELL: ", cell)
+		switch string(cell.Qualifier) {
+		case "lastModified":
+			objInfo.ModTime = time.Parse(string(cell.Value), meta.CREATE_TIME_LAYOUT)
+		case "size":
+			err = binary.Read(cell.Value, binary.BigEndian, &objInfo.Size)
+			if err != nil {
+				return
+			}
+		case "content-type":
+			objInfo.ContentType = string(cell.Value)
+		case "etag":
+			objInfo.MD5Sum = string(cell.Value)
+		case "oid":
+			objInfo.ObjectId = string(cell.Value)
+		case "location":
+			objInfo.Location = string(cell.Value)
+		case "pool":
+			objInfo.PoolName = string(cell.Value)
+		}
+	}
+	objInfo.Bucket = bucket
+	objInfo.Name = object
+	if strings.HasSuffix(object, "/") {
+		objInfo.IsDir = true
+	} else {
+		objInfo.IsDir = false
+	}
+
 	return
 }
 
@@ -87,7 +148,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 	object := meta.Object{
 		Name:             objectName,
 		BucketName:       bucketName,
-		Location:         "", // TODO
+		Location:         cephCluster.Name,
 		Pool:             poolName,
 		OwnerId:          credential.UserId,
 		Size:             bytesWritten,
