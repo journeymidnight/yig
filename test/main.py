@@ -45,6 +45,15 @@ def list_buckets(name, client):
         print 'List buckets: ', ans
 
 
+def put_object(name, client):
+    """Single part upload"""
+    client.put_object(
+        Body=bytes('a' * 1024 * 1024),  # 1M
+        Bucket=name+'hehe',
+        Key=name+'hehe'
+    )
+
+
 def delete_bucket(name, client):
         client.delete_bucket(Bucket=name+'hehe')
 
@@ -52,7 +61,6 @@ def delete_bucket(name, client):
 def delete_bucket_nonexist(name, client):
         client.delete_bucket(Bucket=name+'haha')
 
-def put_object
 
 # =====================================================
 
@@ -66,6 +74,7 @@ def is_a_fail_test(testFunction):
 TESTS = [create_bucket,
          head_bucket, head_bucket_nonexist,
          list_buckets,
+         put_object,
          delete_bucket, delete_bucket_nonexist]
 
 if __name__ == '__main__':
