@@ -62,7 +62,13 @@ func (yig *YigStorage) GetObjectInfo(bucket, object string) (objInfo datatype.Ob
 		return
 	}
 	for _, cell := range scanResponse[0].Cells {
-		yig.Logger.Println("CELL: ", cell)
+		if !bytes.HasPrefix(cell.Row, objectRowkeyPrefix) {
+			err = datatype.ObjectNotFound{
+				Bucket: bucket,
+				Object: object,
+			}
+			return
+		}
 		switch string(cell.Qualifier) {
 		case "lastModified":
 			objInfo.ModTime, err = time.Parse(meta.CREATE_TIME_LAYOUT, string(cell.Value))
