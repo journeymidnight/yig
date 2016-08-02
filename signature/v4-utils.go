@@ -29,7 +29,10 @@ import (
 
 // http Header "x-amz-content-sha256" == "UNSIGNED-PAYLOAD" indicates that the
 // client did not calculate sha256 of the payload.
-const unsignedPayload = "UNSIGNED-PAYLOAD"
+const (
+	unsignedPayload = "UNSIGNED-PAYLOAD"
+	REGION = "cn-bj-1"
+)
 
 // http Header "x-amz-content-sha256" == "UNSIGNED-PAYLOAD" indicates that the
 // client did not calculate sha256 of the payload. Hence we skip calculating sha256.
@@ -46,7 +49,7 @@ func isValidRegion(reqRegion string) bool {
 	if reqRegion == "" {
 		return true
 	}
-	return reqRegion == serverConfig.Region
+	return reqRegion == REGION
 }
 
 // sumHMAC calculate hmac between two input byte array.

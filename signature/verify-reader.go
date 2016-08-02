@@ -61,16 +61,16 @@ func (v *SignVerifyReader) Verify() (credential iam.Credential, err error) {
 	// Signature verification block.
 	var s3Error APIErrorCode
 	if isSignature, version := isRequestSignature(v.Request); isSignature {
-		if version == authTypeSignedV2 {
-			credential, s3Error = signature.DoesSignatureMatchV2(v.Request)
+		if version == AuthTypeSignedV2 {
+			credential, s3Error = DoesSignatureMatchV2(v.Request)
 		} else { // v4
-			credential, s3Error = doesSignatureMatch(shaPayloadHex, v.Request, validateRegion)
+			credential, s3Error = DoesSignatureMatchV4(shaPayloadHex, v.Request, validateRegion)
 		}
 	} else if isPresigned, version := isRequestPresigned(v.Request); isPresigned {
-		if version == authTypePresignedV2 {
-			credential, s3Error = signature.DoesPresignedSignatureMatch(v.Request)
+		if version == AuthTypePresignedV2 {
+			credential, s3Error = DoesPresignedSignatureMatchV2(v.Request)
 		} else { // v4
-			credential, s3Error = doesPresignedSignatureMatch(v.Request, validateRegion)
+			credential, s3Error = DoesPresignedSignatureMatchV4(v.Request, validateRegion)
 		}
 	} else {
 		// Couldn't figure out the request type, set the error as AccessDenied.

@@ -84,11 +84,11 @@ func (o Object) GetRowkey() (string, error) {
 	return rowkey.String(), nil
 }
 
-func (o Object) GetValues() (map[string]map[string][]byte, error) {
+func (o Object) GetValues() (values map[string]map[string][]byte, err error) {
 	var size bytes.Buffer
-	err := binary.Write(size, binary.BigEndian, o.Size)
+	err = binary.Write(size, binary.BigEndian, o.Size)
 	if err != nil {
-		return err
+		return
 	}
 	return map[string]map[string][]byte{
 		OBJECT_COLUMN_FAMILY: map[string][]byte{
@@ -102,5 +102,5 @@ func (o Object) GetValues() (map[string]map[string][]byte, error) {
 			"content-type": []byte(o.ContentType),
 			"attributes":   []byte{}, // TODO
 		},
-	}
+	}, nil
 }
