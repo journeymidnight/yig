@@ -25,7 +25,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	. "git.letv.cn/yig/yig/minio/datatype"
+	"git.letv.cn/yig/yig/meta"
 	"github.com/skyrings/skyring-common/tools/uuid"
 )
 
@@ -137,7 +137,7 @@ func getUUID() (uuidStr string) {
 }
 
 // Create an s3 compatible MD5sum for complete multipart transaction.
-func completeMultipartMD5(parts ...CompletePart) (string, error) {
+func completeMultipartMD5(parts ...meta.CompletePart) (string, error) {
 	var finalMD5Bytes []byte
 	for _, part := range parts {
 		md5Bytes, err := hex.DecodeString(part.ETag)
@@ -153,7 +153,7 @@ func completeMultipartMD5(parts ...CompletePart) (string, error) {
 }
 
 // byBucketName is a collection satisfying sort.Interface.
-type byBucketName []BucketInfo
+type byBucketName []meta.BucketInfo
 
 func (d byBucketName) Len() int           { return len(d) }
 func (d byBucketName) Swap(i, j int)      { d[i], d[j] = d[j], d[i] }

@@ -18,8 +18,11 @@
 // multipart operations.
 package minio
 
-import "net/http"
-import . "git.letv.cn/yig/yig/minio/datatype"
+import (
+	"git.letv.cn/yig/yig/meta"
+	. "git.letv.cn/yig/yig/minio/datatype"
+	"net/http"
+)
 
 // writeErrorResponsePartTooSmall - function is used specifically to
 // construct a proper error response during CompleteMultipartUpload
@@ -28,7 +31,7 @@ import . "git.letv.cn/yig/yig/minio/datatype"
 // XML doesn't carry the additional fields required to send this
 // error. So we construct a new type which lies well within the scope
 // of this function.
-func writePartSmallErrorResponse(w http.ResponseWriter, r *http.Request, err PartTooSmall) {
+func writePartSmallErrorResponse(w http.ResponseWriter, r *http.Request, err meta.PartTooSmall) {
 	// Represents additional fields necessary for ErrPartTooSmall S3 error.
 	type completeMultipartAPIError struct {
 		// Proposed size represents uploaded size of the part.

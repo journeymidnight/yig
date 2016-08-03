@@ -24,6 +24,7 @@ import (
 	"regexp"
 	"strings"
 
+	"git.letv.cn/yig/yig/meta"
 	. "git.letv.cn/yig/yig/minio/datatype"
 	"git.letv.cn/yig/yig/signature"
 	mux "github.com/gorilla/mux"
@@ -215,7 +216,7 @@ func (api objectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *ht
 	if err := writeBucketPolicy(bucket, bucketPolicyBuf); err != nil {
 		errorIf(err, "Unable to write bucket policy.")
 		switch err.(type) {
-		case BucketNameInvalid:
+		case meta.BucketNameInvalid:
 			WriteErrorResponse(w, r, ErrInvalidBucketName, r.URL.Path)
 		default:
 			WriteErrorResponse(w, r, ErrInternalError, r.URL.Path)
@@ -249,9 +250,9 @@ func (api objectAPIHandlers) DeleteBucketPolicyHandler(w http.ResponseWriter, r 
 	if err := removeBucketPolicy(bucket); err != nil {
 		errorIf(err, "Unable to remove bucket policy.")
 		switch err.(type) {
-		case BucketNameInvalid:
+		case meta.BucketNameInvalid:
 			WriteErrorResponse(w, r, ErrInvalidBucketName, r.URL.Path)
-		case BucketPolicyNotFound:
+		case meta.BucketPolicyNotFound:
 			WriteErrorResponse(w, r, ErrNoSuchBucketPolicy, r.URL.Path)
 		default:
 			WriteErrorResponse(w, r, ErrInternalError, r.URL.Path)
@@ -286,9 +287,9 @@ func (api objectAPIHandlers) GetBucketPolicyHandler(w http.ResponseWriter, r *ht
 	if err != nil {
 		errorIf(err, "Unable to read bucket policy.")
 		switch err.(type) {
-		case BucketNameInvalid:
+		case meta.BucketNameInvalid:
 			WriteErrorResponse(w, r, ErrInvalidBucketName, r.URL.Path)
-		case BucketPolicyNotFound:
+		case meta.BucketPolicyNotFound:
 			WriteErrorResponse(w, r, ErrNoSuchBucketPolicy, r.URL.Path)
 		default:
 			WriteErrorResponse(w, r, ErrInternalError, r.URL.Path)

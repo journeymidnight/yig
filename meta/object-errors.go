@@ -14,59 +14,12 @@
  * limitations under the License.
  */
 
-package datatype
+package meta
 
 import (
 	"errors"
 	"fmt"
-	"io"
 )
-
-// Converts underlying storage error. Convenience function written to
-// handle all cases where we have known types of errors returned by
-// underlying storage layer.
-func toObjectErr(err error, params ...string) error {
-	switch err {
-	case errVolumeNotFound:
-		if len(params) >= 1 {
-			return BucketNotFound{Bucket: params[0]}
-		}
-	case errVolumeNotEmpty:
-		if len(params) >= 1 {
-			return BucketNotEmpty{Bucket: params[0]}
-		}
-	case errVolumeExists:
-		if len(params) >= 1 {
-			return BucketExists{Bucket: params[0]}
-		}
-	case errDiskFull:
-		return StorageFull{}
-	case errIsNotRegular, errFileAccessDenied:
-		if len(params) >= 2 {
-			return ObjectExistsAsDirectory{
-				Bucket: params[0],
-				Object: params[1],
-			}
-		}
-	case errFileNotFound:
-		if len(params) >= 2 {
-			return ObjectNotFound{
-				Bucket: params[0],
-				Object: params[1],
-			}
-		}
-	case errFileNameTooLong:
-		if len(params) >= 2 {
-			return ObjectNameInvalid{
-				Bucket: params[0],
-				Object: params[1],
-			}
-		}
-	case io.ErrUnexpectedEOF, io.ErrShortWrite:
-		return IncompleteBody{}
-	}
-	return err
-}
 
 // StorageFull storage ran out of space.
 type StorageFull struct{}

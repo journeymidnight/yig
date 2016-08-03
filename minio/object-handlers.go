@@ -28,6 +28,7 @@ import (
 	"strings"
 	"time"
 
+	"git.letv.cn/yig/yig/meta"
 	. "git.letv.cn/yig/yig/minio/datatype"
 	"git.letv.cn/yig/yig/signature"
 	mux "github.com/gorilla/mux"
@@ -121,7 +122,7 @@ func (api objectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		if hrange, err = ParseRequestRange(rangeHeader, objInfo.Size); err != nil {
 			// Handle only ErrorInvalidRange
 			// Ignore other parse error and treat it as regular Get request like Amazon S3.
-			if err == ErrorInvalidRange {
+			if err == meta.ErrorInvalidRange {
 				WriteErrorResponse(w, r, ErrInvalidRange, r.URL.Path)
 				return
 			}
@@ -329,7 +330,6 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	metadata := make(map[string]string)
 	// Save other metadata if available.
 	metadata["content-type"] = objInfo.ContentType
-	metadata["content-encoding"] = objInfo.ContentEncoding
 	// Do not set `md5sum` as CopyObject will not keep the
 	// same md5sum as the source.
 
@@ -348,7 +348,7 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	response := GenerateCopyObjectResponse(md5Sum, objInfo.ModTime)
+	response := GenerateCopyObjectResponse(md5Sum, objInfo.LastModifiedTime)
 	encodedSuccessResponse := EncodeResponse(response)
 	// write headers
 	SetCommonHeaders(w)
@@ -683,7 +683,7 @@ func (api objectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 		WriteErrorResponse(w, r, ErrInternalError, r.URL.Path)
 		return
 	}
-	complMultipartUpload := &CompleteMultipartUpload{}
+	complMultipartUpload := &meta.CompleteMultipartUpload{}
 	if err = xml.Unmarshal(completeMultipartBytes, complMultipartUpload); err != nil {
 		errorIf(err, "Unable to parse complete multipart upload XML.")
 		WriteErrorResponse(w, r, ErrMalformedXML, r.URL.Path)
@@ -693,12 +693,12 @@ func (api objectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 		WriteErrorResponse(w, r, ErrMalformedXML, r.URL.Path)
 		return
 	}
-	if !sort.IsSorted(CompletedParts(complMultipartUpload.Parts)) {
+	if !sort.IsSorted(meta.CompletedParts(complMultipartUpload.Parts)) {
 		WriteErrorResponse(w, r, ErrInvalidPartOrder, r.URL.Path)
 		return
 	}
 	// Complete parts.
-	var completeParts []CompletePart
+	var completeParts []meta.CompletePart
 	for _, part := range complMultipartUpload.Parts {
 		part.ETag = strings.TrimPrefix(part.ETag, "\"")
 		part.ETag = strings.TrimSuffix(part.ETag, "\"")
@@ -729,7 +729,7 @@ func (api objectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	if err != nil {
 		errorIf(err, "Unable to complete multipart upload.")
 		switch oErr := err.(type) {
-		case PartTooSmall:
+		case meta.PartTooSmall:
 			// Write part too small error.
 			writePartSmallErrorResponse(w, r, oErr)
 		default:

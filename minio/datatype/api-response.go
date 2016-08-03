@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"git.letv.cn/yig/yig/iam"
+	"git.letv.cn/yig/yig/meta"
 )
 
 const (
@@ -272,7 +273,7 @@ func GetObjectLocation(bucketName string, key string) string {
 //
 // output:
 // populated struct that can be serialized to match xml and json api spec output
-func GenerateListBucketsResponse(buckets []BucketInfo, credential iam.Credential) ListBucketsResponse {
+func GenerateListBucketsResponse(buckets []meta.BucketInfo, credential iam.Credential) ListBucketsResponse {
 	var listbuckets []Bucket
 	var data = ListBucketsResponse{}
 	var owner = Owner{}
@@ -294,7 +295,8 @@ func GenerateListBucketsResponse(buckets []BucketInfo, credential iam.Credential
 }
 
 // generates an ListObjects response for the said bucket with other enumerated options.
-func GenerateListObjectsResponse(bucket, prefix, marker, delimiter string, maxKeys int, resp ListObjectsInfo) ListObjectsResponse {
+func GenerateListObjectsResponse(bucket, prefix, marker, delimiter string, maxKeys int,
+	resp meta.ListObjectsInfo) ListObjectsResponse {
 	var contents []Object
 	var prefixes []CommonPrefix
 	var owner = Owner{}
@@ -309,9 +311,9 @@ func GenerateListObjectsResponse(bucket, prefix, marker, delimiter string, maxKe
 			continue
 		}
 		content.Key = object.Name
-		content.LastModified = object.ModTime.UTC().Format(timeFormatAMZ)
-		if object.MD5Sum != "" {
-			content.ETag = "\"" + object.MD5Sum + "\""
+		content.LastModified = object.LastModifiedTime.UTC().Format(timeFormatAMZ)
+		if object.Etag != "" {
+			content.ETag = "\"" + object.Etag + "\""
 		}
 		content.Size = object.Size
 		content.StorageClass = "STANDARD"
@@ -339,7 +341,8 @@ func GenerateListObjectsResponse(bucket, prefix, marker, delimiter string, maxKe
 }
 
 // generates an ListObjects response for the said bucket with other enumerated options.
-func GenerateListObjectsV2Response(bucket, prefix, token, startAfter, delimiter string, maxKeys int, resp ListObjectsInfo) ListObjectsV2Response {
+func GenerateListObjectsV2Response(bucket, prefix, token, startAfter, delimiter string,
+	maxKeys int, resp meta.ListObjectsInfo) ListObjectsV2Response {
 	var contents []Object
 	var prefixes []CommonPrefix
 	var owner = Owner{}
@@ -354,9 +357,9 @@ func GenerateListObjectsV2Response(bucket, prefix, token, startAfter, delimiter 
 			continue
 		}
 		content.Key = object.Name
-		content.LastModified = object.ModTime.UTC().Format(timeFormatAMZ)
-		if object.MD5Sum != "" {
-			content.ETag = "\"" + object.MD5Sum + "\""
+		content.LastModified = object.LastModifiedTime.UTC().Format(timeFormatAMZ)
+		if object.Etag != "" {
+			content.ETag = "\"" + object.Etag + "\""
 		}
 		content.Size = object.Size
 		content.StorageClass = "STANDARD"
@@ -411,7 +414,7 @@ func GenerateCompleteMultpartUploadResponse(bucket, key, location, etag string) 
 }
 
 // GenerateListPartsResult
-func GenerateListPartsResponse(partsInfo ListPartsInfo) ListPartsResponse {
+func GenerateListPartsResponse(partsInfo meta.ListPartsInfo) ListPartsResponse {
 	// TODO - support EncodingType in xml decoding
 	listPartsResponse := ListPartsResponse{}
 	listPartsResponse.Bucket = partsInfo.Bucket
@@ -441,7 +444,7 @@ func GenerateListPartsResponse(partsInfo ListPartsInfo) ListPartsResponse {
 }
 
 // generateListMultipartUploadsResponse
-func GenerateListMultipartUploadsResponse(bucket string, multipartsInfo ListMultipartsInfo) ListMultipartUploadsResponse {
+func GenerateListMultipartUploadsResponse(bucket string, multipartsInfo meta.ListMultipartsInfo) ListMultipartUploadsResponse {
 	listMultipartUploadsResponse := ListMultipartUploadsResponse{}
 	listMultipartUploadsResponse.Bucket = bucket
 	listMultipartUploadsResponse.Delimiter = multipartsInfo.Delimiter

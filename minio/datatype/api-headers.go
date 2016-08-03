@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"encoding/xml"
+	"git.letv.cn/yig/yig/meta"
 	"net/http"
 	"strconv"
 )
@@ -57,17 +58,17 @@ func EncodeResponse(response interface{}) []byte {
 }
 
 // Write object header
-func SetObjectHeaders(w http.ResponseWriter, objInfo ObjectInfo, contentRange *HttpRange) {
+func SetObjectHeaders(w http.ResponseWriter, objInfo meta.Object, contentRange *HttpRange) {
 	// set common headers
 	SetCommonHeaders(w)
 
 	// set object-related metadata headers
-	lastModified := objInfo.ModTime.UTC().Format(http.TimeFormat)
+	lastModified := objInfo.LastModifiedTime.UTC().Format(http.TimeFormat)
 	w.Header().Set("Last-Modified", lastModified)
 
 	w.Header().Set("Content-Type", objInfo.ContentType)
-	if objInfo.MD5Sum != "" {
-		w.Header().Set("ETag", "\""+objInfo.MD5Sum+"\"")
+	if objInfo.Etag != "" {
+		w.Header().Set("ETag", "\""+objInfo.Etag+"\"")
 	}
 
 	w.Header().Set("Content-Length", strconv.FormatInt(objInfo.Size, 10))

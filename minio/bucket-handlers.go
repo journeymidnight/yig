@@ -27,6 +27,7 @@ import (
 	"strings"
 
 	"git.letv.cn/yig/yig/iam"
+	"git.letv.cn/yig/yig/meta"
 	. "git.letv.cn/yig/yig/minio/datatype"
 	"git.letv.cn/yig/yig/signature"
 	mux "github.com/gorilla/mux"
@@ -39,9 +40,9 @@ func enforceBucketPolicy(action string, bucket string, reqURL *url.URL) (s3Error
 	if err != nil {
 		errorIf(err, "Unable read bucket policy.")
 		switch err.(type) {
-		case BucketNotFound:
+		case meta.BucketNotFound:
 			return ErrNoSuchBucket
-		case BucketNameInvalid:
+		case meta.BucketNameInvalid:
 			return ErrInvalidBucketName
 		default:
 			// For any other error just return AccessDenied.
@@ -197,7 +198,8 @@ func (api objectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
-	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4:
+	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
+		signature.AuthTypeSignedV2, signature.AuthTypePresignedV2:
 		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != ErrNone {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
@@ -219,7 +221,7 @@ func (api objectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 	} else {
 		prefix, marker, delimiter, maxkeys, _ = getListObjectsV1Args(r.URL.Query())
 	}
-	if maxkeys < 0 {
+	if maxkeys <= 0 {
 		WriteErrorResponse(w, r, ErrInvalidMaxKeys, r.URL.Path)
 		return
 	}
@@ -243,10 +245,12 @@ func (api objectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 		var encodedSuccessResponse []byte
 		// generate response
 		if listV2 {
-			response := GenerateListObjectsV2Response(bucket, prefix, token, startAfter, delimiter, maxkeys, listObjectsInfo)
+			response := GenerateListObjectsV2Response(bucket, prefix, token,
+				startAfter, delimiter, maxkeys, listObjectsInfo)
 			encodedSuccessResponse = EncodeResponse(response)
 		} else {
-			response := GenerateListObjectsResponse(bucket, prefix, marker, delimiter, maxkeys, listObjectsInfo)
+			response := GenerateListObjectsResponse(bucket, prefix, marker,
+				delimiter, maxkeys, listObjectsInfo)
 			encodedSuccessResponse = EncodeResponse(response)
 		}
 		// Write headers

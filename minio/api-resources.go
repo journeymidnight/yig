@@ -24,12 +24,16 @@ import (
 )
 
 // Parse bucket url queries
-func getListObjectsV1Args(values url.Values) (prefix, marker, delimiter string, maxkeys int, encodingType string) {
+func getListObjectsV1Args(values url.Values) (prefix, marker, delimiter string,
+	maxkeys int, encodingType string) {
 	prefix = values.Get("prefix")
 	marker = values.Get("marker")
 	delimiter = values.Get("delimiter")
 	if values.Get("max-keys") != "" {
 		maxkeys, _ = strconv.Atoi(values.Get("max-keys"))
+		if maxkeys > MaxObjectList {
+			maxkeys = MaxObjectList
+		}
 	} else {
 		maxkeys = MaxObjectList
 	}
@@ -38,12 +42,17 @@ func getListObjectsV1Args(values url.Values) (prefix, marker, delimiter string, 
 }
 
 // Parse bucket url queries for ListObjects V2.
-func getListObjectsV2Args(values url.Values) (prefix, token, startAfter, delimiter string, maxkeys int, encodingType string) {
+func getListObjectsV2Args(values url.Values) (prefix, token, startAfter, delimiter string,
+	maxkeys int, encodingType string) {
 	prefix = values.Get("prefix")
 	startAfter = values.Get("start-after")
 	delimiter = values.Get("delimiter")
+	// TODO fetch-owner header
 	if values.Get("max-keys") != "" {
 		maxkeys, _ = strconv.Atoi(values.Get("max-keys"))
+		if maxkeys > MaxObjectList {
+			maxkeys = MaxObjectList
+		}
 	} else {
 		maxkeys = MaxObjectList
 	}
@@ -53,7 +62,8 @@ func getListObjectsV2Args(values url.Values) (prefix, token, startAfter, delimit
 }
 
 // Parse bucket url queries
-func getBucketResources(values url.Values) (listType int, prefix, marker, delimiter string, maxkeys int, encodingType string) {
+func getBucketResources(values url.Values) (listType int, prefix, marker, delimiter string,
+	maxkeys int, encodingType string) {
 	if values.Get("list-type") != "" {
 		listType, _ = strconv.Atoi(values.Get("list-type"))
 	}
@@ -70,7 +80,8 @@ func getBucketResources(values url.Values) (listType int, prefix, marker, delimi
 }
 
 // Parse bucket url queries for ?uploads
-func getBucketMultipartResources(values url.Values) (prefix, keyMarker, uploadIDMarker, delimiter string, maxUploads int, encodingType string) {
+func getBucketMultipartResources(values url.Values) (prefix, keyMarker, uploadIDMarker, delimiter string,
+	maxUploads int, encodingType string) {
 	prefix = values.Get("prefix")
 	keyMarker = values.Get("key-marker")
 	uploadIDMarker = values.Get("upload-id-marker")
@@ -85,7 +96,8 @@ func getBucketMultipartResources(values url.Values) (prefix, keyMarker, uploadID
 }
 
 // Parse object url queries
-func getObjectResources(values url.Values) (uploadID string, partNumberMarker, maxParts int, encodingType string) {
+func getObjectResources(values url.Values) (uploadID string, partNumberMarker, maxParts int,
+	encodingType string) {
 	uploadID = values.Get("uploadId")
 	partNumberMarker, _ = strconv.Atoi(values.Get("part-number-marker"))
 	if values.Get("max-parts") != "" {

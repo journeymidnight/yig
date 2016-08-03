@@ -18,7 +18,7 @@ package minio
 
 import (
 	"git.letv.cn/yig/yig/iam"
-	. "git.letv.cn/yig/yig/minio/datatype"
+	"git.letv.cn/yig/yig/meta"
 	"io"
 )
 
@@ -26,22 +26,28 @@ import (
 type ObjectLayer interface {
 	// Bucket operations.
 	MakeBucket(bucket string, credential iam.Credential) error
-	GetBucketInfo(bucket string, credential iam.Credential) (bucketInfo BucketInfo, err error)
-	ListBuckets(credential iam.Credential) (buckets []BucketInfo, err error)
+	GetBucketInfo(bucket string, credential iam.Credential) (bucketInfo meta.BucketInfo, err error)
+	ListBuckets(credential iam.Credential) (buckets []meta.BucketInfo, err error)
 	DeleteBucket(bucket string, credential iam.Credential) error
-	ListObjects(bucket, prefix, marker, delimiter string, maxKeys int) (result ListObjectsInfo, err error)
+	ListObjects(bucket, prefix, marker, delimiter string,
+		maxKeys int) (result meta.ListObjectsInfo, err error)
 
 	// Object operations.
-	GetObject(object ObjectInfo, startOffset int64, length int64, writer io.Writer) (err error)
-	GetObjectInfo(bucket, object string) (objInfo ObjectInfo, err error)
+	GetObject(object meta.Object, startOffset int64, length int64, writer io.Writer) (err error)
+	GetObjectInfo(bucket, object string) (objInfo meta.Object, err error)
 	PutObject(bucket, object string, size int64, data io.Reader, metadata map[string]string) (md5 string, err error)
 	DeleteObject(bucket, object string) error
 
 	// Multipart operations.
-	ListMultipartUploads(bucket, prefix, keyMarker, uploadIDMarker, delimiter string, maxUploads int) (result ListMultipartsInfo, err error)
-	NewMultipartUpload(bucket, object string, metadata map[string]string) (uploadID string, err error)
-	PutObjectPart(bucket, object, uploadID string, partID int, size int64, data io.Reader, md5Hex string) (md5 string, err error)
-	ListObjectParts(bucket, object, uploadID string, partNumberMarker int, maxParts int) (result ListPartsInfo, err error)
+	ListMultipartUploads(bucket, prefix, keyMarker, uploadIDMarker,
+		delimiter string, maxUploads int) (result meta.ListMultipartsInfo, err error)
+	NewMultipartUpload(bucket, object string,
+		metadata map[string]string) (uploadID string, err error)
+	PutObjectPart(bucket, object, uploadID string, partID int, size int64,
+		data io.Reader, md5Hex string) (md5 string, err error)
+	ListObjectParts(bucket, object, uploadID string, partNumberMarker int,
+		maxParts int) (result meta.ListPartsInfo, err error)
 	AbortMultipartUpload(bucket, object, uploadID string) error
-	CompleteMultipartUpload(bucket, object, uploadID string, uploadedParts []CompletePart) (md5 string, err error)
+	CompleteMultipartUpload(bucket, object, uploadID string,
+		uploadedParts []meta.CompletePart) (md5 string, err error)
 }

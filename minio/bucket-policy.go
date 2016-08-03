@@ -17,14 +17,14 @@
 package minio
 
 import (
-	. "git.letv.cn/yig/yig/minio/datatype"
+	"git.letv.cn/yig/yig/meta"
 )
 
 // readBucketPolicy - read bucket policy.
 func readBucketPolicy(bucket string) (policy []byte, err error) {
 	// Verify bucket is valid.
 	if !IsValidBucketName(bucket) {
-		return nil, BucketNameInvalid{Bucket: bucket}
+		return nil, meta.BucketNameInvalid{Bucket: bucket}
 	}
 
 	// TODO re-implement
@@ -35,7 +35,7 @@ func readBucketPolicy(bucket string) (policy []byte, err error) {
 func removeBucketPolicy(bucket string) error {
 	// Verify bucket is valid.
 	if !IsValidBucketName(bucket) {
-		return BucketNameInvalid{Bucket: bucket}
+		return meta.BucketNameInvalid{Bucket: bucket}
 	}
 
 	// TODO re-implement
@@ -46,7 +46,7 @@ func removeBucketPolicy(bucket string) error {
 func writeBucketPolicy(bucket string, accessPolicyBytes []byte) error {
 	// Verify if bucket path legal
 	if !IsValidBucketName(bucket) {
-		return BucketNameInvalid{Bucket: bucket}
+		return meta.BucketNameInvalid{Bucket: bucket}
 	}
 
 	// TODO re-implement

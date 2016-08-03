@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
-package datatype
+package meta
 
-import "time"
+import (
+	"time"
+)
 
 // BucketInfo - represents bucket metadata.
 type BucketInfo struct {
@@ -26,43 +28,6 @@ type BucketInfo struct {
 	// Date and time when the bucket was created,
 	// in format "2006-01-02T15:04:05.000Z"
 	Created string
-}
-
-// ObjectInfo - represents object metadata.
-type ObjectInfo struct {
-	// Name of the bucket.
-	Bucket string
-
-	// Name of the object.
-	Name string
-
-	// Date and time when the object was last modified.
-	ModTime time.Time
-
-	// Total object size.
-	Size int64
-
-	// IsDir indicates if the object is prefix.
-	IsDir bool
-
-	// Hex encoded md5 checksum of the object.
-	MD5Sum string
-
-	// A standard MIME type describing the format of the object.
-	ContentType string
-
-	// Specifies what content encodings have been applied to the object and thus
-	// what decoding mechanisms must be applied to obtain the object referenced
-	// by the Content-Type header field.
-	ContentEncoding string
-
-	// the object name in Ceph
-	ObjectId string
-
-	// Ceph cluster
-	Location string
-
-	PoolName string
 }
 
 // ListPartsInfo - represents list of all parts.
@@ -163,7 +128,7 @@ type ListObjectsInfo struct {
 	NextMarker string
 
 	// List of objects info for this request.
-	Objects []ObjectInfo
+	Objects []Object
 
 	// List of prefixes for this request.
 	Prefixes []string

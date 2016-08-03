@@ -1,19 +1,14 @@
 package storage
 
 import (
-	"bytes"
 	"crypto/md5"
-	"encoding/binary"
 	"encoding/hex"
 	"errors"
 	"git.letv.cn/yig/yig/meta"
-	"git.letv.cn/yig/yig/minio/datatype"
 	"git.letv.cn/yig/yig/signature"
-	"github.com/tsuna/gohbase/filter"
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
 	"io"
-	"strings"
 	"time"
 )
 
@@ -29,78 +24,18 @@ func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size 
 	}
 }
 
-func (yig *YigStorage) GetObject(object datatype.ObjectInfo, startOffset int64,
+func (yig *YigStorage) GetObject(object meta.Object, startOffset int64,
 	length int64, writer io.Writer) (err error) {
 	cephCluster, ok := yig.DataStorage[object.Location]
 	if !ok {
 		return errors.New("Cannot find specified ceph cluster: " + object.Location)
 	}
-	err = cephCluster.get(object.PoolName, object.ObjectId, startOffset, length, writer)
+	err = cephCluster.get(object.Pool, object.ObjectId, startOffset, length, writer)
 	return
 }
 
-func (yig *YigStorage) GetObjectInfo(bucket, object string) (objInfo datatype.ObjectInfo, err error) {
-	objectRowkeyPrefix, err := meta.GetObjectRowkeyPrefix(bucket, object)
-	if err != nil {
-		return
-	}
-	filter := filter.NewPrefixFilter(objectRowkeyPrefix)
-	scanRequest, err := hrpc.NewScanRangeStr(context.Background(), meta.OBJECT_TABLE,
-		string(objectRowkeyPrefix), "", hrpc.Filters(filter), hrpc.NumberOfRows(1))
-	if err != nil {
-		return
-	}
-	scanResponse, err := yig.MetaStorage.Hbase.Scan(scanRequest)
-	if err != nil {
-		return
-	}
-	if len(scanResponse) == 0 {
-		err = datatype.ObjectNotFound{
-			Bucket: bucket,
-			Object: object,
-		}
-		return
-	}
-	for _, cell := range scanResponse[0].Cells {
-		if !bytes.HasPrefix(cell.Row, objectRowkeyPrefix) {
-			err = datatype.ObjectNotFound{
-				Bucket: bucket,
-				Object: object,
-			}
-			return
-		}
-		switch string(cell.Qualifier) {
-		case "lastModified":
-			objInfo.ModTime, err = time.Parse(meta.CREATE_TIME_LAYOUT, string(cell.Value))
-			if err != nil {
-				return
-			}
-		case "size":
-			err = binary.Read(bytes.NewReader(cell.Value), binary.BigEndian, &objInfo.Size)
-			if err != nil {
-				return
-			}
-		case "content-type":
-			objInfo.ContentType = string(cell.Value)
-		case "etag":
-			objInfo.MD5Sum = string(cell.Value)
-		case "oid":
-			objInfo.ObjectId = string(cell.Value)
-		case "location":
-			objInfo.Location = string(cell.Value)
-		case "pool":
-			objInfo.PoolName = string(cell.Value)
-		}
-	}
-	objInfo.Bucket = bucket
-	objInfo.Name = object
-	if strings.HasSuffix(object, "/") {
-		objInfo.IsDir = true
-	} else {
-		objInfo.IsDir = false
-	}
-
-	return
+func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string) (meta.Object, error) {
+	return yig.MetaStorage.GetObject(bucketName, objectName)
 }
 
 func (yig *YigStorage) PutObject(bucketName string, objectName string, size int64,
@@ -124,7 +59,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 		return "", err
 	}
 	if bytesWritten < size {
-		return "", datatype.IncompleteBody{
+		return "", meta.IncompleteBody{
 			Bucket: bucketName,
 			Object: objectName,
 		}
@@ -133,7 +68,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 	calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
 	if userMd5, ok := metadata["md5Sum"]; ok {
 		if userMd5 != calculatedMd5 {
-			return "", datatype.BadDigest{
+			return "", meta.BadDigest{
 				ExpectedMD5:   userMd5,
 				CalculatedMD5: calculatedMd5,
 			}
@@ -151,7 +86,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 	}
 
 	if bucket.OwnerId != credential.UserId {
-		return "", datatype.BucketAccessForbidden{Bucket: bucketName}
+		return "", meta.BucketAccessForbidden{Bucket: bucketName}
 		// TODO validate bucket policy and ACL
 	}
 
@@ -191,47 +126,19 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 	return calculatedMd5, nil
 }
 
-func (yig *YigStorage) DeleteObject(bucket, object string) error {
+func (yig *YigStorage) DeleteObject(bucketName string, objectName string) error {
 	// TODO validate policy and ACL
-	objectRowkeyPrefix, err := meta.GetObjectRowkeyPrefix(bucket, object)
-	if err != nil {
-		return err
-	}
-	filter := filter.NewPrefixFilter(objectRowkeyPrefix)
-	scanRequest, err := hrpc.NewScanRangeStr(context.Background(), meta.OBJECT_TABLE,
-		string(objectRowkeyPrefix), "", hrpc.Filters(filter), hrpc.NumberOfRows(1))
-	if err != nil {
-		return err
-	}
-	// TODO abstract this part
 	// TODO versioning
-	scanResponse, err := yig.MetaStorage.Hbase.Scan(scanRequest)
+	object, err := yig.MetaStorage.GetObject(bucketName, objectName)
 	if err != nil {
 		return err
 	}
-	if len(scanResponse) == 0 {
-		return datatype.ObjectNotFound{
-			Bucket: bucket,
-			Object: object,
-		}
-	}
-	rowkeyToDelete := string(scanResponse[0].Cells[0].Row)
-	var oidToDelete, location, poolName []byte
-	for _, cell := range scanResponse[0].Cells {
-		switch string(cell.Qualifier) {
-		case "oid":
-			oidToDelete = cell.Value
-		case "location":
-			location = cell.Value
-		case "pool":
-			poolName = cell.Value
-		}
-	}
-	valuesToDelete := map[string]map[string][]byte{
-		meta.OBJECT_COLUMN_FAMILY: map[string][]byte{},
+	rowkeyToDelete, err := object.GetRowkey()
+	if err != nil {
+		return err
 	}
 	deleteRequest, err := hrpc.NewDelStr(context.Background(), meta.OBJECT_TABLE,
-		rowkeyToDelete, valuesToDelete)
+		rowkeyToDelete, object.GetValuesForDelete())
 	if err != nil {
 		return err
 	}
@@ -242,12 +149,12 @@ func (yig *YigStorage) DeleteObject(bucket, object string) error {
 
 	garbageCollectionValues := map[string]map[string][]byte{
 		meta.GARBAGE_COLLECTION_COLUMN_FAMILY: map[string][]byte{
-			"location": location,
-			"pool":     poolName,
-			"oid":      oidToDelete,
+			"location": []byte(object.Location),
+			"pool":     []byte(object.Pool),
+			"oid":      []byte(object.ObjectId),
 		},
 	}
-	garbageCollectionRowkey, err := meta.GetGarbageCollectionRowkey(bucket, object)
+	garbageCollectionRowkey, err := meta.GetGarbageCollectionRowkey(bucketName, objectName)
 	if err != nil {
 		return err
 	}
@@ -259,8 +166,8 @@ func (yig *YigStorage) DeleteObject(bucket, object string) error {
 	_, err = yig.MetaStorage.Hbase.Put(putRequest)
 	if err != nil {
 		yig.Logger.Println("Error making hbase put: ", err)
-		yig.Logger.Println("Inconsistent data: object with oid ", string(oidToDelete),
-			"should be removed in ", string(location), string(poolName))
+		yig.Logger.Println("Inconsistent data: object with oid ", object.ObjectId,
+			"should be removed in ", object.Location, object.Pool)
 		return err
 	}
 	// TODO a daemon to check garbage collection table and delete objects in ceph

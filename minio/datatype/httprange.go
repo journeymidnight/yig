@@ -18,6 +18,7 @@ package datatype
 
 import (
 	"fmt"
+	"git.letv.cn/yig/yig/meta"
 	"regexp"
 	"strconv"
 	"strings"
@@ -97,7 +98,7 @@ func ParseRequestRange(rangeString string, resourceSize int64) (hrange *HttpRang
 
 		// First and last byte positions should not be >= resourceSize.
 		if offsetBegin >= resourceSize {
-			return nil, ErrorInvalidRange
+			return nil, meta.ErrorInvalidRange
 		}
 
 		if offsetEnd >= resourceSize {
@@ -107,7 +108,7 @@ func ParseRequestRange(rangeString string, resourceSize int64) (hrange *HttpRang
 		// rangeString contains only first byte position. eg. "bytes=8-"
 		if offsetBegin >= resourceSize {
 			// First byte position should not be >= resourceSize.
-			return nil, ErrorInvalidRange
+			return nil, meta.ErrorInvalidRange
 		}
 
 		offsetEnd = resourceSize - 1
@@ -115,7 +116,7 @@ func ParseRequestRange(rangeString string, resourceSize int64) (hrange *HttpRang
 		// rangeString contains only last byte position. eg. "bytes=-3"
 		if offsetEnd == 0 {
 			// Last byte position should not be zero eg. "bytes=-0"
-			return nil, ErrorInvalidRange
+			return nil, meta.ErrorInvalidRange
 		}
 
 		if offsetEnd >= resourceSize {

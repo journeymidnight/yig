@@ -14,9 +14,6 @@ const (
 	LOGPATH                  = "/var/log/yig/yig.log"
 	PANIC_LOG_PATH           = "/var/log/yig/panic.log"
 	PIDFILE                  = "/var/run/yig/yig.pid"
-	BUFFERSIZE               = 4 << 20 /* 4M */
-	AIOCONCURRENT            = 4
-	MAX_CHUNK_SIZE           = BUFFERSIZE * 2
 	CONCURRENT_REQUEST_LIMIT = 100 // 0 for "no limit"
 	BIND_ADDRESS             = "0.0.0.0:3000"
 

@@ -3,7 +3,6 @@ package storage
 import (
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/meta"
-	"git.letv.cn/yig/yig/minio/datatype"
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
 	"time"
@@ -45,12 +44,12 @@ func (yig *YigStorage) MakeBucket(bucket string, credential iam.Credential) erro
 		b, err := yig.MetaStorage.Hbase.Get(get)
 		if err != nil {
 			yig.Logger.Println("Error get bucket: ", bucket, "with error: ", err)
-			return datatype.BucketExists{Bucket: bucket}
+			return meta.BucketExists{Bucket: bucket}
 		}
 		if string(b.Cells[0].Value) == credential.UserId {
-			return datatype.BucketExistsAndOwned{Bucket: bucket}
+			return meta.BucketExistsAndOwned{Bucket: bucket}
 		} else {
-			return datatype.BucketExists{Bucket: bucket}
+			return meta.BucketExists{Bucket: bucket}
 		}
 	}
 	err = yig.MetaStorage.AddBucketForUser(bucket, credential.UserId)
@@ -73,13 +72,13 @@ func (yig *YigStorage) MakeBucket(bucket string, credential iam.Credential) erro
 }
 
 func (yig *YigStorage) GetBucketInfo(bucketName string,
-	credential iam.Credential) (bucketInfo datatype.BucketInfo, err error) {
+	credential iam.Credential) (bucketInfo meta.BucketInfo, err error) {
 	bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
 	if err != nil {
 		return
 	}
 	if bucket.OwnerId != credential.UserId {
-		err = datatype.BucketAccessForbidden{Bucket: bucketName}
+		err = meta.BucketAccessForbidden{Bucket: bucketName}
 		return
 		// TODO validate bucket policy
 	}
@@ -88,7 +87,7 @@ func (yig *YigStorage) GetBucketInfo(bucketName string,
 	return
 }
 
-func (yig *YigStorage) ListBuckets(credential iam.Credential) (buckets []datatype.BucketInfo,
+func (yig *YigStorage) ListBuckets(credential iam.Credential) (buckets []meta.BucketInfo,
 	err error) {
 	bucketNames, err := yig.MetaStorage.GetUserBuckets(credential.UserId)
 	if err != nil {
@@ -99,7 +98,7 @@ func (yig *YigStorage) ListBuckets(credential iam.Credential) (buckets []datatyp
 		if err != nil {
 			return buckets, err
 		}
-		buckets = append(buckets, datatype.BucketInfo{
+		buckets = append(buckets, meta.BucketInfo{
 			Name:    bucket.Name,
 			Created: bucket.CreateTime,
 		})
@@ -113,7 +112,7 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 		return err
 	}
 	if bucket.OwnerId != credential.UserId {
-		return datatype.BucketAccessForbidden{Bucket: bucketName}
+		return meta.BucketAccessForbidden{Bucket: bucketName}
 		// TODO validate bucket policy
 	}
 	// TODO validate bucket is empty
@@ -158,6 +157,8 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 	return nil
 }
 
-func (yig *YigStorage) ListObjects(bucket, prefix, marker, delimiter string, maxKeys int) (result datatype.ListObjectsInfo, err error) {
+func (yig *YigStorage) ListObjects(bucket, prefix, marker, delimiter string,
+	maxKeys int) (result meta.ListObjectsInfo, err error) {
+
 	return
 }

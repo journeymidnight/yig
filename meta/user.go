@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"git.letv.cn/yig/yig/helper"
-	"git.letv.cn/yig/yig/minio/datatype"
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
 )
@@ -45,36 +44,6 @@ func (m *Meta) GetUserBuckets(userId string) (buckets []string, err error) {
 		return
 	}
 	return buckets, nil
-}
-
-func (m *Meta) GetBucketInfo(bucketName string) (bucket Bucket, err error) {
-	getRequest, err := hrpc.NewGetStr(context.Background(), BUCKET_TABLE, bucketName)
-	if err != nil {
-		return
-	}
-	response, err := m.Hbase.Get(getRequest)
-	if err != nil {
-		return
-	}
-	if len(response.Cells) == 0 {
-		err = datatype.BucketNotFound{Bucket: bucketName}
-		return
-	}
-	for _, cell := range response.Cells {
-		switch string(cell.Qualifier) {
-		case "createTime":
-			bucket.CreateTime = string(cell.Value)
-		case "UID":
-			bucket.OwnerId = string(cell.Value)
-		case "CORS":
-			bucket.CORS = string(cell.Value)
-		case "ACL":
-			bucket.ACL = string(cell.Value)
-		default:
-		}
-	}
-	bucket.Name = bucketName
-	return
 }
 
 func (m *Meta) AddBucketForUser(bucket string, userId string) error {
