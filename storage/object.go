@@ -195,26 +195,25 @@ func (yig *YigStorage) DeleteObject(bucket, object string) error {
 	// TODO validate policy and ACL
 	objectRowkeyPrefix, err := meta.GetObjectRowkeyPrefix(bucket, object)
 	if err != nil {
-		return
+		return err
 	}
 	filter := filter.NewPrefixFilter(objectRowkeyPrefix)
 	scanRequest, err := hrpc.NewScanRangeStr(context.Background(), meta.OBJECT_TABLE,
 		string(objectRowkeyPrefix), "", hrpc.Filters(filter), hrpc.NumberOfRows(1))
 	if err != nil {
-		return
+		return err
 	}
 	// TODO abstract this part
 	// TODO versioning
 	scanResponse, err := yig.MetaStorage.Hbase.Scan(scanRequest)
 	if err != nil {
-		return
+		return err
 	}
 	if len(scanResponse) == 0 {
-		err = datatype.ObjectNotFound{
+		return datatype.ObjectNotFound{
 			Bucket: bucket,
 			Object: object,
 		}
-		return
 	}
 	rowkeyToDelete := string(scanResponse[0].Cells[0].Row)
 	var oidToDelete, location, poolName []byte
@@ -248,8 +247,12 @@ func (yig *YigStorage) DeleteObject(bucket, object string) error {
 			"oid":      oidToDelete,
 		},
 	}
+	garbageCollectionRowkey, err := meta.GetGarbageCollectionRowkey(bucket, object)
+	if err != nil {
+		return err
+	}
 	putRequest, err := hrpc.NewPutStr(context.Background(), meta.GARBAGE_COLLECTION_TABLE,
-		meta.GetGarbageCollectionRowkey(bucket, object), garbageCollectionValues)
+		garbageCollectionRowkey, garbageCollectionValues)
 	if err != nil {
 		return err
 	}
