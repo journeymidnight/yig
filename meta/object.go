@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"strings"
+	"time"
 )
 
 // Rowkey format:
@@ -21,4 +22,18 @@ func GetObjectRowkeyPrefix(bucketName string, objectName string) ([]byte, error)
 	}
 	rowkey.WriteString(objectName)
 	return rowkey.Bytes(), nil
+}
+
+// Rowkey format:
+// bigEndian(unixNanoTimestamp) + BucketName + ObjectName
+func GetGarbageCollectionRowkey(bucketName string, objectName string) (string, error) {
+	var rowkey bytes.Buffer
+	err := binary.Write(&rowkey, binary.BigEndian,
+		uint64(time.Now().UnixNano()))
+	if err != nil {
+		return "", err
+	}
+	rowkey.WriteString(bucketName)
+	rowkey.WriteString(objectName)
+	return rowkey.String(), nil
 }

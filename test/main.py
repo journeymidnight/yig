@@ -31,6 +31,7 @@ SMALL_TEST_FILE = bytes('a' * 1024 * 1024)  # 1M
 
 # =====================================================
 
+
 def create_bucket(name, client):
         client.create_bucket(Bucket=name+'hehe')
 
@@ -73,6 +74,14 @@ def get_object_nonexist(name, client):
         Key=name+'haha'
     )
 
+
+def delete_object(name, client):
+    client.delete_object(
+        Bucket=name+'hehe',
+        Key=name+'hehe',
+    )
+
+
 def delete_bucket(name, client):
         client.delete_bucket(Bucket=name+'hehe')
 
@@ -95,6 +104,7 @@ TESTS = [create_bucket,
          list_buckets,
          put_object,
          get_object, get_object_nonexist,
+         delete_object,
          delete_bucket, delete_bucket_nonexist]
 
 if __name__ == '__main__':

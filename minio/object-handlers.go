@@ -773,7 +773,8 @@ func (api objectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
-	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4:
+	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
+		signature.AuthTypeSignedV2, signature.AuthTypePresignedV2:
 		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != ErrNone {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return

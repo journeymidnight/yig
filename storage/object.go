@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bytes"
 	"crypto/md5"
 	"encoding/binary"
 	"encoding/hex"
@@ -14,7 +15,6 @@ import (
 	"io"
 	"strings"
 	"time"
-	"bytes"
 )
 
 func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size int64) (cluster *CephStorage, poolName string) {
@@ -186,9 +186,79 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 	if err != nil {
 		return "", err
 	}
+	// TODO: remove old object of same name
+	// TODO: versioning
 	return calculatedMd5, nil
 }
 
 func (yig *YigStorage) DeleteObject(bucket, object string) error {
+	// TODO validate policy and ACL
+	objectRowkeyPrefix, err := meta.GetObjectRowkeyPrefix(bucket, object)
+	if err != nil {
+		return
+	}
+	filter := filter.NewPrefixFilter(objectRowkeyPrefix)
+	scanRequest, err := hrpc.NewScanRangeStr(context.Background(), meta.OBJECT_TABLE,
+		string(objectRowkeyPrefix), "", hrpc.Filters(filter), hrpc.NumberOfRows(1))
+	if err != nil {
+		return
+	}
+	// TODO abstract this part
+	// TODO versioning
+	scanResponse, err := yig.MetaStorage.Hbase.Scan(scanRequest)
+	if err != nil {
+		return
+	}
+	if len(scanResponse) == 0 {
+		err = datatype.ObjectNotFound{
+			Bucket: bucket,
+			Object: object,
+		}
+		return
+	}
+	rowkeyToDelete := string(scanResponse[0].Cells[0].Row)
+	var oidToDelete, location, poolName []byte
+	for _, cell := range scanResponse[0].Cells {
+		switch string(cell.Qualifier) {
+		case "oid":
+			oidToDelete = cell.Value
+		case "location":
+			location = cell.Value
+		case "pool":
+			poolName = cell.Value
+		}
+	}
+	valuesToDelete := map[string]map[string][]byte{
+		meta.OBJECT_COLUMN_FAMILY: map[string][]byte{},
+	}
+	deleteRequest, err := hrpc.NewDelStr(context.Background(), meta.OBJECT_TABLE,
+		rowkeyToDelete, valuesToDelete)
+	if err != nil {
+		return err
+	}
+	_, err = yig.MetaStorage.Hbase.Delete(deleteRequest)
+	if err != nil {
+		return err
+	}
+
+	garbageCollectionValues := map[string]map[string][]byte{
+		meta.GARBAGE_COLLECTION_COLUMN_FAMILY: map[string][]byte{
+			"location": location,
+			"pool":     poolName,
+			"oid":      oidToDelete,
+		},
+	}
+	putRequest, err := hrpc.NewPutStr(context.Background(), meta.GARBAGE_COLLECTION_TABLE,
+		meta.GetGarbageCollectionRowkey(bucket, object), garbageCollectionValues)
+	if err != nil {
+		return err
+	}
+	_, err = yig.MetaStorage.Hbase.Put(putRequest)
+	if err != nil {
+		yig.Logger.Println("Error making hbase put: ", err)
+		yig.Logger.Println("Inconsistent data: object with oid ", oidToDelete,
+			"should be removed in ", location, poolName)
+		return err
+	}
 	return nil
 }
