@@ -259,9 +259,10 @@ func (yig *YigStorage) DeleteObject(bucket, object string) error {
 	_, err = yig.MetaStorage.Hbase.Put(putRequest)
 	if err != nil {
 		yig.Logger.Println("Error making hbase put: ", err)
-		yig.Logger.Println("Inconsistent data: object with oid ", oidToDelete,
-			"should be removed in ", location, poolName)
+		yig.Logger.Println("Inconsistent data: object with oid ", string(oidToDelete),
+			"should be removed in ", string(location), string(poolName))
 		return err
 	}
+	// TODO a daemon to check garbage collection table and delete objects in ceph
 	return nil
 }
