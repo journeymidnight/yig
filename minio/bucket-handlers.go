@@ -26,12 +26,12 @@ import (
 	"net/url"
 	"strings"
 
+	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/meta"
 	. "git.letv.cn/yig/yig/minio/datatype"
 	"git.letv.cn/yig/yig/signature"
 	mux "github.com/gorilla/mux"
-	. "git.letv.cn/yig/yig/error"
 )
 
 // http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
@@ -358,7 +358,7 @@ func (api objectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 			})
 		} else {
 			errorIf(err, "Unable to delete object.")
-			apiErrorCode, ok := err.(ApiError)
+			apiErrorCode, ok := err.(ApiErrorCode)
 			if ok {
 				deleteErrors = append(deleteErrors, DeleteError{
 					Code:    ErrorCodeResponse[apiErrorCode].AwsErrorCode,

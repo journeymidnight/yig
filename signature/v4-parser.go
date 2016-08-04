@@ -21,11 +21,11 @@ import (
 	"strings"
 	"time"
 
+	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/iam"
 	. "git.letv.cn/yig/yig/minio/datatype"
 	"net/http"
 	"sort"
-	. "git.letv.cn/yig/yig/error"
 )
 
 // credentialHeader data type represents structured form of Credential

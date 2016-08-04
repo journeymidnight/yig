@@ -1,8 +1,8 @@
 package datatype
 
 import (
-	"time"
 	. "git.letv.cn/yig/yig/error"
+	"time"
 )
 
 const (

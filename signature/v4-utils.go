@@ -20,11 +20,11 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	. "git.letv.cn/yig/yig/error"
 	"net/http"
 	"regexp"
 	"strings"
 	"unicode/utf8"
-	. "git.letv.cn/yig/yig/error"
 )
 
 // http Header "x-amz-content-sha256" == "UNSIGNED-PAYLOAD" indicates that the

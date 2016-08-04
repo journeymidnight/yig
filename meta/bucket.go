@@ -1,6 +1,7 @@
 package meta
 
 import (
+	. "git.letv.cn/yig/yig/error"
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
 )
@@ -25,7 +26,7 @@ func (m *Meta) GetBucketInfo(bucketName string) (bucket Bucket, err error) {
 		return
 	}
 	if len(response.Cells) == 0 {
-		err = BucketNotFound{Bucket: bucketName}
+		err = ErrNoSuchBucket
 		return
 	}
 	for _, cell := range response.Cells {

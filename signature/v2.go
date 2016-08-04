@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"errors"
+	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/minio/datatype"
 	"strconv"
-	. "git.letv.cn/yig/yig/error"
 )
 
 const (

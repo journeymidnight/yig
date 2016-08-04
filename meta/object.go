@@ -3,6 +3,7 @@ package meta
 import (
 	"bytes"
 	"encoding/binary"
+	. "git.letv.cn/yig/yig/error"
 	"github.com/tsuna/gohbase/filter"
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
@@ -125,18 +126,12 @@ func (m *Meta) GetObject(bucketName string, objectName string) (object Object, e
 		return
 	}
 	if len(scanResponse) == 0 {
-		err = ObjectNotFound{
-			Bucket: bucketName,
-			Object: objectName,
-		}
+		err = ErrNoSuchKey
 		return
 	}
 	for _, cell := range scanResponse[0].Cells {
 		if !bytes.HasPrefix(cell.Row, objectRowkeyPrefix) {
-			err = ObjectNotFound{
-				Bucket: bucketName,
-				Object: objectName,
-			}
+			err = ErrNoSuchKey
 			return
 		}
 		object.Rowkey = string(cell.Row)

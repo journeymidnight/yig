@@ -24,11 +24,11 @@ import (
 	"regexp"
 	"strings"
 
+	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/meta"
 	. "git.letv.cn/yig/yig/minio/datatype"
 	"git.letv.cn/yig/yig/signature"
 	mux "github.com/gorilla/mux"
-	. "git.letv.cn/yig/yig/error"
 )
 
 // maximum supported access policy size.

@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
+	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/meta"
 	"git.letv.cn/yig/yig/signature"
 	"github.com/tsuna/gohbase/hrpc"
@@ -59,19 +60,13 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 		return "", err
 	}
 	if bytesWritten < size {
-		return "", meta.IncompleteBody{
-			Bucket: bucketName,
-			Object: objectName,
-		}
+		return "", ErrIncompleteBody
 	}
 
 	calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
 	if userMd5, ok := metadata["md5Sum"]; ok {
 		if userMd5 != calculatedMd5 {
-			return "", meta.BadDigest{
-				ExpectedMD5:   userMd5,
-				CalculatedMD5: calculatedMd5,
-			}
+			return "", ErrBadDigest
 		}
 	}
 
@@ -86,7 +81,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 	}
 
 	if bucket.OwnerId != credential.UserId {
-		return "", meta.BucketAccessForbidden{Bucket: bucketName}
+		return "", ErrBucketAccessForbidden
 		// TODO validate bucket policy and ACL
 	}
 

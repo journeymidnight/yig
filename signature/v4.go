@@ -32,9 +32,9 @@ import (
 	"strings"
 	"time"
 
+	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/iam"
 	. "git.letv.cn/yig/yig/minio/datatype"
-	. "git.letv.cn/yig/yig/error"
 )
 
 // AWS Signature Version '4' constants.

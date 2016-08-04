@@ -22,9 +22,9 @@ import (
 	"path"
 	"time"
 
+	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/meta"
-	. "git.letv.cn/yig/yig/error"
 )
 
 const (
@@ -530,14 +530,14 @@ func WriteErrorResponseNoHeader(w http.ResponseWriter, req *http.Request, err er
 
 // APIErrorResponse - error response format
 type ApiErrorResponse struct {
-	XMLName    xml.Name `xml:"Error" json:"-"`
-	AwsErrorCode       string
-	Message    string
-	Key        string
-	BucketName string
-	Resource   string
-	RequestID  string `xml:"RequestId"`
-	HostID     string `xml:"HostId"`
+	XMLName      xml.Name `xml:"Error" json:"-"`
+	AwsErrorCode string
+	Message      string
+	Key          string
+	BucketName   string
+	Resource     string
+	RequestID    string `xml:"RequestId"`
+	HostID       string `xml:"HostId"`
 }
 
 // GetErrorResponse gets in standard error and resource value and

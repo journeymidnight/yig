@@ -1,6 +1,7 @@
 package storage
 
 import (
+	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/meta"
 	"github.com/tsuna/gohbase/hrpc"
@@ -44,12 +45,12 @@ func (yig *YigStorage) MakeBucket(bucket string, credential iam.Credential) erro
 		b, err := yig.MetaStorage.Hbase.Get(get)
 		if err != nil {
 			yig.Logger.Println("Error get bucket: ", bucket, "with error: ", err)
-			return meta.BucketExists{Bucket: bucket}
+			return ErrBucketAlreadyExists
 		}
 		if string(b.Cells[0].Value) == credential.UserId {
-			return meta.BucketExistsAndOwned{Bucket: bucket}
+			return ErrBucketAlreadyOwnedByYou
 		} else {
-			return meta.BucketExists{Bucket: bucket}
+			return ErrBucketAlreadyExists
 		}
 	}
 	err = yig.MetaStorage.AddBucketForUser(bucket, credential.UserId)
@@ -78,7 +79,7 @@ func (yig *YigStorage) GetBucketInfo(bucketName string,
 		return
 	}
 	if bucket.OwnerId != credential.UserId {
-		err = meta.BucketAccessForbidden{Bucket: bucketName}
+		err = ErrBucketAccessForbidden
 		return
 		// TODO validate bucket policy
 	}
@@ -112,7 +113,7 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 		return err
 	}
 	if bucket.OwnerId != credential.UserId {
-		return meta.BucketAccessForbidden{Bucket: bucketName}
+		return ErrBucketAccessForbidden
 		// TODO validate bucket policy
 	}
 	// TODO validate bucket is empty

@@ -28,11 +28,11 @@ import (
 	"strings"
 	"time"
 
+	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/meta"
 	. "git.letv.cn/yig/yig/minio/datatype"
 	"git.letv.cn/yig/yig/signature"
 	mux "github.com/gorilla/mux"
-	. "git.letv.cn/yig/yig/error"
 )
 
 // supportedGetReqParams - supported request parameters for GET presigned request.
@@ -197,7 +197,7 @@ func (api objectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	case signature.AuthTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
-		if s3Error := enforceBucketPolicy("s3:GetObject", bucket, r.URL); s3Error != nil{
+		if s3Error := enforceBucketPolicy("s3:GetObject", bucket, r.URL); s3Error != nil {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}

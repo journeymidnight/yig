@@ -17,11 +17,11 @@
 package minio
 
 import (
+	. "git.letv.cn/yig/yig/error"
 	. "git.letv.cn/yig/yig/minio/datatype"
 	"io"
 	"net/http"
 	"strings"
-	. "git.letv.cn/yig/yig/error"
 )
 
 // validates location constraint from the request body.

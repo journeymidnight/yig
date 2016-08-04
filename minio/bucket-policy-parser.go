@@ -213,7 +213,7 @@ func resourcePrefix(resource string) string {
 // checkBucketPolicyResources validates Resources in unmarshalled bucket policy structure.
 // First valation of Resources done for given set of Actions.
 // Later its validated for recursive Resources.
-func checkBucketPolicyResources(bucket string, bucketPolicy BucketPolicy) error{
+func checkBucketPolicyResources(bucket string, bucketPolicy BucketPolicy) error {
 	// Validate statements for special actions and collect resources
 	// for others to validate nesting.
 	var resourceMap = make(map[string]struct{})
