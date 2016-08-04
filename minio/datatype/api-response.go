@@ -531,13 +531,13 @@ func WriteErrorResponseNoHeader(w http.ResponseWriter, req *http.Request, err er
 // APIErrorResponse - error response format
 type ApiErrorResponse struct {
 	XMLName      xml.Name `xml:"Error" json:"-"`
-	AwsErrorCode string
+	AwsErrorCode string   `xml:"Code"`
 	Message      string
 	Key          string
 	BucketName   string
 	Resource     string
-	RequestID    string `xml:"RequestId"`
-	HostID       string `xml:"HostId"`
+	RequestId    string
+	HostId       string
 }
 
 // GetErrorResponse gets in standard error and resource value and
@@ -556,8 +556,8 @@ func GetAPIErrorResponse(err error, resource string) ApiErrorResponse {
 		data.Resource = resource
 	}
 	// TODO implement this in future
-	data.RequestID = "3L137"
-	data.HostID = "3L137"
+	data.RequestId = "3L137"
+	data.HostId = "3L137"
 
 	return data
 }
