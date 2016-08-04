@@ -358,11 +358,20 @@ func (api objectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 			})
 		} else {
 			errorIf(err, "Unable to delete object.")
-			deleteErrors = append(deleteErrors, DeleteError{
-				Code:    ErrorCodeResponse[err].AwsErrorCode,
-				Message: ErrorCodeResponse[err].Description,
-				Key:     object.ObjectName,
-			})
+			apiErrorCode, ok := err.(ApiError)
+			if ok {
+				deleteErrors = append(deleteErrors, DeleteError{
+					Code:    ErrorCodeResponse[apiErrorCode].AwsErrorCode,
+					Message: ErrorCodeResponse[apiErrorCode].Description,
+					Key:     object.ObjectName,
+				})
+			} else {
+				deleteErrors = append(deleteErrors, DeleteError{
+					Code:    "InternalError",
+					Message: "We encountered an internal error, please try again.",
+					Key:     object.ObjectName,
+				})
+			}
 		}
 	}
 	// Generate response
