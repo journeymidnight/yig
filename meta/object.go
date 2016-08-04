@@ -33,7 +33,7 @@ type Object struct {
 // bigEndian(uint64.max - unixNanoTimestamp)
 func (o Object) GetRowkey() (string, error) {
 	if o.Rowkey != "" {
-		return o.Rowkey
+		return o.Rowkey, nil
 	}
 	var rowkey bytes.Buffer
 	rowkey.WriteString(o.BucketName)

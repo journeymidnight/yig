@@ -34,6 +34,7 @@ import (
 
 	"git.letv.cn/yig/yig/iam"
 	. "git.letv.cn/yig/yig/minio/datatype"
+	. "git.letv.cn/yig/yig/error"
 )
 
 // AWS Signature Version '4' constants.
@@ -41,7 +42,8 @@ const (
 	signV4Algorithm = "AWS4-HMAC-SHA256"
 )
 
-// getSignedHeaders generate a string i.e alphabetically sorted, semicolon-separated list of lowercase request header names
+// getSignedHeaders generate a string i.e alphabetically sorted,
+// semicolon-separated list of lowercase request header names
 func getSignedHeaders(signedHeaders http.Header) string {
 	var headers []string
 	for k := range signedHeaders {
@@ -114,10 +116,10 @@ func getSignature(signingKey []byte, stringToSign string) string {
 // doesPolicySignatureMatch - Verify query headers with post policy
 //     - http://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-HTTPPOSTConstructPolicy.html
 // returns true if matches, false otherwise. if error is not nil then it is always false
-func DoesPolicySignatureMatchV4(formValues map[string]string) (credential iam.Credential, err APIErrorCode) {
+func DoesPolicySignatureMatchV4(formValues map[string]string) (credential iam.Credential, err error) {
 	// Parse credential tag.
 	credHeader, err := parseCredential(formValues["X-Amz-Credential"])
-	if err != ErrNone {
+	if err != nil {
 		return credential, err
 	}
 
@@ -147,17 +149,17 @@ func DoesPolicySignatureMatchV4(formValues map[string]string) (credential iam.Cr
 	if newSignature != formValues["X-Amz-Signature"] {
 		return credential, ErrSignatureDoesNotMatch
 	}
-	return credential, ErrNone
+	return credential, nil
 }
 
 // doesPresignedSignatureMatch - Verify query headers with presigned signature
 //     - http://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html
 // returns true if matches, false otherwise. if error is not nil then it is always false
 func DoesPresignedSignatureMatchV4(r *http.Request,
-	validateRegion bool) (credential iam.Credential, err APIErrorCode) {
+	validateRegion bool) (credential iam.Credential, err error) {
 	// Parse request query string.
 	preSignValues, err := parsePreSignV4(r.URL.Query(), r.Header)
-	if err != ErrNone {
+	if err != nil {
 		return credential, err
 	}
 
@@ -202,20 +204,20 @@ func DoesPresignedSignatureMatchV4(r *http.Request,
 	if preSignValues.Signature != newSignature {
 		return credential, ErrSignatureDoesNotMatch
 	}
-	return credential, ErrNone
+	return credential, nil
 }
 
 // doesSignatureMatch - Verify authorization header with calculated header in accordance with
 //     - http://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-authenticating-requests.html
 // returns true if matches, false otherwise. if error is not nil then it is always false
 func DoesSignatureMatchV4(hashedPayload string, r *http.Request,
-	validateRegion bool) (credential iam.Credential, err APIErrorCode) {
+	validateRegion bool) (credential iam.Credential, err error) {
 	// Save authorization header.
 	v4Auth := r.Header.Get("Authorization")
 
 	// Parse signature version '4' header.
 	signV4Values, err := parseSignV4(v4Auth, r.Header)
-	if err != ErrNone {
+	if err != nil {
 		return credential, err
 	}
 
@@ -230,7 +232,7 @@ func DoesSignatureMatchV4(hashedPayload string, r *http.Request,
 
 	// Extract all the signed headers along with its values.
 	canonicalHeaderString, err := getCanonicalHeaders(signV4Values.SignedHeaders, r)
-	if err != ErrNone {
+	if err != nil {
 		return credential, err
 	}
 
@@ -251,7 +253,7 @@ func DoesSignatureMatchV4(hashedPayload string, r *http.Request,
 	}
 	// Parse date header.
 	t, err := ParseAmzDate(date)
-	if err != ErrNone {
+	if err != nil {
 		return credential, err
 	}
 	diff := time.Now().Sub(t)
@@ -283,5 +285,5 @@ func DoesSignatureMatchV4(hashedPayload string, r *http.Request,
 	if newSignature != signV4Values.Signature {
 		return credential, ErrSignatureDoesNotMatch
 	}
-	return credential, ErrNone
+	return credential, nil
 }

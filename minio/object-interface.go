@@ -35,7 +35,8 @@ type ObjectLayer interface {
 	// Object operations.
 	GetObject(object meta.Object, startOffset int64, length int64, writer io.Writer) (err error)
 	GetObjectInfo(bucket, object string) (objInfo meta.Object, err error)
-	PutObject(bucket, object string, size int64, data io.Reader, metadata map[string]string) (md5 string, err error)
+	PutObject(bucket, object string, size int64, data io.Reader,
+		metadata map[string]string) (md5 string, err error)
 	DeleteObject(bucket, object string) error
 
 	// Multipart operations.

@@ -14,6 +14,7 @@ import (
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/minio/datatype"
 	"strconv"
+	. "git.letv.cn/yig/yig/error"
 )
 
 const (
@@ -27,7 +28,7 @@ const (
 
 func verifyDate(dateString string) (bool, error) {
 	date, err := datatype.ParseAmzDate(dateString)
-	if err != datatype.ErrNone {
+	if err != nil {
 		return false, errors.New("ErrMalformedDate")
 	}
 	now := time.Now()
@@ -104,32 +105,32 @@ func buildCanonicalizedResource(req *http.Request) string {
 }
 
 // Calculate HMAC and compare with signature from client
-func dictate(secretKey string, stringToSign string, signature []byte) datatype.APIErrorCode {
+func dictate(secretKey string, stringToSign string, signature []byte) error {
 	mac := hmac.New(sha1.New, []byte(secretKey))
 	mac.Write([]byte(stringToSign))
 	expectedMac := mac.Sum(nil)
 	if !hmac.Equal(expectedMac, signature) {
-		return datatype.ErrAccessDenied
+		return ErrAccessDenied
 	}
-	return datatype.ErrNone
+	return nil
 }
 
-func DoesSignatureMatchV2(r *http.Request) (credential iam.Credential, err datatype.APIErrorCode) {
+func DoesSignatureMatchV2(r *http.Request) (credential iam.Credential, err error) {
 	authorizationHeader := r.Header.Get("Authorization")
 	splitHeader := strings.Split(authorizationHeader, " ")
 	// Authorization = "AWS" + " " + AWSAccessKeyId + ":" + Signature;
 	splitSignature := strings.Split(splitHeader[1], ":")
 	if len(splitSignature) != 2 {
-		return credential, datatype.ErrMissingSignTag
+		return credential, ErrMissingSignTag
 	}
 	accessKey := splitSignature[0]
 	credential, e := iam.GetCredential(accessKey)
 	if e != nil {
-		return credential, datatype.ErrInvalidAccessKeyID
+		return credential, ErrInvalidAccessKeyID
 	}
 	signature, e := base64.StdEncoding.DecodeString(splitSignature[1])
 	if e != nil {
-		return credential, datatype.ErrAuthorizationHeaderMalformed
+		return credential, ErrAuthorizationHeaderMalformed
 	}
 	// StringToSign = HTTP-Verb + "\n" +
 	// 	Content-MD5 + "\n" +
@@ -147,12 +148,12 @@ func DoesSignatureMatchV2(r *http.Request) (credential iam.Credential, err datat
 		date = r.Header.Get("Date")
 	}
 	if date == "" {
-		return credential, datatype.ErrMissingDateHeader
+		return credential, ErrMissingDateHeader
 	}
 	if verified, e := verifyDate(date); e != nil {
-		return credential, datatype.ErrMalformedDate
+		return credential, ErrMalformedDate
 	} else if !verified {
-		return credential, datatype.ErrRequestTimeTooSkewed
+		return credential, ErrRequestTimeTooSkewed
 	}
 	stringToSign += date + "\n"
 
@@ -162,7 +163,7 @@ func DoesSignatureMatchV2(r *http.Request) (credential iam.Credential, err datat
 	return credential, dictate(credential.SecretAccessKey, stringToSign, signature)
 }
 
-func DoesPresignedSignatureMatchV2(r *http.Request) (credential iam.Credential, err datatype.APIErrorCode) {
+func DoesPresignedSignatureMatchV2(r *http.Request) (credential iam.Credential, err error) {
 	query := r.URL.Query()
 	accessKey := query.Get("AWSAccessKeyId")
 	expires := query.Get("Expires")
@@ -170,16 +171,16 @@ func DoesPresignedSignatureMatchV2(r *http.Request) (credential iam.Credential, 
 
 	credential, e := iam.GetCredential(accessKey)
 	if e != nil {
-		return credential, datatype.ErrInvalidAccessKeyID
+		return credential, ErrInvalidAccessKeyID
 	}
 	signature, e := base64.StdEncoding.DecodeString(signatureString)
 	if e != nil {
-		return credential, datatype.ErrAuthorizationHeaderMalformed
+		return credential, ErrAuthorizationHeaderMalformed
 	}
 	if verified, e := verifyNotExpires(expires); e != nil {
-		return credential, datatype.ErrMalformedDate
+		return credential, ErrMalformedDate
 	} else if !verified {
-		return credential, datatype.ErrExpiredPresignRequest
+		return credential, ErrExpiredPresignRequest
 
 	}
 	// StringToSign = HTTP-VERB + "\n" +
@@ -199,30 +200,30 @@ func DoesPresignedSignatureMatchV2(r *http.Request) (credential iam.Credential, 
 }
 
 func DoesPolicySignatureMatchV2(formValues map[string]string) (credential iam.Credential,
-	e datatype.APIErrorCode) {
+	e error) {
 	var secretKey string
 	var err error
 	if accessKey, ok := formValues["Awsaccesskeyid"]; ok {
 		credential, err = iam.GetCredential(accessKey)
 		if err != nil {
-			return credential, datatype.ErrInvalidAccessKeyID
+			return credential, ErrInvalidAccessKeyID
 		}
 	} else {
-		return credential, datatype.ErrMissingFields
+		return credential, ErrMissingFields
 	}
 
 	var signatureString string
 	var ok bool
 	if signatureString, ok = formValues["Signature"]; !ok {
-		return credential, datatype.ErrMissingFields
+		return credential, ErrMissingFields
 	}
 	signature, err := base64.StdEncoding.DecodeString(signatureString)
 	if err != nil {
-		return credential, datatype.ErrMalformedPOSTRequest
+		return credential, ErrMalformedPOSTRequest
 	}
 	var policy string
 	if policy, ok = formValues["Policy"]; !ok {
-		return credential, datatype.ErrMissingFields
+		return credential, ErrMissingFields
 	}
 
 	return credential, dictate(secretKey, policy, signature)

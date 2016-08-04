@@ -26,7 +26,7 @@ import (
 	"sort"
 	"strings"
 
-	. "git.letv.cn/yig/yig/minio/datatype"
+	. "git.letv.cn/yig/yig/error"
 )
 
 const (
@@ -213,7 +213,7 @@ func resourcePrefix(resource string) string {
 // checkBucketPolicyResources validates Resources in unmarshalled bucket policy structure.
 // First valation of Resources done for given set of Actions.
 // Later its validated for recursive Resources.
-func checkBucketPolicyResources(bucket string, bucketPolicy BucketPolicy) APIErrorCode {
+func checkBucketPolicyResources(bucket string, bucketPolicy BucketPolicy) error{
 	// Validate statements for special actions and collect resources
 	// for others to validate nesting.
 	var resourceMap = make(map[string]struct{})
@@ -263,7 +263,7 @@ func checkBucketPolicyResources(bucket string, bucketPolicy BucketPolicy) APIErr
 	}
 
 	// No errors found.
-	return ErrNone
+	return nil
 }
 
 // parseBucketPolicy - parses and validates if bucket policy is of

@@ -19,13 +19,12 @@ package signature
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"hash"
 	"io"
 	"net/http"
 
 	"git.letv.cn/yig/yig/iam"
-	. "git.letv.cn/yig/yig/minio/datatype"
+	. "git.letv.cn/yig/yig/error"
 )
 
 // SignVerifyReader represents an io.Reader compatible interface which
@@ -59,34 +58,21 @@ func (v *SignVerifyReader) Verify() (credential iam.Credential, err error) {
 		shaPayloadHex = unsignedPayload
 	}
 	// Signature verification block.
-	var s3Error APIErrorCode
 	if isSignature, version := isRequestSignature(v.Request); isSignature {
 		if version == AuthTypeSignedV2 {
-			credential, s3Error = DoesSignatureMatchV2(v.Request)
+			credential, err = DoesSignatureMatchV2(v.Request)
 		} else { // v4
-			credential, s3Error = DoesSignatureMatchV4(shaPayloadHex, v.Request, validateRegion)
+			credential, err = DoesSignatureMatchV4(shaPayloadHex, v.Request, validateRegion)
 		}
 	} else if isPresigned, version := isRequestPresigned(v.Request); isPresigned {
 		if version == AuthTypePresignedV2 {
-			credential, s3Error = DoesPresignedSignatureMatchV2(v.Request)
+			credential, err = DoesPresignedSignatureMatchV2(v.Request)
 		} else { // v4
-			credential, s3Error = DoesPresignedSignatureMatchV4(v.Request, validateRegion)
+			credential, err = DoesPresignedSignatureMatchV4(v.Request, validateRegion)
 		}
 	} else {
 		// Couldn't figure out the request type, set the error as AccessDenied.
-		s3Error = ErrAccessDenied
-	}
-	// Validate if we have received signature mismatch or sha256 mismatch.
-	if s3Error != ErrNone {
-		switch s3Error {
-		case ErrContentSHA256Mismatch:
-			err = ErrorContentSHA256Mismatch
-		case ErrSignatureDoesNotMatch:
-			err = ErrSignatureMismatch
-		default:
-			err = fmt.Errorf("%v", GetAPIError(s3Error))
-		}
-		return
+		err = ErrAccessDenied
 	}
 	return
 }

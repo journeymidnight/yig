@@ -20,11 +20,11 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
-	"git.letv.cn/yig/yig/minio/datatype"
 	"net/http"
 	"regexp"
 	"strings"
 	"unicode/utf8"
+	. "git.letv.cn/yig/yig/error"
 )
 
 // http Header "x-amz-content-sha256" == "UNSIGNED-PAYLOAD" indicates that the
@@ -108,7 +108,7 @@ func getURLEncodedName(name string) string {
 // Lowercase(<HeaderNameN>)+":"+Trim(<value>)+"\n"
 //
 // Return ErrMissingRequiredSignedHeader if a header is missing in http header but exists in signedHeaders
-func getCanonicalHeaders(signedHeaders []string, req *http.Request) (string, datatype.APIErrorCode) {
+func getCanonicalHeaders(signedHeaders []string, req *http.Request) (string, error) {
 	canonicalHeaders := ""
 	for _, header := range signedHeaders {
 		values, ok := req.Header[http.CanonicalHeaderKey(header)]
@@ -139,7 +139,7 @@ func getCanonicalHeaders(signedHeaders []string, req *http.Request) (string, dat
 			ok = true
 		}
 		if !ok {
-			return "", datatype.ErrMissingRequiredSignedHeader
+			return "", ErrMissingRequiredSignedHeader
 		}
 		canonicalHeaders += header + ":"
 		for idx, v := range values {
@@ -150,5 +150,5 @@ func getCanonicalHeaders(signedHeaders []string, req *http.Request) (string, dat
 		}
 		canonicalHeaders += "\n"
 	}
-	return canonicalHeaders, datatype.ErrNone
+	return canonicalHeaders, nil
 }

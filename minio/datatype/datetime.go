@@ -1,6 +1,9 @@
 package datatype
 
-import "time"
+import (
+	"time"
+	. "git.letv.cn/yig/yig/error"
+)
 
 const (
 	Iso8601Format           = "20060102T150405Z"
@@ -17,11 +20,11 @@ var amzDateFormats = []string{
 }
 
 // parseAmzDate - parses date string into supported amz date formats.
-func ParseAmzDate(amzDateStr string) (amzDate time.Time, apiErr APIErrorCode) {
+func ParseAmzDate(amzDateStr string) (amzDate time.Time, apiErr error) {
 	for _, dateFormat := range amzDateFormats {
 		amzDate, e := time.Parse(dateFormat, amzDateStr)
 		if e == nil {
-			return amzDate, ErrNone
+			return amzDate, nil
 		}
 	}
 	return time.Time{}, ErrMalformedDate

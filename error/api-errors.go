@@ -14,39 +14,32 @@
  * limitations under the License.
  */
 
-package datatype
+package error
 
 import (
 	"encoding/xml"
 	"net/http"
 )
 
-// APIError structure
-type APIError struct {
-	Code           string
-	Description    string
-	HTTPStatusCode int
+type ApiError interface{
+	error
+	AwsErrorCode() string
+	Description()  string
+	HttpStatusCode() int
 }
 
-// APIErrorResponse - error response format
-type APIErrorResponse struct {
-	XMLName    xml.Name `xml:"Error" json:"-"`
-	Code       string
-	Message    string
-	Key        string
-	BucketName string
-	Resource   string
-	RequestID  string `xml:"RequestId"`
-	HostID     string `xml:"HostId"`
+type ApiErrorStruct struct  {
+	AwsErrorCode string
+	Description string
+	HttpStatusCode int
 }
 
 // APIErrorCode type of error status.
-type APIErrorCode int
+type ApiErrorCode int
 
 // Error codes, non exhaustive list - http://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html
 const (
-	ErrNone APIErrorCode = iota
-	ErrAccessDenied
+	ErrAccessDenied ApiErrorCode = iota
 	ErrBadDigest
 	ErrBucketAlreadyExists
 	ErrEntityTooSmall
@@ -126,425 +119,374 @@ const (
 
 // error code to APIError structure, these fields carry respective
 // descriptions for all the error responses.
-var ErrorCodeResponse = map[APIErrorCode]APIError{
+var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidCopyDest: {
-		Code:           "InvalidRequest",
+		AwsErrorCode:           "InvalidRequest",
 		Description:    "This copy request is illegal because it is trying to copy an object to itself.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidCopySource: {
-		Code:           "InvalidArgument",
+		AwsErrorCode:           "InvalidArgument",
 		Description:    "Copy Source must mention the source bucket and key: sourcebucket/sourcekey.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidRequestBody: {
-		Code:           "InvalidArgument",
+		AwsErrorCode:           "InvalidArgument",
 		Description:    "Body shouldn't be set for this request.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidMaxUploads: {
-		Code:           "InvalidArgument",
+		AwsErrorCode:           "InvalidArgument",
 		Description:    "Argument max-uploads must be an integer between 0 and 2147483647",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidMaxKeys: {
-		Code:           "InvalidArgument",
+		AwsErrorCode:           "InvalidArgument",
 		Description:    "Argument maxKeys must be an integer between 0 and 2147483647",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidMaxParts: {
-		Code:           "InvalidArgument",
+		AwsErrorCode:           "InvalidArgument",
 		Description:    "Argument max-parts must be an integer between 0 and 2147483647",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidPartNumberMarker: {
-		Code:           "InvalidArgument",
+		AwsErrorCode:           "InvalidArgument",
 		Description:    "Argument partNumberMarker must be an integer.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidPolicyDocument: {
-		Code:           "InvalidPolicyDocument",
+		AwsErrorCode:           "InvalidPolicyDocument",
 		Description:    "The content of the form does not meet the conditions specified in the policy document.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrAccessDenied: {
-		Code:           "AccessDenied",
+		AwsErrorCode:           "AccessDenied",
 		Description:    "Access Denied.",
-		HTTPStatusCode: http.StatusForbidden,
+		HttpStatusCode: http.StatusForbidden,
 	},
 	ErrBadDigest: {
-		Code:           "BadDigest",
+		AwsErrorCode:           "BadDigest",
 		Description:    "The Content-Md5 you specified did not match what we received.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrBucketAlreadyExists: {
-		Code:           "BucketAlreadyExists",
+		AwsErrorCode:           "BucketAlreadyExists",
 		Description:    "The requested bucket name is not available.",
-		HTTPStatusCode: http.StatusConflict,
+		HttpStatusCode: http.StatusConflict,
 	},
 	ErrEntityTooSmall: {
-		Code:           "EntityTooSmall",
+		AwsErrorCode:           "EntityTooSmall",
 		Description:    "Your proposed upload is smaller than the minimum allowed object size.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrEntityTooLarge: {
-		Code:           "EntityTooLarge",
+		AwsErrorCode:           "EntityTooLarge",
 		Description:    "Your proposed upload exceeds the maximum allowed object size.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrIncompleteBody: {
-		Code:           "IncompleteBody",
+		AwsErrorCode:           "IncompleteBody",
 		Description:    "You did not provide the number of bytes specified by the Content-Length HTTP header.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInternalError: {
-		Code:           "InternalError",
+		AwsErrorCode:           "InternalError",
 		Description:    "We encountered an internal error, please try again.",
-		HTTPStatusCode: http.StatusInternalServerError,
+		HttpStatusCode: http.StatusInternalServerError,
 	},
 	ErrInvalidAccessKeyID: {
-		Code:           "InvalidAccessKeyID",
+		AwsErrorCode:           "InvalidAccessKeyID",
 		Description:    "The access key ID you provided does not exist in our records.",
-		HTTPStatusCode: http.StatusForbidden,
+		HttpStatusCode: http.StatusForbidden,
 	},
 	ErrInvalidBucketName: {
-		Code:           "InvalidBucketName",
+		AwsErrorCode:           "InvalidBucketName",
 		Description:    "The specified bucket is not valid.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidDigest: {
-		Code:           "InvalidDigest",
+		AwsErrorCode:           "InvalidDigest",
 		Description:    "The Content-Md5 you specified is not valid.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidRange: {
-		Code:           "InvalidRange",
+		AwsErrorCode:           "InvalidRange",
 		Description:    "The requested range is not satisfiable",
-		HTTPStatusCode: http.StatusRequestedRangeNotSatisfiable,
+		HttpStatusCode: http.StatusRequestedRangeNotSatisfiable,
 	},
 	ErrMalformedXML: {
-		Code:           "MalformedXML",
+		AwsErrorCode:           "MalformedXML",
 		Description:    "The XML you provided was not well-formed or did not validate against our published schema.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrMissingContentLength: {
-		Code:           "MissingContentLength",
+		AwsErrorCode:           "MissingContentLength",
 		Description:    "You must provide the Content-Length HTTP header.",
-		HTTPStatusCode: http.StatusLengthRequired,
+		HttpStatusCode: http.StatusLengthRequired,
 	},
 	ErrMissingContentMD5: {
-		Code:           "MissingContentMD5",
+		AwsErrorCode:           "MissingContentMD5",
 		Description:    "Missing required header for this request: Content-Md5.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrMissingRequestBodyError: {
-		Code:           "MissingRequestBodyError",
+		AwsErrorCode:           "MissingRequestBodyError",
 		Description:    "Request body is empty.",
-		HTTPStatusCode: http.StatusLengthRequired,
+		HttpStatusCode: http.StatusLengthRequired,
 	},
 	ErrNoSuchBucket: {
-		Code:           "NoSuchBucket",
+		AwsErrorCode:           "NoSuchBucket",
 		Description:    "The specified bucket does not exist",
-		HTTPStatusCode: http.StatusNotFound,
+		HttpStatusCode: http.StatusNotFound,
 	},
 	ErrNoSuchBucketPolicy: {
-		Code:           "NoSuchBucketPolicy",
+		AwsErrorCode:           "NoSuchBucketPolicy",
 		Description:    "The specified bucket does not have a bucket policy.",
-		HTTPStatusCode: http.StatusNotFound,
+		HttpStatusCode: http.StatusNotFound,
 	},
 	ErrNoSuchKey: {
-		Code:           "NoSuchKey",
+		AwsErrorCode:           "NoSuchKey",
 		Description:    "The specified key does not exist.",
-		HTTPStatusCode: http.StatusNotFound,
+		HttpStatusCode: http.StatusNotFound,
 	},
 	ErrNoSuchUpload: {
-		Code:           "NoSuchUpload",
+		AwsErrorCode:           "NoSuchUpload",
 		Description:    "The specified multipart upload does not exist.",
-		HTTPStatusCode: http.StatusNotFound,
+		HttpStatusCode: http.StatusNotFound,
 	},
 	ErrNotImplemented: {
-		Code:           "NotImplemented",
+		AwsErrorCode:           "NotImplemented",
 		Description:    "A header you provided implies functionality that is not implemented",
-		HTTPStatusCode: http.StatusNotImplemented,
+		HttpStatusCode: http.StatusNotImplemented,
 	},
 	ErrPreconditionFailed: {
-		Code:           "PreconditionFailed",
+		AwsErrorCode:           "PreconditionFailed",
 		Description:    "At least one of the pre-conditions you specified did not hold",
-		HTTPStatusCode: http.StatusPreconditionFailed,
+		HttpStatusCode: http.StatusPreconditionFailed,
 	},
 	ErrRequestTimeTooSkewed: {
-		Code:           "RequestTimeTooSkewed",
+		AwsErrorCode:           "RequestTimeTooSkewed",
 		Description:    "The difference between the request time and the server's time is too large.",
-		HTTPStatusCode: http.StatusForbidden,
+		HttpStatusCode: http.StatusForbidden,
 	},
 	ErrSignatureDoesNotMatch: {
-		Code:           "SignatureDoesNotMatch",
+		AwsErrorCode:           "SignatureDoesNotMatch",
 		Description:    "The request signature we calculated does not match the signature you provided. Check your key and signing method.",
-		HTTPStatusCode: http.StatusForbidden,
+		HttpStatusCode: http.StatusForbidden,
 	},
 	ErrMethodNotAllowed: {
-		Code:           "MethodNotAllowed",
+		AwsErrorCode:           "MethodNotAllowed",
 		Description:    "The specified method is not allowed against this resource.",
-		HTTPStatusCode: http.StatusMethodNotAllowed,
+		HttpStatusCode: http.StatusMethodNotAllowed,
 	},
 	ErrInvalidPart: {
-		Code:           "InvalidPart",
+		AwsErrorCode:           "InvalidPart",
 		Description:    "One or more of the specified parts could not be found.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidPartOrder: {
-		Code:           "InvalidPartOrder",
+		AwsErrorCode:           "InvalidPartOrder",
 		Description:    "The list of parts was not in ascending order. The parts list must be specified in order by part number.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrAuthorizationHeaderMalformed: {
-		Code:           "AuthorizationHeaderMalformed",
+		AwsErrorCode:           "AuthorizationHeaderMalformed",
 		Description:    "The authorization header is malformed.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrMalformedPOSTRequest: {
-		Code:           "MalformedPOSTRequest",
+		AwsErrorCode:           "MalformedPOSTRequest",
 		Description:    "The body of your POST request is not well-formed multipart/form-data.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrSignatureVersionNotSupported: {
-		Code:           "InvalidRequest",
+		AwsErrorCode:           "InvalidRequest",
 		Description:    "The authorization mechanism you have provided is not supported. Please use AWS4-HMAC-SHA256.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrBucketNotEmpty: {
-		Code:           "BucketNotEmpty",
+		AwsErrorCode:           "BucketNotEmpty",
 		Description:    "The bucket you tried to delete is not empty.",
-		HTTPStatusCode: http.StatusConflict,
+		HttpStatusCode: http.StatusConflict,
 	},
 	ErrBucketAccessForbidden: {
-		Code:           "BucketAccessForbidden",
+		AwsErrorCode:           "BucketAccessForbidden",
 		Description:    "You have no access to this bucket.",
-		HTTPStatusCode: http.StatusForbidden,
+		HttpStatusCode: http.StatusForbidden,
 	},
 	ErrMalformedPolicy: {
-		Code:           "MalformedPolicy",
+		AwsErrorCode:           "MalformedPolicy",
 		Description:    "Policy has invalid resource.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrMissingFields: {
-		Code:           "MissingFields",
+		AwsErrorCode:           "MissingFields",
 		Description:    "Missing fields in request.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrMissingCredTag: {
-		Code:           "InvalidRequest",
+		AwsErrorCode:           "InvalidRequest",
 		Description:    "Missing Credential field for this request.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrCredMalformed: {
-		Code:           "CredentialMalformed",
+		AwsErrorCode:           "CredentialMalformed",
 		Description:    "Credential field malformed does not follow accessKeyID/credScope.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrMalformedDate: {
-		Code:           "MalformedDate",
+		AwsErrorCode:           "MalformedDate",
 		Description:    "Invalid date format header, expected to be in ISO8601, RFC1123 or RFC1123Z time format.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidRegion: {
-		Code:           "InvalidRegion",
+		AwsErrorCode:           "InvalidRegion",
 		Description:    "Region does not match.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidService: {
-		Code:           "AccessDenied",
+		AwsErrorCode:           "AccessDenied",
 		Description:    "Service scope should be of value 's3'.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidRequestVersion: {
-		Code:           "AccessDenied",
+		AwsErrorCode:           "AccessDenied",
 		Description:    "Request scope should be of value 'aws4_request'.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrMissingSignTag: {
-		Code:           "AccessDenied",
+		AwsErrorCode:           "AccessDenied",
 		Description:    "Signature header missing Signature field.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrMissingSignHeadersTag: {
-		Code:           "InvalidArgument",
+		AwsErrorCode:           "InvalidArgument",
 		Description:    "Signature header missing SignedHeaders field.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrMissingRequiredSignedHeader: {
-		Code:           "InvalidArgument",
+		AwsErrorCode:           "InvalidArgument",
 		Description:    "Missing one or more required signed header",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrSignedHeadersNotSorted: {
-		Code:           "InvalidArgument",
+		AwsErrorCode:           "InvalidArgument",
 		Description:    "Signed headers are not ordered",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrPolicyAlreadyExpired: {
-		Code:           "AccessDenied",
+		AwsErrorCode:           "AccessDenied",
 		Description:    "Invalid according to Policy: Policy expired.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrPolicyViolation: {
-		Code:           "AccessDenied",
+		AwsErrorCode:           "AccessDenied",
 		Description:    "File uploading policy violatedd.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrMalformedExpires: {
-		Code:           "MalformedExpires",
+		AwsErrorCode:           "MalformedExpires",
 		Description:    "Malformed expires value, should be between 1 and 604800(seven days)",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrAuthHeaderEmpty: {
-		Code:           "InvalidArgument",
+		AwsErrorCode:           "InvalidArgument",
 		Description:    "Authorization header is invalid -- one and only one ' ' (space) required.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrMissingDateHeader: {
-		Code:           "AccessDenied",
+		AwsErrorCode:           "AccessDenied",
 		Description:    "AWS authentication requires a valid Date or x-amz-date header",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidQuerySignatureAlgo: {
-		Code:           "AuthorizationQueryParametersError",
+		AwsErrorCode:           "AuthorizationQueryParametersError",
 		Description:    "X-Amz-Algorithm only supports \"AWS4-HMAC-SHA256\".",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrExpiredPresignRequest: {
-		Code:           "AccessDenied",
+		AwsErrorCode:           "AccessDenied",
 		Description:    "Request has expired.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidQueryParams: {
-		Code:           "AuthorizationQueryParametersError",
+		AwsErrorCode:           "AuthorizationQueryParametersError",
 		Description:    "Query-string authentication version 4 requires the X-Amz-Algorithm, X-Amz-Credential, X-Amz-Signature, X-Amz-Date, X-Amz-SignedHeaders, and X-Amz-Expires parameters.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrBucketAlreadyOwnedByYou: {
-		Code:           "BucketAlreadyOwnedByYou",
+		AwsErrorCode:           "BucketAlreadyOwnedByYou",
 		Description:    "Your previous request to create the named bucket succeeded and you already own it.",
-		HTTPStatusCode: http.StatusConflict,
+		HttpStatusCode: http.StatusConflict,
 	},
 
 	/// S3 extensions.
 	ErrContentSHA256Mismatch: {
-		Code:           "XAmzContentSHA256Mismatch",
+		AwsErrorCode:           "XAmzContentSHA256Mismatch",
 		Description:    "The provided 'x-amz-content-sha256' header does not match what was computed.",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 
 	/// Minio extensions.
 	ErrStorageFull: {
-		Code:           "XMinioStorageFull",
+		AwsErrorCode:           "XMinioStorageFull",
 		Description:    "Storage backend has reached its minimum free disk threshold. Please delete few objects to proceed.",
-		HTTPStatusCode: http.StatusInternalServerError,
+		HttpStatusCode: http.StatusInternalServerError,
 	},
 	ErrObjectExistsAsDirectory: {
-		Code:           "XMinioObjectExistsAsDirectory",
+		AwsErrorCode:           "XMinioObjectExistsAsDirectory",
 		Description:    "Object name already exists as a directory.",
-		HTTPStatusCode: http.StatusConflict,
+		HttpStatusCode: http.StatusConflict,
 	},
 	ErrReadQuorum: {
-		Code:           "XMinioReadQuorum",
+		AwsErrorCode:           "XMinioReadQuorum",
 		Description:    "Multiple disk failures, unable to reconstruct data.",
-		HTTPStatusCode: http.StatusServiceUnavailable,
+		HttpStatusCode: http.StatusServiceUnavailable,
 	},
 	ErrWriteQuorum: {
-		Code:           "XMinioWriteQuorum",
+		AwsErrorCode:           "XMinioWriteQuorum",
 		Description:    "Multiple disks failures, unable to write data.",
-		HTTPStatusCode: http.StatusServiceUnavailable,
+		HttpStatusCode: http.StatusServiceUnavailable,
 	},
 	ErrPolicyNesting: {
-		Code:           "XMinioPolicyNesting",
+		AwsErrorCode:           "XMinioPolicyNesting",
 		Description:    "Policy nesting conflict has occurred.",
-		HTTPStatusCode: http.StatusConflict,
+		HttpStatusCode: http.StatusConflict,
 	},
 	ErrInvalidObjectName: {
-		Code:           "XMinioInvalidObjectName",
+		AwsErrorCode:           "XMinioInvalidObjectName",
 		Description:    "Object name contains unsupported characters. Unsupported characters are `^*|\\\"",
-		HTTPStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	// Add your error structure here.
 }
 
-// ToAPIErrorCode - Converts embedded errors. Convenience
-// function written to handle all cases where we have known types of
-// errors returned by underlying layers.
-func ToAPIErrorCode(err error) (apiErr APIErrorCode) {
-	if err == nil {
-		return ErrNone
+
+func (e ApiErrorCode) AwsErrorCode() string {
+	awsError, ok := ErrorCodeResponse[e]
+	if !ok {
+		return "InternalError"
 	}
-	// Verify if the underlying error is signature mismatch.
-	switch err {
-	case ErrSignatureMismatch:
-		apiErr = ErrSignatureDoesNotMatch
-	case ErrorContentSHA256Mismatch:
-		apiErr = ErrContentSHA256Mismatch
-	}
-	if apiErr != ErrNone {
-		// If there was a match in the above switch case.
-		return apiErr
-	}
-	switch err.(type) {
-	case StorageFull:
-		apiErr = ErrStorageFull
-	case BadDigest:
-		apiErr = ErrBadDigest
-	case IncompleteBody:
-		apiErr = ErrIncompleteBody
-	case ObjectExistsAsDirectory:
-		apiErr = ErrObjectExistsAsDirectory
-	case BucketNameInvalid:
-		apiErr = ErrInvalidBucketName
-	case BucketNotFound:
-		apiErr = ErrNoSuchBucket
-	case BucketNotEmpty:
-		apiErr = ErrBucketNotEmpty
-	case BucketExists:
-		apiErr = ErrBucketAlreadyExists
-	case BucketExistsAndOwned:
-		apiErr = ErrBucketAlreadyOwnedByYou
-	case BucketAccessForbidden:
-		apiErr = ErrBucketAccessForbidden
-	case ObjectNotFound:
-		apiErr = ErrNoSuchKey
-	case ObjectNameInvalid:
-		apiErr = ErrInvalidObjectName
-	case InvalidUploadID:
-		apiErr = ErrNoSuchUpload
-	case InvalidPart:
-		apiErr = ErrInvalidPart
-	case InsufficientWriteQuorum:
-		apiErr = ErrWriteQuorum
-	case InsufficientReadQuorum:
-		apiErr = ErrReadQuorum
-	case PartTooSmall:
-		apiErr = ErrEntityTooSmall
-	default:
-		apiErr = ErrInternalError
-	}
-	return apiErr
+	return awsError.AwsErrorCode
 }
 
-// GetAPIError provides API Error for input API error code.
-func GetAPIError(code APIErrorCode) APIError {
-	return ErrorCodeResponse[code]
+func (e ApiErrorCode) Description() string {
+	awsError, ok := ErrorCodeResponse[e]
+	if !ok {
+		return "We encountered an internal error, please try again."
+	}
+	return awsError.Description
 }
 
-// GetErrorResponse gets in standard error and resource value and
-// provides a encodable populated response values
-func GetAPIErrorResponse(err APIError, resource string) APIErrorResponse {
-	var data = APIErrorResponse{}
-	data.Code = err.Code
-	data.Message = err.Description
-	if resource != "" {
-		data.Resource = resource
-	}
-	// TODO implement this in future
-	data.RequestID = "3L137"
-	data.HostID = "3L137"
+func (e ApiErrorCode) Error() string {
+	return e.Description()
+}
 
-	return data
+func (e ApiErrorCode) HttpStatusCode() int {
+	awsError, ok := ErrorCodeResponse[e]
+	if !ok {
+		return http.StatusInternalServerError
+	}
+	return awsError.HttpStatusCode
 }

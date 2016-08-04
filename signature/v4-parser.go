@@ -25,6 +25,7 @@ import (
 	. "git.letv.cn/yig/yig/minio/datatype"
 	"net/http"
 	"sort"
+	. "git.letv.cn/yig/yig/error"
 )
 
 // credentialHeader data type represents structured form of Credential
@@ -39,7 +40,7 @@ type credentialHeader struct {
 	}
 }
 
-func parseCredential(credentialValue string) (credentialHeader, APIErrorCode) {
+func parseCredential(credentialValue string) (credentialHeader, error) {
 	credElements := strings.Split(strings.TrimSpace(credentialValue), "/")
 	if len(credElements) != 5 {
 		return credentialHeader{}, ErrCredMalformed
@@ -68,13 +69,13 @@ func parseCredential(credentialValue string) (credentialHeader, APIErrorCode) {
 		return credentialHeader{}, ErrInvalidRequestVersion
 	}
 	cred.scope.request = credElements[4]
-	return cred, ErrNone
+	return cred, nil
 }
 
 // parse credentialHeader string into its structured form.
 // Credential=<your-access-key-id>/<date>/<aws-region>/<aws-service>/aws4_request
 // <aws-service> is always "s3" for us
-func parseCredentialHeader(credElement string) (credentialHeader, APIErrorCode) {
+func parseCredentialHeader(credElement string) (credentialHeader, error) {
 	creds := strings.Split(strings.TrimSpace(credElement), "=")
 	if len(creds) != 2 {
 		return credentialHeader{}, ErrMissingFields
@@ -86,7 +87,7 @@ func parseCredentialHeader(credElement string) (credentialHeader, APIErrorCode) 
 }
 
 // Parse signature string.
-func parseSignature(signElement string) (string, APIErrorCode) {
+func parseSignature(signElement string) (string, error) {
 	signFields := strings.Split(strings.TrimSpace(signElement), "=")
 	if len(signFields) != 2 {
 		return "", ErrMissingFields
@@ -95,7 +96,7 @@ func parseSignature(signElement string) (string, APIErrorCode) {
 		return "", ErrMissingSignTag
 	}
 	signature := signFields[1]
-	return signature, ErrNone
+	return signature, nil
 }
 
 func headerSigned(header string, headers []string) bool {
@@ -107,7 +108,7 @@ func headerSigned(header string, headers []string) bool {
 }
 
 func parseSignedHeadersContent(signedHeader string, headers http.Header,
-	requireContentType bool) ([]string, APIErrorCode) {
+	requireContentType bool) ([]string, error) {
 	signedHeaders := strings.Split(signedHeader, ";")
 	// It's implied in the calculation process that the headers are sorted
 	if !sort.StringsAreSorted(signedHeaders) {
@@ -135,14 +136,14 @@ func parseSignedHeadersContent(signedHeader string, headers http.Header,
 		}
 	}
 
-	return signedHeaders, ErrNone
+	return signedHeaders, nil
 }
 
 // Parse signed headers string.
 // SignedHeaders is a semicolon-separated list of request headers names used to
 // compute signature, must be in lowercase. e.g. host;range;x-amz-date
 func parseSignedHeaders(signedHdrElement string, headers http.Header,
-	requireContentType bool) ([]string, APIErrorCode) {
+	requireContentType bool) ([]string, error) {
 	signedHdrFields := strings.Split(strings.TrimSpace(signedHdrElement), "=")
 	if len(signedHdrFields) != 2 {
 		return nil, ErrMissingFields
@@ -176,7 +177,7 @@ type preSignValues struct {
 //   querystring += &X-Amz-SignedHeaders=signed_headers
 //   querystring += &X-Amz-Signature=signature
 //
-func parsePreSignV4(query url.Values, headers http.Header) (preSignValues, APIErrorCode) {
+func parsePreSignV4(query url.Values, headers http.Header) (preSignValues, error) {
 	// Verify if the query algorithm is supported or not.
 	if query.Get("X-Amz-Algorithm") != signV4Algorithm {
 		return preSignValues{}, ErrInvalidQuerySignatureAlgo
@@ -185,30 +186,29 @@ func parsePreSignV4(query url.Values, headers http.Header) (preSignValues, APIEr
 	// Initialize signature version '4' structured header.
 	preSignV4Values := preSignValues{}
 
-	var err APIErrorCode
+	var err error
 	// Save credential.
 	preSignV4Values.Credential, err = parseCredential(query.Get("X-Amz-Credential"))
-	if err != ErrNone {
+	if err != nil {
 		return preSignValues{}, err
 	}
 
-	var e error
 	// Save date in native time.Time.
-	preSignV4Values.Date, e = time.Parse(Iso8601Format, query.Get("X-Amz-Date"))
-	if e != nil {
+	preSignV4Values.Date, err = time.Parse(Iso8601Format, query.Get("X-Amz-Date"))
+	if err != nil {
 		return preSignValues{}, ErrMalformedDate
 	}
 
 	// Save expires in native time.Duration.
-	preSignV4Values.Expires, e = time.ParseDuration(query.Get("X-Amz-Expires") + "s")
-	if e != nil {
+	preSignV4Values.Expires, err = time.ParseDuration(query.Get("X-Amz-Expires") + "s")
+	if err != nil {
 		return preSignValues{}, ErrMalformedExpires
 	}
 
 	// Save signed headers.
 	preSignV4Values.SignedHeaders, err =
 		parseSignedHeaders(query.Get("X-Amz-SignedHeaders"), headers, false)
-	if err != ErrNone {
+	if err != nil {
 		return preSignValues{}, err
 	}
 
@@ -216,14 +216,14 @@ func parsePreSignV4(query url.Values, headers http.Header) (preSignValues, APIEr
 	preSignV4Values.Signature = query.Get("X-Amz-Signature")
 
 	// Return structured form of signature query string.
-	return preSignV4Values, ErrNone
+	return preSignV4Values, nil
 }
 
 // Parses signature version '4' header of the following form.
 //
 //    Authorization: algorithm Credential=XXX,SignedHeaders=XXX,Signature=XXX
 //
-func parseSignV4(v4Auth string, headers http.Header) (signValues, APIErrorCode) {
+func parseSignV4(v4Auth string, headers http.Header) (signValues, error) {
 	// Replace all spaced strings, some clients can send spaced
 	// parameters and some won't. So we pro-actively remove any spaces
 	// to make parsing easier.
@@ -242,25 +242,25 @@ func parseSignV4(v4Auth string, headers http.Header) (signValues, APIErrorCode) 
 	// Initialize signature version '4' structured header.
 	signV4Values := signValues{}
 
-	var err APIErrorCode
+	var err error
 	// Save credential values.
 	signV4Values.Credential, err = parseCredentialHeader(authFields[0])
-	if err != ErrNone {
+	if err != nil {
 		return signValues{}, err
 	}
 
 	// Save signed headers.
 	signV4Values.SignedHeaders, err = parseSignedHeaders(authFields[1], headers, true)
-	if err != ErrNone {
+	if err != nil {
 		return signValues{}, err
 	}
 
 	// Save signature.
 	signV4Values.Signature, err = parseSignature(authFields[2])
-	if err != ErrNone {
+	if err != nil {
 		return signValues{}, err
 	}
 
 	// Return the structure here.
-	return signV4Values, ErrNone
+	return signV4Values, nil
 }

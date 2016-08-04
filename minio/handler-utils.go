@@ -21,23 +21,24 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	. "git.letv.cn/yig/yig/error"
 )
 
 // validates location constraint from the request body.
 // the location value in the request body should match the Region in serverConfig.
 // other values of location are not accepted.
 // make bucket fails in such cases.
-func isValidLocationContraint(reqBody io.Reader, serverRegion string) APIErrorCode {
+func isValidLocationContraint(reqBody io.Reader, serverRegion string) error {
 	var locationContraint CreateBucketLocationConfiguration
-	var errCode APIErrorCode
-	errCode = ErrNone
+	var errCode error
+	errCode = nil
 	e := xmlDecoder(reqBody, &locationContraint)
 	if e != nil {
 		if e == io.EOF {
 			// Do nothing.
 			// failed due to empty body. The location will be set to default value from the serverConfig.
 			// this is valid.
-			errCode = ErrNone
+			errCode = nil
 		} else {
 			// Failed due to malformed configuration.
 			errCode = ErrMalformedXML

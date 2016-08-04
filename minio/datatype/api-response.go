@@ -24,6 +24,7 @@ import (
 
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/meta"
+	. "git.letv.cn/yig/yig/error"
 )
 
 const (
@@ -501,19 +502,23 @@ func WriteSuccessNoContent(w http.ResponseWriter) {
 }
 
 // writeErrorRespone write error headers
-func WriteErrorResponse(w http.ResponseWriter, req *http.Request, errorCode APIErrorCode, resource string) {
-	error := GetAPIError(errorCode)
+func WriteErrorResponse(w http.ResponseWriter, req *http.Request, err error, resource string) {
 	// set common headers
 	SetCommonHeaders(w)
+
+	apiErrorCode, ok := err.(ApiError)
+	if ok {
+		w.WriteHeader(apiErrorCode.HttpStatusCode())
+	} else {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
 	// write Header
-	w.WriteHeader(error.HTTPStatusCode)
-	WriteErrorResponseNoHeader(w, req, errorCode, resource)
+	WriteErrorResponseNoHeader(w, req, err, resource)
 }
 
-func WriteErrorResponseNoHeader(w http.ResponseWriter, req *http.Request, errorCode APIErrorCode, resource string) {
-	error := GetAPIError(errorCode)
+func WriteErrorResponseNoHeader(w http.ResponseWriter, req *http.Request, err error, resource string) {
 	// Generate error response.
-	errorResponse := GetAPIErrorResponse(error, resource)
+	errorResponse := GetAPIErrorResponse(err, resource)
 	encodedErrorResponse := EncodeResponse(errorResponse)
 	// HEAD should have no body, do not attempt to write to it
 	if req.Method != "HEAD" {
@@ -521,4 +526,38 @@ func WriteErrorResponseNoHeader(w http.ResponseWriter, req *http.Request, errorC
 		w.Write(encodedErrorResponse)
 		w.(http.Flusher).Flush()
 	}
+}
+
+// APIErrorResponse - error response format
+type ApiErrorResponse struct {
+	XMLName    xml.Name `xml:"Error" json:"-"`
+	AwsErrorCode       string
+	Message    string
+	Key        string
+	BucketName string
+	Resource   string
+	RequestID  string `xml:"RequestId"`
+	HostID     string `xml:"HostId"`
+}
+
+// GetErrorResponse gets in standard error and resource value and
+// provides a encodable populated response values
+func GetAPIErrorResponse(err error, resource string) ApiErrorResponse {
+	var data = ApiErrorResponse{}
+	apiErrorCode, ok := err.(ApiError)
+	if ok {
+		data.AwsErrorCode = apiErrorCode.AwsErrorCode()
+		data.Message = apiErrorCode.Description()
+	} else {
+		data.AwsErrorCode = "InternalError"
+		data.Message = "We encountered an internal error, please try again."
+	}
+	if resource != "" {
+		data.Resource = resource
+	}
+	// TODO implement this in future
+	data.RequestID = "3L137"
+	data.HostID = "3L137"
+
+	return data
 }

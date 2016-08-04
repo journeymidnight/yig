@@ -23,6 +23,7 @@ import (
 
 	"git.letv.cn/yig/yig/meta"
 	. "git.letv.cn/yig/yig/minio/datatype"
+	. "git.letv.cn/yig/yig/error"
 )
 
 // Validates the preconditions for CopyObject, returns true if CopyObject operation should not proceed.

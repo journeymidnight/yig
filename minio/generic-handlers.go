@@ -23,6 +23,7 @@ import (
 	. "git.letv.cn/yig/yig/minio/datatype"
 	router "github.com/gorilla/mux"
 	"github.com/rs/cors"
+	. "git.letv.cn/yig/yig/error"
 )
 
 // HandlerFunc - useful to chain different middleware http.Handler

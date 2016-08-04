@@ -28,6 +28,7 @@ import (
 	. "git.letv.cn/yig/yig/minio/datatype"
 	"git.letv.cn/yig/yig/signature"
 	mux "github.com/gorilla/mux"
+	. "git.letv.cn/yig/yig/error"
 )
 
 // maximum supported access policy size.
@@ -167,7 +168,7 @@ func (api objectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *ht
 		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
-		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != nil {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
@@ -207,7 +208,7 @@ func (api objectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *ht
 	}
 
 	// Parse check bucket policy.
-	if s3Error := checkBucketPolicyResources(bucket, bucketPolicy); s3Error != ErrNone {
+	if s3Error := checkBucketPolicyResources(bucket, bucketPolicy); s3Error != nil {
 		WriteErrorResponse(w, r, s3Error, r.URL.Path)
 		return
 	}
@@ -240,7 +241,7 @@ func (api objectAPIHandlers) DeleteBucketPolicyHandler(w http.ResponseWriter, r 
 		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
-		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != nil {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
@@ -276,7 +277,7 @@ func (api objectAPIHandlers) GetBucketPolicyHandler(w http.ResponseWriter, r *ht
 		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
-		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != nil {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}

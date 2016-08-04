@@ -44,11 +44,12 @@ func writePartSmallErrorResponse(w http.ResponseWriter, r *http.Request, err met
 		// ETag of the part which is incorrect.
 		PartETag string
 		// Other default XML error responses.
-		APIErrorResponse
+		ApiErrorResponse
 	}
 	// Generate complete multipart error response.
-	errorResponse := GetAPIErrorResponse(GetAPIError(ToAPIErrorCode(err)), r.URL.Path)
-	cmpErrResp := completeMultipartAPIError{err.PartSize, int64(5242880), err.PartNumber, err.PartETag, errorResponse}
+	errorResponse := GetAPIErrorResponse(err, r.URL.Path)
+	cmpErrResp := completeMultipartAPIError{err.PartSize, int64(5242880), err.PartNumber,
+		err.PartETag, errorResponse}
 	encodedErrorResponse := EncodeResponse(cmpErrResp)
 	// Write error body
 	w.Write(encodedErrorResponse)

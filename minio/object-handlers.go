@@ -32,6 +32,7 @@ import (
 	. "git.letv.cn/yig/yig/minio/datatype"
 	"git.letv.cn/yig/yig/signature"
 	mux "github.com/gorilla/mux"
+	. "git.letv.cn/yig/yig/error"
 )
 
 // supportedGetReqParams - supported request parameters for GET presigned request.
@@ -55,13 +56,13 @@ func setGetRespHeaders(w http.ResponseWriter, reqParams url.Values) {
 // this is in keeping with the permissions sections of the docs of both:
 //   HEAD Object: http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectHEAD.html
 //   GET Object: http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGET.html
-func errAllowableObjectNotFound(bucket string, r *http.Request) APIErrorCode {
+func errAllowableObjectNotFound(bucket string, r *http.Request) error {
 	if signature.GetRequestAuthType(r) == signature.AuthTypeAnonymous {
 		//we care about the bucket as a whole, not a particular resource
 		url := *r.URL
 		url.Path = "/" + bucket
 
-		if s3Error := enforceBucketPolicy("s3:ListBucket", bucket, &url); s3Error != ErrNone {
+		if s3Error := enforceBucketPolicy("s3:ListBucket", bucket, &url); s3Error != nil {
 			return ErrAccessDenied
 		}
 	}
@@ -92,13 +93,13 @@ func (api objectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	case signature.AuthTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
-		if s3Error := enforceBucketPolicy("s3:GetObject", bucket, r.URL); s3Error != ErrNone {
+		if s3Error := enforceBucketPolicy("s3:GetObject", bucket, r.URL); s3Error != nil {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != nil {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
@@ -107,11 +108,10 @@ func (api objectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	objInfo, err := api.ObjectAPI.GetObjectInfo(bucket, object)
 	if err != nil {
 		errorIf(err, "Unable to fetch object info.")
-		apiErr := ToAPIErrorCode(err)
-		if apiErr == ErrNoSuchKey {
-			apiErr = errAllowableObjectNotFound(bucket, r)
+		if err == ErrNoSuchKey {
+			err = errAllowableObjectNotFound(bucket, r)
 		}
-		WriteErrorResponse(w, r, apiErr, r.URL.Path)
+		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
 
@@ -169,8 +169,7 @@ func (api objectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			// partial data has already been written before an error
 			// occurred then no point in setting StatusCode and
 			// sending error XML.
-			apiErr := ToAPIErrorCode(err)
-			WriteErrorResponse(w, r, apiErr, r.URL.Path)
+			WriteErrorResponse(w, r, err, r.URL.Path)
 		}
 		return
 	}
@@ -198,12 +197,12 @@ func (api objectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	case signature.AuthTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
-		if s3Error := enforceBucketPolicy("s3:GetObject", bucket, r.URL); s3Error != ErrNone {
+		if s3Error := enforceBucketPolicy("s3:GetObject", bucket, r.URL); s3Error != nil{
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
-		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != nil {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
@@ -212,11 +211,10 @@ func (api objectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 	objInfo, err := api.ObjectAPI.GetObjectInfo(bucket, object)
 	if err != nil {
 		errorIf(err, "Unable to fetch object info.")
-		apiErr := ToAPIErrorCode(err)
-		if apiErr == ErrNoSuchKey {
-			apiErr = errAllowableObjectNotFound(bucket, r)
+		if err == ErrNoSuchKey {
+			err = errAllowableObjectNotFound(bucket, r)
 		}
-		WriteErrorResponse(w, r, apiErr, r.URL.Path)
+		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
 
@@ -248,12 +246,12 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	case signature.AuthTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
-		if s3Error := enforceBucketPolicy("s3:PutObject", bucket, r.URL); s3Error != ErrNone {
+		if s3Error := enforceBucketPolicy("s3:PutObject", bucket, r.URL); s3Error != nil {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
-		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != nil {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
@@ -295,7 +293,7 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	objInfo, err := api.ObjectAPI.GetObjectInfo(sourceBucket, sourceObject)
 	if err != nil {
 		errorIf(err, "Unable to fetch object info.")
-		WriteErrorResponse(w, r, ToAPIErrorCode(err), objectSource)
+		WriteErrorResponse(w, r, err, objectSource)
 		return
 	}
 
@@ -337,14 +335,14 @@ func (api objectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	md5Sum, err := api.ObjectAPI.PutObject(bucket, object, size, pipeReader, metadata)
 	if err != nil {
 		errorIf(err, "Unable to create an object.")
-		WriteErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
+		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
 
 	objInfo, err = api.ObjectAPI.GetObjectInfo(bucket, object)
 	if err != nil {
 		errorIf(err, "Unable to fetch object info.")
-		WriteErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
+		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
 
@@ -403,7 +401,7 @@ func (api objectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	case signature.AuthTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
-		if s3Error := enforceBucketPolicy("s3:PutObject", bucket, r.URL); s3Error != ErrNone {
+		if s3Error := enforceBucketPolicy("s3:PutObject", bucket, r.URL); s3Error != nil {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
@@ -418,7 +416,7 @@ func (api objectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 	if err != nil {
 		errorIf(err, "Unable to create an object.")
-		WriteErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
+		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
 	if md5Sum != "" {
@@ -443,12 +441,12 @@ func (api objectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 		return
 	case signature.AuthTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/mpuAndPermissions.html
-		if s3Error := enforceBucketPolicy("s3:PutObject", bucket, r.URL); s3Error != ErrNone {
+		if s3Error := enforceBucketPolicy("s3:PutObject", bucket, r.URL); s3Error != nil {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
-		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != nil {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
@@ -471,7 +469,7 @@ func (api objectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 	uploadID, err := api.ObjectAPI.NewMultipartUpload(bucket, object, metadata)
 	if err != nil {
 		errorIf(err, "Unable to initiate new multipart upload id.")
-		WriteErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
+		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
 
@@ -533,7 +531,7 @@ func (api objectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 		return
 	case signature.AuthTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/mpuAndPermissions.html
-		if s3Error := enforceBucketPolicy("s3:PutObject", bucket, r.URL); s3Error != ErrNone {
+		if s3Error := enforceBucketPolicy("s3:PutObject", bucket, r.URL); s3Error != nil {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
@@ -547,7 +545,7 @@ func (api objectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 	if err != nil {
 		errorIf(err, "Unable to create object part.")
 		// Verify if the underlying error is signature mismatch.
-		WriteErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
+		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
 	if partMD5 != "" {
@@ -569,12 +567,12 @@ func (api objectAPIHandlers) AbortMultipartUploadHandler(w http.ResponseWriter, 
 		return
 	case signature.AuthTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/mpuAndPermissions.html
-		if s3Error := enforceBucketPolicy("s3:AbortMultipartUpload", bucket, r.URL); s3Error != ErrNone {
+		if s3Error := enforceBucketPolicy("s3:AbortMultipartUpload", bucket, r.URL); s3Error != nil {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
-		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != nil {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
@@ -583,7 +581,7 @@ func (api objectAPIHandlers) AbortMultipartUploadHandler(w http.ResponseWriter, 
 	uploadID, _, _, _ := getObjectResources(r.URL.Query())
 	if err := api.ObjectAPI.AbortMultipartUpload(bucket, object, uploadID); err != nil {
 		errorIf(err, "Unable to abort multipart upload.")
-		WriteErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
+		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
 	WriteSuccessNoContent(w)
@@ -615,12 +613,12 @@ func (api objectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 		return
 	case signature.AuthTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/mpuAndPermissions.html
-		if s3Error := enforceBucketPolicy("s3:ListMultipartUploadParts", bucket, r.URL); s3Error != ErrNone {
+		if s3Error := enforceBucketPolicy("s3:ListMultipartUploadParts", bucket, r.URL); s3Error != nil {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
-		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != nil {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
@@ -638,7 +636,7 @@ func (api objectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 	listPartsInfo, err := api.ObjectAPI.ListObjectParts(bucket, object, uploadID, partNumberMarker, maxParts)
 	if err != nil {
 		errorIf(err, "Unable to list uploaded parts.")
-		WriteErrorResponse(w, r, ToAPIErrorCode(err), r.URL.Path)
+		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
 	response := GenerateListPartsResponse(listPartsInfo)
@@ -667,12 +665,12 @@ func (api objectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 		return
 	case signature.AuthTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/mpuAndPermissions.html
-		if s3Error := enforceBucketPolicy("s3:PutObject", bucket, r.URL); s3Error != ErrNone {
+		if s3Error := enforceBucketPolicy("s3:PutObject", bucket, r.URL); s3Error != nil {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
-		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != nil {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
@@ -734,7 +732,7 @@ func (api objectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 			writePartSmallErrorResponse(w, r, oErr)
 		default:
 			// Handle all other generic issues.
-			WriteErrorResponseNoHeader(w, r, ToAPIErrorCode(err), r.URL.Path)
+			WriteErrorResponseNoHeader(w, r, err, r.URL.Path)
 		}
 		return
 	}
@@ -769,13 +767,13 @@ func (api objectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 		return
 	case signature.AuthTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
-		if s3Error := enforceBucketPolicy("s3:DeleteObject", bucket, r.URL); s3Error != ErrNone {
+		if s3Error := enforceBucketPolicy("s3:DeleteObject", bucket, r.URL); s3Error != nil {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
 	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
 		signature.AuthTypeSignedV2, signature.AuthTypePresignedV2:
-		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != ErrNone {
+		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != nil {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
