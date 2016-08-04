@@ -17,7 +17,6 @@
 package error
 
 import (
-	"encoding/xml"
 	"net/http"
 )
 

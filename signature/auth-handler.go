@@ -28,6 +28,7 @@ import (
 
 	"git.letv.cn/yig/yig/iam"
 	. "git.letv.cn/yig/yig/minio/datatype"
+	. "git.letv.cn/yig/yig/error"
 )
 
 // Verify if the request http Header "x-amz-content-sha256" == "UNSIGNED-PAYLOAD"
@@ -116,7 +117,7 @@ func sumMD5(data []byte) []byte {
 }
 
 // A helper function to verify if request has valid AWS Signature
-func IsReqAuthenticated(r *http.Request) (c iam.Credential, e APIErrorCode) {
+func IsReqAuthenticated(r *http.Request) (c iam.Credential, e error) {
 	if r == nil {
 		return c, ErrInternalError
 	}
