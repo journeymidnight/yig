@@ -175,10 +175,10 @@ func (yig *YigStorage) ListObjects(bucket, prefix, marker, delimiter string,
 	prefixRowkey.WriteString(prefix)
 	startRowkey.WriteString(marker)
 
-	filter := filter.NewPrefixFilter(prefixRowkey)
+	filter := filter.NewPrefixFilter(prefixRowkey.Bytes())
 	scanRequest, err := hrpc.NewScanRangeStr(context.Background(), meta.OBJECT_TABLE,
 		// scan for max+1 rows to determine if results are truncated
-		string(startRowkey), "", hrpc.Filters(filter), hrpc.NumberOfRows(maxKeys+1))
+		startRowkey.String(), "", hrpc.Filters(filter), hrpc.NumberOfRows(uint32(maxKeys+1)))
 	if err != nil {
 		return
 	}
@@ -188,7 +188,8 @@ func (yig *YigStorage) ListObjects(bucket, prefix, marker, delimiter string,
 	}
 	if len(scanResponse) > maxKeys {
 		result.IsTruncated = true
-		nextObject, err := meta.ObjectFromResponse(scanResponse[maxKeys], bucket)
+		var nextObject meta.Object
+		nextObject, err = meta.ObjectFromResponse(scanResponse[maxKeys], bucket)
 		if err != nil {
 			return
 		}
@@ -197,7 +198,8 @@ func (yig *YigStorage) ListObjects(bucket, prefix, marker, delimiter string,
 	}
 	var objects []meta.Object
 	for _, row := range scanResponse {
-		o, err := meta.ObjectFromResponse(row, bucket)
+		var o meta.Object
+		o, err = meta.ObjectFromResponse(row, bucket)
 		if err != nil {
 			return
 		}
