@@ -7,6 +7,10 @@ import (
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
 	"time"
+	"bytes"
+	"encoding/binary"
+	"strings"
+	"github.com/tsuna/gohbase/filter"
 )
 
 const (
@@ -161,5 +165,48 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 func (yig *YigStorage) ListObjects(bucket, prefix, marker, delimiter string,
 	maxKeys int) (result meta.ListObjectsInfo, err error) {
 
+	var prefixRowkey bytes.Buffer
+	prefixRowkey.WriteString(bucket)
+	err = binary.Write(&prefixRowkey, binary.BigEndian, uint16(strings.Count(prefix, "/")))
+	if err != nil {
+		return
+	}
+	startRowkey := bytes.NewBuffer(prefixRowkey.Bytes())
+	prefixRowkey.WriteString(prefix)
+	startRowkey.WriteString(marker)
+
+	filter := filter.NewPrefixFilter(prefixRowkey)
+	scanRequest, err := hrpc.NewScanRangeStr(context.Background(), meta.OBJECT_TABLE,
+		// scan for max+1 rows to determine if results are truncated
+		string(startRowkey), "", hrpc.Filters(filter), hrpc.NumberOfRows(maxKeys+1))
+	if err != nil {
+		return
+	}
+	scanResponse, err := yig.MetaStorage.Hbase.Scan(scanRequest)
+	if err != nil {
+		return
+	}
+	if len(scanResponse) > maxKeys {
+		result.IsTruncated = true
+		nextObject, err := meta.ObjectFromResponse(scanResponse[maxKeys], bucket)
+		if err != nil {
+			return
+		}
+		result.NextMarker = nextObject.Name
+		scanResponse = scanResponse[:maxKeys]
+	}
+	var objects []meta.Object
+	for _, row := range scanResponse {
+		o, err := meta.ObjectFromResponse(row, bucket)
+		if err != nil {
+			return
+		}
+		objects = append(objects, o)
+		// TODO prefix support
+		// - add prefix when create new objects
+		// - handle those prefix when listing
+		// prefixes end with "/" and have depth as if the trailing "/" is removed
+	}
+	result.Objects = objects
 	return
 }

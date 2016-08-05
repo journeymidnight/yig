@@ -75,6 +75,18 @@ def get_object_nonexist(name, client):
     )
 
 
+def list_objects_v1(name, client):
+    client.list_objects(
+        Bucket=name+'hehe'
+    )
+
+
+def list_objects_v2(name, client):
+    client.list_objects_v2(
+        Bucket=name+'hehe'
+    )
+
+
 def delete_object(name, client):
     client.delete_object(
         Bucket=name+'hehe',
@@ -104,6 +116,7 @@ TESTS = [create_bucket,
          list_buckets,
          put_object,
          get_object, get_object_nonexist,
+         list_objects_v1, list_objects_v2,
          delete_object,
          delete_bucket, delete_bucket_nonexist]
 

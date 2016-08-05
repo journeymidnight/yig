@@ -110,6 +110,45 @@ func GetGarbageCollectionRowkey(bucketName string, objectName string) (string, e
 	return rowkey.String(), nil
 }
 
+// Decode response from HBase and return an Object object
+func ObjectFromResponse(response *hrpc.Result, bucketName string) (object Object, err error) {
+	var rowkey []byte
+	for _, cell := range response.Cells {
+		rowkey = cell.Row
+		switch string(cell.Qualifier) {
+		case "location":
+			object.Location = string(cell.Value)
+		case "pool":
+			object.Pool = string(cell.Value)
+		case "owner":
+			object.OwnerId = string(cell.Value)
+		case "size":
+			err = binary.Read(bytes.NewReader(cell.Value), binary.BigEndian, &object.Size)
+			if err != nil {
+				return
+			}
+		case "oid":
+			object.ObjectId = string(cell.Value)
+		case "lastModified":
+			object.LastModifiedTime, err = time.Parse(CREATE_TIME_LAYOUT, string(cell.Value))
+			if err != nil {
+				return
+			}
+		case "etag":
+			object.Etag = string(cell.Value)
+		case "content-type":
+			object.ContentType = string(cell.Value)
+		}
+	}
+	object.BucketName = bucketName
+	object.Rowkey = string(rowkey)
+	// rowkey = BucketName + bigEndian(uint16(count("/", ObjectName)))
+	// + ObjectName
+	// + bigEndian(uint64.max - unixNanoTimestamp)
+	object.Name = string(rowkey[len(bucketName)+2 : len(rowkey)-8])
+	return
+}
+
 func (m *Meta) GetObject(bucketName string, objectName string) (object Object, err error) {
 	objectRowkeyPrefix, err := getObjectRowkeyPrefix(bucketName, objectName)
 	if err != nil {
@@ -129,36 +168,13 @@ func (m *Meta) GetObject(bucketName string, objectName string) (object Object, e
 		err = ErrNoSuchKey
 		return
 	}
-	for _, cell := range scanResponse[0].Cells {
-		if !bytes.HasPrefix(cell.Row, objectRowkeyPrefix) {
-			err = ErrNoSuchKey
-			return
-		}
-		object.Rowkey = string(cell.Row)
-		switch string(cell.Qualifier) {
-		case "lastModified":
-			object.LastModifiedTime, err = time.Parse(CREATE_TIME_LAYOUT, string(cell.Value))
-			if err != nil {
-				return
-			}
-		case "size":
-			err = binary.Read(bytes.NewReader(cell.Value), binary.BigEndian, &object.Size)
-			if err != nil {
-				return
-			}
-		case "content-type":
-			object.ContentType = string(cell.Value)
-		case "etag":
-			object.Etag = string(cell.Value)
-		case "oid":
-			object.ObjectId = string(cell.Value)
-		case "location":
-			object.Location = string(cell.Value)
-		case "pool":
-			object.Pool = string(cell.Value)
-		}
+	object, err = ObjectFromResponse(scanResponse[0], bucketName)
+	if err != nil {
+		return
 	}
-	object.BucketName = bucketName
-	object.Name = objectName
+	if object.Name != objectName {
+		err = ErrNoSuchKey
+		return
+	}
 	return
 }
