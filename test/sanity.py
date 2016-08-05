@@ -76,15 +76,17 @@ def get_object_nonexist(name, client):
 
 
 def list_objects_v1(name, client):
-    client.list_objects(
+    ans = client.list_objects(
         Bucket=name+'hehe'
     )
+    print 'List objects:', ans
 
 
 def list_objects_v2(name, client):
-    client.list_objects_v2(
+    ans = client.list_objects_v2(
         Bucket=name+'hehe'
     )
+    print 'List objects v2:', ans
 
 
 def delete_object(name, client):

@@ -303,6 +303,7 @@ func GenerateListObjectsResponse(bucket, prefix, marker, delimiter string, maxKe
 	var owner = Owner{}
 	var data = ListObjectsResponse{}
 
+	// TODO per-file owner info
 	owner.ID = "minio"
 	owner.DisplayName = "minio"
 
@@ -349,6 +350,7 @@ func GenerateListObjectsV2Response(bucket, prefix, token, startAfter, delimiter 
 	var owner = Owner{}
 	var data = ListObjectsV2Response{}
 
+	// TODO per-file owner info
 	owner.ID = "minio"
 	owner.DisplayName = "minio"
 

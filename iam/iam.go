@@ -36,3 +36,14 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 		SecretAccessKey: "hehehehe",
 	}, nil // For test now
 }
+
+func GetCredentialByUserId(userId string) (credential Credential, err error) {
+	// should use a cache with timeout
+	// TODO
+	return Credential{
+		UserId:          userId,
+		DisplayName:     "hehehehe",
+		AccessKeyID:     "hehehehe",
+		SecretAccessKey: "hehehehe",
+	}, nil // For test now
+}
