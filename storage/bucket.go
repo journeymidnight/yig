@@ -162,11 +162,21 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 	return nil
 }
 
-func (yig *YigStorage) ListObjects(bucket, prefix, marker, delimiter string,
+func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName, prefix, marker, delimiter string,
 	maxKeys int) (result meta.ListObjectsInfo, err error) {
 
+	bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
+	if err != nil {
+		return
+	}
+	if bucket.OwnerId != credential.UserId {
+		err = ErrBucketAccessForbidden
+		return
+	}
+	// TODO validate user policy and ACL
+
 	var prefixRowkey bytes.Buffer
-	prefixRowkey.WriteString(bucket)
+	prefixRowkey.WriteString(bucketName)
 	err = binary.Write(&prefixRowkey, binary.BigEndian, uint16(strings.Count(prefix, "/")))
 	if err != nil {
 		return
@@ -189,7 +199,7 @@ func (yig *YigStorage) ListObjects(bucket, prefix, marker, delimiter string,
 	if len(scanResponse) > maxKeys {
 		result.IsTruncated = true
 		var nextObject meta.Object
-		nextObject, err = meta.ObjectFromResponse(scanResponse[maxKeys], bucket)
+		nextObject, err = meta.ObjectFromResponse(scanResponse[maxKeys], bucketName)
 		if err != nil {
 			return
 		}
@@ -199,7 +209,7 @@ func (yig *YigStorage) ListObjects(bucket, prefix, marker, delimiter string,
 	var objects []meta.Object
 	for _, row := range scanResponse {
 		var o meta.Object
-		o, err = meta.ObjectFromResponse(row, bucket)
+		o, err = meta.ObjectFromResponse(row, bucketName)
 		if err != nil {
 			return
 		}

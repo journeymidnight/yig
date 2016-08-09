@@ -114,6 +114,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 	}
 	_, err = yig.MetaStorage.Hbase.Put(put)
 	if err != nil {
+		// TODO remove object in Ceph
 		return "", err
 	}
 	// TODO: remove old object of same name

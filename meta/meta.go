@@ -17,6 +17,8 @@ const (
 	OBJECT_COLUMN_FAMILY             = "o"
 	GARBAGE_COLLECTION_TABLE         = "garbageCollection"
 	GARBAGE_COLLECTION_COLUMN_FAMILY = "gc"
+	MULTIPART_TABLE                 = "multiparts"
+	MULTIPART_COLUMN_FAMILY         = "m"
 
 	CREATE_TIME_LAYOUT = "2006-01-02T15:04:05.000Z"
 )

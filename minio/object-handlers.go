@@ -33,6 +33,7 @@ import (
 	. "git.letv.cn/yig/yig/minio/datatype"
 	"git.letv.cn/yig/yig/signature"
 	mux "github.com/gorilla/mux"
+	"git.letv.cn/yig/yig/iam"
 )
 
 // supportedGetReqParams - supported request parameters for GET presigned request.
@@ -434,6 +435,8 @@ func (api objectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 	bucket = vars["bucket"]
 	object = vars["object"]
 
+	var credential iam.Credential
+	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
@@ -445,28 +448,18 @@ func (api objectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
-		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != nil {
-			WriteErrorResponse(w, r, s3Error, r.URL.Path)
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
+		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
+		if credential, err = signature.IsReqAuthenticated(r); err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
 			return
 		}
 	}
 
 	// Save metadata.
-	metadata := make(map[string]string)
-	// Save other metadata if available.
-	metadata["content-type"] = r.Header.Get("Content-Type")
-	metadata["content-encoding"] = r.Header.Get("Content-Encoding")
-	for key := range r.Header {
-		cKey := http.CanonicalHeaderKey(key)
-		if strings.HasPrefix(cKey, "x-amz-meta-") {
-			metadata[cKey] = r.Header.Get(cKey)
-		} else if strings.HasPrefix(key, "x-minio-meta-") {
-			metadata[cKey] = r.Header.Get(cKey)
-		}
-	}
+	metadata := extractMetadataFromHeader(r.Header)
 
-	uploadID, err := api.ObjectAPI.NewMultipartUpload(bucket, object, metadata)
+	uploadID, err := api.ObjectAPI.NewMultipartUpload(credential, bucket, object, metadata)
 	if err != nil {
 		errorIf(err, "Unable to initiate new multipart upload id.")
 		WriteErrorResponse(w, r, err, r.URL.Path)
@@ -536,11 +529,14 @@ func (api objectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 			return
 		}
 		// No need to verify signature, anonymous request access is already allowed.
-		partMD5, err = api.ObjectAPI.PutObjectPart(bucket, object, uploadID, partID, size, r.Body, incomingMD5)
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
+		partMD5, err = api.ObjectAPI.PutObjectPart(bucket, object, uploadID, partID,
+			size, r.Body, incomingMD5)
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
+		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		// Initialize signature verifier.
 		reader := signature.NewSignVerify(r)
-		partMD5, err = api.ObjectAPI.PutObjectPart(bucket, object, uploadID, partID, size, reader, incomingMD5)
+		partMD5, err = api.ObjectAPI.PutObjectPart(bucket, object, uploadID, partID,
+			size, reader, incomingMD5)
 	}
 	if err != nil {
 		errorIf(err, "Unable to create object part.")
@@ -606,6 +602,8 @@ func (api objectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 	bucket := vars["bucket"]
 	object := vars["object"]
 
+	var credential iam.Credential
+	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
@@ -617,9 +615,10 @@ func (api objectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
-		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != nil {
-			WriteErrorResponse(w, r, s3Error, r.URL.Path)
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
+		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
+		if credential, err = signature.IsReqAuthenticated(r); err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
 			return
 		}
 	}
@@ -633,7 +632,8 @@ func (api objectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 		WriteErrorResponse(w, r, ErrInvalidMaxParts, r.URL.Path)
 		return
 	}
-	listPartsInfo, err := api.ObjectAPI.ListObjectParts(bucket, object, uploadID, partNumberMarker, maxParts)
+	listPartsInfo, err := api.ObjectAPI.ListObjectParts(credential, bucket, object, uploadID,
+		partNumberMarker, maxParts)
 	if err != nil {
 		errorIf(err, "Unable to list uploaded parts.")
 		WriteErrorResponse(w, r, err, r.URL.Path)

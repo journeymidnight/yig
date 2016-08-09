@@ -188,6 +188,8 @@ func (api objectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
+	var credential iam.Credential
+	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
@@ -201,8 +203,8 @@ func (api objectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 		}
 	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
 		signature.AuthTypeSignedV2, signature.AuthTypePresignedV2:
-		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != nil {
-			WriteErrorResponse(w, r, s3Error, r.URL.Path)
+		if credential, err = signature.IsReqAuthenticated(r); err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
 			return
 		}
 	}
@@ -240,7 +242,7 @@ func (api objectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 		}
 	}
 
-	listObjectsInfo, err := api.ObjectAPI.ListObjects(bucket, prefix, marker, delimiter, maxkeys)
+	listObjectsInfo, err := api.ObjectAPI.ListObjects(credential, bucket, prefix, marker, delimiter, maxkeys)
 
 	if err == nil {
 		var encodedSuccessResponse []byte
