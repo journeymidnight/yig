@@ -41,6 +41,9 @@ type ListPartsInfo struct {
 	// Upload ID identifying the multipart upload whose parts are being listed.
 	UploadID string
 
+	InitiatorId string
+	OwnerId     string
+
 	// The class of storage used to store the object.
 	StorageClass string
 
@@ -59,7 +62,7 @@ type ListPartsInfo struct {
 	IsTruncated bool
 
 	// List of all parts.
-	Parts []PartInfo
+	Parts []Part
 
 	EncodingType string // Not supported yet.
 }
@@ -132,22 +135,6 @@ type ListObjectsInfo struct {
 
 	// List of prefixes for this request.
 	Prefixes []string
-}
-
-// partInfo - represents individual part metadata.
-type PartInfo struct {
-	// Part number that identifies the part. This is a positive integer between
-	// 1 and 10,000.
-	PartNumber int
-
-	// Date and time at which the part was uploaded.
-	LastModified time.Time
-
-	// Entity tag returned when the part was initially uploaded.
-	ETag string
-
-	// Size in bytes of the part.
-	Size int64
 }
 
 // uploadMetadata - represents metadata in progress multipart upload.

@@ -10,6 +10,8 @@ import (
 	"math"
 	"strings"
 	"time"
+	"strconv"
+	"encoding/json"
 )
 
 type Object struct {
@@ -25,6 +27,7 @@ type Object struct {
 	Etag             string
 	ContentType      string
 	CustomAttributes map[string]string
+	Parts		 map[int]Part
 }
 
 // Rowkey format:
@@ -58,7 +61,7 @@ func (o Object) GetValues() (values map[string]map[string][]byte, err error) {
 	if err != nil {
 		return
 	}
-	return map[string]map[string][]byte{
+	values = map[string]map[string][]byte{
 		OBJECT_COLUMN_FAMILY: map[string][]byte{
 			"location":     []byte(o.Location),
 			"pool":         []byte(o.Pool),
@@ -70,7 +73,15 @@ func (o Object) GetValues() (values map[string]map[string][]byte, err error) {
 			"content-type": []byte(o.ContentType),
 			"attributes":   []byte{}, // TODO
 		},
-	}, nil
+	}
+	for partNumber, part := range o.Parts {
+		marshaled, err := json.Marshal(part)
+		if err != nil {
+			return
+		}
+		values[OBJECT_PART_COLUMN_FAMILY][strconv.Itoa(partNumber)] = marshaled
+	}
+	return
 }
 
 func (o Object) GetValuesForDelete() (values map[string]map[string][]byte) {

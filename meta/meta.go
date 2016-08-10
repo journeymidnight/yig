@@ -15,6 +15,7 @@ const (
 	USER_COLUMN_FAMILY               = "u"
 	OBJECT_TABLE                     = "objects"
 	OBJECT_COLUMN_FAMILY             = "o"
+	OBJECT_PART_COLUMN_FAMILY	 = "p"
 	GARBAGE_COLLECTION_TABLE         = "garbageCollection"
 	GARBAGE_COLLECTION_COLUMN_FAMILY = "gc"
 	MULTIPART_TABLE                 = "multiparts"

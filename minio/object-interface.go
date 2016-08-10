@@ -48,7 +48,7 @@ type ObjectLayer interface {
 		data io.Reader, md5Hex string) (md5 string, err error)
 	ListObjectParts(credential iam.Credential, bucket, object, uploadID string, partNumberMarker int,
 		maxParts int) (result meta.ListPartsInfo, err error)
-	AbortMultipartUpload(bucket, object, uploadID string) error
-	CompleteMultipartUpload(bucket, object, uploadID string,
+	AbortMultipartUpload(credential iam.Credential, bucket, object, uploadID string) error
+	CompleteMultipartUpload(credential iam.Credential, bucket, object, uploadID string,
 		uploadedParts []meta.CompletePart) (md5 string, err error)
 }

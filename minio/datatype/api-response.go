@@ -423,11 +423,15 @@ func GenerateListPartsResponse(partsInfo meta.ListPartsInfo) ListPartsResponse {
 	listPartsResponse.Bucket = partsInfo.Bucket
 	listPartsResponse.Key = partsInfo.Object
 	listPartsResponse.UploadID = partsInfo.UploadID
-	listPartsResponse.StorageClass = "STANDARD"
-	listPartsResponse.Initiator.ID = "minio"
-	listPartsResponse.Initiator.DisplayName = "minio"
-	listPartsResponse.Owner.ID = "minio"
-	listPartsResponse.Owner.DisplayName = "minio"
+	listPartsResponse.StorageClass = partsInfo.StorageClass
+
+	// FIXME merge data structure ListPartsResponse and ListPartsInfo
+	initiator, _ := iam.GetCredentialByUserId(partsInfo.InitiatorId)
+	listPartsResponse.Initiator.ID = initiator.UserId
+	listPartsResponse.Initiator.DisplayName = initiator.DisplayName
+	owner, _ := iam.GetCredentialByUserId(partsInfo.OwnerId)
+	listPartsResponse.Owner.ID = owner.UserId
+	listPartsResponse.Owner.DisplayName = owner.DisplayName
 
 	listPartsResponse.MaxParts = partsInfo.MaxParts
 	listPartsResponse.PartNumberMarker = partsInfo.PartNumberMarker
@@ -438,7 +442,7 @@ func GenerateListPartsResponse(partsInfo meta.ListPartsInfo) ListPartsResponse {
 	for index, part := range partsInfo.Parts {
 		newPart := Part{}
 		newPart.PartNumber = part.PartNumber
-		newPart.ETag = "\"" + part.ETag + "\""
+		newPart.ETag = "\"" + part.Etag + "\""
 		newPart.Size = part.Size
 		newPart.LastModified = part.LastModified.UTC().Format(timeFormatAMZ)
 		listPartsResponse.Parts[index] = newPart

@@ -281,7 +281,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrInvalidPart: {
 		AwsErrorCode:   "InvalidPart",
-		Description:    "One or more of the specified parts could not be found.",
+		Description:    "One or more of the specified parts could not be found. The part might not have been uploaded, or the specified entity tag might not have matched the part's entity tag.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidPartOrder: {
