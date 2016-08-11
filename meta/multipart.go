@@ -2,7 +2,6 @@ package meta
 
 import (
 	"time"
-	"encoding/json"
 )
 
 type Part struct {

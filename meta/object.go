@@ -75,7 +75,8 @@ func (o Object) GetValues() (values map[string]map[string][]byte, err error) {
 		},
 	}
 	for partNumber, part := range o.Parts {
-		marshaled, err := json.Marshal(part)
+		var marshaled []byte
+		marshaled, err = json.Marshal(part)
 		if err != nil {
 			return
 		}

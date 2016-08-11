@@ -38,7 +38,7 @@ func (yig *YigStorage) NewMultipartUpload(credential iam.Credential, bucketName,
 		// TODO validate policy and ACL
 	}
 
-	uploadId = string(uuid.NewV4())
+	uploadId = uuid.NewV4().String()
 	metadata["InitiatorId"] = credential.UserId
 	metadata["OwnerId"] = bucket.OwnerId
 	marshaledMeta, err := json.Marshal(metadata)
@@ -65,7 +65,7 @@ func (yig *YigStorage) NewMultipartUpload(credential iam.Credential, bucketName,
 func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string,
 	partId int, size int64, data io.Reader, md5Hex string) (md5String string, err error) {
 
-	multipartMeta := map[string][]string{meta.MULTIPART_COLUMN_FAMILY: []string{"0"}}
+	multipartMeta := hrpc.Families(map[string][]string{meta.MULTIPART_COLUMN_FAMILY: []string{"0"}})
 	getMultipartRequest, err := hrpc.NewGetStr(context.Background(), meta.MULTIPART_TABLE,
 		bucketName + objectName + uploadId, multipartMeta)
 	if err != nil {
@@ -158,7 +158,8 @@ func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, ob
 
 	var parts map[int]meta.Part
 	for _, cell := range getMultipartResponse.Cells {
-		partNumber, err := strconv.Atoi(string(cell.Qualifier))
+		var partNumber int
+		partNumber, err = strconv.Atoi(string(cell.Qualifier))
 		if err != nil {
 			return
 		}
@@ -251,7 +252,8 @@ bucketName, objectName, uploadId string, uploadedParts []meta.CompletePart) (eta
 	var parts map[int]meta.Part
 	var metadata map[string]string
 	for _, cell := range getMultipartResponse.Cells {
-		partNumber, err := strconv.Atoi(string(cell.Qualifier))
+		var partNumber int
+		partNumber, err = strconv.Atoi(string(cell.Qualifier))
 		if err != nil {
 			return
 		}
@@ -348,7 +350,7 @@ bucketName, objectName, uploadId string, uploadedParts []meta.CompletePart) (eta
 		objectDeleteRequest, err := hrpc.NewDelStr(context.Background(), meta.OBJECT_TABLE,
 			rowkey, objectDeleteValues)
 		if err != nil {
-			return
+			return "", err
 		}
 		_, err = yig.MetaStorage.Hbase.Delete(objectDeleteRequest)
 		if err != nil {
@@ -356,7 +358,7 @@ bucketName, objectName, uploadId string, uploadedParts []meta.CompletePart) (eta
 			yig.Logger.Println("Inconsistent data: object with rowkey ", rowkey,
 				"should be removed in HBase")
 		}
-		return
+		return "", err
 	}
 	return
 }
