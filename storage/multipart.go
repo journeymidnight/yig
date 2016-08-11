@@ -1,24 +1,24 @@
 package storage
 
 import (
-	"git.letv.cn/yig/yig/meta"
-	"io"
-	"github.com/satori/go.uuid"
-	"encoding/json"
-	"github.com/tsuna/gohbase/hrpc"
-	"golang.org/x/net/context"
-	"git.letv.cn/yig/yig/iam"
-	. "git.letv.cn/yig/yig/error"
 	"crypto/md5"
 	"encoding/hex"
+	"encoding/json"
+	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/iam"
+	"git.letv.cn/yig/yig/meta"
 	"git.letv.cn/yig/yig/signature"
-	"time"
+	"github.com/satori/go.uuid"
+	"github.com/tsuna/gohbase/hrpc"
+	"golang.org/x/net/context"
+	"io"
 	"strconv"
+	"time"
 )
 
 const (
-	MAX_PART_SIZE = 5 << 30 // 5GB
-	MIN_PART_SIZE = 128 << 10 // 128KB
+	MAX_PART_SIZE   = 5 << 30   // 5GB
+	MIN_PART_SIZE   = 128 << 10 // 128KB
 	MAX_PART_NUMBER = 10000
 )
 
@@ -45,13 +45,13 @@ func (yig *YigStorage) NewMultipartUpload(credential iam.Credential, bucketName,
 	if err != nil {
 		return
 	}
-	newMultipart := map[string]map[string][]byte {
-		meta.MULTIPART_COLUMN_FAMILY: map[string][]byte {
+	newMultipart := map[string]map[string][]byte{
+		meta.MULTIPART_COLUMN_FAMILY: map[string][]byte{
 			"0": marshaledMeta,
 		},
 	}
 	newMultipartPut, err := hrpc.NewPutStr(context.Background(), meta.MULTIPART_TABLE,
-		bucketName + objectName + uploadId, newMultipart)
+		bucketName+objectName+uploadId, newMultipart)
 	if err != nil {
 		return
 	}
@@ -69,7 +69,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string,
 		meta.MULTIPART_COLUMN_FAMILY: []string{"0"},
 	})
 	getMultipartRequest, err := hrpc.NewGetStr(context.Background(), meta.MULTIPART_TABLE,
-		bucketName + objectName + uploadId, multipartMeta)
+		bucketName+objectName+uploadId, multipartMeta)
 	if err != nil {
 		return
 	}
@@ -112,12 +112,12 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string,
 	} // TODO validate policy and ACL
 
 	part := meta.Part{
-		PartNumber: partId,
-		Location: cephCluster.Name,
-		Pool: poolName,
-		Size: size,
-		ObjectId: oid,
-		Etag: calculatedMd5,
+		PartNumber:   partId,
+		Location:     cephCluster.Name,
+		Pool:         poolName,
+		Size:         size,
+		ObjectId:     oid,
+		Etag:         calculatedMd5,
 		LastModified: time.Now().UTC(),
 	}
 	marshaledPart, err := json.Marshal(part)
@@ -130,7 +130,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string,
 		},
 	}
 	partMetaPut, err := hrpc.NewPutStr(context.Background(), meta.MULTIPART_TABLE,
-		bucketName + objectName + uploadId, partMeta)
+		bucketName+objectName+uploadId, partMeta)
 	if err != nil {
 		return
 	}
@@ -145,7 +145,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string,
 func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, objectName, uploadId string,
 	partNumberMarker int, maxParts int) (result meta.ListPartsInfo, err error) {
 	getMultipartRequest, err := hrpc.NewGetStr(context.Background(), meta.MULTIPART_TABLE,
-		bucketName + objectName + uploadId)
+		bucketName+objectName+uploadId)
 	if err != nil {
 		return
 	}
@@ -188,12 +188,12 @@ func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, ob
 			result.Parts = append(result.Parts, p)
 
 			partCount++
-			if partCount > maxParts + 1 {
+			if partCount > maxParts+1 {
 				break
 			}
 		}
 	}
-	if partCount == maxParts + 1 {
+	if partCount == maxParts+1 {
 		result.IsTruncated = true
 		result.Parts = result.Parts[:maxParts]
 	}
@@ -209,7 +209,7 @@ func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, ob
 }
 
 func (yig *YigStorage) AbortMultipartUpload(credential iam.Credential,
-bucketName, objectName, uploadId string) error {
+	bucketName, objectName, uploadId string) error {
 
 	bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
 	if err != nil {
@@ -220,11 +220,11 @@ bucketName, objectName, uploadId string) error {
 		// TODO validate bucket policy
 	}
 
-	values := map[string]map[string][]byte {
+	values := map[string]map[string][]byte{
 		meta.MULTIPART_COLUMN_FAMILY: map[string][]byte{},
 	}
 	deleteRequest, err := hrpc.NewDelStr(context.Background(), meta.MULTIPART_TABLE,
-		bucketName + objectName + uploadId, values)
+		bucketName+objectName+uploadId, values)
 	if err != nil {
 		return err
 	}
@@ -236,10 +236,10 @@ bucketName, objectName, uploadId string) error {
 }
 
 func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential,
-bucketName, objectName, uploadId string, uploadedParts []meta.CompletePart) (etagString string, err error) {
+	bucketName, objectName, uploadId string, uploadedParts []meta.CompletePart) (etagString string, err error) {
 
 	getMultipartRequest, err := hrpc.NewGetStr(context.Background(), meta.MULTIPART_TABLE,
-		bucketName + objectName + uploadId)
+		bucketName+objectName+uploadId)
 	if err != nil {
 		return
 	}
@@ -251,8 +251,8 @@ bucketName, objectName, uploadId string, uploadedParts []meta.CompletePart) (eta
 		return "", ErrNoSuchUpload
 	}
 
-	var parts map[int]meta.Part
-	var metadata map[string]string
+	parts := make(map[int]meta.Part)
+	metadata := make(map[string]string)
 	for _, cell := range getMultipartResponse.Cells {
 		var partNumber int
 		partNumber, err = strconv.Atoi(string(cell.Qualifier))
@@ -261,13 +261,13 @@ bucketName, objectName, uploadId string, uploadedParts []meta.CompletePart) (eta
 		}
 		if partNumber != 0 {
 			var p meta.Part
-			err = json.Unmarshal(cell.Value, p)
+			err = json.Unmarshal(cell.Value, &p)
 			if err != nil {
 				return
 			}
 			parts[partNumber] = p
 		} else {
-			err = json.Unmarshal(cell.Value, metadata)
+			err = json.Unmarshal(cell.Value, &metadata)
 			if err != nil {
 				return
 			}
@@ -276,7 +276,7 @@ bucketName, objectName, uploadId string, uploadedParts []meta.CompletePart) (eta
 	md5Writer := md5.New()
 	var totalSize int64 = 0
 	for i := 0; i < len(uploadedParts); i++ {
-		if uploadedParts[i].PartNumber != i + 1 {
+		if uploadedParts[i].PartNumber != i+1 {
 			return "", ErrInvalidPart
 		}
 		part, ok := parts[i+1]
@@ -285,9 +285,9 @@ bucketName, objectName, uploadId string, uploadedParts []meta.CompletePart) (eta
 		}
 		if part.Size < MIN_PART_SIZE && part.PartNumber != len(uploadedParts) {
 			return "", meta.PartTooSmall{
-				PartSize: part.Size,
+				PartSize:   part.Size,
 				PartNumber: part.PartNumber,
-				PartETag: part.Etag,
+				PartETag:   part.Etag,
 			}
 		}
 		if part.Etag != uploadedParts[i].ETag {
@@ -311,14 +311,14 @@ bucketName, objectName, uploadId string, uploadedParts []meta.CompletePart) (eta
 		contentType = "application/octet-stream"
 	}
 	object := meta.Object{
-		Name: objectName,
-		BucketName: bucketName,
-		OwnerId: metadata["OwnerId"],
-		Size: totalSize,
+		Name:             objectName,
+		BucketName:       bucketName,
+		OwnerId:          metadata["OwnerId"],
+		Size:             totalSize,
 		LastModifiedTime: time.Now().UTC(),
-		Etag: etagString,
-		ContentType: contentType,
-		Parts: parts,
+		Etag:             etagString,
+		ContentType:      contentType,
+		Parts:            parts,
 	}
 	rowkey, err := object.GetRowkey()
 	if err != nil {
@@ -338,11 +338,11 @@ bucketName, objectName, uploadId string, uploadedParts []meta.CompletePart) (eta
 	}
 
 	// Remove from multiparts table
-	deleteValues := map[string]map[string][]byte {
+	deleteValues := map[string]map[string][]byte{
 		meta.MULTIPART_COLUMN_FAMILY: map[string][]byte{},
 	}
 	deleteRequest, err := hrpc.NewDelStr(context.Background(), meta.MULTIPART_TABLE,
-		bucketName + objectName + uploadId, deleteValues)
+		bucketName+objectName+uploadId, deleteValues)
 	if err != nil {
 		return
 	}

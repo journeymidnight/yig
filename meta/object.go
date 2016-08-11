@@ -3,15 +3,15 @@ package meta
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
 	. "git.letv.cn/yig/yig/error"
 	"github.com/tsuna/gohbase/filter"
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
 	"math"
+	"strconv"
 	"strings"
 	"time"
-	"strconv"
-	"encoding/json"
 )
 
 type Object struct {
@@ -27,7 +27,7 @@ type Object struct {
 	Etag             string
 	ContentType      string
 	CustomAttributes map[string]string
-	Parts		 map[int]Part
+	Parts            map[int]Part
 }
 
 // Rowkey format:

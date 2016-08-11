@@ -95,7 +95,7 @@ func buildCanonicalizedResource(req *http.Request) string {
 	encodedQuery := ""
 	for _, q := range requiredQuery {
 		if values, ok := requestQuery[q]; ok {
-			for _, v := range values{
+			for _, v := range values {
 				if encodedQuery != "" {
 					encodedQuery += "&"
 				}

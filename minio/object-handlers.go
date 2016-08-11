@@ -29,11 +29,11 @@ import (
 	"time"
 
 	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/meta"
 	. "git.letv.cn/yig/yig/minio/datatype"
 	"git.letv.cn/yig/yig/signature"
 	mux "github.com/gorilla/mux"
-	"git.letv.cn/yig/yig/iam"
 )
 
 // supportedGetReqParams - supported request parameters for GET presigned request.

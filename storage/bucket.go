@@ -1,16 +1,16 @@
 package storage
 
 import (
+	"bytes"
+	"encoding/binary"
 	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/meta"
+	"github.com/tsuna/gohbase/filter"
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
-	"time"
-	"bytes"
-	"encoding/binary"
 	"strings"
-	"github.com/tsuna/gohbase/filter"
+	"time"
 )
 
 const (
