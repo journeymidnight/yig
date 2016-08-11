@@ -139,7 +139,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string,
 		// TODO remove object in Ceph
 		return
 	}
-	return
+	return calculatedMd5, nil
 }
 
 func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, objectName, uploadId string,
@@ -166,15 +166,15 @@ func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, ob
 			return
 		}
 		if partNumber != 0 {
-			var p meta.Part
-			err = json.Unmarshal(cell.Value, p)
+			p := meta.Part{}
+			err = json.Unmarshal(cell.Value, &p)
 			if err != nil {
 				return
 			}
 			parts[partNumber] = p
 		} else {
-			var metadata map[string]string
-			err = json.Unmarshal(cell.Value, metadata)
+			metadata := map[string]string{}
+			err = json.Unmarshal(cell.Value, &metadata)
 			if err != nil {
 				return
 			}
