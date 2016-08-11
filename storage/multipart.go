@@ -163,7 +163,7 @@ func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, ob
 		if err != nil {
 			return
 		}
-		if partNumber == !0 {
+		if partNumber != 0 {
 			var p meta.Part
 			err = json.Unmarshal(cell.Value, p)
 			if err != nil {
@@ -257,7 +257,7 @@ bucketName, objectName, uploadId string, uploadedParts []meta.CompletePart) (eta
 		if err != nil {
 			return
 		}
-		if partNumber == !0 {
+		if partNumber != 0 {
 			var p meta.Part
 			err = json.Unmarshal(cell.Value, p)
 			if err != nil {
@@ -272,7 +272,7 @@ bucketName, objectName, uploadId string, uploadedParts []meta.CompletePart) (eta
 		}
 	}
 	md5Writer := md5.New()
-	totalSize := 0
+	var totalSize int64 = 0
 	for i := 0; i < len(uploadedParts); i++ {
 		if uploadedParts[i].PartNumber != i + 1 {
 			return "", ErrInvalidPart
