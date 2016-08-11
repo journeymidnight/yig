@@ -80,6 +80,9 @@ func (o Object) GetValues() (values map[string]map[string][]byte, err error) {
 		if err != nil {
 			return
 		}
+		if _, ok := values[OBJECT_PART_COLUMN_FAMILY]; !ok {
+			values[OBJECT_PART_COLUMN_FAMILY] = make(map[string][]byte)
+		}
 		values[OBJECT_PART_COLUMN_FAMILY][strconv.Itoa(partNumber)] = marshaled
 	}
 	return
