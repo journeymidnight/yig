@@ -51,7 +51,7 @@ func (yig *YigStorage) NewMultipartUpload(credential iam.Credential, bucketName,
 		},
 	}
 	newMultipartPut, err := hrpc.NewPutStr(context.Background(), meta.MULTIPART_TABLE,
-		bucketName + objectName +uploadId, newMultipart)
+		bucketName + objectName + uploadId, newMultipart)
 	if err != nil {
 		return
 	}
@@ -65,7 +65,9 @@ func (yig *YigStorage) NewMultipartUpload(credential iam.Credential, bucketName,
 func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string,
 	partId int, size int64, data io.Reader, md5Hex string) (md5String string, err error) {
 
-	multipartMeta := hrpc.Families(map[string][]string{meta.MULTIPART_COLUMN_FAMILY: []string{"0"}})
+	multipartMeta := hrpc.Families(map[string][]string{
+		meta.MULTIPART_COLUMN_FAMILY: []string{"0"},
+	})
 	getMultipartRequest, err := hrpc.NewGetStr(context.Background(), meta.MULTIPART_TABLE,
 		bucketName + objectName + uploadId, multipartMeta)
 	if err != nil {

@@ -8,7 +8,8 @@ create 'buckets',
   {NAME => 'b', VERSIONS => 1}
 
 create 'objects',
-  {NAME => 'o', VERSIONS => 1}
+  {NAME => 'o', VERSIONS => 1},
+  {NAME => 'p', VERSIONS => 1}
 
 create 'users',
   {NAME => 'o', VERSIONS => 1}

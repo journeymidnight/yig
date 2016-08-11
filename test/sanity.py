@@ -96,6 +96,90 @@ def delete_object(name, client):
     )
 
 
+upload_id = ''
+upload_id_to_abort = ''
+def create_multipart_upload(name, client):
+    ans = client.create_multipart_upload(
+        Bucket=name+'hehe',
+        Key=name+'hehe',
+    )
+    print 'Create multipart upload:', ans
+    global upload_id
+    upload_id = ans['UploadId']
+    ans = client.create_multipart_upload(
+        Bucket=name+'hehe',
+        Key=name+'toAbort',
+    )
+    global upload_id_to_abort
+    upload_id_to_abort = ans['UploadId']
+    print 'Create multipart upload to abort:', ans
+
+
+etag_1 = ''
+etag_2 = ''
+def upload_part(name, client):
+    global etag_1
+    global etag_2
+    ans = client.upload_part(
+        Body=SMALL_TEST_FILE,
+        Bucket=name+'hehe',
+        Key=name+'hehe',
+        PartNumber=1,
+        UploadId=upload_id,
+    )
+    print 'Upload part 1:', ans
+    etag_1 = ans['ETag']
+    ans = client.upload_part(
+        Body=SMALL_TEST_FILE,
+        Bucket=name+'hehe',
+        Key=name+'hehe',
+        PartNumber=2,
+        UploadId=upload_id,
+    )
+    print 'Upload part 2:', ans
+    etag_2 = ans['ETag']
+
+
+def list_multipart_uploads(name, client):
+    ans = client.list_multipart_uploads(
+        Bucket=name+'hehe'
+    )
+    print 'List multipart uploads:', ans
+
+
+def list_parts(name, client):
+    ans = client.list_parts(
+        Bucket=name+'hehe',
+        Key=name+'hehe',
+        UploadId=upload_id,
+    )
+    print 'List multipart upload parts:', ans
+
+
+def abort_multipart_upload(name, client):
+    ans = client.abort_multipart_upload(
+        Bucket=name+'hehe',
+        Key=name+'toAbort',
+        UploadId=upload_id_to_abort,
+    )
+    print 'Abort multipart upload:', ans
+
+
+def complete_multipart_upload(name, client):
+    ans = client.complete_multipart_upload(
+        Bucket=name+'hehe',
+        Key=name+'hehe',
+        MultipartUpload={
+            'Parts': [
+                {'ETag': etag_1, 'PartNumber': 1},
+                {'ETag': etag_2, 'PartNumber': 2},
+            ]
+        },
+        UploadId=upload_id,
+    )
+    print 'Complete multipart upload:', ans
+
+
 def delete_bucket(name, client):
         client.delete_bucket(Bucket=name+'hehe')
 
@@ -120,6 +204,7 @@ TESTS = [create_bucket,
          get_object, get_object_nonexist,
          list_objects_v1, list_objects_v2,
          delete_object,
+         create_multipart_upload, upload_part, list_multipart_uploads, list_parts, abort_multipart_upload, complete_multipart_upload,
          delete_bucket, delete_bucket_nonexist]
 
 if __name__ == '__main__':

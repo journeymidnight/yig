@@ -5,7 +5,6 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"net/http"
-	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -79,6 +78,7 @@ func buildCanonicalizedResource(req *http.Request) string {
 	}
 	ans += req.URL.EscapedPath()
 	requiredQuery := []string{
+		// NOTE: this array is sorted alphabetically
 		"acl", "delete", "lifecycle", "location",
 		"logging", "notification", "partNumber",
 		"policy", "requestPayment",
@@ -92,14 +92,23 @@ func buildCanonicalizedResource(req *http.Request) string {
 		"versioning", "versions", "website",
 	}
 	requestQuery := req.URL.Query()
-	queryToSign := url.Values{}
+	encodedQuery := ""
 	for _, q := range requiredQuery {
-		if v, ok := requestQuery[q]; ok {
-			queryToSign[q] = v
+		if values, ok := requestQuery[q]; ok {
+			for _, v := range values{
+				if encodedQuery != "" {
+					encodedQuery += "&"
+				}
+				if v == "" {
+					encodedQuery += q
+				} else {
+					encodedQuery += q + "=" + v
+				}
+			}
 		}
 	}
-	if encodedQueryToSign := queryToSign.Encode(); encodedQueryToSign != "" {
-		ans += "?" + encodedQueryToSign
+	if encodedQuery != "" {
+		ans += "?" + encodedQuery
 	}
 	return ans
 }

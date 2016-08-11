@@ -143,7 +143,8 @@ func (api objectAPIHandlers) ListMultipartUploadsHandler(w http.ResponseWriter, 
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
 		}
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
+		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != nil {
 			WriteErrorResponse(w, r, s3Error, r.URL.Path)
 			return
