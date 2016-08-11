@@ -158,7 +158,7 @@ func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, ob
 		return
 	}
 
-	var parts map[int]meta.Part
+	parts := make(map[int]meta.Part)
 	for _, cell := range getMultipartResponse.Cells {
 		var partNumber int
 		partNumber, err = strconv.Atoi(string(cell.Qualifier))
@@ -166,14 +166,14 @@ func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, ob
 			return
 		}
 		if partNumber != 0 {
-			p := meta.Part{}
+			var p meta.Part
 			err = json.Unmarshal(cell.Value, &p)
 			if err != nil {
 				return
 			}
 			parts[partNumber] = p
 		} else {
-			metadata := map[string]string{}
+			metadata := make(map[string]string)
 			err = json.Unmarshal(cell.Value, &metadata)
 			if err != nil {
 				return
