@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const (
+var (
 	XXTEA_KEY = []byte("hehehehe")
 )
 
@@ -46,8 +46,12 @@ func GetMultipartRowkey(bucketName, objectName string, now time.Time) (string, e
 	return rowkey.String(), nil
 }
 
-func TimestampStringFromUploadId(uploadId string) string {
-	return string(xxtea.Decrypt(hex.DecodeString(uploadId), XXTEA_KEY))
+func TimestampStringFromUploadId(uploadId string) (string, error) {
+	uploadIdBytes, err := hex.DecodeString(uploadId)
+	if err != nil {
+		return "", err
+	}
+	return string(xxtea.Decrypt(uploadIdBytes, XXTEA_KEY))
 }
 
 func GetMultipartRowkeyFromUploadId(bucketName, objectName, uploadId string) (string, error) {
@@ -58,7 +62,11 @@ func GetMultipartRowkeyFromUploadId(bucketName, objectName, uploadId string) (st
 		return "", err
 	}
 	rowkey.WriteString(objectName)
-	timestamp, err := strconv.ParseUint(TimestampStringFromUploadId(uploadId), 10, 64)
+	timestampString, err := TimestampStringFromUploadId(uploadId)
+	if err != nil {
+		return "", err
+	}
+	timestamp, err := strconv.ParseUint(timestampString, 10, 64)
 	if err != nil {
 		return "", err
 	}
@@ -80,13 +88,13 @@ func UploadFromResponse(response *hrpc.Result, bucketName string) (upload Upload
 	// + ObjectName
 	// + bigEndian(unixNanoTimestamp)
 	upload.Object = string(rowkey[len(bucketName)+2 : len(rowkey)-8])
-	timestampData := rowkey[len(rowkey)-8:]
+	timestampReader := bytes.NewReader(rowkey[len(rowkey)-8:])
 	var timestamp uint64
-	err = binary.Read(timestampData, binary.BigEndian, &timestamp)
+	err = binary.Read(timestampReader, binary.BigEndian, &timestamp)
 	if err != nil {
 		return
 	}
-	upload.Initiated = time.Unix(0, timestamp)
+	upload.Initiated = time.Unix(0, int64(timestamp))
 	upload.UploadID = GetMultipartUploadId(upload.Initiated)
 	upload.StorageClass = "STANDARD"
 	return

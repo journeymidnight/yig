@@ -48,8 +48,12 @@ func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketNam
 	prefixRowkey.WriteString(prefix)
 	startRowkey.WriteString(keyMarker)
 	if keyMarker != "" {
-		timestampString := meta.TimestampStringFromUploadId(uploadIdMarker)
-		startRowkey.WriteString(timestampString)
+		var timestamp string
+		timestamp, err = meta.TimestampStringFromUploadId(uploadIdMarker)
+		if err != nil {
+			return
+		}
+		startRowkey.WriteString(timestamp)
 	}
 
 	filter := filter.NewPrefixFilter(prefixRowkey.Bytes())
