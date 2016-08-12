@@ -51,7 +51,7 @@ func TimestampStringFromUploadId(uploadId string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return string(xxtea.Decrypt(uploadIdBytes, XXTEA_KEY))
+	return string(xxtea.Decrypt(uploadIdBytes, XXTEA_KEY)), nil
 }
 
 func GetMultipartRowkeyFromUploadId(bucketName, objectName, uploadId string) (string, error) {
