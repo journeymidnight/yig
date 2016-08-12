@@ -40,7 +40,7 @@ type ObjectLayer interface {
 	DeleteObject(bucket, object string) error
 
 	// Multipart operations.
-	ListMultipartUploads(bucket, prefix, keyMarker, uploadIDMarker,
+	ListMultipartUploads(credential iam.Credential, bucket, prefix, keyMarker, uploadIDMarker,
 		delimiter string, maxUploads int) (result meta.ListMultipartsInfo, err error)
 	NewMultipartUpload(credential iam.Credential, bucket, object string,
 		metadata map[string]string) (uploadID string, err error)

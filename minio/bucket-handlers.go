@@ -132,6 +132,8 @@ func (api objectAPIHandlers) ListMultipartUploadsHandler(w http.ResponseWriter, 
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
+	var credential iam.Credential
+	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
@@ -139,14 +141,14 @@ func (api objectAPIHandlers) ListMultipartUploadsHandler(w http.ResponseWriter, 
 		return
 	case signature.AuthTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/mpuAndPermissions.html
-		if s3Error := enforceBucketPolicy("s3:ListBucketMultipartUploads", bucket, r.URL); s3Error != nil {
-			WriteErrorResponse(w, r, s3Error, r.URL.Path)
+		if err := enforceBucketPolicy("s3:ListBucketMultipartUploads", bucket, r.URL); err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
 			return
 		}
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != nil {
-			WriteErrorResponse(w, r, s3Error, r.URL.Path)
+		if credential, err = signature.IsReqAuthenticated(r); err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
 			return
 		}
 	}
@@ -164,7 +166,8 @@ func (api objectAPIHandlers) ListMultipartUploadsHandler(w http.ResponseWriter, 
 		}
 	}
 
-	listMultipartsInfo, err := api.ObjectAPI.ListMultipartUploads(bucket, prefix, keyMarker, uploadIDMarker, delimiter, maxUploads)
+	listMultipartsInfo, err := api.ObjectAPI.ListMultipartUploads(credential, bucket, prefix,
+		keyMarker, uploadIDMarker, delimiter, maxUploads)
 	if err != nil {
 		errorIf(err, "Unable to list multipart uploads.")
 		WriteErrorResponse(w, r, err, r.URL.Path)

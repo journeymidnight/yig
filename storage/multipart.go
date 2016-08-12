@@ -1,18 +1,21 @@
 package storage
 
 import (
+	"bytes"
 	"crypto/md5"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/meta"
 	"git.letv.cn/yig/yig/signature"
-	"github.com/satori/go.uuid"
+	"github.com/tsuna/gohbase/filter"
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
 	"io"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -22,8 +25,74 @@ const (
 	MAX_PART_NUMBER = 10000
 )
 
-func (yig *YigStorage) ListMultipartUploads(bucket, prefix, keyMarker, uploadIDMarker,
-	delimiter string, maxUploads int) (result meta.ListMultipartsInfo, err error) {
+func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketName, prefix, keyMarker,
+	uploadIdMarker, delimiter string, maxUploads int) (result meta.ListMultipartsInfo, err error) {
+
+	bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
+	if err != nil {
+		return
+	}
+	if bucket.OwnerId != credential.UserId {
+		err = ErrBucketAccessForbidden
+		return
+	}
+	// TODO validate user policy and ACL
+
+	var prefixRowkey bytes.Buffer
+	prefixRowkey.WriteString(bucketName)
+	err = binary.Write(&prefixRowkey, binary.BigEndian, uint16(strings.Count(prefix, "/")))
+	if err != nil {
+		return
+	}
+	startRowkey := bytes.NewBuffer(prefixRowkey.Bytes())
+	prefixRowkey.WriteString(prefix)
+	startRowkey.WriteString(keyMarker)
+	if keyMarker != "" {
+		timestampString := meta.TimestampStringFromUploadId(uploadIdMarker)
+		startRowkey.WriteString(timestampString)
+	}
+
+	filter := filter.NewPrefixFilter(prefixRowkey.Bytes())
+	scanRequest, err := hrpc.NewScanRangeStr(context.Background(), meta.MULTIPART_TABLE,
+		// scan for max+1 rows to determine if results are truncated
+		startRowkey.String(), "", hrpc.Filters(filter), hrpc.NumberOfRows(uint32(maxUploads+1)))
+	if err != nil {
+		return
+	}
+	scanResponse, err := yig.MetaStorage.Hbase.Scan(scanRequest)
+	if err != nil {
+		return
+	}
+	if len(scanResponse) > maxUploads {
+		result.IsTruncated = true
+		var nextUpload meta.UploadMetadata
+		nextUpload, err = meta.UploadFromResponse(scanResponse[maxUploads], bucketName)
+		if err != nil {
+			return
+		}
+		result.NextKeyMarker = nextUpload.Object
+		result.NextUploadIDMarker = nextUpload.UploadID
+		scanResponse = scanResponse[:maxUploads]
+	}
+	var uploads []meta.UploadMetadata
+	for _, row := range scanResponse {
+		var u meta.UploadMetadata
+		u, err = meta.UploadFromResponse(row, bucketName)
+		if err != nil {
+			return
+		}
+		uploads = append(uploads, u)
+		// TODO prefix support
+		// - add prefix when create new uploads
+		// - handle those prefix when listing
+		// prefixes end with "/" and have depth as if the trailing "/" is removed
+		// TODO refactor
+		// same logic here as meta.ListObjects
+	}
+	result.Uploads = uploads
+	result.KeyMarker = keyMarker
+	result.UploadIDMarker = uploadIdMarker
+	result.MaxUploads = maxUploads
 	return
 }
 
@@ -38,7 +107,8 @@ func (yig *YigStorage) NewMultipartUpload(credential iam.Credential, bucketName,
 		// TODO validate policy and ACL
 	}
 
-	uploadId = uuid.NewV4().String()
+	now := time.Now()
+	uploadId = meta.GetMultipartUploadId(now)
 	metadata["InitiatorId"] = credential.UserId
 	metadata["OwnerId"] = bucket.OwnerId
 	marshaledMeta, err := json.Marshal(metadata)
@@ -50,8 +120,12 @@ func (yig *YigStorage) NewMultipartUpload(credential iam.Credential, bucketName,
 			"0": marshaledMeta,
 		},
 	}
+	rowkey, err := meta.GetMultipartRowkey(bucketName, objectName, now)
+	if err != nil {
+		return
+	}
 	newMultipartPut, err := hrpc.NewPutStr(context.Background(), meta.MULTIPART_TABLE,
-		bucketName+objectName+uploadId, newMultipart)
+		rowkey, newMultipart)
 	if err != nil {
 		return
 	}
@@ -68,8 +142,12 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string,
 	multipartMeta := hrpc.Families(map[string][]string{
 		meta.MULTIPART_COLUMN_FAMILY: []string{"0"},
 	})
+	rowkey, err := meta.GetMultipartRowkeyFromUploadId(bucketName, objectName, uploadId)
+	if err != nil {
+		return
+	}
 	getMultipartRequest, err := hrpc.NewGetStr(context.Background(), meta.MULTIPART_TABLE,
-		bucketName+objectName+uploadId, multipartMeta)
+		rowkey, multipartMeta)
 	if err != nil {
 		return
 	}
@@ -130,7 +208,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string,
 		},
 	}
 	partMetaPut, err := hrpc.NewPutStr(context.Background(), meta.MULTIPART_TABLE,
-		bucketName+objectName+uploadId, partMeta)
+		rowkey, partMeta)
 	if err != nil {
 		return
 	}
@@ -144,8 +222,13 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string,
 
 func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, objectName, uploadId string,
 	partNumberMarker int, maxParts int) (result meta.ListPartsInfo, err error) {
+
+	rowkey, err := meta.GetMultipartRowkeyFromUploadId(bucketName, objectName, uploadId)
+	if err != nil {
+		return
+	}
 	getMultipartRequest, err := hrpc.NewGetStr(context.Background(), meta.MULTIPART_TABLE,
-		bucketName+objectName+uploadId)
+		rowkey)
 	if err != nil {
 		return
 	}
@@ -223,8 +306,12 @@ func (yig *YigStorage) AbortMultipartUpload(credential iam.Credential,
 	values := map[string]map[string][]byte{
 		meta.MULTIPART_COLUMN_FAMILY: map[string][]byte{},
 	}
+	rowkey, err := meta.GetMultipartRowkeyFromUploadId(bucketName, objectName, uploadId)
+	if err != nil {
+		return err
+	}
 	deleteRequest, err := hrpc.NewDelStr(context.Background(), meta.MULTIPART_TABLE,
-		bucketName+objectName+uploadId, values)
+		rowkey, values)
 	if err != nil {
 		return err
 	}
@@ -238,8 +325,12 @@ func (yig *YigStorage) AbortMultipartUpload(credential iam.Credential,
 func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential,
 	bucketName, objectName, uploadId string, uploadedParts []meta.CompletePart) (etagString string, err error) {
 
+	multipartRowkey, err := meta.GetMultipartRowkeyFromUploadId(bucketName, objectName, uploadId)
+	if err != nil {
+		return
+	}
 	getMultipartRequest, err := hrpc.NewGetStr(context.Background(), meta.MULTIPART_TABLE,
-		bucketName+objectName+uploadId)
+		multipartRowkey)
 	if err != nil {
 		return
 	}
@@ -342,7 +433,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential,
 		meta.MULTIPART_COLUMN_FAMILY: map[string][]byte{},
 	}
 	deleteRequest, err := hrpc.NewDelStr(context.Background(), meta.MULTIPART_TABLE,
-		bucketName+objectName+uploadId, deleteValues)
+		multipartRowkey, deleteValues)
 	if err != nil {
 		return
 	}
