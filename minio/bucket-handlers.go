@@ -247,27 +247,36 @@ func (api objectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 	}
 
 	listObjectsInfo, err := api.ObjectAPI.ListObjects(credential, bucket, prefix, marker, delimiter, maxkeys)
-
-	if err == nil {
-		var encodedSuccessResponse []byte
-		// generate response
-		if listV2 {
-			response := GenerateListObjectsV2Response(bucket, prefix, token,
-				startAfter, delimiter, maxkeys, listObjectsInfo)
-			encodedSuccessResponse = EncodeResponse(response)
-		} else {
-			response := GenerateListObjectsResponse(bucket, prefix, marker,
-				delimiter, maxkeys, listObjectsInfo)
-			encodedSuccessResponse = EncodeResponse(response)
-		}
-		// Write headers
-		SetCommonHeaders(w)
-		// Write success response.
-		WriteSuccessResponse(w, encodedSuccessResponse)
+	if err != nil {
+		errorIf(err, "Unable to list objects.")
+		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
-	errorIf(err, "Unable to list objects.")
-	WriteErrorResponse(w, r, err, r.URL.Path)
+
+	var encodedSuccessResponse []byte
+	// generate response
+	if listV2 {
+		response, err := GenerateListObjectsV2Response(bucket, prefix, token,
+			startAfter, delimiter, maxkeys, listObjectsInfo)
+		if err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
+			return
+		}
+		encodedSuccessResponse = EncodeResponse(response)
+	} else {
+		response, err := GenerateListObjectsResponse(bucket, prefix, marker,
+			delimiter, maxkeys, listObjectsInfo)
+		if err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
+			return
+		}
+		encodedSuccessResponse = EncodeResponse(response)
+	}
+	// Write headers
+	SetCommonHeaders(w)
+	// Write success response.
+	WriteSuccessResponse(w, encodedSuccessResponse)
+	return
 }
 
 // ListBucketsHandler - GET Service

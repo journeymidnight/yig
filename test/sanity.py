@@ -28,6 +28,7 @@ for addressStyle in ['path']: #['path', 'virtual']:
         clients[addressStyle+'-'+signatureVersion] = client
 
 SMALL_TEST_FILE = bytes('a' * 1024 * 1024)  # 1M
+RANGE_TEST_FILE = bytes('abcdefghijklmnop' * 64 * 1024)  # 1M
 
 # =====================================================
 
@@ -121,7 +122,7 @@ def upload_part(name, client):
     global etag_1
     global etag_2
     ans = client.upload_part(
-        Body=SMALL_TEST_FILE,
+        Body=RANGE_TEST_FILE,
         Bucket=name+'hehe',
         Key=name+'multipart',
         PartNumber=1,
@@ -130,7 +131,7 @@ def upload_part(name, client):
     print 'Upload part 1:', ans
     etag_1[name] = ans['ETag']
     ans = client.upload_part(
-        Body=SMALL_TEST_FILE,
+        Body=RANGE_TEST_FILE,
         Bucket=name+'hehe',
         Key=name+'multipart',
         PartNumber=2,
@@ -186,7 +187,18 @@ def get_multipart_uploaded_object(name, client):
         Key=name+'multipart',
     )
     body = ans['Body'].read()
-    assert body == SMALL_TEST_FILE * 2
+    assert body == RANGE_TEST_FILE * 2
+    print 'Get object:', ans
+
+
+def get_object_ranged(name, client):
+    ans = client.get_object(
+        Bucket=name+'hehe',
+        Key=name+'multipart',
+        Range='bytes=1020-1030'
+    )
+    body = ans['Body'].read()
+    assert body == 'mnopabcdefg'
     print 'Get object:', ans
 
 
@@ -216,6 +228,7 @@ TESTS = [create_bucket,
          delete_object,
          create_multipart_upload, upload_part, list_multipart_uploads, list_parts, abort_multipart_upload, complete_multipart_upload,
          get_multipart_uploaded_object,
+         get_object_ranged,
          delete_bucket, delete_bucket_nonexist]
 
 if __name__ == '__main__':

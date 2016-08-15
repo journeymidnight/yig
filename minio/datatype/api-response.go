@@ -297,15 +297,10 @@ func GenerateListBucketsResponse(buckets []meta.BucketInfo, credential iam.Crede
 
 // generates an ListObjects response for the said bucket with other enumerated options.
 func GenerateListObjectsResponse(bucket, prefix, marker, delimiter string, maxKeys int,
-	resp meta.ListObjectsInfo) ListObjectsResponse {
+	resp meta.ListObjectsInfo) (data ListObjectsResponse, err error) {
 	var contents []Object
 	var prefixes []CommonPrefix
-	var owner = Owner{}
-	var data = ListObjectsResponse{}
-
-	// TODO per-file owner info
-	owner.ID = "minio"
-	owner.DisplayName = "minio"
+	var owner iam.Credential
 
 	for _, object := range resp.Objects {
 		var content = Object{}
@@ -319,7 +314,14 @@ func GenerateListObjectsResponse(bucket, prefix, marker, delimiter string, maxKe
 		}
 		content.Size = object.Size
 		content.StorageClass = "STANDARD"
-		content.Owner = owner
+		owner, err = iam.GetCredentialByUserId(object.OwnerId)
+		if err != nil {
+			return
+		}
+		content.Owner = Owner{
+			ID:owner.UserId,
+			DisplayName:owner.DisplayName,
+		}
 		contents = append(contents, content)
 	}
 	// TODO - support EncodingType in xml decoding
@@ -344,15 +346,10 @@ func GenerateListObjectsResponse(bucket, prefix, marker, delimiter string, maxKe
 
 // generates an ListObjects response for the said bucket with other enumerated options.
 func GenerateListObjectsV2Response(bucket, prefix, token, startAfter, delimiter string,
-	maxKeys int, resp meta.ListObjectsInfo) ListObjectsV2Response {
+	maxKeys int, resp meta.ListObjectsInfo) (data ListObjectsV2Response, err error) {
 	var contents []Object
 	var prefixes []CommonPrefix
-	var owner = Owner{}
-	var data = ListObjectsV2Response{}
-
-	// TODO per-file owner info
-	owner.ID = "minio"
-	owner.DisplayName = "minio"
+	var owner iam.Credential
 
 	for _, object := range resp.Objects {
 		var content = Object{}
@@ -366,7 +363,14 @@ func GenerateListObjectsV2Response(bucket, prefix, token, startAfter, delimiter 
 		}
 		content.Size = object.Size
 		content.StorageClass = "STANDARD"
-		content.Owner = owner
+		owner, err = iam.GetCredentialByUserId(object.OwnerId)
+		if err != nil {
+			return
+		}
+		content.Owner = Owner{
+			ID: owner.UserId,
+			DisplayName: owner.DisplayName,
+		}
 		contents = append(contents, content)
 	}
 	// TODO - support EncodingType in xml decoding
@@ -386,7 +390,7 @@ func GenerateListObjectsV2Response(bucket, prefix, token, startAfter, delimiter 
 		prefixes = append(prefixes, prefixItem)
 	}
 	data.CommonPrefixes = prefixes
-	return data
+	return
 }
 
 // GenerateCopyObjectResponse

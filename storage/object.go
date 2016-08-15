@@ -44,9 +44,9 @@ func (yig *YigStorage) GetObject(object meta.Object, startOffset int64,
 		if p.Offset + p.Size >= startOffset {
 			var readOffset, readLength int64
 			if startOffset <= p.Offset {
-				readOffset == 0
+				readOffset = 0
 			} else {
-				readOffset == startOffset - p.Offset
+				readOffset = startOffset - p.Offset
 			}
 			if p.Offset + p.Size <= startOffset + length {
 				readLength = p.Offset + p.Size - readOffset
