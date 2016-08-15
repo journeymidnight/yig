@@ -38,17 +38,17 @@ func (yig *YigStorage) GetObject(object meta.Object, startOffset int64,
 	// multipart uploaded object
 	for i := 1; i <= len(object.Parts); i++ {
 		p := object.Parts[i]
-		if p.Offset > startOffset + length {
+		if p.Offset > startOffset+length {
 			return
 		}
-		if p.Offset + p.Size >= startOffset {
+		if p.Offset+p.Size >= startOffset {
 			var readOffset, readLength int64
 			if startOffset <= p.Offset {
 				readOffset = 0
 			} else {
 				readOffset = startOffset - p.Offset
 			}
-			if p.Offset + p.Size <= startOffset + length {
+			if p.Offset+p.Size <= startOffset+length {
 				readLength = p.Offset + p.Size - readOffset
 			} else {
 				readLength = startOffset + length - (p.Offset + readOffset)

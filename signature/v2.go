@@ -11,6 +11,7 @@ import (
 
 	"errors"
 	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/minio/datatype"
 	"strconv"
@@ -65,6 +66,7 @@ func buildCanonicalizedAmzHeaders(headers *http.Header) string {
 		values := (*headers)[h] // Don't use Header.Get() here because we need ALL values
 		ans += strings.ToLower(h) + ":" + strings.Join(values, ",") + "\n"
 	}
+	helper.Debugln("V2 canonical amazon headers:", ans)
 	return ans
 }
 
@@ -110,6 +112,7 @@ func buildCanonicalizedResource(req *http.Request) string {
 	if encodedQuery != "" {
 		ans += "?" + encodedQuery
 	}
+	helper.Debugln("V2 canonical resource:", ans)
 	return ans
 }
 

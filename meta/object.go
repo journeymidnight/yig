@@ -90,7 +90,7 @@ func (o Object) GetValues() (values map[string]map[string][]byte, err error) {
 
 func (o Object) GetValuesForDelete() (values map[string]map[string][]byte) {
 	return map[string]map[string][]byte{
-		OBJECT_COLUMN_FAMILY: map[string][]byte{},
+		OBJECT_COLUMN_FAMILY:      map[string][]byte{},
 		OBJECT_PART_COLUMN_FAMILY: map[string][]byte{},
 	}
 }

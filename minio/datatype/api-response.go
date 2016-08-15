@@ -319,8 +319,8 @@ func GenerateListObjectsResponse(bucket, prefix, marker, delimiter string, maxKe
 			return
 		}
 		content.Owner = Owner{
-			ID:owner.UserId,
-			DisplayName:owner.DisplayName,
+			ID:          owner.UserId,
+			DisplayName: owner.DisplayName,
 		}
 		contents = append(contents, content)
 	}
@@ -341,7 +341,7 @@ func GenerateListObjectsResponse(bucket, prefix, marker, delimiter string, maxKe
 		prefixes = append(prefixes, prefixItem)
 	}
 	data.CommonPrefixes = prefixes
-	return data
+	return
 }
 
 // generates an ListObjects response for the said bucket with other enumerated options.
@@ -368,7 +368,7 @@ func GenerateListObjectsV2Response(bucket, prefix, token, startAfter, delimiter 
 			return
 		}
 		content.Owner = Owner{
-			ID: owner.UserId,
+			ID:          owner.UserId,
 			DisplayName: owner.DisplayName,
 		}
 		contents = append(contents, content)

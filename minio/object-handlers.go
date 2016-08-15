@@ -131,7 +131,6 @@ func (api objectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			// log the error.
 			errorIf(err, "Invalid request range")
 		}
-
 	}
 
 	// Validate pre-conditions if any.
