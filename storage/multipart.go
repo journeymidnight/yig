@@ -392,6 +392,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential,
 		if err != nil {
 			return "", ErrInvalidPart
 		}
+		part.Offset = totalSize
 		totalSize += part.Size
 		md5Writer.Write(etagBytes)
 	}

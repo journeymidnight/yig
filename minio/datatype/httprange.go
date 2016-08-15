@@ -49,6 +49,9 @@ func (hrange HttpRange) GetLength() int64 {
 }
 
 func ParseRequestRange(rangeString string, resourceSize int64) (hrange *HttpRange, err error) {
+	// TODO handle multi-range request
+	// see https://tools.ietf.org/html/rfc7233
+
 	// Return error if given range string doesn't start with byte range prefix.
 	if !strings.HasPrefix(rangeString, byteRangePrefix) {
 		return nil, fmt.Errorf("'%s' does not start with '%s'", rangeString, byteRangePrefix)

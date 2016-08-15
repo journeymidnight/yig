@@ -27,11 +27,43 @@ func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size 
 
 func (yig *YigStorage) GetObject(object meta.Object, startOffset int64,
 	length int64, writer io.Writer) (err error) {
-	cephCluster, ok := yig.DataStorage[object.Location]
-	if !ok {
-		return errors.New("Cannot find specified ceph cluster: " + object.Location)
+	if len(object.Parts) == 0 { // this object has only one part
+		cephCluster, ok := yig.DataStorage[object.Location]
+		if !ok {
+			return errors.New("Cannot find specified ceph cluster: " + object.Location)
+		}
+		err = cephCluster.get(object.Pool, object.ObjectId, startOffset, length, writer)
+		return
 	}
-	err = cephCluster.get(object.Pool, object.ObjectId, startOffset, length, writer)
+	// multipart uploaded object
+	for i := 1; i <= len(object.Parts); i++ {
+		p := object.Parts[i]
+		if p.Offset > startOffset + length {
+			return
+		}
+		if p.Offset + p.Size >= startOffset {
+			var readOffset, readLength int64
+			if startOffset <= p.Offset {
+				readOffset == 0
+			} else {
+				readOffset == startOffset - p.Offset
+			}
+			if p.Offset + p.Size <= startOffset + length {
+				readLength = p.Offset + p.Size - readOffset
+			} else {
+				readLength = startOffset + length - (p.Offset + readOffset)
+			}
+			cephCluster, ok := yig.DataStorage[p.Location]
+			if !ok {
+				return errors.New("Cannot find specified ceph cluster: " +
+					p.Location)
+			}
+			err = cephCluster.get(p.Pool, p.ObjectId, readOffset, readLength, writer)
+			if err != nil {
+				return
+			}
+		}
+	}
 	return
 }
 

@@ -101,7 +101,7 @@ upload_id_to_abort = {}
 def create_multipart_upload(name, client):
     ans = client.create_multipart_upload(
         Bucket=name+'hehe',
-        Key=name+'hehe',
+        Key=name+'multipart',
     )
     print 'Create multipart upload:', ans
     global upload_id
@@ -123,7 +123,7 @@ def upload_part(name, client):
     ans = client.upload_part(
         Body=SMALL_TEST_FILE,
         Bucket=name+'hehe',
-        Key=name+'hehe',
+        Key=name+'multipart',
         PartNumber=1,
         UploadId=upload_id[name],
     )
@@ -132,7 +132,7 @@ def upload_part(name, client):
     ans = client.upload_part(
         Body=SMALL_TEST_FILE,
         Bucket=name+'hehe',
-        Key=name+'hehe',
+        Key=name+'multipart',
         PartNumber=2,
         UploadId=upload_id[name],
     )
@@ -150,7 +150,7 @@ def list_multipart_uploads(name, client):
 def list_parts(name, client):
     ans = client.list_parts(
         Bucket=name+'hehe',
-        Key=name+'hehe',
+        Key=name+'multipart',
         UploadId=upload_id[name],
     )
     print 'List multipart upload parts:', ans
@@ -168,7 +168,7 @@ def abort_multipart_upload(name, client):
 def complete_multipart_upload(name, client):
     ans = client.complete_multipart_upload(
         Bucket=name+'hehe',
-        Key=name+'hehe',
+        Key=name+'multipart',
         MultipartUpload={
             'Parts': [
                 {'ETag': etag_1[name], 'PartNumber': 1},
@@ -178,6 +178,16 @@ def complete_multipart_upload(name, client):
         UploadId=upload_id[name],
     )
     print 'Complete multipart upload:', ans
+
+
+def get_multipart_uploaded_object(name, client):
+    ans = client.get_object(
+        Bucket=name+'hehe',
+        Key=name+'multipart',
+    )
+    body = ans['Body'].read()
+    assert body == SMALL_TEST_FILE * 2
+    print 'Get object:', ans
 
 
 def delete_bucket(name, client):
@@ -205,6 +215,7 @@ TESTS = [create_bucket,
          list_objects_v1, list_objects_v2,
          delete_object,
          create_multipart_upload, upload_part, list_multipart_uploads, list_parts, abort_multipart_upload, complete_multipart_upload,
+         get_multipart_uploaded_object,
          delete_bucket, delete_bucket_nonexist]
 
 if __name__ == '__main__':

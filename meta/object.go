@@ -91,6 +91,7 @@ func (o Object) GetValues() (values map[string]map[string][]byte, err error) {
 func (o Object) GetValuesForDelete() (values map[string]map[string][]byte) {
 	return map[string]map[string][]byte{
 		OBJECT_COLUMN_FAMILY: map[string][]byte{},
+		OBJECT_PART_COLUMN_FAMILY: map[string][]byte{},
 	}
 }
 
@@ -128,31 +129,49 @@ func GetGarbageCollectionRowkey(bucketName string, objectName string) (string, e
 // Decode response from HBase and return an Object object
 func ObjectFromResponse(response *hrpc.Result, bucketName string) (object Object, err error) {
 	var rowkey []byte
+	object.Parts = make(map[int]Part)
 	for _, cell := range response.Cells {
 		rowkey = cell.Row
-		switch string(cell.Qualifier) {
-		case "location":
-			object.Location = string(cell.Value)
-		case "pool":
-			object.Pool = string(cell.Value)
-		case "owner":
-			object.OwnerId = string(cell.Value)
-		case "size":
-			err = binary.Read(bytes.NewReader(cell.Value), binary.BigEndian, &object.Size)
+		switch string(cell.Family) {
+		case OBJECT_COLUMN_FAMILY:
+			switch string(cell.Qualifier) {
+			case "location":
+				object.Location = string(cell.Value)
+			case "pool":
+				object.Pool = string(cell.Value)
+			case "owner":
+				object.OwnerId = string(cell.Value)
+			case "size":
+				err = binary.Read(bytes.NewReader(cell.Value), binary.BigEndian,
+					&object.Size)
+				if err != nil {
+					return
+				}
+			case "oid":
+				object.ObjectId = string(cell.Value)
+			case "lastModified":
+				object.LastModifiedTime, err = time.Parse(CREATE_TIME_LAYOUT,
+					string(cell.Value))
+				if err != nil {
+					return
+				}
+			case "etag":
+				object.Etag = string(cell.Value)
+			case "content-type":
+				object.ContentType = string(cell.Value)
+			}
+		case OBJECT_PART_COLUMN_FAMILY:
+			var partNumber int
+			partNumber, err = strconv.Atoi(string(cell.Qualifier))
 			if err != nil {
 				return
 			}
-		case "oid":
-			object.ObjectId = string(cell.Value)
-		case "lastModified":
-			object.LastModifiedTime, err = time.Parse(CREATE_TIME_LAYOUT, string(cell.Value))
+			var p Part
+			err = json.Unmarshal(cell.Value, &p)
 			if err != nil {
 				return
 			}
-		case "etag":
-			object.Etag = string(cell.Value)
-		case "content-type":
-			object.ContentType = string(cell.Value)
+			object.Parts[partNumber] = p
 		}
 	}
 	object.BucketName = bucketName
