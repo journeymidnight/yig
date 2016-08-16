@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package minio
+package api
 
 import (
 	"net/http"
 	"strings"
 
+	. "git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
-	. "git.letv.cn/yig/yig/minio/datatype"
 	router "github.com/gorilla/mux"
 	"github.com/rs/cors"
 )
@@ -29,7 +29,7 @@ import (
 // HandlerFunc - useful to chain different middleware http.Handler
 type HandlerFunc func(http.Handler) http.Handler
 
-func registerHandlers(mux *router.Router, handlerFns ...HandlerFunc) http.Handler {
+func RegisterHandlers(mux *router.Router, handlerFns ...HandlerFunc) http.Handler {
 	var f http.Handler
 	f = mux
 	for _, hFn := range handlerFns {
@@ -43,7 +43,7 @@ type cacheControlHandler struct {
 	handler http.Handler
 }
 
-func setBrowserCacheControlHandler(h http.Handler) http.Handler {
+func SetBrowserCacheControlHandler(h http.Handler) http.Handler {
 	return cacheControlHandler{h}
 }
 
@@ -57,7 +57,7 @@ type resourceHandler struct {
 }
 
 // setCorsHandler handler for CORS (Cross Origin Resource Sharing)
-func setCorsHandler(h http.Handler) http.Handler {
+func SetCorsHandler(h http.Handler) http.Handler {
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
 		AllowedMethods: []string{"GET", "HEAD", "POST", "PUT"},
@@ -71,7 +71,7 @@ func setCorsHandler(h http.Handler) http.Handler {
 // Ignore resources handler is wrapper handler used for API request resource validation
 // Since we do not support all the S3 queries, it is necessary for us to throw back a
 // valid error message indicating that requested feature is not implemented.
-func setIgnoreResourcesHandler(h http.Handler) http.Handler {
+func SetIgnoreResourcesHandler(h http.Handler) http.Handler {
 	return resourceHandler{h}
 }
 

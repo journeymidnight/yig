@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package minio
+package api
 
 import (
 	"net/url"
 	"strconv"
 
-	. "git.letv.cn/yig/yig/minio/datatype"
+	. "git.letv.cn/yig/yig/api/datatype"
 )
 
 // Parse bucket url queries

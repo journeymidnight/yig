@@ -11,6 +11,8 @@ const (
 
 	BUCKET_TABLE                     = "buckets"
 	BUCKET_COLUMN_FAMILY             = "b"
+	BUCKET_ACL_COLUMN_FAMILY         = "a"
+	BUCKET_CORS_COLUMN_FAMILY        = "c"
 	USER_TABLE                       = "users"
 	USER_COLUMN_FAMILY               = "u"
 	OBJECT_TABLE                     = "objects"

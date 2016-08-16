@@ -14,21 +14,25 @@
  * limitations under the License.
  */
 
-package minio
+package api
 
 import (
+	. "git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
-	. "git.letv.cn/yig/yig/minio/datatype"
 	"io"
 	"net/http"
 	"strings"
+)
+
+const (
+	REGION = "cn-bj-1"
 )
 
 // validates location constraint from the request body.
 // the location value in the request body should match the Region in serverConfig.
 // other values of location are not accepted.
 // make bucket fails in such cases.
-func isValidLocationContraint(reqBody io.Reader, serverRegion string) error {
+func isValidLocationContraint(reqBody io.Reader) error {
 	var locationContraint CreateBucketLocationConfiguration
 	var errCode error
 	errCode = nil
@@ -49,7 +53,7 @@ func isValidLocationContraint(reqBody io.Reader, serverRegion string) error {
 		// It should be equal to Region in serverConfig.
 		// Else ErrInvalidRegion returned.
 		// For empty value location will be to set to  default value from the serverConfig.
-		if locationContraint.Location != "" && serverRegion != locationContraint.Location {
+		if locationContraint.Location != "" && REGION != locationContraint.Location {
 			//WriteErrorResponse(w, r, ErrInvalidRegion, r.URL.Path)
 			errCode = ErrInvalidRegion
 		}

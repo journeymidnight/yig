@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package minio
+package api
 
 import (
 	"git.letv.cn/yig/yig/meta"

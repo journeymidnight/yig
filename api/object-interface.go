@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-package minio
+package api
 
 import (
+	"git.letv.cn/yig/yig/api/datatype"
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/meta"
 	"io"
@@ -25,7 +26,7 @@ import (
 // ObjectLayer implements primitives for object API layer.
 type ObjectLayer interface {
 	// Bucket operations.
-	MakeBucket(bucket string, credential iam.Credential) error
+	MakeBucket(bucket string, acl datatype.Acl, credential iam.Credential) error
 	GetBucketInfo(bucket string, credential iam.Credential) (bucketInfo meta.BucketInfo, err error)
 	ListBuckets(credential iam.Credential) (buckets []meta.BucketInfo, err error)
 	DeleteBucket(bucket string, credential iam.Credential) error

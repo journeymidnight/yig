@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"errors"
+	"git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/iam"
-	"git.letv.cn/yig/yig/minio/datatype"
 	"strconv"
 )
 

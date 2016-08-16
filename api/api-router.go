@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-package minio
+package api
 
 import router "github.com/gorilla/mux"
 
 // objectAPIHandler implements and provides http handlers for S3 API.
-type objectAPIHandlers struct {
+type ObjectAPIHandlers struct {
 	ObjectAPI ObjectLayer
 }
 
 // registerAPIRouter - registers S3 compatible APIs.
-func registerAPIRouter(mux *router.Router, api objectAPIHandlers) {
+func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 	// API Router
 	apiRouter := mux.NewRoute().PathPrefix("/").Subrouter()
 

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package minio
+package api
 
 import (
 	"crypto/md5"
@@ -127,7 +127,7 @@ func getUUID() (uuidStr string) {
 	for {
 		uuid, err := uuid.New()
 		if err != nil {
-			errorIf(err, "Unable to initialize uuid")
+			helper.ErrorIf(err, "Unable to initialize uuid")
 			continue
 		}
 		uuidStr = uuid.String()

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package minio
+package main
 
 import (
 	"errors"
@@ -27,20 +27,58 @@ import (
 	"syscall"
 	"time"
 
+	"git.letv.cn/yig/yig/api"
 	"git.letv.cn/yig/yig/helper"
+	"git.letv.cn/yig/yig/signature"
 	"git.letv.cn/yig/yig/storage"
+	router "github.com/gorilla/mux"
 )
 
-var serverConfig *ServerConfig
-
 type ServerConfig struct {
-	Address              string
-	KeyFilePath          string      // path for SSL key file
-	CertFilePath         string      // path for SSL certificate file
-	Region               string      // region name of current server
-	Logger               *log.Logger // global logger
-	ObjectLayer          *storage.YigStorage
-	MaxConcurrentRequest int // used in rate limit
+	Address      string
+	KeyFilePath  string      // path for SSL key file
+	CertFilePath string      // path for SSL certificate file
+	Logger       *log.Logger // global logger
+	ObjectLayer  *storage.YigStorage
+}
+
+// configureServer handler returns final handler for the http server.
+func configureServerHandler(c *ServerConfig) http.Handler {
+	// Initialize API.
+	apiHandlers := api.ObjectAPIHandlers{
+		ObjectAPI: c.ObjectLayer,
+	}
+
+	// Initialize router.
+	mux := router.NewRouter()
+
+	// Register all routers.
+	api.RegisterAPIRouter(mux, apiHandlers)
+	// Add new routers here.
+
+	// List of some generic handlers which are applied for all
+	// incoming requests.
+	var handlerFns = []api.HandlerFunc{
+		// Limits the number of concurrent http requests.
+		api.SetRateLimitHandler,
+		// TODO: Adds cache control for all browser requests.
+		api.SetBrowserCacheControlHandler,
+		// CORS setting for all browser API requests.
+		api.SetCorsHandler,
+		// Validates all incoming URL resources, for invalid/unsupported
+		// resources client receives a HTTP error.
+		api.SetIgnoreResourcesHandler,
+		// Auth handler verifies incoming authorization headers and
+		// routes them accordingly. Client receives a HTTP error for
+		// invalid/unsupported signatures.
+		signature.SetAuthHandler,
+		// Add new handlers here.
+
+		api.SetLogHandler,
+	}
+
+	// Register rest of the handlers.
+	return api.RegisterHandlers(mux, handlerFns...)
 }
 
 // configureServer configure a new server instance
@@ -61,14 +99,14 @@ func configureServer(c *ServerConfig) *http.Server {
 // getListenIPs - gets all the ips to listen on.
 func getListenIPs(httpServerConf *http.Server) (hosts []string, port string) {
 	host, port, err := net.SplitHostPort(httpServerConf.Addr)
-	fatalIf(err, "Unable to parse host port.")
+	helper.FatalIf(err, "Unable to parse host port.")
 
 	switch {
 	case host != "":
 		hosts = append(hosts, host)
 	default:
 		addrs, err := net.InterfaceAddrs()
-		fatalIf(err, "Unable to determine network interface address.")
+		helper.FatalIf(err, "Unable to determine network interface address.")
 		for _, addr := range addrs {
 			if addr.Network() == "ip+net" {
 				host := strings.Split(addr.String(), "/")[0]
@@ -95,9 +133,9 @@ func printListenIPs(tls bool, hosts []string, port string) {
 // Extract port number from address address should be of the form host:port.
 func getPort(address string) int {
 	_, portStr, err := net.SplitHostPort(address)
-	fatalIf(err, "Unable to parse host port.")
+	helper.FatalIf(err, "Unable to parse host port.")
 	portInt, err := strconv.Atoi(portStr)
-	fatalIf(err, "Invalid port number.")
+	helper.FatalIf(err, "Invalid port number.")
 	return portInt
 }
 
@@ -134,17 +172,17 @@ func checkPortAvailability(port int) {
 	}
 	ifcs, err := net.Interfaces()
 	if err != nil {
-		fatalIf(err, "Unable to list interfaces.")
+		helper.FatalIf(err, "Unable to list interfaces.")
 	}
 	for _, ifc := range ifcs {
 		addrs, err := ifc.Addrs()
 		if err != nil {
-			fatalIf(err, "Unable to list addresses on interface %s.", ifc.Name)
+			helper.FatalIf(err, "Unable to list addresses on interface %s.", ifc.Name)
 		}
 		for _, addr := range addrs {
 			ipnet, ok := addr.(*net.IPNet)
 			if !ok {
-				errorIf(errors.New(""), "Failed to assert type on (*net.IPNet) interface.")
+				helper.ErrorIf(errors.New(""), "Failed to assert type on (*net.IPNet) interface.")
 				continue
 			}
 			ip := ipnet.IP
@@ -157,14 +195,14 @@ func checkPortAvailability(port int) {
 			if err != nil {
 				if isAddrInUse(err) {
 					// Fail if port is already in use.
-					fatalIf(err, "Unable to listen on %s:%.d.", tcpAddr.IP, tcpAddr.Port)
+					helper.FatalIf(err, "Unable to listen on %s:%.d.", tcpAddr.IP, tcpAddr.Port)
 				} else {
 					// Ignore other errors.
 					continue
 				}
 			}
 			if err = l.Close(); err != nil {
-				fatalIf(err, "Unable to close listener on %s:%.d.", tcpAddr.IP, tcpAddr.Port)
+				helper.FatalIf(err, "Unable to close listener on %s:%.d.", tcpAddr.IP, tcpAddr.Port)
 			}
 		}
 	}
@@ -178,11 +216,10 @@ func isSSL(c *ServerConfig) bool {
 }
 
 // blocks after server started
-func StartApiServer(c *ServerConfig) {
+func startApiServer(c *ServerConfig) {
 	// use YIG's global logger
 	logger = c.Logger
 
-	serverConfig = c
 	serverAddress := c.Address
 
 	host, port, _ := net.SplitHostPort(serverAddress)
@@ -201,12 +238,6 @@ func StartApiServer(c *ServerConfig) {
 	// Configure server.
 	apiServer := configureServer(c)
 
-	// Region.
-	region := c.Region
-
-	// Print credentials and region.
-	logger.Println("\n" + "Region: " + region)
-
 	hosts, port := getListenIPs(apiServer) // get listen ips and port.
 	tls := apiServer.TLSConfig != nil      // 'true' if TLS is enabled.
 
@@ -223,5 +254,5 @@ func StartApiServer(c *ServerConfig) {
 		// Fallback to http.
 		err = apiServer.ListenAndServe()
 	}
-	fatalIf(err, "API server error.")
+	helper.FatalIf(err, "API server error.")
 }

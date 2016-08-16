@@ -1,4 +1,4 @@
-package minio
+package api
 
 import (
 	"git.letv.cn/yig/yig/helper"
@@ -17,6 +17,6 @@ func (l logHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	logger.Printf("COMPLETE %s %s host: %s", r.Method, r.URL, r.Host)
 }
 
-func setLogHandler(handler http.Handler) http.Handler {
+func SetLogHandler(handler http.Handler) http.Handler {
 	return logHandler{handler: handler}
 }

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package minio
+package helper
 
 import (
 	"bufio"
@@ -70,7 +70,7 @@ func stackInfo() string {
 }
 
 // errorIf synonymous with fatalIf but doesn't exit on error != nil
-func errorIf(err error, msg string, data ...interface{}) {
+func ErrorIf(err error, msg string, data ...interface{}) {
 	if err == nil {
 		return
 	}
@@ -80,7 +80,7 @@ func errorIf(err error, msg string, data ...interface{}) {
 }
 
 // fatalIf wrapper function which takes error and prints error messages.
-func fatalIf(err error, msg string, data ...interface{}) {
+func FatalIf(err error, msg string, data ...interface{}) {
 	if err == nil {
 		return
 	}

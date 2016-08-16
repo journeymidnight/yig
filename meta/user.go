@@ -8,6 +8,10 @@ import (
 	"golang.org/x/net/context"
 )
 
+const (
+	BUCKET_NUMBER_LIMIT = 100
+)
+
 func (m *Meta) ensureUserExists(userId string) error {
 	emptyArray, err := json.Marshal([]string{})
 	if err != nil {

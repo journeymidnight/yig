@@ -17,8 +17,8 @@
 package datatype
 
 import (
+	"errors"
 	"fmt"
-	"git.letv.cn/yig/yig/meta"
 	"regexp"
 	"strconv"
 	"strings"
@@ -30,6 +30,9 @@ const (
 
 // Valid byte position regexp
 var validBytePos = regexp.MustCompile(`^[0-9]+$`)
+
+// ErrorInvalidRange - returned when given range value is not valid.
+var ErrorInvalidRange = errors.New("Invalid range")
 
 // HttpRange specifies the byte range to be sent to the client.
 type HttpRange struct {
@@ -101,7 +104,7 @@ func ParseRequestRange(rangeString string, resourceSize int64) (hrange *HttpRang
 
 		// First and last byte positions should not be >= resourceSize.
 		if offsetBegin >= resourceSize {
-			return nil, meta.ErrorInvalidRange
+			return nil, ErrorInvalidRange
 		}
 
 		if offsetEnd >= resourceSize {
@@ -111,7 +114,7 @@ func ParseRequestRange(rangeString string, resourceSize int64) (hrange *HttpRang
 		// rangeString contains only first byte position. eg. "bytes=8-"
 		if offsetBegin >= resourceSize {
 			// First byte position should not be >= resourceSize.
-			return nil, meta.ErrorInvalidRange
+			return nil, ErrorInvalidRange
 		}
 
 		offsetEnd = resourceSize - 1
@@ -119,7 +122,7 @@ func ParseRequestRange(rangeString string, resourceSize int64) (hrange *HttpRang
 		// rangeString contains only last byte position. eg. "bytes=-3"
 		if offsetEnd == 0 {
 			// Last byte position should not be zero eg. "bytes=-0"
-			return nil, meta.ErrorInvalidRange
+			return nil, ErrorInvalidRange
 		}
 
 		if offsetEnd >= resourceSize {

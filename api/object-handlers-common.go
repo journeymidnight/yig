@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-package minio
+package api
 
 import (
 	"net/http"
 	"strings"
 	"time"
 
+	. "git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/meta"
-	. "git.letv.cn/yig/yig/minio/datatype"
 )
 
 // Validates the preconditions for CopyObject, returns true if CopyObject operation should not proceed.

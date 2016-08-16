@@ -14,10 +14,14 @@
  * limitations under the License.
  */
 
-package minio
+package api
 
 import (
 	"net/http"
+)
+
+const (
+	CONCURRENT_REQUEST_LIMIT = 100 // 0 for "no limit"
 )
 
 // rateLimit - represents datatype of the functionality implemented to
@@ -49,14 +53,14 @@ func (c *rateLimit) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // setRateLimitHandler limits the number of concurrent http requests based on
 // CONCURRENT_REQUEST_LIMIT.
-func setRateLimitHandler(handler http.Handler) http.Handler {
-	if serverConfig.MaxConcurrentRequest == 0 {
+func SetRateLimitHandler(handler http.Handler) http.Handler {
+	if CONCURRENT_REQUEST_LIMIT == 0 {
 		return handler
 	} // else proceed to rate limiting.
 
 	// For max connection limit of > '0' we initialize rate limit handler.
 	return &rateLimit{
 		handler: handler,
-		rqueue:  make(chan struct{}, serverConfig.MaxConcurrentRequest),
+		rqueue:  make(chan struct{}, CONCURRENT_REQUEST_LIMIT),
 	}
 }

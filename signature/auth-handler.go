@@ -26,9 +26,9 @@ import (
 	"net/http"
 	"strings"
 
+	. "git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/iam"
-	. "git.letv.cn/yig/yig/minio/datatype"
 )
 
 // Verify if the request http Header "x-amz-content-sha256" == "UNSIGNED-PAYLOAD"

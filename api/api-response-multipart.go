@@ -16,11 +16,11 @@
 
 // File carries any specific responses constructed/necessary in
 // multipart operations.
-package minio
+package api
 
 import (
+	. "git.letv.cn/yig/yig/api/datatype"
 	"git.letv.cn/yig/yig/meta"
-	. "git.letv.cn/yig/yig/minio/datatype"
 	"net/http"
 )
 

@@ -3,7 +3,6 @@
 package main
 
 import (
-	"git.letv.cn/yig/yig/minio"
 	"git.letv.cn/yig/yig/storage"
 	"log"
 	"os"
@@ -11,16 +10,16 @@ import (
 
 // TODO config file
 const (
-	LOGPATH                  = "/var/log/yig/yig.log"
-	PANIC_LOG_PATH           = "/var/log/yig/panic.log"
-	PIDFILE                  = "/var/run/yig/yig.pid"
-	CONCURRENT_REQUEST_LIMIT = 100 // 0 for "no limit"
-	BIND_ADDRESS             = "0.0.0.0:3000"
+	LOGPATH        = "/var/log/yig/yig.log"
+	PANIC_LOG_PATH = "/var/log/yig/panic.log"
+	PIDFILE        = "/var/run/yig/yig.pid"
+	BIND_ADDRESS   = "0.0.0.0:3000"
 
 	SSL_KEY_PATH  = ""
 	SSL_CERT_PATH = ""
-	REGION        = "cn-bj-1"
 )
+
+var logger *log.Logger
 
 func main() {
 	f, err := os.OpenFile(LOGPATH, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
@@ -29,18 +28,16 @@ func main() {
 	}
 	defer f.Close()
 
-	logger := log.New(f, "[yig]", log.LstdFlags)
+	logger = log.New(f, "[yig]", log.LstdFlags)
 
 	yig := storage.New(logger) // New() panics if errors occur
 
-	apiServerConfig := &minio.ServerConfig{
-		Address:              BIND_ADDRESS,
-		KeyFilePath:          SSL_KEY_PATH,
-		CertFilePath:         SSL_CERT_PATH,
-		Region:               REGION,
-		Logger:               logger,
-		ObjectLayer:          yig,
-		MaxConcurrentRequest: CONCURRENT_REQUEST_LIMIT,
+	apiServerConfig := &ServerConfig{
+		Address:      BIND_ADDRESS,
+		KeyFilePath:  SSL_KEY_PATH,
+		CertFilePath: SSL_CERT_PATH,
+		Logger:       logger,
+		ObjectLayer:  yig,
 	}
-	minio.StartApiServer(apiServerConfig)
+	startApiServer(apiServerConfig)
 }

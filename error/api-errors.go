@@ -98,19 +98,13 @@ const (
 	ErrInvalidQuerySignatureAlgo
 	ErrInvalidQueryParams
 	ErrBucketAlreadyOwnedByYou
+	ErrInvalidCannedAcl
 	// Add new error codes here.
 
 	// S3 extended errors.
 	ErrContentSHA256Mismatch
 	// Add new extended error codes here.
 
-	// Minio extended errors.
-	ErrReadQuorum
-	ErrWriteQuorum
-	ErrStorageFull
-	ErrObjectExistsAsDirectory
-	ErrPolicyNesting
-	ErrInvalidObjectName
 	// Add new extended error codes here.
 	// Please open a https://github.com/minio/minio/issues before adding
 	// new error codes here.
@@ -426,38 +420,12 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		Description:    "The provided 'x-amz-content-sha256' header does not match what was computed.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
-
-	/// Minio extensions.
-	ErrStorageFull: {
-		AwsErrorCode:   "XMinioStorageFull",
-		Description:    "Storage backend has reached its minimum free disk threshold. Please delete few objects to proceed.",
-		HttpStatusCode: http.StatusInternalServerError,
-	},
-	ErrObjectExistsAsDirectory: {
-		AwsErrorCode:   "XMinioObjectExistsAsDirectory",
-		Description:    "Object name already exists as a directory.",
-		HttpStatusCode: http.StatusConflict,
-	},
-	ErrReadQuorum: {
-		AwsErrorCode:   "XMinioReadQuorum",
-		Description:    "Multiple disk failures, unable to reconstruct data.",
-		HttpStatusCode: http.StatusServiceUnavailable,
-	},
-	ErrWriteQuorum: {
-		AwsErrorCode:   "XMinioWriteQuorum",
-		Description:    "Multiple disks failures, unable to write data.",
-		HttpStatusCode: http.StatusServiceUnavailable,
-	},
-	ErrPolicyNesting: {
-		AwsErrorCode:   "XMinioPolicyNesting",
-		Description:    "Policy nesting conflict has occurred.",
-		HttpStatusCode: http.StatusConflict,
-	},
-	ErrInvalidObjectName: {
-		AwsErrorCode:   "XMinioInvalidObjectName",
-		Description:    "Object name contains unsupported characters. Unsupported characters are `^*|\\\"",
+	ErrInvalidCannedAcl: {
+		AwsErrorCode:   "InvalidAcl",
+		Description:    "The canned ACL you provided is not valid",
 		HttpStatusCode: http.StatusBadRequest,
 	},
+
 	// Add your error structure here.
 }
 

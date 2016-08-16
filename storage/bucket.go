@@ -3,6 +3,7 @@ package storage
 import (
 	"bytes"
 	"encoding/binary"
+	"git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/meta"
@@ -13,21 +14,20 @@ import (
 	"time"
 )
 
-const (
-	CREATE_TIME_LAYOUT = "2006-01-02T15:04:05.000Z"
-)
+func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
+	credential iam.Credential) error {
 
-func (yig *YigStorage) MakeBucket(bucket string, credential iam.Credential) error {
-	now := time.Now().UTC().Format(CREATE_TIME_LAYOUT)
-	values := map[string]map[string][]byte{
-		meta.BUCKET_COLUMN_FAMILY: map[string][]byte{
-			"CORS":       []byte{}, // TODO
-			"UID":        []byte(credential.UserId),
-			"ACL":        []byte{}, // TODO
-			"createTime": []byte(now),
-		},
+	now := time.Now().UTC()
+	bucket := meta.Bucket{
+		Name:       bucketName,
+		CreateTime: now,
+		ACL:        acl,
 	}
-	put, err := hrpc.NewPutStr(context.Background(), meta.BUCKET_TABLE, bucket, values)
+	values, err := bucket.GetValues()
+	if err != nil {
+		return err
+	}
+	put, err := hrpc.NewPutStr(context.Background(), meta.BUCKET_TABLE, bucketName, values)
 	if err != nil {
 		yig.Logger.Println("Error making hbase put: ", err)
 		return err
@@ -40,7 +40,7 @@ func (yig *YigStorage) MakeBucket(bucket string, credential iam.Credential) erro
 	}
 	if !processed { // bucket already exists, return accurate message
 		family := map[string][]string{meta.BUCKET_COLUMN_FAMILY: []string{"UID"}}
-		get, err := hrpc.NewGetStr(context.Background(), meta.BUCKET_TABLE, bucket,
+		get, err := hrpc.NewGetStr(context.Background(), meta.BUCKET_TABLE, bucketName,
 			hrpc.Families(family))
 		if err != nil {
 			yig.Logger.Println("Error making hbase get: ", err)
@@ -48,7 +48,7 @@ func (yig *YigStorage) MakeBucket(bucket string, credential iam.Credential) erro
 		}
 		b, err := yig.MetaStorage.Hbase.Get(get)
 		if err != nil {
-			yig.Logger.Println("Error get bucket: ", bucket, "with error: ", err)
+			yig.Logger.Println("Error get bucket: ", bucketName, "with error: ", err)
 			return ErrBucketAlreadyExists
 		}
 		if string(b.Cells[0].Value) == credential.UserId {
@@ -57,19 +57,19 @@ func (yig *YigStorage) MakeBucket(bucket string, credential iam.Credential) erro
 			return ErrBucketAlreadyExists
 		}
 	}
-	err = yig.MetaStorage.AddBucketForUser(bucket, credential.UserId)
+	err = yig.MetaStorage.AddBucketForUser(bucketName, credential.UserId)
 	if err != nil { // roll back bucket table, i.e. remove inserted bucket
 		yig.Logger.Println("Error AddBucketForUser: ", err)
-		del, err := hrpc.NewDelStr(context.Background(), meta.BUCKET_TABLE, bucket, values)
+		del, err := hrpc.NewDelStr(context.Background(), meta.BUCKET_TABLE, bucketName, values)
 		if err != nil {
 			yig.Logger.Println("Error making hbase del: ", err)
-			yig.Logger.Println("Leaving junk bucket unremoved: ", bucket)
+			yig.Logger.Println("Leaving junk bucket unremoved: ", bucketName)
 			return err
 		}
 		_, err = yig.MetaStorage.Hbase.Delete(del)
 		if err != nil {
 			yig.Logger.Println("Error deleting: ", err)
-			yig.Logger.Println("Leaving junk bucket unremoved: ", bucket)
+			yig.Logger.Println("Leaving junk bucket unremoved: ", bucketName)
 			return err
 		}
 	}

@@ -16,7 +16,7 @@
 
 // This file implements AWS Access Policy Language parser in
 // accordance with http://docs.aws.amazon.com/AmazonS3/latest/dev/access-policy-language-overview.html
-package minio
+package api
 
 import (
 	"encoding/json"
@@ -257,7 +257,7 @@ func checkBucketPolicyResources(bucket string, bucketPolicy BucketPolicy) error 
 		for _, otherResource := range resources {
 			// Common prefix reject such rules.
 			if strings.HasPrefix(otherResource, resource) {
-				return ErrPolicyNesting
+				return ErrMalformedPolicy
 			}
 		}
 	}

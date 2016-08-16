@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-package datatype
+package api
 
 import (
 	"bytes"
 	"crypto/rand"
 	"encoding/xml"
+	. "git.letv.cn/yig/yig/api/datatype"
 	"git.letv.cn/yig/yig/meta"
 	"net/http"
 	"strconv"
