@@ -34,6 +34,7 @@ import (
 	"git.letv.cn/yig/yig/meta"
 	"git.letv.cn/yig/yig/signature"
 	mux "github.com/gorilla/mux"
+	"git.letv.cn/yig/yig/helper"
 )
 
 // supportedGetReqParams - supported request parameters for GET presigned request.
@@ -82,11 +83,13 @@ func (f funcToWriter) Write(p []byte) (int, error) {
 // This implementation of the GET operation retrieves object. To use GET,
 // you must have READ access to the object.
 func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Request) {
-	var object, bucket string
+	var objectName, bucketName string
 	vars := mux.Vars(r)
-	bucket = vars["bucket"]
-	object = vars["object"]
+	bucketName = vars["bucket"]
+	objectName = vars["object"]
 
+	var credential iam.Credential
+	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
@@ -94,25 +97,47 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	case signature.AuthTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
-		if s3Error := enforceBucketPolicy("s3:GetObject", bucket, r.URL); s3Error != nil {
-			WriteErrorResponse(w, r, s3Error, r.URL.Path)
+		if err = enforceBucketPolicy("s3:GetObject", bucketName, r.URL); err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
 			return
 		}
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != nil {
-			WriteErrorResponse(w, r, s3Error, r.URL.Path)
+		if credential, err = signature.IsReqAuthenticated(r); err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
 			return
 		}
 	}
 	// Fetch object stat info.
-	objInfo, err := api.ObjectAPI.GetObjectInfo(bucket, object)
+	object, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
 		if err == ErrNoSuchKey {
-			err = errAllowableObjectNotFound(bucket, r)
+			err = errAllowableObjectNotFound(bucketName, r)
 		}
 		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+	switch object.ACL.CannedAcl {
+	case "public-read", "public-read-write":
+		break
+	case "authenticated-read":
+		if credential.UserId == "" {
+			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+			return 
+		}
+	case "bucket-owner-read", "bucket-owner-full-control":
+		bucketInfo, err := api.ObjectAPI.GetBucketInfo(bucketName, credential)
+		if err != nil {
+			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+			return
+		}
+		if bucketInfo.OwnerId != credential.UserId {
+			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+			return
+		}
+	default:
+		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	}
 
@@ -120,10 +145,10 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	var hrange *HttpRange
 	rangeHeader := r.Header.Get("Range")
 	if rangeHeader != "" {
-		if hrange, err = ParseRequestRange(rangeHeader, objInfo.Size); err != nil {
+		if hrange, err = ParseRequestRange(rangeHeader, object.Size); err != nil {
 			// Handle only ErrorInvalidRange
 			// Ignore other parse error and treat it as regular Get request like Amazon S3.
-			if err == meta.ErrorInvalidRange {
+			if err == ErrorInvalidRange {
 				WriteErrorResponse(w, r, ErrInvalidRange, r.URL.Path)
 				return
 			}
@@ -134,13 +159,13 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	// Validate pre-conditions if any.
-	if checkPreconditions(w, r, objInfo) {
+	if checkPreconditions(w, r, object) {
 		return
 	}
 
 	// Get the object.
 	startOffset := int64(0)
-	length := objInfo.Size
+	length := object.Size
 	if hrange != nil {
 		startOffset = hrange.OffsetBegin
 		length = hrange.GetLength()
@@ -152,7 +177,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		if !dataWritten {
 			// Set headers on the first write.
 			// Set standard object headers.
-			SetObjectHeaders(w, objInfo, hrange)
+			SetObjectHeaders(w, object, hrange)
 
 			// Set any additional requested response headers.
 			setGetRespHeaders(w, r.URL.Query())
@@ -162,7 +187,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		return w.Write(p)
 	})
 	// Reads the object at startOffset and writes to mw.
-	if err := api.ObjectAPI.GetObject(objInfo, startOffset, length, writer); err != nil {
+	if err := api.ObjectAPI.GetObject(object, startOffset, length, writer); err != nil {
 		helper.ErrorIf(err, "Unable to write to client.")
 		if !dataWritten {
 			// Error response only if no data has been written to client yet. i.e if
@@ -185,11 +210,13 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 // -----------
 // The HEAD operation retrieves metadata from an object without returning the object itself.
 func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Request) {
-	var object, bucket string
+	var objectName, bucketName string
 	vars := mux.Vars(r)
-	bucket = vars["bucket"]
-	object = vars["object"]
+	bucketName = vars["bucket"]
+	objectName = vars["object"]
 
+	var credential iam.Credential
+	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
@@ -197,34 +224,56 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	case signature.AuthTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
-		if s3Error := enforceBucketPolicy("s3:GetObject", bucket, r.URL); s3Error != nil {
-			WriteErrorResponse(w, r, s3Error, r.URL.Path)
+		if err = enforceBucketPolicy("s3:GetObject", bucketName, r.URL); err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
 			return
 		}
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
-		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != nil {
-			WriteErrorResponse(w, r, s3Error, r.URL.Path)
+		if credential, err = signature.IsReqAuthenticated(r); err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
 			return
 		}
 	}
 
-	objInfo, err := api.ObjectAPI.GetObjectInfo(bucket, object)
+	object, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
 		if err == ErrNoSuchKey {
-			err = errAllowableObjectNotFound(bucket, r)
+			err = errAllowableObjectNotFound(bucketName, r)
 		}
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
+	switch object.ACL.CannedAcl {
+	case "public-read", "public-read-write":
+		break
+	case "authenticated-read":
+		if credential.UserId == "" {
+			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+			return
+		}
+	case "bucket-owner-read", "bucket-owner-full-control":
+		bucketInfo, err := api.ObjectAPI.GetBucketInfo(bucketName, credential)
+		if err != nil {
+			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+			return
+		}
+		if bucketInfo.OwnerId != credential.UserId {
+			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+			return
+		}
+	default:
+		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		return
+	}
 
 	// Validate pre-conditions if any.
-	if checkPreconditions(w, r, objInfo) {
+	if checkPreconditions(w, r, object) {
 		return
 	}
 
 	// Set standard object headers.
-	SetObjectHeaders(w, objInfo, nil)
+	SetObjectHeaders(w, object, nil)
 
 	// Successfull response.
 	w.WriteHeader(http.StatusOK)
@@ -393,6 +442,12 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	metadata := extractMetadataFromHeader(r.Header)
 	metadata["md5Sum"] = hex.EncodeToString(md5Bytes)
 
+	acl, err := getAclFromHeader(r.Header)
+	if err != nil {
+		WriteErrorResponse(w, r , err, r.URL.Path)
+		return
+	}
+
 	var md5Sum string
 	switch signature.GetRequestAuthType(r) {
 	default:
@@ -406,13 +461,13 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 			return
 		}
 		// Create anonymous object.
-		md5Sum, err = api.ObjectAPI.PutObject(bucket, object, size, r.Body, metadata)
+		md5Sum, err = api.ObjectAPI.PutObject(bucket, object, size, r.Body, metadata, acl)
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		// Initialize signature verifier.
 		reader := signature.NewSignVerify(r)
 		// Create object.
-		md5Sum, err = api.ObjectAPI.PutObject(bucket, object, size, reader, metadata)
+		md5Sum, err = api.ObjectAPI.PutObject(bucket, object, size, reader, metadata, acl)
 	}
 	if err != nil {
 		helper.ErrorIf(err, "Unable to create an object.")
@@ -455,10 +510,16 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 		}
 	}
 
+	acl, err := getAclFromHeader(r.Header)
+	if err != nil {
+		WriteErrorResponse(w, r , err, r.URL.Path)
+		return
+	}
+
 	// Save metadata.
 	metadata := extractMetadataFromHeader(r.Header)
 
-	uploadID, err := api.ObjectAPI.NewMultipartUpload(credential, bucket, object, metadata)
+	uploadID, err := api.ObjectAPI.NewMultipartUpload(credential, bucket, object, metadata, acl)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to initiate new multipart upload id.")
 		WriteErrorResponse(w, r, err, r.URL.Path)

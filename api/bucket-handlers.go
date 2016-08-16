@@ -434,6 +434,31 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 	WriteSuccessResponse(w, nil)
 }
 
+func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.Request)  {
+	vars := mux.Vars(r)
+	bucket := vars["bucket"]
+
+	var credential iam.Credential
+	var err error
+	if credential, err = signature.IsReqAuthenticated(r); err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+
+	acl, err := getAclFromHeader(r.Header)
+	if err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+	err = api.ObjectAPI.SetBucketAcl(bucket, acl, credential)
+	if err != nil {
+		helper.ErrorIf(err, "Unable to set ACL for bucket.")
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+	WriteSuccessResponse(w, nil)
+}
+
 func extractHTTPFormValues(reader *multipart.Reader) (io.Reader, map[string]string, error) {
 	/// HTML Form values
 	formValues := make(map[string]string)

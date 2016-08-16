@@ -68,6 +68,8 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 	bucket.Methods("PUT").HandlerFunc(api.PutBucketPolicyHandler).Queries("policy", "")
 	// PutBucket
 	bucket.Methods("PUT").HandlerFunc(api.PutBucketHandler)
+	// PutBucketACL
+	bucket.Methods("GET").HandlerFunc(api.PutBucketAclHandler).Queries("acl", "")
 	// HeadBucket
 	bucket.Methods("HEAD").HandlerFunc(api.HeadBucketHandler)
 	// PostPolicy

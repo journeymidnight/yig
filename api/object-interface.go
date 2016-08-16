@@ -27,6 +27,7 @@ import (
 type ObjectLayer interface {
 	// Bucket operations.
 	MakeBucket(bucket string, acl datatype.Acl, credential iam.Credential) error
+	SetBucketAcl(bucket string, acl datatype.Acl, credential iam.Credential) error
 	GetBucketInfo(bucket string, credential iam.Credential) (bucketInfo meta.BucketInfo, err error)
 	ListBuckets(credential iam.Credential) (buckets []meta.BucketInfo, err error)
 	DeleteBucket(bucket string, credential iam.Credential) error
@@ -37,14 +38,14 @@ type ObjectLayer interface {
 	GetObject(object meta.Object, startOffset int64, length int64, writer io.Writer) (err error)
 	GetObjectInfo(bucket, object string) (objInfo meta.Object, err error)
 	PutObject(bucket, object string, size int64, data io.Reader,
-		metadata map[string]string) (md5 string, err error)
+		metadata map[string]string, acl datatype.Acl) (md5 string, err error)
 	DeleteObject(bucket, object string) error
 
 	// Multipart operations.
 	ListMultipartUploads(credential iam.Credential, bucket, prefix, keyMarker, uploadIDMarker,
 		delimiter string, maxUploads int) (result meta.ListMultipartsInfo, err error)
 	NewMultipartUpload(credential iam.Credential, bucket, object string,
-		metadata map[string]string) (uploadID string, err error)
+		metadata map[string]string, acl datatype.Acl) (uploadID string, err error)
 	PutObjectPart(bucket, object, uploadID string, partID int, size int64,
 		data io.Reader, md5Hex string) (md5 string, err error)
 	ListObjectParts(credential iam.Credential, bucket, object, uploadID string, partNumberMarker int,

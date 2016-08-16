@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"git.letv.cn/yig/yig/api/datatype"
 )
 
 const (
@@ -101,20 +102,26 @@ func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketNam
 }
 
 func (yig *YigStorage) NewMultipartUpload(credential iam.Credential, bucketName, objectName string,
-	metadata map[string]string) (uploadId string, err error) {
+	metadata map[string]string, acl datatype.Acl) (uploadId string, err error) {
 	bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
 	if err != nil {
 		return
 	}
-	if bucket.OwnerId != credential.UserId {
-		return "", ErrBucketAccessForbidden
-		// TODO validate policy and ACL
+	switch bucket.ACL.CannedAcl {
+	case "public-read-write":
+		break
+	default:
+		if bucket.OwnerId != credential.UserId {
+			return "", ErrBucketAccessForbidden
+		}
 	}
+	// TODO policy and fancy ACL
 
 	now := time.Now()
 	uploadId = meta.GetMultipartUploadId(now)
 	metadata["InitiatorId"] = credential.UserId
 	metadata["OwnerId"] = bucket.OwnerId
+	metadata["Acl"] = acl.CannedAcl
 	marshaledMeta, err := json.Marshal(metadata)
 	if err != nil {
 		return

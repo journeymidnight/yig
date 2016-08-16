@@ -76,6 +76,33 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 	return err
 }
 
+func (yig *YigStorage) SetBucketAcl(bucketName string, acl datatype.Acl,
+	credential iam.Credential) error {
+
+	bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
+	if err != nil {
+		return err
+	}
+	if bucket.OwnerId != credential.UserId {
+		return ErrBucketAccessForbidden
+	}
+	bucket.ACL = acl.CannedAcl
+	values, err := bucket.GetValues()
+	if err != nil {
+		return err
+	}
+	put, err := hrpc.NewPutStr(context.Background(), meta.BUCKET_TABLE, bucketName, values)
+	if err != nil {
+		yig.Logger.Println("Error making hbase put: ", err)
+		return err
+	}
+	_, err = yig.MetaStorage.Hbase.Put(put)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (yig *YigStorage) GetBucketInfo(bucketName string,
 	credential iam.Credential) (bucketInfo meta.BucketInfo, err error) {
 	bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
@@ -88,7 +115,8 @@ func (yig *YigStorage) GetBucketInfo(bucketName string,
 		// TODO validate bucket policy
 	}
 	bucketInfo.Name = bucket.Name
-	bucketInfo.Created = bucket.CreateTime
+	bucketInfo.Created = bucket.CreateTime.Format(meta.CREATE_TIME_LAYOUT)
+	bucketInfo.OwnerId = bucket.OwnerId
 	return
 }
 
@@ -136,13 +164,9 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 
 	err = yig.MetaStorage.RemoveBucketForUser(bucketName, credential.UserId)
 	if err != nil { // roll back bucket table, i.e. re-add removed bucket entry
-		values := map[string]map[string][]byte{
-			meta.BUCKET_COLUMN_FAMILY: map[string][]byte{
-				"CORS":       []byte(bucket.CORS),
-				"UID":        []byte(bucket.OwnerId),
-				"ACL":        []byte(bucket.ACL),
-				"createTime": []byte(bucket.CreateTime),
-			},
+		values, err = bucket.GetValues()
+		if err != nil {
+			return err
 		}
 		put, err := hrpc.NewPutStr(context.Background(), meta.BUCKET_TABLE, bucketName, values)
 		if err != nil {
@@ -169,9 +193,18 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName, prefix
 	if err != nil {
 		return
 	}
-	if bucket.OwnerId != credential.UserId {
-		err = ErrBucketAccessForbidden
-		return
+
+	switch bucket.ACL.CannedAcl {
+	case "public-read", "public-read-write":
+		break
+	case "authenticated-read":
+		if credential.UserId == "" {
+			return ErrBucketAccessForbidden
+		}
+	default:
+		if bucket.OwnerId != credential.UserId {
+			return ErrBucketAccessForbidden
+		}
 	}
 	// TODO validate user policy and ACL
 

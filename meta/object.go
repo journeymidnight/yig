@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"git.letv.cn/yig/yig/api/datatype"
 )
 
 type Object struct {
@@ -28,6 +29,7 @@ type Object struct {
 	ContentType      string
 	CustomAttributes map[string]string
 	Parts            map[int]Part
+	ACL		 datatype.Acl
 }
 
 // Rowkey format:
@@ -72,6 +74,7 @@ func (o Object) GetValues() (values map[string]map[string][]byte, err error) {
 			"etag":         []byte(o.Etag),
 			"content-type": []byte(o.ContentType),
 			"attributes":   []byte{}, // TODO
+			"ACL":		[]byte(o.ACL.CannedAcl),
 		},
 	}
 	for partNumber, part := range o.Parts {
@@ -159,6 +162,8 @@ func ObjectFromResponse(response *hrpc.Result, bucketName string) (object Object
 				object.Etag = string(cell.Value)
 			case "content-type":
 				object.ContentType = string(cell.Value)
+			case "ACL":
+				object.ACL.CannedAcl = string(cell.Value)
 			}
 		case OBJECT_PART_COLUMN_FAMILY:
 			var partNumber int

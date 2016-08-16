@@ -52,7 +52,7 @@ func (m *Meta) GetBucketInfo(bucketName string) (bucket Bucket, err error) {
 		case "CORS":
 			bucket.CORS = string(cell.Value)
 		case "ACL":
-			bucket.ACL = string(cell.Value)
+			bucket.ACL.CannedAcl = string(cell.Value)
 		default:
 		}
 	}

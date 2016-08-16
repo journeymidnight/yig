@@ -11,6 +11,7 @@ import (
 	"golang.org/x/net/context"
 	"io"
 	"time"
+	"git.letv.cn/yig/yig/api/datatype"
 )
 
 func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size int64) (cluster *CephStorage, poolName string) {
@@ -72,7 +73,8 @@ func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string) (meta
 }
 
 func (yig *YigStorage) PutObject(bucketName string, objectName string, size int64,
-	data io.Reader, metadata map[string]string) (md5String string, err error) {
+	data io.Reader, metadata map[string]string, acl datatype.Acl) (md5String string, err error) {
+
 	md5Writer := md5.New()
 
 	// Limit the reader to its provided size if specified.
@@ -112,10 +114,15 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 		return "", err
 	}
 
-	if bucket.OwnerId != credential.UserId {
-		return "", ErrBucketAccessForbidden
-		// TODO validate bucket policy and ACL
+	switch bucket.ACL.CannedAcl {
+	case "public-read-write":
+		break
+	default:
+		if bucket.OwnerId != credential.UserId {
+			return "", ErrBucketAccessForbidden
+		}
 	}
+	// TODO validate bucket policy and fancy ACL
 
 	object := meta.Object{
 		Name:             objectName,
@@ -128,6 +135,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 		LastModifiedTime: time.Now().UTC(),
 		Etag:             calculatedMd5,
 		ContentType:      metadata["Content-Type"],
+		ACL: acl,
 		// TODO CustomAttributes
 	}
 
