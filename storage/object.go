@@ -12,6 +12,7 @@ import (
 	"io"
 	"time"
 	"git.letv.cn/yig/yig/api/datatype"
+	"git.letv.cn/yig/yig/iam"
 )
 
 func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size int64) (cluster *CephStorage, poolName string) {
@@ -70,6 +71,46 @@ func (yig *YigStorage) GetObject(object meta.Object, startOffset int64,
 
 func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string) (meta.Object, error) {
 	return yig.MetaStorage.GetObject(bucketName, objectName)
+}
+
+func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, acl datatype.Acl,
+credential iam.Credential) error {
+	bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
+	if err != nil {
+		return err
+	}
+	switch bucket.ACL.CannedAcl {
+	case "bucket-owner-full-control":
+		if bucket.OwnerId != credential.UserId {
+			return ErrAccessDenied
+		}
+	default:
+		if bucket.OwnerId != credential.UserId {
+			return ErrAccessDenied
+		}
+	} // TODO policy and fancy ACL
+	object, err := yig.MetaStorage.GetObject(bucketName, objectName)
+	if err != nil {
+		return err
+	}
+	object.ACL = acl
+	rowkey, err := object.GetRowkey()
+	if err != nil {
+		return err
+	}
+	values, err := object.GetValues()
+	if err != nil {
+		return err
+	}
+	put, err := hrpc.NewPutStr(context.Background(), meta.OBJECT_TABLE, rowkey, values)
+	if err != nil {
+		return err
+	}
+	_, err = yig.MetaStorage.Hbase.Put(put)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (yig *YigStorage) PutObject(bucketName string, objectName string, size int64,

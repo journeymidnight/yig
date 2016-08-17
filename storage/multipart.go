@@ -33,11 +33,21 @@ func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketNam
 	if err != nil {
 		return
 	}
-	if bucket.OwnerId != credential.UserId {
-		err = ErrBucketAccessForbidden
-		return
+	switch bucket.ACL.CannedAcl {
+	case "public-read", "public-read-write":
+		break
+	case "authenticated-read":
+		if credential.UserId == "" {
+			err = ErrBucketAccessForbidden
+			return
+		}
+	default:
+		if bucket.OwnerId != credential.UserId {
+			err = ErrBucketAccessForbidden
+			return
+		}
 	}
-	// TODO validate user policy and ACL
+	// TODO policy and fancy ACL
 
 	var prefixRowkey bytes.Buffer
 	prefixRowkey.WriteString(bucketName)
@@ -195,10 +205,22 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string,
 		return
 	}
 
-	_, err = data.(*signature.SignVerifyReader).Verify()
+	credential, err := data.(*signature.SignVerifyReader).Verify()
 	if err != nil {
 		return
-	} // TODO validate policy and ACL
+	}
+	bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
+	if err != nil {
+		return
+	}
+	switch bucket.ACL.CannedAcl {
+	case "public-read-write":
+		break
+	default:
+		if bucket.OwnerId != credential.UserId {
+			return "", ErrBucketAccessForbidden
+		}
+	} // TODO policy and fancy ACL
 
 	part := meta.Part{
 		PartNumber:   partId,
@@ -253,6 +275,7 @@ func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, ob
 	}
 
 	parts := make(map[int]meta.Part)
+	var acl string
 	for _, cell := range getMultipartResponse.Cells {
 		var partNumber int
 		partNumber, err = strconv.Atoi(string(cell.Qualifier))
@@ -274,6 +297,30 @@ func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, ob
 			}
 			result.InitiatorId = metadata["InitiatorId"]
 			result.OwnerId = metadata["OwnerId"]
+			acl = metadata["Acl"]
+		}
+	}
+	switch acl {
+	case "public-read", "public-read-write":
+		break
+	case "authenticated-read":
+		if credential.UserId == "" {
+			err = ErrAccessDenied
+			return
+		}
+	case "bucket-owner-read", "bucket-owner-full-controll":
+		bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
+		if err != nil {
+			return result, err
+		}
+		if bucket.OwnerId != credential.UserId {
+			err = ErrAccessDenied
+			return
+		}
+	default:
+		if result.OwnerId != credential.UserId {
+			err = ErrAccessDenied
+			return
 		}
 	}
 	partCount := 0
@@ -309,10 +356,14 @@ func (yig *YigStorage) AbortMultipartUpload(credential iam.Credential,
 	if err != nil {
 		return err
 	}
-	if bucket.OwnerId != credential.UserId {
-		return ErrBucketAccessForbidden
-		// TODO validate bucket policy
-	}
+	switch bucket.ACL.CannedAcl {
+	case "public-read-write":
+		break
+	default:
+		if bucket.OwnerId != credential.UserId {
+			return ErrBucketAccessForbidden
+		}
+	} // TODO policy and fancy ACL
 
 	values := map[string]map[string][]byte{
 		meta.MULTIPART_COLUMN_FAMILY: map[string][]byte{},
@@ -335,6 +386,20 @@ func (yig *YigStorage) AbortMultipartUpload(credential iam.Credential,
 
 func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential,
 	bucketName, objectName, uploadId string, uploadedParts []meta.CompletePart) (etagString string, err error) {
+
+	bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
+	if err != nil {
+		return
+	}
+	switch bucket.ACL.CannedAcl {
+	case "public-read-write":
+		break
+	default:
+		if bucket.OwnerId != credential.UserId {
+			return "", ErrBucketAccessForbidden
+		}
+	}
+	// TODO policy and fancy ACL
 
 	multipartRowkey, err := meta.GetMultipartRowkeyFromUploadId(bucketName, objectName, uploadId)
 	if err != nil {

@@ -137,8 +137,10 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			return
 		}
 	default:
-		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
-		return
+		if object.OwnerId != credential.UserId {
+			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+			return
+		}
 	}
 
 	// Get request range.
@@ -476,6 +478,47 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 	if md5Sum != "" {
 		w.Header().Set("ETag", "\""+md5Sum+"\"")
+	}
+	WriteSuccessResponse(w, nil)
+}
+
+func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.Request)  {
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+	objectName := vars["object"]
+
+	var credential iam.Credential
+	var err error
+	switch signature.GetRequestAuthType(r) {
+	default:
+		// For all unknown auth types return error.
+		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		return
+	case signature.AuthTypeAnonymous:
+		// http://docs.aws.amazon.com/AmazonS3/latest/dev/mpuAndPermissions.html
+		if s3Error := enforceBucketPolicy("s3:PutObject", bucketName, r.URL); s3Error != nil {
+			WriteErrorResponse(w, r, s3Error, r.URL.Path)
+			return
+		}
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
+		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
+		if credential, err = signature.IsReqAuthenticated(r); err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
+			return
+		}
+	}
+
+	acl, err := getAclFromHeader(r.Header)
+	if err != nil {
+		WriteErrorResponse(w, r , err, r.URL.Path)
+		return
+	}
+
+	err = api.ObjectAPI.SetObjectAcl(bucketName, objectName, acl, credential)
+	if err != nil {
+		helper.ErrorIf(err, "Unable to set ACL for object")
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
 	}
 	WriteSuccessResponse(w, nil)
 }

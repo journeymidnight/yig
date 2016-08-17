@@ -39,6 +39,7 @@ type ObjectLayer interface {
 	GetObjectInfo(bucket, object string) (objInfo meta.Object, err error)
 	PutObject(bucket, object string, size int64, data io.Reader,
 		metadata map[string]string, acl datatype.Acl) (md5 string, err error)
+	SetObjectAcl(bucket string, object string, acl datatype.Acl, credential iam.Credential) error
 	DeleteObject(bucket, object string) error
 
 	// Multipart operations.
