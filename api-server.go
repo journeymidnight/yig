@@ -216,9 +216,6 @@ func isSSL(c *ServerConfig) bool {
 
 // blocks after server started
 func startApiServer(c *ServerConfig) {
-	// set api server's global logger
-	api.Logger = c.Logger
-
 	serverAddress := c.Address
 
 	host, port, _ := net.SplitHostPort(serverAddress)

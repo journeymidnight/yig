@@ -29,7 +29,7 @@ import (
 	"github.com/dustin/go-humanize"
 )
 
-var logger *log.Logger
+var Logger *log.Logger
 
 // sysInfo returns useful system statistics.
 func sysInfo() map[string]string {
@@ -74,9 +74,9 @@ func ErrorIf(err error, msg string, data ...interface{}) {
 	if err == nil {
 		return
 	}
-	logger.Printf(msg, data...)
-	logger.Println("With error: ", err.Error())
-	logger.Println("System Info: ", sysInfo())
+	Logger.Printf(msg, data...)
+	Logger.Println("With error: ", err.Error())
+	Logger.Println("System Info: ", sysInfo())
 }
 
 // fatalIf wrapper function which takes error and prints error messages.
@@ -84,9 +84,9 @@ func FatalIf(err error, msg string, data ...interface{}) {
 	if err == nil {
 		return
 	}
-	logger.Printf(msg, data...)
-	logger.Println("With error: ", err.Error())
-	logger.Println("System Info: ", sysInfo())
-	logger.Println("Stack trace: ", stackInfo())
+	Logger.Printf(msg, data...)
+	Logger.Println("With error: ", err.Error())
+	Logger.Println("System Info: ", sysInfo())
+	Logger.Println("Stack trace: ", stackInfo())
 	os.Exit(1)
 }

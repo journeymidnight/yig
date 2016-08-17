@@ -27,6 +27,7 @@ import (
 
 	"git.letv.cn/yig/yig/meta"
 	"github.com/skyrings/skyring-common/tools/uuid"
+	"git.letv.cn/yig/yig/helper"
 )
 
 const (

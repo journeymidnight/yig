@@ -6,6 +6,7 @@ import (
 	"git.letv.cn/yig/yig/storage"
 	"log"
 	"os"
+	"git.letv.cn/yig/yig/helper"
 )
 
 // TODO config file
@@ -29,6 +30,7 @@ func main() {
 	defer f.Close()
 
 	logger = log.New(f, "[yig]", log.LstdFlags)
+	helper.Logger = logger
 
 	yig := storage.New(logger) // New() panics if errors occur
 
