@@ -86,7 +86,7 @@ func (yig *YigStorage) SetBucketAcl(bucketName string, acl datatype.Acl,
 	if bucket.OwnerId != credential.UserId {
 		return ErrBucketAccessForbidden
 	}
-	bucket.ACL = acl.CannedAcl
+	bucket.ACL = acl
 	values, err := bucket.GetValues()
 	if err != nil {
 		return err
@@ -133,7 +133,7 @@ func (yig *YigStorage) ListBuckets(credential iam.Credential) (buckets []meta.Bu
 		}
 		buckets = append(buckets, meta.BucketInfo{
 			Name:    bucket.Name,
-			Created: bucket.CreateTime,
+			Created: bucket.CreateTime.Format(meta.CREATE_TIME_LAYOUT),
 		})
 	}
 	return
@@ -199,11 +199,13 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName, prefix
 		break
 	case "authenticated-read":
 		if credential.UserId == "" {
-			return ErrBucketAccessForbidden
+			err = ErrBucketAccessForbidden
+			return
 		}
 	default:
 		if bucket.OwnerId != credential.UserId {
-			return ErrBucketAccessForbidden
+			err = ErrBucketAccessForbidden
+			return
 		}
 	}
 	// TODO validate user policy and ACL

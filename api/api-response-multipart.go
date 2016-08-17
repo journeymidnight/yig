@@ -19,7 +19,6 @@
 package api
 
 import (
-	. "git.letv.cn/yig/yig/api/datatype"
 	"git.letv.cn/yig/yig/meta"
 	"net/http"
 )

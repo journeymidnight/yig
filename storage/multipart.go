@@ -309,9 +309,10 @@ func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, ob
 			return
 		}
 	case "bucket-owner-read", "bucket-owner-full-controll":
-		bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
+		var bucket meta.Bucket
+		bucket, err = yig.MetaStorage.GetBucketInfo(bucketName)
 		if err != nil {
-			return result, err
+			return
 		}
 		if bucket.OwnerId != credential.UserId {
 			err = ErrAccessDenied

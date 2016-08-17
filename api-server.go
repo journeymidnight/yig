@@ -216,8 +216,8 @@ func isSSL(c *ServerConfig) bool {
 
 // blocks after server started
 func startApiServer(c *ServerConfig) {
-	// use YIG's global logger
-	logger = c.Logger
+	// set api server's global logger
+	api.Logger = c.Logger
 
 	serverAddress := c.Address
 

@@ -46,7 +46,10 @@ func (m *Meta) GetBucketInfo(bucketName string) (bucket Bucket, err error) {
 	for _, cell := range response.Cells {
 		switch string(cell.Qualifier) {
 		case "createTime":
-			bucket.CreateTime = time.Parse(CREATE_TIME_LAYOUT, string(cell.Value))
+			bucket.CreateTime, err = time.Parse(CREATE_TIME_LAYOUT, string(cell.Value))
+			if err != nil {
+				return
+			}
 		case "UID":
 			bucket.OwnerId = string(cell.Value)
 		case "CORS":

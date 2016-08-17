@@ -7,7 +7,7 @@ import (
 	"net/http"
 )
 
-const validCannedAcl = []string{
+var validCannedAcl = []string{
 	"private",
 	"public-read",
 	"public-read-write",
@@ -17,7 +17,7 @@ const validCannedAcl = []string{
 	"bucket-owner-full-controll",
 }
 
-func getAclFromHeader(h *http.Header) (acl Acl, err error) {
+func getAclFromHeader(h http.Header) (acl Acl, err error) {
 	acl.CannedAcl = h.Get("x-amz-acl")
 	if acl.CannedAcl == "" {
 		acl.CannedAcl = "private"

@@ -382,8 +382,13 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	// Do not set `md5sum` as CopyObject will not keep the
 	// same md5sum as the source.
 
+	// TODO
+	acl := Acl{
+		CannedAcl: "private",
+	}
+
 	// Create the object.
-	md5Sum, err := api.ObjectAPI.PutObject(bucket, object, size, pipeReader, metadata)
+	md5Sum, err := api.ObjectAPI.PutObject(bucket, object, size, pipeReader, metadata, acl)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to create an object.")
 		WriteErrorResponse(w, r, err, r.URL.Path)
