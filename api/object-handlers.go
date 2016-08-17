@@ -30,11 +30,11 @@ import (
 
 	. "git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/meta"
 	"git.letv.cn/yig/yig/signature"
 	mux "github.com/gorilla/mux"
-	"git.letv.cn/yig/yig/helper"
 )
 
 // supportedGetReqParams - supported request parameters for GET presigned request.
@@ -124,7 +124,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	case "authenticated-read":
 		if credential.UserId == "" {
 			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
-			return 
+			return
 		}
 	case "bucket-owner-read", "bucket-owner-full-control":
 		bucketInfo, err := api.ObjectAPI.GetBucketInfo(bucketName, credential)
@@ -446,7 +446,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 
 	acl, err := getAclFromHeader(r.Header)
 	if err != nil {
-		WriteErrorResponse(w, r , err, r.URL.Path)
+		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
 
@@ -482,7 +482,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	WriteSuccessResponse(w, nil)
 }
 
-func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.Request)  {
+func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 	objectName := vars["object"]
@@ -510,7 +510,7 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 
 	acl, err := getAclFromHeader(r.Header)
 	if err != nil {
-		WriteErrorResponse(w, r , err, r.URL.Path)
+		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
 
@@ -555,7 +555,7 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 
 	acl, err := getAclFromHeader(r.Header)
 	if err != nil {
-		WriteErrorResponse(w, r , err, r.URL.Path)
+		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
 

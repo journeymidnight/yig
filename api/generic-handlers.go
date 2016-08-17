@@ -20,8 +20,8 @@ import (
 	"net/http"
 	"strings"
 
-	. "git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/signature"
 	router "github.com/gorilla/mux"
 	"github.com/rs/cors"
 )
@@ -110,6 +110,31 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.handler.ServeHTTP(w, r)
+}
+
+// authHandler - handles all the incoming authorization headers and
+// validates them if possible.
+type AuthHandler struct {
+	handler http.Handler
+}
+
+// setAuthHandler to validate authorization header for the incoming request.
+func SetAuthHandler(h http.Handler) http.Handler {
+	return AuthHandler{h}
+}
+
+// handler for validating incoming authorization headers.
+func (a AuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch signature.GetRequestAuthType(r) {
+	case signature.AuthTypeUnknown:
+		WriteErrorResponse(w, r, ErrSignatureVersionNotSupported, r.URL.Path)
+		return
+	default:
+		// Let top level caller validate for anonymous and known
+		// signed requests.
+		a.handler.ServeHTTP(w, r)
+		return
+	}
 }
 
 //// helpers

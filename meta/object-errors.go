@@ -17,7 +17,6 @@
 package meta
 
 import (
-	"errors"
 	"fmt"
 )
 

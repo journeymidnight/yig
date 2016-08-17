@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/meta"
@@ -17,7 +18,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"git.letv.cn/yig/yig/api/datatype"
 )
 
 const (

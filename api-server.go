@@ -29,7 +29,6 @@ import (
 
 	"git.letv.cn/yig/yig/api"
 	"git.letv.cn/yig/yig/helper"
-	"git.letv.cn/yig/yig/signature"
 	"git.letv.cn/yig/yig/storage"
 	router "github.com/gorilla/mux"
 )
@@ -71,7 +70,7 @@ func configureServerHandler(c *ServerConfig) http.Handler {
 		// Auth handler verifies incoming authorization headers and
 		// routes them accordingly. Client receives a HTTP error for
 		// invalid/unsupported signatures.
-		signature.SetAuthHandler,
+		api.SetAuthHandler,
 		// Add new handlers here.
 
 		api.SetLogHandler,

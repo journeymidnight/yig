@@ -4,15 +4,15 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
+	"git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/meta"
 	"git.letv.cn/yig/yig/signature"
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
 	"io"
 	"time"
-	"git.letv.cn/yig/yig/api/datatype"
-	"git.letv.cn/yig/yig/iam"
 )
 
 func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size int64) (cluster *CephStorage, poolName string) {
@@ -74,7 +74,7 @@ func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string) (meta
 }
 
 func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, acl datatype.Acl,
-credential iam.Credential) error {
+	credential iam.Credential) error {
 	bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
 	if err != nil {
 		return err
@@ -176,7 +176,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 		LastModifiedTime: time.Now().UTC(),
 		Etag:             calculatedMd5,
 		ContentType:      metadata["Content-Type"],
-		ACL: acl,
+		ACL:              acl,
 		// TODO CustomAttributes
 	}
 

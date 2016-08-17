@@ -22,7 +22,7 @@ func (b Bucket) GetValues() (values map[string]map[string][]byte, err error) {
 	values = map[string]map[string][]byte{
 		BUCKET_COLUMN_FAMILY: map[string][]byte{
 			"UID":        []byte(b.OwnerId),
-			"ACL":        []byte(b.ACL),
+			"ACL":        []byte(b.ACL.CannedAcl),
 			"createTime": []byte(b.CreateTime.Format(CREATE_TIME_LAYOUT)),
 		},
 		// TODO CORS and fancy ACL
@@ -46,7 +46,7 @@ func (m *Meta) GetBucketInfo(bucketName string) (bucket Bucket, err error) {
 	for _, cell := range response.Cells {
 		switch string(cell.Qualifier) {
 		case "createTime":
-			bucket.CreateTime = string(cell.Value)
+			bucket.CreateTime = time.Parse(CREATE_TIME_LAYOUT, string(cell.Value))
 		case "UID":
 			bucket.OwnerId = string(cell.Value)
 		case "CORS":

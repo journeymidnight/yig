@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
 	"github.com/tsuna/gohbase/filter"
 	"github.com/tsuna/gohbase/hrpc"
@@ -12,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"git.letv.cn/yig/yig/api/datatype"
 )
 
 type Object struct {
@@ -29,7 +29,7 @@ type Object struct {
 	ContentType      string
 	CustomAttributes map[string]string
 	Parts            map[int]Part
-	ACL		 datatype.Acl
+	ACL              datatype.Acl
 }
 
 // Rowkey format:
@@ -74,7 +74,7 @@ func (o Object) GetValues() (values map[string]map[string][]byte, err error) {
 			"etag":         []byte(o.Etag),
 			"content-type": []byte(o.ContentType),
 			"attributes":   []byte{}, // TODO
-			"ACL":		[]byte(o.ACL.CannedAcl),
+			"ACL":          []byte(o.ACL.CannedAcl),
 		},
 	}
 	for partNumber, part := range o.Parts {
