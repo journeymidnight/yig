@@ -21,6 +21,7 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 	bucket := meta.Bucket{
 		Name:       bucketName,
 		CreateTime: now,
+		OwnerId:    credential.UserId,
 		ACL:        acl,
 	}
 	values, err := bucket.GetValues()

@@ -265,8 +265,10 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 			return
 		}
 	default:
-		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
-		return
+		if object.OwnerId != credential.UserId {
+			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+			return
+		}
 	}
 
 	// Validate pre-conditions if any.
