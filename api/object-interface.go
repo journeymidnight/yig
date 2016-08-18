@@ -28,8 +28,8 @@ type ObjectLayer interface {
 	// Bucket operations.
 	MakeBucket(bucket string, acl datatype.Acl, credential iam.Credential) error
 	SetBucketAcl(bucket string, acl datatype.Acl, credential iam.Credential) error
-	GetBucketInfo(bucket string, credential iam.Credential) (bucketInfo meta.BucketInfo, err error)
-	ListBuckets(credential iam.Credential) (buckets []meta.BucketInfo, err error)
+	GetBucketInfo(bucket string, credential iam.Credential) (bucketInfo meta.Bucket, err error)
+	ListBuckets(credential iam.Credential) (buckets []meta.Bucket, err error)
 	DeleteBucket(bucket string, credential iam.Credential) error
 	ListObjects(credential iam.Credential, bucket, prefix, marker, delimiter string,
 		maxKeys int) (result meta.ListObjectsInfo, err error)

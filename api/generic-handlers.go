@@ -23,17 +23,16 @@ import (
 	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/signature"
 	router "github.com/gorilla/mux"
-	"github.com/rs/cors"
 )
 
 // HandlerFunc - useful to chain different middleware http.Handler
-type HandlerFunc func(http.Handler) http.Handler
+type HandlerFunc func(http.Handler, ObjectLayer) http.Handler
 
-func RegisterHandlers(mux *router.Router, handlerFns ...HandlerFunc) http.Handler {
+func RegisterHandlers(mux *router.Router, objectLayer ObjectLayer, handlerFns ...HandlerFunc) http.Handler {
 	var f http.Handler
 	f = mux
 	for _, hFn := range handlerFns {
-		f = hFn(f)
+		f = hFn(f, objectLayer)
 	}
 	return f
 }
@@ -43,7 +42,7 @@ type cacheControlHandler struct {
 	handler http.Handler
 }
 
-func SetBrowserCacheControlHandler(h http.Handler) http.Handler {
+func SetBrowserCacheControlHandler(h http.Handler, _ ObjectLayer) http.Handler {
 	return cacheControlHandler{h}
 }
 
@@ -56,22 +55,68 @@ type resourceHandler struct {
 	handler http.Handler
 }
 
+type corsHandler struct {
+	handler     http.Handler
+	objectLayer ObjectLayer
+}
+
 // setCorsHandler handler for CORS (Cross Origin Resource Sharing)
-func SetCorsHandler(h http.Handler) http.Handler {
-	c := cors.New(cors.Options{
-		AllowedOrigins: []string{"*"},
-		AllowedMethods: []string{"GET", "HEAD", "POST", "PUT"},
-		AllowedHeaders: []string{"*"},
-		ExposedHeaders: []string{"ETag"},
-	})
-	return c.Handler(h)
+func SetCorsHandler(h http.Handler, objectLayer ObjectLayer) http.Handler {
+	return corsHandler{
+		handler:     h,
+		objectLayer: objectLayer,
+	}
+}
+
+func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Vary", "Origin")
+
+	if r.Header.Get("Origin") == "" { // not a CORS request
+		h.handler.ServeHTTP(w, r)
+		return
+	}
+
+	vars := router.Vars(r)
+	bucketName, ok := vars["bucket"]
+	if !ok {
+		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		return
+	}
+	bucket, err := h.objectLayer.GetBucketInfo(bucketName)
+	if err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+
+	if r.Method != "OPTIONS" {
+		for _, rule := range bucket.CORS.CorsRules {
+			if matchedOrigin, matched := rule.MatchSimple(r); matched {
+				rule.SetResponseHeaders(w, r.URL, matchedOrigin)
+				h.handler.ServeHTTP(w, r)
+				return
+			}
+		}
+	}
+
+	// r.Method == "OPTIONS", i.e CORS preflight
+	w.Header().Add("Vary", "Access-Control-Request-Method")
+	w.Header().Add("Vary", "Access-Control-Request-Headers")
+	for _, rule := range bucket.CORS.CorsRules {
+		if matchedOrigin, matched := rule.MatchPreflight(r); matched {
+			rule.SetResponseHeaders(w, r.URL, matchedOrigin)
+			WriteSuccessResponse(w, nil)
+			return
+		}
+	}
+
+	WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 }
 
 // setIgnoreResourcesHandler -
 // Ignore resources handler is wrapper handler used for API request resource validation
 // Since we do not support all the S3 queries, it is necessary for us to throw back a
 // valid error message indicating that requested feature is not implemented.
-func SetIgnoreResourcesHandler(h http.Handler) http.Handler {
+func SetIgnoreResourcesHandler(h http.Handler, _ ObjectLayer) http.Handler {
 	return resourceHandler{h}
 }
 
@@ -119,7 +164,7 @@ type AuthHandler struct {
 }
 
 // setAuthHandler to validate authorization header for the incoming request.
-func SetAuthHandler(h http.Handler) http.Handler {
+func SetAuthHandler(h http.Handler, _ ObjectLayer) http.Handler {
 	return AuthHandler{h}
 }
 
@@ -161,7 +206,6 @@ func ignoreNotImplementedObjectResources(req *http.Request) bool {
 
 // List of not implemented bucket queries
 var notimplementedBucketResourceNames = map[string]bool{
-	"cors":           true,
 	"lifecycle":      true,
 	"logging":        true,
 	"notification":   true,

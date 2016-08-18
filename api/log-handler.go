@@ -17,6 +17,6 @@ func (l logHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	helper.Logger.Printf("COMPLETE %s %s host: %s", r.Method, r.URL, r.Host)
 }
 
-func SetLogHandler(handler http.Handler) http.Handler {
+func SetLogHandler(handler http.Handler, _ ObjectLayer) http.Handler {
 	return logHandler{handler: handler}
 }

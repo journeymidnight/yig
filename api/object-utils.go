@@ -25,9 +25,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/meta"
 	"github.com/skyrings/skyring-common/tools/uuid"
-	"git.letv.cn/yig/yig/helper"
 )
 
 const (
@@ -154,7 +154,7 @@ func completeMultipartMD5(parts ...meta.CompletePart) (string, error) {
 }
 
 // byBucketName is a collection satisfying sort.Interface.
-type byBucketName []meta.BucketInfo
+type byBucketName []meta.Bucket
 
 func (d byBucketName) Len() int           { return len(d) }
 func (d byBucketName) Swap(i, j int)      { d[i], d[j] = d[j], d[i] }

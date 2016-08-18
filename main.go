@@ -3,10 +3,10 @@
 package main
 
 import (
+	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/storage"
 	"log"
 	"os"
-	"git.letv.cn/yig/yig/helper"
 )
 
 // TODO config file

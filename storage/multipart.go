@@ -29,7 +29,7 @@ const (
 func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketName, prefix, keyMarker,
 	uploadIdMarker, delimiter string, maxUploads int) (result meta.ListMultipartsInfo, err error) {
 
-	bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
+	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
 		return
 	}
@@ -113,7 +113,7 @@ func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketNam
 
 func (yig *YigStorage) NewMultipartUpload(credential iam.Credential, bucketName, objectName string,
 	metadata map[string]string, acl datatype.Acl) (uploadId string, err error) {
-	bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
+	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
 		return
 	}
@@ -209,7 +209,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string,
 	if err != nil {
 		return
 	}
-	bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
+	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
 		return
 	}
@@ -310,7 +310,7 @@ func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, ob
 		}
 	case "bucket-owner-read", "bucket-owner-full-controll":
 		var bucket meta.Bucket
-		bucket, err = yig.MetaStorage.GetBucketInfo(bucketName)
+		bucket, err = yig.MetaStorage.GetBucket(bucketName)
 		if err != nil {
 			return
 		}
@@ -353,7 +353,7 @@ func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, ob
 func (yig *YigStorage) AbortMultipartUpload(credential iam.Credential,
 	bucketName, objectName, uploadId string) error {
 
-	bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
+	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
 		return err
 	}
@@ -388,7 +388,7 @@ func (yig *YigStorage) AbortMultipartUpload(credential iam.Credential,
 func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential,
 	bucketName, objectName, uploadId string, uploadedParts []meta.CompletePart) (etagString string, err error) {
 
-	bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
+	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
 		return
 	}

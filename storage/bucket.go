@@ -80,7 +80,7 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 func (yig *YigStorage) SetBucketAcl(bucketName string, acl datatype.Acl,
 	credential iam.Credential) error {
 
-	bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
+	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
 		return err
 	}
@@ -105,43 +105,36 @@ func (yig *YigStorage) SetBucketAcl(bucketName string, acl datatype.Acl,
 }
 
 func (yig *YigStorage) GetBucketInfo(bucketName string,
-	credential iam.Credential) (bucketInfo meta.BucketInfo, err error) {
-	bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
+	credential iam.Credential) (bucketInfo meta.Bucket, err error) {
+	bucketInfo, err = yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
 		return
 	}
-	if bucket.OwnerId != credential.UserId {
+	if bucketInfo.OwnerId != credential.UserId {
 		err = ErrBucketAccessForbidden
 		return
 		// TODO validate bucket policy
 	}
-	bucketInfo.Name = bucket.Name
-	bucketInfo.Created = bucket.CreateTime.Format(meta.CREATE_TIME_LAYOUT)
-	bucketInfo.OwnerId = bucket.OwnerId
 	return
 }
 
-func (yig *YigStorage) ListBuckets(credential iam.Credential) (buckets []meta.BucketInfo,
-	err error) {
+func (yig *YigStorage) ListBuckets(credential iam.Credential) (buckets []meta.Bucket, err error) {
 	bucketNames, err := yig.MetaStorage.GetUserBuckets(credential.UserId)
 	if err != nil {
 		return
 	}
 	for _, bucketName := range bucketNames {
-		bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
+		bucket, err := yig.MetaStorage.GetBucket(bucketName)
 		if err != nil {
 			return buckets, err
 		}
-		buckets = append(buckets, meta.BucketInfo{
-			Name:    bucket.Name,
-			Created: bucket.CreateTime.Format(meta.CREATE_TIME_LAYOUT),
-		})
+		buckets = append(buckets, bucket)
 	}
 	return
 }
 
 func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential) error {
-	bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
+	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
 		return err
 	}
@@ -190,7 +183,7 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName, prefix, marker, delimiter string,
 	maxKeys int) (result meta.ListObjectsInfo, err error) {
 
-	bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
+	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
 		return
 	}

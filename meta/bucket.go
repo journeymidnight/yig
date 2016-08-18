@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"encoding/json"
 	"git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
 	"github.com/tsuna/gohbase/hrpc"
@@ -14,23 +15,28 @@ type Bucket struct {
 	// should be serialized into format "2006-01-02T15:04:05.000Z"
 	CreateTime time.Time
 	OwnerId    string
-	CORS       string
+	CORS       datatype.Cors
 	ACL        datatype.Acl
 }
 
 func (b Bucket) GetValues() (values map[string]map[string][]byte, err error) {
+	cors, err := json.Marshal(b.CORS)
+	if err != nil {
+		return
+	}
 	values = map[string]map[string][]byte{
 		BUCKET_COLUMN_FAMILY: map[string][]byte{
 			"UID":        []byte(b.OwnerId),
 			"ACL":        []byte(b.ACL.CannedAcl),
+			"CORS":       cors,
 			"createTime": []byte(b.CreateTime.Format(CREATE_TIME_LAYOUT)),
 		},
-		// TODO CORS and fancy ACL
+		// TODO fancy ACL
 	}
 	return
 }
 
-func (m *Meta) GetBucketInfo(bucketName string) (bucket Bucket, err error) {
+func (m *Meta) GetBucket(bucketName string) (bucket Bucket, err error) {
 	getRequest, err := hrpc.NewGetStr(context.Background(), BUCKET_TABLE, bucketName)
 	if err != nil {
 		return
@@ -53,7 +59,12 @@ func (m *Meta) GetBucketInfo(bucketName string) (bucket Bucket, err error) {
 		case "UID":
 			bucket.OwnerId = string(cell.Value)
 		case "CORS":
-			bucket.CORS = string(cell.Value)
+			var cors datatype.Cors
+			err = json.Unmarshal(cell.Value, cors)
+			if err != nil {
+				return
+			}
+			bucket.CORS = cors
 		case "ACL":
 			bucket.ACL.CannedAcl = string(cell.Value)
 		default:

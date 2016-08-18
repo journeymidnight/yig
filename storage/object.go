@@ -75,7 +75,7 @@ func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string) (meta
 
 func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, acl datatype.Acl,
 	credential iam.Credential) error {
-	bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
+	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
 		return err
 	}
@@ -150,7 +150,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 		return "", err
 	}
 
-	bucket, err := yig.MetaStorage.GetBucketInfo(bucketName)
+	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
 		return "", err
 	}

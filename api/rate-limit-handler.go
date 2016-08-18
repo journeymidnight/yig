@@ -53,7 +53,7 @@ func (c *rateLimit) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // setRateLimitHandler limits the number of concurrent http requests based on
 // CONCURRENT_REQUEST_LIMIT.
-func SetRateLimitHandler(handler http.Handler) http.Handler {
+func SetRateLimitHandler(handler http.Handler, _ ObjectLayer) http.Handler {
 	if CONCURRENT_REQUEST_LIMIT == 0 {
 		return handler
 	} // else proceed to rate limiting.

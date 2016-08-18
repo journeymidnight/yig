@@ -127,12 +127,12 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			return
 		}
 	case "bucket-owner-read", "bucket-owner-full-control":
-		bucketInfo, err := api.ObjectAPI.GetBucketInfo(bucketName, credential)
+		bucket, err := api.ObjectAPI.GetBucketInfo(bucketName, credential)
 		if err != nil {
 			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 			return
 		}
-		if bucketInfo.OwnerId != credential.UserId {
+		if bucket.OwnerId != credential.UserId {
 			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 			return
 		}
@@ -255,12 +255,12 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 			return
 		}
 	case "bucket-owner-read", "bucket-owner-full-control":
-		bucketInfo, err := api.ObjectAPI.GetBucketInfo(bucketName, credential)
+		bucket, err := api.ObjectAPI.GetBucketInfo(bucketName, credential)
 		if err != nil {
 			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 			return
 		}
-		if bucketInfo.OwnerId != credential.UserId {
+		if bucket.OwnerId != credential.UserId {
 			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 			return
 		}

@@ -20,18 +20,6 @@ import (
 	"time"
 )
 
-// BucketInfo - represents bucket metadata.
-type BucketInfo struct {
-	// Name of the bucket.
-	Name string
-
-	// Date and time when the bucket was created,
-	// in format "2006-01-02T15:04:05.000Z"
-	Created string
-
-	OwnerId string
-}
-
 // ListPartsInfo - represents list of all parts.
 type ListPartsInfo struct {
 	// Name of the bucket.

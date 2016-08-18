@@ -77,7 +77,7 @@ func configureServerHandler(c *ServerConfig) http.Handler {
 	}
 
 	// Register rest of the handlers.
-	return api.RegisterHandlers(mux, handlerFns...)
+	return api.RegisterHandlers(mux, c.ObjectLayer, handlerFns...)
 }
 
 // configureServer configure a new server instance
