@@ -459,6 +459,95 @@ func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.
 	WriteSuccessResponse(w, nil)
 }
 
+func (api ObjectAPIHandlers) PutBucketCorsHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+
+	var credential iam.Credential
+	var err error
+	if credential, err = signature.IsReqAuthenticated(r); err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+
+	// If Content-Length is unknown or zero, deny the request.
+	if !contains(r.TransferEncoding, "chunked") {
+		if r.ContentLength == -1 || r.ContentLength == 0 {
+			WriteErrorResponse(w, r, ErrMissingContentLength, r.URL.Path)
+			return
+		}
+		// If Content-Length is greater than maximum allowed policy size.
+		if r.ContentLength > maxAccessPolicySize {
+			WriteErrorResponse(w, r, ErrEntityTooLarge, r.URL.Path)
+			return
+		}
+	}
+
+	corsBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, MAX_CORS_SIZE))
+	if err != nil {
+		helper.ErrorIf(err, "Unable to read CORS body")
+		WriteErrorResponse(w, r, ErrInternalError, r.URL.Path)
+		return
+	}
+
+	cors, err := CorsFromXml(corsBuffer)
+	if err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+	err = api.ObjectAPI.SetBucketCors(bucketName, cors, credential)
+	if err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+	WriteSuccessResponse(w, nil)
+}
+
+func (api ObjectAPIHandlers) DeleteBucketCorsHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+
+	var credential iam.Credential
+	var err error
+	if credential, err = signature.IsReqAuthenticated(r); err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+
+	err = api.ObjectAPI.DeleteBucketCors(bucketName, credential)
+	if err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+	WriteSuccessNoContent(w)
+}
+
+func (api ObjectAPIHandlers) GetBucketCorsHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+
+	var credential iam.Credential
+	var err error
+	if credential, err = signature.IsReqAuthenticated(r); err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+
+	cors, err := api.ObjectAPI.GetBucketCors(bucketName, credential)
+	if err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+
+	corsBuffer, err := xml.Marshal(cors)
+	if err != nil {
+		helper.ErrorIf(err, "Failed to marshal CORS XML for bucket", bucketName)
+		WriteErrorResponse(w, r, ErrInternalError, r.URL.Path)
+		return
+	}
+	WriteSuccessResponse(w, corsBuffer)
+}
+
 func extractHTTPFormValues(reader *multipart.Reader) (io.Reader, map[string]string, error) {
 	/// HTML Form values
 	formValues := make(map[string]string)

@@ -104,6 +104,67 @@ func (yig *YigStorage) SetBucketAcl(bucketName string, acl datatype.Acl,
 	return nil
 }
 
+func (yig *YigStorage) SetBucketCors(bucketName string, cors datatype.Cors,
+	credential iam.Credential) error {
+
+	bucket, err := yig.MetaStorage.GetBucket(bucketName)
+	if err != nil {
+		return err
+	}
+	if bucket.OwnerId != credential.UserId {
+		return ErrBucketAccessForbidden
+	}
+	bucket.CORS = cors
+	values, err := bucket.GetValues()
+	if err != nil {
+		return err
+	}
+	put, err := hrpc.NewPutStr(context.Background(), meta.BUCKET_TABLE, bucketName, values)
+	if err != nil {
+		yig.Logger.Println("Error making hbase put: ", err)
+		return err
+	}
+	_, err = yig.MetaStorage.Hbase.Put(put)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (yig *YigStorage) DeleteBucketCors(bucketName string, credential iam.Credential) error {
+	bucket, err := yig.MetaStorage.GetBucket(bucketName)
+	if err != nil {
+		return err
+	}
+	if bucket.OwnerId != credential.UserId {
+		return ErrBucketAccessForbidden
+	}
+	bucket.CORS = datatype.Cors{}
+	values, err := bucket.GetValues()
+	if err != nil {
+		return err
+	}
+	put, err := hrpc.NewPutStr(context.Background(), meta.BUCKET_TABLE, bucketName, values)
+	if err != nil {
+		yig.Logger.Println("Error making hbase put: ", err)
+		return err
+	}
+	_, err = yig.MetaStorage.Hbase.Put(put)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (yig *YigStorage) GetBucketCors(bucketName string, credential iam.Credential) (datatype.Cors, error) {
+	var cors datatype.Cors
+	bucket, err := yig.MetaStorage.GetBucket(bucketName)
+	if err != nil {
+		return cors, err
+	}
+	return bucket.CORS, nil
+}
+
 func (yig *YigStorage) GetBucketInfo(bucketName string,
 	credential iam.Credential) (bucketInfo meta.Bucket, err error) {
 	bucketInfo, err = yig.MetaStorage.GetBucket(bucketName)

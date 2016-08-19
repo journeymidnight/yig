@@ -1,6 +1,8 @@
 package datatype
 
 import (
+	"encoding/xml"
+	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/helper"
 	"net/http"
 	"net/url"
@@ -8,13 +10,17 @@ import (
 	"strings"
 )
 
+const (
+	MAX_CORS_SIZE = 64 << 10 // 64 KB
+)
+
 type CorsRule struct {
-	Id             string
-	AllowedMethods []string
-	AllowedOrigins []string
-	AllowedHeaders []string
+	Id             string   `xml:"ID"`
+	AllowedMethods []string `xml:"AllowedMethod"`
+	AllowedOrigins []string `xml:"AllowedOrigin"`
+	AllowedHeaders []string `xml:"AllowedHeader"`
 	MaxAgeSeconds  int
-	ExposedHeaders []string
+	ExposedHeaders []string `xml:"ExposeHeader"`
 }
 
 func matchOrigin(url url.URL, allowedOrigin string) bool {
@@ -92,5 +98,23 @@ func (rule CorsRule) SetResponseHeaders(w http.ResponseWriter, url url.URL,
 }
 
 type Cors struct {
-	CorsRules []CorsRule
+	XMLName   xml.Name   `xml:"CORSConfiguration" json:"-"`
+	CorsRules []CorsRule `xml:"CORSRule"`
+}
+
+func CorsFromXml(corsBuffer []byte) (cors Cors, err error) {
+	err = xml.Unmarshal(corsBuffer, &cors)
+	if err != nil {
+		helper.ErrorIf(err, "Unable to unmarshal CORS XML")
+		return cors, ErrInvalidCorsDocument
+	}
+	if len(cors.CorsRules) == 0 {
+		return cors, ErrInvalidCorsDocument
+	}
+	for _, rule := range cors.CorsRules {
+		if len(rule.AllowedMethods) == 0 || len(rule.AllowedOrigins) == 0 {
+			return cors, ErrInvalidCorsDocument
+		}
+	}
+	return cors, nil
 }

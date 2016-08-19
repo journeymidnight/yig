@@ -36,6 +36,8 @@ func (b Bucket) GetValues() (values map[string]map[string][]byte, err error) {
 	return
 }
 
+// TODO: make this query more fine-grained to cell level
+// otherwise there might be race-conditions, e.g. between SetBucketAcl and SetBucketCors
 func (m *Meta) GetBucket(bucketName string) (bucket Bucket, err error) {
 	getRequest, err := hrpc.NewGetStr(context.Background(), BUCKET_TABLE, bucketName)
 	if err != nil {

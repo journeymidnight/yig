@@ -57,6 +57,7 @@ const (
 	ErrInvalidCopySource
 	ErrInvalidCopyDest
 	ErrInvalidPolicyDocument
+	ErrInvalidCorsDocument
 	ErrMalformedXML
 	ErrMissingContentLength
 	ErrMissingContentMD5
@@ -151,6 +152,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidPolicyDocument: {
 		AwsErrorCode:   "InvalidPolicyDocument",
 		Description:    "The content of the form does not meet the conditions specified in the policy document.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidCorsDocument: {
+		AwsErrorCode:   "InvalidCorsDocument",
+		Description:    "The CORS XML you provided is invalid",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrAccessDenied: {
