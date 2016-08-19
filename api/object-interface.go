@@ -31,6 +31,7 @@ type ObjectLayer interface {
 	SetBucketCors(bucket string, cors datatype.Cors, credential iam.Credential) error
 	DeleteBucketCors(bucket string, credential iam.Credential) error
 	GetBucketCors(bucket string, credential iam.Credential) (datatype.Cors, error)
+	GetBucket(bucketName string) (bucket meta.Bucket, err error) // For INTERNAL USE ONLY
 	GetBucketInfo(bucket string, credential iam.Credential) (bucketInfo meta.Bucket, err error)
 	ListBuckets(credential iam.Credential) (buckets []meta.Bucket, err error)
 	DeleteBucket(bucket string, credential iam.Credential) error

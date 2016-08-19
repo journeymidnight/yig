@@ -165,6 +165,11 @@ func (yig *YigStorage) GetBucketCors(bucketName string, credential iam.Credentia
 	return bucket.CORS, nil
 }
 
+// For INTERNAL USE ONLY
+func (yig *YigStorage) GetBucket(bucketName string) (bucket meta.Bucket, err error) {
+	return yig.MetaStorage.GetBucket(bucketName)
+}
+
 func (yig *YigStorage) GetBucketInfo(bucketName string,
 	credential iam.Credential) (bucketInfo meta.Bucket, err error) {
 	bucketInfo, err = yig.MetaStorage.GetBucket(bucketName)

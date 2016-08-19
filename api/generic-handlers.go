@@ -82,7 +82,7 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	}
-	bucket, err := h.objectLayer.GetBucketInfo(bucketName)
+	bucket, err := h.objectLayer.GetBucket(bucketName)
 	if err != nil {
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return

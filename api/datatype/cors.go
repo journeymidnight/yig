@@ -23,7 +23,7 @@ type CorsRule struct {
 	ExposedHeaders []string `xml:"ExposeHeader"`
 }
 
-func matchOrigin(url url.URL, allowedOrigin string) bool {
+func matchOrigin(url *url.URL, allowedOrigin string) bool {
 	if allowedOrigin == "*" {
 		return true
 	}
@@ -68,7 +68,7 @@ func (rule CorsRule) MatchPreflight(r *http.Request) (matchedOrigin string, matc
 	return "", false
 }
 
-func (rule CorsRule) SetResponseHeaders(w http.ResponseWriter, url url.URL,
+func (rule CorsRule) SetResponseHeaders(w http.ResponseWriter, url *url.URL,
 	matchedOrigin string) {
 	if matchedOrigin == "*" {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
