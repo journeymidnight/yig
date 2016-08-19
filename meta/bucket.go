@@ -62,7 +62,7 @@ func (m *Meta) GetBucket(bucketName string) (bucket Bucket, err error) {
 			bucket.OwnerId = string(cell.Value)
 		case "CORS":
 			var cors datatype.Cors
-			err = json.Unmarshal(cell.Value, cors)
+			err = json.Unmarshal(cell.Value, &cors)
 			if err != nil {
 				return
 			}
