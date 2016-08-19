@@ -82,7 +82,7 @@ func buildCanonicalizedResource(req *http.Request) string {
 	// FIXME actually AWS needs ALL queries, in sorted order
 	requiredQuery := []string{
 		// NOTE: this array is sorted alphabetically
-		"acl", "delete", "lifecycle", "location",
+		"acl", "cors", "delete", "lifecycle", "location",
 		"logging", "notification", "partNumber",
 		"policy", "requestPayment",
 		"response-cache-control",

@@ -64,8 +64,6 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 	bucket.Methods("GET").HandlerFunc(api.GetBucketPolicyHandler).Queries("policy", "")
 	// ListMultipartUploads
 	bucket.Methods("GET").HandlerFunc(api.ListMultipartUploadsHandler).Queries("uploads", "")
-	// ListObjects
-	bucket.Methods("GET").HandlerFunc(api.ListObjectsHandler)
 	// PutBucketPolicy
 	bucket.Methods("PUT").HandlerFunc(api.PutBucketPolicyHandler).Queries("policy", "")
 	// PutBucketACL
@@ -88,6 +86,8 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 	bucket.Methods("DELETE").HandlerFunc(api.DeleteBucketHandler)
 	// PutBucket
 	bucket.Methods("PUT").HandlerFunc(api.PutBucketHandler)
+	// ListObjects
+	bucket.Methods("GET").HandlerFunc(api.ListObjectsHandler)
 
 	/// Root operation
 
