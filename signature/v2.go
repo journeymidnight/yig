@@ -79,7 +79,6 @@ func buildCanonicalizedResource(req *http.Request) string {
 		ans += "/" + req.Host
 	}
 	ans += req.URL.EscapedPath()
-	// FIXME actually AWS needs ALL queries, in sorted order
 	requiredQuery := []string{
 		// NOTE: this array is sorted alphabetically
 		"acl", "cors", "delete", "lifecycle", "location",

@@ -231,6 +231,7 @@ def get_bucket_cors(name, client):
     ans = client.get_bucket_cors(
         Bucket=name+'hehe',
     )
+    assert ans['CORSRules'] == cors_config['CORSRules']
     print 'Get bucket CORS:', ans
 
 
@@ -258,15 +259,15 @@ def is_a_fail_test(testFunction):
     return False
 
 TESTS = [create_bucket,
-         #head_bucket, head_bucket_nonexist,
-         #list_buckets,
-         #put_object,
-         #get_object, get_object_nonexist,
-         #list_objects_v1, list_objects_v2,
-         #delete_object,
-         #create_multipart_upload, upload_part, list_multipart_uploads, list_parts, abort_multipart_upload, complete_multipart_upload,
-         #get_multipart_uploaded_object,
-         #get_object_ranged,
+         head_bucket, head_bucket_nonexist,
+         list_buckets,
+         put_object,
+         get_object, get_object_nonexist,
+         list_objects_v1, list_objects_v2,
+         delete_object,
+         create_multipart_upload, upload_part, list_multipart_uploads, list_parts, abort_multipart_upload, complete_multipart_upload,
+         get_multipart_uploaded_object,
+         get_object_ranged,
          put_bucket_cors, get_bucket_cors, delete_bucket_cors,
          delete_bucket, delete_bucket_nonexist]
 
