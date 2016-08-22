@@ -6,7 +6,6 @@
 exec hbase shell <<EOF
 create 'buckets',
   {NAME => 'b', VERSIONS => 1},
-  {NAME => 'c', VERSIONS => 1},
   {NAME => 'a', VERSIONS => 1}
 
 create 'objects',

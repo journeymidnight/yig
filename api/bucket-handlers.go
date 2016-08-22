@@ -476,8 +476,8 @@ func (api ObjectAPIHandlers) PutBucketCorsHandler(w http.ResponseWriter, r *http
 			WriteErrorResponse(w, r, ErrMissingContentLength, r.URL.Path)
 			return
 		}
-		// If Content-Length is greater than maximum allowed policy size.
-		if r.ContentLength > maxAccessPolicySize {
+		// If Content-Length is greater than maximum allowed CORS size.
+		if r.ContentLength > MAX_CORS_SIZE {
 			WriteErrorResponse(w, r, ErrEntityTooLarge, r.URL.Path)
 			return
 		}
@@ -546,6 +546,77 @@ func (api ObjectAPIHandlers) GetBucketCorsHandler(w http.ResponseWriter, r *http
 		return
 	}
 	WriteSuccessResponse(w, corsBuffer)
+}
+
+func (api ObjectAPIHandlers) GetBucketVersioningHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+
+	var credential iam.Credential
+	var err error
+	if credential, err = signature.IsReqAuthenticated(r); err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+
+	versioning, err := api.ObjectAPI.GetBucketVersioning(bucketName, credential)
+	if err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+
+	versioningBuffer, err := xml.Marshal(versioning)
+	if err != nil {
+		helper.ErrorIf(err, "Failed to marshal versioning XML for bucket", bucketName)
+		WriteErrorResponse(w, r, ErrInternalError, r.URL.Path)
+		return
+	}
+	WriteSuccessResponse(w, versioningBuffer)
+}
+
+func (api ObjectAPIHandlers) PutBucketVersioningHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+
+	var credential iam.Credential
+	var err error
+	if credential, err = signature.IsReqAuthenticated(r); err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+
+	// If Content-Length is unknown or zero, deny the request.
+	if !contains(r.TransferEncoding, "chunked") {
+		if r.ContentLength == -1 || r.ContentLength == 0 {
+			WriteErrorResponse(w, r, ErrMissingContentLength, r.URL.Path)
+			return
+		}
+		// If Content-Length is greater than 1024
+		// Since the versioning XML is usually small, 1024 is a reasonable limit
+		if r.ContentLength > 1024 {
+			WriteErrorResponse(w, r, ErrEntityTooLarge, r.URL.Path)
+			return
+		}
+	}
+
+	versioningBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 1024))
+	if err != nil {
+		helper.ErrorIf(err, "Unable to read versioning body")
+		WriteErrorResponse(w, r, ErrInternalError, r.URL.Path)
+		return
+	}
+
+	versioning, err := VersioningFromXml(versioningBuffer)
+	if err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+	err = api.ObjectAPI.SetBucketVersioning(bucketName, versioning, credential)
+	if err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+	WriteSuccessResponse(w, nil)
 }
 
 func extractHTTPFormValues(reader *multipart.Reader) (io.Reader, map[string]string, error) {

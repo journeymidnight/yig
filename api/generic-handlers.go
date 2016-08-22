@@ -211,7 +211,6 @@ var notimplementedBucketResourceNames = map[string]bool{
 	"notification":   true,
 	"replication":    true,
 	"tagging":        true,
-	"versions":       true,
 	"requestPayment": true,
 	"versioning":     true,
 	"website":        true,

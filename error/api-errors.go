@@ -58,6 +58,7 @@ const (
 	ErrInvalidCopyDest
 	ErrInvalidPolicyDocument
 	ErrInvalidCorsDocument
+	ErrInvalidVersioningDocument
 	ErrMalformedXML
 	ErrMissingContentLength
 	ErrMissingContentMD5
@@ -157,6 +158,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidCorsDocument: {
 		AwsErrorCode:   "InvalidCorsDocument",
 		Description:    "The CORS XML you provided is invalid",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidVersioningDocument: {
+		AwsErrorCode:   "InvalidVersioningDocument",
+		Description:    "The versioning XML you provided is invalid",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrAccessDenied: {

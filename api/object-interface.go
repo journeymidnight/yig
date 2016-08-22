@@ -29,7 +29,9 @@ type ObjectLayer interface {
 	MakeBucket(bucket string, acl datatype.Acl, credential iam.Credential) error
 	SetBucketAcl(bucket string, acl datatype.Acl, credential iam.Credential) error
 	SetBucketCors(bucket string, cors datatype.Cors, credential iam.Credential) error
+	SetBucketVersioning(bucket string, versioning datatype.Versioning, credential iam.Credential) error
 	DeleteBucketCors(bucket string, credential iam.Credential) error
+	GetBucketVersioning(bucket string, credential iam.Credential) (datatype.Versioning, error)
 	GetBucketCors(bucket string, credential iam.Credential) (datatype.Cors, error)
 	GetBucket(bucketName string) (bucket meta.Bucket, err error) // For INTERNAL USE ONLY
 	GetBucketInfo(bucket string, credential iam.Credential) (bucketInfo meta.Bucket, err error)

@@ -17,6 +17,7 @@ type Bucket struct {
 	OwnerId    string
 	CORS       datatype.Cors
 	ACL        datatype.Acl
+	Versioning string // actually enum: Disabled/Enabled/Suspended
 }
 
 func (b Bucket) GetValues() (values map[string]map[string][]byte, err error) {
@@ -30,6 +31,7 @@ func (b Bucket) GetValues() (values map[string]map[string][]byte, err error) {
 			"ACL":        []byte(b.ACL.CannedAcl),
 			"CORS":       cors,
 			"createTime": []byte(b.CreateTime.Format(CREATE_TIME_LAYOUT)),
+			"versioning": []byte(b.Versioning),
 		},
 		// TODO fancy ACL
 	}
@@ -69,6 +71,8 @@ func (m *Meta) GetBucket(bucketName string) (bucket Bucket, err error) {
 			bucket.CORS = cors
 		case "ACL":
 			bucket.ACL.CannedAcl = string(cell.Value)
+		case "versioning":
+			bucket.Versioning = string(cell.Value)
 		default:
 		}
 	}

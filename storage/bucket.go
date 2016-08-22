@@ -23,6 +23,7 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 		CreateTime: now,
 		OwnerId:    credential.UserId,
 		ACL:        acl,
+		Versioning: "Disabled", // it's the default
 	}
 	values, err := bucket.GetValues()
 	if err != nil {
@@ -163,6 +164,45 @@ func (yig *YigStorage) GetBucketCors(bucketName string, credential iam.Credentia
 		return cors, err
 	}
 	return bucket.CORS, nil
+}
+
+func (yig *YigStorage) SetBucketVersioning(bucketName string, versioning datatype.Versioning,
+	credential iam.Credential) error {
+
+	bucket, err := yig.MetaStorage.GetBucket(bucketName)
+	if err != nil {
+		return err
+	}
+	if bucket.OwnerId != credential.UserId {
+		return ErrBucketAccessForbidden
+	}
+	bucket.Versioning = versioning.Status
+	values, err := bucket.GetValues()
+	if err != nil {
+		return err
+	}
+	put, err := hrpc.NewPutStr(context.Background(), meta.BUCKET_TABLE, bucketName, values)
+	if err != nil {
+		yig.Logger.Println("Error making hbase put: ", err)
+		return err
+	}
+	_, err = yig.MetaStorage.Hbase.Put(put)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (yig *YigStorage) GetBucketVersioning(bucketName string, credential iam.Credential) (
+	versioning datatype.Versioning, err error) {
+
+	bucket, err := yig.MetaStorage.GetBucket(bucketName)
+	if err != nil {
+		return versioning, err
+	}
+	return datatype.Versioning{
+		Status: bucket.Versioning,
+	}, nil
 }
 
 // For INTERNAL USE ONLY

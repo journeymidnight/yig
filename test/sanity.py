@@ -20,7 +20,7 @@ for addressStyle in ['path']: #['path', 'virtual']:
                                        aws_access_key_id=CONFIG['access_key'],
                                        aws_secret_access_key=CONFIG['secret_key'],
                                        config=Config(
-                                           signature_version = signatureVersion,
+                                           signature_version=signatureVersion,
                                            s3={
                                                'addressing_style': addressStyle,
                                            }

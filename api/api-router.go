@@ -64,10 +64,14 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 	bucket.Methods("GET").HandlerFunc(api.GetBucketPolicyHandler).Queries("policy", "")
 	// ListMultipartUploads
 	bucket.Methods("GET").HandlerFunc(api.ListMultipartUploadsHandler).Queries("uploads", "")
+	// GetBucketVersioning
+	bucket.Methods("GET").HandlerFunc(api.GetBucketVersioningHandler).Queries("versioning", "")
 	// PutBucketPolicy
 	bucket.Methods("PUT").HandlerFunc(api.PutBucketPolicyHandler).Queries("policy", "")
 	// PutBucketACL
 	bucket.Methods("PUT").HandlerFunc(api.PutBucketAclHandler).Queries("acl", "")
+	// PutBucketVersioning
+	bucket.Methods("PUT").HandlerFunc(api.PutBucketVersioningHandler).Queries("versioning", "")
 	// PutBucketCORS
 	bucket.Methods("PUT").HandlerFunc(api.PutBucketCorsHandler).Queries("cors", "")
 	// GetBucketCORS
