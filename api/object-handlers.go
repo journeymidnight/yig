@@ -108,8 +108,9 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			return
 		}
 	}
+	version := r.URL.Query().Get("versionId")
 	// Fetch object stat info.
-	object, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName)
+	object, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName, version)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
 		if err == ErrNoSuchKey {
@@ -237,7 +238,8 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	object, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName)
+	version := r.URL.Query().Get("versionId")
+	object, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName, version)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
 		if err == ErrNoSuchKey {
@@ -343,7 +345,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	objInfo, err := api.ObjectAPI.GetObjectInfo(sourceBucket, sourceObject)
+	objInfo, err := api.ObjectAPI.GetObjectInfo(sourceBucket, sourceObject, "")
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
 		WriteErrorResponse(w, r, err, objectSource)
@@ -457,7 +459,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var md5Sum string
+	var result PutObjectResult
 	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
@@ -470,21 +472,24 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 			return
 		}
 		// Create anonymous object.
-		md5Sum, err = api.ObjectAPI.PutObject(bucket, object, size, r.Body, metadata, acl)
+		result, err = api.ObjectAPI.PutObject(bucket, object, size, r.Body, metadata, acl)
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		// Initialize signature verifier.
 		reader := signature.NewSignVerify(r)
 		// Create object.
-		md5Sum, err = api.ObjectAPI.PutObject(bucket, object, size, reader, metadata, acl)
+		result, err = api.ObjectAPI.PutObject(bucket, object, size, reader, metadata, acl)
 	}
 	if err != nil {
 		helper.ErrorIf(err, "Unable to create an object.")
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
-	if md5Sum != "" {
-		w.Header().Set("ETag", "\""+md5Sum+"\"")
+	if result.Md5 != "" {
+		w.Header().Set("ETag", "\""+result.Md5+"\"")
+	}
+	if result.VersionId != "" {
+		w.Header().Set("x-amz-version-id", result.VersionId)
 	}
 	WriteSuccessResponse(w, nil)
 }
@@ -514,6 +519,8 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 			return
 		}
 	}
+
+	version := r.URL.Query().Get("versionId")
 
 	acl, err := getAclFromHeader(r.Header)
 	if err != nil {

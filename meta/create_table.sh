@@ -19,5 +19,6 @@ create 'multiparts',
   {NAME => 'm', VERSIONS => 1}
 
 create 'garbageCollection',
-  {NAME => 'gc', VERSIONS => 1}
+  {NAME => 'gc', VERSIONS => 1},
+  {NAME => 'p', VERSIONS => 1}
 EOF

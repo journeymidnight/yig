@@ -16,10 +16,10 @@ func VersioningFromXml(xmlBytes []byte) (versioning Versioning, err error) {
 	err = xml.Unmarshal(xmlBytes, &versioning)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to unmarshal versioning XML")
-		return versioning, ErrInvalidVersioningDocument
+		return versioning, ErrInvalidVersioning
 	}
 	if versioning.Status != "Enabled" && versioning.Status != "Suspended" {
-		return versioning, ErrInvalidVersioningDocument
+		return versioning, ErrInvalidVersioning
 	}
 	return versioning, nil
 }

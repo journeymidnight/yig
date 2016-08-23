@@ -258,3 +258,8 @@ type DeleteObjectsRequest struct {
 	// List of objects to be deleted
 	Objects []ObjectIdentifier `xml:"Object"`
 }
+
+type PutObjectResult struct {
+	Md5 		string
+	VersionId 	string
+}

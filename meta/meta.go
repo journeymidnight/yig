@@ -20,6 +20,7 @@ const (
 	OBJECT_PART_COLUMN_FAMILY        = "p"
 	GARBAGE_COLLECTION_TABLE         = "garbageCollection"
 	GARBAGE_COLLECTION_COLUMN_FAMILY = "gc"
+	GARBAGE_COLLECTION_PART_COLUMN_FAMILY = "p"
 	MULTIPART_TABLE                  = "multiparts"
 	MULTIPART_COLUMN_FAMILY          = "m"
 

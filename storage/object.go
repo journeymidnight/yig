@@ -13,6 +13,7 @@ import (
 	"golang.org/x/net/context"
 	"io"
 	"time"
+	"git.letv.cn/yig/yig/helper"
 )
 
 func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size int64) (cluster *CephStorage, poolName string) {
@@ -69,8 +70,9 @@ func (yig *YigStorage) GetObject(object meta.Object, startOffset int64,
 	return
 }
 
-func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string) (meta.Object, error) {
-	return yig.MetaStorage.GetObject(bucketName, objectName)
+func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
+version string) (meta.Object, error) {
+	return yig.MetaStorage.GetObject(bucketName, objectName, version)
 }
 
 func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, acl datatype.Acl,
@@ -113,8 +115,8 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, acl da
 	return nil
 }
 
-func (yig *YigStorage) PutObject(bucketName string, objectName string, size int64,
-	data io.Reader, metadata map[string]string, acl datatype.Acl) (md5String string, err error) {
+func (yig *YigStorage) PutObject(bucketName string, objectName string, size int64, data io.Reader,
+metadata map[string]string, acl datatype.Acl) (result datatype.PutObjectResult, err error) {
 
 	md5Writer := md5.New()
 
@@ -132,27 +134,28 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 	storageReader := io.TeeReader(limitedDataReader, md5Writer)
 	bytesWritten, err := cephCluster.put(poolName, oid, storageReader)
 	if err != nil {
-		return "", err
+		return
 	}
 	if bytesWritten < size {
-		return "", ErrIncompleteBody
+		return result, ErrIncompleteBody
 	}
 
 	calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
 	if userMd5, ok := metadata["md5Sum"]; ok {
 		if userMd5 != calculatedMd5 {
-			return "", ErrBadDigest
+			return result, ErrBadDigest
 		}
 	}
+	result.Md5 = calculatedMd5
 
 	credential, err := data.(*signature.SignVerifyReader).Verify()
 	if err != nil {
-		return "", err
+		return
 	}
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
-		return "", err
+		return
 	}
 
 	switch bucket.ACL.CannedAcl {
@@ -160,7 +163,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 		break
 	default:
 		if bucket.OwnerId != credential.UserId {
-			return "", ErrBucketAccessForbidden
+			return result, ErrBucketAccessForbidden
 		}
 	}
 	// TODO validate bucket policy and fancy ACL
@@ -177,9 +180,47 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 		Etag:             calculatedMd5,
 		ContentType:      metadata["Content-Type"],
 		ACL:              acl,
+		NullVersion:	  helper.Ternary(bucket.Versioning == "Enabled", false, true),
+		DeleteMarker:	  false,
 		// TODO CustomAttributes
 	}
 
+	var olderObject meta.Object
+	if bucket.Versioning == "Enabled" {
+		result.VersionId = object.GetVersionId()
+	} else { // remove older object if versioning is not enabled
+		olderObject, err = yig.MetaStorage.GetObject(bucketName, objectName, "")
+		if err != nil {
+			return
+		}
+		if olderObject.NullVersion {
+			err = deleteObjectEntry(olderObject, yig.MetaStorage)
+			if err != nil {
+				return
+			}
+			err = putObjectToGarbageCollection(olderObject, yig.MetaStorage)
+			if err != nil { // try to rollback `objects` table
+				yig.Logger.Println("Error putObjectToGarbageCollection: ", err)
+				err = insertObjectEntry(olderObject, yig.MetaStorage)
+				if err != nil {
+					yig.Logger.Println("Error insertObjectEntry: ", err)
+					yig.Logger.Println("Inconsistent data: object should be removed:",
+						olderObject)
+					return
+				}
+				return result, ErrInternalError
+			}
+		}
+	}
+
+	err = insertObjectEntry(object, yig.MetaStorage)
+	if err != nil {
+		return
+	}
+	return result, nil
+}
+
+func insertObjectEntry(object meta.Object, metaStorage *meta.Meta) error {
 	rowkey, err := object.GetRowkey()
 	if err != nil {
 		return "", err
@@ -193,23 +234,11 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 	if err != nil {
 		return "", err
 	}
-	_, err = yig.MetaStorage.Hbase.Put(put)
-	if err != nil {
-		// TODO remove object in Ceph
-		return "", err
-	}
-	// TODO: remove old object of same name
-	// TODO: versioning
-	return calculatedMd5, nil
+	_, err = metaStorage.Hbase.Put(put)
+	return err
 }
 
-func (yig *YigStorage) DeleteObject(bucketName string, objectName string) error {
-	// TODO validate policy and ACL
-	// TODO versioning
-	object, err := yig.MetaStorage.GetObject(bucketName, objectName)
-	if err != nil {
-		return err
-	}
+func deleteObjectEntry(object meta.Object, metaStorage *meta.Meta) error {
 	rowkeyToDelete, err := object.GetRowkey()
 	if err != nil {
 		return err
@@ -219,19 +248,19 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string) error 
 	if err != nil {
 		return err
 	}
-	_, err = yig.MetaStorage.Hbase.Delete(deleteRequest)
+	_, err = metaStorage.Hbase.Delete(deleteRequest)
+	return err
+}
+
+// Insert object to `garbageCollection` table
+func putObjectToGarbageCollection(object meta.Object, metaStorage *meta.Meta) error {
+	garbageCollection := meta.GarbageCollectionFromObject(object)
+
+	garbageCollectionValues, err := garbageCollection.GetValues()
 	if err != nil {
 		return err
 	}
-
-	garbageCollectionValues := map[string]map[string][]byte{
-		meta.GARBAGE_COLLECTION_COLUMN_FAMILY: map[string][]byte{
-			"location": []byte(object.Location),
-			"pool":     []byte(object.Pool),
-			"oid":      []byte(object.ObjectId),
-		},
-	}
-	garbageCollectionRowkey, err := meta.GetGarbageCollectionRowkey(bucketName, objectName)
+	garbageCollectionRowkey, err := garbageCollection.GetRowkey()
 	if err != nil {
 		return err
 	}
@@ -240,12 +269,34 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string) error 
 	if err != nil {
 		return err
 	}
-	_, err = yig.MetaStorage.Hbase.Put(putRequest)
+	_, err = metaStorage.Hbase.Put(putRequest)
+	return err
+}
+
+func (yig *YigStorage) DeleteObject(bucketName string, objectName string) error {
+	// TODO validate policy and ACL
+	// TODO versioning
+	object, err := yig.MetaStorage.GetObject(bucketName, objectName)
 	if err != nil {
-		yig.Logger.Println("Error making hbase put: ", err)
-		yig.Logger.Println("Inconsistent data: object with oid ", object.ObjectId,
-			"should be removed in ", object.Location, object.Pool)
 		return err
+	}
+
+	err = deleteObjectEntry(object, yig.MetaStorage)
+	if err != nil {
+		return err
+	}
+
+	err = putObjectToGarbageCollection(object, yig.MetaStorage)
+	if err != nil {  // try to rollback `objects` table
+		yig.Logger.Println("Error putObjectToGarbageCollection: ", err)
+		err = insertObjectEntry(object, yig.MetaStorage)
+		if err != nil {
+			yig.Logger.Println("Error insertObjectEntry: ", err)
+			yig.Logger.Println("Inconsistent data: object should be removed:",
+				object)
+			return err
+		}
+		return ErrInternalError
 	}
 	// TODO a daemon to check garbage collection table and delete objects in ceph
 	return nil

@@ -13,6 +13,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"git.letv.cn/yig/yig/helper"
+	"github.com/xxtea/xxtea-go/xxtea"
+	"encoding/hex"
+	"fmt"
 )
 
 type Object struct {
@@ -30,6 +34,21 @@ type Object struct {
 	CustomAttributes map[string]string
 	Parts            map[int]Part
 	ACL              datatype.Acl
+	NullVersion	 bool 	 // if this entry has `null` version
+	DeleteMarker 	 bool    // if this entry is a delete marker
+	VersionId	 string  // version cache
+}
+
+func (o Object) String() (s string) {
+	s += "Name: " + o.Name + "\n"
+	s += "Location: " + o.Location + "\n"
+	s += "Pool: " + o.Pool + "\n"
+	s += "Object ID: " + o.ObjectId + "\n"
+	for n, part := range o.Parts {
+		s += fmt.Sprintln("Part", n, " Location:", part.Location, "Pool:", part.Pool,
+			"Object ID:", part.ObjectId)
+	}
+	return s
 }
 
 // Rowkey format:
@@ -75,18 +94,15 @@ func (o Object) GetValues() (values map[string]map[string][]byte, err error) {
 			"content-type": []byte(o.ContentType),
 			"attributes":   []byte{}, // TODO
 			"ACL":          []byte(o.ACL.CannedAcl),
+			"version":	[]byte(helper.Ternary(o.NullVersion, "true", "false")),
+			"deleteMarker": []byte(helper.Ternary(o.DeleteMarker, "true", "false")),
 		},
 	}
-	for partNumber, part := range o.Parts {
-		var marshaled []byte
-		marshaled, err = json.Marshal(part)
+	if len(o.Parts) != 0 {
+		values[OBJECT_PART_COLUMN_FAMILY], err = ValuesForParts(o.Parts)
 		if err != nil {
 			return
 		}
-		if _, ok := values[OBJECT_PART_COLUMN_FAMILY]; !ok {
-			values[OBJECT_PART_COLUMN_FAMILY] = make(map[string][]byte)
-		}
-		values[OBJECT_PART_COLUMN_FAMILY][strconv.Itoa(partNumber)] = marshaled
 	}
 	return
 }
@@ -98,13 +114,26 @@ func (o Object) GetValuesForDelete() (values map[string]map[string][]byte) {
 	}
 }
 
+func (o Object) GetVersionId() string {
+	if o.VersionId != "" {
+		return o.VersionId
+	}
+	if o.NullVersion {
+		o.VersionId = "null"
+		return o.VersionId
+	}
+	timeData := []byte(strconv.FormatUint(uint64(o.LastModifiedTime.UnixNano()), 10))
+	o.VersionId = hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
+	return o.VersionId
+}
+
 // Rowkey format:
 // BucketName +
 // bigEndian(uint16(count("/", ObjectName))) +
 // ObjectName +
 // bigEndian(uint64.max - unixNanoTimestamp)
-// The prefix excludes timestamp part
-func getObjectRowkeyPrefix(bucketName string, objectName string) ([]byte, error) {
+// The prefix excludes timestamp part if version is empty
+func getObjectRowkeyPrefix(bucketName string, objectName string, version string) ([]byte, error) {
 	var rowkey bytes.Buffer
 	rowkey.WriteString(bucketName)
 	err := binary.Write(&rowkey, binary.BigEndian, uint16(strings.Count(objectName, "/")))
@@ -112,21 +141,23 @@ func getObjectRowkeyPrefix(bucketName string, objectName string) ([]byte, error)
 		return []byte{}, err
 	}
 	rowkey.WriteString(objectName)
-	return rowkey.Bytes(), nil
-}
-
-// Rowkey format:
-// bigEndian(unixNanoTimestamp) + BucketName + ObjectName
-func GetGarbageCollectionRowkey(bucketName string, objectName string) (string, error) {
-	var rowkey bytes.Buffer
-	err := binary.Write(&rowkey, binary.BigEndian,
-		uint64(time.Now().UnixNano()))
-	if err != nil {
-		return "", err
+	if version != "" {
+		versionBytes, err := hex.DecodeString(version)
+		if err != nil {
+			return []byte{}, err
+		}
+		decrypted := xxtea.Decrypt(versionBytes, XXTEA_KEY)
+		unixNanoTimestamp, errno := binary.Uvarint(decrypted)
+		if errno <= 0 {
+			return []byte{}, ErrInvalidVersioning
+		}
+		err = binary.Write(&rowkey, binary.BigEndian,
+			math.MaxUint64-unixNanoTimestamp)
+		if err != nil {
+			return []byte{}, err
+		}
 	}
-	rowkey.WriteString(bucketName)
-	rowkey.WriteString(objectName)
-	return rowkey.String(), nil
+	return rowkey.Bytes(), nil
 }
 
 // Decode response from HBase and return an Object object
@@ -164,6 +195,12 @@ func ObjectFromResponse(response *hrpc.Result, bucketName string) (object Object
 				object.ContentType = string(cell.Value)
 			case "ACL":
 				object.ACL.CannedAcl = string(cell.Value)
+			case "version":
+				object.NullVersion = helper.Ternary(string(cell.Value) == "true",
+					true, false)
+			case "deleteMarker":
+				object.DeleteMarker = helper.Ternary(string(cell.Value) == "true",
+					true, false)
 			}
 		case OBJECT_PART_COLUMN_FAMILY:
 			var partNumber int
@@ -185,29 +222,59 @@ func ObjectFromResponse(response *hrpc.Result, bucketName string) (object Object
 	// + ObjectName
 	// + bigEndian(uint64.max - unixNanoTimestamp)
 	object.Name = string(rowkey[len(bucketName)+2 : len(rowkey)-8])
+	if object.NullVersion {
+		object.VersionId = "null"
+	} else {
+		reversedTimeBytes := rowkey[len(rowkey)-8:]
+		var reversedTime uint64
+		err = binary.Read(bytes.NewReader(reversedTimeBytes), binary.BigEndian,
+			&reversedTime)
+		if err != nil {
+			return
+		}
+		timestamp := math.MaxUint64 - reversedTime
+		timeData := []byte(strconv.FormatUint(timestamp, 10))
+		object.VersionId = hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
+	}
 	return
 }
 
-func (m *Meta) GetObject(bucketName string, objectName string) (object Object, err error) {
-	objectRowkeyPrefix, err := getObjectRowkeyPrefix(bucketName, objectName)
+func (m *Meta) GetObject(bucketName string, objectName string, version string) (object Object, err error) {
+	objectRowkeyPrefix, err := getObjectRowkeyPrefix(bucketName, objectName, version)
 	if err != nil {
 		return
 	}
-	filter := filter.NewPrefixFilter(objectRowkeyPrefix)
-	scanRequest, err := hrpc.NewScanRangeStr(context.Background(), OBJECT_TABLE,
-		string(objectRowkeyPrefix), "", hrpc.Filters(filter), hrpc.NumberOfRows(1))
-	if err != nil {
-		return
+	if version == "" {
+		filter := filter.NewPrefixFilter(objectRowkeyPrefix)
+		scanRequest, err := hrpc.NewScanRangeStr(context.Background(), OBJECT_TABLE,
+			string(objectRowkeyPrefix), "", hrpc.Filters(filter), hrpc.NumberOfRows(1))
+		if err != nil {
+			return
+		}
+		scanResponse, err := m.Hbase.Scan(scanRequest)
+		if err != nil {
+			return
+		}
+		if len(scanResponse) == 0 {
+			err = ErrNoSuchKey
+			return
+		}
+		object, err = ObjectFromResponse(scanResponse[0], bucketName)
+	} else { // request with version specified
+		getRequest, err := hrpc.NewGetStr(context.Background(), OBJECT_TABLE, objectRowkeyPrefix)
+		if err != nil {
+			return
+		}
+		getResponse, err := m.Hbase.Get(getRequest)
+		if err != nil {
+			return
+		}
+		if len(getResponse.Cells) == 0 {
+			err = ErrNoSuchVersion
+			return
+		}
+		object, err = ObjectFromResponse(getResponse, bucketName)
 	}
-	scanResponse, err := m.Hbase.Scan(scanRequest)
-	if err != nil {
-		return
-	}
-	if len(scanResponse) == 0 {
-		err = ErrNoSuchKey
-		return
-	}
-	object, err = ObjectFromResponse(scanResponse[0], bucketName)
 	if err != nil {
 		return
 	}

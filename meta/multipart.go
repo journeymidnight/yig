@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"encoding/json"
 )
 
 var (
@@ -97,5 +98,20 @@ func UploadFromResponse(response *hrpc.Result, bucketName string) (upload Upload
 	upload.Initiated = time.Unix(0, int64(timestamp))
 	upload.UploadID = GetMultipartUploadId(upload.Initiated)
 	upload.StorageClass = "STANDARD"
+	return
+}
+
+func ValuesForParts(parts []Part) (values map[string][]byte, err error) {
+	for partNumber, part := range parts {
+		var marshaled []byte
+		marshaled, err = json.Marshal(part)
+		if err != nil {
+			return
+		}
+		if values == nil {
+			values = make(map[string][]byte)
+		}
+		values[strconv.Itoa(partNumber)] = marshaled
+	}
 	return
 }

@@ -42,9 +42,9 @@ type ObjectLayer interface {
 
 	// Object operations.
 	GetObject(object meta.Object, startOffset int64, length int64, writer io.Writer) (err error)
-	GetObjectInfo(bucket, object string) (objInfo meta.Object, err error)
+	GetObjectInfo(bucket, object, version string) (objInfo meta.Object, err error)
 	PutObject(bucket, object string, size int64, data io.Reader,
-		metadata map[string]string, acl datatype.Acl) (md5 string, err error)
+		metadata map[string]string, acl datatype.Acl) (result datatype.PutObjectResult, err error)
 	SetObjectAcl(bucket string, object string, acl datatype.Acl, credential iam.Credential) error
 	DeleteObject(bucket, object string) error
 

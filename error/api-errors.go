@@ -58,7 +58,7 @@ const (
 	ErrInvalidCopyDest
 	ErrInvalidPolicyDocument
 	ErrInvalidCorsDocument
-	ErrInvalidVersioningDocument
+	ErrInvalidVersioning
 	ErrMalformedXML
 	ErrMissingContentLength
 	ErrMissingContentMD5
@@ -67,6 +67,7 @@ const (
 	ErrNoSuchBucketPolicy
 	ErrNoSuchKey
 	ErrNoSuchUpload
+	ErrNoSuchVersion
 	ErrNotImplemented
 	ErrPreconditionFailed
 	ErrRequestTimeTooSkewed
@@ -160,9 +161,9 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		Description:    "The CORS XML you provided is invalid",
 		HttpStatusCode: http.StatusBadRequest,
 	},
-	ErrInvalidVersioningDocument: {
-		AwsErrorCode:   "InvalidVersioningDocument",
-		Description:    "The versioning XML you provided is invalid",
+	ErrInvalidVersioning: {
+		AwsErrorCode:   "IllegalVersioningConfigurationException",
+		Description:    "The versioning configuration specified in the request is invalid.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrAccessDenied: {
@@ -258,6 +259,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrNoSuchUpload: {
 		AwsErrorCode:   "NoSuchUpload",
 		Description:    "The specified multipart upload does not exist.",
+		HttpStatusCode: http.StatusNotFound,
+	},
+	ErrNoSuchVersion: {
+		AwsErrorCode: "NoSuchVersion",
+		Description: "The version ID specified in the request does not match an existing version.",
 		HttpStatusCode: http.StatusNotFound,
 	},
 	ErrNotImplemented: {
