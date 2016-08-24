@@ -263,3 +263,13 @@ type PutObjectResult struct {
 	Md5 		string
 	VersionId 	string
 }
+
+type DeleteObjectResult struct {
+	DeleteMarker bool
+	VersionId    string
+}
+
+type CompleteMultipartResult struct {
+	ETag		string
+	VersionId 	string
+}

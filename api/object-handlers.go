@@ -144,6 +144,12 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		}
 	}
 
+	if object.DeleteMarker {
+		w.Header().Set("x-amz-delete-marker", "true")
+		WriteErrorResponse(w, r, ErrNoSuchKey, r.URL.Path)
+		return
+	}
+
 	// Get request range.
 	var hrange *HttpRange
 	rangeHeader := r.Header.Get("Range")
@@ -528,7 +534,7 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	err = api.ObjectAPI.SetObjectAcl(bucketName, objectName, acl, credential)
+	err = api.ObjectAPI.SetObjectAcl(bucketName, objectName, version,  acl, credential)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to set ACL for object")
 		WriteErrorResponse(w, r, err, r.URL.Path)
@@ -836,11 +842,11 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 		return
 	}
 
-	var md5Sum string
+	var result CompleteMultipartResult
 	doneCh := make(chan struct{})
 	// Signal that completeMultipartUpload is over via doneCh
 	go func(doneCh chan<- struct{}) {
-		md5Sum, err = api.ObjectAPI.CompleteMultipartUpload(credential, bucket,
+		result, err = api.ObjectAPI.CompleteMultipartUpload(credential, bucket,
 			object, uploadID, completeParts)
 		doneCh <- struct{}{}
 	}(doneCh)
@@ -863,12 +869,15 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	// Get object location.
 	location := GetLocation(r)
 	// Generate complete multipart response.
-	response := GenerateCompleteMultpartUploadResponse(bucket, object, location, md5Sum)
+	response := GenerateCompleteMultpartUploadResponse(bucket, object, location, result.ETag)
 	encodedSuccessResponse, err := xml.Marshal(response)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to parse CompleteMultipartUpload response")
 		WriteErrorResponseNoHeader(w, r, ErrInternalError, r.URL.Path)
 		return
+	}
+	if result.VersionId != "" {
+		w.Header().Set("x-amz-version-id", result.VersionId)
 	}
 	// write success response.
 	w.Write(encodedSuccessResponse)
@@ -883,6 +892,8 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 	bucket := vars["bucket"]
 	object := vars["object"]
 
+	var credential iam.Credential
+	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
@@ -890,20 +901,31 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 		return
 	case signature.AuthTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
-		if s3Error := enforceBucketPolicy("s3:DeleteObject", bucket, r.URL); s3Error != nil {
-			WriteErrorResponse(w, r, s3Error, r.URL.Path)
+		if err = enforceBucketPolicy("s3:DeleteObject", bucket, r.URL); err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
 			return
 		}
 	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
 		signature.AuthTypeSignedV2, signature.AuthTypePresignedV2:
-		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != nil {
-			WriteErrorResponse(w, r, s3Error, r.URL.Path)
+		if credential, err = signature.IsReqAuthenticated(r); err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
 			return
 		}
 	}
+	version := r.URL.Query().Get("versionId")
 	/// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectDELETE.html
-	/// Ignore delete object errors, since we are suppposed to reply
+	/// Ignore delete object errors, since we are supposed to reply
 	/// only 204.
-	api.ObjectAPI.DeleteObject(bucket, object)
+	result, err := api.ObjectAPI.DeleteObject(bucket, object, version, credential)
+	if err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+	if result.DeleteMarker {
+		w.Header().Set("x-amz-delete-marker", "true")
+	}
+	if result.VersionId != "" {
+		w.Header().Set("x-amz-version-id", result.VersionId)
+	}
 	WriteSuccessNoContent(w)
 }

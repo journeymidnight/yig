@@ -75,8 +75,9 @@ version string) (meta.Object, error) {
 	return yig.MetaStorage.GetObject(bucketName, objectName, version)
 }
 
-func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, acl datatype.Acl,
-	credential iam.Credential) error {
+func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, version string,
+acl datatype.Acl, credential iam.Credential) error {
+
 	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
 		return err
@@ -91,24 +92,12 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, acl da
 			return ErrAccessDenied
 		}
 	} // TODO policy and fancy ACL
-	object, err := yig.MetaStorage.GetObject(bucketName, objectName)
+	object, err := yig.MetaStorage.GetObject(bucketName, objectName, version)
 	if err != nil {
 		return err
 	}
 	object.ACL = acl
-	rowkey, err := object.GetRowkey()
-	if err != nil {
-		return err
-	}
-	values, err := object.GetValues()
-	if err != nil {
-		return err
-	}
-	put, err := hrpc.NewPutStr(context.Background(), meta.OBJECT_TABLE, rowkey, values)
-	if err != nil {
-		return err
-	}
-	_, err = yig.MetaStorage.Hbase.Put(put)
+	err = putObjectEntry(object, yig.MetaStorage)
 	if err != nil {
 		return err
 	}
@@ -189,50 +178,39 @@ metadata map[string]string, acl datatype.Acl) (result datatype.PutObjectResult, 
 	if bucket.Versioning == "Enabled" {
 		result.VersionId = object.GetVersionId()
 	} else { // remove older object if versioning is not enabled
+		// FIXME use removeNullVersionObject for `Suspended` after fixing GetNullVersionObject
 		olderObject, err = yig.MetaStorage.GetObject(bucketName, objectName, "")
 		if err != nil {
 			return
 		}
 		if olderObject.NullVersion {
-			err = deleteObjectEntry(olderObject, yig.MetaStorage)
+			err = yig.removeByObject(olderObject)
 			if err != nil {
 				return
-			}
-			err = putObjectToGarbageCollection(olderObject, yig.MetaStorage)
-			if err != nil { // try to rollback `objects` table
-				yig.Logger.Println("Error putObjectToGarbageCollection: ", err)
-				err = insertObjectEntry(olderObject, yig.MetaStorage)
-				if err != nil {
-					yig.Logger.Println("Error insertObjectEntry: ", err)
-					yig.Logger.Println("Inconsistent data: object should be removed:",
-						olderObject)
-					return
-				}
-				return result, ErrInternalError
 			}
 		}
 	}
 
-	err = insertObjectEntry(object, yig.MetaStorage)
+	err = putObjectEntry(object, yig.MetaStorage)
 	if err != nil {
 		return
 	}
 	return result, nil
 }
 
-func insertObjectEntry(object meta.Object, metaStorage *meta.Meta) error {
+func putObjectEntry(object meta.Object, metaStorage *meta.Meta) error {
 	rowkey, err := object.GetRowkey()
 	if err != nil {
-		return "", err
+		return err
 	}
 	values, err := object.GetValues()
 	if err != nil {
-		return "", err
+		return err
 	}
 	put, err := hrpc.NewPutStr(context.Background(), meta.OBJECT_TABLE,
 		rowkey, values)
 	if err != nil {
-		return "", err
+		return err
 	}
 	_, err = metaStorage.Hbase.Put(put)
 	return err
@@ -273,31 +251,136 @@ func putObjectToGarbageCollection(object meta.Object, metaStorage *meta.Meta) er
 	return err
 }
 
-func (yig *YigStorage) DeleteObject(bucketName string, objectName string) error {
-	// TODO validate policy and ACL
-	// TODO versioning
-	object, err := yig.MetaStorage.GetObject(bucketName, objectName)
-	if err != nil {
-		return err
-	}
-
+func (yig *YigStorage) removeByObject(object meta.Object) (err error) {
 	err = deleteObjectEntry(object, yig.MetaStorage)
 	if err != nil {
-		return err
+		return
 	}
 
 	err = putObjectToGarbageCollection(object, yig.MetaStorage)
 	if err != nil {  // try to rollback `objects` table
 		yig.Logger.Println("Error putObjectToGarbageCollection: ", err)
-		err = insertObjectEntry(object, yig.MetaStorage)
+		err = putObjectEntry(object, yig.MetaStorage)
 		if err != nil {
 			yig.Logger.Println("Error insertObjectEntry: ", err)
 			yig.Logger.Println("Inconsistent data: object should be removed:",
 				object)
-			return err
+			return
 		}
 		return ErrInternalError
 	}
+	return nil
+}
+
+func (yig *YigStorage) removeObject(bucketName, objectName string) error {
+	object, err := yig.MetaStorage.GetObject(bucketName, objectName)
+	if err != nil {
+		return
+	}
+	return yig.removeByObject(object)
+}
+
+func (yig *YigStorage) removeObjectVersion(bucketName, objectName, version string) error {
+	object, err := yig.MetaStorage.GetObjectVersion(bucketName, objectName, version)
+	if err != nil {
+		return
+	}
+	return yig.removeByObject(object)
+}
+
+func (yig *YigStorage) removeNullVersionObject(bucketName, objectName string) error {
+	object, err := yig.MetaStorage.GetNullVersionObject(bucketName, objectName)
+	if err == ErrNoSuchKey {
+		return nil // When there's no null versioned object, we do not need to remove it
+	}
+	if err != nil {
+		return 
+	}
+	return yig.removeByObject(object)
+}
+
+func (yig *YigStorage) addDeleteMarker(bucketName, objectName string) (versionId string, err error) {
+	deleteMarker := meta.Object{
+		Name: objectName,
+		BucketName: bucketName,
+		LastModifiedTime: time.Now().UTC(),
+		NullVersion: false,
+		DeleteMarker: true,
+	}
+	versionId = deleteMarker.GetVersionId()
+	err = putObjectEntry(deleteMarker, yig.MetaStorage)
+	return
+}
+
+// When bucket versioning is Disabled/Enabled/Suspended, and request versionId is set/unset:
+//
+// |           |        with versionId        |                   without versionId                    |
+// |-----------|------------------------------|--------------------------------------------------------|
+// | Disabled  | error                        | remove object                                          |
+// | Enabled   | remove corresponding version | add a delete marker                                    |
+// | Suspended | remove corresponding version | remove null version(if exists) and add a delete marker |
+//
+// See http://docs.aws.amazon.com/AmazonS3/latest/dev/Versioning.html
+func (yig *YigStorage) DeleteObject(bucketName string, objectName string, version string,
+credential iam.Credential) (result datatype.DeleteObjectResult, err error) {
+
+	bucket, err := yig.MetaStorage.GetBucket(bucketName)
+	if err != nil {
+		return
+	}
+	switch bucket.ACL.CannedAcl {
+	case "public-read-write":
+		break
+	default:
+		if bucket.OwnerId != credential.UserId {
+			return result, ErrBucketAccessForbidden
+		}
+	} // TODO policy and fancy ACL
+
+	switch bucket.Versioning {
+	case "Disabled":
+		if version != "" {
+			return result, ErrNoSuchVersion
+		}
+		err = yig.removeObject(bucketName, objectName)
+		if err != nil {
+			return
+		}
+	case "Enabled":
+		if version == "" {
+			result.VersionId, err = yig.addDeleteMarker(bucketName, objectName)
+			if err != nil {
+				return
+			}
+			result.DeleteMarker = true
+		} else {
+			err = yig.removeObjectVersion(bucketName, objectName, version)
+			if err != nil {
+				return
+			}
+		}
+	case "Suspended":
+		if version == "" {
+			err = yig.removeNullVersionObject(bucketName, objectName)
+			if err != nil {
+				return
+			}
+			result.VersionId, err = yig.addDeleteMarker(bucketName, objectName)
+			if err != nil {
+				return
+			}
+			result.DeleteMarker = true
+		} else {
+			err = yig.removeObjectVersion(bucketName, objectName, version)
+			if err != nil {
+				return
+			}
+		}
+	default:
+		yig.Logger.Println("Invalid bucket versioning: ", bucketName)
+		return result, ErrInternalError
+	}
+
 	// TODO a daemon to check garbage collection table and delete objects in ceph
 	return nil
 }

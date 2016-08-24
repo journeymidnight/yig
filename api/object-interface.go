@@ -45,8 +45,10 @@ type ObjectLayer interface {
 	GetObjectInfo(bucket, object, version string) (objInfo meta.Object, err error)
 	PutObject(bucket, object string, size int64, data io.Reader,
 		metadata map[string]string, acl datatype.Acl) (result datatype.PutObjectResult, err error)
-	SetObjectAcl(bucket string, object string, acl datatype.Acl, credential iam.Credential) error
-	DeleteObject(bucket, object string) error
+	SetObjectAcl(bucket string, object string, version string, acl datatype.Acl,
+		credential iam.Credential) error
+	DeleteObject(bucket, object, version string, credential iam.Credential) (datatype.DeleteObjectResult,
+		error)
 
 	// Multipart operations.
 	ListMultipartUploads(credential iam.Credential, bucket, prefix, keyMarker, uploadIDMarker,
@@ -59,5 +61,5 @@ type ObjectLayer interface {
 		maxParts int) (result meta.ListPartsInfo, err error)
 	AbortMultipartUpload(credential iam.Credential, bucket, object, uploadID string) error
 	CompleteMultipartUpload(credential iam.Credential, bucket, object, uploadID string,
-		uploadedParts []meta.CompletePart) (md5 string, err error)
+		uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult, err error)
 }

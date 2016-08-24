@@ -239,42 +239,86 @@ func ObjectFromResponse(response *hrpc.Result, bucketName string) (object Object
 	return
 }
 
-func (m *Meta) GetObject(bucketName string, objectName string, version string) (object Object, err error) {
+func (m *Meta) GetObject(bucketName string, objectName string) (object Object, err error) {
+	objectRowkeyPrefix, err := getObjectRowkeyPrefix(bucketName, objectName, "")
+	if err != nil {
+		return
+	}
+	filter := filter.NewPrefixFilter(objectRowkeyPrefix)
+	scanRequest, err := hrpc.NewScanRangeStr(context.Background(), OBJECT_TABLE,
+		string(objectRowkeyPrefix), "", hrpc.Filters(filter), hrpc.NumberOfRows(1))
+	if err != nil {
+		return
+	}
+	scanResponse, err := m.Hbase.Scan(scanRequest)
+	if err != nil {
+		return
+	}
+	if len(scanResponse) == 0 {
+		err = ErrNoSuchKey
+		return
+	}
+	object, err = ObjectFromResponse(scanResponse[0], bucketName)
+	if err != nil {
+		return
+	}
+	if object.Name != objectName {
+		err = ErrNoSuchKey
+		return
+	}
+	return
+}
+
+func (m *Meta) GetNullVersionObject(bucketName, objectName string) (object Object, err error) {
+	objectRowkeyPrefix, err := getObjectRowkeyPrefix(bucketName, objectName, "")
+	if err != nil {
+		return
+	}
+	filter := filter.NewPrefixFilter(objectRowkeyPrefix)
+	// FIXME use a proper filter instead of naively getting 1000 and compare
+	scanRequest, err := hrpc.NewScanRangeStr(context.Background(), OBJECT_TABLE,
+		string(objectRowkeyPrefix), "", hrpc.Filters(filter), hrpc.NumberOfRows(1000))
+	if err != nil {
+		return
+	}
+	scanResponse, err := m.Hbase.Scan(scanRequest)
+	if err != nil {
+		return
+	}
+	if len(scanResponse) == 0 {
+		err = ErrNoSuchKey
+		return
+	}
+	for _, response := range scanResponse {
+		object, err = ObjectFromResponse(response, bucketName)
+		if err != nil {
+			return
+		}
+		if object.Name == objectName && object.NullVersion {
+			return object, nil
+		}
+	}
+	return object, ErrNoSuchKey
+}
+
+func (m *Meta) GetObjectVersion(bucketName, objectName, version string) (object Object, err error) {
 	objectRowkeyPrefix, err := getObjectRowkeyPrefix(bucketName, objectName, version)
 	if err != nil {
 		return
 	}
-	if version == "" {
-		filter := filter.NewPrefixFilter(objectRowkeyPrefix)
-		scanRequest, err := hrpc.NewScanRangeStr(context.Background(), OBJECT_TABLE,
-			string(objectRowkeyPrefix), "", hrpc.Filters(filter), hrpc.NumberOfRows(1))
-		if err != nil {
-			return
-		}
-		scanResponse, err := m.Hbase.Scan(scanRequest)
-		if err != nil {
-			return
-		}
-		if len(scanResponse) == 0 {
-			err = ErrNoSuchKey
-			return
-		}
-		object, err = ObjectFromResponse(scanResponse[0], bucketName)
-	} else { // request with version specified
-		getRequest, err := hrpc.NewGetStr(context.Background(), OBJECT_TABLE, objectRowkeyPrefix)
-		if err != nil {
-			return
-		}
-		getResponse, err := m.Hbase.Get(getRequest)
-		if err != nil {
-			return
-		}
-		if len(getResponse.Cells) == 0 {
-			err = ErrNoSuchVersion
-			return
-		}
-		object, err = ObjectFromResponse(getResponse, bucketName)
+	getRequest, err := hrpc.NewGetStr(context.Background(), OBJECT_TABLE, objectRowkeyPrefix)
+	if err != nil {
+		return
 	}
+	getResponse, err := m.Hbase.Get(getRequest)
+	if err != nil {
+		return
+	}
+	if len(getResponse.Cells) == 0 {
+		err = ErrNoSuchVersion
+		return
+	}
+	object, err = ObjectFromResponse(getResponse, bucketName)
 	if err != nil {
 		return
 	}

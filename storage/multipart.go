@@ -385,8 +385,9 @@ func (yig *YigStorage) AbortMultipartUpload(credential iam.Credential,
 	return nil
 }
 
-func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential,
-	bucketName, objectName, uploadId string, uploadedParts []meta.CompletePart) (etagString string, err error) {
+func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucketName,
+objectName, uploadId string, uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult,
+err error) {
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
@@ -469,9 +470,9 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential,
 		totalSize += part.Size
 		md5Writer.Write(etagBytes)
 	}
-	etagString = hex.EncodeToString(md5Writer.Sum(nil))
-	etagString += "-" + strconv.Itoa(len(uploadedParts))
-	// See http://stackoverflow.com/questions/12186993/what-is-the-algorithm-to-compute-the-amazon-s3-etag-for-a-file-larger-than-5gb
+	result.ETag = hex.EncodeToString(md5Writer.Sum(nil))
+	result.ETag += "-" + strconv.Itoa(len(uploadedParts))
+	// See http://stackoverflow.com/questions/12186993
 	// for how to calculate multipart Etag
 
 	// Add to objects table
@@ -485,23 +486,29 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential,
 		OwnerId:          metadata["OwnerId"],
 		Size:             totalSize,
 		LastModifiedTime: time.Now().UTC(),
-		Etag:             etagString,
+		Etag:             result.ETag,
 		ContentType:      contentType,
 		Parts:            parts,
 	}
-	rowkey, err := object.GetRowkey()
-	if err != nil {
-		return
+
+	var olderObject meta.Object
+	if bucket.Versioning == "Enabled" {
+		result.VersionId = object.GetVersionId()
+	} else { // remove older object if versioning is not enabled
+		// FIXME use removeNullVersionObject for `Suspended` after fixing GetNullVersionObject
+		olderObject, err = yig.MetaStorage.GetObject(bucketName, objectName, "")
+		if err != nil {
+			return
+		}
+		if olderObject.NullVersion {
+			err = yig.removeByObject(olderObject)
+			if err != nil {
+				return
+			}
+		}
 	}
-	values, err := object.GetValues()
-	if err != nil {
-		return
-	}
-	put, err := hrpc.NewPutStr(context.Background(), meta.OBJECT_TABLE, rowkey, values)
-	if err != nil {
-		return
-	}
-	_, err = yig.MetaStorage.Hbase.Put(put)
+
+	err = putObjectEntry(object, yig.MetaStorage)
 	if err != nil {
 		return
 	}
@@ -519,14 +526,14 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential,
 	if err != nil { // rollback objects table
 		objectDeleteValues := object.GetValuesForDelete()
 		objectDeleteRequest, err := hrpc.NewDelStr(context.Background(), meta.OBJECT_TABLE,
-			rowkey, objectDeleteValues)
+			object.Rowkey, objectDeleteValues)
 		if err != nil {
 			return "", err
 		}
 		_, err = yig.MetaStorage.Hbase.Delete(objectDeleteRequest)
 		if err != nil {
 			yig.Logger.Println("Error deleting object: ", err)
-			yig.Logger.Println("Inconsistent data: object with rowkey ", rowkey,
+			yig.Logger.Println("Inconsistent data: object with rowkey ", object.Rowkey,
 				"should be removed in HBase")
 		}
 		return "", err
