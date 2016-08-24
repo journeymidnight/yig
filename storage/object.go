@@ -72,7 +72,11 @@ func (yig *YigStorage) GetObject(object meta.Object, startOffset int64,
 
 func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 	version string) (meta.Object, error) {
-	return yig.MetaStorage.GetObject(bucketName, objectName, version)
+	if version == "" {
+		return yig.MetaStorage.GetObject(bucketName, objectName)
+	} else {
+		return yig.MetaStorage.GetObjectVersion(bucketName, objectName, version)
+	}
 }
 
 func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, version string,
@@ -92,7 +96,12 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, versio
 			return ErrAccessDenied
 		}
 	} // TODO policy and fancy ACL
-	object, err := yig.MetaStorage.GetObject(bucketName, objectName, version)
+	var object meta.Object
+	if version == "" {
+		object, err = yig.MetaStorage.GetObject(bucketName, objectName)
+	} else {
+		object, err = yig.MetaStorage.GetObjectVersion(bucketName, objectName, version)
+	}
 	if err != nil {
 		return err
 	}
@@ -179,7 +188,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 		result.VersionId = object.GetVersionId()
 	} else { // remove older object if versioning is not enabled
 		// FIXME use removeNullVersionObject for `Suspended` after fixing GetNullVersionObject
-		olderObject, err = yig.MetaStorage.GetObject(bucketName, objectName, "")
+		olderObject, err = yig.MetaStorage.GetObject(bucketName, objectName)
 		if err != nil {
 			return
 		}
@@ -275,7 +284,7 @@ func (yig *YigStorage) removeByObject(object meta.Object) (err error) {
 func (yig *YigStorage) removeObject(bucketName, objectName string) error {
 	object, err := yig.MetaStorage.GetObject(bucketName, objectName)
 	if err != nil {
-		return
+		return err
 	}
 	return yig.removeByObject(object)
 }
@@ -283,7 +292,7 @@ func (yig *YigStorage) removeObject(bucketName, objectName string) error {
 func (yig *YigStorage) removeObjectVersion(bucketName, objectName, version string) error {
 	object, err := yig.MetaStorage.GetObjectVersion(bucketName, objectName, version)
 	if err != nil {
-		return
+		return err
 	}
 	return yig.removeByObject(object)
 }
@@ -294,7 +303,7 @@ func (yig *YigStorage) removeNullVersionObject(bucketName, objectName string) er
 		return nil // When there's no null versioned object, we do not need to remove it
 	}
 	if err != nil {
-		return
+		return err
 	}
 	return yig.removeByObject(object)
 }

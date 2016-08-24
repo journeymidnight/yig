@@ -468,7 +468,8 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 			err = ErrInvalidPart
 			return
 		}
-		etagBytes, err := hex.DecodeString(part.Etag)
+		var etagBytes []byte
+		etagBytes, err = hex.DecodeString(part.Etag)
 		if err != nil {
 			err = ErrInvalidPart
 			return
@@ -503,7 +504,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 		result.VersionId = object.GetVersionId()
 	} else { // remove older object if versioning is not enabled
 		// FIXME use removeNullVersionObject for `Suspended` after fixing GetNullVersionObject
-		olderObject, err = yig.MetaStorage.GetObject(bucketName, objectName, "")
+		olderObject, err = yig.MetaStorage.GetObject(bucketName, objectName)
 		if err != nil {
 			return
 		}
