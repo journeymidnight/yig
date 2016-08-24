@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/hex"
+	"encoding/json"
 	"github.com/tsuna/gohbase/hrpc"
 	"github.com/xxtea/xxtea-go/xxtea"
 	"strconv"
 	"strings"
 	"time"
-	"encoding/json"
 )
 
 var (
@@ -101,7 +101,7 @@ func UploadFromResponse(response *hrpc.Result, bucketName string) (upload Upload
 	return
 }
 
-func ValuesForParts(parts []Part) (values map[string][]byte, err error) {
+func ValuesForParts(parts map[int]Part) (values map[string][]byte, err error) {
 	for partNumber, part := range parts {
 		var marshaled []byte
 		marshaled, err = json.Marshal(part)

@@ -534,7 +534,7 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	err = api.ObjectAPI.SetObjectAcl(bucketName, objectName, version,  acl, credential)
+	err = api.ObjectAPI.SetObjectAcl(bucketName, objectName, version, acl, credential)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to set ACL for object")
 		WriteErrorResponse(w, r, err, r.URL.Path)

@@ -1,21 +1,21 @@
 package meta
 
 import (
+	"bytes"
 	"encoding/binary"
 	"time"
-	"bytes"
 )
 
 type GarbageCollection struct {
-	BucketName	string
-	ObjectName	string
-	Location 	string
-	Pool		string
-	ObjectId	string
-	Parts		map[int]Part
+	BucketName string
+	ObjectName string
+	Location   string
+	Pool       string
+	ObjectId   string
+	Parts      map[int]Part
 }
 
-func GarbageCollectionFromObject(o Object) (gc GarbageCollection){
+func GarbageCollectionFromObject(o Object) (gc GarbageCollection) {
 	gc.BucketName = o.BucketName
 	gc.ObjectName = o.Name
 	gc.Location = o.Location

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/meta"
 	"git.letv.cn/yig/yig/signature"
@@ -13,7 +14,6 @@ import (
 	"golang.org/x/net/context"
 	"io"
 	"time"
-	"git.letv.cn/yig/yig/helper"
 )
 
 func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size int64) (cluster *CephStorage, poolName string) {
@@ -71,12 +71,12 @@ func (yig *YigStorage) GetObject(object meta.Object, startOffset int64,
 }
 
 func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
-version string) (meta.Object, error) {
+	version string) (meta.Object, error) {
 	return yig.MetaStorage.GetObject(bucketName, objectName, version)
 }
 
 func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, version string,
-acl datatype.Acl, credential iam.Credential) error {
+	acl datatype.Acl, credential iam.Credential) error {
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
@@ -105,7 +105,7 @@ acl datatype.Acl, credential iam.Credential) error {
 }
 
 func (yig *YigStorage) PutObject(bucketName string, objectName string, size int64, data io.Reader,
-metadata map[string]string, acl datatype.Acl) (result datatype.PutObjectResult, err error) {
+	metadata map[string]string, acl datatype.Acl) (result datatype.PutObjectResult, err error) {
 
 	md5Writer := md5.New()
 
@@ -169,8 +169,8 @@ metadata map[string]string, acl datatype.Acl) (result datatype.PutObjectResult, 
 		Etag:             calculatedMd5,
 		ContentType:      metadata["Content-Type"],
 		ACL:              acl,
-		NullVersion:	  helper.Ternary(bucket.Versioning == "Enabled", false, true),
-		DeleteMarker:	  false,
+		NullVersion:      helper.Ternary(bucket.Versioning == "Enabled", false, true).(bool),
+		DeleteMarker:     false,
 		// TODO CustomAttributes
 	}
 
@@ -258,7 +258,7 @@ func (yig *YigStorage) removeByObject(object meta.Object) (err error) {
 	}
 
 	err = putObjectToGarbageCollection(object, yig.MetaStorage)
-	if err != nil {  // try to rollback `objects` table
+	if err != nil { // try to rollback `objects` table
 		yig.Logger.Println("Error putObjectToGarbageCollection: ", err)
 		err = putObjectEntry(object, yig.MetaStorage)
 		if err != nil {
@@ -294,18 +294,18 @@ func (yig *YigStorage) removeNullVersionObject(bucketName, objectName string) er
 		return nil // When there's no null versioned object, we do not need to remove it
 	}
 	if err != nil {
-		return 
+		return
 	}
 	return yig.removeByObject(object)
 }
 
 func (yig *YigStorage) addDeleteMarker(bucketName, objectName string) (versionId string, err error) {
 	deleteMarker := meta.Object{
-		Name: objectName,
-		BucketName: bucketName,
+		Name:             objectName,
+		BucketName:       bucketName,
 		LastModifiedTime: time.Now().UTC(),
-		NullVersion: false,
-		DeleteMarker: true,
+		NullVersion:      false,
+		DeleteMarker:     true,
 	}
 	versionId = deleteMarker.GetVersionId()
 	err = putObjectEntry(deleteMarker, yig.MetaStorage)
@@ -322,7 +322,7 @@ func (yig *YigStorage) addDeleteMarker(bucketName, objectName string) (versionId
 //
 // See http://docs.aws.amazon.com/AmazonS3/latest/dev/Versioning.html
 func (yig *YigStorage) DeleteObject(bucketName string, objectName string, version string,
-credential iam.Credential) (result datatype.DeleteObjectResult, err error) {
+	credential iam.Credential) (result datatype.DeleteObjectResult, err error) {
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {

@@ -3,20 +3,20 @@ package meta
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/helper"
 	"github.com/tsuna/gohbase/filter"
 	"github.com/tsuna/gohbase/hrpc"
+	"github.com/xxtea/xxtea-go/xxtea"
 	"golang.org/x/net/context"
 	"math"
 	"strconv"
 	"strings"
 	"time"
-	"git.letv.cn/yig/yig/helper"
-	"github.com/xxtea/xxtea-go/xxtea"
-	"encoding/hex"
-	"fmt"
 )
 
 type Object struct {
@@ -34,9 +34,9 @@ type Object struct {
 	CustomAttributes map[string]string
 	Parts            map[int]Part
 	ACL              datatype.Acl
-	NullVersion	 bool 	 // if this entry has `null` version
-	DeleteMarker 	 bool    // if this entry is a delete marker
-	VersionId	 string  // version cache
+	NullVersion      bool   // if this entry has `null` version
+	DeleteMarker     bool   // if this entry is a delete marker
+	VersionId        string // version cache
 }
 
 func (o Object) String() (s string) {
@@ -94,8 +94,8 @@ func (o Object) GetValues() (values map[string]map[string][]byte, err error) {
 			"content-type": []byte(o.ContentType),
 			"attributes":   []byte{}, // TODO
 			"ACL":          []byte(o.ACL.CannedAcl),
-			"version":	[]byte(helper.Ternary(o.NullVersion, "true", "false")),
-			"deleteMarker": []byte(helper.Ternary(o.DeleteMarker, "true", "false")),
+			"version":      []byte(helper.Ternary(o.NullVersion, "true", "false").(string)),
+			"deleteMarker": []byte(helper.Ternary(o.DeleteMarker, "true", "false").(string)),
 		},
 	}
 	if len(o.Parts) != 0 {
@@ -197,10 +197,10 @@ func ObjectFromResponse(response *hrpc.Result, bucketName string) (object Object
 				object.ACL.CannedAcl = string(cell.Value)
 			case "version":
 				object.NullVersion = helper.Ternary(string(cell.Value) == "true",
-					true, false)
+					true, false).(bool)
 			case "deleteMarker":
 				object.DeleteMarker = helper.Ternary(string(cell.Value) == "true",
-					true, false)
+					true, false).(bool)
 			}
 		case OBJECT_PART_COLUMN_FAMILY:
 			var partNumber int
@@ -306,7 +306,7 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string) (object 
 	if err != nil {
 		return
 	}
-	getRequest, err := hrpc.NewGetStr(context.Background(), OBJECT_TABLE, objectRowkeyPrefix)
+	getRequest, err := hrpc.NewGetStr(context.Background(), OBJECT_TABLE, string(objectRowkeyPrefix))
 	if err != nil {
 		return
 	}

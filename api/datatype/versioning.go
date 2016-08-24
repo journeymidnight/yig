@@ -8,7 +8,7 @@ import (
 
 type Versioning struct {
 	XMLName xml.Name `xml:"VersioningConfiguration"`
-	Status string
+	Status  string
 	//	MfaDelete string
 }
 

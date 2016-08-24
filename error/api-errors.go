@@ -262,8 +262,8 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		HttpStatusCode: http.StatusNotFound,
 	},
 	ErrNoSuchVersion: {
-		AwsErrorCode: "NoSuchVersion",
-		Description: "The version ID specified in the request does not match an existing version.",
+		AwsErrorCode:   "NoSuchVersion",
+		Description:    "The version ID specified in the request does not match an existing version.",
 		HttpStatusCode: http.StatusNotFound,
 	},
 	ErrNotImplemented: {

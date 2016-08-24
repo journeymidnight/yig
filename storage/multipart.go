@@ -386,8 +386,8 @@ func (yig *YigStorage) AbortMultipartUpload(credential iam.Credential,
 }
 
 func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucketName,
-objectName, uploadId string, uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult,
-err error) {
+	objectName, uploadId string, uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult,
+	err error) {
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {

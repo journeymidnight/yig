@@ -260,8 +260,8 @@ type DeleteObjectsRequest struct {
 }
 
 type PutObjectResult struct {
-	Md5 		string
-	VersionId 	string
+	Md5       string
+	VersionId string
 }
 
 type DeleteObjectResult struct {
@@ -270,6 +270,6 @@ type DeleteObjectResult struct {
 }
 
 type CompleteMultipartResult struct {
-	ETag		string
-	VersionId 	string
+	ETag      string
+	VersionId string
 }
