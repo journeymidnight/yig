@@ -295,6 +295,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 // ----------
 // This implementation of the PUT operation adds an object to a bucket
 // while reading the object from another source.
+// TODO
 func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
@@ -398,21 +399,21 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	// Create the object.
-	md5Sum, err := api.ObjectAPI.PutObject(bucket, object, size, pipeReader, metadata, acl)
+	result, err := api.ObjectAPI.PutObject(bucket, object, size, pipeReader, metadata, acl)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to create an object.")
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
 
-	objInfo, err = api.ObjectAPI.GetObjectInfo(bucket, object)
+	objInfo, err = api.ObjectAPI.GetObjectInfo(bucket, object, "")
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
 
-	response := GenerateCopyObjectResponse(md5Sum, objInfo.LastModifiedTime)
+	response := GenerateCopyObjectResponse(result.Md5, objInfo.LastModifiedTime)
 	encodedSuccessResponse := EncodeResponse(response)
 	// write headers
 	SetCommonHeaders(w)

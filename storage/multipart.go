@@ -398,7 +398,8 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 		break
 	default:
 		if bucket.OwnerId != credential.UserId {
-			return "", ErrBucketAccessForbidden
+			err = ErrBucketAccessForbidden
+			return
 		}
 	}
 	// TODO policy and fancy ACL
@@ -417,7 +418,8 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 		return
 	}
 	if len(getMultipartResponse.Cells) == 0 {
-		return "", ErrNoSuchUpload
+		err = ErrNoSuchUpload
+		return
 	}
 
 	parts := make(map[int]meta.Part)
@@ -446,25 +448,30 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 	var totalSize int64 = 0
 	for i := 0; i < len(uploadedParts); i++ {
 		if uploadedParts[i].PartNumber != i+1 {
-			return "", ErrInvalidPart
+			err = ErrInvalidPart
+			return
 		}
 		part, ok := parts[i+1]
 		if !ok {
-			return "", ErrInvalidPart
+			err = ErrInvalidPart
+			return
 		}
 		if part.Size < MIN_PART_SIZE && part.PartNumber != len(uploadedParts) {
-			return "", meta.PartTooSmall{
+			err = meta.PartTooSmall{
 				PartSize:   part.Size,
 				PartNumber: part.PartNumber,
 				PartETag:   part.Etag,
 			}
+			return
 		}
 		if part.Etag != uploadedParts[i].ETag {
-			return "", ErrInvalidPart
+			err = ErrInvalidPart
+			return
 		}
 		etagBytes, err := hex.DecodeString(part.Etag)
 		if err != nil {
-			return "", ErrInvalidPart
+			err = ErrInvalidPart
+			return
 		}
 		part.Offset = totalSize
 		totalSize += part.Size
@@ -528,7 +535,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 		objectDeleteRequest, err := hrpc.NewDelStr(context.Background(), meta.OBJECT_TABLE,
 			object.Rowkey, objectDeleteValues)
 		if err != nil {
-			return "", err
+			return
 		}
 		_, err = yig.MetaStorage.Hbase.Delete(objectDeleteRequest)
 		if err != nil {
@@ -536,7 +543,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 			yig.Logger.Println("Inconsistent data: object with rowkey ", object.Rowkey,
 				"should be removed in HBase")
 		}
-		return "", err
+		return
 	}
 	return
 }

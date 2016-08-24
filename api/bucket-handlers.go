@@ -304,6 +304,7 @@ func (api ObjectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.R
 }
 
 // DeleteMultipleObjectsHandler - deletes multiple objects.
+// TODO
 func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
@@ -362,7 +363,7 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	var deletedObjects []ObjectIdentifier
 	// Loop through all the objects and delete them sequentially.
 	for _, object := range deleteObjects.Objects {
-		err := api.ObjectAPI.DeleteObject(bucket, object.ObjectName)
+		_, err := api.ObjectAPI.DeleteObject(bucket, object.ObjectName, "")
 		if err == nil {
 			deletedObjects = append(deletedObjects, ObjectIdentifier{
 				ObjectName: object.ObjectName,
@@ -700,20 +701,20 @@ func (api ObjectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *h
 	}
 
 	object := formValues["Key"]
-	md5Sum, err := api.ObjectAPI.PutObject(bucket, object, -1, fileBody, metadata, acl)
+	result, err := api.ObjectAPI.PutObject(bucket, object, -1, fileBody, metadata, acl)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to create object.")
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
-	if md5Sum != "" {
-		w.Header().Set("ETag", "\""+md5Sum+"\"")
+	if result.Md5 != "" {
+		w.Header().Set("ETag", "\""+result.Md5+"\"")
 	}
 	encodedSuccessResponse := EncodeResponse(PostResponse{
 		Location: GetObjectLocation(bucket, object), // TODO Full URL is preferred
 		Bucket:   bucket,
 		Key:      object,
-		ETag:     md5Sum,
+		ETag:     result.Md5,
 	})
 	SetCommonHeaders(w)
 	WriteSuccessResponse(w, encodedSuccessResponse)
