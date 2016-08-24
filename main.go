@@ -11,10 +11,11 @@ import (
 
 // TODO config file
 const (
-	LOGPATH        = "/var/log/yig/yig.log"
-	PANIC_LOG_PATH = "/var/log/yig/panic.log"
-	PIDFILE        = "/var/run/yig/yig.pid"
-	BIND_ADDRESS   = "0.0.0.0:3000"
+	LOGPATH            = "/var/log/yig/yig.log"
+	PANIC_LOG_PATH     = "/var/log/yig/panic.log"
+	PIDFILE            = "/var/run/yig/yig.pid"
+	BIND_ADDRESS       = "0.0.0.0:3000"
+	ADMIN_BIND_ADDRESS = "0.0.0.0:9000"
 
 	SSL_KEY_PATH  = ""
 	SSL_CERT_PATH = ""
@@ -33,6 +34,13 @@ func main() {
 	helper.Logger = logger
 
 	yig := storage.New(logger) // New() panics if errors occur
+
+	adminServerConfig := &adminServerConfig{
+		Address:     ADMIN_BIND_ADDRESS,
+		Logger:      logger,
+		ObjectLayer: yig,
+	}
+	startAdminServer(adminServerConfig)
 
 	apiServerConfig := &ServerConfig{
 		Address:      BIND_ADDRESS,
