@@ -309,6 +309,8 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
+	var credential iam.Credential
+	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
@@ -316,13 +318,13 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 		return
 	case signature.AuthTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
-		if s3Error := enforceBucketPolicy("s3:DeleteObject", bucket, r.URL); s3Error != nil {
-			WriteErrorResponse(w, r, s3Error, r.URL.Path)
+		if err = enforceBucketPolicy("s3:DeleteObject", bucket, r.URL); err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
 			return
 		}
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
-		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != nil {
-			WriteErrorResponse(w, r, s3Error, r.URL.Path)
+		if credential, err = signature.IsReqAuthenticated(r); err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
 			return
 		}
 	}
@@ -363,7 +365,7 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	var deletedObjects []ObjectIdentifier
 	// Loop through all the objects and delete them sequentially.
 	for _, object := range deleteObjects.Objects {
-		_, err := api.ObjectAPI.DeleteObject(bucket, object.ObjectName, "")
+		_, err := api.ObjectAPI.DeleteObject(bucket, object.ObjectName, "", credential)
 		if err == nil {
 			deletedObjects = append(deletedObjects, ObjectIdentifier{
 				ObjectName: object.ObjectName,

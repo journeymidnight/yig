@@ -391,5 +391,5 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 	}
 
 	// TODO a daemon to check garbage collection table and delete objects in ceph
-	return nil
+	return result, nil
 }

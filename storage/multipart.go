@@ -536,7 +536,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 		objectDeleteRequest, err := hrpc.NewDelStr(context.Background(), meta.OBJECT_TABLE,
 			object.Rowkey, objectDeleteValues)
 		if err != nil {
-			return
+			return result, err
 		}
 		_, err = yig.MetaStorage.Hbase.Delete(objectDeleteRequest)
 		if err != nil {
@@ -544,7 +544,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 			yig.Logger.Println("Inconsistent data: object with rowkey ", object.Rowkey,
 				"should be removed in HBase")
 		}
-		return
+		return result, err
 	}
 	return
 }
