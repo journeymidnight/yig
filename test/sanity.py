@@ -241,6 +241,23 @@ def delete_bucket_cors(name, client):
     )
 
 
+def put_bucket_versioning(name, client):
+    client.put_bucket_versioning(
+        Bucket=name+'hehe',
+        VersioningConfiguration={
+            'Status': 'Enabled'
+        }
+    )
+
+
+def get_bucket_versioning(name, client):
+    ans = client.get_bucket_versioning(
+        Bucket=name+'hehe'
+    )
+    assert ans['Status'] == 'Enabled'
+    print 'Get bucket versioning:', ans
+
+
 def delete_bucket(name, client):
     client.delete_bucket(Bucket=name+'hehe')
 
@@ -259,16 +276,17 @@ def is_a_fail_test(testFunction):
     return False
 
 TESTS = [create_bucket,
-         #head_bucket, head_bucket_nonexist,
-         #list_buckets,
+         head_bucket, head_bucket_nonexist,
+         list_buckets,
          put_object,
          get_object, get_object_nonexist,
-         #list_objects_v1, list_objects_v2,
-         #delete_object,
-         #create_multipart_upload, upload_part, list_multipart_uploads, list_parts, abort_multipart_upload, complete_multipart_upload,
-         #get_multipart_uploaded_object,
-         #get_object_ranged,
-         #put_bucket_cors, get_bucket_cors, delete_bucket_cors,
+         list_objects_v1, list_objects_v2,
+         delete_object,
+         create_multipart_upload, upload_part, list_multipart_uploads, list_parts, abort_multipart_upload, complete_multipart_upload,
+         get_multipart_uploaded_object,
+         get_object_ranged,
+         put_bucket_cors, get_bucket_cors, delete_bucket_cors,
+         put_bucket_versioning, get_bucket_versioning,
          delete_bucket, delete_bucket_nonexist]
 
 if __name__ == '__main__':
