@@ -204,6 +204,8 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 					return
 				}
 			}
+		} else {
+			err = nil
 		}
 	}
 
@@ -286,6 +288,8 @@ func (yig *YigStorage) CopyObject(targetObject meta.Object,
 					return
 				}
 			}
+		} else {
+			err = nil
 		}
 	}
 

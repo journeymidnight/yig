@@ -515,6 +515,8 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 					return
 				}
 			}
+		} else {
+			err = nil
 		}
 	}
 

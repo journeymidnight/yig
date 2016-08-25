@@ -54,6 +54,7 @@ func (o Object) String() (s string) {
 // Rowkey format:
 // BucketName +
 // bigEndian(uint16(count("/", ObjectName))) +
+// bigEndian(uint16(len([]byte((ObjectName)))) +
 // ObjectName +
 // bigEndian(uint64.max - unixNanoTimestamp)
 func (o Object) GetRowkey() (string, error) {
@@ -63,6 +64,10 @@ func (o Object) GetRowkey() (string, error) {
 	var rowkey bytes.Buffer
 	rowkey.WriteString(o.BucketName)
 	err := binary.Write(&rowkey, binary.BigEndian, uint16(strings.Count(o.Name, "/")))
+	if err != nil {
+		return "", err
+	}
+	err = binary.Write(&rowkey, binary.BigEndian, uint16(len([]byte(o.Name))))
 	if err != nil {
 		return "", err
 	}
@@ -130,6 +135,7 @@ func (o Object) GetVersionId() string {
 // Rowkey format:
 // BucketName +
 // bigEndian(uint16(count("/", ObjectName))) +
+// bigEndian(uint16(len([]byte((ObjectName)))) +
 // ObjectName +
 // bigEndian(uint64.max - unixNanoTimestamp)
 // The prefix excludes timestamp part if version is empty
@@ -139,6 +145,10 @@ func getObjectRowkeyPrefix(bucketName string, objectName string, version string)
 	err := binary.Write(&rowkey, binary.BigEndian, uint16(strings.Count(objectName, "/")))
 	if err != nil {
 		return []byte{}, err
+	}
+	err = binary.Write(&rowkey, binary.BigEndian, uint16(len([]byte(objectName))))
+	if err != nil {
+		return "", err
 	}
 	rowkey.WriteString(objectName)
 	if version != "" {
@@ -221,7 +231,7 @@ func ObjectFromResponse(response *hrpc.Result, bucketName string) (object Object
 	// rowkey = BucketName + bigEndian(uint16(count("/", ObjectName)))
 	// + ObjectName
 	// + bigEndian(uint64.max - unixNanoTimestamp)
-	object.Name = string(rowkey[len(bucketName)+2 : len(rowkey)-8])
+	object.Name = string(rowkey[len(bucketName)+4 : len(rowkey)-8])
 	if object.NullVersion {
 		object.VersionId = "null"
 	} else {
@@ -254,6 +264,7 @@ func (m *Meta) GetObject(bucketName string, objectName string) (object Object, e
 	if err != nil {
 		return
 	}
+	helper.Debugln("GetObject scanResponse length:", len(scanResponse))
 	if len(scanResponse) == 0 {
 		err = ErrNoSuchKey
 		return
@@ -262,6 +273,7 @@ func (m *Meta) GetObject(bucketName string, objectName string) (object Object, e
 	if err != nil {
 		return
 	}
+	helper.Debugln("GetObject object.Name:", object.Name)
 	if object.Name != objectName {
 		err = ErrNoSuchKey
 		return
