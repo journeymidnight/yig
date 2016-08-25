@@ -30,6 +30,9 @@ func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size 
 
 func (yig *YigStorage) GetObject(object meta.Object, startOffset int64,
 	length int64, writer io.Writer) (err error) {
+
+	// TODO move delete-marker related code to storage layer
+
 	if len(object.Parts) == 0 { // this object has only one part
 		cephCluster, ok := yig.DataStorage[object.Location]
 		if !ok {
@@ -203,6 +206,91 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 	}
 
 	err = putObjectEntry(object, yig.MetaStorage)
+	if err != nil {
+		return
+	}
+	return result, nil
+}
+
+func (yig *YigStorage) CopyObject(targetObject meta.Object,
+	source io.Reader) (result datatype.PutObjectResult, err error) {
+
+	md5Writer := md5.New()
+
+	// Limit the reader to its provided size if specified.
+	var limitedDataReader io.Reader
+	limitedDataReader = io.LimitReader(source, targetObject.Size)
+
+	cephCluster, poolName := yig.PickOneClusterAndPool(targetObject.BucketName,
+		targetObject.Name, targetObject.Size)
+
+	// Mapping a shorter name for the object
+	oid := cephCluster.GetUniqUploadName()
+	storageReader := io.TeeReader(limitedDataReader, md5Writer)
+	bytesWritten, err := cephCluster.put(poolName, oid, storageReader)
+	if err != nil {
+		return
+	}
+	if bytesWritten < targetObject.Size {
+		return result, ErrIncompleteBody
+	}
+
+	calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
+	if calculatedMd5 != targetObject.Etag {
+		return result, ErrBadDigest
+	}
+	result.Md5 = calculatedMd5
+
+	credential, err := source.(*signature.SignVerifyReader).Verify()
+	if err != nil {
+		return
+	}
+
+	bucket, err := yig.MetaStorage.GetBucket(targetObject.BucketName)
+	if err != nil {
+		return
+	}
+
+	switch bucket.ACL.CannedAcl {
+	case "public-read-write":
+		break
+	default:
+		if bucket.OwnerId != credential.UserId {
+			return result, ErrBucketAccessForbidden
+		}
+	}
+	// TODO validate bucket policy and fancy ACL
+
+	targetObject.Rowkey = ""    // clear the rowkey cache
+	targetObject.VersionId = "" // clear the versionId cache
+	targetObject.Location = cephCluster.Name
+	targetObject.Pool = poolName
+	targetObject.OwnerId = credential.UserId
+	targetObject.ObjectId = oid
+	targetObject.LastModifiedTime = time.Now().UTC()
+	targetObject.NullVersion = helper.Ternary(bucket.Versioning == "Enabled", false, true).(bool)
+
+	result.LastModified = targetObject.LastModifiedTime
+
+	var olderObject meta.Object
+	if bucket.Versioning == "Enabled" {
+		result.VersionId = targetObject.GetVersionId()
+	} else { // remove older object if versioning is not enabled
+		// FIXME use removeNullVersionObject for `Suspended` after fixing GetNullVersionObject
+		olderObject, err = yig.MetaStorage.GetObject(targetObject.BucketName,
+			targetObject.Name)
+		if err != nil {
+			return
+		}
+		if olderObject.NullVersion {
+			err = yig.removeByObject(olderObject)
+			if err != nil {
+				return
+			}
+		}
+	}
+
+	err = putObjectEntry(targetObject, yig.MetaStorage)
 	if err != nil {
 		return
 	}

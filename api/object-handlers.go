@@ -461,6 +461,9 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
+	sourceObject.ACL = targetAcl
+	sourceObject.BucketName = targetBucketName
+	sourceObject.Name = targetObjectName
 
 	// Create the object.
 	result, err := api.ObjectAPI.PutObject(targetBucketName, targetObjectName, size, pipeReader, metadata, targetAcl)

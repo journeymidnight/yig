@@ -69,6 +69,18 @@ def get_object(name, client):
     print 'Get object:', ans
 
 
+def put_object_copy(name, client):
+    ans = client.copy_object(
+        Bucket=name+'hehe',
+        Key=name+'hehe-copied',
+        CopySource={
+            'Bucket': name+'hehe',
+            'Key': name+'hehe',
+        }
+    )
+    print 'Copy object:', ans
+
+
 def get_object_nonexist(name, client):
     client.get_object(
         Bucket=name+'haha',
@@ -280,6 +292,7 @@ TESTS = [create_bucket,
          list_buckets,
          put_object,
          get_object, get_object_nonexist,
+         put_object_copy,
          list_objects_v1, list_objects_v2,
          delete_object,
          create_multipart_upload, upload_part, list_multipart_uploads, list_parts, abort_multipart_upload, complete_multipart_upload,
