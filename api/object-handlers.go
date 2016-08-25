@@ -388,6 +388,9 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	helper.Debugln("sourceBucketName", sourceBucketName, "sourceObjectName", sourceObjectName,
+		"sourceVersion", sourceVersion)
+
 	sourceObject, err := api.ObjectAPI.GetObjectInfo(sourceBucketName, sourceObjectName, sourceVersion)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")

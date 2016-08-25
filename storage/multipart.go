@@ -505,13 +505,15 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 	} else { // remove older object if versioning is not enabled
 		// FIXME use removeNullVersionObject for `Suspended` after fixing GetNullVersionObject
 		olderObject, err = yig.MetaStorage.GetObject(bucketName, objectName)
-		if err != nil {
-			return
-		}
-		if olderObject.NullVersion {
-			err = yig.removeByObject(olderObject)
+		if err != ErrNoSuchKey {
 			if err != nil {
 				return
+			}
+			if olderObject.NullVersion {
+				err = yig.removeByObject(olderObject)
+				if err != nil {
+					return
+				}
 			}
 		}
 	}

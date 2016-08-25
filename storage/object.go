@@ -194,13 +194,15 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 	} else { // remove older object if versioning is not enabled
 		// FIXME use removeNullVersionObject for `Suspended` after fixing GetNullVersionObject
 		olderObject, err = yig.MetaStorage.GetObject(bucketName, objectName)
-		if err != nil {
-			return
-		}
-		if olderObject.NullVersion {
-			err = yig.removeByObject(olderObject)
+		if err != ErrNoSuchKey {
 			if err != nil {
 				return
+			}
+			if olderObject.NullVersion {
+				err = yig.removeByObject(olderObject)
+				if err != nil {
+					return
+				}
 			}
 		}
 	}
@@ -274,13 +276,15 @@ func (yig *YigStorage) CopyObject(targetObject meta.Object,
 		// FIXME use removeNullVersionObject for `Suspended` after fixing GetNullVersionObject
 		olderObject, err = yig.MetaStorage.GetObject(targetObject.BucketName,
 			targetObject.Name)
-		if err != nil {
-			return
-		}
-		if olderObject.NullVersion {
-			err = yig.removeByObject(olderObject)
+		if err != ErrNoSuchKey {
 			if err != nil {
 				return
+			}
+			if olderObject.NullVersion {
+				err = yig.removeByObject(olderObject)
+				if err != nil {
+					return
+				}
 			}
 		}
 	}
