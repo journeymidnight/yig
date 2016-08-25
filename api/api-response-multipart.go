@@ -23,9 +23,13 @@ import (
 	"net/http"
 )
 
+const (
+	MIN_PART_SIZE   = 128 << 10 // 128KB
+)
+
 // writeErrorResponsePartTooSmall - function is used specifically to
 // construct a proper error response during CompleteMultipartUpload
-// when one of the parts is < 5MB.
+// when one of the parts is < MIN_PART_SIZE
 // The requirement comes due to the fact that generic ErrorResponse
 // XML doesn't carry the additional fields required to send this
 // error. So we construct a new type which lies well within the scope
@@ -46,13 +50,19 @@ func writePartSmallErrorResponse(w http.ResponseWriter, r *http.Request, err met
 		ApiErrorResponse
 	}
 	// Generate complete multipart error response.
-	errorResponse := GetAPIErrorResponse(err, r.URL.Path)
-	cmpErrResp := completeMultipartAPIError{err.PartSize, int64(5242880), err.PartNumber,
-		err.PartETag, errorResponse}
+	cmpErrResp := completeMultipartAPIError{
+		ProposedSize: err.PartSize,
+		MinSizeAllowed: MIN_PART_SIZE,
+		PartNumber: err.PartNumber,
+		PartETag: err.PartETag,
+		ApiErrorResponse: ApiErrorResponse{
+			AwsErrorCode: "EntityTooSmall",
+			Message: "Your proposed upload is smaller than the minimum allowed object size.",
+		},
+	}
 	encodedErrorResponse := EncodeResponse(cmpErrResp)
 	// Write error body
 	w.Write(encodedErrorResponse)
 	w.(http.Flusher).Flush()
 }
 
-// Add any other multipart specific responses here.

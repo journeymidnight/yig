@@ -12,7 +12,7 @@ type GarbageCollection struct {
 	Location   string
 	Pool       string
 	ObjectId   string
-	Parts      map[int]Part
+	Parts      map[int]*Part
 }
 
 func GarbageCollectionFromObject(o Object) (gc GarbageCollection) {

@@ -28,7 +28,8 @@ for addressStyle in ['path']: #['path', 'virtual']:
         clients[addressStyle+'-'+signatureVersion] = client
 
 SMALL_TEST_FILE = bytes('a' * 1024 * 1024)  # 1M
-RANGE_TEST_FILE = bytes('abcdefghijklmnop' * 64 * 1024)  # 1M
+RANGE_1 = bytes('abcdefghijklmnop' * 64 * 1024)  # 1M
+RANGE_2 = bytes('qrstuvwxyz012345' * 64 * 1024)  # 1M
 
 # =====================================================
 
@@ -134,7 +135,7 @@ def upload_part(name, client):
     global etag_1
     global etag_2
     ans = client.upload_part(
-        Body=RANGE_TEST_FILE,
+        Body=RANGE_1,
         Bucket=name+'hehe',
         Key=name+'multipart',
         PartNumber=1,
@@ -143,7 +144,7 @@ def upload_part(name, client):
     print 'Upload part 1:', ans
     etag_1[name] = ans['ETag']
     ans = client.upload_part(
-        Body=RANGE_TEST_FILE,
+        Body=RANGE_2,
         Bucket=name+'hehe',
         Key=name+'multipart',
         PartNumber=2,
@@ -199,7 +200,7 @@ def get_multipart_uploaded_object(name, client):
         Key=name+'multipart',
     )
     body = ans['Body'].read()
-    assert body == RANGE_TEST_FILE * 2
+    assert body == RANGE_1 + RANGE_2
     print 'Get object:', ans
 
 
@@ -207,10 +208,10 @@ def get_object_ranged(name, client):
     ans = client.get_object(
         Bucket=name+'hehe',
         Key=name+'multipart',
-        Range='bytes=1020-1030'
+        Range='bytes=1048570-1048580'
     )
     body = ans['Body'].read()
-    assert body == 'mnopabcdefg'
+    assert body == 'klmnopqrstu'
     print 'Get object:', ans
 
 cors_config = {

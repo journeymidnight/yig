@@ -32,7 +32,7 @@ type Object struct {
 	Etag             string
 	ContentType      string
 	CustomAttributes map[string]string
-	Parts            map[int]Part
+	Parts            map[int]*Part
 	ACL              datatype.Acl
 	NullVersion      bool   // if this entry has `null` version
 	DeleteMarker     bool   // if this entry is a delete marker
@@ -99,7 +99,7 @@ func (o Object) GetValues() (values map[string]map[string][]byte, err error) {
 			"content-type": []byte(o.ContentType),
 			"attributes":   []byte{}, // TODO
 			"ACL":          []byte(o.ACL.CannedAcl),
-			"version":      []byte(helper.Ternary(o.NullVersion, "true", "false").(string)),
+			"nullVersion":      []byte(helper.Ternary(o.NullVersion, "true", "false").(string)),
 			"deleteMarker": []byte(helper.Ternary(o.DeleteMarker, "true", "false").(string)),
 		},
 	}
@@ -148,7 +148,7 @@ func getObjectRowkeyPrefix(bucketName string, objectName string, version string)
 	}
 	err = binary.Write(&rowkey, binary.BigEndian, uint16(len([]byte(objectName))))
 	if err != nil {
-		return "", err
+		return []byte{}, err
 	}
 	rowkey.WriteString(objectName)
 	if version != "" {
@@ -173,7 +173,7 @@ func getObjectRowkeyPrefix(bucketName string, objectName string, version string)
 // Decode response from HBase and return an Object object
 func ObjectFromResponse(response *hrpc.Result, bucketName string) (object Object, err error) {
 	var rowkey []byte
-	object.Parts = make(map[int]Part)
+	object.Parts = make(map[int]*Part)
 	for _, cell := range response.Cells {
 		rowkey = cell.Row
 		switch string(cell.Family) {
@@ -205,7 +205,7 @@ func ObjectFromResponse(response *hrpc.Result, bucketName string) (object Object
 				object.ContentType = string(cell.Value)
 			case "ACL":
 				object.ACL.CannedAcl = string(cell.Value)
-			case "version":
+			case "nullVersion":
 				object.NullVersion = helper.Ternary(string(cell.Value) == "true",
 					true, false).(bool)
 			case "deleteMarker":
@@ -223,7 +223,7 @@ func ObjectFromResponse(response *hrpc.Result, bucketName string) (object Object
 			if err != nil {
 				return
 			}
-			object.Parts[partNumber] = p
+			object.Parts[partNumber] = &p
 		}
 	}
 	object.BucketName = bucketName

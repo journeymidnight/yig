@@ -422,7 +422,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 		return
 	}
 
-	parts := make(map[int]meta.Part)
+	parts := make(map[int]*meta.Part)
 	metadata := make(map[string]string)
 	for _, cell := range getMultipartResponse.Cells {
 		var partNumber int
@@ -436,7 +436,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 			if err != nil {
 				return
 			}
-			parts[partNumber] = p
+			parts[partNumber] = &p
 		} else {
 			err = json.Unmarshal(cell.Value, &metadata)
 			if err != nil {

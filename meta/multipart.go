@@ -101,7 +101,7 @@ func UploadFromResponse(response *hrpc.Result, bucketName string) (upload Upload
 	return
 }
 
-func ValuesForParts(parts map[int]Part) (values map[string][]byte, err error) {
+func ValuesForParts(parts map[int]*Part) (values map[string][]byte, err error) {
 	for partNumber, part := range parts {
 		var marshaled []byte
 		marshaled, err = json.Marshal(part)
