@@ -291,7 +291,18 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	// Validate pre-conditions if any.
-	if checkPreconditions(w, r, object) {
+	if err = checkPreconditions(w, r, object); err != nil {
+		// set object-related metadata headers
+		w.Header().Set("Last-Modified", object.LastModifiedTime.UTC().Format(http.TimeFormat))
+
+		if object.Etag != "" {
+			w.Header().Set("ETag", "\""+object.Etag+"\"")
+		}
+		if err == ContentNotModified { // write only header if is a 304
+			WriteErrorResponseHeaders(w, r, err, r.URL.Path)
+		} else {
+			WriteErrorResponse(w, r, err, r.URL.Path)
+		}
 		return
 	}
 
