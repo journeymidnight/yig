@@ -463,7 +463,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	sourceObject.Name = targetObjectName
 
 	// Create the object.
-	result, err := api.ObjectAPI.CopyObject(sourceObject, pipeReader)
+	result, err := api.ObjectAPI.CopyObject(sourceObject, pipeReader, credential)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to create an object.")
 		WriteErrorResponse(w, r, err, r.URL.Path)

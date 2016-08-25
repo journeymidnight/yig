@@ -213,7 +213,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 }
 
 func (yig *YigStorage) CopyObject(targetObject meta.Object,
-	source io.Reader) (result datatype.PutObjectResult, err error) {
+	source io.Reader, credential iam.Credential) (result datatype.PutObjectResult, err error) {
 
 	md5Writer := md5.New()
 
@@ -240,11 +240,6 @@ func (yig *YigStorage) CopyObject(targetObject meta.Object,
 		return result, ErrBadDigest
 	}
 	result.Md5 = calculatedMd5
-
-	credential, err := source.(*signature.SignVerifyReader).Verify()
-	if err != nil {
-		return
-	}
 
 	bucket, err := yig.MetaStorage.GetBucket(targetObject.BucketName)
 	if err != nil {
