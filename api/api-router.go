@@ -48,7 +48,7 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 	// GetObject
 	bucket.Methods("GET").Path("/{object:.+}").HandlerFunc(api.GetObjectHandler)
 	// CopyObject
-	bucket.Methods("PUT").Path("/{object:.+}").HeadersRegexp("X-Amz-Copy-Source", ".*?(\\/|%2F).*?").HandlerFunc(api.CopyObjectHandler)
+	bucket.Methods("PUT").Path("/{object:.+}").HeadersRegexp("X-Amz-Copy-Source", ".*?(/).*?").HandlerFunc(api.CopyObjectHandler)
 	// PutObject
 	bucket.Methods("PUT").Path("/{object:.+}").HandlerFunc(api.PutObjectHandler)
 	// PutObjectACL

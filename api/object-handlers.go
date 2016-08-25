@@ -168,7 +168,18 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	// Validate pre-conditions if any.
-	if checkPreconditions(w, r, object) {
+	if err = checkPreconditions(w, r, object); err != nil {
+		// set object-related metadata headers
+		w.Header().Set("Last-Modified", object.LastModifiedTime.UTC().Format(http.TimeFormat))
+
+		if object.Etag != "" {
+			w.Header().Set("ETag", "\""+object.Etag+"\"")
+		}
+		if err == ContentNotModified { // write only header if is a 304
+			WriteErrorResponseHeaders(w, r, err, r.URL.Path)
+		} else {
+			WriteErrorResponse(w, r, err, r.URL.Path)
+		}
 		return
 	}
 
@@ -295,12 +306,13 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 // ----------
 // This implementation of the PUT operation adds an object to a bucket
 // while reading the object from another source.
-// TODO
 func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	bucket := vars["bucket"]
-	object := vars["object"]
+	targetBucketName := vars["bucket"]
+	targetObjectName := vars["object"]
 
+	var credential iam.Credential
+	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
@@ -308,73 +320,113 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	case signature.AuthTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
-		if s3Error := enforceBucketPolicy("s3:PutObject", bucket, r.URL); s3Error != nil {
-			WriteErrorResponse(w, r, s3Error, r.URL.Path)
+		if err = enforceBucketPolicy("s3:PutObject", targetBucketName, r.URL); err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
 			return
 		}
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
-		if _, s3Error := signature.IsReqAuthenticated(r); s3Error != nil {
-			WriteErrorResponse(w, r, s3Error, r.URL.Path)
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
+		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
+		if credential, err = signature.IsReqAuthenticated(r); err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
 			return
 		}
 	}
 
 	// TODO: Reject requests where body/payload is present, for now we don't even read it.
 
-	// objectSource
-	objectSource, err := url.QueryUnescape(r.Header.Get("X-Amz-Copy-Source"))
-	if err != nil {
-		// Save unescaped string as is.
-		objectSource = r.Header.Get("X-Amz-Copy-Source")
-	}
+	// copy source is of form: /bucket-name/object-name?versionId=xxxxxx
+	copySource := r.Header.Get("X-Amz-Copy-Source")
 
 	// Skip the first element if it is '/', split the rest.
-	if strings.HasPrefix(objectSource, "/") {
-		objectSource = objectSource[1:]
+	if strings.HasPrefix(copySource, "/") {
+		copySource = copySource[1:]
 	}
-	splits := strings.SplitN(objectSource, "/", 2)
+	splits := strings.SplitN(copySource, "/", 2)
 
 	// Save sourceBucket and sourceObject extracted from url Path.
-	var sourceBucket, sourceObject string
+	var sourceBucketName, sourceObjectName, sourceVersion string
 	if len(splits) == 2 {
-		sourceBucket = splits[0]
-		sourceObject = splits[1]
+		sourceBucketName = splits[0]
+		sourceObjectName = splits[1]
 	}
 	// If source object is empty, reply back error.
-	if sourceObject == "" {
+	if sourceObjectName == "" {
 		WriteErrorResponse(w, r, ErrInvalidCopySource, r.URL.Path)
 		return
 	}
 
-	// Source and destination objects cannot be same, reply back error.
-	if sourceObject == object && sourceBucket == bucket {
-		WriteErrorResponse(w, r, ErrInvalidCopyDest, r.URL.Path)
+	splits = strings.SplitN(sourceObjectName, "?", 2)
+	if len(splits) == 2 {
+		sourceObjectName = splits[0]
+		if !strings.HasPrefix(splits[1], "versionId=") {
+			WriteErrorResponse(w, r, ErrInvalidCopySource, r.URL.Path)
+			return
+		}
+		sourceVersion = strings.TrimPrefix(splits[1], "versionId=")
+	}
+
+	// X-Amz-Copy-Source should be URL-encoded
+	sourceBucketName, err = url.QueryUnescape(sourceBucketName)
+	if err != nil {
+		WriteErrorResponse(w, r, ErrInvalidCopySource, r.URL.Path)
+		return
+	}
+	sourceObjectName, err = url.QueryUnescape(sourceObjectName)
+	if err != nil {
+		WriteErrorResponse(w, r, ErrInvalidCopySource, r.URL.Path)
 		return
 	}
 
-	objInfo, err := api.ObjectAPI.GetObjectInfo(sourceBucket, sourceObject, "")
+	sourceObject, err := api.ObjectAPI.GetObjectInfo(sourceBucketName, sourceObjectName, sourceVersion)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
-		WriteErrorResponse(w, r, err, objectSource)
+		WriteErrorResponse(w, r, err, copySource)
 		return
 	}
 
 	// Verify before x-amz-copy-source preconditions before continuing with CopyObject.
-	if checkCopyObjectPreconditions(w, r, objInfo) {
+	if err = checkObjectPreconditions(w, r, sourceObject); err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
 
 	/// maximum Upload size for object in a single CopyObject operation.
-	if isMaxObjectSize(objInfo.Size) {
-		WriteErrorResponse(w, r, ErrEntityTooLarge, objectSource)
+	if isMaxObjectSize(sourceObject.Size) {
+		WriteErrorResponse(w, r, ErrEntityTooLarge, copySource)
 		return
+	}
+
+	// TODO: refactor, same as in GetObjectHandler
+	switch sourceObject.ACL.CannedAcl {
+	case "public-read", "public-read-write":
+		break
+	case "authenticated-read":
+		if credential.UserId == "" {
+			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+			return
+		}
+	case "bucket-owner-read", "bucket-owner-full-control":
+		bucket, err := api.ObjectAPI.GetBucketInfo(sourceBucketName, credential)
+		if err != nil {
+			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+			return
+		}
+		if bucket.OwnerId != credential.UserId {
+			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+			return
+		}
+	default:
+		if sourceObject.OwnerId != credential.UserId {
+			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+			return
+		}
 	}
 
 	pipeReader, pipeWriter := io.Pipe()
 	go func() {
 		startOffset := int64(0) // Read the whole file.
 		// Get the object.
-		gErr := api.ObjectAPI.GetObject(objInfo, startOffset, objInfo.Size, pipeWriter)
+		gErr := api.ObjectAPI.GetObject(sourceObject, startOffset, sourceObject.Size, pipeWriter)
 		if gErr != nil {
 			helper.ErrorIf(gErr, "Unable to read an object.")
 			pipeWriter.CloseWithError(gErr)
@@ -384,36 +436,30 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	}()
 
 	// Size of object.
-	size := objInfo.Size
+	size := sourceObject.Size
 
 	// Save metadata.
 	metadata := make(map[string]string)
 	// Save other metadata if available.
-	metadata["content-type"] = objInfo.ContentType
+	metadata["content-type"] = sourceObject.ContentType
 	// Do not set `md5sum` as CopyObject will not keep the
 	// same md5sum as the source.
 
-	// TODO
-	acl := Acl{
-		CannedAcl: "private",
+	targetAcl, err := getAclFromHeader(r.Header)
+	if err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
 	}
 
 	// Create the object.
-	result, err := api.ObjectAPI.PutObject(bucket, object, size, pipeReader, metadata, acl)
+	result, err := api.ObjectAPI.PutObject(targetBucketName, targetObjectName, size, pipeReader, metadata, targetAcl)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to create an object.")
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
 
-	objInfo, err = api.ObjectAPI.GetObjectInfo(bucket, object, "")
-	if err != nil {
-		helper.ErrorIf(err, "Unable to fetch object info.")
-		WriteErrorResponse(w, r, err, r.URL.Path)
-		return
-	}
-
-	response := GenerateCopyObjectResponse(result.Md5, objInfo.LastModifiedTime)
+	response := GenerateCopyObjectResponse(result.Md5, result.LastModified)
 	encodedSuccessResponse := EncodeResponse(response)
 	// write headers
 	SetCommonHeaders(w)

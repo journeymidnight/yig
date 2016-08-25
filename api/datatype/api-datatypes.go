@@ -18,6 +18,7 @@ package datatype
 
 import (
 	"encoding/xml"
+	"time"
 )
 
 const (
@@ -260,8 +261,9 @@ type DeleteObjectsRequest struct {
 }
 
 type PutObjectResult struct {
-	Md5       string
-	VersionId string
+	Md5          string
+	VersionId    string
+	LastModified time.Time
 }
 
 type DeleteObjectResult struct {

@@ -298,6 +298,11 @@ func WriteSuccessNoContent(w http.ResponseWriter) {
 
 // writeErrorRespone write error headers
 func WriteErrorResponse(w http.ResponseWriter, req *http.Request, err error, resource string) {
+	WriteErrorResponseHeaders(w, req, err, resource)
+	WriteErrorResponseNoHeader(w, req, err, resource)
+}
+
+func WriteErrorResponseHeaders(w http.ResponseWriter, req *http.Request, err error, resource string) {
 	// set common headers
 	SetCommonHeaders(w)
 
@@ -307,8 +312,6 @@ func WriteErrorResponse(w http.ResponseWriter, req *http.Request, err error, res
 	} else {
 		w.WriteHeader(http.StatusInternalServerError)
 	}
-	// write Header
-	WriteErrorResponseNoHeader(w, req, err, resource)
 }
 
 func WriteErrorResponseNoHeader(w http.ResponseWriter, req *http.Request, err error, resource string) {

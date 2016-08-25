@@ -56,6 +56,7 @@ const (
 	ErrInvalidRequestBody
 	ErrInvalidCopySource
 	ErrInvalidCopyDest
+	ErrInvalidPrecondition
 	ErrInvalidPolicyDocument
 	ErrInvalidCorsDocument
 	ErrInvalidVersioning
@@ -109,8 +110,7 @@ const (
 	// Add new extended error codes here.
 
 	// Add new extended error codes here.
-	// Please open a https://github.com/minio/minio/issues before adding
-	// new error codes here.
+	ContentNotModified // actually not an error
 )
 
 // error code to APIError structure, these fields carry respective
@@ -124,6 +124,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidCopySource: {
 		AwsErrorCode:   "InvalidArgument",
 		Description:    "Copy Source must mention the source bucket and key: sourcebucket/sourcekey.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidPrecondition: {
+		AwsErrorCode:   "InvalidArgument",
+		Description:    "The provided preconditions are not valid(bad time format, rule combination, etc)",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidRequestBody: {
@@ -444,7 +449,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		HttpStatusCode: http.StatusBadRequest,
 	},
 
-	// Add your error structure here.
+	ContentNotModified: { // FIXME: This is actually not an error
+		AwsErrorCode:   "",
+		Description:    "",
+		HttpStatusCode: http.StatusNotModified,
+	},
 }
 
 func (e ApiErrorCode) AwsErrorCode() string {

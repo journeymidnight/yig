@@ -183,6 +183,8 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 		// TODO CustomAttributes
 	}
 
+	result.LastModified = object.LastModifiedTime
+
 	var olderObject meta.Object
 	if bucket.Versioning == "Enabled" {
 		result.VersionId = object.GetVersionId()

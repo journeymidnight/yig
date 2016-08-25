@@ -25,126 +25,89 @@ import (
 	"git.letv.cn/yig/yig/meta"
 )
 
-// Validates the preconditions for CopyObject, returns true if CopyObject operation should not proceed.
+// Validates the preconditions for CopyObject, returns nil if validates
 // Preconditions supported are:
 //  x-amz-copy-source-if-modified-since
 //  x-amz-copy-source-if-unmodified-since
 //  x-amz-copy-source-if-match
 //  x-amz-copy-source-if-none-match
-func checkCopyObjectPreconditions(w http.ResponseWriter, r *http.Request, objInfo meta.Object) bool {
-	// Return false for methods other than GET and HEAD.
-	if r.Method != "PUT" {
-		return false
-	}
-	// If the object doesn't have a modtime (IsZero), or the modtime
-	// is obviously garbage (Unix time == 0), then ignore modtimes
-	// and don't process the If-Modified-Since header.
-	if objInfo.LastModifiedTime.IsZero() || objInfo.LastModifiedTime.Equal(time.Unix(0, 0)) {
-		return false
-	}
-
-	// Headers to be set of object content is not going to be written to the client.
-	writeHeaders := func() {
-		// set common headers
-		SetCommonHeaders(w)
-
-		// set object-related metadata headers
-		w.Header().Set("Last-Modified", objInfo.LastModifiedTime.UTC().Format(http.TimeFormat))
-
-		if objInfo.Etag != "" {
-			w.Header().Set("ETag", "\""+objInfo.Etag+"\"")
-		}
-	}
+func checkObjectPreconditions(w http.ResponseWriter, r *http.Request, object meta.Object) error {
 	// x-amz-copy-source-if-modified-since: Return the object only if it has been modified
-	// since the specified time otherwise return 412 (precondition failed).
+	// since the specified time
 	ifModifiedSinceHeader := r.Header.Get("x-amz-copy-source-if-modified-since")
 	if ifModifiedSinceHeader != "" {
-		if !ifModifiedSince(objInfo.LastModifiedTime, ifModifiedSinceHeader) {
+		givenTime, err := time.Parse(http.TimeFormat, ifModifiedSinceHeader)
+		if err != nil {
+			return ErrInvalidPrecondition
+		}
+		if object.LastModifiedTime.Before(givenTime) {
 			// If the object is not modified since the specified time.
-			writeHeaders()
-			WriteErrorResponse(w, r, ErrPreconditionFailed, r.URL.Path)
-			return true
+			return ErrPreconditionFailed
 		}
 	}
 
 	// x-amz-copy-source-if-unmodified-since : Return the object only if it has not been
-	// modified since the specified time, otherwise return a 412 (precondition failed).
+	// modified since the specified time
 	ifUnmodifiedSinceHeader := r.Header.Get("x-amz-copy-source-if-unmodified-since")
 	if ifUnmodifiedSinceHeader != "" {
-		if ifModifiedSince(objInfo.LastModifiedTime, ifUnmodifiedSinceHeader) {
+		givenTime, err := time.Parse(http.TimeFormat, ifUnmodifiedSinceHeader)
+		if err != nil {
+			return ErrInvalidPrecondition
+		}
+		if object.LastModifiedTime.After(givenTime) {
 			// If the object is modified since the specified time.
-			writeHeaders()
-			WriteErrorResponse(w, r, ErrPreconditionFailed, r.URL.Path)
-			return true
+			return ErrPreconditionFailed
 		}
 	}
 
 	// x-amz-copy-source-if-match : Return the object only if its entity tag (ETag) is the
-	// same as the one specified; otherwise return a 412 (precondition failed).
+	// same as the one specified
 	ifMatchETagHeader := r.Header.Get("x-amz-copy-source-if-match")
 	if ifMatchETagHeader != "" {
-		if !isETagEqual(objInfo.Etag, ifMatchETagHeader) {
+		if !isETagEqual(object.Etag, ifMatchETagHeader) {
 			// If the object ETag does not match with the specified ETag.
-			writeHeaders()
-			WriteErrorResponse(w, r, ErrPreconditionFailed, r.URL.Path)
-			return true
+			return ErrPreconditionFailed
 		}
 	}
 
 	// If-None-Match : Return the object only if its entity tag (ETag) is different from the
-	// one specified otherwise, return a 304 (not modified).
+	// one specified
 	ifNoneMatchETagHeader := r.Header.Get("x-amz-copy-source-if-none-match")
 	if ifNoneMatchETagHeader != "" {
-		if isETagEqual(objInfo.Etag, ifNoneMatchETagHeader) {
+		if isETagEqual(object.Etag, ifNoneMatchETagHeader) {
 			// If the object ETag matches with the specified ETag.
-			writeHeaders()
-			WriteErrorResponse(w, r, ErrPreconditionFailed, r.URL.Path)
-			return true
+			return ErrPreconditionFailed
 		}
 	}
-	// Object content should be written to http.ResponseWriter
-	return false
+
+	if ifNoneMatchETagHeader != "" && ifUnmodifiedSinceHeader != "" {
+		return ErrInvalidPrecondition
+	}
+	if ifMatchETagHeader != "" && ifModifiedSinceHeader != "" {
+		return ErrInvalidPrecondition
+	}
+
+	return nil
 }
 
-// Validates the preconditions. Returns true if GET/HEAD operation should not proceed.
+// Validates the preconditions for GetObject/HeadObject. Returns nil if validates
 // Preconditions supported are:
 //  If-Modified-Since
 //  If-Unmodified-Since
 //  If-Match
 //  If-None-Match
-func checkPreconditions(w http.ResponseWriter, r *http.Request, objInfo meta.Object) bool {
-	// Return false for methods other than GET and HEAD.
-	if r.Method != "GET" && r.Method != "HEAD" {
-		return false
-	}
-	// If the object doesn't have a modtime (IsZero), or the modtime
-	// is obviously garbage (Unix time == 0), then ignore modtimes
-	// and don't process the If-Modified-Since header.
-	if objInfo.LastModifiedTime.IsZero() || objInfo.LastModifiedTime.Equal(time.Unix(0, 0)) {
-		return false
-	}
-
-	// Headers to be set of object content is not going to be written to the client.
-	writeHeaders := func() {
-		// set common headers
-		SetCommonHeaders(w)
-
-		// set object-related metadata headers
-		w.Header().Set("Last-Modified", objInfo.LastModifiedTime.UTC().Format(http.TimeFormat))
-
-		if objInfo.Etag != "" {
-			w.Header().Set("ETag", "\""+objInfo.Etag+"\"")
-		}
-	}
+func checkPreconditions(w http.ResponseWriter, r *http.Request, object meta.Object) error {
 	// If-Modified-Since : Return the object only if it has been modified since the specified time,
 	// otherwise return a 304 (not modified).
 	ifModifiedSinceHeader := r.Header.Get("If-Modified-Since")
 	if ifModifiedSinceHeader != "" {
-		if !ifModifiedSince(objInfo.LastModifiedTime, ifModifiedSinceHeader) {
+		givenTime, err := time.Parse(http.TimeFormat, ifModifiedSinceHeader)
+		if err != nil {
+			return ErrInvalidPrecondition
+		}
+		if object.LastModifiedTime.Before(givenTime) {
 			// If the object is not modified since the specified time.
-			writeHeaders()
-			w.WriteHeader(http.StatusNotModified)
-			return true
+			return ContentNotModified
 		}
 	}
 
@@ -152,11 +115,12 @@ func checkPreconditions(w http.ResponseWriter, r *http.Request, objInfo meta.Obj
 	// time, otherwise return a 412 (precondition failed).
 	ifUnmodifiedSinceHeader := r.Header.Get("If-Unmodified-Since")
 	if ifUnmodifiedSinceHeader != "" {
-		if ifModifiedSince(objInfo.LastModifiedTime, ifUnmodifiedSinceHeader) {
-			// If the object is modified since the specified time.
-			writeHeaders()
-			WriteErrorResponse(w, r, ErrPreconditionFailed, r.URL.Path)
-			return true
+		givenTime, err := time.Parse(http.TimeFormat, ifUnmodifiedSinceHeader)
+		if err != nil {
+			return ErrInvalidPrecondition
+		}
+		if object.LastModifiedTime.After(givenTime) {
+			return ErrPreconditionFailed
 		}
 	}
 
@@ -164,11 +128,9 @@ func checkPreconditions(w http.ResponseWriter, r *http.Request, objInfo meta.Obj
 	// otherwise return a 412 (precondition failed).
 	ifMatchETagHeader := r.Header.Get("If-Match")
 	if ifMatchETagHeader != "" {
-		if !isETagEqual(objInfo.Etag, ifMatchETagHeader) {
+		if !isETagEqual(object.Etag, ifMatchETagHeader) {
 			// If the object ETag does not match with the specified ETag.
-			writeHeaders()
-			WriteErrorResponse(w, r, ErrPreconditionFailed, r.URL.Path)
-			return true
+			return ErrPreconditionFailed
 		}
 	}
 
@@ -176,29 +138,12 @@ func checkPreconditions(w http.ResponseWriter, r *http.Request, objInfo meta.Obj
 	// one specified otherwise, return a 304 (not modified).
 	ifNoneMatchETagHeader := r.Header.Get("If-None-Match")
 	if ifNoneMatchETagHeader != "" {
-		if isETagEqual(objInfo.Etag, ifNoneMatchETagHeader) {
+		if isETagEqual(object.Etag, ifNoneMatchETagHeader) {
 			// If the object ETag matches with the specified ETag.
-			writeHeaders()
-			w.WriteHeader(http.StatusNotModified)
-			return true
+			return ContentNotModified
 		}
 	}
-	// Object content should be written to http.ResponseWriter
-	return false
-}
-
-// returns true if object was modified after givenTime.
-func ifModifiedSince(objTime time.Time, givenTimeStr string) bool {
-	givenTime, err := time.Parse(http.TimeFormat, givenTimeStr)
-	if err != nil {
-		return true
-	}
-	// The Date-Modified header truncates sub-second precision, so
-	// use mtime < t+1s instead of mtime <= t to check for unmodified.
-	if objTime.After(givenTime.Add(1 * time.Second)) {
-		return true
-	}
-	return false
+	return nil
 }
 
 // canonicalizeETag returns ETag with leading and trailing double-quotes removed,
