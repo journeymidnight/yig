@@ -82,7 +82,8 @@ func (m *Multipart) GetValues() (values map[string]map[string][]byte, err error)
 		return
 	}
 	if m.Metadata != nil {
-		marshaledMeta, err := json.Marshal(m.Metadata)
+		var marshaledMeta []byte
+		marshaledMeta, err = json.Marshal(m.Metadata)
 		if err != nil {
 			return
 		}
@@ -116,7 +117,7 @@ func MultipartFromResponse(response *hrpc.Result, bucketName, objectName string)
 	for _, cell := range response.Cells {
 		rowkey = cell.Row
 		var partNumber int
-		partNumber, err = strconv.Atoi(cell.Qualifier)
+		partNumber, err = strconv.Atoi(string(cell.Qualifier))
 		if err != nil {
 			return
 		}
@@ -143,7 +144,7 @@ func MultipartFromResponse(response *hrpc.Result, bucketName, objectName string)
 	if err != nil {
 		return
 	}
-	multipart.InitialTime = time.Unix(0, timestamp)
+	multipart.InitialTime = time.Unix(0, int64(timestamp))
 
 	return
 }
