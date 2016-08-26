@@ -77,6 +77,8 @@ func (m *Multipart) GetRowkey() (string, error) {
 }
 
 func (m *Multipart) GetValues() (values map[string]map[string][]byte, err error) {
+	values = make(map[string]map[string][]byte)
+
 	values[MULTIPART_COLUMN_FAMILY], err = valuesForParts(m.Parts)
 	if err != nil {
 		return
@@ -86,6 +88,9 @@ func (m *Multipart) GetValues() (values map[string]map[string][]byte, err error)
 		marshaledMeta, err = json.Marshal(m.Metadata)
 		if err != nil {
 			return
+		}
+		if values[MULTIPART_COLUMN_FAMILY] == nil {
+			values[MULTIPART_COLUMN_FAMILY] = make(map[string][]byte)
 		}
 		values[MULTIPART_COLUMN_FAMILY]["0"] = marshaledMeta
 	}
