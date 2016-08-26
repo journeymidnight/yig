@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	MIN_PART_SIZE   = 128 << 10 // 128KB
+	MIN_PART_SIZE = 128 << 10 // 128KB
 )
 
 // writeErrorResponsePartTooSmall - function is used specifically to
@@ -51,13 +51,13 @@ func writePartSmallErrorResponse(w http.ResponseWriter, r *http.Request, err met
 	}
 	// Generate complete multipart error response.
 	cmpErrResp := completeMultipartAPIError{
-		ProposedSize: err.PartSize,
+		ProposedSize:   err.PartSize,
 		MinSizeAllowed: MIN_PART_SIZE,
-		PartNumber: err.PartNumber,
-		PartETag: err.PartETag,
+		PartNumber:     err.PartNumber,
+		PartETag:       err.PartETag,
 		ApiErrorResponse: ApiErrorResponse{
 			AwsErrorCode: "EntityTooSmall",
-			Message: "Your proposed upload is smaller than the minimum allowed object size.",
+			Message:      "Your proposed upload is smaller than the minimum allowed object size.",
 		},
 	}
 	encodedErrorResponse := EncodeResponse(cmpErrResp)
@@ -65,4 +65,3 @@ func writePartSmallErrorResponse(w http.ResponseWriter, r *http.Request, err met
 	w.Write(encodedErrorResponse)
 	w.(http.Flusher).Flush()
 }
-

@@ -253,6 +253,96 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string,
 	return calculatedMd5, nil
 }
 
+func (yig **YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, partId int,
+	size int64, data io.Reader, credential iam.Credential) (result datatype.PutObjectResult, err error) {
+
+	multipartMeta := hrpc.Families(map[string][]string{
+		meta.MULTIPART_COLUMN_FAMILY: []string{"0"},
+	})
+	rowkey, err := meta.GetMultipartRowkeyFromUploadId(bucketName, objectName, uploadId)
+	if err != nil {
+		return
+	}
+	getMultipartRequest, err := hrpc.NewGetStr(context.Background(), meta.MULTIPART_TABLE,
+		rowkey, multipartMeta)
+	if err != nil {
+		return
+	}
+	getMultipartResponse, err := yig.MetaStorage.Hbase.Get(getMultipartRequest)
+	if err != nil {
+		return
+	}
+	if len(getMultipartResponse.Cells) == 0 {
+		err = ErrNoSuchUpload
+		return
+	}
+	if size > MAX_PART_SIZE {
+		err = ErrEntityTooLarge
+		return
+	}
+
+	md5Writer := md5.New()
+	limitedDataReader := io.LimitReader(data, size)
+	cephCluster, poolName := yig.PickOneClusterAndPool(bucketName, objectName, size)
+	oid := cephCluster.GetUniqUploadName()
+	storageReader := io.TeeReader(limitedDataReader, md5Writer)
+	bytesWritten, err := cephCluster.put(poolName, oid, storageReader)
+	if err != nil {
+		return
+	}
+	if bytesWritten < size {
+		err = ErrIncompleteBody
+		return
+	}
+
+	result.Md5 = hex.EncodeToString(md5Writer.Sum(nil))
+
+	bucket, err := yig.MetaStorage.GetBucket(bucketName)
+	if err != nil {
+		return
+	}
+	switch bucket.ACL.CannedAcl {
+	case "public-read-write":
+		break
+	default:
+		if bucket.OwnerId != credential.UserId {
+			err = ErrBucketAccessForbidden
+			return
+		}
+	} // TODO policy and fancy ACL
+
+	part := meta.Part{
+		PartNumber:   partId,
+		Location:     cephCluster.Name,
+		Pool:         poolName,
+		Size:         size,
+		ObjectId:     oid,
+		Etag:         result.Md5,
+		LastModified: time.Now().UTC(),
+	}
+	result.LastModified = part.LastModified
+	marshaledPart, err := json.Marshal(part)
+	if err != nil {
+		return
+	}
+	partMeta := map[string]map[string][]byte{
+		meta.MULTIPART_COLUMN_FAMILY: map[string][]byte{
+			strconv.Itoa(partId): marshaledPart,
+		},
+	}
+	partMetaPut, err := hrpc.NewPutStr(context.Background(), meta.MULTIPART_TABLE,
+		rowkey, partMeta)
+	if err != nil {
+		return
+	}
+	_, err = yig.MetaStorage.Hbase.Put(partMetaPut)
+	if err != nil {
+		// TODO remove object in Ceph
+		return
+	}
+	return result, nil
+}
+
 func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, objectName, uploadId string,
 	partNumberMarker int, maxParts int) (result meta.ListPartsInfo, err error) {
 

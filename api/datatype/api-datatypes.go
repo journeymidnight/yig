@@ -195,6 +195,12 @@ type CopyObjectResponse struct {
 	LastModified string // time string of format "2006-01-02T15:04:05.000Z"
 }
 
+type CopyObjectPartResponse struct {
+	XMLName      xml.Name `xml:"CopyPartResult"`
+	LastModified string
+	ETag         string
+}
+
 // Initiator inherit from Owner struct, fields are same
 type Initiator Owner
 

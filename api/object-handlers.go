@@ -446,21 +446,16 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 			pipeWriter.CloseWithError(gErr)
 			return
 		}
-		pipeWriter.Close() // Close.
+		pipeWriter.Close()
 	}()
-
-	// Save metadata.
-	metadata := make(map[string]string)
-	// Save other metadata if available.
-	metadata["content-type"] = sourceObject.ContentType
-	// Do not set `md5sum` as CopyObject will not keep the
-	// same md5sum as the source.
 
 	targetAcl, err := getAclFromHeader(r.Header)
 	if err != nil {
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
+	// reuse variable `sourceObject` and change some parameters,
+	// now it becomes "targetObject"
 	sourceObject.ACL = targetAcl
 	sourceObject.BucketName = targetBucketName
 	sourceObject.Name = targetObjectName
@@ -477,6 +472,12 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	encodedSuccessResponse := EncodeResponse(response)
 	// write headers
 	SetCommonHeaders(w)
+	if sourceVersion != "" {
+		w.Header().Set("x-amz-copy-source-version-id", sourceVersion)
+	}
+	if result.VersionId != "" {
+		w.Header().Set("x-amz-version-id", result.VersionId)
+	}
 	// write success response.
 	WriteSuccessResponse(w, encodedSuccessResponse)
 	// Explicitly close the reader, to avoid fd leaks.
@@ -732,6 +733,187 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 		w.Header().Set("ETag", "\""+partMD5+"\"")
 	}
 	WriteSuccessResponse(w, nil)
+}
+
+// Upload part - copy
+func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	targetBucketName := vars["bucket"]
+	targetObjectName := vars["object"]
+
+	var credential iam.Credential
+	var err error
+	switch signature.GetRequestAuthType(r) {
+	default:
+		// For all unknown auth types return error.
+		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		return
+	case signature.AuthTypeAnonymous:
+		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
+		if err = enforceBucketPolicy("s3:PutObject", targetBucketName, r.URL); err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
+			return
+		}
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
+		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
+		if credential, err = signature.IsReqAuthenticated(r); err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
+			return
+		}
+	}
+
+	targetUploadId := r.URL.Query().Get("uploadId")
+	partIdString := r.URL.Query().Get("partNumber")
+
+	targetPartId, err := strconv.Atoi(partIdString)
+	if err != nil {
+		WriteErrorResponse(w, r, ErrInvalidPart, r.URL.Path)
+		return
+	}
+
+	// check partID with maximum part ID for multipart objects
+	if isMaxPartID(targetPartId) {
+		WriteErrorResponse(w, r, ErrInvalidMaxParts, r.URL.Path)
+		return
+	}
+
+	// copy source is of form: /bucket-name/object-name?versionId=xxxxxx
+	copySource := r.Header.Get("X-Amz-Copy-Source")
+
+	// Skip the first element if it is '/', split the rest.
+	if strings.HasPrefix(copySource, "/") {
+		copySource = copySource[1:]
+	}
+	splits := strings.SplitN(copySource, "/", 2)
+
+	// Save sourceBucket and sourceObject extracted from url Path.
+	var sourceBucketName, sourceObjectName, sourceVersion string
+	if len(splits) == 2 {
+		sourceBucketName = splits[0]
+		sourceObjectName = splits[1]
+	}
+	// If source object is empty, reply back error.
+	if sourceObjectName == "" {
+		WriteErrorResponse(w, r, ErrInvalidCopySource, r.URL.Path)
+		return
+	}
+
+	splits = strings.SplitN(sourceObjectName, "?", 2)
+	if len(splits) == 2 {
+		sourceObjectName = splits[0]
+		if !strings.HasPrefix(splits[1], "versionId=") {
+			WriteErrorResponse(w, r, ErrInvalidCopySource, r.URL.Path)
+			return
+		}
+		sourceVersion = strings.TrimPrefix(splits[1], "versionId=")
+	}
+
+	// X-Amz-Copy-Source should be URL-encoded
+	sourceBucketName, err = url.QueryUnescape(sourceBucketName)
+	if err != nil {
+		WriteErrorResponse(w, r, ErrInvalidCopySource, r.URL.Path)
+		return
+	}
+	sourceObjectName, err = url.QueryUnescape(sourceObjectName)
+	if err != nil {
+		WriteErrorResponse(w, r, ErrInvalidCopySource, r.URL.Path)
+		return
+	}
+
+	sourceObject, err := api.ObjectAPI.GetObjectInfo(sourceBucketName, sourceObjectName,
+		sourceVersion)
+	if err != nil {
+		helper.ErrorIf(err, "Unable to fetch object info.")
+		WriteErrorResponse(w, r, err, copySource)
+		return
+	}
+
+	// Verify before x-amz-copy-source preconditions before continuing with CopyObject.
+	if err = checkObjectPreconditions(w, r, sourceObject); err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+
+	var readOffset, readLength int64
+	copySourceRangeString := r.Header.Get("x-amz-copy-source-range")
+	if copySourceRangeString == "" {
+		readOffset = 0
+		readLength = sourceObject.Size
+	} else {
+		copySourceRange, err := ParseRequestRange(copySourceRangeString, sourceObject.Size)
+		if err != nil {
+			helper.ErrorIf(err, "Invalid request range")
+			WriteErrorResponse(w, r, ErrInvalidRange, r.URL.Path)
+			return
+		}
+		readOffset = copySourceRange.OffsetBegin
+		readLength = copySourceRange.GetLength()
+		if isMaxObjectSize(copySourceRange.OffsetEnd - copySourceRange.OffsetBegin + 1) {
+			WriteErrorResponse(w, r, ErrEntityTooLarge, copySource)
+			return
+		}
+	}
+	if isMaxObjectSize(readLength) {
+		WriteErrorResponse(w, r, ErrEntityTooLarge, copySource)
+		return
+	}
+
+	// TODO: refactor, same as in GetObjectHandler
+	switch sourceObject.ACL.CannedAcl {
+	case "public-read", "public-read-write":
+		break
+	case "authenticated-read":
+		if credential.UserId == "" {
+			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+			return
+		}
+	case "bucket-owner-read", "bucket-owner-full-control":
+		bucket, err := api.ObjectAPI.GetBucketInfo(sourceBucketName, credential)
+		if err != nil {
+			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+			return
+		}
+		if bucket.OwnerId != credential.UserId {
+			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+			return
+		}
+	default:
+		if sourceObject.OwnerId != credential.UserId {
+			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+			return
+		}
+	}
+
+	pipeReader, pipeWriter := io.Pipe()
+	defer pipeReader.Close()
+	go func() {
+		err = api.ObjectAPI.GetObject(sourceObject, readOffset, readLength, pipeWriter)
+		if err != nil {
+			helper.ErrorIf(err, "Unable to read an object.")
+			pipeWriter.CloseWithError(err)
+			return
+		}
+		pipeWriter.Close()
+	}()
+
+	// Create the object.
+	result, err := api.ObjectAPI.CopyObjectPart(targetBucketName, targetObjectName, targetUploadId,
+		targetPartId, readLength, pipeReader, credential)
+	if err != nil {
+		helper.ErrorIf(err, "Unable to create an object.")
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+
+	response := GenerateCopyObjectPartResponse(result.Md5, result.LastModified)
+	encodedSuccessResponse := EncodeResponse(response)
+	// write headers
+	SetCommonHeaders(w)
+	if sourceVersion != "" {
+		w.Header().Set("x-amz-copy-source-version-id", sourceVersion)
+	}
+	// write success response.
+	WriteSuccessResponse(w, encodedSuccessResponse)
 }
 
 // AbortMultipartUploadHandler - Abort multipart upload

@@ -99,7 +99,7 @@ func (o Object) GetValues() (values map[string]map[string][]byte, err error) {
 			"content-type": []byte(o.ContentType),
 			"attributes":   []byte{}, // TODO
 			"ACL":          []byte(o.ACL.CannedAcl),
-			"nullVersion":      []byte(helper.Ternary(o.NullVersion, "true", "false").(string)),
+			"nullVersion":  []byte(helper.Ternary(o.NullVersion, "true", "false").(string)),
 			"deleteMarker": []byte(helper.Ternary(o.DeleteMarker, "true", "false").(string)),
 		},
 	}

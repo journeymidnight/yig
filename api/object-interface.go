@@ -59,6 +59,8 @@ type ObjectLayer interface {
 		metadata map[string]string, acl datatype.Acl) (uploadID string, err error)
 	PutObjectPart(bucket, object, uploadID string, partID int, size int64,
 		data io.Reader, md5Hex string) (md5 string, err error)
+	CopyObjectPart(bucketName, objectName, uploadId string, partId int, size int64, data io.Reader,
+		credential iam.Credential) (result datatype.PutObjectResult, err error)
 	ListObjectParts(credential iam.Credential, bucket, object, uploadID string, partNumberMarker int,
 		maxParts int) (result meta.ListPartsInfo, err error)
 	AbortMultipartUpload(credential iam.Credential, bucket, object, uploadID string) error
