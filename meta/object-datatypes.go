@@ -52,7 +52,7 @@ type ListPartsInfo struct {
 	IsTruncated bool
 
 	// List of all parts.
-	Parts []Part
+	Parts []*Part
 
 	EncodingType string // Not supported yet.
 }

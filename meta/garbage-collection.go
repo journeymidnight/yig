@@ -34,7 +34,7 @@ func (gc GarbageCollection) GetValues() (values map[string]map[string][]byte, er
 		},
 	}
 	if len(gc.Parts) != 0 {
-		values[GARBAGE_COLLECTION_PART_COLUMN_FAMILY], err = ValuesForParts(gc.Parts)
+		values[GARBAGE_COLLECTION_PART_COLUMN_FAMILY], err = valuesForParts(gc.Parts)
 		if err != nil {
 			return
 		}

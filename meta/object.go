@@ -104,7 +104,7 @@ func (o Object) GetValues() (values map[string]map[string][]byte, err error) {
 		},
 	}
 	if len(o.Parts) != 0 {
-		values[OBJECT_PART_COLUMN_FAMILY], err = ValuesForParts(o.Parts)
+		values[OBJECT_PART_COLUMN_FAMILY], err = valuesForParts(o.Parts)
 		if err != nil {
 			return
 		}
