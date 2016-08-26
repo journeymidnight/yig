@@ -394,13 +394,13 @@ func (yig *YigStorage) AbortMultipartUpload(credential iam.Credential,
 
 	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
 	if err != nil {
-		return
+		return err
 	}
 
 	values := multipart.GetValuesForDelete()
 	rowkey, err := multipart.GetRowkey()
 	if err != nil {
-		return
+		return err
 	}
 
 	deleteRequest, err := hrpc.NewDelStr(context.Background(), meta.MULTIPART_TABLE,
@@ -409,7 +409,7 @@ func (yig *YigStorage) AbortMultipartUpload(credential iam.Credential,
 		return err
 	}
 	_, err = yig.MetaStorage.Hbase.Delete(deleteRequest)
-	return
+	return err
 	// TODO remove parts in Ceph
 }
 
