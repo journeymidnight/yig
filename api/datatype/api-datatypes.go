@@ -241,14 +241,18 @@ type PostResponse struct {
 
 // DeleteError structure.
 type DeleteError struct {
-	Code    string
-	Message string
-	Key     string
+	Code      string
+	Message   string
+	Key       string
+	VersionId string `xml:",omitempty"`
 }
 
 // ObjectIdentifier carries key name for the object to delete.
 type ObjectIdentifier struct {
-	ObjectName string `xml:"Key"`
+	ObjectName            string `xml:"Key"`
+	VersionId             string `xml:",omitempty"`
+	DeleteMarker          bool   `xml:",omitempty"`
+	DeleteMarkerVersionId string `xml:",omitempty"`
 }
 
 // createBucketConfiguration container for bucket configuration request from client.
@@ -260,6 +264,7 @@ type CreateBucketLocationConfiguration struct {
 
 // DeleteObjectsRequest - xml carrying the object key names which needs to be deleted.
 type DeleteObjectsRequest struct {
+	XMLName xml.Name `xml:"Delete"`
 	// Element to enable quiet mode for the request
 	Quiet bool
 	// List of objects to be deleted

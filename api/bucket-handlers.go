@@ -304,7 +304,6 @@ func (api ObjectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.R
 }
 
 // DeleteMultipleObjectsHandler - deletes multiple objects.
-// TODO
 func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
@@ -322,7 +321,8 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 			WriteErrorResponse(w, r, err, r.URL.Path)
 			return
 		}
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
+		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
 			WriteErrorResponse(w, r, err, r.URL.Path)
 			return
@@ -331,32 +331,35 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 
 	// Content-Length is required and should be non-zero
 	// http://docs.aws.amazon.com/AmazonS3/latest/API/multiobjectdeleteapi.html
-	if r.ContentLength <= 0 {
+	contentLength := r.ContentLength
+	if contentLength <= 0 {
 		WriteErrorResponse(w, r, ErrMissingContentLength, r.URL.Path)
 		return
 	}
 
-	// Content-Md5 is requied should be set
+	// Content-Md5 is required and should be set
 	// http://docs.aws.amazon.com/AmazonS3/latest/API/multiobjectdeleteapi.html
-	if _, ok := r.Header["Content-Md5"]; !ok {
+	contentMd5 := r.Header.Get("Content-Md5")
+	if contentMd5 == "" {
 		WriteErrorResponse(w, r, ErrMissingContentMD5, r.URL.Path)
 		return
 	}
 
 	// Allocate incoming content length bytes.
-	deleteXMLBytes := make([]byte, r.ContentLength)
+	deleteXmlBytes := make([]byte, contentLength)
 
 	// Read incoming body XML bytes.
-	if _, err := io.ReadFull(r.Body, deleteXMLBytes); err != nil {
+	if n, err := io.ReadFull(r.Body, deleteXmlBytes); err != nil || n != contentLength {
 		helper.ErrorIf(err, "Unable to read HTTP body.")
-		WriteErrorResponse(w, r, ErrInternalError, r.URL.Path)
+		WriteErrorResponse(w, r, ErrIncompleteBody, r.URL.Path)
 		return
 	}
 
 	// Unmarshal list of keys to be deleted.
 	deleteObjects := &DeleteObjectsRequest{}
-	if err := xml.Unmarshal(deleteXMLBytes, deleteObjects); err != nil {
+	if err := xml.Unmarshal(deleteXmlBytes, deleteObjects); err != nil {
 		helper.ErrorIf(err, "Unable to unmarshal delete objects request XML.")
+		// FIXME? Amazon returns a 200 with error message XML
 		WriteErrorResponse(w, r, ErrMalformedXML, r.URL.Path)
 		return
 	}
@@ -365,25 +368,32 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	var deletedObjects []ObjectIdentifier
 	// Loop through all the objects and delete them sequentially.
 	for _, object := range deleteObjects.Objects {
-		_, err := api.ObjectAPI.DeleteObject(bucket, object.ObjectName, "", credential)
+		result, err := api.ObjectAPI.DeleteObject(bucket, object.ObjectName,
+			object.VersionId, credential)
 		if err == nil {
 			deletedObjects = append(deletedObjects, ObjectIdentifier{
-				ObjectName: object.ObjectName,
+				ObjectName:   object.ObjectName,
+				VersionId:    object.VersionId,
+				DeleteMarker: result.DeleteMarker,
+				DeleteMarkerVersionId: helper.Ternary(result.DeleteMarker,
+					result.DeleteMarker, "").(string),
 			})
 		} else {
 			helper.ErrorIf(err, "Unable to delete object.")
 			apiErrorCode, ok := err.(ApiErrorCode)
 			if ok {
 				deleteErrors = append(deleteErrors, DeleteError{
-					Code:    ErrorCodeResponse[apiErrorCode].AwsErrorCode,
-					Message: ErrorCodeResponse[apiErrorCode].Description,
-					Key:     object.ObjectName,
+					Code:      ErrorCodeResponse[apiErrorCode].AwsErrorCode,
+					Message:   ErrorCodeResponse[apiErrorCode].Description,
+					Key:       object.ObjectName,
+					VersionId: object.VersionId,
 				})
 			} else {
 				deleteErrors = append(deleteErrors, DeleteError{
-					Code:    "InternalError",
-					Message: "We encountered an internal error, please try again.",
-					Key:     object.ObjectName,
+					Code:      "InternalError",
+					Message:   "We encountered an internal error, please try again.",
+					Key:       object.ObjectName,
+					VersionId: object.VersionId,
 				})
 			}
 		}

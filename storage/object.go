@@ -460,6 +460,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 			if err != nil {
 				return
 			}
+			result.VersionId = version
 		}
 	case "Suspended":
 		if version == "" {
@@ -477,6 +478,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 			if err != nil {
 				return
 			}
+			result.VersionId = version
 		}
 	default:
 		yig.Logger.Println("Invalid bucket versioning: ", bucketName)
