@@ -94,6 +94,22 @@ type ListObjectsV2Response struct {
 	Prefix                string
 }
 
+type ListObjectsRequest struct {
+	Version      int // Currently 1 or 2
+	Delimiter    string
+	EncodingType string
+	MaxKeys      int
+	Prefix       string
+
+	// V1 specific
+	Marker string
+
+	// V2 specific
+	ContinuationToken string
+	StartAfter        string
+	FetchOwner        bool
+}
+
 // Part container for part metadata.
 type Part struct {
 	PartNumber   int

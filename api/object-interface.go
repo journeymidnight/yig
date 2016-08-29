@@ -37,8 +37,8 @@ type ObjectLayer interface {
 	GetBucketInfo(bucket string, credential iam.Credential) (bucketInfo meta.Bucket, err error)
 	ListBuckets(credential iam.Credential) (buckets []meta.Bucket, err error)
 	DeleteBucket(bucket string, credential iam.Credential) error
-	ListObjects(credential iam.Credential, bucket, prefix, marker, delimiter string,
-		maxKeys int) (result meta.ListObjectsInfo, err error)
+	ListObjects(credential iam.Credential, bucket string,
+		request datatype.ListObjectsRequest) (result meta.ListObjectsInfo, err error)
 
 	// Object operations.
 	GetObject(object meta.Object, startOffset int64, length int64, writer io.Writer) (err error)

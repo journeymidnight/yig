@@ -286,8 +286,8 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 	return nil
 }
 
-func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName, prefix, marker, delimiter string,
-	maxKeys int) (result meta.ListObjectsInfo, err error) {
+func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
+	request datatype.ListObjectsRequest) (result meta.ListObjectsInfo, err error) {
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
@@ -310,20 +310,34 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName, prefix
 	}
 	// TODO validate user policy and ACL
 
+	var marker string
+	if request.Version == 2 {
+		if request.ContinuationToken != "" {
+			marker, err = meta.Decrypt(request.ContinuationToken)
+			if err != nil {
+				err = ErrInvalidContinuationToken
+				return
+			}
+		} else {
+			marker = request.StartAfter
+		}
+	}
+
 	var prefixRowkey bytes.Buffer
 	prefixRowkey.WriteString(bucketName)
-	err = binary.Write(&prefixRowkey, binary.BigEndian, uint16(strings.Count(prefix, "/")))
+	err = binary.Write(&prefixRowkey, binary.BigEndian, uint16(strings.Count(request.Prefix, "/")))
 	if err != nil {
 		return
 	}
 	startRowkey := bytes.NewBuffer(prefixRowkey.Bytes())
-	prefixRowkey.WriteString(prefix)
+	prefixRowkey.WriteString(request.Prefix)
 	startRowkey.WriteString(marker)
 
 	filter := filter.NewPrefixFilter(prefixRowkey.Bytes())
 	scanRequest, err := hrpc.NewScanRangeStr(context.Background(), meta.OBJECT_TABLE,
 		// scan for max+1 rows to determine if results are truncated
-		startRowkey.String(), "", hrpc.Filters(filter), hrpc.NumberOfRows(uint32(maxKeys+1)))
+		startRowkey.String(), "", hrpc.Filters(filter),
+		hrpc.NumberOfRows(uint32(request.MaxKeys+1)))
 	if err != nil {
 		return
 	}
@@ -331,15 +345,19 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName, prefix
 	if err != nil {
 		return
 	}
-	if len(scanResponse) > maxKeys {
+	if len(scanResponse) > request.MaxKeys {
 		result.IsTruncated = true
 		var nextObject meta.Object
-		nextObject, err = meta.ObjectFromResponse(scanResponse[maxKeys], bucketName)
+		nextObject, err = meta.ObjectFromResponse(scanResponse[request.MaxKeys], bucketName)
 		if err != nil {
 			return
 		}
-		result.NextMarker = nextObject.Name
-		scanResponse = scanResponse[:maxKeys]
+		if request.Version == 2 {
+			result.NextMarker = meta.Encrypt(nextObject.Name)
+		} else {
+			result.NextMarker = nextObject.Name
+		}
+		scanResponse = scanResponse[:request.MaxKeys]
 	}
 	var objects []meta.Object
 	for _, row := range scanResponse {

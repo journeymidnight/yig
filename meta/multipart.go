@@ -15,10 +15,6 @@ import (
 	"time"
 )
 
-var (
-	XXTEA_KEY = []byte("hehehehe")
-)
-
 type Part struct {
 	PartNumber int
 	Location   string

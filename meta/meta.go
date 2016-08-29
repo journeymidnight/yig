@@ -1,7 +1,9 @@
 package meta
 
 import (
+	"encoding/hex"
 	"github.com/tsuna/gohbase"
+	"github.com/xxtea/xxtea-go/xxtea"
 	"log"
 )
 
@@ -27,6 +29,10 @@ const (
 	CREATE_TIME_LAYOUT = "2006-01-02T15:04:05.000Z"
 )
 
+var (
+	XXTEA_KEY = []byte("hehehehe")
+)
+
 type Meta struct {
 	Hbase  gohbase.Client
 	Logger *log.Logger
@@ -40,4 +46,16 @@ func New(logger *log.Logger) *Meta {
 		Logger: logger,
 	}
 	return &meta
+}
+
+func Decrypt(value string) (string, error) {
+	bytes, err := hex.DecodeString(value)
+	if err != nil {
+		return "", err
+	}
+	return string(xxtea.Decrypt(bytes, XXTEA_KEY)), nil
+}
+
+func Encrypt(value string) string {
+	return hex.EncodeToString(xxtea.Encrypt([]byte(value), XXTEA_KEY))
 }

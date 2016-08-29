@@ -21,61 +21,41 @@ import (
 	"strconv"
 
 	. "git.letv.cn/yig/yig/api/datatype"
+	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/helper"
 )
 
-// Parse bucket url queries
-func getListObjectsV1Args(values url.Values) (prefix, marker, delimiter string,
-	maxkeys int, encodingType string) {
-	prefix = values.Get("prefix")
-	marker = values.Get("marker")
-	delimiter = values.Get("delimiter")
-	if values.Get("max-keys") != "" {
-		maxkeys, _ = strconv.Atoi(values.Get("max-keys"))
-		if maxkeys > MaxObjectList {
-			maxkeys = MaxObjectList
+func parseListObjectsQuery(query url.Values) (request ListObjectsRequest, err error) {
+	if query.Get("list-type") == "2" {
+		request.Version = 2
+		request.ContinuationToken = query.Get("continuation-token")
+		request.StartAfter = query.Get("start-after")
+		request.FetchOwner = helper.Ternary(query.Get("fetch-owner") == "true",
+			true, false).(bool)
+	} else {
+		request.Version = 1
+		request.Marker = query.Get("marker")
+	}
+	request.Delimiter = query.Get("delimiter")
+	request.EncodingType = query.Get("encoding-type")
+	if request.EncodingType != "" && request.EncodingType != "url" {
+		err = ErrInvalidEncodingType
+		return
+	}
+	if query.Get("max-keys") == "" {
+		request.MaxKeys = MaxObjectList
+	} else {
+		maxKeys, err := strconv.Atoi(query.Get("max-keys"))
+		if err != nil {
+			return request, err
 		}
-	} else {
-		maxkeys = MaxObjectList
-	}
-	encodingType = values.Get("encoding-type")
-	return
-}
-
-// Parse bucket url queries for ListObjects V2.
-func getListObjectsV2Args(values url.Values) (prefix, token, startAfter, delimiter string,
-	maxkeys int, encodingType string) {
-	prefix = values.Get("prefix")
-	startAfter = values.Get("start-after")
-	delimiter = values.Get("delimiter")
-	// TODO fetch-owner header
-	if values.Get("max-keys") != "" {
-		maxkeys, _ = strconv.Atoi(values.Get("max-keys"))
-		if maxkeys > MaxObjectList {
-			maxkeys = MaxObjectList
+		if maxKeys > MaxObjectList || maxKeys < 1 {
+			err = ErrInvalidMaxKeys
+			return
 		}
-	} else {
-		maxkeys = MaxObjectList
+		request.MaxKeys = maxKeys
 	}
-	encodingType = values.Get("encoding-type")
-	token = values.Get("continuation-token")
-	return
-}
-
-// Parse bucket url queries
-func getBucketResources(values url.Values) (listType int, prefix, marker, delimiter string,
-	maxkeys int, encodingType string) {
-	if values.Get("list-type") != "" {
-		listType, _ = strconv.Atoi(values.Get("list-type"))
-	}
-	prefix = values.Get("prefix")
-	marker = values.Get("marker")
-	delimiter = values.Get("delimiter")
-	if values.Get("max-keys") != "" {
-		maxkeys, _ = strconv.Atoi(values.Get("max-keys"))
-	} else {
-		maxkeys = MaxObjectList
-	}
-	encodingType = values.Get("encoding-type")
+	request.Prefix = query.Get("prefix")
 	return
 }
 

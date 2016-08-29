@@ -49,6 +49,8 @@ const (
 	ErrInvalidBucketName
 	ErrInvalidDigest
 	ErrInvalidRange
+	ErrInvalidEncodingType
+	ErrInvalidContinuationToken
 	ErrInvalidMaxKeys
 	ErrInvalidMaxUploads
 	ErrInvalidMaxParts
@@ -136,19 +138,29 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		Description:    "Body shouldn't be set for this request.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
+	ErrInvalidEncodingType: {
+		AwsErrorCode:   "InvalidEncodingType",
+		Description:    "The encoding type you provided is not allowed.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidContinuationToken: {
+		AwsErrorCode:   "ErrInvalidContinuationToken",
+		Description:    "The continuation token you provided is invalid.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
 	ErrInvalidMaxUploads: {
 		AwsErrorCode:   "InvalidArgument",
-		Description:    "Argument max-uploads must be an integer between 0 and 2147483647",
+		Description:    "Argument max-uploads must be an integer between 1 and 1000",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidMaxKeys: {
 		AwsErrorCode:   "InvalidArgument",
-		Description:    "Argument maxKeys must be an integer between 0 and 2147483647",
+		Description:    "Argument maxKeys must be an integer between 1 and 1000",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidMaxParts: {
 		AwsErrorCode:   "InvalidArgument",
-		Description:    "Argument max-parts must be an integer between 0 and 2147483647",
+		Description:    "Argument max-parts must be an integer between 1 and 1000",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidPartNumberMarker: {

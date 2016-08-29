@@ -209,40 +209,15 @@ func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 		}
 	}
 	var prefix, marker, token, delimiter, startAfter string
-	var maxkeys int
+	var maxKeys int
 	var listV2 bool
-	// TODO handle encoding type.
-	if r.URL.Query().Get("list-type") == "2" {
-		listV2 = true
-		prefix, token, startAfter, delimiter, maxkeys, _ = getListObjectsV2Args(r.URL.Query())
-		// For ListV2 "start-after" is considered only if "continuation-token" is empty.
-		if token == "" {
-			marker = startAfter
-		} else {
-			marker = token
-		}
-	} else {
-		prefix, marker, delimiter, maxkeys, _ = getListObjectsV1Args(r.URL.Query())
-	}
-	if maxkeys <= 0 {
-		WriteErrorResponse(w, r, ErrInvalidMaxKeys, r.URL.Path)
+	request, err := parseListObjectsQuery(r.URL.Query())
+	if err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
-	}
-	// Verify if delimiter is anything other than '/', which we do not support.
-	if delimiter != "" && delimiter != "/" {
-		WriteErrorResponse(w, r, ErrNotImplemented, r.URL.Path)
-		return
-	}
-	// If marker is set unescape.
-	if marker != "" {
-		// Marker not common with prefix is not implemented.
-		if !strings.HasPrefix(marker, prefix) {
-			WriteErrorResponse(w, r, ErrNotImplemented, r.URL.Path)
-			return
-		}
 	}
 
-	listObjectsInfo, err := api.ObjectAPI.ListObjects(credential, bucket, prefix, marker, delimiter, maxkeys)
+	listObjectsInfo, err := api.ObjectAPI.ListObjects(credential, bucket, request)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to list objects.")
 		WriteErrorResponse(w, r, err, r.URL.Path)
@@ -253,7 +228,7 @@ func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 	// generate response
 	if listV2 {
 		response, err := GenerateListObjectsV2Response(bucket, prefix, token,
-			startAfter, delimiter, maxkeys, listObjectsInfo)
+			startAfter, delimiter, maxKeys, listObjectsInfo)
 		if err != nil {
 			WriteErrorResponse(w, r, err, r.URL.Path)
 			return
@@ -261,7 +236,7 @@ func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 		encodedSuccessResponse = EncodeResponse(response)
 	} else {
 		response, err := GenerateListObjectsResponse(bucket, prefix, marker,
-			delimiter, maxkeys, listObjectsInfo)
+			delimiter, maxKeys, listObjectsInfo)
 		if err != nil {
 			WriteErrorResponse(w, r, err, r.URL.Path)
 			return
@@ -273,6 +248,10 @@ func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 	// Write success response.
 	WriteSuccessResponse(w, encodedSuccessResponse)
 	return
+}
+
+func (api ObjectAPIHandlers) ListVersionedObjectsHandler(w http.ResponseWriter, r *http.Request) {
+
 }
 
 // ListBucketsHandler - GET Service
@@ -349,7 +328,7 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	deleteXmlBytes := make([]byte, contentLength)
 
 	// Read incoming body XML bytes.
-	if n, err := io.ReadFull(r.Body, deleteXmlBytes); err != nil || n != contentLength {
+	if n, err := io.ReadFull(r.Body, deleteXmlBytes); err != nil || int64(n) != contentLength {
 		helper.ErrorIf(err, "Unable to read HTTP body.")
 		WriteErrorResponse(w, r, ErrIncompleteBody, r.URL.Path)
 		return
