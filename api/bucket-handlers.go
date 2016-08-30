@@ -186,7 +186,7 @@ func (api ObjectAPIHandlers) ListMultipartUploadsHandler(w http.ResponseWriter, 
 //
 func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	bucket := vars["bucket"]
+	bucketName := vars["bucket"]
 
 	var credential iam.Credential
 	var err error
@@ -197,8 +197,8 @@ func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 		return
 	case signature.AuthTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
-		if s3Error := enforceBucketPolicy("s3:ListBucket", bucket, r.URL); s3Error != nil {
-			WriteErrorResponse(w, r, s3Error, r.URL.Path)
+		if err := enforceBucketPolicy("s3:ListBucket", bucketName, r.URL); err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
 			return
 		}
 	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
@@ -208,41 +208,27 @@ func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 			return
 		}
 	}
-	var prefix, marker, token, delimiter, startAfter string
-	var maxKeys int
-	var listV2 bool
+
 	request, err := parseListObjectsQuery(r.URL.Query())
 	if err != nil {
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
 
-	listObjectsInfo, err := api.ObjectAPI.ListObjects(credential, bucket, request)
+	listObjectsInfo, err := api.ObjectAPI.ListObjects(credential, bucketName, request)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to list objects.")
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
 
-	var encodedSuccessResponse []byte
-	// generate response
-	if listV2 {
-		response, err := GenerateListObjectsV2Response(bucket, prefix, token,
-			startAfter, delimiter, maxKeys, listObjectsInfo)
-		if err != nil {
-			WriteErrorResponse(w, r, err, r.URL.Path)
-			return
-		}
-		encodedSuccessResponse = EncodeResponse(response)
-	} else {
-		response, err := GenerateListObjectsResponse(bucket, prefix, marker,
-			delimiter, maxKeys, listObjectsInfo)
-		if err != nil {
-			WriteErrorResponse(w, r, err, r.URL.Path)
-			return
-		}
-		encodedSuccessResponse = EncodeResponse(response)
+	response, err := GenerateListObjectsResponse(bucketName, request, listObjectsInfo)
+	if err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
 	}
+	encodedSuccessResponse := EncodeResponse(response)
+
 	// Write headers
 	SetCommonHeaders(w)
 	// Write success response.

@@ -26,6 +26,7 @@ import (
 	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/meta"
+	"net/url"
 )
 
 const (
@@ -81,100 +82,36 @@ func GenerateListBucketsResponse(buckets []meta.Bucket, credential iam.Credentia
 }
 
 // generates an ListObjects response for the said bucket with other enumerated options.
-func GenerateListObjectsResponse(bucket, prefix, marker, delimiter string, maxKeys int,
-	resp meta.ListObjectsInfo) (data ListObjectsResponse, err error) {
-	var contents []Object
+func GenerateListObjectsResponse(bucketName string, request ListObjectsRequest,
+	objectList meta.ListObjectsInfo) (response ListObjectsResponse, err error) {
+
+	response.Contents = objectList.Objects
+
 	var prefixes []CommonPrefix
-	var owner iam.Credential
-
-	for _, object := range resp.Objects {
-		var content = Object{}
-		if object.Name == "" {
-			continue
+	for _, prefix := range objectList.Prefixes {
+		item := CommonPrefix{
+			Prefix: prefix,
 		}
-		content.Key = object.Name
-		content.LastModified = object.LastModifiedTime.UTC().Format(timeFormatAMZ)
-		if object.Etag != "" {
-			content.ETag = "\"" + object.Etag + "\""
-		}
-		content.Size = object.Size
-		content.StorageClass = "STANDARD"
-		owner, err = iam.GetCredentialByUserId(object.OwnerId)
-		if err != nil {
-			return
-		}
-		content.Owner = Owner{
-			ID:          owner.UserId,
-			DisplayName: owner.DisplayName,
-		}
-		contents = append(contents, content)
+		prefixes = append(prefixes, item)
 	}
-	// TODO - support EncodingType in xml decoding
-	data.Name = bucket
-	data.Contents = contents
+	response.CommonPrefixes = prefixes
 
-	data.Prefix = prefix
-	data.Marker = marker
-	data.Delimiter = delimiter
-	data.MaxKeys = maxKeys
+	response.Delimiter = request.Delimiter
+	response.EncodingType = request.EncodingType
+	response.IsTruncated = objectList.IsTruncated
+	response.MaxKeys = request.MaxKeys
+	response.KeyCount = len(response.Contents)
+	response.Prefix = request.Prefix
+	response.BucketName = bucketName
 
-	data.NextMarker = resp.NextMarker
-	data.IsTruncated = resp.IsTruncated
-	for _, prefix := range resp.Prefixes {
-		var prefixItem = CommonPrefix{}
-		prefixItem.Prefix = prefix
-		prefixes = append(prefixes, prefixItem)
+	if request.Version == 2 {
+		response.ContinuationToken = request.ContinuationToken
+		response.NextContinuationToken = objectList.NextMarker
+		response.StartAfter = request.StartAfter
+	} else { // version 1
+		response.Marker = request.Marker
+		response.NextMarker = objectList.NextMarker
 	}
-	data.CommonPrefixes = prefixes
-	return
-}
-
-// generates an ListObjects response for the said bucket with other enumerated options.
-func GenerateListObjectsV2Response(bucket, prefix, token, startAfter, delimiter string,
-	maxKeys int, resp meta.ListObjectsInfo) (data ListObjectsV2Response, err error) {
-	var contents []Object
-	var prefixes []CommonPrefix
-	var owner iam.Credential
-
-	for _, object := range resp.Objects {
-		var content = Object{}
-		if object.Name == "" {
-			continue
-		}
-		content.Key = object.Name
-		content.LastModified = object.LastModifiedTime.UTC().Format(timeFormatAMZ)
-		if object.Etag != "" {
-			content.ETag = "\"" + object.Etag + "\""
-		}
-		content.Size = object.Size
-		content.StorageClass = "STANDARD"
-		owner, err = iam.GetCredentialByUserId(object.OwnerId)
-		if err != nil {
-			return
-		}
-		content.Owner = Owner{
-			ID:          owner.UserId,
-			DisplayName: owner.DisplayName,
-		}
-		contents = append(contents, content)
-	}
-	// TODO - support EncodingType in xml decoding
-	data.Name = bucket
-	data.Contents = contents
-
-	data.StartAfter = startAfter
-	data.Delimiter = delimiter
-	data.Prefix = prefix
-	data.MaxKeys = maxKeys
-	data.ContinuationToken = token
-	data.NextContinuationToken = resp.NextMarker
-	data.IsTruncated = resp.IsTruncated
-	for _, prefix := range resp.Prefixes {
-		var prefixItem = CommonPrefix{}
-		prefixItem.Prefix = prefix
-		prefixes = append(prefixes, prefixItem)
-	}
-	data.CommonPrefixes = prefixes
 	return
 }
 

@@ -17,6 +17,7 @@
 package meta
 
 import (
+	"git.letv.cn/yig/yig/api/datatype"
 	"time"
 )
 
@@ -121,7 +122,7 @@ type ListObjectsInfo struct {
 	NextMarker string
 
 	// List of objects info for this request.
-	Objects []Object
+	Objects []datatype.Object
 
 	// List of prefixes for this request.
 	Prefixes []string

@@ -5,11 +5,14 @@ import (
 	"encoding/binary"
 	"git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/meta"
 	"github.com/tsuna/gohbase/filter"
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
+	"net/url"
+	"sort"
 	"strings"
 	"time"
 )
@@ -206,7 +209,7 @@ func (yig *YigStorage) GetBucketVersioning(bucketName string, credential iam.Cre
 }
 
 // For INTERNAL USE ONLY
-func (yig *YigStorage) GetBucket(bucketName string) (bucket meta.Bucket, err error) {
+func (yig *YigStorage) GetBucket(bucketName string) (meta.Bucket, error) {
 	return yig.MetaStorage.GetBucket(bucketName)
 }
 
@@ -321,22 +324,34 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 		} else {
 			marker = request.StartAfter
 		}
+	} else { // version 1
+		marker = request.Marker
 	}
 
-	var prefixRowkey bytes.Buffer
-	prefixRowkey.WriteString(bucketName)
-	err = binary.Write(&prefixRowkey, binary.BigEndian, uint16(strings.Count(request.Prefix, "/")))
-	if err != nil {
-		return
+	var startRowkey bytes.Buffer
+	startRowkey.WriteString(bucketName)
+	if marker != "" {
+		err = binary.Write(&startRowkey, binary.BigEndian, uint16(strings.Count(marker, "/")))
+		if err != nil {
+			return
+		}
+		err = binary.Write(&startRowkey, binary.BigEndian, uint16(len([]byte(startRowkey))))
+		if err != nil {
+			return
+		}
 	}
-	startRowkey := bytes.NewBuffer(prefixRowkey.Bytes())
-	prefixRowkey.WriteString(request.Prefix)
-	startRowkey.WriteString(marker)
 
-	filter := filter.NewPrefixFilter(prefixRowkey.Bytes())
+	comparator := filter.NewRegexStringComparator(
+		"^"+bucketName+"...."+request.Prefix+".*"+".{8}"+"$",
+		0x20, // Dot-all mode
+		"ISO-8859-1",
+		"JAVA", // regexp engine name, in `JAVA` or `JONI`
+	)
+	rowFilter := filter.NewRowFilter(&comparator)
+
 	scanRequest, err := hrpc.NewScanRangeStr(context.Background(), meta.OBJECT_TABLE,
 		// scan for max+1 rows to determine if results are truncated
-		startRowkey.String(), "", hrpc.Filters(filter),
+		startRowkey.String(), "", hrpc.Filters(rowFilter),
 		hrpc.NumberOfRows(uint32(request.MaxKeys+1)))
 	if err != nil {
 		return
@@ -359,19 +374,73 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 		}
 		scanResponse = scanResponse[:request.MaxKeys]
 	}
-	var objects []meta.Object
+
+	var currentLevel int
+	if request.Delimiter == "" {
+		currentLevel = 0
+	} else {
+		currentLevel = strings.Count(request.Prefix, request.Delimiter)
+	}
+
+	var objectMap map[string]meta.Object
+	var prefixMap map[string]int // value is dummy, only need a set here
 	for _, row := range scanResponse {
 		var o meta.Object
 		o, err = meta.ObjectFromResponse(row, bucketName)
 		if err != nil {
 			return
 		}
-		objects = append(objects, o)
-		// TODO prefix support
-		// - add prefix when create new objects
-		// - handle those prefix when listing
-		// prefixes end with "/" and have depth as if the trailing "/" is removed
+		// FIXME: note in current implement YIG server would fetch objects of
+		// various versions
+		if request.Delimiter == "" {
+			objectMap[o.Name] = o
+		} else {
+			level := strings.Count(o.Name, request.Delimiter)
+			if level > currentLevel {
+				split := strings.Split(o.Name, request.Delimiter)
+				split = split[:currentLevel+1]
+				prefix := strings.Join(split, request.Delimiter) + request.Delimiter
+				prefixMap[prefix] = 1
+			} else {
+				objectMap[o.Name] = o
+			}
+		}
+	}
+
+	objectNames := helper.Keys(objectMap)
+	sort.Strings(objectNames)
+	objects := make([]datatype.Object, 0, len(objectNames))
+	for _, objectName := range objectNames {
+		o := objectMap[objectName]
+		object := datatype.Object{
+			LastModified: o.LastModifiedTime.UTC().Format(meta.CREATE_TIME_LAYOUT),
+			ETag:         "\"" + o.Etag + "\"",
+			Size:         o.Size,
+			StorageClass: "STANDARD",
+		}
+		if request.EncodingType == "" {
+			object.Key = strings.TrimPrefix(o.Name, request.Prefix)
+		} else { // only support "url" encoding for now
+			object.Key = url.QueryEscape(strings.TrimPrefix(o.Name, request.Prefix))
+		}
+
+		if request.FetchOwner {
+			owner, err := iam.GetCredentialByUserId(o.OwnerId)
+			if err != nil {
+				return
+			}
+			object.Owner = datatype.Owner{
+				ID:          owner.UserId,
+				DisplayName: owner.DisplayName,
+			}
+		}
+		objects = append(objects, object)
 	}
 	result.Objects = objects
+
+	prefixes := helper.Keys(prefixMap)
+	sort.Strings(prefixes)
+	result.Prefixes = prefixes
+
 	return
 }
