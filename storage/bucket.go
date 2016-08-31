@@ -384,8 +384,8 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 		currentLevel = strings.Count(request.Prefix, request.Delimiter)
 	}
 
-	var objectMap map[string]meta.Object
-	var prefixMap map[string]int // value is dummy, only need a set here
+	objectMap := make(map[string]meta.Object)
+	prefixMap := make(map[string]int) // value is dummy, only need a set here
 	for _, row := range scanResponse {
 		var o meta.Object
 		o, err = meta.ObjectFromResponse(row, bucketName)

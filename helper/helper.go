@@ -24,5 +24,5 @@ func Keys(v interface{}) []string {
 	for _, kv := range rv.MapKeys() {
 		result = append(result, kv.String())
 	}
-	return result, nil
+	return result
 }
