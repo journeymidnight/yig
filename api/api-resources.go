@@ -45,7 +45,8 @@ func parseListObjectsQuery(query url.Values) (request ListObjectsRequest, err er
 	if query.Get("max-keys") == "" {
 		request.MaxKeys = MaxObjectList
 	} else {
-		maxKeys, err := strconv.Atoi(query.Get("max-keys"))
+		var maxKeys int
+		maxKeys, err = strconv.Atoi(query.Get("max-keys"))
 		if err != nil {
 			return request, err
 		}

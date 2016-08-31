@@ -26,7 +26,6 @@ import (
 	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/meta"
-	"net/url"
 )
 
 const (

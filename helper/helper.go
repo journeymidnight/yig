@@ -10,10 +10,3 @@ func Ternary(IF bool, THEN interface{}, ELSE interface{}) interface{} {
 	}
 }
 
-func Keys(m map[string]interface{}) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
-}
