@@ -211,36 +211,6 @@ func GenerateListPartsResponse(partsInfo meta.ListPartsInfo) ListPartsResponse {
 	return listPartsResponse
 }
 
-// generateListMultipartUploadsResponse
-func GenerateListMultipartUploadsResponse(bucket string, multipartsInfo meta.ListMultipartsInfo) ListMultipartUploadsResponse {
-	listMultipartUploadsResponse := ListMultipartUploadsResponse{}
-	listMultipartUploadsResponse.Bucket = bucket
-	listMultipartUploadsResponse.Delimiter = multipartsInfo.Delimiter
-	listMultipartUploadsResponse.IsTruncated = multipartsInfo.IsTruncated
-	listMultipartUploadsResponse.EncodingType = multipartsInfo.EncodingType
-	listMultipartUploadsResponse.Prefix = multipartsInfo.Prefix
-	listMultipartUploadsResponse.KeyMarker = multipartsInfo.KeyMarker
-	listMultipartUploadsResponse.NextKeyMarker = multipartsInfo.NextKeyMarker
-	listMultipartUploadsResponse.MaxUploads = multipartsInfo.MaxUploads
-	listMultipartUploadsResponse.NextUploadIDMarker = multipartsInfo.NextUploadIDMarker
-	listMultipartUploadsResponse.UploadIDMarker = multipartsInfo.UploadIDMarker
-	listMultipartUploadsResponse.CommonPrefixes = make([]CommonPrefix, len(multipartsInfo.CommonPrefixes))
-	for index, commonPrefix := range multipartsInfo.CommonPrefixes {
-		listMultipartUploadsResponse.CommonPrefixes[index] = CommonPrefix{
-			Prefix: commonPrefix,
-		}
-	}
-	listMultipartUploadsResponse.Uploads = make([]Upload, len(multipartsInfo.Uploads))
-	for index, upload := range multipartsInfo.Uploads {
-		newUpload := Upload{}
-		newUpload.UploadID = upload.UploadID
-		newUpload.Key = upload.Object
-		newUpload.Initiated = upload.Initiated.UTC().Format(timeFormatAMZ)
-		listMultipartUploadsResponse.Uploads[index] = newUpload
-	}
-	return listMultipartUploadsResponse
-}
-
 // generate multi objects delete response.
 func GenerateMultiDeleteResponse(quiet bool, deletedObjects []ObjectIdentifier, errs []DeleteError) DeleteObjectsResponse {
 	deleteResp := DeleteObjectsResponse{}

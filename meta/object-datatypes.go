@@ -18,7 +18,6 @@ package meta
 
 import (
 	"git.letv.cn/yig/yig/api/datatype"
-	"time"
 )
 
 // ListPartsInfo - represents list of all parts.

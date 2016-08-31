@@ -62,11 +62,13 @@ func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketNam
 		}
 		startRowkey.WriteString(request.KeyMarker)
 		if request.UploadIdMarker != "" {
-			timestampString, err := meta.Decrypt(request.UploadIdMarker)
+			var timestampString string
+			timestampString, err = meta.Decrypt(request.UploadIdMarker)
 			if err != nil {
 				return result, err
 			}
-			timestamp, err := strconv.ParseUint(timestampString, 10, 64)
+			var timestamp uint64
+			timestamp, err = strconv.ParseUint(timestampString, 10, 64)
 			if err != nil {
 				return result, err
 			}
@@ -160,18 +162,14 @@ func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketNam
 		if err != nil {
 			return
 		}
-		upload.Owner = datatype.Owner{
-			ID:          owner.UserId,
-			DisplayName: owner.DisplayName,
-		}
+		upload.Owner.ID = owner.UserId
+		upload.Owner.DisplayName = owner.DisplayName
 		owner, err = iam.GetCredentialByUserId(m.Metadata["InitiatorId"])
 		if err != nil {
 			return
 		}
-		upload.Initiator = datatype.Owner{
-			ID:          owner.UserId,
-			DisplayName: owner.DisplayName,
-		}
+		upload.Initiator.ID = owner.UserId
+		upload.Initiator.DisplayName = owner.DisplayName
 
 		uploads = append(uploads, upload)
 	}
