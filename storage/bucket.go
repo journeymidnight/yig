@@ -493,7 +493,8 @@ func (yig *YigStorage) ListVersionedObjects(credential iam.Credential, bucketNam
 
 		// TODO: refactor, same as in getObjectRowkeyPrefix
 		if request.VersionIdMarker != "" {
-			versionBytes, err := hex.DecodeString(request.VersionIdMarker)
+			var versionBytes []byte
+			versionBytes, err = hex.DecodeString(request.VersionIdMarker)
 			if err != nil {
 				return
 			}
