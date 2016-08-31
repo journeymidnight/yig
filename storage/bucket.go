@@ -3,6 +3,7 @@ package storage
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/hex"
 	"git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/helper"
@@ -10,7 +11,9 @@ import (
 	"git.letv.cn/yig/yig/meta"
 	"github.com/tsuna/gohbase/filter"
 	"github.com/tsuna/gohbase/hrpc"
+	"github.com/xxtea/xxtea-go/xxtea"
 	"golang.org/x/net/context"
+	"math"
 	"net/url"
 	"sort"
 	"strings"
@@ -426,6 +429,168 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 			object.Key = url.QueryEscape(strings.TrimPrefix(o.Name, request.Prefix))
 		}
 
+		if request.FetchOwner {
+			var owner iam.Credential
+			owner, err = iam.GetCredentialByUserId(o.OwnerId)
+			if err != nil {
+				return
+			}
+			object.Owner = datatype.Owner{
+				ID:          owner.UserId,
+				DisplayName: owner.DisplayName,
+			}
+		}
+		objects = append(objects, object)
+	}
+	result.Objects = objects
+
+	prefixes := helper.Keys(prefixMap)
+	sort.Strings(prefixes)
+	result.Prefixes = prefixes
+
+	return
+}
+
+// TODO: refactor, similar to ListObjects
+// or not?
+func (yig *YigStorage) ListVersionedObjects(credential iam.Credential, bucketName string,
+	request datatype.ListObjectsRequest) (result meta.VersionedListObjectsInfo, err error) {
+
+	bucket, err := yig.MetaStorage.GetBucket(bucketName)
+	if err != nil {
+		return
+	}
+
+	switch bucket.ACL.CannedAcl {
+	case "public-read", "public-read-write":
+		break
+	case "authenticated-read":
+		if credential.UserId == "" {
+			err = ErrBucketAccessForbidden
+			return
+		}
+	default:
+		if bucket.OwnerId != credential.UserId {
+			err = ErrBucketAccessForbidden
+			return
+		}
+	}
+
+	var startRowkey bytes.Buffer
+	startRowkey.WriteString(bucketName)
+	if request.KeyMarker != "" {
+		err = binary.Write(&startRowkey, binary.BigEndian,
+			uint16(strings.Count(request.KeyMarker, "/")))
+		if err != nil {
+			return
+		}
+		err = binary.Write(&startRowkey, binary.BigEndian,
+			uint16(len([]byte(request.KeyMarker))))
+		if err != nil {
+			return
+		}
+		startRowkey.WriteString(request.KeyMarker)
+
+		// TODO: refactor, same as in getObjectRowkeyPrefix
+		if request.VersionIdMarker != "" {
+			versionBytes, err := hex.DecodeString(request.VersionIdMarker)
+			if err != nil {
+				return
+			}
+			decrypted := xxtea.Decrypt(versionBytes, meta.XXTEA_KEY)
+			unixNanoTimestamp, errno := binary.Uvarint(decrypted)
+			if errno <= 0 {
+				err = ErrInvalidVersioning
+				return
+			}
+			err = binary.Write(&startRowkey, binary.BigEndian,
+				math.MaxUint64-unixNanoTimestamp)
+			if err != nil {
+				return
+			}
+		}
+	}
+
+	comparator := filter.NewRegexStringComparator(
+		"^"+bucketName+"...."+request.Prefix+".*"+".{8}"+"$",
+		0x20, // Dot-all mode
+		"ISO-8859-1",
+		"JAVA", // regexp engine name, in `JAVA` or `JONI`
+	)
+	compareFilter := filter.NewCompareFilter(filter.Equal, comparator)
+	rowFilter := filter.NewRowFilter(compareFilter)
+
+	scanRequest, err := hrpc.NewScanRangeStr(context.Background(), meta.OBJECT_TABLE,
+		// scan for max+1 rows to determine if results are truncated
+		startRowkey.String(), "", hrpc.Filters(rowFilter),
+		hrpc.NumberOfRows(uint32(request.MaxKeys+1)))
+	if err != nil {
+		return
+	}
+	scanResponse, err := yig.MetaStorage.Hbase.Scan(scanRequest)
+	if err != nil {
+		return
+	}
+	if len(scanResponse) > request.MaxKeys {
+		result.IsTruncated = true
+		var nextObject meta.Object
+		nextObject, err = meta.ObjectFromResponse(scanResponse[request.MaxKeys], bucketName)
+		if err != nil {
+			return
+		}
+		result.NextKeyMarker = nextObject.Name
+		if !nextObject.NullVersion {
+			result.NextVersionIdMarker = nextObject.GetVersionId()
+		}
+		scanResponse = scanResponse[:request.MaxKeys]
+	}
+
+	var currentLevel int
+	if request.Delimiter == "" {
+		currentLevel = 0
+	} else {
+		currentLevel = strings.Count(request.Prefix, request.Delimiter)
+	}
+
+	objects := make([]datatype.VersionedObject, 0, len(scanResponse))
+	prefixMap := make(map[string]int) // value is dummy, only need a set here
+	for _, row := range scanResponse {
+		var o meta.Object
+		o, err = meta.ObjectFromResponse(row, bucketName)
+		if err != nil {
+			return
+		}
+		// TODO: IsLatest
+		object := datatype.VersionedObject{
+			LastModified: o.LastModifiedTime.UTC().Format(meta.CREATE_TIME_LAYOUT),
+			ETag:         "\"" + o.Etag + "\"",
+			Size:         o.Size,
+			StorageClass: "STANDARD",
+		}
+		if request.Delimiter == "" {
+			object.Key = o.Name
+		} else {
+			level := strings.Count(o.Name, request.Delimiter)
+			if level > currentLevel {
+				split := strings.Split(o.Name, request.Delimiter)
+				split = split[:currentLevel+1]
+				prefix := strings.Join(split, request.Delimiter) + request.Delimiter
+				prefixMap[prefix] = 1
+				continue
+			} else {
+				object.Key = o.Name
+			}
+		}
+		object.Key = strings.TrimPrefix(object.Key, request.Prefix)
+		if request.EncodingType != "" { // only support "url" encoding for now
+			object.Key = url.QueryEscape(object.Key)
+		}
+		if !o.NullVersion {
+			object.VersionId = o.GetVersionId()
+		}
+		if o.DeleteMarker {
+			object.XMLName.Local = "DeleteMarker"
+		}
 		if request.FetchOwner {
 			var owner iam.Credential
 			owner, err = iam.GetCredentialByUserId(o.OwnerId)

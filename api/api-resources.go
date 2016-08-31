@@ -57,6 +57,9 @@ func parseListObjectsQuery(query url.Values) (request ListObjectsRequest, err er
 		request.MaxKeys = maxKeys
 	}
 	request.Prefix = query.Get("prefix")
+
+	request.KeyMarker = query.Get("key-marker")
+	request.VersionIdMarker = query.Get("version-id-marker")
 	return
 }
 

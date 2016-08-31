@@ -56,8 +56,27 @@ type ListObjectsResponse struct {
 	StartAfter            string `xml:",omitempty"`
 }
 
+type VersionedListObjectsResponse struct {
+	XMLName xml.Name `xml:"ListVersionsResult"`
+
+	Contents            []Object
+	CommonPrefixes      []CommonPrefix
+	Delimiter           string
+	EncodingType        string
+	IsTruncated         bool
+	MaxKeys             int
+	KeyCount            int
+	Prefix              string
+	BucketName          string `xml:"Name"`
+	KeyMarker           string
+	NextKeyMarker       string
+	VersionIdMarker     string
+	NextVersionIdMarker string
+}
+
 type ListObjectsRequest struct {
-	Version      int // Currently 1 or 2
+	Versioned    bool // should return versioned objects?
+	Version      int  // Currently 1 or 2
 	Delimiter    string
 	EncodingType string
 	MaxKeys      int
@@ -70,6 +89,10 @@ type ListObjectsRequest struct {
 	ContinuationToken string
 	StartAfter        string
 	FetchOwner        bool
+
+	// versioned specific
+	KeyMarker       string
+	VersionIdMarker string
 }
 
 // Part container for part metadata.
@@ -165,6 +188,19 @@ type Object struct {
 
 	// The class of storage used to store the object.
 	StorageClass string
+}
+
+type VersionedObject struct {
+	XMLName   xml.Name `xml:"Version"`
+	Key       string
+	VersionId string
+	// TODO: IsLatest
+	// IsLatest     bool
+	LastModified string // time string of format "2006-01-02T15:04:05.000Z"
+	ETag         string
+	Size         int64
+	StorageClass string
+	Owner        Owner
 }
 
 // CopyObjectResponse container returns ETag and LastModified of the

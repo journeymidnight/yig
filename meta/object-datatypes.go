@@ -128,6 +128,14 @@ type ListObjectsInfo struct {
 	Prefixes []string
 }
 
+type VersionedListObjectsInfo struct {
+	IsTruncated         bool
+	NextKeyMarker       string
+	NextVersionIdMarker string
+	Objects             []datatype.VersionedObject
+	Prefixes            []string
+}
+
 // uploadMetadata - represents metadata in progress multipart upload.
 type UploadMetadata struct {
 	// Object name for which the multipart upload was initiated.

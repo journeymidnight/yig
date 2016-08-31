@@ -222,11 +222,7 @@ func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	response, err := GenerateListObjectsResponse(bucketName, request, listObjectsInfo)
-	if err != nil {
-		WriteErrorResponse(w, r, err, r.URL.Path)
-		return
-	}
+	response := GenerateListObjectsResponse(bucketName, request, listObjectsInfo)
 	encodedSuccessResponse := EncodeResponse(response)
 
 	// Write headers
@@ -237,7 +233,52 @@ func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 }
 
 func (api ObjectAPIHandlers) ListVersionedObjectsHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
 
+	var credential iam.Credential
+	var err error
+	switch signature.GetRequestAuthType(r) {
+	default:
+		// For all unknown auth types return error.
+		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		return
+	case signature.AuthTypeAnonymous:
+		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
+		if err := enforceBucketPolicy("s3:ListBucket", bucketName, r.URL); err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
+			return
+		}
+	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
+		signature.AuthTypeSignedV2, signature.AuthTypePresignedV2:
+		if credential, err = signature.IsReqAuthenticated(r); err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
+			return
+		}
+	}
+
+	request, err := parseListObjectsQuery(r.URL.Query())
+	if err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+	request.Versioned = true
+
+	listObjectsInfo, err := api.ObjectAPI.ListVersionedObjects(credential, bucketName, request)
+	if err != nil {
+		helper.ErrorIf(err, "Unable to list objects.")
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+
+	response := GenerateVersionedListObjectResponse(bucketName, request, listObjectsInfo)
+	encodedSuccessResponse := EncodeResponse(response)
+
+	// Write headers
+	SetCommonHeaders(w)
+	// Write success response.
+	WriteSuccessResponse(w, encodedSuccessResponse)
+	return
 }
 
 // ListBucketsHandler - GET Service

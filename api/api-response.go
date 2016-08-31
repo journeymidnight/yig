@@ -82,12 +82,12 @@ func GenerateListBucketsResponse(buckets []meta.Bucket, credential iam.Credentia
 
 // generates an ListObjects response for the said bucket with other enumerated options.
 func GenerateListObjectsResponse(bucketName string, request ListObjectsRequest,
-	objectList meta.ListObjectsInfo) (response ListObjectsResponse, err error) {
+	objectsInfo meta.ListObjectsInfo) (response ListObjectsResponse) {
 
-	response.Contents = objectList.Objects
+	response.Contents = objectsInfo.Objects
 
 	var prefixes []CommonPrefix
-	for _, prefix := range objectList.Prefixes {
+	for _, prefix := range objectsInfo.Prefixes {
 		item := CommonPrefix{
 			Prefix: prefix,
 		}
@@ -97,7 +97,7 @@ func GenerateListObjectsResponse(bucketName string, request ListObjectsRequest,
 
 	response.Delimiter = request.Delimiter
 	response.EncodingType = request.EncodingType
-	response.IsTruncated = objectList.IsTruncated
+	response.IsTruncated = objectsInfo.IsTruncated
 	response.MaxKeys = request.MaxKeys
 	response.KeyCount = len(response.Contents)
 	response.Prefix = request.Prefix
@@ -105,12 +105,41 @@ func GenerateListObjectsResponse(bucketName string, request ListObjectsRequest,
 
 	if request.Version == 2 {
 		response.ContinuationToken = request.ContinuationToken
-		response.NextContinuationToken = objectList.NextMarker
+		response.NextContinuationToken = objectsInfo.NextMarker
 		response.StartAfter = request.StartAfter
 	} else { // version 1
 		response.Marker = request.Marker
-		response.NextMarker = objectList.NextMarker
+		response.NextMarker = objectsInfo.NextMarker
 	}
+	return
+}
+
+func GenerateVersionedListObjectResponse(bucketName string, request ListObjectsRequest,
+	objectsInfo meta.VersionedListObjectsInfo) (response VersionedListObjectsResponse) {
+
+	response.Contents = objectsInfo.Objects
+
+	var prefixes []CommonPrefix
+	for _, prefix := range objectsInfo.Prefixes {
+		item := CommonPrefix{
+			Prefix: prefix,
+		}
+		prefixes = append(prefixes, item)
+	}
+	response.CommonPrefixes = prefixes
+
+	response.Delimiter = request.Delimiter
+	response.EncodingType = request.EncodingType
+	response.IsTruncated = objectsInfo.IsTruncated
+	response.MaxKeys = request.MaxKeys
+	response.KeyCount = len(response.Contents)
+	response.Prefix = request.Prefix
+	response.BucketName = bucketName
+
+	response.KeyMarker = request.KeyMarker
+	response.NextKeyMarker = objectsInfo.NextKeyMarker
+	response.VersionIdMarker = request.VersionIdMarker
+	response.NextVersionIdMarker = objectsInfo.NextVersionIdMarker
 	return
 }
 
