@@ -45,16 +45,14 @@ func parseListObjectsQuery(query url.Values) (request ListObjectsRequest, err er
 	if query.Get("max-keys") == "" {
 		request.MaxKeys = MaxObjectList
 	} else {
-		var maxKeys int
-		maxKeys, err = strconv.Atoi(query.Get("max-keys"))
+		request.MaxKeys, err = strconv.Atoi(query.Get("max-keys"))
 		if err != nil {
 			return request, err
 		}
-		if maxKeys > MaxObjectList || maxKeys < 1 {
+		if request.MaxKeys > MaxObjectList || request.MaxKeys < 1 {
 			err = ErrInvalidMaxKeys
 			return
 		}
-		request.MaxKeys = maxKeys
 	}
 	request.Prefix = query.Get("prefix")
 
@@ -64,18 +62,24 @@ func parseListObjectsQuery(query url.Values) (request ListObjectsRequest, err er
 }
 
 // Parse bucket url queries for ?uploads
-func getBucketMultipartResources(values url.Values) (prefix, keyMarker, uploadIDMarker, delimiter string,
-	maxUploads int, encodingType string) {
-	prefix = values.Get("prefix")
-	keyMarker = values.Get("key-marker")
-	uploadIDMarker = values.Get("upload-id-marker")
-	delimiter = values.Get("delimiter")
-	if values.Get("max-uploads") != "" {
-		maxUploads, _ = strconv.Atoi(values.Get("max-uploads"))
+func parseListUploadsQuery(query url.Values) (request ListUploadsRequest, err error) {
+	request.Delimiter = query.Get("delimiter")
+	request.EncodingType = query.Get("encoding-type")
+	if query.Get("max-uploads") == "" {
+		request.MaxUploads = MaxUploadsList
 	} else {
-		maxUploads = MaxUploadsList
+		request.MaxUploads, err = strconv.Atoi(query.Get("max-uploads"))
+		if err != nil {
+			return
+		}
+		if request.MaxUploads > MaxUploadsList || request.MaxUploads < 1 {
+			err = ErrInvalidMaxUploads
+			return
+		}
 	}
-	encodingType = values.Get("encoding-type")
+	request.KeyMarker = query.Get("key-marker")
+	request.Prefix = query.Get("prefix")
+	request.UploadIdMarker = query.Get("upload-id-marker")
 	return
 }
 

@@ -55,8 +55,8 @@ type ObjectLayer interface {
 		error)
 
 	// Multipart operations.
-	ListMultipartUploads(credential iam.Credential, bucket, prefix, keyMarker, uploadIDMarker,
-		delimiter string, maxUploads int) (result meta.ListMultipartsInfo, err error)
+	ListMultipartUploads(credential iam.Credential, bucket string,
+		request datatype.ListUploadsRequest) (result datatype.ListMultipartUploadsResponse, err error)
 	NewMultipartUpload(credential iam.Credential, bucket, object string,
 		metadata map[string]string, acl datatype.Acl) (uploadID string, err error)
 	PutObjectPart(bucket, object, uploadID string, partID int, size int64,

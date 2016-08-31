@@ -126,7 +126,7 @@ func (api ObjectAPIHandlers) GetBucketLocationHandler(w http.ResponseWriter, r *
 //
 func (api ObjectAPIHandlers) ListMultipartUploadsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	bucket := vars["bucket"]
+	bucketName := vars["bucket"]
 
 	var credential iam.Credential
 	var err error
@@ -137,7 +137,7 @@ func (api ObjectAPIHandlers) ListMultipartUploadsHandler(w http.ResponseWriter, 
 		return
 	case signature.AuthTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/mpuAndPermissions.html
-		if err := enforceBucketPolicy("s3:ListBucketMultipartUploads", bucket, r.URL); err != nil {
+		if err := enforceBucketPolicy("s3:ListBucketMultipartUploads", bucketName, r.URL); err != nil {
 			WriteErrorResponse(w, r, err, r.URL.Path)
 			return
 		}
@@ -149,29 +149,19 @@ func (api ObjectAPIHandlers) ListMultipartUploadsHandler(w http.ResponseWriter, 
 		}
 	}
 
-	prefix, keyMarker, uploadIDMarker, delimiter, maxUploads, _ := getBucketMultipartResources(r.URL.Query())
-	if maxUploads < 0 {
-		WriteErrorResponse(w, r, ErrInvalidMaxUploads, r.URL.Path)
+	request, err := parseListUploadsQuery(r.URL.Query())
+	if err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
-	if keyMarker != "" {
-		// Marker not common with prefix is not implemented.
-		if !strings.HasPrefix(keyMarker, prefix) {
-			WriteErrorResponse(w, r, ErrNotImplemented, r.URL.Path)
-			return
-		}
-	}
 
-	listMultipartsInfo, err := api.ObjectAPI.ListMultipartUploads(credential, bucket, prefix,
-		keyMarker, uploadIDMarker, delimiter, maxUploads)
+	listMultipartsResponse, err := api.ObjectAPI.ListMultipartUploads(credential, bucketName, request)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to list multipart uploads.")
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
-	// generate response
-	response := GenerateListMultipartUploadsResponse(bucket, listMultipartsInfo)
-	encodedSuccessResponse := EncodeResponse(response)
+	encodedSuccessResponse := EncodeResponse(listMultipartsResponse)
 	// write headers.
 	SetCommonHeaders(w)
 	// write success response.

@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/meta"
 	"git.letv.cn/yig/yig/signature"
@@ -14,6 +15,8 @@ import (
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
 	"io"
+	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -25,8 +28,8 @@ const (
 	MAX_PART_NUMBER = 10000
 )
 
-func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketName, prefix, keyMarker,
-	uploadIdMarker, delimiter string, maxUploads int) (result meta.ListMultipartsInfo, err error) {
+func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketName string,
+	request datatype.ListUploadsRequest) (result datatype.ListMultipartUploadsResponse, err error) {
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
@@ -48,28 +51,45 @@ func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketNam
 	}
 	// TODO policy and fancy ACL
 
-	var prefixRowkey bytes.Buffer
-	prefixRowkey.WriteString(bucketName)
-	err = binary.Write(&prefixRowkey, binary.BigEndian, uint16(strings.Count(prefix, "/")))
-	if err != nil {
-		return
-	}
-	startRowkey := bytes.NewBuffer(prefixRowkey.Bytes())
-	prefixRowkey.WriteString(prefix)
-	startRowkey.WriteString(keyMarker)
-	if keyMarker != "" {
-		var timestamp string
-		timestamp, err = meta.TimestampStringFromUploadId(uploadIdMarker)
+	var startRowkey bytes.Buffer
+	startRowkey.WriteString(bucketName)
+	// TODO: refactor, same as in getMultipartRowkeyFromUploadId
+	if request.KeyMarker != "" {
+		err = binary.Write(&startRowkey, binary.BigEndian,
+			uint16(strings.Count(request.KeyMarker, "/")))
 		if err != nil {
 			return
 		}
-		startRowkey.WriteString(timestamp)
+		startRowkey.WriteString(request.KeyMarker)
+		if request.UploadIdMarker != "" {
+			timestampString, err := meta.Decrypt(request.UploadIdMarker)
+			if err != nil {
+				return result, err
+			}
+			timestamp, err := strconv.ParseUint(timestampString, 10, 64)
+			if err != nil {
+				return result, err
+			}
+			err = binary.Write(&startRowkey, binary.BigEndian, timestamp)
+			if err != nil {
+				return
+			}
+		}
 	}
 
-	filter := filter.NewPrefixFilter(prefixRowkey.Bytes())
+	comparator := filter.NewRegexStringComparator(
+		"^"+bucketName+".."+request.Prefix+".*"+".{8}"+"$",
+		0x20, // Dot-all mode
+		"ISO-8859-1",
+		"JAVA", // regexp engine name, in `JAVA` or `JONI`
+	)
+	compareFilter := filter.NewCompareFilter(filter.Equal, comparator)
+	rowFilter := filter.NewRowFilter(compareFilter)
+
 	scanRequest, err := hrpc.NewScanRangeStr(context.Background(), meta.MULTIPART_TABLE,
 		// scan for max+1 rows to determine if results are truncated
-		startRowkey.String(), "", hrpc.Filters(filter), hrpc.NumberOfRows(uint32(maxUploads+1)))
+		startRowkey.String(), "", hrpc.Filters(rowFilter),
+		hrpc.NumberOfRows(uint32(request.MaxUploads+1)))
 	if err != nil {
 		return
 	}
@@ -77,36 +97,100 @@ func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketNam
 	if err != nil {
 		return
 	}
-	if len(scanResponse) > maxUploads {
+
+	if len(scanResponse) > request.MaxUploads {
 		result.IsTruncated = true
-		var nextUpload meta.UploadMetadata
-		nextUpload, err = meta.UploadFromResponse(scanResponse[maxUploads], bucketName)
+		var nextUpload meta.Multipart
+		nextUpload, err = meta.MultipartFromResponse(scanResponse[request.MaxUploads], bucketName)
 		if err != nil {
 			return
 		}
-		result.NextKeyMarker = nextUpload.Object
-		result.NextUploadIDMarker = nextUpload.UploadID
-		scanResponse = scanResponse[:maxUploads]
+		result.NextKeyMarker = nextUpload.ObjectName
+		result.NextUploadIdMarker, err = nextUpload.GetUploadId()
+		if err != nil {
+			return
+		}
+		scanResponse = scanResponse[:request.MaxUploads]
 	}
-	var uploads []meta.UploadMetadata
+
+	var currentLevel int
+	if request.Delimiter == "" {
+		currentLevel = 0
+	} else {
+		currentLevel = strings.Count(request.Prefix, request.Delimiter)
+	}
+
+	uploads := make([]datatype.Upload, 0, len(scanResponse))
+	prefixMap := make(map[string]int) // value is dummy, only need a set here
 	for _, row := range scanResponse {
-		var u meta.UploadMetadata
-		u, err = meta.UploadFromResponse(row, bucketName)
+		var m meta.Multipart
+		m, err = meta.MultipartFromResponse(row, bucketName)
 		if err != nil {
 			return
 		}
-		uploads = append(uploads, u)
-		// TODO prefix support
-		// - add prefix when create new uploads
-		// - handle those prefix when listing
-		// prefixes end with "/" and have depth as if the trailing "/" is removed
-		// TODO refactor
-		// same logic here as meta.ListObjects
+		upload := datatype.Upload{
+			StorageClass: "STANDARD",
+			Initiated:    m.InitialTime.UTC().Format(meta.CREATE_TIME_LAYOUT),
+		}
+		if request.Delimiter == "" {
+			upload.Key = m.ObjectName
+		} else {
+			level := strings.Count(m.ObjectName, request.Delimiter)
+			if level > currentLevel {
+				split := strings.Split(m.ObjectName, request.Delimiter)
+				split = split[:currentLevel+1]
+				prefix := strings.Join(split, request.Delimiter) + request.Delimiter
+				prefixMap[prefix] = 1
+				continue
+			} else {
+				upload.Key = m.ObjectName
+			}
+		}
+		upload.Key = strings.TrimPrefix(upload.Key, request.Prefix)
+		if request.EncodingType != "" { // only support "url" encoding for now
+			upload.Key = url.QueryEscape(upload.Key)
+		}
+		upload.UploadId, err = m.GetUploadId()
+		if err != nil {
+			return
+		}
+
+		var owner iam.Credential
+		owner, err = iam.GetCredentialByUserId(m.Metadata["OwnerId"])
+		if err != nil {
+			return
+		}
+		upload.Owner = datatype.Owner{
+			ID:          owner.UserId,
+			DisplayName: owner.DisplayName,
+		}
+		owner, err = iam.GetCredentialByUserId(m.Metadata["InitiatorId"])
+		if err != nil {
+			return
+		}
+		upload.Initiator = datatype.Owner{
+			ID:          owner.UserId,
+			DisplayName: owner.DisplayName,
+		}
+
+		uploads = append(uploads, upload)
 	}
 	result.Uploads = uploads
-	result.KeyMarker = keyMarker
-	result.UploadIDMarker = uploadIdMarker
-	result.MaxUploads = maxUploads
+
+	prefixes := helper.Keys(prefixMap)
+	sort.Strings(prefixes)
+	for _, prefix := range prefixes {
+		result.CommonPrefixes = append(result.CommonPrefixes, datatype.CommonPrefix{
+			Prefix: prefix,
+		})
+	}
+
+	result.KeyMarker = request.KeyMarker
+	result.UploadIdMarker = request.UploadIdMarker
+	result.MaxUploads = request.MaxUploads
+	result.Prefix = request.Prefix
+	result.Delimiter = request.Delimiter
+	result.EncodingType = request.EncodingType
 	return
 }
 

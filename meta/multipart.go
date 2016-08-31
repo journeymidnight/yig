@@ -110,7 +110,7 @@ func (m *Multipart) GetValuesForDelete() map[string]map[string][]byte {
 	}
 }
 
-func MultipartFromResponse(response *hrpc.Result, bucketName, objectName string) (multipart Multipart,
+func MultipartFromResponse(response *hrpc.Result, bucketName string) (multipart Multipart,
 	err error) {
 
 	var rowkey []byte
@@ -137,7 +137,7 @@ func MultipartFromResponse(response *hrpc.Result, bucketName, objectName string)
 		}
 	}
 	multipart.BucketName = bucketName
-	multipart.ObjectName = objectName
+	multipart.ObjectName = string(rowkey[len(bucketName)+2 : len(rowkey)-8])
 
 	timeBytes := rowkey[len(rowkey)-8:]
 	var timestamp uint64
@@ -167,15 +167,7 @@ func (m *Meta) GetMultipart(bucketName, objectName, uploadId string) (multipart 
 		err = ErrNoSuchUpload
 		return
 	}
-	return MultipartFromResponse(getMultipartResponse, bucketName, objectName)
-}
-
-func TimestampStringFromUploadId(uploadId string) (string, error) {
-	uploadIdBytes, err := hex.DecodeString(uploadId)
-	if err != nil {
-		return "", err
-	}
-	return string(xxtea.Decrypt(uploadIdBytes, XXTEA_KEY)), nil
+	return MultipartFromResponse(getMultipartResponse, bucketName)
 }
 
 func getMultipartRowkeyFromUploadId(bucketName, objectName, uploadId string) (string, error) {
@@ -186,7 +178,7 @@ func getMultipartRowkeyFromUploadId(bucketName, objectName, uploadId string) (st
 		return "", err
 	}
 	rowkey.WriteString(objectName)
-	timestampString, err := TimestampStringFromUploadId(uploadId)
+	timestampString, err := Decrypt(uploadId)
 	if err != nil {
 		return "", err
 	}
@@ -204,24 +196,6 @@ func getMultipartRowkeyFromUploadId(bucketName, objectName, uploadId string) (st
 func getMultipartUploadId(t time.Time) string {
 	timeData := []byte(strconv.FormatUint(uint64(t.UnixNano()), 10))
 	return hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
-}
-
-func UploadFromResponse(response *hrpc.Result, bucketName string) (upload UploadMetadata, err error) {
-	rowkey := response.Cells[0].Row
-	// rowkey = BucketName + bigEndian(uint16(count("/", ObjectName)))
-	// + ObjectName
-	// + bigEndian(unixNanoTimestamp)
-	upload.Object = string(rowkey[len(bucketName)+2 : len(rowkey)-8])
-	timestampReader := bytes.NewReader(rowkey[len(rowkey)-8:])
-	var timestamp uint64
-	err = binary.Read(timestampReader, binary.BigEndian, &timestamp)
-	if err != nil {
-		return
-	}
-	upload.Initiated = time.Unix(0, int64(timestamp))
-	upload.UploadID = getMultipartUploadId(upload.Initiated)
-	upload.StorageClass = "STANDARD"
-	return
 }
 
 func valuesForParts(parts map[int]*Part) (values map[string][]byte, err error) {

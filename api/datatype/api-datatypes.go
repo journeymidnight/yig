@@ -95,6 +95,22 @@ type ListObjectsRequest struct {
 	VersionIdMarker string
 }
 
+type ListUploadsRequest struct {
+	Delimiter      string
+	EncodingType   string
+	MaxUploads     int
+	KeyMarker      string
+	Prefix         string
+	UploadIdMarker string
+}
+
+type ListPartsRequest struct {
+	EncodingType     string
+	UploadId         string
+	MaxParts         int
+	PartNumberMarker string
+}
+
 // Part container for part metadata.
 type Part struct {
 	PartNumber   int
@@ -132,9 +148,9 @@ type ListMultipartUploadsResponse struct {
 
 	Bucket             string
 	KeyMarker          string
-	UploadIDMarker     string `xml:"UploadIdMarker"`
+	UploadIdMarker     string
 	NextKeyMarker      string
-	NextUploadIDMarker string `xml:"NextUploadIdMarker"`
+	NextUploadIdMarker string
 	EncodingType       string
 	MaxUploads         int
 	IsTruncated        bool
@@ -157,11 +173,11 @@ type ListBucketsResponse struct {
 // Upload container for in progress multipart upload
 type Upload struct {
 	Key          string
-	UploadID     string `xml:"UploadId"`
+	UploadId     string
 	Initiator    Initiator
 	Owner        Owner
 	StorageClass string
-	Initiated    string
+	Initiated    string // time string of format "2006-01-02T15:04:05.000Z"
 }
 
 // CommonPrefix container for prefix response in ListObjectsResponse

@@ -58,53 +58,6 @@ type ListPartsInfo struct {
 	EncodingType string // Not supported yet.
 }
 
-// ListMultipartsInfo - represnets bucket resources for incomplete multipart uploads.
-type ListMultipartsInfo struct {
-	// Together with upload-id-marker, this parameter specifies the multipart upload
-	// after which listing should begin.
-	KeyMarker string
-
-	// Together with key-marker, specifies the multipart upload after which listing
-	// should begin. If key-marker is not specified, the upload-id-marker parameter
-	// is ignored.
-	UploadIDMarker string
-
-	// When a list is truncated, this element specifies the value that should be
-	// used for the key-marker request parameter in a subsequent request.
-	NextKeyMarker string
-
-	// When a list is truncated, this element specifies the value that should be
-	// used for the upload-id-marker request parameter in a subsequent request.
-	NextUploadIDMarker string
-
-	// Maximum number of multipart uploads that could have been included in the
-	// response.
-	MaxUploads int
-
-	// Indicates whether the returned list of multipart uploads is truncated. A
-	// value of true indicates that the list was truncated. The list can be truncated
-	// if the number of multipart uploads exceeds the limit allowed or specified
-	// by max uploads.
-	IsTruncated bool
-
-	// List of all pending uploads.
-	Uploads []UploadMetadata
-
-	// When a prefix is provided in the request, The result contains only keys
-	// starting with the specified prefix.
-	Prefix string
-
-	// A character used to truncate the object prefixes.
-	// NOTE: only supported delimiter is '/'.
-	Delimiter string
-
-	// CommonPrefixes contains all (if there are any) keys between Prefix and the
-	// next occurrence of the string specified by delimiter.
-	CommonPrefixes []string
-
-	EncodingType string // Not supported yet.
-}
-
 // ListObjectsInfo - container for list objects.
 type ListObjectsInfo struct {
 	// Indicates whether the returned list objects response is truncated. A
@@ -134,20 +87,6 @@ type VersionedListObjectsInfo struct {
 	NextVersionIdMarker string
 	Objects             []datatype.VersionedObject
 	Prefixes            []string
-}
-
-// uploadMetadata - represents metadata in progress multipart upload.
-type UploadMetadata struct {
-	// Object name for which the multipart upload was initiated.
-	Object string
-
-	// Unique identifier for this multipart upload.
-	UploadID string
-
-	// Date and time at which the multipart upload was initiated.
-	Initiated time.Time
-
-	StorageClass string // Not supported yet.
 }
 
 // completePart - completed part container.
