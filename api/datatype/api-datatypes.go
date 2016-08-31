@@ -59,7 +59,7 @@ type ListObjectsResponse struct {
 type VersionedListObjectsResponse struct {
 	XMLName xml.Name `xml:"ListVersionsResult"`
 
-	Contents            []Object
+	Contents            []VersionedObject
 	CommonPrefixes      []CommonPrefix
 	Delimiter           string
 	EncodingType        string
