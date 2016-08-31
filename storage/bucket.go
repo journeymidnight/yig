@@ -348,7 +348,8 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 		"ISO-8859-1",
 		"JAVA", // regexp engine name, in `JAVA` or `JONI`
 	)
-	rowFilter := filter.NewRowFilter(comparator)
+	compareFilter := filter.NewCompareFilter(filter.Equal, comparator)
+	rowFilter := filter.NewRowFilter(compareFilter)
 
 	scanRequest, err := hrpc.NewScanRangeStr(context.Background(), meta.OBJECT_TABLE,
 		// scan for max+1 rows to determine if results are truncated
@@ -408,10 +409,7 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 		}
 	}
 
-	objectNames := make([]string, 0, len(objectMap))
-	for k := range objectMap {
-		objectNames = append(objectNames, k)
-	}
+	objectNames := helper.Keys(objectMap)
 	sort.Strings(objectNames)
 	objects := make([]datatype.Object, 0, len(objectNames))
 	for _, objectName := range objectNames {
@@ -443,10 +441,7 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 	}
 	result.Objects = objects
 
-	prefixes := make([]string, 0, len(prefixMap))
-	for k := range prefixMap {
-		prefixes = append(prefixes, k)
-	}
+	prefixes := helper.Keys(prefixMap)
 	sort.Strings(prefixes)
 	result.Prefixes = prefixes
 
