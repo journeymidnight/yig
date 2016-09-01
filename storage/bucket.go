@@ -448,6 +448,13 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 	sort.Strings(prefixes)
 	result.Prefixes = prefixes
 
+	if request.EncodingType != "" { // only support "url" encoding for now
+		result.Prefixes = helper.Map(result.Prefixes, func(s string) {
+			return url.QueryEscape(s)
+		})
+		result.NextMarker = url.QueryEscape(result.NextMarker)
+	}
+
 	return
 }
 
@@ -610,6 +617,13 @@ func (yig *YigStorage) ListVersionedObjects(credential iam.Credential, bucketNam
 	prefixes := helper.Keys(prefixMap)
 	sort.Strings(prefixes)
 	result.Prefixes = prefixes
+
+	if request.EncodingType != "" { // only support "url" encoding for now
+		result.Prefixes = helper.Map(result.Prefixes, func(s string) {
+			return url.QueryEscape(s)
+		})
+		result.NextKeyMarker = url.QueryEscape(result.NextKeyMarker)
+	}
 
 	return
 }

@@ -84,15 +84,35 @@ func parseListUploadsQuery(query url.Values) (request ListUploadsRequest, err er
 }
 
 // Parse object url queries
-func getObjectResources(values url.Values) (uploadID string, partNumberMarker, maxParts int,
-	encodingType string) {
-	uploadID = values.Get("uploadId")
-	partNumberMarker, _ = strconv.Atoi(values.Get("part-number-marker"))
-	if values.Get("max-parts") != "" {
-		maxParts, _ = strconv.Atoi(values.Get("max-parts"))
-	} else {
-		maxParts = MaxPartsList
+func parseListObjectPartsQuery(query url.Values) (request ListPartsRequest, err error) {
+	request.EncodingType = query.Get("encoding-type")
+	request.UploadId = query.Get("uploadId")
+	if request.UploadId == "" {
+		err = ErrNoSuchUpload
+		return
 	}
-	encodingType = values.Get("encoding-type")
+	if query.Get("max-parts") == "" {
+		request.MaxParts = MaxPartsList
+	} else {
+		request.MaxParts, err = strconv.Atoi(query.Get("max-parts"))
+		if err != nil {
+			return
+		}
+		if request.MaxParts > MaxPartsList || request.MaxParts < 1 {
+			err = ErrInvalidMaxParts
+			return
+		}
+	}
+	if query.Get("part-number-marker") != "" {
+		request.PartNumberMarker, err = strconv.Atoi(query.Get("part-number-marker"))
+		if err != nil {
+			err = ErrInvalidPartNumberMarker
+			return
+		}
+		if request.PartNumberMarker < 0 {
+			err = ErrInvalidPartNumberMarker
+			return
+		}
+	}
 	return
 }

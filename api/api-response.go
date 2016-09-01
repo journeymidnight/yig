@@ -26,6 +26,7 @@ import (
 	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/meta"
+	"net/url"
 )
 
 const (
@@ -111,6 +112,13 @@ func GenerateListObjectsResponse(bucketName string, request ListObjectsRequest,
 		response.Marker = request.Marker
 		response.NextMarker = objectsInfo.NextMarker
 	}
+
+	if request.EncodingType != "" {
+		response.Delimiter = url.QueryEscape(response.Delimiter)
+		response.Prefix = url.QueryEscape(response.Prefix)
+		response.StartAfter = url.QueryEscape(response.StartAfter)
+		response.Marker = url.QueryEscape(response.Marker)
+	}
 	return
 }
 
@@ -140,6 +148,11 @@ func GenerateVersionedListObjectResponse(bucketName string, request ListObjectsR
 	response.NextKeyMarker = objectsInfo.NextKeyMarker
 	response.VersionIdMarker = request.VersionIdMarker
 	response.NextVersionIdMarker = objectsInfo.NextVersionIdMarker
+
+	if request.EncodingType != "" {
+		response.KeyMarker = url.QueryEscape(response.KeyMarker)
+		response.Delimiter = url.QueryEscape(response.Delimiter)
+	}
 	return
 }
 

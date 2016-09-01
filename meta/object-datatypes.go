@@ -20,43 +20,6 @@ import (
 	"git.letv.cn/yig/yig/api/datatype"
 )
 
-// ListPartsInfo - represents list of all parts.
-type ListPartsInfo struct {
-	// Name of the bucket.
-	Bucket string
-
-	// Name of the object.
-	Object string
-
-	// Upload ID identifying the multipart upload whose parts are being listed.
-	UploadID string
-
-	InitiatorId string
-	OwnerId     string
-
-	// The class of storage used to store the object.
-	StorageClass string
-
-	// Part number after which listing begins.
-	PartNumberMarker int
-
-	// When a list is truncated, this element specifies the last part in the list,
-	// as well as the value to use for the part-number-marker request parameter
-	// in a subsequent request.
-	NextPartNumberMarker int
-
-	// Maximum number of parts that were allowed in the response.
-	MaxParts int
-
-	// Indicates whether the returned list of parts is truncated.
-	IsTruncated bool
-
-	// List of all parts.
-	Parts []*Part
-
-	EncodingType string // Not supported yet.
-}
-
 // ListObjectsInfo - container for list objects.
 type ListObjectsInfo struct {
 	// Indicates whether the returned list objects response is truncated. A

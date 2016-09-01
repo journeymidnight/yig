@@ -39,7 +39,7 @@ type ListObjectsResponse struct {
 	Contents       []Object
 	CommonPrefixes []CommonPrefix
 	Delimiter      string
-	EncodingType   string
+	EncodingType   string `xml:"Encoding-Type,omitempty"`
 	IsTruncated    bool
 	MaxKeys        int
 	KeyCount       int
@@ -62,7 +62,7 @@ type VersionedListObjectsResponse struct {
 	Contents            []VersionedObject
 	CommonPrefixes      []CommonPrefix
 	Delimiter           string
-	EncodingType        string
+	EncodingType        string `xml:"Encoding-Type,omitempty"`
 	IsTruncated         bool
 	MaxKeys             int
 	KeyCount            int
@@ -108,7 +108,7 @@ type ListPartsRequest struct {
 	EncodingType     string
 	UploadId         string
 	MaxParts         int
-	PartNumberMarker string
+	PartNumberMarker int
 }
 
 // Part container for part metadata.
@@ -123,9 +123,10 @@ type Part struct {
 type ListPartsResponse struct {
 	XMLName xml.Name `xml:"http://s3.amazonaws.com/doc/2006-03-01/ ListPartsResult" json:"-"`
 
-	Bucket   string
-	Key      string
-	UploadID string `xml:"UploadId"`
+	Bucket       string
+	Key          string
+	UploadId     string
+	EncodingType string `xml:"Encoding-Type,omitempty"`
 
 	Initiator Initiator
 	Owner     Owner
@@ -151,7 +152,7 @@ type ListMultipartUploadsResponse struct {
 	UploadIdMarker     string
 	NextKeyMarker      string
 	NextUploadIdMarker string
-	EncodingType       string
+	EncodingType       string `xml:"Encoding-Type,omitempty"`
 	MaxUploads         int
 	IsTruncated        bool
 	Uploads            []Upload `xml:"Upload"`

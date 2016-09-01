@@ -157,19 +157,19 @@ func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketNam
 			return
 		}
 
-		var owner iam.Credential
-		owner, err = iam.GetCredentialByUserId(m.Metadata["OwnerId"])
+		var user iam.Credential
+		user, err = iam.GetCredentialByUserId(m.Metadata["OwnerId"])
 		if err != nil {
 			return
 		}
-		upload.Owner.ID = owner.UserId
-		upload.Owner.DisplayName = owner.DisplayName
-		owner, err = iam.GetCredentialByUserId(m.Metadata["InitiatorId"])
+		upload.Owner.ID = user.UserId
+		upload.Owner.DisplayName = user.DisplayName
+		user, err = iam.GetCredentialByUserId(m.Metadata["InitiatorId"])
 		if err != nil {
 			return
 		}
-		upload.Initiator.ID = owner.UserId
-		upload.Initiator.DisplayName = owner.DisplayName
+		upload.Initiator.ID = user.UserId
+		upload.Initiator.DisplayName = user.DisplayName
 
 		uploads = append(uploads, upload)
 	}
@@ -189,6 +189,12 @@ func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketNam
 	result.Prefix = request.Prefix
 	result.Delimiter = request.Delimiter
 	result.EncodingType = request.EncodingType
+	if result.EncodingType != "" { // only support "url" encoding for now
+		result.Delimiter = url.QueryEscape(result.Delimiter)
+		result.KeyMarker = url.QueryEscape(result.KeyMarker)
+		result.Prefix = url.QueryEscape(result.Prefix)
+		result.NextKeyMarker = url.QueryEscape(result.NextKeyMarker)
+	}
 	return
 }
 
@@ -397,16 +403,16 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	// TODO remove possible old object in Ceph
 }
 
-func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, objectName, uploadId string,
-	partNumberMarker int, maxParts int) (result meta.ListPartsInfo, err error) {
+func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, objectName string,
+	request datatype.ListPartsRequest) (result datatype.ListPartsResponse, err error) {
 
-	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
+	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, request.UploadId)
 	if err != nil {
 		return
 	}
 
-	result.InitiatorId = multipart.Metadata["InitiatorId"]
-	result.OwnerId = multipart.Metadata["OwnerId"]
+	initiatorId := multipart.Metadata["InitiatorId"]
+	ownerId := multipart.Metadata["OwnerId"]
 
 	switch multipart.Metadata["Acl"] {
 	case "public-read", "public-read-write":
@@ -427,34 +433,57 @@ func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, ob
 			return
 		}
 	default:
-		if result.OwnerId != credential.UserId {
+		if ownerId != credential.UserId {
 			err = ErrAccessDenied
 			return
 		}
 	}
-	partCount := 0
-	for i := partNumberMarker; i <= MAX_PART_NUMBER; i++ {
+	for i := request.PartNumberMarker + 1; i <= MAX_PART_NUMBER; i++ {
 		if p, ok := multipart.Parts[i]; ok {
-			result.Parts = append(result.Parts, p)
+			part := datatype.Part{
+				PartNumber:   i,
+				ETag:         p.Etag,
+				LastModified: p.LastModified.UTC().Format(meta.CREATE_TIME_LAYOUT),
+				Size:         p.Size,
+			}
+			result.Parts = append(result.Parts, part)
 
-			partCount++
-			if partCount > maxParts+1 {
+			if len(result.Parts) > request.MaxParts {
 				break
 			}
 		}
 	}
-	if partCount == maxParts+1 {
+	if len(result.Parts) == request.MaxParts+1 {
 		result.IsTruncated = true
-		result.Parts = result.Parts[:maxParts]
+		result.NextPartNumberMarker = result.Parts[request.MaxParts].PartNumber
+		result.Parts = result.Parts[:request.MaxParts]
 	}
 
-	result.Bucket = bucketName
-	result.Object = objectName
-	result.UploadID = uploadId
-	result.StorageClass = "STANDARD"
-	result.PartNumberMarker = partNumberMarker
-	result.MaxParts = maxParts
+	var user iam.Credential
+	user, err = iam.GetCredentialByUserId(ownerId)
+	if err != nil {
+		return
+	}
+	result.Owner.ID = user.UserId
+	result.Owner.DisplayName = user.DisplayName
+	user, err = iam.GetCredentialByUserId(initiatorId)
+	if err != nil {
+		return
+	}
+	result.Initiator.ID = user.UserId
+	result.Initiator.DisplayName = user.DisplayName
 
+	result.Bucket = bucketName
+	result.Key = objectName
+	result.UploadId = request.UploadId
+	result.StorageClass = "STANDARD"
+	result.PartNumberMarker = request.PartNumberMarker
+	result.MaxParts = request.MaxParts
+	result.EncodingType = request.EncodingType
+
+	if result.EncodingType != "" { // only support "url" encoding for now
+		result.Key = url.QueryEscape(result.Key)
+	}
 	return
 }
 

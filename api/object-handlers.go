@@ -968,8 +968,8 @@ func sendWhiteSpaceChars(w http.ResponseWriter, doneCh <-chan struct{}) {
 // ListObjectPartsHandler - List object parts
 func (api ObjectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	bucket := vars["bucket"]
-	object := vars["object"]
+	bucketName := vars["bucket"]
+	objectName := vars["object"]
 
 	var credential iam.Credential
 	var err error
@@ -980,8 +980,8 @@ func (api ObjectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 		return
 	case signature.AuthTypeAnonymous:
 		// http://docs.aws.amazon.com/AmazonS3/latest/dev/mpuAndPermissions.html
-		if s3Error := enforceBucketPolicy("s3:ListMultipartUploadParts", bucket, r.URL); s3Error != nil {
-			WriteErrorResponse(w, r, s3Error, r.URL.Path)
+		if err = enforceBucketPolicy("s3:ListMultipartUploadParts", bucketName, r.URL); err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
 			return
 		}
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
@@ -992,17 +992,13 @@ func (api ObjectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 		}
 	}
 
-	uploadID, partNumberMarker, maxParts, _ := getObjectResources(r.URL.Query())
-	if partNumberMarker < 0 {
-		WriteErrorResponse(w, r, ErrInvalidPartNumberMarker, r.URL.Path)
+	request, err := parseListObjectPartsQuery(r.URL.Query())
+	if err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
-	if maxParts < 0 {
-		WriteErrorResponse(w, r, ErrInvalidMaxParts, r.URL.Path)
-		return
-	}
-	listPartsInfo, err := api.ObjectAPI.ListObjectParts(credential, bucket, object, uploadID,
-		partNumberMarker, maxParts)
+	listPartsInfo, err := api.ObjectAPI.ListObjectParts(credential, bucketName,
+		objectName, request)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to list uploaded parts.")
 		WriteErrorResponse(w, r, err, r.URL.Path)

@@ -26,7 +26,7 @@ type Part struct {
 	// `multiparts` table to `objects` table
 	Offset       int64
 	Etag         string
-	LastModified time.Time // time in format "2006-01-02T15:04:05.000Z"
+	LastModified time.Time
 }
 
 // For scenario only one part is needed to insert
