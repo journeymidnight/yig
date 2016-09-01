@@ -943,8 +943,8 @@ func (api ObjectAPIHandlers) AbortMultipartUploadHandler(w http.ResponseWriter, 
 		}
 	}
 
-	uploadID, _, _, _ := getObjectResources(r.URL.Query())
-	if err := api.ObjectAPI.AbortMultipartUpload(credential, bucket, object, uploadID); err != nil {
+	uploadId := r.URL.Query().Get("uploadId")
+	if err := api.ObjectAPI.AbortMultipartUpload(credential, bucket, object, uploadId); err != nil {
 		helper.ErrorIf(err, "Unable to abort multipart upload.")
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
@@ -1004,8 +1004,7 @@ func (api ObjectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
-	response := GenerateListPartsResponse(listPartsInfo)
-	encodedSuccessResponse := EncodeResponse(response)
+	encodedSuccessResponse := EncodeResponse(listPartsInfo)
 	// Write headers.
 	SetCommonHeaders(w)
 	// Write success response.
@@ -1019,7 +1018,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	object := vars["object"]
 
 	// Get upload id.
-	uploadID, _, _, _ := getObjectResources(r.URL.Query())
+	uploadId := r.URL.Query().Get("uploadId")
 
 	var credential iam.Credential
 	var err error
@@ -1078,7 +1077,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	// Signal that completeMultipartUpload is over via doneCh
 	go func(doneCh chan<- struct{}) {
 		result, err = api.ObjectAPI.CompleteMultipartUpload(credential, bucket,
-			object, uploadID, completeParts)
+			object, uploadId, completeParts)
 		doneCh <- struct{}{}
 	}(doneCh)
 

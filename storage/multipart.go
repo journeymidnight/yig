@@ -442,7 +442,7 @@ func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, ob
 		if p, ok := multipart.Parts[i]; ok {
 			part := datatype.Part{
 				PartNumber:   i,
-				ETag:         p.Etag,
+				ETag:         "\"" + p.Etag + "\"",
 				LastModified: p.LastModified.UTC().Format(meta.CREATE_TIME_LAYOUT),
 				Size:         p.Size,
 			}

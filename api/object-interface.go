@@ -64,7 +64,7 @@ type ObjectLayer interface {
 	CopyObjectPart(bucketName, objectName, uploadId string, partId int, size int64, data io.Reader,
 		credential iam.Credential) (result datatype.PutObjectResult, err error)
 	ListObjectParts(credential iam.Credential, bucket, object string,
-		request datatype.ListPartsRequest) (result meta.ListPartsInfo, err error)
+		request datatype.ListPartsRequest) (result datatype.ListPartsResponse, err error)
 	AbortMultipartUpload(credential iam.Credential, bucket, object, uploadID string) error
 	CompleteMultipartUpload(credential iam.Credential, bucket, object, uploadID string,
 		uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult, err error)
