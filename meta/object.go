@@ -2,6 +2,9 @@ package meta
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -13,6 +16,7 @@ import (
 	"github.com/tsuna/gohbase/hrpc"
 	"github.com/xxtea/xxtea-go/xxtea"
 	"golang.org/x/net/context"
+	"io"
 	"math"
 	"strconv"
 	"strings"
@@ -37,9 +41,16 @@ type Object struct {
 	NullVersion      bool   // if this entry has `null` version
 	DeleteMarker     bool   // if this entry is a delete marker
 	VersionId        string // version cache
+	// type of Server Side Encryption, could be "KMS", "S3", "C"(custom), or ""(none),
+	// KMS is not implemented yet
+	SseType string
+	// encryption key for SSE-S3, the key itself is encrypted with SSE_S3_MASTER_KEY,
+	// in AES256-GCM
+	EncryptionKey        []byte
+	InitializationVector []byte
 }
 
-func (o Object) String() (s string) {
+func (o *Object) String() (s string) {
 	s += "Name: " + o.Name + "\n"
 	s += "Location: " + o.Location + "\n"
 	s += "Pool: " + o.Pool + "\n"
@@ -57,7 +68,7 @@ func (o Object) String() (s string) {
 // bigEndian(uint16(len([]byte((ObjectName)))) +
 // ObjectName +
 // bigEndian(uint64.max - unixNanoTimestamp)
-func (o Object) GetRowkey() (string, error) {
+func (o *Object) GetRowkey() (string, error) {
 	if o.Rowkey != "" {
 		return o.Rowkey, nil
 	}
@@ -81,26 +92,33 @@ func (o Object) GetRowkey() (string, error) {
 	return o.Rowkey, nil
 }
 
-func (o Object) GetValues() (values map[string]map[string][]byte, err error) {
+func (o *Object) GetValues() (values map[string]map[string][]byte, err error) {
 	var size bytes.Buffer
 	err = binary.Write(&size, binary.BigEndian, o.Size)
 	if err != nil {
 		return
 	}
+	err = o.encryptSseKey()
+	if err != nil {
+		return
+	}
 	values = map[string]map[string][]byte{
 		OBJECT_COLUMN_FAMILY: map[string][]byte{
-			"location":     []byte(o.Location),
-			"pool":         []byte(o.Pool),
-			"owner":        []byte(o.OwnerId),
-			"oid":          []byte(o.ObjectId),
-			"size":         size.Bytes(),
-			"lastModified": []byte(o.LastModifiedTime.Format(CREATE_TIME_LAYOUT)),
-			"etag":         []byte(o.Etag),
-			"content-type": []byte(o.ContentType),
-			"attributes":   []byte{}, // TODO
-			"ACL":          []byte(o.ACL.CannedAcl),
-			"nullVersion":  []byte(helper.Ternary(o.NullVersion, "true", "false").(string)),
-			"deleteMarker": []byte(helper.Ternary(o.DeleteMarker, "true", "false").(string)),
+			"location":      []byte(o.Location),
+			"pool":          []byte(o.Pool),
+			"owner":         []byte(o.OwnerId),
+			"oid":           []byte(o.ObjectId),
+			"size":          size.Bytes(),
+			"lastModified":  []byte(o.LastModifiedTime.Format(CREATE_TIME_LAYOUT)),
+			"etag":          []byte(o.Etag),
+			"content-type":  []byte(o.ContentType),
+			"attributes":    []byte{}, // TODO
+			"ACL":           []byte(o.ACL.CannedAcl),
+			"nullVersion":   []byte(helper.Ternary(o.NullVersion, "true", "false").(string)),
+			"deleteMarker":  []byte(helper.Ternary(o.DeleteMarker, "true", "false").(string)),
+			"sseType":       []byte(o.SseType),
+			"encryptionKey": o.EncryptionKey,
+			"IV":            o.InitializationVector,
 		},
 	}
 	if len(o.Parts) != 0 {
@@ -112,14 +130,14 @@ func (o Object) GetValues() (values map[string]map[string][]byte, err error) {
 	return
 }
 
-func (o Object) GetValuesForDelete() (values map[string]map[string][]byte) {
+func (o *Object) GetValuesForDelete() (values map[string]map[string][]byte) {
 	return map[string]map[string][]byte{
 		OBJECT_COLUMN_FAMILY:      map[string][]byte{},
 		OBJECT_PART_COLUMN_FAMILY: map[string][]byte{},
 	}
 }
 
-func (o Object) GetVersionId() string {
+func (o *Object) GetVersionId() string {
 	if o.VersionId != "" {
 		return o.VersionId
 	}
@@ -130,6 +148,34 @@ func (o Object) GetVersionId() string {
 	timeData := []byte(strconv.FormatUint(uint64(o.LastModifiedTime.UnixNano()), 10))
 	o.VersionId = hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
 	return o.VersionId
+}
+
+func (o *Object) encryptSseKey() (err error) {
+	// Don't encrypt if `EncryptionKey` is not set
+	if len(o.EncryptionKey) == 0 {
+		return
+	}
+
+	if len(o.InitializationVector) == 0 {
+		o.InitializationVector = make([]byte, INITIALIZATION_VECTOR_LENGTH)
+		_, err = io.ReadFull(rand.Reader, o.InitializationVector)
+		if err != nil {
+			return
+		}
+	}
+
+	block, err := aes.NewCipher(SSE_S3_MASTER_KEY)
+	if err != nil {
+		return err
+	}
+
+	aesGcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return err
+	}
+
+	o.EncryptionKey = aesGcm.Seal(nil, o.InitializationVector, o.EncryptionKey, nil)
+	return nil
 }
 
 // Rowkey format:
@@ -211,6 +257,12 @@ func ObjectFromResponse(response *hrpc.Result, bucketName string) (object Object
 			case "deleteMarker":
 				object.DeleteMarker = helper.Ternary(string(cell.Value) == "true",
 					true, false).(bool)
+			case "sseType":
+				object.SseType = string(cell.Value)
+			case "encryptionKey":
+				object.EncryptionKey = cell.Value
+			case "IV":
+				object.InitializationVector = cell.Value
 			}
 		case OBJECT_PART_COLUMN_FAMILY:
 			var partNumber int
@@ -226,6 +278,13 @@ func ObjectFromResponse(response *hrpc.Result, bucketName string) (object Object
 			object.Parts[partNumber] = &p
 		}
 	}
+
+	// To decrypt encryption key, we need to know IV first
+	object.EncryptionKey, err = decryptSseKey(object.InitializationVector, object.EncryptionKey)
+	if err != nil {
+		return
+	}
+
 	object.BucketName = bucketName
 	object.Rowkey = string(rowkey)
 	// rowkey = BucketName + bigEndian(uint16(count("/", ObjectName)))
@@ -339,4 +398,18 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string) (object 
 		return
 	}
 	return
+}
+
+func decryptSseKey(initializationVector []byte, cipherText []byte) (plainText []byte, err error) {
+	block, err := aes.NewCipher(SSE_S3_MASTER_KEY)
+	if err != nil {
+		return
+	}
+
+	aesGcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return
+	}
+
+	return aesGcm.Open(nil, initializationVector, cipherText, nil)
 }

@@ -319,3 +319,17 @@ type CompleteMultipartResult struct {
 	ETag      string
 	VersionId string
 }
+
+type SseRequest struct {
+	// type of Server Side Encryption, could be "KMS", "S3", "C"(custom), or ""(none),
+	// KMS is not implemented yet
+	Type string
+
+	// AWS-managed specific(KMS and S3)
+	SseAwsKmsKeyId string
+	SseContext     string
+
+	// customer-provided specific(SSE-C)
+	SseCustomerAlgorithm string
+	SseCustomerKey       []byte
+}

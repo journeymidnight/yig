@@ -105,6 +105,7 @@ const (
 	ErrInvalidQueryParams
 	ErrBucketAlreadyOwnedByYou
 	ErrInvalidCannedAcl
+	ErrInvalidSseHeader
 	// Add new error codes here.
 
 	// S3 extended errors.
@@ -458,6 +459,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidCannedAcl: {
 		AwsErrorCode:   "InvalidAcl",
 		Description:    "The canned ACL you provided is not valid",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidSseHeader: {
+		AwsErrorCode:   "InvalidSseHeader",
+		Description:    "The Server-side Encryption configuration is corrupted or invalid",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 

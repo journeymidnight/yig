@@ -505,13 +505,13 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		WriteErrorResponse(w, r, ErrInvalidDigest, r.URL.Path)
 		return
 	}
-	/// if Content-Length is unknown/missing, deny the request
+	// if Content-Length is unknown/missing, deny the request
 	size := r.ContentLength
 	if size == -1 && !contains(r.TransferEncoding, "chunked") {
 		WriteErrorResponse(w, r, ErrMissingContentLength, r.URL.Path)
 		return
 	}
-	/// maximum Upload size for objects in a single operation
+	// maximum Upload size for objects in a single operation
 	if isMaxObjectSize(size) {
 		WriteErrorResponse(w, r, ErrEntityTooLarge, r.URL.Path)
 		return
@@ -520,6 +520,13 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	// Save metadata.
 	metadata := extractMetadataFromHeader(r.Header)
 	metadata["md5Sum"] = hex.EncodeToString(md5Bytes)
+
+	// Parse SSE related headers
+	sseRequest, err := parseSseHeader(r.Header)
+	if err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
 
 	acl, err := getAclFromHeader(r.Header)
 	if err != nil {

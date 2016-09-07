@@ -17,6 +17,8 @@
 package api
 
 import (
+	"crypto/md5"
+	"encoding/base64"
 	. "git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
 	"io"
@@ -87,4 +89,59 @@ func extractMetadataFromHeader(header http.Header) map[string]string {
 	}
 	// Return.
 	return metadata
+}
+
+func parseSseHeader(header http.Header) (request SseRequest, err error) {
+	if sse := header.Get("X-Amz-Server-Side-Encryption"); sse != "" {
+		switch sse {
+		case "aws:kms":
+			err = ErrNotImplemented
+			return
+		case "AES256":
+			request.Type = "S3"
+		default:
+			err = ErrInvalidSseHeader
+			return
+		}
+	}
+	if sse := header.Get("X-Amz-Server-Side-Encryption-Customer-Algorithm"); sse != "" {
+		if sse == "AES256" {
+			request.Type = "C"
+		} else {
+			err = ErrInvalidSseHeader
+			return
+		}
+	}
+
+	switch request.Type {
+	case "KMS":
+		break // Not implemented yet
+	case "S3":
+		request.SseContext = header.Get("X-Amz-Server-Side-Encryption-Context")
+	case "C":
+		request.SseCustomerAlgorithm = header.Get("X-Amz-Server-Side-Encryption-Customer-Algorithm")
+		if request.SseCustomerAlgorithm != "AES256" {
+			err = ErrInvalidSseHeader
+			return
+		}
+		// base64-encoded encryption key
+		key := header.Get("X-Amz-Server-Side-Encryption-Customer-Key")
+		n, err := base64.StdEncoding.Decode(request.SseCustomerKey, byte(key))
+		if err != nil {
+			return
+		}
+		if n != 32 { // Should be 32 bytes for AES-"256"
+			err = ErrInvalidSseHeader
+			return
+		}
+		// base64-encoded 128-bit MD5 digest of the encryption key
+		userMd5 := header.Get("X-Amz-Server-Side-Encryption-Customer-Key-Md5")
+		calculatedMd5 := md5.Sum(request.SseCustomerKey)
+		encodedMd5 := base64.StdEncoding.EncodeToString(calculatedMd5)
+		if userMd5 != encodedMd5 {
+			err = ErrInvalidSseHeader
+			return
+		}
+	}
+	return
 }

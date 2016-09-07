@@ -46,7 +46,8 @@ type ObjectLayer interface {
 	GetObject(object meta.Object, startOffset int64, length int64, writer io.Writer) (err error)
 	GetObjectInfo(bucket, object, version string) (objInfo meta.Object, err error)
 	PutObject(bucket, object string, size int64, data io.Reader,
-		metadata map[string]string, acl datatype.Acl) (result datatype.PutObjectResult, err error)
+		metadata map[string]string, acl datatype.Acl,
+		sse datatype.SseRequest) (result datatype.PutObjectResult, err error)
 	CopyObject(object meta.Object, source io.Reader,
 		credential iam.Credential) (result datatype.PutObjectResult, err error)
 	SetObjectAcl(bucket string, object string, version string, acl datatype.Acl,

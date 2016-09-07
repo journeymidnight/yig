@@ -27,10 +27,14 @@ const (
 	MULTIPART_COLUMN_FAMILY               = "m"
 
 	CREATE_TIME_LAYOUT = "2006-01-02T15:04:05.000Z"
+
+	ENCRYPTION_KEY_LENGTH        = 32 // 32 bytes for AES-"256"
+	INITIALIZATION_VECTOR_LENGTH = 12 // best performance for GCM
 )
 
 var (
-	XXTEA_KEY = []byte("hehehehe")
+	XXTEA_KEY         = []byte("hehehehe")
+	SSE_S3_MASTER_KEY = []byte("hehehehehehehehehehehehehehehehe") // 32 bytes to select AES-256
 )
 
 type Meta struct {

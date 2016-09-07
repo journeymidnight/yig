@@ -1,7 +1,10 @@
 package storage
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/md5"
+	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"git.letv.cn/yig/yig/api/datatype"
@@ -117,7 +120,8 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, versio
 }
 
 func (yig *YigStorage) PutObject(bucketName string, objectName string, size int64, data io.Reader,
-	metadata map[string]string, acl datatype.Acl) (result datatype.PutObjectResult, err error) {
+	metadata map[string]string, acl datatype.Acl,
+	sse datatype.SseRequest) (result datatype.PutObjectResult, err error) {
 
 	md5Writer := md5.New()
 
@@ -128,11 +132,49 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 	} else {
 		limitedDataReader = data
 	}
+
+	var dataReader io.Reader
+	dataReader = limitedDataReader
+
+	var encryptionKey []byte
+	switch sse.Type {
+	case "KMS":
+		break // not implemented yet
+	case "S3":
+		encryptionKey = make([]byte, ENCRYPTION_KEY_LENGTH)
+		_, err = io.ReadFull(rand.Reader, encryptionKey)
+		if err != nil {
+			return
+		}
+	case "C":
+		encryptionKey = sse.SseCustomerKey
+	default:
+		err = ErrInvalidSseHeader
+		return
+	}
+	var initializationVector []byte
+	if len(encryptionKey) != 0 {
+		block, err := aes.NewCipher(encryptionKey)
+		if err != nil {
+			return
+		}
+		initializationVector = make([]byte, INITIALIZATION_VECTOR_LENGTH)
+		_, err = io.ReadFull(rand.Reader, initializationVector)
+		if err != nil {
+			return
+		}
+		stream := cipher.NewCTR(block, initializationVector)
+		dataReader = cipher.StreamReader{
+			S: stream,
+			R: limitedDataReader,
+		}
+	}
+
 	cephCluster, poolName := yig.PickOneClusterAndPool(bucketName, objectName, size)
 
 	// Mapping a shorter name for the object
 	oid := cephCluster.GetUniqUploadName()
-	storageReader := io.TeeReader(limitedDataReader, md5Writer)
+	storageReader := io.TeeReader(dataReader, md5Writer)
 	bytesWritten, err := cephCluster.put(poolName, oid, storageReader)
 	if err != nil {
 		return
@@ -170,19 +212,22 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 	// TODO validate bucket policy and fancy ACL
 
 	object := meta.Object{
-		Name:             objectName,
-		BucketName:       bucketName,
-		Location:         cephCluster.Name,
-		Pool:             poolName,
-		OwnerId:          credential.UserId,
-		Size:             bytesWritten,
-		ObjectId:         oid,
-		LastModifiedTime: time.Now().UTC(),
-		Etag:             calculatedMd5,
-		ContentType:      metadata["Content-Type"],
-		ACL:              acl,
-		NullVersion:      helper.Ternary(bucket.Versioning == "Enabled", false, true).(bool),
-		DeleteMarker:     false,
+		Name:                 objectName,
+		BucketName:           bucketName,
+		Location:             cephCluster.Name,
+		Pool:                 poolName,
+		OwnerId:              credential.UserId,
+		Size:                 bytesWritten,
+		ObjectId:             oid,
+		LastModifiedTime:     time.Now().UTC(),
+		Etag:                 calculatedMd5,
+		ContentType:          metadata["Content-Type"],
+		ACL:                  acl,
+		NullVersion:          helper.Ternary(bucket.Versioning == "Enabled", false, true).(bool),
+		DeleteMarker:         false,
+		SseType:              sse.Type,
+		EncryptionKey:        encryptionKey,
+		InitializationVector: initializationVector,
 		// TODO CustomAttributes
 	}
 

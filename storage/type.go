@@ -7,7 +7,9 @@ import (
 )
 
 const (
-	CEPH_CONFIG_PATTERN = "conf/*.conf"
+	CEPH_CONFIG_PATTERN          = "conf/*.conf"
+	ENCRYPTION_KEY_LENGTH        = 32 // for AES-"256"
+	INITIALIZATION_VECTOR_LENGTH = 12 // best performance for GCM
 )
 
 // *YigStorage implements minio.ObjectLayer
