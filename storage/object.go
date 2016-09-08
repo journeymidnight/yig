@@ -1,10 +1,7 @@
 package storage
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
 	"crypto/md5"
-	"crypto/rand"
 	"encoding/hex"
 	"errors"
 	"git.letv.cn/yig/yig/api/datatype"
@@ -121,7 +118,7 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, versio
 
 func (yig *YigStorage) PutObject(bucketName string, objectName string, size int64, data io.Reader,
 	metadata map[string]string, acl datatype.Acl,
-	sse datatype.SseRequest) (result datatype.PutObjectResult, err error) {
+	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
 
 	md5Writer := md5.New()
 
@@ -133,48 +130,20 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 		limitedDataReader = data
 	}
 
-	var dataReader io.Reader
-	dataReader = limitedDataReader
-
-	var encryptionKey []byte
-	switch sse.Type {
-	case "KMS":
-		break // not implemented yet
-	case "S3":
-		encryptionKey = make([]byte, ENCRYPTION_KEY_LENGTH)
-		_, err = io.ReadFull(rand.Reader, encryptionKey)
-		if err != nil {
-			return
-		}
-	case "C":
-		encryptionKey = sse.SseCustomerKey
-	default:
-		err = ErrInvalidSseHeader
-		return
-	}
-	var initializationVector []byte
-	if len(encryptionKey) != 0 {
-		block, err := aes.NewCipher(encryptionKey)
-		if err != nil {
-			return
-		}
-		initializationVector = make([]byte, INITIALIZATION_VECTOR_LENGTH)
-		_, err = io.ReadFull(rand.Reader, initializationVector)
-		if err != nil {
-			return
-		}
-		stream := cipher.NewCTR(block, initializationVector)
-		dataReader = cipher.StreamReader{
-			S: stream,
-			R: limitedDataReader,
-		}
-	}
-
 	cephCluster, poolName := yig.PickOneClusterAndPool(bucketName, objectName, size)
 
 	// Mapping a shorter name for the object
 	oid := cephCluster.GetUniqUploadName()
-	storageReader := io.TeeReader(dataReader, md5Writer)
+	dataReader := io.TeeReader(limitedDataReader, md5Writer)
+
+	encryptionKey, initializationVector, err := keysFromSseRequest(sseRequest)
+	if err != nil {
+		return
+	}
+	storageReader, err := wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
+	if err != nil {
+		return
+	}
 	bytesWritten, err := cephCluster.put(poolName, oid, storageReader)
 	if err != nil {
 		return
@@ -225,7 +194,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 		ACL:                  acl,
 		NullVersion:          helper.Ternary(bucket.Versioning == "Enabled", false, true).(bool),
 		DeleteMarker:         false,
-		SseType:              sse.Type,
+		SseType:              sseRequest.Type,
 		EncryptionKey:        encryptionKey,
 		InitializationVector: initializationVector,
 		// TODO CustomAttributes
@@ -261,8 +230,8 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 	return result, nil
 }
 
-func (yig *YigStorage) CopyObject(targetObject meta.Object,
-	source io.Reader, credential iam.Credential) (result datatype.PutObjectResult, err error) {
+func (yig *YigStorage) CopyObject(targetObject meta.Object, source io.Reader, credential iam.Credential,
+	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
 
 	md5Writer := md5.New()
 
@@ -275,7 +244,16 @@ func (yig *YigStorage) CopyObject(targetObject meta.Object,
 
 	// Mapping a shorter name for the object
 	oid := cephCluster.GetUniqUploadName()
-	storageReader := io.TeeReader(limitedDataReader, md5Writer)
+	dataReader := io.TeeReader(limitedDataReader, md5Writer)
+
+	encryptionKey, initializationVector, err := keysFromSseRequest(sseRequest)
+	if err != nil {
+		return
+	}
+	storageReader, err := wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
+	if err != nil {
+		return
+	}
 	bytesWritten, err := cephCluster.put(poolName, oid, storageReader)
 	if err != nil {
 		return
@@ -313,6 +291,9 @@ func (yig *YigStorage) CopyObject(targetObject meta.Object,
 	targetObject.ObjectId = oid
 	targetObject.LastModifiedTime = time.Now().UTC()
 	targetObject.NullVersion = helper.Ternary(bucket.Versioning == "Enabled", false, true).(bool)
+	targetObject.SseType = sseRequest.Type
+	targetObject.EncryptionKey = encryptionKey
+	targetObject.InitializationVector = initializationVector
 
 	result.LastModified = targetObject.LastModifiedTime
 

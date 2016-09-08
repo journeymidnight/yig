@@ -398,6 +398,12 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	sseRequest, err := parseSseHeader(r.Header)
+	if err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+
 	// Verify before x-amz-copy-source preconditions before continuing with CopyObject.
 	if err = checkObjectPreconditions(w, r, sourceObject); err != nil {
 		WriteErrorResponse(w, r, err, r.URL.Path)
@@ -461,7 +467,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	sourceObject.Name = targetObjectName
 
 	// Create the object.
-	result, err := api.ObjectAPI.CopyObject(sourceObject, pipeReader, credential)
+	result, err := api.ObjectAPI.CopyObject(sourceObject, pipeReader, credential, sseRequest)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to create an object.")
 		WriteErrorResponse(w, r, err, r.URL.Path)
@@ -477,6 +483,17 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 	if result.VersionId != "" {
 		w.Header().Set("x-amz-version-id", result.VersionId)
+	}
+	// Set SSE related headers
+	for _, headerName := range []string{
+		"X-Amz-Server-Side-Encryption",
+		"X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id",
+		"X-Amz-Server-Side-Encryption-Customer-Algorithm",
+		"X-Amz-Server-Side-Encryption-Customer-Key-Md5",
+	} {
+		if header := r.Header.Get(headerName); header != "" {
+			w.Header().Set(headerName, header)
+		}
 	}
 	// write success response.
 	WriteSuccessResponse(w, encodedSuccessResponse)
@@ -547,13 +564,15 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 			return
 		}
 		// Create anonymous object.
-		result, err = api.ObjectAPI.PutObject(bucket, object, size, r.Body, metadata, acl)
+		result, err = api.ObjectAPI.PutObject(bucket, object, size, r.Body,
+			metadata, acl, sseRequest)
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		// Initialize signature verifier.
 		reader := signature.NewSignVerify(r)
 		// Create object.
-		result, err = api.ObjectAPI.PutObject(bucket, object, size, reader, metadata, acl)
+		result, err = api.ObjectAPI.PutObject(bucket, object, size, reader,
+			metadata, acl, sseRequest)
 	}
 	if err != nil {
 		helper.ErrorIf(err, "Unable to create an object.")
@@ -565,6 +584,17 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 	if result.VersionId != "" {
 		w.Header().Set("x-amz-version-id", result.VersionId)
+	}
+	// Set SSE related headers
+	for _, headerName := range []string{
+		"X-Amz-Server-Side-Encryption",
+		"X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id",
+		"X-Amz-Server-Side-Encryption-Customer-Algorithm",
+		"X-Amz-Server-Side-Encryption-Customer-Key-Md5",
+	} {
+		if header := r.Header.Get(headerName); header != "" {
+			w.Header().Set(headerName, header)
+		}
 	}
 	WriteSuccessResponse(w, nil)
 }
@@ -651,7 +681,14 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 	// Save metadata.
 	metadata := extractMetadataFromHeader(r.Header)
 
-	uploadID, err := api.ObjectAPI.NewMultipartUpload(credential, bucket, object, metadata, acl)
+	sseRequest, err := parseSseHeader(r.Header)
+	if err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+
+	uploadID, err := api.ObjectAPI.NewMultipartUpload(credential, bucket, object,
+		metadata, acl, sseRequest)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to initiate new multipart upload id.")
 		WriteErrorResponse(w, r, err, r.URL.Path)
@@ -660,6 +697,17 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 
 	response := GenerateInitiateMultipartUploadResponse(bucket, object, uploadID)
 	encodedSuccessResponse := EncodeResponse(response)
+	// Set SSE related headers
+	for _, headerName := range []string{
+		"X-Amz-Server-Side-Encryption",
+		"X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id",
+		"X-Amz-Server-Side-Encryption-Customer-Algorithm",
+		"X-Amz-Server-Side-Encryption-Customer-Key-Md5",
+	} {
+		if header := r.Header.Get(headerName); header != "" {
+			w.Header().Set(headerName, header)
+		}
+	}
 	// write headers
 	SetCommonHeaders(w)
 	// write success response.
@@ -707,7 +755,13 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 		return
 	}
 
-	var partMD5 string
+	sseRequest, err := parseSseHeader(r.Header)
+	if err != nil {
+		WriteErrorResponse(w, r, ErrInvalidMaxParts, r.URL.Path)
+		return
+	}
+
+	var result PutObjectPartResult
 	incomingMD5 := hex.EncodeToString(md5Bytes)
 	switch signature.GetRequestAuthType(r) {
 	default:
@@ -721,14 +775,14 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 			return
 		}
 		// No need to verify signature, anonymous request access is already allowed.
-		partMD5, err = api.ObjectAPI.PutObjectPart(bucket, object, uploadID, partID,
-			size, r.Body, incomingMD5)
+		result, err = api.ObjectAPI.PutObjectPart(bucket, object, uploadID, partID,
+			size, r.Body, incomingMD5, sseRequest)
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		// Initialize signature verifier.
 		reader := signature.NewSignVerify(r)
-		partMD5, err = api.ObjectAPI.PutObjectPart(bucket, object, uploadID, partID,
-			size, reader, incomingMD5)
+		result, err = api.ObjectAPI.PutObjectPart(bucket, object, uploadID, partID,
+			size, reader, incomingMD5, sseRequest)
 	}
 	if err != nil {
 		helper.ErrorIf(err, "Unable to create object part.")
@@ -736,8 +790,22 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
-	if partMD5 != "" {
-		w.Header().Set("ETag", "\""+partMD5+"\"")
+	if result.ETag != "" {
+		w.Header().Set("ETag", "\""+result.ETag+"\"")
+	}
+	switch result.SseType {
+	case "":
+		break
+	case "KMS":
+		w.Header().Set("X-Amz-Server-Side-Encryption", "aws:kms")
+		w.Header().Set("X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id",
+			result.SseAwsKmsKeyIdBase64)
+	case "S3":
+		w.Header().Set("X-Amz-Server-Side-Encryption", "AES256")
+	case "C":
+		w.Header().Set("X-Amz-Server-Side-Encryption-Customer-Algorithm", "AES256")
+		w.Header().Set("X-Amz-Server-Side-Encryption-Customer-Key-Md5",
+			result.SseCustomerKeyMd5Base64)
 	}
 	WriteSuccessResponse(w, nil)
 }
@@ -835,6 +903,12 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
+	sseRequest, err := parseSseHeader(r.Header)
+	if err != nil {
+		WriteErrorResponse(w, r, err, copySource)
+		return
+	}
+
 	// Verify before x-amz-copy-source preconditions before continuing with CopyObject.
 	if err = checkObjectPreconditions(w, r, sourceObject); err != nil {
 		WriteErrorResponse(w, r, err, r.URL.Path)
@@ -905,7 +979,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 
 	// Create the object.
 	result, err := api.ObjectAPI.CopyObjectPart(targetBucketName, targetObjectName, targetUploadId,
-		targetPartId, readLength, pipeReader, credential)
+		targetPartId, readLength, pipeReader, credential, sseRequest)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to create an object.")
 		WriteErrorResponse(w, r, err, r.URL.Path)
@@ -1115,6 +1189,20 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	}
 	if result.VersionId != "" {
 		w.Header().Set("x-amz-version-id", result.VersionId)
+	}
+	switch result.SseType {
+	case "":
+		break
+	case "KMS":
+		w.Header().Set("X-Amz-Server-Side-Encryption", "aws:kms")
+		w.Header().Set("X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id",
+			result.SseAwsKmsKeyIdBase64)
+	case "S3":
+		w.Header().Set("X-Amz-Server-Side-Encryption", "AES256")
+	case "C":
+		w.Header().Set("X-Amz-Server-Side-Encryption-Customer-Algorithm", "AES256")
+		w.Header().Set("X-Amz-Server-Side-Encryption-Customer-Key-Md5",
+			result.SseCustomerKeyMd5Base64)
 	}
 	// write success response.
 	w.Write(encodedSuccessResponse)

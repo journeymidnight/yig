@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
 	"github.com/kataras/iris/errors"
 	"github.com/tsuna/gohbase/hrpc"
@@ -43,12 +44,22 @@ func (p *Part) GetValues() (values map[string]map[string][]byte, err error) {
 	return
 }
 
+type MultipartMetadata struct {
+	InitiatorId          string
+	OwnerId              string
+	ContentType          string
+	Acl                  datatype.Acl
+	SseRequest           datatype.SseRequest
+	EncryptionKey        []byte
+	InitializationVector []byte
+}
+
 type Multipart struct {
 	BucketName  string
 	ObjectName  string
 	InitialTime time.Time
 	UploadId    string // upload id cache
-	Metadata    map[string]string
+	Metadata    MultipartMetadata
 	Parts       map[int]*Part
 }
 

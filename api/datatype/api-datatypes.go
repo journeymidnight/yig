@@ -289,7 +289,7 @@ type ObjectIdentifier struct {
 }
 
 // createBucketConfiguration container for bucket configuration request from client.
-// Used for parsing the location from the request body for MakeBucketbucket.
+// Used for parsing the location from the request body for MakeBucket.
 type CreateBucketLocationConfiguration struct {
 	XMLName  xml.Name `xml:"http://s3.amazonaws.com/doc/2006-03-01/ CreateBucketConfiguration" json:"-"`
 	Location string   `xml:"LocationConstraint"`
@@ -315,9 +315,21 @@ type DeleteObjectResult struct {
 	VersionId    string
 }
 
+type PutObjectPartResult struct {
+	ETag                    string
+	SseType                 string
+	SseAwsKmsKeyIdBase64    string
+	SseCustomerAlgorithm    string
+	SseCustomerKeyMd5Base64 string
+}
+
 type CompleteMultipartResult struct {
-	ETag      string
-	VersionId string
+	ETag                    string
+	VersionId               string
+	SseType                 string
+	SseAwsKmsKeyIdBase64    string
+	SseCustomerAlgorithm    string
+	SseCustomerKeyMd5Base64 string
 }
 
 type SseRequest struct {

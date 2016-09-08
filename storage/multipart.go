@@ -3,6 +3,7 @@ package storage
 import (
 	"bytes"
 	"crypto/md5"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"git.letv.cn/yig/yig/api/datatype"
@@ -199,7 +200,9 @@ func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketNam
 }
 
 func (yig *YigStorage) NewMultipartUpload(credential iam.Credential, bucketName, objectName string,
-	metadata map[string]string, acl datatype.Acl) (uploadId string, err error) {
+	metadata map[string]string, acl datatype.Acl,
+	sseRequest datatype.SseRequest) (uploadId string, err error) {
+
 	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
 		return
@@ -214,15 +217,28 @@ func (yig *YigStorage) NewMultipartUpload(credential iam.Credential, bucketName,
 	}
 	// TODO policy and fancy ACL
 
-	metadata["InitiatorId"] = credential.UserId
-	metadata["OwnerId"] = bucket.OwnerId
-	metadata["Acl"] = acl.CannedAcl
+	contentType, ok := metadata["Content-Type"]
+	if !ok {
+		contentType = "application/octet-stream"
+	}
+	multipartMetadata := meta.MultipartMetadata{
+		InitiatorId: credential.UserId,
+		OwnerId:     bucket.OwnerId,
+		ContentType: contentType,
+		Acl:         acl,
+		SseRequest:  sseRequest,
+	}
+	multipartMetadata.EncryptionKey, multipartMetadata.InitializationVector, err =
+		keysFromSseRequest(sseRequest)
+	if err != nil {
+		return
+	}
 
 	multipart := &meta.Multipart{
 		BucketName:  bucketName,
 		ObjectName:  objectName,
 		InitialTime: time.Now().UTC(),
-		Metadata:    metadata,
+		Metadata:    multipartMetadata,
 	}
 
 	uploadId, err = multipart.GetUploadId()
@@ -246,8 +262,9 @@ func (yig *YigStorage) NewMultipartUpload(credential iam.Credential, bucketName,
 	return
 }
 
-func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string,
-	partId int, size int64, data io.Reader, md5Hex string) (md5String string, err error) {
+func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string, partId int,
+	size int64, data io.Reader, md5Hex string,
+	sseRequest datatype.SseRequest) (result datatype.PutObjectPartResult, err error) {
 
 	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
 	if err != nil {
@@ -259,11 +276,26 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string,
 		return
 	}
 
+	// compare uploadPart SSE header content with multipart initiation SSE header
+	if sseRequest.Type != multipart.Metadata.SseRequest.Type ||
+		sseRequest.SseCustomerAlgorithm != multipart.Metadata.SseRequest.SseCustomerAlgorithm ||
+		sseRequest.SseAwsKmsKeyId != multipart.Metadata.SseRequest.SseAwsKmsKeyId ||
+		sseRequest.SseCustomerKey != multipart.Metadata.SseRequest.SseCustomerKey {
+		err = ErrInvalidSseHeader
+		return
+	}
+
 	md5Writer := md5.New()
 	limitedDataReader := io.LimitReader(data, size)
 	cephCluster, poolName := yig.PickOneClusterAndPool(bucketName, objectName, size)
 	oid := cephCluster.GetUniqUploadName()
-	storageReader := io.TeeReader(limitedDataReader, md5Writer)
+	dataReader := io.TeeReader(limitedDataReader, md5Writer)
+
+	storageReader, err := wrapEncryptionReader(dataReader, multipart.Metadata.EncryptionKey,
+		multipart.Metadata.InitializationVector)
+	if err != nil {
+		return
+	}
 	bytesWritten, err := cephCluster.put(poolName, oid, storageReader)
 	if err != nil {
 		return
@@ -323,12 +355,19 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string,
 		// TODO remove object in Ceph
 		return
 	}
-	return calculatedMd5, nil
+
+	result.ETag = calculatedMd5
+	result.SseType = sseRequest.Type
+	result.SseAwsKmsKeyIdBase64 = base64.StdEncoding.EncodeToString(sseRequest.SseAwsKmsKeyId)
+	result.SseCustomerAlgorithm = sseRequest.SseCustomerAlgorithm
+	result.SseCustomerKeyMd5Base64 = base64.StdEncoding.EncodeToString(sseRequest.SseCustomerKey)
+	return result, nil
 	// TODO remove possible old object in Ceph
 }
 
 func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, partId int,
-	size int64, data io.Reader, credential iam.Credential) (result datatype.PutObjectResult, err error) {
+	size int64, data io.Reader, credential iam.Credential,
+	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
 
 	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
 	if err != nil {
@@ -340,11 +379,26 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 		return
 	}
 
+	// compare copyPart SSE header content with multipart initiation SSE header
+	if sseRequest.Type != multipart.Metadata.SseRequest.Type ||
+		sseRequest.SseCustomerAlgorithm != multipart.Metadata.SseRequest.SseCustomerAlgorithm ||
+		sseRequest.SseAwsKmsKeyId != multipart.Metadata.SseRequest.SseAwsKmsKeyId ||
+		sseRequest.SseCustomerKey != multipart.Metadata.SseRequest.SseCustomerKey {
+		err = ErrInvalidSseHeader
+		return
+	}
+
 	md5Writer := md5.New()
 	limitedDataReader := io.LimitReader(data, size)
 	cephCluster, poolName := yig.PickOneClusterAndPool(bucketName, objectName, size)
 	oid := cephCluster.GetUniqUploadName()
-	storageReader := io.TeeReader(limitedDataReader, md5Writer)
+	dataReader := io.TeeReader(limitedDataReader, md5Writer)
+
+	storageReader, err := wrapEncryptionReader(dataReader, multipart.Metadata.EncryptionKey,
+		multipart.Metadata.InitializationVector)
+	if err != nil {
+		return
+	}
 	bytesWritten, err := cephCluster.put(poolName, oid, storageReader)
 	if err != nil {
 		return
@@ -588,10 +642,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 	// for how to calculate multipart Etag
 
 	// Add to objects table
-	contentType, ok := multipart.Metadata["Content-Type"]
-	if !ok {
-		contentType = "application/octet-stream"
-	}
+	contentType := multipart.Metadata.ContentType
 	object := meta.Object{
 		Name:             objectName,
 		BucketName:       bucketName,
@@ -601,6 +652,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 		Etag:             result.ETag,
 		ContentType:      contentType,
 		Parts:            multipart.Parts,
+		ACL:              multipart.Metadata.Acl,
 	}
 
 	var olderObject meta.Object
@@ -656,5 +708,12 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 		}
 		return result, err
 	}
+
+	sseRequest := multipart.Metadata.SseRequest
+	result.SseType = sseRequest.Type
+	result.SseAwsKmsKeyIdBase64 = base64.StdEncoding.EncodeToString(sseRequest.SseAwsKmsKeyId)
+	result.SseCustomerAlgorithm = sseRequest.SseCustomerAlgorithm
+	result.SseCustomerKeyMd5Base64 = base64.StdEncoding.EncodeToString(sseRequest.SseCustomerKey)
+
 	return
 }

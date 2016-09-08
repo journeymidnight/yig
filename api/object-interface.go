@@ -48,8 +48,8 @@ type ObjectLayer interface {
 	PutObject(bucket, object string, size int64, data io.Reader,
 		metadata map[string]string, acl datatype.Acl,
 		sse datatype.SseRequest) (result datatype.PutObjectResult, err error)
-	CopyObject(object meta.Object, source io.Reader,
-		credential iam.Credential) (result datatype.PutObjectResult, err error)
+	CopyObject(object meta.Object, source io.Reader, credential iam.Credential,
+		sse datatype.SseRequest) (result datatype.PutObjectResult, err error)
 	SetObjectAcl(bucket string, object string, version string, acl datatype.Acl,
 		credential iam.Credential) error
 	DeleteObject(bucket, object, version string, credential iam.Credential) (datatype.DeleteObjectResult,
@@ -59,11 +59,13 @@ type ObjectLayer interface {
 	ListMultipartUploads(credential iam.Credential, bucket string,
 		request datatype.ListUploadsRequest) (result datatype.ListMultipartUploadsResponse, err error)
 	NewMultipartUpload(credential iam.Credential, bucket, object string,
-		metadata map[string]string, acl datatype.Acl) (uploadID string, err error)
-	PutObjectPart(bucket, object, uploadID string, partID int, size int64,
-		data io.Reader, md5Hex string) (md5 string, err error)
+		metadata map[string]string, acl datatype.Acl,
+		sse datatype.SseRequest) (uploadID string, err error)
+	PutObjectPart(bucket, object, uploadID string, partID int, size int64, data io.Reader,
+		md5Hex string, sse datatype.SseRequest) (result datatype.PutObjectPartResult, err error)
 	CopyObjectPart(bucketName, objectName, uploadId string, partId int, size int64, data io.Reader,
-		credential iam.Credential) (result datatype.PutObjectResult, err error)
+		credential iam.Credential, sse datatype.SseRequest) (result datatype.PutObjectResult,
+		err error)
 	ListObjectParts(credential iam.Credential, bucket, object string,
 		request datatype.ListPartsRequest) (result datatype.ListPartsResponse, err error)
 	AbortMultipartUpload(credential iam.Credential, bucket, object, uploadID string) error
