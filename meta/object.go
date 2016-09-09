@@ -217,7 +217,7 @@ func getObjectRowkeyPrefix(bucketName string, objectName string, version string)
 }
 
 // Decode response from HBase and return an Object object
-func ObjectFromResponse(response *hrpc.Result, bucketName string) (object Object, err error) {
+func ObjectFromResponse(response *hrpc.Result, bucketName string) (object *Object, err error) {
 	var rowkey []byte
 	object.Parts = make(map[int]*Part)
 	for _, cell := range response.Cells {
@@ -308,7 +308,7 @@ func ObjectFromResponse(response *hrpc.Result, bucketName string) (object Object
 	return
 }
 
-func (m *Meta) GetObject(bucketName string, objectName string) (object Object, err error) {
+func (m *Meta) GetObject(bucketName string, objectName string) (object *Object, err error) {
 	objectRowkeyPrefix, err := getObjectRowkeyPrefix(bucketName, objectName, "")
 	if err != nil {
 		return
@@ -340,7 +340,7 @@ func (m *Meta) GetObject(bucketName string, objectName string) (object Object, e
 	return
 }
 
-func (m *Meta) GetNullVersionObject(bucketName, objectName string) (object Object, err error) {
+func (m *Meta) GetNullVersionObject(bucketName, objectName string) (object *Object, err error) {
 	objectRowkeyPrefix, err := getObjectRowkeyPrefix(bucketName, objectName, "")
 	if err != nil {
 		return
@@ -372,7 +372,7 @@ func (m *Meta) GetNullVersionObject(bucketName, objectName string) (object Objec
 	return object, ErrNoSuchKey
 }
 
-func (m *Meta) GetObjectVersion(bucketName, objectName, version string) (object Object, err error) {
+func (m *Meta) GetObjectVersion(bucketName, objectName, version string) (object *Object, err error) {
 	objectRowkeyPrefix, err := getObjectRowkeyPrefix(bucketName, objectName, version)
 	if err != nil {
 		return
@@ -401,6 +401,10 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string) (object 
 }
 
 func decryptSseKey(initializationVector []byte, cipherText []byte) (plainText []byte, err error) {
+	if len(cipherText) == 0 {
+		return
+	}
+
 	block, err := aes.NewCipher(SSE_S3_MASTER_KEY)
 	if err != nil {
 		return

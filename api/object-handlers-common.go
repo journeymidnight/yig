@@ -31,7 +31,7 @@ import (
 //  x-amz-copy-source-if-unmodified-since
 //  x-amz-copy-source-if-match
 //  x-amz-copy-source-if-none-match
-func checkObjectPreconditions(w http.ResponseWriter, r *http.Request, object meta.Object) error {
+func checkObjectPreconditions(w http.ResponseWriter, r *http.Request, object *meta.Object) error {
 	// x-amz-copy-source-if-modified-since: Return the object only if it has been modified
 	// since the specified time
 	ifModifiedSinceHeader := r.Header.Get("x-amz-copy-source-if-modified-since")
@@ -96,7 +96,7 @@ func checkObjectPreconditions(w http.ResponseWriter, r *http.Request, object met
 //  If-Unmodified-Since
 //  If-Match
 //  If-None-Match
-func checkPreconditions(header http.Header, object meta.Object) error {
+func checkPreconditions(header http.Header, object *meta.Object) error {
 	// If-Modified-Since : Return the object only if it has been modified since the specified time,
 	// otherwise return a 304 (not modified).
 	ifModifiedSinceHeader := header.Get("If-Modified-Since")

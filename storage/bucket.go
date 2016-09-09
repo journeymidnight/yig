@@ -367,7 +367,7 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 	}
 	if len(scanResponse) > request.MaxKeys {
 		result.IsTruncated = true
-		var nextObject meta.Object
+		var nextObject *meta.Object
 		nextObject, err = meta.ObjectFromResponse(scanResponse[request.MaxKeys], bucketName)
 		if err != nil {
 			return
@@ -387,10 +387,10 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 		currentLevel = strings.Count(request.Prefix, request.Delimiter)
 	}
 
-	objectMap := make(map[string]meta.Object)
+	objectMap := make(map[string]*meta.Object)
 	prefixMap := make(map[string]int) // value is dummy, only need a set here
 	for _, row := range scanResponse {
-		var o meta.Object
+		var o *meta.Object
 		o, err = meta.ObjectFromResponse(row, bucketName)
 		if err != nil {
 			return
@@ -541,7 +541,7 @@ func (yig *YigStorage) ListVersionedObjects(credential iam.Credential, bucketNam
 	}
 	if len(scanResponse) > request.MaxKeys {
 		result.IsTruncated = true
-		var nextObject meta.Object
+		var nextObject *meta.Object
 		nextObject, err = meta.ObjectFromResponse(scanResponse[request.MaxKeys], bucketName)
 		if err != nil {
 			return
@@ -563,7 +563,7 @@ func (yig *YigStorage) ListVersionedObjects(credential iam.Credential, bucketNam
 	objects := make([]datatype.VersionedObject, 0, len(scanResponse))
 	prefixMap := make(map[string]int) // value is dummy, only need a set here
 	for _, row := range scanResponse {
-		var o meta.Object
+		var o *meta.Object
 		o, err = meta.ObjectFromResponse(row, bucketName)
 		if err != nil {
 			return

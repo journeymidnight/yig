@@ -59,20 +59,20 @@ func EncodeResponse(response interface{}) []byte {
 }
 
 // Write object header
-func SetObjectHeaders(w http.ResponseWriter, objInfo meta.Object, contentRange *HttpRange) {
+func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *HttpRange) {
 	// set common headers
 	SetCommonHeaders(w)
 
 	// set object-related metadata headers
-	lastModified := objInfo.LastModifiedTime.UTC().Format(http.TimeFormat)
+	lastModified := object.LastModifiedTime.UTC().Format(http.TimeFormat)
 	w.Header().Set("Last-Modified", lastModified)
 
-	w.Header().Set("Content-Type", objInfo.ContentType)
-	if objInfo.Etag != "" {
-		w.Header().Set("ETag", "\""+objInfo.Etag+"\"")
+	w.Header().Set("Content-Type", object.ContentType)
+	if object.Etag != "" {
+		w.Header().Set("ETag", "\""+ object.Etag+"\"")
 	}
 
-	w.Header().Set("Content-Length", strconv.FormatInt(objInfo.Size, 10))
+	w.Header().Set("Content-Length", strconv.FormatInt(object.Size, 10))
 
 	// for providing ranged content
 	if contentRange != nil && contentRange.OffsetBegin > -1 {

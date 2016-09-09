@@ -652,7 +652,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 
 	// Add to objects table
 	contentType := multipart.Metadata.ContentType
-	object := meta.Object{
+	object := &meta.Object{
 		Name:             objectName,
 		BucketName:       bucketName,
 		OwnerId:          multipart.Metadata.OwnerId,
@@ -662,9 +662,11 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 		ContentType:      contentType,
 		Parts:            multipart.Parts,
 		ACL:              multipart.Metadata.Acl,
+		SseType:          multipart.Metadata.SseRequest.Type,
+		EncryptionKey:    multipart.Metadata.EncryptionKey,
 	}
 
-	var olderObject meta.Object
+	var olderObject *meta.Object
 	if bucket.Versioning == "Enabled" {
 		result.VersionId = object.GetVersionId()
 	} else { // remove older object if versioning is not enabled

@@ -28,7 +28,7 @@ func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size 
 	}
 }
 
-func (yig *YigStorage) GetObject(object meta.Object, startOffset int64,
+func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 	length int64, writer io.Writer, sseRequest datatype.SseRequest) (err error) {
 
 	// TODO move delete-marker related code to storage layer
@@ -115,7 +115,7 @@ func (yig *YigStorage) GetObject(object meta.Object, startOffset int64,
 }
 
 func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
-	version string) (meta.Object, error) {
+	version string) (*meta.Object, error) {
 	if version == "" {
 		return yig.MetaStorage.GetObject(bucketName, objectName)
 	} else {
@@ -140,7 +140,7 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, versio
 			return ErrAccessDenied
 		}
 	} // TODO policy and fancy ACL
-	var object meta.Object
+	var object *meta.Object
 	if version == "" {
 		object, err = yig.MetaStorage.GetObject(bucketName, objectName)
 	} else {
@@ -225,7 +225,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 	}
 	// TODO validate bucket policy and fancy ACL
 
-	object := meta.Object{
+	object := &meta.Object{
 		Name:                 objectName,
 		BucketName:           bucketName,
 		Location:             cephCluster.Name,
@@ -247,7 +247,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 
 	result.LastModified = object.LastModifiedTime
 
-	var olderObject meta.Object
+	var olderObject *meta.Object
 	if bucket.Versioning == "Enabled" {
 		result.VersionId = object.GetVersionId()
 	} else { // remove older object if versioning is not enabled
@@ -275,7 +275,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 	return result, nil
 }
 
-func (yig *YigStorage) CopyObject(targetObject meta.Object, source io.Reader, credential iam.Credential,
+func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, credential iam.Credential,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
 
 	md5Writer := md5.New()
@@ -346,7 +346,7 @@ func (yig *YigStorage) CopyObject(targetObject meta.Object, source io.Reader, cr
 
 	result.LastModified = targetObject.LastModifiedTime
 
-	var olderObject meta.Object
+	var olderObject *meta.Object
 	if bucket.Versioning == "Enabled" {
 		result.VersionId = targetObject.GetVersionId()
 	} else { // remove older object if versioning is not enabled
@@ -375,7 +375,7 @@ func (yig *YigStorage) CopyObject(targetObject meta.Object, source io.Reader, cr
 	return result, nil
 }
 
-func putObjectEntry(object meta.Object, metaStorage *meta.Meta) error {
+func putObjectEntry(object *meta.Object, metaStorage *meta.Meta) error {
 	rowkey, err := object.GetRowkey()
 	if err != nil {
 		return err
@@ -393,7 +393,7 @@ func putObjectEntry(object meta.Object, metaStorage *meta.Meta) error {
 	return err
 }
 
-func deleteObjectEntry(object meta.Object, metaStorage *meta.Meta) error {
+func deleteObjectEntry(object *meta.Object, metaStorage *meta.Meta) error {
 	rowkeyToDelete, err := object.GetRowkey()
 	if err != nil {
 		return err
@@ -408,7 +408,7 @@ func deleteObjectEntry(object meta.Object, metaStorage *meta.Meta) error {
 }
 
 // Insert object to `garbageCollection` table
-func putObjectToGarbageCollection(object meta.Object, metaStorage *meta.Meta) error {
+func putObjectToGarbageCollection(object *meta.Object, metaStorage *meta.Meta) error {
 	garbageCollection := meta.GarbageCollectionFromObject(object)
 
 	garbageCollectionValues, err := garbageCollection.GetValues()
@@ -428,7 +428,7 @@ func putObjectToGarbageCollection(object meta.Object, metaStorage *meta.Meta) er
 	return err
 }
 
-func (yig *YigStorage) removeByObject(object meta.Object) (err error) {
+func (yig *YigStorage) removeByObject(object *meta.Object) (err error) {
 	err = deleteObjectEntry(object, yig.MetaStorage)
 	if err != nil {
 		return
@@ -477,7 +477,7 @@ func (yig *YigStorage) removeNullVersionObject(bucketName, objectName string) er
 }
 
 func (yig *YigStorage) addDeleteMarker(bucketName, objectName string) (versionId string, err error) {
-	deleteMarker := meta.Object{
+	deleteMarker := &meta.Object{
 		Name:             objectName,
 		BucketName:       bucketName,
 		LastModifiedTime: time.Now().UTC(),
