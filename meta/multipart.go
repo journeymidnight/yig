@@ -90,17 +90,16 @@ func (m *Multipart) GetValues() (values map[string]map[string][]byte, err error)
 	if err != nil {
 		return
 	}
-	if m.Metadata != nil {
-		var marshaledMeta []byte
-		marshaledMeta, err = json.Marshal(m.Metadata)
-		if err != nil {
-			return
-		}
-		if values[MULTIPART_COLUMN_FAMILY] == nil {
-			values[MULTIPART_COLUMN_FAMILY] = make(map[string][]byte)
-		}
-		values[MULTIPART_COLUMN_FAMILY]["0"] = marshaledMeta
+
+	var marshaledMeta []byte
+	marshaledMeta, err = json.Marshal(m.Metadata)
+	if err != nil {
+		return
 	}
+	if values[MULTIPART_COLUMN_FAMILY] == nil {
+		values[MULTIPART_COLUMN_FAMILY] = make(map[string][]byte)
+	}
+	values[MULTIPART_COLUMN_FAMILY]["0"] = marshaledMeta
 	return
 }
 
