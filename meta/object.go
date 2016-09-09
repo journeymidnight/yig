@@ -219,6 +219,7 @@ func getObjectRowkeyPrefix(bucketName string, objectName string, version string)
 // Decode response from HBase and return an Object object
 func ObjectFromResponse(response *hrpc.Result, bucketName string) (object *Object, err error) {
 	var rowkey []byte
+	object = new(Object)
 	object.Parts = make(map[int]*Part)
 	for _, cell := range response.Cells {
 		rowkey = cell.Row

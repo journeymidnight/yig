@@ -58,6 +58,8 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 		if err != nil {
 			return err
 		}
+		defer reader.Close()
+
 		decryptedReader, err := wrapEncryptionReader(reader, encryptionKey,
 			object.InitializationVector)
 		if err != nil {
@@ -228,12 +230,6 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 	}
 	// TODO validate bucket policy and fancy ACL
 
-	if encryptionKey == nil {
-		encryptionKey = []byte{}
-	}
-	if initializationVector == nil {
-		encryptionKey = []byte{}
-	}
 	object := &meta.Object{
 		Name:                 objectName,
 		BucketName:           bucketName,
@@ -393,6 +389,7 @@ func putObjectEntry(object *meta.Object, metaStorage *meta.Meta) error {
 	if err != nil {
 		return err
 	}
+	helper.Debugln("values", values)
 	put, err := hrpc.NewPutStr(context.Background(), meta.OBJECT_TABLE,
 		rowkey, values)
 	if err != nil {

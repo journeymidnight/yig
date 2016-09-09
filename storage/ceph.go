@@ -219,6 +219,7 @@ type RadosDownloader struct {
 	striper *rados.StriperPool
 	oid     string
 	offset  int64
+	pool    *rados.Pool
 }
 
 func (rd *RadosDownloader) Read(p []byte) (n int, err error) {
@@ -242,22 +243,26 @@ func (rd *RadosDownloader) Seek(offset int64, whence int) (int64, error) {
 	return rd.offset, nil
 }
 
+func (rd *RadosDownloader) Close() error {
+	rd.striper.Destroy()
+	rd.pool.Destroy()
+	return nil
+}
+
 func (cluster *CephStorage) getReader(poolName string, oid string, startOffset int64,
-	length int64) (reader io.Reader, err error) {
+	length int64) (reader io.ReadCloser, err error) {
 
 	pool, err := cluster.Conn.OpenPool(poolName)
 	if err != nil {
 		err = errors.New("bad poolname")
 		return
 	}
-	defer pool.Destroy()
 
 	striper, err := pool.CreateStriper()
 	if err != nil {
 		err = errors.New("bad ioctx")
 		return
 	}
-	defer striper.Destroy()
 
 	radosReader := &RadosDownloader{&striper, oid, startOffset}
 	radosReader.Seek(startOffset, os.SEEK_SET)
@@ -268,7 +273,7 @@ func (cluster *CephStorage) getReader(poolName string, oid string, startOffset i
 
 // Works together with `wrapAlignedEncryptionReader`, see comments there.
 func (cluster *CephStorage) getAlignedReader(poolName string, oid string, startOffset int64,
-	length int64) (reader io.Reader, err error) {
+	length int64) (reader io.ReadCloser, err error) {
 
 	alignedOffset := startOffset / AES_BLOCK_SIZE * AES_BLOCK_SIZE
 	length += startOffset - alignedOffset
@@ -282,6 +287,8 @@ func (cluster *CephStorage) get(poolName string, oid string, startOffset int64,
 	if err != nil {
 		return err
 	}
+	defer reader.Close()
+
 	buf := make([]byte, MAX_CHUNK_SIZE)
 	_, err = io.CopyBuffer(writer, reader, buf)
 	return err
