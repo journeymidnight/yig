@@ -159,13 +159,13 @@ func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketNam
 		}
 
 		var user iam.Credential
-		user, err = iam.GetCredentialByUserId(m.Metadata["OwnerId"])
+		user, err = iam.GetCredentialByUserId(m.Metadata.OwnerId)
 		if err != nil {
 			return
 		}
 		upload.Owner.ID = user.UserId
 		upload.Owner.DisplayName = user.DisplayName
-		user, err = iam.GetCredentialByUserId(m.Metadata["InitiatorId"])
+		user, err = iam.GetCredentialByUserId(m.Metadata.InitiatorId)
 		if err != nil {
 			return
 		}
@@ -327,7 +327,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string, pa
 		break
 	default:
 		if bucket.OwnerId != credential.UserId {
-			return "", ErrBucketAccessForbidden
+			return result, ErrBucketAccessForbidden
 		}
 	} // TODO policy and fancy ACL
 
@@ -362,7 +362,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string, pa
 
 	result.ETag = calculatedMd5
 	result.SseType = sseRequest.Type
-	result.SseAwsKmsKeyIdBase64 = base64.StdEncoding.EncodeToString(sseRequest.SseAwsKmsKeyId)
+	result.SseAwsKmsKeyIdBase64 = base64.StdEncoding.EncodeToString([]byte(sseRequest.SseAwsKmsKeyId))
 	result.SseCustomerAlgorithm = sseRequest.SseCustomerAlgorithm
 	result.SseCustomerKeyMd5Base64 = base64.StdEncoding.EncodeToString(sseRequest.SseCustomerKey)
 	return result, nil
@@ -474,8 +474,8 @@ func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, ob
 		return
 	}
 
-	initiatorId := multipart.Metadata["InitiatorId"]
-	ownerId := multipart.Metadata["OwnerId"]
+	initiatorId := multipart.Metadata.InitiatorId
+	ownerId := multipart.Metadata.OwnerId
 
 	switch multipart.Metadata["Acl"] {
 	case "public-read", "public-read-write":

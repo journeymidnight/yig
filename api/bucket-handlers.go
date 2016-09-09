@@ -658,7 +658,9 @@ func extractHTTPFormValues(reader *multipart.Reader) (io.Reader, map[string]stri
 // ----------
 // This implementation of the POST operation handles object creation with a specified
 // signature policy in multipart/form-data
+// TODO: this function is not implemented yet
 func (api ObjectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *http.Request) {
+	var err error
 	// Here the parameter is the size of the form data that should
 	// be loaded in memory, the remaining being put in temporary files.
 	reader, err := r.MultipartReader()
@@ -678,24 +680,23 @@ func (api ObjectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *h
 	bucket := mux.Vars(r)["bucket"]
 
 	postPolicyType := signature.GetPostPolicyType(formValues)
-	var apiErr error
 	switch postPolicyType {
 	case signature.PostPolicyV2:
-		_, apiErr = signature.DoesPolicySignatureMatchV2(formValues)
+		_, err = signature.DoesPolicySignatureMatchV2(formValues)
 	case signature.PostPolicyV4:
-		_, apiErr = signature.DoesPolicySignatureMatchV4(formValues)
+		_, err = signature.DoesPolicySignatureMatchV4(formValues)
 		formValues["Bucket"] = bucket
 	case signature.PostPolicyUnknown:
 		WriteErrorResponse(w, r, ErrMalformedPOSTRequest, r.URL.Path)
 		return
 	}
-	if apiErr != nil {
-		WriteErrorResponse(w, r, apiErr, r.URL.Path)
+	if err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
 
-	if apiErr = signature.CheckPostPolicy(formValues, postPolicyType); apiErr != nil {
-		WriteErrorResponse(w, r, apiErr, r.URL.Path)
+	if err = signature.CheckPostPolicy(formValues, postPolicyType); err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
 
@@ -708,8 +709,16 @@ func (api ObjectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *h
 		CannedAcl: "private",
 	}
 
+	// TODO
+	sseRequest, err := parseSseHeader(r.Header)
+	if err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+
 	object := formValues["Key"]
-	result, err := api.ObjectAPI.PutObject(bucket, object, -1, fileBody, metadata, acl)
+	result, err := api.ObjectAPI.PutObject(bucket, object, -1, fileBody, metadata,
+		acl, sseRequest)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to create object.")
 		WriteErrorResponse(w, r, err, r.URL.Path)

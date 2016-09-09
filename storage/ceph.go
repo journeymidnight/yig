@@ -247,13 +247,15 @@ func (cluster *CephStorage) getReader(poolName string, oid string, startOffset i
 
 	pool, err := cluster.Conn.OpenPool(poolName)
 	if err != nil {
-		return errors.New("bad poolname")
+		err = errors.New("bad poolname")
+		return
 	}
 	defer pool.Destroy()
 
 	striper, err := pool.CreateStriper()
 	if err != nil {
-		return errors.New("bad ioctx")
+		err = errors.New("bad ioctx")
+		return
 	}
 	defer striper.Destroy()
 

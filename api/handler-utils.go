@@ -130,7 +130,8 @@ func parseSseHeader(header http.Header) (request SseRequest, err error) {
 			err = ErrInvalidSseHeader
 			return
 		}
-		n, err := base64.StdEncoding.Decode(request.SseCustomerKey, byte(key))
+		var n int
+		n, err = base64.StdEncoding.Decode(request.SseCustomerKey, []byte(key))
 		if err != nil {
 			return
 		}
@@ -163,7 +164,8 @@ func parseSseHeader(header http.Header) (request SseRequest, err error) {
 			err = ErrInvalidSseHeader
 			return
 		}
-		n, err := base64.StdEncoding.Decode(request.CopySourceSseCustomerKey, byte(key))
+		var n int
+		n, err = base64.StdEncoding.Decode(request.CopySourceSseCustomerKey, byte(key))
 		if err != nil {
 			return
 		}

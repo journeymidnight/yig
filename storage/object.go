@@ -65,7 +65,7 @@ func (yig *YigStorage) GetObject(object meta.Object, startOffset int64,
 		}
 		buffer := make([]byte, MAX_CHUNK_SIZE)
 		_, err = io.CopyBuffer(writer, decryptedReader, buffer)
-		return
+		return err
 	}
 
 	// multipart uploaded object
@@ -99,7 +99,7 @@ func (yig *YigStorage) GetObject(object meta.Object, startOffset int64,
 			reader, err := cephCluster.getAlignedReader(object.Pool, object.ObjectId,
 				startOffset, length)
 			if err != nil {
-				return
+				return err
 			}
 			decryptedReader, err := wrapAlignedEncryptionReader(reader, startOffset,
 				encryptionKey, p.InitializationVector)
@@ -108,7 +108,7 @@ func (yig *YigStorage) GetObject(object meta.Object, startOffset int64,
 			}
 			buffer := make([]byte, MAX_CHUNK_SIZE)
 			_, err = io.CopyBuffer(writer, decryptedReader, buffer)
-			return
+			return err
 		}
 	}
 	return
