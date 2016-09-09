@@ -29,18 +29,45 @@ func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size 
 }
 
 func (yig *YigStorage) GetObject(object meta.Object, startOffset int64,
-	length int64, writer io.Writer) (err error) {
+	length int64, writer io.Writer, sseRequest datatype.SseRequest) (err error) {
 
 	// TODO move delete-marker related code to storage layer
+
+	var encryptionKey []byte
+	if object.SseType == "S3" {
+		encryptionKey = object.EncryptionKey
+	} else { // SSE-C
+		if len(sseRequest.CopySourceSseCustomerKey) != 0 {
+			encryptionKey = sseRequest.CopySourceSseCustomerKey
+		} else {
+			encryptionKey = sseRequest.SseCustomerKey
+		}
+	}
 
 	if len(object.Parts) == 0 { // this object has only one part
 		cephCluster, ok := yig.DataStorage[object.Location]
 		if !ok {
 			return errors.New("Cannot find specified ceph cluster: " + object.Location)
 		}
-		err = cephCluster.get(object.Pool, object.ObjectId, startOffset, length, writer)
+		if object.SseType == "" { // unencrypted object
+			err = cephCluster.get(object.Pool, object.ObjectId, startOffset, length, writer)
+			return
+		}
+
+		reader, err := cephCluster.getReader(object.Pool, object.ObjectId, startOffset, length)
+		if err != nil {
+			return err
+		}
+		decryptedReader, err := wrapEncryptionReader(reader, encryptionKey,
+			object.InitializationVector)
+		if err != nil {
+			return err
+		}
+		buffer := make([]byte, MAX_CHUNK_SIZE)
+		_, err = io.CopyBuffer(writer, decryptedReader, buffer)
 		return
 	}
+
 	// multipart uploaded object
 	for i := 1; i <= len(object.Parts); i++ {
 		p := object.Parts[i]
@@ -64,10 +91,24 @@ func (yig *YigStorage) GetObject(object meta.Object, startOffset int64,
 				return errors.New("Cannot find specified ceph cluster: " +
 					p.Location)
 			}
-			err = cephCluster.get(p.Pool, p.ObjectId, readOffset, readLength, writer)
+			if object.SseType == "" { // unencrypted object
+				err = cephCluster.get(p.Pool, p.ObjectId, readOffset, readLength, writer)
+				return
+			}
+
+			reader, err := cephCluster.getAlignedReader(object.Pool, object.ObjectId,
+				startOffset, length)
 			if err != nil {
 				return
 			}
+			decryptedReader, err := wrapAlignedEncryptionReader(reader, startOffset,
+				encryptionKey, p.InitializationVector)
+			if err != nil {
+				return err
+			}
+			buffer := make([]byte, MAX_CHUNK_SIZE)
+			_, err = io.CopyBuffer(writer, decryptedReader, buffer)
+			return
 		}
 	}
 	return
@@ -136,7 +177,11 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 	oid := cephCluster.GetUniqUploadName()
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
 
-	encryptionKey, initializationVector, err := keysFromSseRequest(sseRequest)
+	encryptionKey, err := encryptionKeyFromSseRequest(sseRequest)
+	if err != nil {
+		return
+	}
+	initializationVector, err := newInitializationVector()
 	if err != nil {
 		return
 	}
@@ -246,7 +291,11 @@ func (yig *YigStorage) CopyObject(targetObject meta.Object, source io.Reader, cr
 	oid := cephCluster.GetUniqUploadName()
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
 
-	encryptionKey, initializationVector, err := keysFromSseRequest(sseRequest)
+	encryptionKey, err := encryptionKeyFromSseRequest(sseRequest)
+	if err != nil {
+		return
+	}
+	initializationVector, err := newInitializationVector()
 	if err != nil {
 		return
 	}

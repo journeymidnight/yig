@@ -344,4 +344,8 @@ type SseRequest struct {
 	// customer-provided specific(SSE-C)
 	SseCustomerAlgorithm string
 	SseCustomerKey       []byte
+
+	// keys for copy
+	CopySourceSseCustomerAlgorithm string
+	CopySourceSseCustomerKey       []byte
 }

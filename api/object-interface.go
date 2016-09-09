@@ -43,7 +43,8 @@ type ObjectLayer interface {
 		request datatype.ListObjectsRequest) (result meta.VersionedListObjectsInfo, err error)
 
 	// Object operations.
-	GetObject(object meta.Object, startOffset int64, length int64, writer io.Writer) (err error)
+	GetObject(object meta.Object, startOffset int64, length int64, writer io.Writer,
+		sse datatype.SseRequest) (err error)
 	GetObjectInfo(bucket, object, version string) (objInfo meta.Object, err error)
 	PutObject(bucket, object string, size int64, data io.Reader,
 		metadata map[string]string, acl datatype.Acl,

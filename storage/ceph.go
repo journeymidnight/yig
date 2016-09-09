@@ -242,10 +242,10 @@ func (rd *RadosDownloader) Seek(offset int64, whence int) (int64, error) {
 	return rd.offset, nil
 }
 
-func (cluster *CephStorage) get(poolname string, oid string, startOffset int64,
-	length int64, writer io.Writer) error {
+func (cluster *CephStorage) getReader(poolName string, oid string, startOffset int64,
+	length int64) (reader io.Reader, err error) {
 
-	pool, err := cluster.Conn.OpenPool(poolname)
+	pool, err := cluster.Conn.OpenPool(poolName)
 	if err != nil {
 		return errors.New("bad poolname")
 	}
@@ -260,8 +260,27 @@ func (cluster *CephStorage) get(poolname string, oid string, startOffset int64,
 	radosReader := &RadosDownloader{&striper, oid, startOffset}
 	radosReader.Seek(startOffset, os.SEEK_SET)
 
-	limitedReader := &io.LimitedReader{radosReader, length}
+	reader = &io.LimitedReader{radosReader, length}
+	return
+}
+
+// Works together with `wrapAlignedEncryptionReader`, see comments there.
+func (cluster *CephStorage) getAlignedReader(poolName string, oid string, startOffset int64,
+	length int64) (reader io.Reader, err error) {
+
+	alignedOffset := startOffset / AES_BLOCK_SIZE * AES_BLOCK_SIZE
+	length += startOffset - alignedOffset
+	return cluster.getReader(poolName, oid, alignedOffset, length)
+}
+
+func (cluster *CephStorage) get(poolName string, oid string, startOffset int64,
+	length int64, writer io.Writer) error {
+
+	reader, err := cluster.getReader(poolName, oid, startOffset, length)
+	if err != nil {
+		return err
+	}
 	buf := make([]byte, MAX_CHUNK_SIZE)
-	io.CopyBuffer(writer, limitedReader, buf)
-	return nil
+	_, err = io.CopyBuffer(writer, reader, buf)
+	return err
 }

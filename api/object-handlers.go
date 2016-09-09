@@ -168,7 +168,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	// Validate pre-conditions if any.
-	if err = checkPreconditions(w, r, object); err != nil {
+	if err = checkPreconditions(r.Header, object); err != nil {
 		// set object-related metadata headers
 		w.Header().Set("Last-Modified", object.LastModifiedTime.UTC().Format(http.TimeFormat))
 
@@ -180,6 +180,12 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		} else {
 			WriteErrorResponse(w, r, err, r.URL.Path)
 		}
+		return
+	}
+
+	sseRequest, err := parseSseHeader(r.Header)
+	if err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
 
@@ -206,8 +212,23 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		}
 		return w.Write(p)
 	})
+
+	switch object.SseType {
+	case "":
+		break
+	case "KMS":
+		w.Header().Set("X-Amz-Server-Side-Encryption", "aws:kms")
+		// TODO: not implemented yet
+	case "S3":
+		w.Header().Set("X-Amz-Server-Side-Encryption", "AES256")
+	case "C":
+		w.Header().Set("X-Amz-Server-Side-Encryption-Customer-Algorithm", "AES256")
+		w.Header().Set("X-Amz-Server-Side-Encryption-Customer-Key-Md5",
+			r.Header.Get("X-Amz-Server-Side-Encryption-Customer-Key-Md5"))
+	}
+
 	// Reads the object at startOffset and writes to mw.
-	if err := api.ObjectAPI.GetObject(object, startOffset, length, writer); err != nil {
+	if err := api.ObjectAPI.GetObject(object, startOffset, length, writer, sseRequest); err != nil {
 		helper.ErrorIf(err, "Unable to write to client.")
 		if !dataWritten {
 			// Error response only if no data has been written to client yet. i.e if
@@ -229,6 +250,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 // HeadObjectHandler - HEAD Object
 // -----------
 // The HEAD operation retrieves metadata from an object without returning the object itself.
+// TODO refactor HEAD and GET
 func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Request) {
 	var objectName, bucketName string
 	vars := mux.Vars(r)
@@ -248,7 +270,8 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 			WriteErrorResponse(w, r, err, r.URL.Path)
 			return
 		}
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
+		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
 			WriteErrorResponse(w, r, err, r.URL.Path)
 			return
@@ -290,8 +313,24 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 		}
 	}
 
+	// Get request range.
+	rangeHeader := r.Header.Get("Range")
+	if rangeHeader != "" {
+		if _, err = ParseRequestRange(rangeHeader, object.Size); err != nil {
+			// Handle only ErrorInvalidRange
+			// Ignore other parse error and treat it as regular Get request like Amazon S3.
+			if err == ErrorInvalidRange {
+				WriteErrorResponse(w, r, ErrInvalidRange, r.URL.Path)
+				return
+			}
+
+			// log the error.
+			helper.ErrorIf(err, "Invalid request range")
+		}
+	}
+
 	// Validate pre-conditions if any.
-	if err = checkPreconditions(w, r, object); err != nil {
+	if err = checkPreconditions(r.Header, object); err != nil {
 		// set object-related metadata headers
 		w.Header().Set("Last-Modified", object.LastModifiedTime.UTC().Format(http.TimeFormat))
 
@@ -306,10 +345,30 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	_, err = parseSseHeader(r.Header)
+	if err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+
 	// Set standard object headers.
 	SetObjectHeaders(w, object, nil)
 
-	// Successfull response.
+	switch object.SseType {
+	case "":
+		break
+	case "KMS":
+		w.Header().Set("X-Amz-Server-Side-Encryption", "aws:kms")
+		// TODO not implemented yet
+	case "S3":
+		w.Header().Set("X-Amz-Server-Side-Encryption", "AES256")
+	case "C":
+		w.Header().Set("X-Amz-Server-Side-Encryption-Customer-Algorithm", "AES256")
+		w.Header().Set("X-Amz-Server-Side-Encryption-Customer-Key-Md5",
+			r.Header.Get("X-Amz-Server-Side-Encryption-Customer-Key-Md5"))
+	}
+
+	// Successful response.
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -446,10 +505,11 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	go func() {
 		startOffset := int64(0) // Read the whole file.
 		// Get the object.
-		gErr := api.ObjectAPI.GetObject(sourceObject, startOffset, sourceObject.Size, pipeWriter)
-		if gErr != nil {
-			helper.ErrorIf(gErr, "Unable to read an object.")
-			pipeWriter.CloseWithError(gErr)
+		err = api.ObjectAPI.GetObject(sourceObject, startOffset, sourceObject.Size,
+			pipeWriter, sseRequest)
+		if err != nil {
+			helper.ErrorIf(err, "Unable to read an object.")
+			pipeWriter.CloseWithError(err)
 			return
 		}
 		pipeWriter.Close()
@@ -968,7 +1028,8 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 	pipeReader, pipeWriter := io.Pipe()
 	defer pipeReader.Close()
 	go func() {
-		err = api.ObjectAPI.GetObject(sourceObject, readOffset, readLength, pipeWriter)
+		err = api.ObjectAPI.GetObject(sourceObject, readOffset, readLength,
+			pipeWriter, sseRequest)
 		if err != nil {
 			helper.ErrorIf(err, "Unable to read an object.")
 			pipeWriter.CloseWithError(err)
@@ -992,6 +1053,17 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 	SetCommonHeaders(w)
 	if sourceVersion != "" {
 		w.Header().Set("x-amz-copy-source-version-id", sourceVersion)
+	}
+	// Set SSE related headers
+	for _, headerName := range []string{
+		"X-Amz-Server-Side-Encryption",
+		"X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id",
+		"X-Amz-Server-Side-Encryption-Customer-Algorithm",
+		"X-Amz-Server-Side-Encryption-Customer-Key-Md5",
+	} {
+		if header := r.Header.Get(headerName); header != "" {
+			w.Header().Set(headerName, header)
+		}
 	}
 	// write success response.
 	WriteSuccessResponse(w, encodedSuccessResponse)

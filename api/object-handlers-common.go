@@ -96,10 +96,10 @@ func checkObjectPreconditions(w http.ResponseWriter, r *http.Request, object met
 //  If-Unmodified-Since
 //  If-Match
 //  If-None-Match
-func checkPreconditions(w http.ResponseWriter, r *http.Request, object meta.Object) error {
+func checkPreconditions(header http.Header, object meta.Object) error {
 	// If-Modified-Since : Return the object only if it has been modified since the specified time,
 	// otherwise return a 304 (not modified).
-	ifModifiedSinceHeader := r.Header.Get("If-Modified-Since")
+	ifModifiedSinceHeader := header.Get("If-Modified-Since")
 	if ifModifiedSinceHeader != "" {
 		givenTime, err := time.Parse(http.TimeFormat, ifModifiedSinceHeader)
 		if err != nil {
@@ -113,7 +113,7 @@ func checkPreconditions(w http.ResponseWriter, r *http.Request, object meta.Obje
 
 	// If-Unmodified-Since : Return the object only if it has not been modified since the specified
 	// time, otherwise return a 412 (precondition failed).
-	ifUnmodifiedSinceHeader := r.Header.Get("If-Unmodified-Since")
+	ifUnmodifiedSinceHeader := header.Get("If-Unmodified-Since")
 	if ifUnmodifiedSinceHeader != "" {
 		givenTime, err := time.Parse(http.TimeFormat, ifUnmodifiedSinceHeader)
 		if err != nil {
@@ -126,7 +126,7 @@ func checkPreconditions(w http.ResponseWriter, r *http.Request, object meta.Obje
 
 	// If-Match : Return the object only if its entity tag (ETag) is the same as the one specified;
 	// otherwise return a 412 (precondition failed).
-	ifMatchETagHeader := r.Header.Get("If-Match")
+	ifMatchETagHeader := header.Get("If-Match")
 	if ifMatchETagHeader != "" {
 		if !isETagEqual(object.Etag, ifMatchETagHeader) {
 			// If the object ETag does not match with the specified ETag.
@@ -136,7 +136,7 @@ func checkPreconditions(w http.ResponseWriter, r *http.Request, object meta.Obje
 
 	// If-None-Match : Return the object only if its entity tag (ETag) is different from the
 	// one specified otherwise, return a 304 (not modified).
-	ifNoneMatchETagHeader := r.Header.Get("If-None-Match")
+	ifNoneMatchETagHeader := header.Get("If-None-Match")
 	if ifNoneMatchETagHeader != "" {
 		if isETagEqual(object.Etag, ifNoneMatchETagHeader) {
 			// If the object ETag matches with the specified ETag.

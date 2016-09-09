@@ -228,8 +228,7 @@ func (yig *YigStorage) NewMultipartUpload(credential iam.Credential, bucketName,
 		Acl:         acl,
 		SseRequest:  sseRequest,
 	}
-	multipartMetadata.EncryptionKey, multipartMetadata.InitializationVector, err =
-		keysFromSseRequest(sseRequest)
+	multipartMetadata.EncryptionKey, err = encryptionKeyFromSseRequest(sseRequest)
 	if err != nil {
 		return
 	}
@@ -280,7 +279,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string, pa
 	if sseRequest.Type != multipart.Metadata.SseRequest.Type ||
 		sseRequest.SseCustomerAlgorithm != multipart.Metadata.SseRequest.SseCustomerAlgorithm ||
 		sseRequest.SseAwsKmsKeyId != multipart.Metadata.SseRequest.SseAwsKmsKeyId ||
-		sseRequest.SseCustomerKey != multipart.Metadata.SseRequest.SseCustomerKey {
+		!bytes.Equal(sseRequest.SseCustomerKey, multipart.Metadata.SseRequest.SseCustomerKey) {
 		err = ErrInvalidSseHeader
 		return
 	}
@@ -291,8 +290,12 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string, pa
 	oid := cephCluster.GetUniqUploadName()
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
 
+	initializationVector, err := newInitializationVector()
+	if err != nil {
+		return
+	}
 	storageReader, err := wrapEncryptionReader(dataReader, multipart.Metadata.EncryptionKey,
-		multipart.Metadata.InitializationVector)
+		initializationVector)
 	if err != nil {
 		return
 	}
@@ -329,13 +332,14 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string, pa
 	} // TODO policy and fancy ACL
 
 	part := meta.Part{
-		PartNumber:   partId,
-		Location:     cephCluster.Name,
-		Pool:         poolName,
-		Size:         size,
-		ObjectId:     oid,
-		Etag:         calculatedMd5,
-		LastModified: time.Now().UTC(),
+		PartNumber:           partId,
+		Location:             cephCluster.Name,
+		Pool:                 poolName,
+		Size:                 size,
+		ObjectId:             oid,
+		Etag:                 calculatedMd5,
+		LastModified:         time.Now().UTC(),
+		InitializationVector: initializationVector,
 	}
 	partValues, err := part.GetValues()
 	if err != nil {
@@ -383,7 +387,7 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	if sseRequest.Type != multipart.Metadata.SseRequest.Type ||
 		sseRequest.SseCustomerAlgorithm != multipart.Metadata.SseRequest.SseCustomerAlgorithm ||
 		sseRequest.SseAwsKmsKeyId != multipart.Metadata.SseRequest.SseAwsKmsKeyId ||
-		sseRequest.SseCustomerKey != multipart.Metadata.SseRequest.SseCustomerKey {
+		!bytes.Equal(sseRequest.SseCustomerKey, multipart.Metadata.SseRequest.SseCustomerKey) {
 		err = ErrInvalidSseHeader
 		return
 	}
@@ -394,8 +398,12 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	oid := cephCluster.GetUniqUploadName()
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
 
+	initializationVector, err := newInitializationVector()
+	if err != nil {
+		return
+	}
 	storageReader, err := wrapEncryptionReader(dataReader, multipart.Metadata.EncryptionKey,
-		multipart.Metadata.InitializationVector)
+		initializationVector)
 	if err != nil {
 		return
 	}
@@ -425,13 +433,14 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	} // TODO policy and fancy ACL
 
 	part := meta.Part{
-		PartNumber:   partId,
-		Location:     cephCluster.Name,
-		Pool:         poolName,
-		Size:         size,
-		ObjectId:     oid,
-		Etag:         result.Md5,
-		LastModified: time.Now().UTC(),
+		PartNumber:           partId,
+		Location:             cephCluster.Name,
+		Pool:                 poolName,
+		Size:                 size,
+		ObjectId:             oid,
+		Etag:                 result.Md5,
+		LastModified:         time.Now().UTC(),
+		InitializationVector: initializationVector,
 	}
 	result.LastModified = part.LastModified
 

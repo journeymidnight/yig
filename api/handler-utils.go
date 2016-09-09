@@ -126,6 +126,10 @@ func parseSseHeader(header http.Header) (request SseRequest, err error) {
 		}
 		// base64-encoded encryption key
 		key := header.Get("X-Amz-Server-Side-Encryption-Customer-Key")
+		if key == "" {
+			err = ErrInvalidSseHeader
+			return
+		}
 		n, err := base64.StdEncoding.Decode(request.SseCustomerKey, byte(key))
 		if err != nil {
 			return
@@ -136,6 +140,10 @@ func parseSseHeader(header http.Header) (request SseRequest, err error) {
 		}
 		// base64-encoded 128-bit MD5 digest of the encryption key
 		userMd5 := header.Get("X-Amz-Server-Side-Encryption-Customer-Key-Md5")
+		if userMd5 == "" {
+			err = ErrInvalidSseHeader
+			return
+		}
 		calculatedMd5 := md5.Sum(request.SseCustomerKey)
 		encodedMd5 := base64.StdEncoding.EncodeToString(calculatedMd5)
 		if userMd5 != encodedMd5 {
@@ -143,5 +151,38 @@ func parseSseHeader(header http.Header) (request SseRequest, err error) {
 			return
 		}
 	}
+
+	if sse := header.Get("X-Amz-Copy-Source-Server-Side-Encryption-Customer-Algorithm"); sse != "" {
+		if sse != "AES256" {
+			err = ErrInvalidSseHeader
+			return
+		}
+		request.CopySourceSseCustomerAlgorithm = sse
+		key := header.Get("X-Amz-Copy-Source-Server-Side-Encryption-Customer-Key")
+		if key == "" {
+			err = ErrInvalidSseHeader
+			return
+		}
+		n, err := base64.StdEncoding.Decode(request.CopySourceSseCustomerKey, byte(key))
+		if err != nil {
+			return
+		}
+		if n != 32 {
+			err = ErrInvalidSseHeader
+			return
+		}
+		userMd5 := header.Get("X-Amz-Copy-Source-Server-Side-Encryption-Customer-Key-Md5")
+		if userMd5 == "" {
+			err = ErrInvalidSseHeader
+			return
+		}
+		calculatedMd5 := md5.Sum(request.CopySourceSseCustomerKey)
+		encodedMd5 := base64.StdEncoding.EncodeToString(calculatedMd5)
+		if userMd5 != encodedMd5 {
+			err = ErrInvalidSseHeader
+			return
+		}
+	}
+
 	return
 }

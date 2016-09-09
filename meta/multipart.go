@@ -25,9 +25,10 @@ type Part struct {
 
 	// offset of this part in whole object, calculated when moving parts from
 	// `multiparts` table to `objects` table
-	Offset       int64
-	Etag         string
-	LastModified time.Time
+	Offset               int64
+	Etag                 string
+	LastModified         time.Time
+	InitializationVector []byte
 }
 
 // For scenario only one part is needed to insert
@@ -45,13 +46,12 @@ func (p *Part) GetValues() (values map[string]map[string][]byte, err error) {
 }
 
 type MultipartMetadata struct {
-	InitiatorId          string
-	OwnerId              string
-	ContentType          string
-	Acl                  datatype.Acl
-	SseRequest           datatype.SseRequest
-	EncryptionKey        []byte
-	InitializationVector []byte
+	InitiatorId   string
+	OwnerId       string
+	ContentType   string
+	Acl           datatype.Acl
+	SseRequest    datatype.SseRequest
+	EncryptionKey []byte
 }
 
 type Multipart struct {
