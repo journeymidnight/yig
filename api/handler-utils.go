@@ -146,7 +146,7 @@ func parseSseHeader(header http.Header) (request SseRequest, err error) {
 			return
 		}
 		calculatedMd5 := md5.Sum(request.SseCustomerKey)
-		encodedMd5 := base64.StdEncoding.EncodeToString(calculatedMd5)
+		encodedMd5 := base64.StdEncoding.EncodeToString(calculatedMd5[:])
 		if userMd5 != encodedMd5 {
 			err = ErrInvalidSseHeader
 			return
@@ -165,7 +165,7 @@ func parseSseHeader(header http.Header) (request SseRequest, err error) {
 			return
 		}
 		var n int
-		n, err = base64.StdEncoding.Decode(request.CopySourceSseCustomerKey, byte(key))
+		n, err = base64.StdEncoding.Decode(request.CopySourceSseCustomerKey, []byte(key))
 		if err != nil {
 			return
 		}
@@ -179,7 +179,7 @@ func parseSseHeader(header http.Header) (request SseRequest, err error) {
 			return
 		}
 		calculatedMd5 := md5.Sum(request.CopySourceSseCustomerKey)
-		encodedMd5 := base64.StdEncoding.EncodeToString(calculatedMd5)
+		encodedMd5 := base64.StdEncoding.EncodeToString(calculatedMd5[:])
 		if userMd5 != encodedMd5 {
 			err = ErrInvalidSseHeader
 			return

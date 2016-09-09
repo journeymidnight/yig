@@ -477,7 +477,7 @@ func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, ob
 	initiatorId := multipart.Metadata.InitiatorId
 	ownerId := multipart.Metadata.OwnerId
 
-	switch multipart.Metadata["Acl"] {
+	switch multipart.Metadata.Acl.CannedAcl {
 	case "public-read", "public-read-write":
 		break
 	case "authenticated-read":
@@ -655,7 +655,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 	object := meta.Object{
 		Name:             objectName,
 		BucketName:       bucketName,
-		OwnerId:          multipart.Metadata["OwnerId"],
+		OwnerId:          multipart.Metadata.OwnerId,
 		Size:             totalSize,
 		LastModifiedTime: time.Now().UTC(),
 		Etag:             result.ETag,
@@ -720,7 +720,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 
 	sseRequest := multipart.Metadata.SseRequest
 	result.SseType = sseRequest.Type
-	result.SseAwsKmsKeyIdBase64 = base64.StdEncoding.EncodeToString(sseRequest.SseAwsKmsKeyId)
+	result.SseAwsKmsKeyIdBase64 = base64.StdEncoding.EncodeToString([]byte(sseRequest.SseAwsKmsKeyId))
 	result.SseCustomerAlgorithm = sseRequest.SseCustomerAlgorithm
 	result.SseCustomerKeyMd5Base64 = base64.StdEncoding.EncodeToString(sseRequest.SseCustomerKey)
 
