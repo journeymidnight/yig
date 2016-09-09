@@ -181,9 +181,12 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 	if err != nil {
 		return
 	}
-	initializationVector, err := newInitializationVector()
-	if err != nil {
-		return
+	var initializationVector []byte
+	if encryptionKey != nil {
+		initializationVector, err = newInitializationVector()
+		if err != nil {
+			return
+		}
 	}
 	storageReader, err := wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
 	if err != nil {
@@ -225,6 +228,12 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 	}
 	// TODO validate bucket policy and fancy ACL
 
+	if encryptionKey == nil {
+		encryptionKey = []byte{}
+	}
+	if initializationVector == nil {
+		encryptionKey = []byte{}
+	}
 	object := &meta.Object{
 		Name:                 objectName,
 		BucketName:           bucketName,

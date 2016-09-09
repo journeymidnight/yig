@@ -69,7 +69,7 @@ func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *
 
 	w.Header().Set("Content-Type", object.ContentType)
 	if object.Etag != "" {
-		w.Header().Set("ETag", "\""+ object.Etag+"\"")
+		w.Header().Set("ETag", "\""+object.Etag+"\"")
 	}
 
 	w.Header().Set("Content-Length", strconv.FormatInt(object.Size, 10))

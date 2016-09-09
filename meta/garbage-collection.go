@@ -15,7 +15,7 @@ type GarbageCollection struct {
 	Parts      map[int]*Part
 }
 
-func GarbageCollectionFromObject(o Object) (gc GarbageCollection) {
+func GarbageCollectionFromObject(o *Object) (gc GarbageCollection) {
 	gc.BucketName = o.BucketName
 	gc.ObjectName = o.Name
 	gc.Location = o.Location

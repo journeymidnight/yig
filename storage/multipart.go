@@ -398,9 +398,12 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	oid := cephCluster.GetUniqUploadName()
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
 
-	initializationVector, err := newInitializationVector()
-	if err != nil {
-		return
+	var initializationVector []byte
+	if len(multipart.Metadata.EncryptionKey) != 0 {
+		initializationVector, err = newInitializationVector()
+		if err != nil {
+			return
+		}
 	}
 	storageReader, err := wrapEncryptionReader(dataReader, multipart.Metadata.EncryptionKey,
 		initializationVector)
@@ -432,6 +435,9 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 		}
 	} // TODO policy and fancy ACL
 
+	if initializationVector == nil {
+		initializationVector = []byte{}
+	}
 	part := meta.Part{
 		PartNumber:           partId,
 		Location:             cephCluster.Name,

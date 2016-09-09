@@ -52,9 +52,9 @@ func encryptionKeyFromSseRequest(sseRequest datatype.SseRequest) (encryptionKey 
 
 	switch sseRequest.Type {
 	case "": // no encryption
-		return
+		return nil, nil
 	case "KMS":
-		return // not implemented yet
+		return nil, nil // not implemented yet
 	case "S3":
 		encryptionKey = make([]byte, ENCRYPTION_KEY_LENGTH)
 		_, err = io.ReadFull(rand.Reader, encryptionKey)
