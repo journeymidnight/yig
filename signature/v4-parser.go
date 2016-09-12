@@ -207,7 +207,7 @@ func parsePreSignV4(query url.Values, headers http.Header) (preSignValues, error
 
 	// Save signed headers.
 	preSignV4Values.SignedHeaders, err =
-		parseSignedHeaders(query.Get("X-Amz-SignedHeaders"), headers, false)
+		parseSignedHeadersContent(query.Get("X-Amz-SignedHeaders"), headers, false)
 	if err != nil {
 		return preSignValues{}, err
 	}

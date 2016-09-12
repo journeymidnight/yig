@@ -180,12 +180,17 @@ func DoesPresignedSignatureMatchV4(r *http.Request,
 
 	// Extract all the signed headers along with its values.
 	canonicalHeaderString, err := getCanonicalHeaders(preSignValues.SignedHeaders, r)
+	if err != nil {
+		return
+	}
 
 	/// Verify finally if signature is same.
 
 	// Get canonical request.
+	query := r.URL.Query()
+	query.Del("X-Amz-Signature")
 	presignedCanonicalReq := getCanonicalRequest(canonicalHeaderString, unsignedPayload,
-		r.URL.Query().Encode(), r.URL.Path, r.Method, preSignValues.SignedHeaders)
+		query.Encode(), r.URL.Path, r.Method, preSignValues.SignedHeaders)
 
 	// Get string to sign from canonical request.
 	presignedStringToSign := getStringToSign(presignedCanonicalReq, preSignValues.Date, region)
