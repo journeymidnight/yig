@@ -290,9 +290,12 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string, pa
 	oid := cephCluster.GetUniqUploadName()
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
 
-	initializationVector, err := newInitializationVector()
-	if err != nil {
-		return
+	var initializationVector []byte
+	if len(multipart.Metadata.EncryptionKey) != 0 {
+		initializationVector, err = newInitializationVector()
+		if err != nil {
+			return
+		}
 	}
 	storageReader, err := wrapEncryptionReader(dataReader, multipart.Metadata.EncryptionKey,
 		initializationVector)

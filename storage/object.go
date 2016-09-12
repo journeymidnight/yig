@@ -95,7 +95,10 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 			}
 			if object.SseType == "" { // unencrypted object
 				err = cephCluster.get(p.Pool, p.ObjectId, readOffset, readLength, writer)
-				return
+				if err != nil {
+					return err
+				}
+				continue
 			}
 
 			reader, err := cephCluster.getAlignedReader(object.Pool, object.ObjectId,
@@ -110,7 +113,11 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 			}
 			buffer := make([]byte, MAX_CHUNK_SIZE)
 			_, err = io.CopyBuffer(writer, decryptedReader, buffer)
-			return err
+			if err != nil {
+				helper.Debugln("Multipart uploaded object write error:", err)
+				return err
+			}
+			reader.Close()
 		}
 	}
 	return
@@ -184,7 +191,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 		return
 	}
 	var initializationVector []byte
-	if encryptionKey != nil {
+	if len(encryptionKey) != 0 {
 		initializationVector, err = newInitializationVector()
 		if err != nil {
 			return

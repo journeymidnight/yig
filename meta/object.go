@@ -102,6 +102,12 @@ func (o *Object) GetValues() (values map[string]map[string][]byte, err error) {
 	if err != nil {
 		return
 	}
+	if o.EncryptionKey == nil {
+		o.EncryptionKey = []byte{}
+	}
+	if o.InitializationVector == nil {
+		o.InitializationVector = []byte{}
+	}
 	values = map[string]map[string][]byte{
 		OBJECT_COLUMN_FAMILY: map[string][]byte{
 			"location":      []byte(o.Location),
@@ -306,6 +312,7 @@ func ObjectFromResponse(response *hrpc.Result, bucketName string) (object *Objec
 		timeData := []byte(strconv.FormatUint(timestamp, 10))
 		object.VersionId = hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
 	}
+	helper.Debugln("ObjectFromResponse:", object)
 	return
 }
 
@@ -314,9 +321,9 @@ func (m *Meta) GetObject(bucketName string, objectName string) (object *Object, 
 	if err != nil {
 		return
 	}
-	filter := filter.NewPrefixFilter(objectRowkeyPrefix)
+	prefixFilter := filter.NewPrefixFilter(objectRowkeyPrefix)
 	scanRequest, err := hrpc.NewScanRangeStr(context.Background(), OBJECT_TABLE,
-		string(objectRowkeyPrefix), "", hrpc.Filters(filter), hrpc.NumberOfRows(1))
+		string(objectRowkeyPrefix), "", hrpc.Filters(prefixFilter), hrpc.NumberOfRows(1))
 	if err != nil {
 		return
 	}
@@ -346,10 +353,10 @@ func (m *Meta) GetNullVersionObject(bucketName, objectName string) (object *Obje
 	if err != nil {
 		return
 	}
-	filter := filter.NewPrefixFilter(objectRowkeyPrefix)
+	prefixFilter := filter.NewPrefixFilter(objectRowkeyPrefix)
 	// FIXME use a proper filter instead of naively getting 1000 and compare
 	scanRequest, err := hrpc.NewScanRangeStr(context.Background(), OBJECT_TABLE,
-		string(objectRowkeyPrefix), "", hrpc.Filters(filter), hrpc.NumberOfRows(1000))
+		string(objectRowkeyPrefix), "", hrpc.Filters(prefixFilter), hrpc.NumberOfRows(1000))
 	if err != nil {
 		return
 	}

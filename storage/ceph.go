@@ -7,7 +7,6 @@ import (
 	"git.letv.cn/ceph/radoshttpd/rados"
 	"io"
 	"log"
-	"os"
 	"sync"
 )
 
@@ -280,7 +279,7 @@ func (cluster *CephStorage) getReader(poolName string, oid string, startOffset i
 		remaining: length,
 	}
 
-	return radosReader
+	return radosReader, nil
 }
 
 // Works together with `wrapAlignedEncryptionReader`, see comments there.
