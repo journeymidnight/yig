@@ -216,18 +216,26 @@ func (cluster *CephStorage) put(poolname string, oid string, data io.Reader) (si
 }
 
 type RadosDownloader struct {
-	striper *rados.StriperPool
-	oid     string
-	offset  int64
-	pool    *rados.Pool
+	striper   *rados.StriperPool
+	oid       string
+	offset    int64
+	remaining int64
+	pool      *rados.Pool
 }
 
 func (rd *RadosDownloader) Read(p []byte) (n int, err error) {
+	if rd.remaining <= 0 {
+		return 0, io.EOF
+	}
+	if int64(len(p)) > rd.remaining {
+		p = p[:rd.remaining]
+	}
 	count, err := rd.striper.Read(rd.oid, p, uint64(rd.offset))
 	if count == 0 {
 		return 0, io.EOF
 	}
 	rd.offset += int64(count)
+	rd.remaining -= int64(count)
 	return count, err
 }
 
@@ -264,11 +272,15 @@ func (cluster *CephStorage) getReader(poolName string, oid string, startOffset i
 		return
 	}
 
-	radosReader := &RadosDownloader{&striper, oid, startOffset}
-	radosReader.Seek(startOffset, os.SEEK_SET)
+	radosReader := &RadosDownloader{
+		striper:   &striper,
+		oid:       oid,
+		offset:    startOffset,
+		pool:      pool,
+		remaining: length,
+	}
 
-	reader = &io.LimitedReader{radosReader, length}
-	return
+	return radosReader
 }
 
 // Works together with `wrapAlignedEncryptionReader`, see comments there.
