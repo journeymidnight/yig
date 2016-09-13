@@ -88,7 +88,18 @@ def get_bucket_acl(name, client):
 #     print 'Presigned get bucket ACL:', response.text
 #     assert response.status_code == 200
 
-
+def delete_bucket_presigned(name, client):
+    url = client.generate_presigned_url(
+        ClientMethod='delete_bucket',
+        HttpMethod='DELETE',
+        Params={
+            'Bucket': name+'presigned'
+        },
+    )
+    print url
+    response = requests.delete(url)
+    print 'Presigned delete bucket:', response.text
+    assert response.status_code == 204
 
 # =====================================================
 
@@ -99,6 +110,7 @@ TESTS = [
     list_buckets_presigned,
     list_buckets_presigned_expired,
     put_bucket_acl, get_bucket_acl,
+    delete_bucket_presigned,
 ]
 
 if __name__ == '__main__':

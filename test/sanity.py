@@ -54,6 +54,12 @@ def put_object_copy(name, client):
     )
     print 'Copy object:', ans
 
+    # clean-up
+    client.delete_object(
+        Bucket=name+'hehe',
+        Key=name+'hehe-copied',
+    )
+
 
 def get_object_nonexist(name, client):
     client.get_object(
@@ -81,6 +87,7 @@ def list_object_versions(name, client):
         Bucket=name+'hehe'
     )
     print 'List object versions:', ans
+
 
 def delete_object(name, client):
     client.delete_object(
@@ -183,6 +190,13 @@ def get_multipart_uploaded_object(name, client):
     print 'Get object:', ans
 
 
+def delete_multipart_object(name, client):
+    client.delete_object(
+        Bucket=name+'hehe',
+        Key=name+'multipart',
+    )
+
+
 def get_object_ranged(name, client):
     ans = client.get_object(
         Bucket=name+'hehe',
@@ -272,6 +286,7 @@ TESTS = [create_bucket,
          create_multipart_upload, upload_part, list_multipart_uploads, list_parts, abort_multipart_upload, complete_multipart_upload,
          get_multipart_uploaded_object,
          get_object_ranged,
+         delete_multipart_object,
          put_bucket_cors, get_bucket_cors, delete_bucket_cors,
          put_bucket_versioning, get_bucket_versioning,
          delete_bucket, delete_bucket_nonexist]
