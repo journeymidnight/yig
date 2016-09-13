@@ -252,8 +252,8 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 	// Check if bucket is empty
 	// FIXME: add a terminator after bucketName in hbase table
 	prefixFilter := filter.NewPrefixFilter([]byte(bucketName))
-	scanRequest, err := hrpc.NewScan(context.Background(), meta.OBJECT_TABLE,
-		hrpc.Filters(prefixFilter), hrpc.NumberOfRows(1))
+	scanRequest, err := hrpc.NewScanRangeStr(context.Background(), meta.OBJECT_TABLE,
+		bucketName, "", hrpc.Filters(prefixFilter), hrpc.NumberOfRows(1))
 	if err != nil {
 		return
 	}

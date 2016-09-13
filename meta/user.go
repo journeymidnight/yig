@@ -4,7 +4,6 @@ import (
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
 	. "git.letv.cn/yig/yig/error"
-	"github.com/tsuna/gohbase/filter"
 )
 
 const (
