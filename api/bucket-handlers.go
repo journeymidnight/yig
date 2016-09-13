@@ -474,7 +474,7 @@ func (api ObjectAPIHandlers) GetBucketAclHandler(w http.ResponseWriter, r *http.
 
 	var credential iam.Credential
 	var err error
-	switch signature.GetPostPolicyType(r) {
+	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
@@ -493,7 +493,7 @@ func (api ObjectAPIHandlers) GetBucketAclHandler(w http.ResponseWriter, r *http.
 		}
 	}
 
-	bucket, err := api.ObjectAPI.GetBucket(bucketName, credential)
+	bucket, err := api.ObjectAPI.GetBucketInfo(bucketName, credential)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch bucket info.")
 		WriteErrorResponse(w, r, err, r.URL.Path)
