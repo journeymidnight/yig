@@ -468,6 +468,43 @@ func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.
 	WriteSuccessResponse(w, nil)
 }
 
+func (api ObjectAPIHandlers) GetBucketAclHandler(w http.ResponseWriter, r *http.Request)  {
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+
+	var credential iam.Credential
+	var err error
+	switch signature.GetPostPolicyType(r) {
+	default:
+		// For all unknown auth types return error.
+		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		return
+	case signature.AuthTypeAnonymous:
+		// http://docs.aws.amazon.com/AmazonS3/latest/dev/mpuAndPermissions.html
+		if s3Error := enforceBucketPolicy("s3:PutObject", bucketName, r.URL); s3Error != nil {
+			WriteErrorResponse(w, r, s3Error, r.URL.Path)
+			return
+		}
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
+		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
+		if credential, err = signature.IsReqAuthenticated(r); err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
+			return
+		}
+	}
+
+	bucket, err := api.ObjectAPI.GetBucket(bucketName, credential)
+	if err != nil {
+		helper.ErrorIf(err, "Unable to fetch bucket info.")
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+
+	w.Header().Set("X-Amz-Acl", bucket.ACL.CannedAcl)
+	SetCommonHeaders(w)
+	w.Write(nil)
+}
+
 func (api ObjectAPIHandlers) PutBucketCorsHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]

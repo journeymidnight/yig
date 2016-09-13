@@ -127,11 +127,13 @@ func (r *alignedReader) Read(p []byte) (n int, err error) {
 // Also, our chosen mode of operation for YIG is CTR(counter), which features parallel
 // encryption/decryption and random read access. We need all these three features, this leaves
 // us only three choices: ECB, CTR, and GCM.
-// ECB is best known for its insecurity, meanwhile the GCM implementation of golang(as in 1.7) is
-// incomplete, which requires us to read the whole file into memory. So actually we have no choice
-// but to stick to CTR mode.
+// ECB is best known for its insecurity, meanwhile the GCM implementation of golang(as in 1.7) discourage
+// users to encrypt large files in one pass, which requires us to read the whole file into memory. So
+// the implement complexity is similar between GCM and CTR, we choose CTR because it's faster(but less
+// prone to man-in-the-middle modifications)
 //
 // See https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation
+// and http://stackoverflow.com/questions/39347206
 func wrapAlignedEncryptionReader(reader io.Reader, startOffset int64, encryptionKey []byte,
 	initializationVector []byte) (wrappedReader io.Reader, err error) {
 
