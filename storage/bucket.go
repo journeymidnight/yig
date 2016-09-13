@@ -47,19 +47,13 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 		return err
 	}
 	if !processed { // bucket already exists, return accurate message
-		family := map[string][]string{meta.BUCKET_COLUMN_FAMILY: []string{"UID"}}
-		get, err := hrpc.NewGetStr(context.Background(), meta.BUCKET_TABLE, bucketName,
-			hrpc.Families(family))
+		ownerId, err := yig.MetaStorage.GetBucketAttribute(bucketName, "UID")
 		if err != nil {
-			yig.Logger.Println("Error making hbase get: ", err)
-			return err
-		}
-		b, err := yig.MetaStorage.Hbase.Get(get)
-		if err != nil {
-			yig.Logger.Println("Error get bucket: ", bucketName, "with error: ", err)
+			yig.Logger.Println("Error get bucket attribute: ", bucketName, "UID, with error",
+				err)
 			return ErrBucketAlreadyExists
 		}
-		if string(b.Cells[0].Value) == credential.UserId {
+		if ownerId == credential.UserId {
 			return ErrBucketAlreadyOwnedByYou
 		} else {
 			return ErrBucketAlreadyExists
@@ -245,7 +239,7 @@ func (yig *YigStorage) ListBuckets(credential iam.Credential) (buckets []meta.Bu
 	return
 }
 
-func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential) error {
+func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential) (err error) {
 	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
 		return err
@@ -254,12 +248,28 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 		return ErrBucketAccessForbidden
 		// TODO validate bucket policy
 	}
-	// TODO validate bucket is empty
+
+	// Check if bucket is empty
+	// FIXME: add a terminator after bucketName in hbase table
+	prefixFilter := filter.NewPrefixFilter([]byte(bucketName))
+	scanRequest, err := hrpc.NewScan(context.Background(), meta.OBJECT_TABLE,
+		hrpc.Filters(prefixFilter), hrpc.NumberOfRows(1))
+	if err != nil {
+		return
+	}
+	scanResponse, err := yig.MetaStorage.Hbase.Scan(scanRequest)
+	if err != nil {
+		return
+	}
+	if len(scanResponse) != 0 {
+		return ErrBucketNotEmpty
+	}
 
 	values := map[string]map[string][]byte{
 		meta.BUCKET_COLUMN_FAMILY: map[string][]byte{},
 	}
-	deleteRequest, err := hrpc.NewDelStr(context.Background(), meta.BUCKET_TABLE, bucketName, values)
+	deleteRequest, err := hrpc.NewDelStr(context.Background(), meta.BUCKET_TABLE,
+		bucketName, values)
 	if err != nil {
 		return err
 	}

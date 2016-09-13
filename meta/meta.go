@@ -9,7 +9,6 @@ import (
 
 const (
 	ZOOKEEPER_ADDRESS = "10.116.77.35:2181,10.116.77.36:2181,10.116.77.37:2181"
-	RETRY_LIMIT       = 3
 
 	BUCKET_TABLE                          = "buckets"
 	BUCKET_COLUMN_FAMILY                  = "b"

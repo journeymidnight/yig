@@ -38,8 +38,6 @@ func (b Bucket) GetValues() (values map[string]map[string][]byte, err error) {
 	return
 }
 
-// TODO: make this query more fine-grained to cell level
-// otherwise there might be race-conditions, e.g. between SetBucketAcl and SetBucketCors
 func (m *Meta) GetBucket(bucketName string) (bucket Bucket, err error) {
 	getRequest, err := hrpc.NewGetStr(context.Background(), BUCKET_TABLE, bucketName)
 	if err != nil {
@@ -47,6 +45,7 @@ func (m *Meta) GetBucket(bucketName string) (bucket Bucket, err error) {
 	}
 	response, err := m.Hbase.Get(getRequest)
 	if err != nil {
+		m.Logger.Println("Error getting bucket info, with error ", err)
 		return
 	}
 	if len(response.Cells) == 0 {
@@ -78,4 +77,20 @@ func (m *Meta) GetBucket(bucketName string) (bucket Bucket, err error) {
 	}
 	bucket.Name = bucketName
 	return
+}
+
+// TODO: use this method in get CORS/Versioning/ACL etc
+// otherwise there might be race-conditions, e.g. between SetBucketAcl and SetBucketCors
+func (m *Meta) GetBucketAttribute(bucketName string, attribute string) (result string, err error) {
+	family := map[string][]string{BUCKET_COLUMN_FAMILY: []string{attribute}}
+	get, err := hrpc.NewGetStr(context.Background(), BUCKET_TABLE, bucketName,
+		hrpc.Families(family))
+	if err != nil {
+		return "", err
+	}
+	b, err := m.Hbase.Get(get)
+	if err != nil {
+		return "", err
+	}
+	return string(b.Cells[0].Value), nil
 }

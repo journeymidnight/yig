@@ -106,6 +106,7 @@ const (
 	ErrBucketAlreadyOwnedByYou
 	ErrInvalidCannedAcl
 	ErrInvalidSseHeader
+	ErrTooManyBuckets
 	// Add new error codes here.
 
 	// S3 extended errors.
@@ -448,6 +449,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "BucketAlreadyOwnedByYou",
 		Description:    "Your previous request to create the named bucket succeeded and you already own it.",
 		HttpStatusCode: http.StatusConflict,
+	},
+	ErrTooManyBuckets: {
+		AwsErrorCode: "TooManyBuckets",
+		Description: "You have attempted to create more buckets than allowed.",
+		HttpStatusCode: http.StatusBadRequest,
 	},
 
 	/// S3 extensions.
