@@ -219,6 +219,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 
 	credential, err := data.(*signature.SignVerifyReader).Verify()
 	if err != nil {
+		// FIXME: remove object in ceph
 		return
 	}
 

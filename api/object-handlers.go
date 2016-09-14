@@ -208,6 +208,10 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			// Set any additional requested response headers.
 			setGetRespHeaders(w, r.URL.Query())
 
+			if version != "" {
+				w.Header().Set("x-amz-version-id", version)
+			}
+
 			dataWritten = true
 		}
 		return w.Write(p)
@@ -699,6 +703,9 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
+	if version != "" {
+		w.Header().Set("x-amz-version-id", version)
+	}
 	WriteSuccessResponse(w, nil)
 }
 
@@ -743,6 +750,9 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 	}
 
 	w.Header().Set("X-Amz-Acl", object.ACL.CannedAcl)
+	if version != "" {
+		w.Header().Set("x-amz-version-id", version)
+	}
 	SetCommonHeaders(w)
 	w.Write(nil)
 }

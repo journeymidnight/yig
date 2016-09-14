@@ -319,6 +319,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string, pa
 
 	credential, err := data.(*signature.SignVerifyReader).Verify()
 	if err != nil {
+		// FIXME: remove object in ceph
 		return
 	}
 	bucket, err := yig.MetaStorage.GetBucket(bucketName)
