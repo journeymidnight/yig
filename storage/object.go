@@ -166,6 +166,14 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, versio
 	return nil
 }
 
+// Write path:
+//                           +-----------+
+// PUT object/part           |           |                   Ceph
+//         +---------+-------+ Encryptor +-------+------------->
+//                   |       |           |       |
+//                   |       +-----------+       |
+//                   v                           v
+//                  SHA256                     MD5(ETag)
 func (yig *YigStorage) PutObject(bucketName string, objectName string, size int64, data io.Reader,
 	metadata map[string]string, acl datatype.Acl,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
