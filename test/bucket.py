@@ -101,6 +101,19 @@ def delete_bucket_presigned(name, client):
     print 'Presigned delete bucket:', response.text
     assert response.status_code == 204
 
+
+def bucket_limit_per_user(name, client):
+    for i in range(1, 110):
+        try:
+            client.create_bucket(Bucket=name+str(i))
+        except Exception as e:
+            print 'Exception for bucket: ', name+str(i)
+            if i < 100:
+                raise e
+
+    for i in range(1, 101):
+        client.delete_bucket(Bucket=name+str(i))
+
 # =====================================================
 
 TESTS = [
@@ -111,6 +124,8 @@ TESTS = [
     list_buckets_presigned_expired,
     put_bucket_acl, get_bucket_acl,
     delete_bucket_presigned,
+    sanity.delete_bucket,
+    bucket_limit_per_user,
 ]
 
 if __name__ == '__main__':

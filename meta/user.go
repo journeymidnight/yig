@@ -31,7 +31,7 @@ func (m *Meta) AddBucketForUser(bucketName string, userId string) (err error) {
 	if err != nil {
 		return err
 	}
-	if len(buckets) > BUCKET_NUMBER_LIMIT {
+	if len(buckets)+1 > BUCKET_NUMBER_LIMIT {
 		return ErrTooManyBuckets
 	}
 

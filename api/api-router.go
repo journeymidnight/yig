@@ -54,16 +54,19 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 	// AbortMultipartUpload
 	bucket.Methods("DELETE").Path("/{object:.+}").HandlerFunc(api.AbortMultipartUploadHandler).
 		Queries("uploadId", "{uploadId:.*}")
-	// GetObject
-	bucket.Methods("GET").Path("/{object:.+}").HandlerFunc(api.GetObjectHandler)
 	// CopyObject
 	bucket.Methods("PUT").Path("/{object:.+}").HeadersRegexp("X-Amz-Copy-Source", ".*?(/).*?").
 		HandlerFunc(api.CopyObjectHandler)
-	// PutObject
-	bucket.Methods("PUT").Path("/{object:.+}").HandlerFunc(api.PutObjectHandler)
 	// PutObjectACL
 	bucket.Methods("PUT").Path("/{object:.+}").HandlerFunc(api.PutObjectAclHandler).
 		Queries("acl", "")
+	// GetObjectAcl
+	bucket.Methods("GET").Path("/{object:.+}").HandlerFunc(api.GetObjectAclHandler).
+		Queries("acl", "")
+	// PutObject
+	bucket.Methods("PUT").Path("/{object:.+}").HandlerFunc(api.PutObjectHandler)
+	// GetObject
+	bucket.Methods("GET").Path("/{object:.+}").HandlerFunc(api.GetObjectHandler)
 	// DeleteObject
 	bucket.Methods("DELETE").Path("/{object:.+}").HandlerFunc(api.DeleteObjectHandler)
 

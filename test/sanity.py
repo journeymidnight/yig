@@ -89,6 +89,13 @@ def list_object_versions(name, client):
     print 'List object versions:', ans
 
 
+def delete_nonempty_bucket_should_fail(name, client):
+    ans = client.delete_bucket(
+        Bucket=name+'hehe'
+    )
+    print 'Delete non-empty bucket', ans
+
+
 def delete_object(name, client):
     client.delete_object(
         Bucket=name+'hehe',
@@ -282,6 +289,7 @@ TESTS = [create_bucket,
          put_object_copy,
          get_object, get_object_nonexist,
          list_objects_v1, list_objects_v2, list_object_versions,
+         delete_nonempty_bucket_should_fail,
          delete_object,
          create_multipart_upload, upload_part, list_multipart_uploads, list_parts, abort_multipart_upload, complete_multipart_upload,
          get_multipart_uploaded_object,

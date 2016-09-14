@@ -22,7 +22,7 @@ for addressStyle in ['path']: #['path', 'virtual']:
 
 
 def is_a_fail_test(testFunction):
-    fail_name_patterns = ['nonexist']
+    fail_name_patterns = ['nonexist', 'should_fail']
     for pattern in fail_name_patterns:
         if pattern in testFunction.__name__:
             return True

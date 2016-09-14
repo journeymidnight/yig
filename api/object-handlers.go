@@ -702,6 +702,51 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 	WriteSuccessResponse(w, nil)
 }
 
+func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+	objectName := vars["object"]
+
+	var credential iam.Credential
+	var err error
+	switch signature.GetRequestAuthType(r) {
+	default:
+		// For all unknown auth types return error.
+		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		return
+	case signature.AuthTypeAnonymous:
+		// http://docs.aws.amazon.com/AmazonS3/latest/dev/mpuAndPermissions.html
+		if s3Error := enforceBucketPolicy("s3:PutObject", bucketName, r.URL); s3Error != nil {
+			WriteErrorResponse(w, r, s3Error, r.URL.Path)
+			return
+		}
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
+		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
+		if credential, err = signature.IsReqAuthenticated(r); err != nil {
+			WriteErrorResponse(w, r, err, r.URL.Path)
+			return
+		}
+	}
+
+	version := r.URL.Query().Get("versionId")
+
+	object, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName, version)
+	if err != nil {
+		helper.ErrorIf(err, "Unable to fetch object info.")
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+
+	if object.OwnerId != credential.UserId {
+		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		return
+	}
+
+	w.Header().Set("X-Amz-Acl", object.ACL.CannedAcl)
+	SetCommonHeaders(w)
+	w.Write(nil)
+}
+
 /// Multipart objectAPIHandlers
 
 // NewMultipartUploadHandler - New multipart upload
