@@ -451,8 +451,8 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		HttpStatusCode: http.StatusConflict,
 	},
 	ErrTooManyBuckets: {
-		AwsErrorCode: "TooManyBuckets",
-		Description: "You have attempted to create more buckets than allowed.",
+		AwsErrorCode:   "TooManyBuckets",
+		Description:    "You have attempted to create more buckets than allowed.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 

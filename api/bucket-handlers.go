@@ -468,7 +468,7 @@ func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.
 	WriteSuccessResponse(w, nil)
 }
 
-func (api ObjectAPIHandlers) GetBucketAclHandler(w http.ResponseWriter, r *http.Request)  {
+func (api ObjectAPIHandlers) GetBucketAclHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 

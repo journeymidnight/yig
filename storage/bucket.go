@@ -262,7 +262,15 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 		return
 	}
 	if len(scanResponse) != 0 {
-		return ErrBucketNotEmpty
+		o, err := meta.ObjectFromResponse(scanResponse[0])
+		if err != nil {
+			return err
+		}
+		// to make sure the object is exactly from `bucketName` bucket,
+		// not some `bucketNameAndSuffix` bucket
+		if o.BucketName == bucketName {
+			return ErrBucketNotEmpty
+		}
 	}
 
 	values := map[string]map[string][]byte{
@@ -378,7 +386,7 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 	if len(scanResponse) > request.MaxKeys {
 		result.IsTruncated = true
 		var nextObject *meta.Object
-		nextObject, err = meta.ObjectFromResponse(scanResponse[request.MaxKeys], bucketName)
+		nextObject, err = meta.ObjectFromResponse(scanResponse[request.MaxKeys])
 		if err != nil {
 			return
 		}
@@ -401,7 +409,7 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 	prefixMap := make(map[string]int) // value is dummy, only need a set here
 	for _, row := range scanResponse {
 		var o *meta.Object
-		o, err = meta.ObjectFromResponse(row, bucketName)
+		o, err = meta.ObjectFromResponse(row)
 		if err != nil {
 			return
 		}
@@ -552,7 +560,7 @@ func (yig *YigStorage) ListVersionedObjects(credential iam.Credential, bucketNam
 	if len(scanResponse) > request.MaxKeys {
 		result.IsTruncated = true
 		var nextObject *meta.Object
-		nextObject, err = meta.ObjectFromResponse(scanResponse[request.MaxKeys], bucketName)
+		nextObject, err = meta.ObjectFromResponse(scanResponse[request.MaxKeys])
 		if err != nil {
 			return
 		}
@@ -574,7 +582,7 @@ func (yig *YigStorage) ListVersionedObjects(credential iam.Credential, bucketNam
 	prefixMap := make(map[string]int) // value is dummy, only need a set here
 	for _, row := range scanResponse {
 		var o *meta.Object
-		o, err = meta.ObjectFromResponse(row, bucketName)
+		o, err = meta.ObjectFromResponse(row)
 		if err != nil {
 			return
 		}

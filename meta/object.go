@@ -110,6 +110,7 @@ func (o *Object) GetValues() (values map[string]map[string][]byte, err error) {
 	}
 	values = map[string]map[string][]byte{
 		OBJECT_COLUMN_FAMILY: map[string][]byte{
+			"bucket":        []byte(o.BucketName),
 			"location":      []byte(o.Location),
 			"pool":          []byte(o.Pool),
 			"owner":         []byte(o.OwnerId),
@@ -223,7 +224,7 @@ func getObjectRowkeyPrefix(bucketName string, objectName string, version string)
 }
 
 // Decode response from HBase and return an Object object
-func ObjectFromResponse(response *hrpc.Result, bucketName string) (object *Object, err error) {
+func ObjectFromResponse(response *hrpc.Result) (object *Object, err error) {
 	var rowkey []byte
 	object = new(Object)
 	object.Parts = make(map[int]*Part)
@@ -232,6 +233,8 @@ func ObjectFromResponse(response *hrpc.Result, bucketName string) (object *Objec
 		switch string(cell.Family) {
 		case OBJECT_COLUMN_FAMILY:
 			switch string(cell.Qualifier) {
+			case "bucket":
+				object.BucketName = string(cell.Value)
 			case "location":
 				object.Location = string(cell.Value)
 			case "pool":
@@ -292,12 +295,11 @@ func ObjectFromResponse(response *hrpc.Result, bucketName string) (object *Objec
 		return
 	}
 
-	object.BucketName = bucketName
 	object.Rowkey = string(rowkey)
 	// rowkey = BucketName + bigEndian(uint16(count("/", ObjectName)))
 	// + ObjectName
 	// + bigEndian(uint64.max - unixNanoTimestamp)
-	object.Name = string(rowkey[len(bucketName)+4 : len(rowkey)-8])
+	object.Name = string(rowkey[len(object.BucketName)+4 : len(rowkey)-8])
 	if object.NullVersion {
 		object.VersionId = "null"
 	} else {
@@ -336,7 +338,7 @@ func (m *Meta) GetObject(bucketName string, objectName string) (object *Object, 
 		err = ErrNoSuchKey
 		return
 	}
-	object, err = ObjectFromResponse(scanResponse[0], bucketName)
+	object, err = ObjectFromResponse(scanResponse[0])
 	if err != nil {
 		return
 	}
@@ -369,7 +371,7 @@ func (m *Meta) GetNullVersionObject(bucketName, objectName string) (object *Obje
 		return
 	}
 	for _, response := range scanResponse {
-		object, err = ObjectFromResponse(response, bucketName)
+		object, err = ObjectFromResponse(response)
 		if err != nil {
 			return
 		}
@@ -397,7 +399,7 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string) (object 
 		err = ErrNoSuchVersion
 		return
 	}
-	object, err = ObjectFromResponse(getResponse, bucketName)
+	object, err = ObjectFromResponse(getResponse)
 	if err != nil {
 		return
 	}
