@@ -28,72 +28,66 @@ import (
 )
 
 // SignVerifyReader represents an io.Reader compatible interface which
-// transparently calculates sha256, caller should call `Verify()` to
-// validate the signature header.
+// transparently calculates SHA256 for v4 signed authentication.
+// Caller should call `SignVerifyReader.Verify()` to validate the signature header.
 type SignVerifyReader struct {
-	Request    *http.Request // HTTP request to be validated and read.
-	HashWriter hash.Hash     // sha256 hash writer.
+	Request      *http.Request
+	Reader       io.Reader
+	Sha256Writer hash.Hash
 }
 
 // Initializes a new signature verify reader.
-func NewSignVerify(req *http.Request) *SignVerifyReader {
-	return &SignVerifyReader{
-		Request:    req,          // Save the request.
-		HashWriter: sha256.New(), // Inititalize sha256.
+func newSignVerify(req *http.Request) *SignVerifyReader {
+	// do not need to calculate SHA256 when header is unsigned
+	if req.Header.Get("x-amz-content-sha256") == UnsignedPayload {
+		return &SignVerifyReader{
+			Request:      req,
+			Reader:       req.Body,
+			Sha256Writer: nil,
+		}
 	}
-}
 
-// isSignVerify - is given reader a `signVerifyReader`.
-func isSignVerify(reader io.Reader) bool {
-	_, ok := reader.(*SignVerifyReader)
-	return ok
+	sha256Writer := sha256.New()
+	reader := io.TeeReader(req.Body, sha256Writer)
+	return &SignVerifyReader{
+		Request:      req,
+		Reader:       reader,
+		Sha256Writer: sha256Writer,
+	}
 }
 
 // Verify - verifies signature and returns error upon signature mismatch.
-func (v *SignVerifyReader) Verify() (credential iam.Credential, err error) {
-	validateRegion := true // Defaults to validating region.
-	shaPayloadHex := hex.EncodeToString(v.HashWriter.Sum(nil))
-	if skipContentSha256Cksum(v.Request) {
-		// Sets 'UNSIGNED-PAYLOAD' if client requested to not calculated sha256.
-		shaPayloadHex = unsignedPayload
-	}
-	// Signature verification block.
-	if isSignature, version := isRequestSignature(v.Request); isSignature {
-		if version == AuthTypeSignedV2 {
-			credential, err = DoesSignatureMatchV2(v.Request)
-		} else { // v4
-			credential, err = DoesSignatureMatchV4(shaPayloadHex, v.Request, validateRegion)
-		}
-	} else if isPresigned, version := isRequestPresigned(v.Request); isPresigned {
-		if version == AuthTypePresignedV2 {
-			credential, err = DoesPresignedSignatureMatchV2(v.Request)
-		} else { // v4
-			credential, err = DoesPresignedSignatureMatchV4(v.Request, validateRegion)
-		}
+func (v *SignVerifyReader) Verify() (iam.Credential, error) {
+	var payloadSha256Hex string
+	if v.Sha256Writer != nil {
+		payloadSha256Hex = hex.EncodeToString(v.Sha256Writer.Sum(nil))
 	} else {
-		// Couldn't figure out the request type, set the error as AccessDenied.
-		err = ErrAccessDenied
+		payloadSha256Hex = UnsignedPayload
 	}
-	return
+	return DoesSignatureMatchV4(payloadSha256Hex, v.Request, true)
 }
 
-// Reads from request body and writes to hash writer. All reads performed
-// through it are matched with corresponding writes to hash writer. There is
-// no internal buffering the write must complete before the read completes.
-// Any error encountered while writing is reported as a read error. As a
-// special case `Read()` skips writing to hash writer if the client requested
-// for the payload to be skipped.
-func (v *SignVerifyReader) Read(b []byte) (n int, err error) {
-	n, err = v.Request.Body.Read(b)
-	if n > 0 {
-		// Skip calculating the hash.
-		if skipContentSha256Cksum(v.Request) {
-			return
-		}
-		// Stagger all reads to its corresponding writes to hash writer.
-		if n, err = v.HashWriter.Write(b[:n]); err != nil {
-			return n, err
-		}
+func (v *SignVerifyReader) Read(b []byte) (int, error) {
+	return v.Reader.Read(b)
+}
+
+func VerifyUpload(r *http.Request) (credential iam.Credential, dataReader io.Reader, err error) {
+	dataReader = r.Body
+	switch GetRequestAuthType(r) {
+	default:
+		// For all unknown auth types return error.
+		err = ErrAccessDenied
+		return
+	case AuthTypeAnonymous:
+		break
+	case AuthTypeSignedV2:
+		credential, err = DoesSignatureMatchV2(r)
+	case AuthTypeSignedV4:
+		dataReader = newSignVerify(r)
+	case AuthTypePresignedV2:
+		credential, err = DoesPresignedSignatureMatchV2(r)
+	case AuthTypePresignedV4:
+		credential, err = DoesPresignedSignatureMatchV4(r, true)
 	}
 	return
 }

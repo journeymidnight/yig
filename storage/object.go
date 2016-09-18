@@ -198,15 +198,18 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, versio
 }
 
 // Write path:
-//                           +-----------+
-// PUT object/part           |           |                   Ceph
-//         +---------+-------+ Encryptor +-------+------------->
-//                   |       |           |       |
-//                   |       +-----------+       |
-//                   v                           v
-//                  SHA256                     MD5(ETag)
-func (yig *YigStorage) PutObject(bucketName string, objectName string, size int64, data io.Reader,
-	metadata map[string]string, acl datatype.Acl,
+//                                           +-----------+
+// PUT object/part                           |           |   Ceph
+//         +---------+------------+----------+ Encryptor +----->
+//                   |            |          |           |
+//                   |            |          +-----------+
+//                   v            v
+//                  SHA256      MD5(ETag)
+//
+// SHA256 is calculated only for v4 signed authentication
+// Encryptor is enabled when user set SSE headers
+func (yig *YigStorage) PutObject(bucketName string, objectName string, credential iam.Credential,
+	size int64, data io.Reader, metadata map[string]string, acl datatype.Acl,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
 
 	md5Writer := md5.New()
@@ -256,10 +259,12 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, size int6
 	}
 	result.Md5 = calculatedMd5
 
-	credential, err := data.(*signature.SignVerifyReader).Verify()
-	if err != nil {
-		// FIXME: remove object in ceph
-		return
+	if signVerifyReader, ok := data.(*signature.SignVerifyReader); ok {
+		credential, err = signVerifyReader.Verify()
+		if err != nil {
+			// FIXME: remove object in ceph
+			return
+		}
 	}
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName)

@@ -537,29 +537,21 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	var result PutObjectResult
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+	credential, dataReader, err := signature.VerifyUpload(r)
+	if err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
-	case signature.AuthTypeAnonymous:
-		// Create anonymous object.
-		result, err = api.ObjectAPI.PutObject(bucketName, objectName, size, r.Body,
-			metadata, acl, sseRequest)
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		// Initialize signature verifier.
-		reader := signature.NewSignVerify(r)
-		// Create object.
-		result, err = api.ObjectAPI.PutObject(bucketName, objectName, size, reader,
-			metadata, acl, sseRequest)
 	}
+
+	var result PutObjectResult
+	result, err = api.ObjectAPI.PutObject(bucketName, objectName, credential, size, dataReader,
+		metadata, acl, sseRequest)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to create an object.")
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
+
 	if result.Md5 != "" {
 		w.Header().Set("ETag", "\""+result.Md5+"\"")
 	}
@@ -780,30 +772,24 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 		return
 	}
 
+	credential, dataReader, err := signature.VerifyUpload(r)
+	if err != nil {
+		WriteErrorResponse(w, r, err, r.URL.Path)
+		return
+	}
+
 	var result PutObjectPartResult
 	incomingMD5 := hex.EncodeToString(md5Bytes)
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
-		return
-	case signature.AuthTypeAnonymous:
-		// No need to verify signature, anonymous request access is already allowed.
-		result, err = api.ObjectAPI.PutObjectPart(bucketName, objectName, uploadID, partID,
-			size, r.Body, incomingMD5, sseRequest)
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		// Initialize signature verifier.
-		reader := signature.NewSignVerify(r)
-		result, err = api.ObjectAPI.PutObjectPart(bucketName, objectName, uploadID, partID,
-			size, reader, incomingMD5, sseRequest)
-	}
+	// No need to verify signature, anonymous request access is already allowed.
+	result, err = api.ObjectAPI.PutObjectPart(bucketName, objectName, credential,
+		uploadID, partID, size, dataReader, incomingMD5, sseRequest)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to create object part.")
 		// Verify if the underlying error is signature mismatch.
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
+
 	if result.ETag != "" {
 		w.Header().Set("ETag", "\""+result.ETag+"\"")
 	}

@@ -189,7 +189,7 @@ func DoesPresignedSignatureMatchV4(r *http.Request,
 	// Get canonical request.
 	query := r.URL.Query()
 	query.Del("X-Amz-Signature")
-	presignedCanonicalReq := getCanonicalRequest(canonicalHeaderString, unsignedPayload,
+	presignedCanonicalReq := getCanonicalRequest(canonicalHeaderString, UnsignedPayload,
 		query.Encode(), r.URL.Path, r.Method, preSignValues.SignedHeaders)
 
 	// Get string to sign from canonical request.

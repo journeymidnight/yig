@@ -47,7 +47,7 @@ type ObjectLayer interface {
 		sse datatype.SseRequest) (err error)
 	GetObjectInfo(bucket, object, version string, credential iam.Credential) (objInfo *meta.Object,
 		err error)
-	PutObject(bucket, object string, size int64, data io.Reader,
+	PutObject(bucket, object string, credential iam.Credential, size int64, data io.Reader,
 		metadata map[string]string, acl datatype.Acl,
 		sse datatype.SseRequest) (result datatype.PutObjectResult, err error)
 	CopyObject(targetObject *meta.Object, source io.Reader, credential iam.Credential,
@@ -63,8 +63,9 @@ type ObjectLayer interface {
 	NewMultipartUpload(credential iam.Credential, bucket, object string,
 		metadata map[string]string, acl datatype.Acl,
 		sse datatype.SseRequest) (uploadID string, err error)
-	PutObjectPart(bucket, object, uploadID string, partID int, size int64, data io.Reader,
-		md5Hex string, sse datatype.SseRequest) (result datatype.PutObjectPartResult, err error)
+	PutObjectPart(bucket, object string, credential iam.Credential, uploadID string, partID int,
+		size int64, data io.Reader, md5Hex string,
+		sse datatype.SseRequest) (result datatype.PutObjectPartResult, err error)
 	CopyObjectPart(bucketName, objectName, uploadId string, partId int, size int64, data io.Reader,
 		credential iam.Credential, sse datatype.SseRequest) (result datatype.PutObjectResult,
 		err error)

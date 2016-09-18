@@ -30,11 +30,6 @@ import (
 	"git.letv.cn/yig/yig/iam"
 )
 
-// Verify if the request http Header "x-amz-content-sha256" == "UNSIGNED-PAYLOAD"
-func isRequestUnsignedPayload(r *http.Request) bool {
-	return r.Header.Get("x-amz-content-sha256") == unsignedPayload
-}
-
 // Verify if request has AWS Signature
 // for v2, the Authorization header starts with "AWS ",
 // for v4, starts with "AWS4-HMAC-SHA256 " (notice the space after string)

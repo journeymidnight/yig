@@ -261,8 +261,8 @@ func (yig *YigStorage) NewMultipartUpload(credential iam.Credential, bucketName,
 	return
 }
 
-func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string, partId int,
-	size int64, data io.Reader, md5Hex string,
+func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential iam.Credential,
+	uploadId string, partId int, size int64, data io.Reader, md5Hex string,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectPartResult, err error) {
 
 	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
@@ -317,11 +317,14 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName, uploadId string, pa
 		return
 	}
 
-	credential, err := data.(*signature.SignVerifyReader).Verify()
-	if err != nil {
-		// FIXME: remove object in ceph
-		return
+	if signVerifyReader, ok := data.(*signature.SignVerifyReader); ok {
+		credential, err = signVerifyReader.Verify()
+		if err != nil {
+			// FIXME: remove object in ceph
+			return
+		}
 	}
+
 	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
 		return
