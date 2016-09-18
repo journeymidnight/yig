@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
-	"github.com/kataras/iris/errors"
+	"errors"
 	"github.com/tsuna/gohbase/hrpc"
 	"github.com/xxtea/xxtea-go/xxtea"
 	"golang.org/x/net/context"
