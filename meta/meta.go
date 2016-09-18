@@ -28,7 +28,7 @@ const (
 	CREATE_TIME_LAYOUT = "2006-01-02T15:04:05.000Z"
 
 	ENCRYPTION_KEY_LENGTH        = 32 // 32 bytes for AES-"256"
-	INITIALIZATION_VECTOR_LENGTH = 12 // best performance for GCM
+	INITIALIZATION_VECTOR_LENGTH = 16 // 12 bytes is best performance for GCM, but for CTR
 )
 
 var (

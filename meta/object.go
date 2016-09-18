@@ -181,7 +181,9 @@ func (o *Object) encryptSseKey() (err error) {
 		return err
 	}
 
-	o.EncryptionKey = aesGcm.Seal(nil, o.InitializationVector, o.EncryptionKey, nil)
+	// InitializationVector is 16 bytes(because of CTR), but use only first 12 bytes in GCM
+	// for performance
+	o.EncryptionKey = aesGcm.Seal(nil, o.InitializationVector[:12], o.EncryptionKey, nil)
 	return nil
 }
 
@@ -425,5 +427,7 @@ func decryptSseKey(initializationVector []byte, cipherText []byte) (plainText []
 		return
 	}
 
-	return aesGcm.Open(nil, initializationVector, cipherText, nil)
+	// InitializationVector is 16 bytes(because of CTR), but use only first 12 bytes in GCM
+	// for performance
+	return aesGcm.Open(nil, initializationVector[:12], cipherText, nil)
 }

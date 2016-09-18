@@ -47,6 +47,41 @@ def get_public_object(name, client):
     assert response.text == sanity.SMALL_TEST_FILE
 
 
+def object_encryption_s3(name, client):
+    client.put_object(
+        Body=sanity.SMALL_TEST_FILE,
+        Bucket=name+'hehe',
+        Key=name+'encrypted',
+        ServerSideEncryption='AES256',
+    )
+    ans = client.get_object(
+        Bucket=name+'hehe',
+        Key=name+'encrypted',
+    )
+    body = ans['Body'].read()
+    assert body == sanity.SMALL_TEST_FILE
+    print 'SSE-S3:', ans
+
+
+def object_encryption_customer_key(name, client):
+    client.put_object(
+        Body=sanity.SMALL_TEST_FILE,
+        Bucket=name+'hehe',
+        Key=name+'encrypted_custom',
+        SSECustomerAlgorithm='AES256',
+        SSECustomerKey='0123456789abcdef' * 2
+    )
+    ans = client.get_object(
+        Bucket=name+'hehe',
+        Key=name+'encrypted',
+        SSECustomerAlgorithm='AES256',
+        SSECustomerKey='0123456789abcdef' * 2
+    )
+    body = ans['Body'].read()
+    assert body == sanity.SMALL_TEST_FILE
+    print 'SSE-C:', ans
+
+
 # =====================================================
 
 TESTS = [
@@ -55,6 +90,8 @@ TESTS = [
     get_object_presigned,
     put_object_acl, get_object_acl,
     get_public_object,
+    object_encryption_s3,
+    object_encryption_customer_key,
 ]
 
 if __name__ == '__main__':

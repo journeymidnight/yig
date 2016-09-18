@@ -130,6 +130,7 @@ func parseSseHeader(header http.Header) (request SseRequest, err error) {
 			err = ErrInvalidSseHeader
 			return
 		}
+		request.SseCustomerKey = make([]byte, 0, len(key))
 		var n int
 		n, err = base64.StdEncoding.Decode(request.SseCustomerKey, []byte(key))
 		if err != nil {
