@@ -96,11 +96,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	case signature.AuthTypeAnonymous:
-		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
-		if err = enforceBucketPolicy("s3:GetObject", bucketName, r.URL); err != nil {
-			WriteErrorResponse(w, r, err, r.URL.Path)
-			return
-		}
+		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
@@ -110,7 +106,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 	version := r.URL.Query().Get("versionId")
 	// Fetch object stat info.
-	object, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName, version)
+	object, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName, version, credential)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
 		if err == ErrNoSuchKey {
@@ -118,30 +114,6 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		}
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
-	}
-	switch object.ACL.CannedAcl {
-	case "public-read", "public-read-write":
-		break
-	case "authenticated-read":
-		if credential.UserId == "" {
-			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
-			return
-		}
-	case "bucket-owner-read", "bucket-owner-full-control":
-		bucket, err := api.ObjectAPI.GetBucketInfo(bucketName, credential)
-		if err != nil {
-			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
-			return
-		}
-		if bucket.OwnerId != credential.UserId {
-			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
-			return
-		}
-	default:
-		if object.OwnerId != credential.UserId {
-			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
-			return
-		}
 	}
 
 	if object.DeleteMarker {
@@ -269,11 +241,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	case signature.AuthTypeAnonymous:
-		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
-		if err = enforceBucketPolicy("s3:GetObject", bucketName, r.URL); err != nil {
-			WriteErrorResponse(w, r, err, r.URL.Path)
-			return
-		}
+		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
@@ -283,7 +251,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	version := r.URL.Query().Get("versionId")
-	object, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName, version)
+	object, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName, version, credential)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
 		if err == ErrNoSuchKey {
@@ -292,29 +260,11 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
-	switch object.ACL.CannedAcl {
-	case "public-read", "public-read-write":
-		break
-	case "authenticated-read":
-		if credential.UserId == "" {
-			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
-			return
-		}
-	case "bucket-owner-read", "bucket-owner-full-control":
-		bucket, err := api.ObjectAPI.GetBucketInfo(bucketName, credential)
-		if err != nil {
-			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
-			return
-		}
-		if bucket.OwnerId != credential.UserId {
-			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
-			return
-		}
-	default:
-		if object.OwnerId != credential.UserId {
-			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
-			return
-		}
+
+	if object.DeleteMarker {
+		w.Header().Set("x-amz-delete-marker", "true")
+		WriteErrorResponse(w, r, ErrNoSuchKey, r.URL.Path)
+		return
 	}
 
 	// Get request range.
@@ -393,11 +343,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	case signature.AuthTypeAnonymous:
-		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
-		if err = enforceBucketPolicy("s3:PutObject", targetBucketName, r.URL); err != nil {
-			WriteErrorResponse(w, r, err, r.URL.Path)
-			return
-		}
+		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
@@ -454,7 +400,8 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	helper.Debugln("sourceBucketName", sourceBucketName, "sourceObjectName", sourceObjectName,
 		"sourceVersion", sourceVersion)
 
-	sourceObject, err := api.ObjectAPI.GetObjectInfo(sourceBucketName, sourceObjectName, sourceVersion)
+	sourceObject, err := api.ObjectAPI.GetObjectInfo(sourceBucketName, sourceObjectName,
+		sourceVersion, credential)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
 		WriteErrorResponse(w, r, err, copySource)
@@ -479,32 +426,6 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// TODO: refactor, same as in GetObjectHandler
-	switch sourceObject.ACL.CannedAcl {
-	case "public-read", "public-read-write":
-		break
-	case "authenticated-read":
-		if credential.UserId == "" {
-			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
-			return
-		}
-	case "bucket-owner-read", "bucket-owner-full-control":
-		bucket, err := api.ObjectAPI.GetBucketInfo(sourceBucketName, credential)
-		if err != nil {
-			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
-			return
-		}
-		if bucket.OwnerId != credential.UserId {
-			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
-			return
-		}
-	default:
-		if sourceObject.OwnerId != credential.UserId {
-			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
-			return
-		}
-	}
-
 	pipeReader, pipeWriter := io.Pipe()
 	go func() {
 		startOffset := int64(0) // Read the whole file.
@@ -524,14 +445,15 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
-	// reuse variable `sourceObject` and change some parameters,
-	// now it becomes "targetObject"
-	sourceObject.ACL = targetAcl
-	sourceObject.BucketName = targetBucketName
-	sourceObject.Name = targetObjectName
+
+	// Note that sourceObject and targetObject are pointers
+	targetObject := sourceObject
+	targetObject.ACL = targetAcl
+	targetObject.BucketName = targetBucketName
+	targetObject.Name = targetObjectName
 
 	// Create the object.
-	result, err := api.ObjectAPI.CopyObject(sourceObject, pipeReader, credential, sseRequest)
+	result, err := api.ObjectAPI.CopyObject(targetObject, pipeReader, credential, sseRequest)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to create an object.")
 		WriteErrorResponse(w, r, err, r.URL.Path)
@@ -576,8 +498,8 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 	vars := mux.Vars(r)
-	bucket := vars["bucket"]
-	object := vars["object"]
+	bucketName := vars["bucket"]
+	objectName := vars["object"]
 
 	// Get Content-Md5 sent by client and verify if valid
 	md5Bytes, err := checkValidMD5(r.Header.Get("Content-Md5"))
@@ -622,20 +544,15 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	case signature.AuthTypeAnonymous:
-		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
-		if s3Error := enforceBucketPolicy("s3:PutObject", bucket, r.URL); s3Error != nil {
-			WriteErrorResponse(w, r, s3Error, r.URL.Path)
-			return
-		}
 		// Create anonymous object.
-		result, err = api.ObjectAPI.PutObject(bucket, object, size, r.Body,
+		result, err = api.ObjectAPI.PutObject(bucketName, objectName, size, r.Body,
 			metadata, acl, sseRequest)
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		// Initialize signature verifier.
 		reader := signature.NewSignVerify(r)
 		// Create object.
-		result, err = api.ObjectAPI.PutObject(bucket, object, size, reader,
+		result, err = api.ObjectAPI.PutObject(bucketName, objectName, size, reader,
 			metadata, acl, sseRequest)
 	}
 	if err != nil {
@@ -676,11 +593,7 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	case signature.AuthTypeAnonymous:
-		// http://docs.aws.amazon.com/AmazonS3/latest/dev/mpuAndPermissions.html
-		if s3Error := enforceBucketPolicy("s3:PutObject", bucketName, r.URL); s3Error != nil {
-			WriteErrorResponse(w, r, s3Error, r.URL.Path)
-			return
-		}
+		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
@@ -722,11 +635,7 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	case signature.AuthTypeAnonymous:
-		// http://docs.aws.amazon.com/AmazonS3/latest/dev/mpuAndPermissions.html
-		if s3Error := enforceBucketPolicy("s3:PutObject", bucketName, r.URL); s3Error != nil {
-			WriteErrorResponse(w, r, s3Error, r.URL.Path)
-			return
-		}
+		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
@@ -737,7 +646,7 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 
 	version := r.URL.Query().Get("versionId")
 
-	object, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName, version)
+	object, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName, version, credential)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
 		WriteErrorResponse(w, r, err, r.URL.Path)
@@ -761,10 +670,9 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 
 // NewMultipartUploadHandler - New multipart upload
 func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r *http.Request) {
-	var object, bucket string
 	vars := mux.Vars(r)
-	bucket = vars["bucket"]
-	object = vars["object"]
+	bucketName := vars["bucket"]
+	objectName := vars["object"]
 
 	var credential iam.Credential
 	var err error
@@ -774,11 +682,7 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	case signature.AuthTypeAnonymous:
-		// http://docs.aws.amazon.com/AmazonS3/latest/dev/mpuAndPermissions.html
-		if s3Error := enforceBucketPolicy("s3:PutObject", bucket, r.URL); s3Error != nil {
-			WriteErrorResponse(w, r, s3Error, r.URL.Path)
-			return
-		}
+		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
@@ -802,7 +706,7 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 		return
 	}
 
-	uploadID, err := api.ObjectAPI.NewMultipartUpload(credential, bucket, object,
+	uploadID, err := api.ObjectAPI.NewMultipartUpload(credential, bucketName, objectName,
 		metadata, acl, sseRequest)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to initiate new multipart upload id.")
@@ -810,7 +714,7 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 		return
 	}
 
-	response := GenerateInitiateMultipartUploadResponse(bucket, object, uploadID)
+	response := GenerateInitiateMultipartUploadResponse(bucketName, objectName, uploadID)
 	encodedSuccessResponse := EncodeResponse(response)
 	// Set SSE related headers
 	for _, headerName := range []string{
@@ -832,8 +736,8 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 // PutObjectPartHandler - Upload part
 func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	bucket := vars["bucket"]
-	object := vars["object"]
+	bucketName := vars["bucket"]
+	objectName := vars["object"]
 
 	// get Content-Md5 sent by client and verify if valid
 	md5Bytes, err := checkValidMD5(r.Header.Get("Content-Md5"))
@@ -884,19 +788,14 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	case signature.AuthTypeAnonymous:
-		// http://docs.aws.amazon.com/AmazonS3/latest/dev/mpuAndPermissions.html
-		if s3Error := enforceBucketPolicy("s3:PutObject", bucket, r.URL); s3Error != nil {
-			WriteErrorResponse(w, r, s3Error, r.URL.Path)
-			return
-		}
 		// No need to verify signature, anonymous request access is already allowed.
-		result, err = api.ObjectAPI.PutObjectPart(bucket, object, uploadID, partID,
+		result, err = api.ObjectAPI.PutObjectPart(bucketName, objectName, uploadID, partID,
 			size, r.Body, incomingMD5, sseRequest)
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		// Initialize signature verifier.
 		reader := signature.NewSignVerify(r)
-		result, err = api.ObjectAPI.PutObjectPart(bucket, object, uploadID, partID,
+		result, err = api.ObjectAPI.PutObjectPart(bucketName, objectName, uploadID, partID,
 			size, reader, incomingMD5, sseRequest)
 	}
 	if err != nil {
@@ -939,11 +838,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	case signature.AuthTypeAnonymous:
-		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
-		if err = enforceBucketPolicy("s3:PutObject", targetBucketName, r.URL); err != nil {
-			WriteErrorResponse(w, r, err, r.URL.Path)
-			return
-		}
+		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
@@ -1011,7 +906,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 	}
 
 	sourceObject, err := api.ObjectAPI.GetObjectInfo(sourceBucketName, sourceObjectName,
-		sourceVersion)
+		sourceVersion, credential)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
 		WriteErrorResponse(w, r, err, copySource)
@@ -1052,32 +947,6 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 	if isMaxObjectSize(readLength) {
 		WriteErrorResponse(w, r, ErrEntityTooLarge, copySource)
 		return
-	}
-
-	// TODO: refactor, same as in GetObjectHandler
-	switch sourceObject.ACL.CannedAcl {
-	case "public-read", "public-read-write":
-		break
-	case "authenticated-read":
-		if credential.UserId == "" {
-			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
-			return
-		}
-	case "bucket-owner-read", "bucket-owner-full-control":
-		bucket, err := api.ObjectAPI.GetBucketInfo(sourceBucketName, credential)
-		if err != nil {
-			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
-			return
-		}
-		if bucket.OwnerId != credential.UserId {
-			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
-			return
-		}
-	default:
-		if sourceObject.OwnerId != credential.UserId {
-			WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
-			return
-		}
 	}
 
 	pipeReader, pipeWriter := io.Pipe()
@@ -1127,8 +996,8 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 // AbortMultipartUploadHandler - Abort multipart upload
 func (api ObjectAPIHandlers) AbortMultipartUploadHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	bucket := vars["bucket"]
-	object := vars["object"]
+	bucketName := vars["bucket"]
+	objectName := vars["object"]
 
 	var credential iam.Credential
 	var err error
@@ -1138,11 +1007,7 @@ func (api ObjectAPIHandlers) AbortMultipartUploadHandler(w http.ResponseWriter, 
 		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	case signature.AuthTypeAnonymous:
-		// http://docs.aws.amazon.com/AmazonS3/latest/dev/mpuAndPermissions.html
-		if err = enforceBucketPolicy("s3:AbortMultipartUpload", bucket, r.URL); err != nil {
-			WriteErrorResponse(w, r, err, r.URL.Path)
-			return
-		}
+		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
@@ -1152,7 +1017,9 @@ func (api ObjectAPIHandlers) AbortMultipartUploadHandler(w http.ResponseWriter, 
 	}
 
 	uploadId := r.URL.Query().Get("uploadId")
-	if err := api.ObjectAPI.AbortMultipartUpload(credential, bucket, object, uploadId); err != nil {
+	if err := api.ObjectAPI.AbortMultipartUpload(credential, bucketName,
+		objectName, uploadId); err != nil {
+
 		helper.ErrorIf(err, "Unable to abort multipart upload.")
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
@@ -1187,11 +1054,7 @@ func (api ObjectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	case signature.AuthTypeAnonymous:
-		// http://docs.aws.amazon.com/AmazonS3/latest/dev/mpuAndPermissions.html
-		if err = enforceBucketPolicy("s3:ListMultipartUploadParts", bucketName, r.URL); err != nil {
-			WriteErrorResponse(w, r, err, r.URL.Path)
-			return
-		}
+		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
@@ -1222,8 +1085,8 @@ func (api ObjectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 // CompleteMultipartUploadHandler - Complete multipart upload
 func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	bucket := vars["bucket"]
-	object := vars["object"]
+	bucketName := vars["bucket"]
+	objectName := vars["object"]
 
 	// Get upload id.
 	uploadId := r.URL.Query().Get("uploadId")
@@ -1236,11 +1099,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	case signature.AuthTypeAnonymous:
-		// http://docs.aws.amazon.com/AmazonS3/latest/dev/mpuAndPermissions.html
-		if err = enforceBucketPolicy("s3:PutObject", bucket, r.URL); err != nil {
-			WriteErrorResponse(w, r, err, r.URL.Path)
-			return
-		}
+		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
@@ -1284,8 +1143,8 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	doneCh := make(chan struct{})
 	// Signal that completeMultipartUpload is over via doneCh
 	go func(doneCh chan<- struct{}) {
-		result, err = api.ObjectAPI.CompleteMultipartUpload(credential, bucket,
-			object, uploadId, completeParts)
+		result, err = api.ObjectAPI.CompleteMultipartUpload(credential, bucketName,
+			objectName, uploadId, completeParts)
 		doneCh <- struct{}{}
 	}(doneCh)
 
@@ -1307,7 +1166,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	// Get object location.
 	location := GetLocation(r)
 	// Generate complete multipart response.
-	response := GenerateCompleteMultpartUploadResponse(bucket, object, location, result.ETag)
+	response := GenerateCompleteMultpartUploadResponse(bucketName, objectName, location, result.ETag)
 	encodedSuccessResponse, err := xml.Marshal(response)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to parse CompleteMultipartUpload response")
@@ -1341,8 +1200,8 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 // DeleteObjectHandler - delete an object
 func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	bucket := vars["bucket"]
-	object := vars["object"]
+	bucketName := vars["bucket"]
+	objectName := vars["object"]
 
 	var credential iam.Credential
 	var err error
@@ -1352,11 +1211,7 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	case signature.AuthTypeAnonymous:
-		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
-		if err = enforceBucketPolicy("s3:DeleteObject", bucket, r.URL); err != nil {
-			WriteErrorResponse(w, r, err, r.URL.Path)
-			return
-		}
+		break
 	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
 		signature.AuthTypeSignedV2, signature.AuthTypePresignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
@@ -1368,7 +1223,7 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 	/// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectDELETE.html
 	/// Ignore delete object errors, since we are supposed to reply
 	/// only 204.
-	result, err := api.ObjectAPI.DeleteObject(bucket, object, version, credential)
+	result, err := api.ObjectAPI.DeleteObject(bucketName, objectName, version, credential)
 	if err != nil {
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return

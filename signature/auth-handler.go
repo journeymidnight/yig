@@ -117,9 +117,6 @@ func sumMD5(data []byte) []byte {
 
 // A helper function to verify if request has valid AWS Signature
 func IsReqAuthenticated(r *http.Request) (c iam.Credential, e error) {
-	if r == nil {
-		return c, ErrInternalError
-	}
 	payload, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return c, ErrInternalError

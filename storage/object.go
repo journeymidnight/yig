@@ -124,12 +124,43 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 }
 
 func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
-	version string) (*meta.Object, error) {
+	version string, credential iam.Credential) (object *meta.Object, err error) {
+
 	if version == "" {
-		return yig.MetaStorage.GetObject(bucketName, objectName)
+		object, err = yig.MetaStorage.GetObject(bucketName, objectName)
 	} else {
-		return yig.MetaStorage.GetObjectVersion(bucketName, objectName, version)
+		object, err = yig.MetaStorage.GetObjectVersion(bucketName, objectName, version)
 	}
+	if err != nil {
+		return
+	}
+
+	switch object.ACL.CannedAcl {
+	case "public-read", "public-read-write":
+		break
+	case "authenticated-read":
+		if credential.UserId == "" {
+			err = ErrAccessDenied
+			return
+		}
+	case "bucket-owner-read", "bucket-owner-full-control":
+		bucket, err := yig.GetBucket(bucketName)
+		if err != nil {
+			err = ErrAccessDenied
+			return
+		}
+		if bucket.OwnerId != credential.UserId {
+			err = ErrAccessDenied
+			return
+		}
+	default:
+		if object.OwnerId != credential.UserId {
+			err = ErrAccessDenied
+			return
+		}
+	}
+
+	return
 }
 
 func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, version string,

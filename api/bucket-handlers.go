@@ -79,7 +79,7 @@ func enforceBucketPolicy(action string, bucket string, reqURL *url.URL) (s3Error
 // This operation returns bucket location.
 func (api ObjectAPIHandlers) GetBucketLocationHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	bucket := vars["bucket"]
+	bucketName := vars["bucket"]
 
 	var credential iam.Credential
 	var err error
@@ -89,11 +89,7 @@ func (api ObjectAPIHandlers) GetBucketLocationHandler(w http.ResponseWriter, r *
 		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	case signature.AuthTypeAnonymous:
-		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
-		if s3Error := enforceBucketPolicy("s3:GetBucketLocation", bucket, r.URL); s3Error != nil {
-			WriteErrorResponse(w, r, s3Error, r.URL.Path)
-			return
-		}
+		break
 	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
@@ -102,7 +98,7 @@ func (api ObjectAPIHandlers) GetBucketLocationHandler(w http.ResponseWriter, r *
 		}
 	}
 
-	if _, err = api.ObjectAPI.GetBucketInfo(bucket, credential); err != nil {
+	if _, err = api.ObjectAPI.GetBucketInfo(bucketName, credential); err != nil {
 		helper.ErrorIf(err, "Unable to fetch bucket info.")
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
@@ -136,11 +132,7 @@ func (api ObjectAPIHandlers) ListMultipartUploadsHandler(w http.ResponseWriter, 
 		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	case signature.AuthTypeAnonymous:
-		// http://docs.aws.amazon.com/AmazonS3/latest/dev/mpuAndPermissions.html
-		if err := enforceBucketPolicy("s3:ListBucketMultipartUploads", bucketName, r.URL); err != nil {
-			WriteErrorResponse(w, r, err, r.URL.Path)
-			return
-		}
+		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
@@ -186,11 +178,7 @@ func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	case signature.AuthTypeAnonymous:
-		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
-		if err := enforceBucketPolicy("s3:ListBucket", bucketName, r.URL); err != nil {
-			WriteErrorResponse(w, r, err, r.URL.Path)
-			return
-		}
+		break
 	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
 		signature.AuthTypeSignedV2, signature.AuthTypePresignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
@@ -234,11 +222,7 @@ func (api ObjectAPIHandlers) ListVersionedObjectsHandler(w http.ResponseWriter, 
 		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	case signature.AuthTypeAnonymous:
-		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
-		if err := enforceBucketPolicy("s3:ListBucket", bucketName, r.URL); err != nil {
-			WriteErrorResponse(w, r, err, r.URL.Path)
-			return
-		}
+		break
 	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
 		signature.AuthTypeSignedV2, signature.AuthTypePresignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
@@ -312,11 +296,7 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	case signature.AuthTypeAnonymous:
-		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
-		if err = enforceBucketPolicy("s3:DeleteObject", bucket, r.URL); err != nil {
-			WriteErrorResponse(w, r, err, r.URL.Path)
-			return
-		}
+		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
@@ -480,11 +460,7 @@ func (api ObjectAPIHandlers) GetBucketAclHandler(w http.ResponseWriter, r *http.
 		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	case signature.AuthTypeAnonymous:
-		// http://docs.aws.amazon.com/AmazonS3/latest/dev/mpuAndPermissions.html
-		if s3Error := enforceBucketPolicy("s3:PutObject", bucketName, r.URL); s3Error != nil {
-			WriteErrorResponse(w, r, s3Error, r.URL.Path)
-			return
-		}
+		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
@@ -792,11 +768,7 @@ func (api ObjectAPIHandlers) HeadBucketHandler(w http.ResponseWriter, r *http.Re
 		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
 		return
 	case signature.AuthTypeAnonymous:
-		// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
-		if s3Error = enforceBucketPolicy("s3:ListBucket", bucket, r.URL); s3Error != nil {
-			WriteErrorResponse(w, r, s3Error, r.URL.Path)
-			return
-		}
+		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, s3Error = signature.IsReqAuthenticated(r); s3Error != nil {
