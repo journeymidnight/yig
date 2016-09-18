@@ -692,12 +692,13 @@ func (api ObjectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *h
 
 	bucket := mux.Vars(r)["bucket"]
 
+	var credential iam.Credential
 	postPolicyType := signature.GetPostPolicyType(formValues)
 	switch postPolicyType {
 	case signature.PostPolicyV2:
-		_, err = signature.DoesPolicySignatureMatchV2(formValues)
+		credential, err = signature.DoesPolicySignatureMatchV2(formValues)
 	case signature.PostPolicyV4:
-		_, err = signature.DoesPolicySignatureMatchV4(formValues)
+		credential, err = signature.DoesPolicySignatureMatchV4(formValues)
 		formValues["Bucket"] = bucket
 	case signature.PostPolicyUnknown:
 		WriteErrorResponse(w, r, ErrMalformedPOSTRequest, r.URL.Path)
@@ -730,8 +731,8 @@ func (api ObjectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *h
 	}
 
 	object := formValues["Key"]
-	result, err := api.ObjectAPI.PutObject(bucket, object, -1, fileBody, metadata,
-		acl, sseRequest)
+	result, err := api.ObjectAPI.PutObject(bucket, object, credential, -1, fileBody,
+		metadata, acl, sseRequest)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to create object.")
 		WriteErrorResponse(w, r, err, r.URL.Path)

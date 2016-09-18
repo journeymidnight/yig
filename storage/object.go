@@ -146,12 +146,10 @@ func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 	case "bucket-owner-read", "bucket-owner-full-control":
 		bucket, err := yig.GetBucket(bucketName)
 		if err != nil {
-			err = ErrAccessDenied
-			return
+			return object, ErrAccessDenied
 		}
 		if bucket.OwnerId != credential.UserId {
-			err = ErrAccessDenied
-			return
+			return object, ErrAccessDenied
 		}
 	default:
 		if object.OwnerId != credential.UserId {
