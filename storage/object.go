@@ -99,12 +99,12 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 				continue
 			}
 
-			reader, err := cephCluster.getAlignedReader(object.Pool, object.ObjectId,
-				startOffset, length)
+			reader, err := cephCluster.getAlignedReader(p.Pool, p.ObjectId,
+				readOffset, length)
 			if err != nil {
 				return err
 			}
-			decryptedReader, err := wrapAlignedEncryptionReader(reader, startOffset,
+			decryptedReader, err := wrapAlignedEncryptionReader(reader, readOffset,
 				encryptionKey, p.InitializationVector)
 			if err != nil {
 				return err

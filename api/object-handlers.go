@@ -467,6 +467,9 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	response := GenerateCopyObjectResponse(result.Md5, result.LastModified)
 	encodedSuccessResponse := EncodeResponse(response)
 	// write headers
+	if result.Md5 != "" {
+		w.Header().Set("ETag", "\""+result.Md5+"\"")
+	}
 	SetCommonHeaders(w)
 	if sourceVersion != "" {
 		w.Header().Set("x-amz-copy-source-version-id", sourceVersion)
@@ -964,6 +967,9 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 	response := GenerateCopyObjectPartResponse(result.Md5, result.LastModified)
 	encodedSuccessResponse := EncodeResponse(response)
 	// write headers
+	if result.Md5 != "" {
+		w.Header().Set("ETag", "\""+result.Md5+"\"")
+	}
 	SetCommonHeaders(w)
 	if sourceVersion != "" {
 		w.Header().Set("x-amz-copy-source-version-id", sourceVersion)
