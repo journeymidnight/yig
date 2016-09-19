@@ -91,7 +91,7 @@ def sse_custom_multipart(name, client):
         CopySourceRange='bytes=1048576-2097151'
     )
     print 'Copy SSE-C part 2:', ans
-    etag_2 = ans['ETag']
+    etag_2 = ans['CopyPartResult']['ETag']
 
     ans = client.complete_multipart_upload(
         Bucket=name+'hehe',

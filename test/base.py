@@ -41,7 +41,7 @@ def run(tests):
             try:
                 t(name, client)
             except Exception as e:
-                print 'Exception: ', e
+                print 'Exception: ', type(e), e
             after = time.time()
             print 'Time elapsed: ', after - before, 'sec'
             if (e is None and not is_a_fail_test(t)) or (e and is_a_fail_test(t)):
