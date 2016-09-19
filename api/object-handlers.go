@@ -160,7 +160,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
 	}
-	if len(sseRequest.CopySourceSseCustomerKey != 0) {
+	if len(sseRequest.CopySourceSseCustomerKey) != 0 {
 		WriteErrorResponse(w, r, ErrInvalidSseHeader, r.URL.Path)
 		return
 	}

@@ -293,7 +293,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		NullVersion:          helper.Ternary(bucket.Versioning == "Enabled", false, true).(bool),
 		DeleteMarker:         false,
 		SseType:              sseRequest.Type,
-		EncryptionKey:        helper.Ternary(sseRequest.Type == "S3", encryptionKey, ""),
+		EncryptionKey:        helper.Ternary(sseRequest.Type == "S3", encryptionKey, []byte("")).([]byte),
 		InitializationVector: initializationVector,
 		// TODO CustomAttributes
 	}
