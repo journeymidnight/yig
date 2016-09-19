@@ -279,21 +279,22 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	// TODO validate bucket policy and fancy ACL
 
 	object := &meta.Object{
-		Name:                 objectName,
-		BucketName:           bucketName,
-		Location:             cephCluster.Name,
-		Pool:                 poolName,
-		OwnerId:              credential.UserId,
-		Size:                 bytesWritten,
-		ObjectId:             oid,
-		LastModifiedTime:     time.Now().UTC(),
-		Etag:                 calculatedMd5,
-		ContentType:          metadata["Content-Type"],
-		ACL:                  acl,
-		NullVersion:          helper.Ternary(bucket.Versioning == "Enabled", false, true).(bool),
-		DeleteMarker:         false,
-		SseType:              sseRequest.Type,
-		EncryptionKey:        helper.Ternary(sseRequest.Type == "S3", encryptionKey, []byte("")).([]byte),
+		Name:             objectName,
+		BucketName:       bucketName,
+		Location:         cephCluster.Name,
+		Pool:             poolName,
+		OwnerId:          credential.UserId,
+		Size:             bytesWritten,
+		ObjectId:         oid,
+		LastModifiedTime: time.Now().UTC(),
+		Etag:             calculatedMd5,
+		ContentType:      metadata["Content-Type"],
+		ACL:              acl,
+		NullVersion:      helper.Ternary(bucket.Versioning == "Enabled", false, true).(bool),
+		DeleteMarker:     false,
+		SseType:          sseRequest.Type,
+		EncryptionKey: helper.Ternary(sseRequest.Type == "S3",
+			encryptionKey, []byte("")).([]byte),
 		InitializationVector: initializationVector,
 		// TODO CustomAttributes
 	}
@@ -394,7 +395,8 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 	targetObject.LastModifiedTime = time.Now().UTC()
 	targetObject.NullVersion = helper.Ternary(bucket.Versioning == "Enabled", false, true).(bool)
 	targetObject.SseType = sseRequest.Type
-	targetObject.EncryptionKey = encryptionKey
+	targetObject.EncryptionKey = helper.Ternary(sseRequest.Type == "S3",
+		encryptionKey, []byte("")).([]byte)
 	targetObject.InitializationVector = initializationVector
 
 	result.LastModified = targetObject.LastModifiedTime

@@ -3,19 +3,18 @@
 package iam
 
 import (
+	"encoding/json"
 	"fmt"
+	"git.letv.cn/yig/yig/helper"
+	"io/ioutil"
+	"net/http"
 	"regexp"
 	"strings"
-	"io/ioutil"
-	"encoding/json"
-	"git.letv.cn/yig/yig/helper"
-	"net/http"
 )
 
 // TODO config file
 const (
-	RegisterUrl            = "http://10.112.32.208:9006"
-
+	RegisterUrl = "http://10.112.32.208:9006"
 )
 
 // credential container for access and secret keys.
@@ -27,32 +26,32 @@ type Credential struct {
 }
 
 type AccessKeyItem struct {
-	ProjectId string `json:"projectId"`
-	Name string `json:"name"`
-	AccessKey string `json:"accessKey"`
+	ProjectId    string `json:"projectId"`
+	Name         string `json:"name"`
+	AccessKey    string `json:"accessKey"`
 	AccessSecret string `json:"accessSecret"`
-	Status string `json:"status"`
-	Updated string `json:"updated"`
+	Status       string `json:"status"`
+	Updated      string `json:"updated"`
 }
 
 type Query struct {
-	Action string `json:"action"`
-	ProjectId string `json:"projectId"`
+	Action     string   `json:"action"`
+	ProjectId  string   `json:"projectId"`
 	AccessKeys []string `json:"accessKeys"`
-	Limit int `json:"limit"`
+	Limit      int      `json:"limit"`
 }
 
 type QueryResp struct {
-	Limit int `json:"limit"`
-	Total int `json:"total"`
-	Offset int `json:"offset"`
+	Limit        int             `json:"limit"`
+	Total        int             `json:"total"`
+	Offset       int             `json:"offset"`
 	AccessKeySet []AccessKeyItem `json:"accessKeySet"`
 }
 
 type QueryRespAll struct {
-	Message string `json:"message"`
-	Data QueryResp `json:"data"`
-	RetCode int `json:"retCode"`
+	Message string    `json:"message"`
+	Data    QueryResp `json:"data"`
+	RetCode int       `json:"retCode"`
 }
 
 // stringer colorized access keys.
@@ -84,20 +83,20 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 	b, err := json.Marshal(query)
 	if err != nil {
 		slog.Println("json err:", err)
-		return Credential{},err
+		return Credential{}, err
 	}
 	request, _ := http.NewRequest("POST", RegisterUrl, strings.NewReader(string(b)))
 	request.Header.Set("X-Le-Key", "key")
 	request.Header.Set("X-Le-Secret", "secret")
-	slog.Println("replay request:",request,string(b))
-	response,_ := client.Do(request)
+	slog.Println("replay request:", request, string(b))
+	response, _ := client.Do(request)
 	if response.StatusCode != 200 {
 		slog.Println("Query to IAM failed as status != 200")
 		return Credential{}, fmt.Errorf("Query to IAM failed as status != 200")
 	}
 
 	body, _ := ioutil.ReadAll(response.Body)
-	slog.Println("here1",string(body))
+	slog.Println("here1", string(body))
 	dec := json.NewDecoder(strings.NewReader(string(body)))
 	if err := dec.Decode(&queryRetAll); err != nil {
 		slog.Println("Decode QueryHistoryResp failed")
