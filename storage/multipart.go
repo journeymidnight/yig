@@ -278,8 +278,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential i
 	// compare uploadPart SSE header content with multipart initiation SSE header
 	if sseRequest.Type != multipart.Metadata.SseRequest.Type ||
 		sseRequest.SseCustomerAlgorithm != multipart.Metadata.SseRequest.SseCustomerAlgorithm ||
-		sseRequest.SseAwsKmsKeyId != multipart.Metadata.SseRequest.SseAwsKmsKeyId ||
-		!bytes.Equal(sseRequest.SseCustomerKey, multipart.Metadata.SseRequest.SseCustomerKey) {
+		sseRequest.SseAwsKmsKeyId != multipart.Metadata.SseRequest.SseAwsKmsKeyId {
 		err = ErrInvalidSseHeader
 		return
 	}

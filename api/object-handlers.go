@@ -772,7 +772,7 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 
 	sseRequest, err := parseSseHeader(r.Header)
 	if err != nil {
-		WriteErrorResponse(w, r, ErrInvalidMaxParts, r.URL.Path)
+		WriteErrorResponse(w, r, ErrInvalidSseHeader, r.URL.Path)
 		return
 	}
 

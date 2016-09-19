@@ -209,6 +209,44 @@ def sse_copy_custom_to_custom(name, client):
     assert body == sanity.SMALL_TEST_FILE
     print 'SSE copy: plain to s3:', ans
 
+
+def delete_multiple_objects(name, client):
+    ans = client.delete_objects(
+        Bucket=name+'hehe',
+        Delete={
+            'Objects': [
+                {
+                    'Key': name+'hehe'
+                },
+                {
+                    'Key': name+'encrypted'
+                },
+                {
+                    'Key': name+'encrypted_custom'
+                },
+                {
+                    'Key': name+'encrypted_wrong_key'
+                },
+                {
+                    'Key': name+'plain'
+                },
+                {
+                    'Key': name+'to_s3'
+                },
+                {
+                    'Key': name+'to_custom'
+                },
+                {
+                    'Key': name+'_s3'
+                },
+                {
+                    'Key': name+'_custom'
+                }
+            ]
+        }
+    )
+    print 'Delete multiple objects:', ans
+
 # =====================================================
 
 TESTS = [
@@ -224,6 +262,8 @@ TESTS = [
     sse_copy_plain_to_custom,
     sse_copy_s3_to_custom,
     sse_copy_custom_to_custom,
+    delete_multiple_objects,
+    sanity.delete_bucket,
 ]
 
 if __name__ == '__main__':
