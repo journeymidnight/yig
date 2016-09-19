@@ -31,8 +31,6 @@ func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size 
 func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 	length int64, writer io.Writer, sseRequest datatype.SseRequest) (err error) {
 
-	// TODO move delete-marker related code to storage layer
-
 	var encryptionKey []byte
 	if object.SseType == "S3" {
 		encryptionKey = object.EncryptionKey
@@ -295,7 +293,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		NullVersion:          helper.Ternary(bucket.Versioning == "Enabled", false, true).(bool),
 		DeleteMarker:         false,
 		SseType:              sseRequest.Type,
-		EncryptionKey:        encryptionKey,
+		EncryptionKey:        helper.Ternary(sseRequest.Type == "S3", encryptionKey, ""),
 		InitializationVector: initializationVector,
 		// TODO CustomAttributes
 	}

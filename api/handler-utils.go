@@ -140,6 +140,7 @@ func parseSseHeader(header http.Header) (request SseRequest, err error) {
 			err = ErrInvalidSseHeader
 			return
 		}
+		request.SseCustomerKey = request.SseCustomerKey[:32]
 		// base64-encoded 128-bit MD5 digest of the encryption key
 		userMd5 := header.Get("X-Amz-Server-Side-Encryption-Customer-Key-Md5")
 		if userMd5 == "" {
@@ -165,6 +166,7 @@ func parseSseHeader(header http.Header) (request SseRequest, err error) {
 			err = ErrInvalidSseHeader
 			return
 		}
+		request.CopySourceSseCustomerKey = make([]byte, 0, len(key))
 		var n int
 		n, err = base64.StdEncoding.Decode(request.CopySourceSseCustomerKey, []byte(key))
 		if err != nil {
@@ -174,6 +176,7 @@ func parseSseHeader(header http.Header) (request SseRequest, err error) {
 			err = ErrInvalidSseHeader
 			return
 		}
+		request.CopySourceSseCustomerKey = request.CopySourceSseCustomerKey[:32]
 		userMd5 := header.Get("X-Amz-Copy-Source-Server-Side-Encryption-Customer-Key-Md5")
 		if userMd5 == "" {
 			err = ErrInvalidSseHeader
