@@ -228,9 +228,13 @@ func (yig *YigStorage) NewMultipartUpload(credential iam.Credential, bucketName,
 		Acl:         acl,
 		SseRequest:  sseRequest,
 	}
-	multipartMetadata.EncryptionKey, err = encryptionKeyFromSseRequest(sseRequest)
-	if err != nil {
-		return
+	if sseRequest.Type == "S3" {
+		multipartMetadata.EncryptionKey, err = encryptionKeyFromSseRequest(sseRequest)
+		if err != nil {
+			return
+		}
+	} else {
+		multipartMetadata.EncryptionKey = nil
 	}
 
 	multipart := &meta.Multipart{
@@ -275,11 +279,20 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential i
 		return
 	}
 
-	// compare uploadPart SSE header content with multipart initiation SSE header
-	if sseRequest.Type != multipart.Metadata.SseRequest.Type ||
-		sseRequest.SseCustomerAlgorithm != multipart.Metadata.SseRequest.SseCustomerAlgorithm ||
-		sseRequest.SseAwsKmsKeyId != multipart.Metadata.SseRequest.SseAwsKmsKeyId {
-		err = ErrInvalidSseHeader
+	var encryptionKey []byte
+	switch multipart.Metadata.SseRequest.Type {
+	case "":
+		break
+	case "C":
+		if sseRequest.Type != "C" {
+			err = ErrInvalidSseHeader
+			return
+		}
+		encryptionKey = sseRequest.SseCustomerKey
+	case "S3":
+		encryptionKey = multipart.Metadata.EncryptionKey
+	case "KMS":
+		err = ErrNotImplemented
 		return
 	}
 
@@ -290,13 +303,13 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential i
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
 
 	var initializationVector []byte
-	if len(multipart.Metadata.EncryptionKey) != 0 {
+	if len(encryptionKey) != 0 {
 		initializationVector, err = newInitializationVector()
 		if err != nil {
 			return
 		}
 	}
-	storageReader, err := wrapEncryptionReader(dataReader, multipart.Metadata.EncryptionKey,
+	storageReader, err := wrapEncryptionReader(dataReader, encryptionKey,
 		initializationVector)
 	if err != nil {
 		return
@@ -389,12 +402,20 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 		return
 	}
 
-	// compare copyPart SSE header content with multipart initiation SSE header
-	if sseRequest.Type != multipart.Metadata.SseRequest.Type ||
-		sseRequest.SseCustomerAlgorithm != multipart.Metadata.SseRequest.SseCustomerAlgorithm ||
-		sseRequest.SseAwsKmsKeyId != multipart.Metadata.SseRequest.SseAwsKmsKeyId ||
-		!bytes.Equal(sseRequest.SseCustomerKey, multipart.Metadata.SseRequest.SseCustomerKey) {
-		err = ErrInvalidSseHeader
+	var encryptionKey []byte
+	switch multipart.Metadata.SseRequest.Type {
+	case "":
+		break
+	case "C":
+		if sseRequest.Type != "C" {
+			err = ErrInvalidSseHeader
+			return
+		}
+		encryptionKey = sseRequest.SseCustomerKey
+	case "S3":
+		encryptionKey = multipart.Metadata.EncryptionKey
+	case "KMS":
+		err = ErrNotImplemented
 		return
 	}
 
@@ -405,13 +426,13 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
 
 	var initializationVector []byte
-	if len(multipart.Metadata.EncryptionKey) != 0 {
+	if len(encryptionKey) != 0 {
 		initializationVector, err = newInitializationVector()
 		if err != nil {
 			return
 		}
 	}
-	storageReader, err := wrapEncryptionReader(dataReader, multipart.Metadata.EncryptionKey,
+	storageReader, err := wrapEncryptionReader(dataReader, encryptionKey,
 		initializationVector)
 	if err != nil {
 		return

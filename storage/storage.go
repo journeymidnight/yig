@@ -82,19 +82,19 @@ func newInitializationVector() (initializationVector []byte, err error) {
 func wrapEncryptionReader(reader io.Reader, encryptionKey []byte,
 	initializationVector []byte) (wrappedReader io.Reader, err error) {
 
-	wrappedReader = reader
+	if len(encryptionKey) == 0 {
+		return reader, nil
+	}
 
-	if len(encryptionKey) != 0 {
-		var block cipher.Block
-		block, err = aes.NewCipher(encryptionKey)
-		if err != nil {
-			return
-		}
-		stream := cipher.NewCTR(block, initializationVector)
-		wrappedReader = cipher.StreamReader{
-			S: stream,
-			R: reader,
-		}
+	var block cipher.Block
+	block, err = aes.NewCipher(encryptionKey)
+	if err != nil {
+		return
+	}
+	stream := cipher.NewCTR(block, initializationVector)
+	wrappedReader = cipher.StreamReader{
+		S: stream,
+		R: reader,
 	}
 	return
 }
