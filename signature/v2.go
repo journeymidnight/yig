@@ -20,7 +20,7 @@ import (
 const (
 	SignV2Algorithm = "AWS"
 	SignV4Algorithm = "AWS4-HMAC-SHA256"
-	HOST_URL        = "10.75.145.134:3000" /* should be something like
+	HOST_URL        = "10.75.144.48:3000" /* should be something like
 	s3.lecloud.com
 	for production servers
 	*/

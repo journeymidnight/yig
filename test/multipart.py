@@ -116,12 +116,31 @@ def sse_custom_multipart(name, client):
     assert body == sanity.RANGE_1 + sanity.RANGE_2
     print 'Get SSE-C multipart upload object:', ans
 
+
+def delete_multipart_uploaded_objects(name, client):
+    ans = client.delete_objects(
+        Bucket=name+'hehe',
+        Delete={
+            'Objects': [
+                {
+                    'Key': name+'s3'
+                },
+                {
+                    'Key': name+'custom'
+                }
+            ]
+        }
+    )
+    print 'Delete multiple objects:', ans
+
 # =====================================================
 
 TESTS = [
     sanity.create_bucket,
     sse_s3_multipart,
     sse_custom_multipart,
+    delete_multipart_uploaded_objects,
+    sanity.delete_bucket,
 ]
 
 if __name__ == '__main__':

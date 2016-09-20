@@ -352,7 +352,7 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 				VersionId:    object.VersionId,
 				DeleteMarker: result.DeleteMarker,
 				DeleteMarkerVersionId: helper.Ternary(result.DeleteMarker,
-					result.DeleteMarker, "").(string),
+					result.VersionId, "").(string),
 			})
 		} else {
 			helper.ErrorIf(err, "Unable to delete object.")
