@@ -301,25 +301,16 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 
 	result.LastModified = object.LastModifiedTime
 
-	var olderObject *meta.Object
-	if bucket.Versioning == "Enabled" {
+	switch bucket.Versioning {
+	case "Enabled":
 		result.VersionId = object.GetVersionId()
-	} else { // remove older object if versioning is not enabled
-		// FIXME use removeNullVersionObject for `Suspended` after fixing GetNullVersionObject
-		olderObject, err = yig.MetaStorage.GetObject(bucketName, objectName)
-		if err != ErrNoSuchKey {
-			if err != nil {
-				return
-			}
-			if olderObject.NullVersion {
-				err = yig.removeByObject(olderObject)
-				if err != nil {
-					return
-				}
-			}
-		} else {
-			err = nil
-		}
+	case "Disabled":
+		err = yig.removeObject(bucketName, objectName)
+	case "Suspended":
+		err = yig.removeNullVersionObject(bucketName, objectName)
+	}
+	if err != nil {
+		return
 	}
 
 	err = putObjectEntry(object, yig.MetaStorage)
@@ -394,6 +385,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 	targetObject.ObjectId = oid
 	targetObject.LastModifiedTime = time.Now().UTC()
 	targetObject.NullVersion = helper.Ternary(bucket.Versioning == "Enabled", false, true).(bool)
+	targetObject.DeleteMarker = false
 	targetObject.SseType = sseRequest.Type
 	targetObject.EncryptionKey = helper.Ternary(sseRequest.Type == "S3",
 		encryptionKey, []byte("")).([]byte)
@@ -401,26 +393,16 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 
 	result.LastModified = targetObject.LastModifiedTime
 
-	var olderObject *meta.Object
-	if bucket.Versioning == "Enabled" {
+	switch bucket.Versioning {
+	case "Enabled":
 		result.VersionId = targetObject.GetVersionId()
-	} else { // remove older object if versioning is not enabled
-		// FIXME use removeNullVersionObject for `Suspended` after fixing GetNullVersionObject
-		olderObject, err = yig.MetaStorage.GetObject(targetObject.BucketName,
-			targetObject.Name)
-		if err != ErrNoSuchKey {
-			if err != nil {
-				return
-			}
-			if olderObject.NullVersion {
-				err = yig.removeByObject(olderObject)
-				if err != nil {
-					return
-				}
-			}
-		} else {
-			err = nil
-		}
+	case "Disabled":
+		err = yig.removeObject(targetObject.BucketName, targetObject.Name)
+	case "Suspended":
+		err = yig.removeNullVersionObject(targetObject.BucketName, targetObject.Name)
+	}
+	if err != nil {
+		return
 	}
 
 	err = putObjectEntry(targetObject, yig.MetaStorage)
@@ -507,6 +489,9 @@ func (yig *YigStorage) removeByObject(object *meta.Object) (err error) {
 
 func (yig *YigStorage) removeObject(bucketName, objectName string) error {
 	object, err := yig.MetaStorage.GetObject(bucketName, objectName)
+	if err == ErrNoSuchKey {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
@@ -515,6 +500,9 @@ func (yig *YigStorage) removeObject(bucketName, objectName string) error {
 
 func (yig *YigStorage) removeObjectVersion(bucketName, objectName, version string) error {
 	object, err := yig.MetaStorage.GetObjectVersion(bucketName, objectName, version)
+	if err == ErrNoSuchKey {
+		return nil
+	}
 	if err != nil {
 		return err
 	}

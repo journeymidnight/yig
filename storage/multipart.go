@@ -695,29 +695,22 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 		ContentType:      contentType,
 		Parts:            multipart.Parts,
 		ACL:              multipart.Metadata.Acl,
+		NullVersion:      helper.Ternary(bucket.Versioning == "Enabled", false, true).(bool),
+		DeleteMarker:     false,
 		SseType:          multipart.Metadata.SseRequest.Type,
 		EncryptionKey:    multipart.Metadata.EncryptionKey,
 	}
 
-	var olderObject *meta.Object
-	if bucket.Versioning == "Enabled" {
+	switch bucket.Versioning {
+	case "Enabled":
 		result.VersionId = object.GetVersionId()
-	} else { // remove older object if versioning is not enabled
-		// FIXME use removeNullVersionObject for `Suspended` after fixing GetNullVersionObject
-		olderObject, err = yig.MetaStorage.GetObject(bucketName, objectName)
-		if err != ErrNoSuchKey {
-			if err != nil {
-				return
-			}
-			if olderObject.NullVersion {
-				err = yig.removeByObject(olderObject)
-				if err != nil {
-					return
-				}
-			}
-		} else {
-			err = nil
-		}
+	case "Disabled":
+		err = yig.removeObject(bucketName, objectName)
+	case "Suspended":
+		err = yig.removeNullVersionObject(bucketName, objectName)
+	}
+	if err != nil {
+		return
 	}
 
 	err = putObjectEntry(object, yig.MetaStorage)
