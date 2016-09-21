@@ -59,8 +59,9 @@ def list_test_unit(name, client, current_files, current_versions):
     )
     print 'List v1:', list_v1
     files_v1 = {}
-    for f in list_v1.get('Contents'):
-        files_v1[f.get('Key')] = True
+    if list_v1.get('Contents') is not None:
+        for f in list_v1.get('Contents'):
+            files_v1[f.get('Key')] = True
     assert compare_files(current_files, files_v1)
 
     list_v2 = client.list_objects_v2(
@@ -68,8 +69,9 @@ def list_test_unit(name, client, current_files, current_versions):
     )
     print 'List v2:', list_v2
     files_v2 = {}
-    for f in list_v2.get('Contents'):
-        files_v2[f.get('Key')] = True
+    if list_v2.get('Contents') is not None:
+        for f in list_v2.get('Contents'):
+            files_v2[f.get('Key')] = True
     assert compare_files(current_files, files_v2)
 
     list_versions = client.list_object_versions(
@@ -77,8 +79,9 @@ def list_test_unit(name, client, current_files, current_versions):
     )
     print 'List versions:', list_versions
     files_versions = {}
-    for f in list_versions.get('Versions'):
-        files_versions[(f.get('Key'), f.get('VersionId') or "")] = True
+    if list_versions.get('Versions') is not None:
+        for f in list_versions.get('Versions'):
+            files_versions[(f.get('Key'), f.get('VersionId') or "")] = True
     assert compare_files(current_versions, files_versions)
 
 
@@ -105,7 +108,8 @@ def versioned_delete(name, client, current_files, current_versions):
             Key=f,
             VersionId=v if v else 'null'
         )
-        del current_versions[(f, ans.get('VersionId'))]
+        returned_version = "" if ans.get('VersionId') == "null" else ans.get('VersionId')
+        del current_versions[(f, returned_version)]
 
 
 # =====================================================
@@ -169,8 +173,14 @@ def delete_object_versioning_enabled(name, client):
     current_files = CURRENT_FILES[name+'hehe']
     current_versions = CURRENT_VERSIONS[name+'hehe']
 
-    #simple_delete(name, client, current_files, current_versions)
-    #list_test_unit(name, client, current_files, current_versions)
+    simple_delete(name, client, current_files, current_versions)
+    ans = client.get_object(
+        Bucket=name+'hehe',
+        Key=name+'_versioning'
+    )
+    assert ans['DeleteMarker'] is True
+    list_test_unit(name, client, current_files, current_versions)
+
     versioned_delete(name, client, current_files, current_versions)
     list_test_unit(name, client, current_files, current_versions)
 

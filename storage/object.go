@@ -520,10 +520,11 @@ func (yig *YigStorage) removeNullVersionObject(bucketName, objectName string) er
 	return yig.removeByObject(object)
 }
 
-func (yig *YigStorage) addDeleteMarker(bucketName, objectName string) (versionId string, err error) {
+func (yig *YigStorage) addDeleteMarker(bucket meta.Bucket, objectName string) (versionId string, err error) {
 	deleteMarker := &meta.Object{
 		Name:             objectName,
-		BucketName:       bucketName,
+		BucketName:       bucket.Name,
+		OwnerId:	  bucket.OwnerId,
 		LastModifiedTime: time.Now().UTC(),
 		NullVersion:      false,
 		DeleteMarker:     true,
@@ -569,7 +570,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 		}
 	case "Enabled":
 		if version == "" {
-			result.VersionId, err = yig.addDeleteMarker(bucketName, objectName)
+			result.VersionId, err = yig.addDeleteMarker(bucket, objectName)
 			if err != nil {
 				return
 			}
@@ -591,7 +592,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 			if err != nil {
 				return
 			}
-			result.VersionId, err = yig.addDeleteMarker(bucketName, objectName)
+			result.VersionId, err = yig.addDeleteMarker(bucket, objectName)
 			if err != nil {
 				return
 			}

@@ -416,7 +416,11 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 		// FIXME: note in current implement YIG server would fetch objects of
 		// various versions from HBase and filter them afterwards
 		if request.Delimiter == "" {
-			objectMap[o.Name] = o
+			// save only the latest object version
+			if savedVersion, ok := objectMap[o.Name];
+				!ok || savedVersion.LastModifiedTime.Before(o.LastModifiedTime){
+				objectMap[o.Name] = o
+			}
 		} else {
 			level := strings.Count(o.Name, request.Delimiter)
 			if level > currentLevel {
@@ -426,6 +430,7 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 				prefixMap[prefix] = 1
 			} else {
 				// save only the latest object version
+				// TODO: refactor, same as above
 				if savedVersion, ok := objectMap[o.Name];
 					!ok || savedVersion.LastModifiedTime.Before(o.LastModifiedTime){
 					objectMap[o.Name] = o
