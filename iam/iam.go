@@ -36,9 +36,9 @@ type AccessKeyItem struct {
 
 type Query struct {
 	Action     string   `json:"action"`
-	ProjectId  string   `json:"projectId"`
+//	ProjectId  string   `json:"projectId"`
 	AccessKeys []string `json:"accessKeys"`
-	Limit      int      `json:"limit"`
+//	Limit      int      `json:"limit"`
 }
 
 type QueryResp struct {
@@ -67,17 +67,16 @@ var IsValidSecretKey = regexp.MustCompile(`^.{8,40}$`)
 // IsValidAccessKey - validate access key.
 var IsValidAccessKey = regexp.MustCompile(`^[a-zA-Z0-9\\-\\.\\_\\~]{5,20}$`)
 
-var slog = helper.Logger
+
 
 func GetCredential(accessKey string) (credential Credential, err error) {
 	// should use a cache with timeout
 	// TODO put iam addr to config
-
+	var slog = helper.Logger
 	var query Query
 	var queryRetAll QueryRespAll
 	client := &http.Client{}
 	query.Action = "DescribeAccessKeys"
-	query.Limit = 1
 	query.AccessKeys[0] = accessKey
 
 	b, err := json.Marshal(query)
@@ -88,7 +87,6 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 	request, _ := http.NewRequest("POST", RegisterUrl, strings.NewReader(string(b)))
 	request.Header.Set("X-Le-Key", "key")
 	request.Header.Set("X-Le-Secret", "secret")
-	slog.Println("replay request:", request, string(b))
 	response, _ := client.Do(request)
 	if response.StatusCode != 200 {
 		slog.Println("Query to IAM failed as status != 200")
@@ -96,7 +94,6 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 	}
 
 	body, _ := ioutil.ReadAll(response.Body)
-	slog.Println("here1", string(body))
 	dec := json.NewDecoder(strings.NewReader(string(body)))
 	if err := dec.Decode(&queryRetAll); err != nil {
 		slog.Println("Decode QueryHistoryResp failed")
@@ -108,10 +105,15 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 		return Credential{}, fmt.Errorf("Query to IAM failed as RetCode != 0")
 	}
 
+	slog.Println("request:",string(b))
+	slog.Println("response:",string(body))
 	uid := queryRetAll.Data.AccessKeySet[0].ProjectId
 	name := queryRetAll.Data.AccessKeySet[0].Name
 	ak := queryRetAll.Data.AccessKeySet[0].AccessKey
 	sk := queryRetAll.Data.AccessKeySet[0].AccessSecret
+
+	slog.Println("ak:",ak)
+	slog.Println("sk:",sk)
 	return Credential{
 		UserId:          uid,
 		DisplayName:     name,
