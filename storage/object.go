@@ -511,7 +511,7 @@ func (yig *YigStorage) removeObjectVersion(bucketName, objectName, version strin
 
 func (yig *YigStorage) removeNullVersionObject(bucketName, objectName string) error {
 	object, err := yig.MetaStorage.GetNullVersionObject(bucketName, objectName)
-	if err == ErrNoSuchKey {
+	if err == ErrNoSuchVersion {
 		return nil // When there's no null versioned object, we do not need to remove it
 	}
 	if err != nil {
@@ -575,7 +575,11 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 			}
 			result.DeleteMarker = true
 		} else {
-			err = yig.removeObjectVersion(bucketName, objectName, version)
+			if version == "null" {
+				err = yig.removeNullVersionObject(bucketName, objectName)
+			} else {
+				err = yig.removeObjectVersion(bucketName, objectName, version)
+			}
 			if err != nil {
 				return
 			}
@@ -593,7 +597,11 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 			}
 			result.DeleteMarker = true
 		} else {
-			err = yig.removeObjectVersion(bucketName, objectName, version)
+			if version == "null" {
+				err = yig.removeNullVersionObject(bucketName, objectName)
+			} else {
+				err = yig.removeObjectVersion(bucketName, objectName, version)
+			}
 			if err != nil {
 				return
 			}

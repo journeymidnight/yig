@@ -55,7 +55,8 @@ func (o *Object) String() (s string) {
 	s += "Location: " + o.Location + "\n"
 	s += "Pool: " + o.Pool + "\n"
 	s += "Object ID: " + o.ObjectId + "\n"
-	s += "Last Modified Time:" + o.LastModifiedTime.MarshalText() + "\n"
+	s += "Last Modified Time: " + o.LastModifiedTime.Format(CREATE_TIME_LAYOUT) + "\n"
+	s += "Version: " + o.VersionId + "\n"
 	for n, part := range o.Parts {
 		s += fmt.Sprintln("Part", n, " Location:", part.Location, "Pool:", part.Pool,
 			"Object ID:", part.ObjectId)
@@ -370,7 +371,7 @@ func (m *Meta) GetNullVersionObject(bucketName, objectName string) (object *Obje
 		return
 	}
 	if len(scanResponse) == 0 {
-		err = ErrNoSuchKey
+		err = ErrNoSuchVersion
 		return
 	}
 	for _, response := range scanResponse {
@@ -382,7 +383,7 @@ func (m *Meta) GetNullVersionObject(bucketName, objectName string) (object *Obje
 			return object, nil
 		}
 	}
-	return object, ErrNoSuchKey
+	return object, ErrNoSuchVersion
 }
 
 func (m *Meta) GetObjectVersion(bucketName, objectName, version string) (object *Object, err error) {
