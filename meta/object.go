@@ -55,7 +55,7 @@ func (o *Object) String() (s string) {
 	s += "Location: " + o.Location + "\n"
 	s += "Pool: " + o.Pool + "\n"
 	s += "Object ID: " + o.ObjectId + "\n"
-	s += "Last Modified Time:" + string(o.LastModifiedTime) + "\n"
+	s += "Last Modified Time:" + o.LastModifiedTime.MarshalText() + "\n"
 	for n, part := range o.Parts {
 		s += fmt.Sprintln("Part", n, " Location:", part.Location, "Pool:", part.Pool,
 			"Object ID:", part.ObjectId)
@@ -213,7 +213,7 @@ func getObjectRowkeyPrefix(bucketName string, objectName string, version string)
 			return []byte{}, err
 		}
 		unixNanoTimestamp, err := strconv.ParseUint(decrypted, 10, 64)
-		if err != 0 {
+		if err != nil {
 			return []byte{}, ErrInvalidVersioning
 		}
 		err = binary.Write(&rowkey, binary.BigEndian,
