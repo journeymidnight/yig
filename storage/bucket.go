@@ -414,7 +414,7 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 			return
 		}
 		// FIXME: note in current implement YIG server would fetch objects of
-		// various versions
+		// various versions from HBase and filter them afterwards
 		if request.Delimiter == "" {
 			objectMap[o.Name] = o
 		} else {
@@ -425,7 +425,11 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 				prefix := strings.Join(split, request.Delimiter) + request.Delimiter
 				prefixMap[prefix] = 1
 			} else {
-				objectMap[o.Name] = o
+				// save only the latest object version
+				if savedVersion, ok := objectMap[o.Name];
+					!ok || savedVersion.LastModifiedTime.Before(o.LastModifiedTime){
+					objectMap[o.Name] = o
+				}
 			}
 		}
 	}
@@ -435,6 +439,10 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 	objects := make([]datatype.Object, 0, len(objectNames))
 	for _, objectName := range objectNames {
 		o := objectMap[objectName]
+		if o.DeleteMarker {
+			// do not show deleted files in ListObjects
+			continue
+		}
 		object := datatype.Object{
 			LastModified: o.LastModifiedTime.UTC().Format(meta.CREATE_TIME_LAYOUT),
 			ETag:         "\"" + o.Etag + "\"",

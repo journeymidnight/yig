@@ -55,6 +55,7 @@ func (o *Object) String() (s string) {
 	s += "Location: " + o.Location + "\n"
 	s += "Pool: " + o.Pool + "\n"
 	s += "Object ID: " + o.ObjectId + "\n"
+	s += "Last Modified Time:" + string(o.LastModifiedTime) + "\n"
 	for n, part := range o.Parts {
 		s += fmt.Sprintln("Part", n, " Location:", part.Location, "Pool:", part.Pool,
 			"Object ID:", part.ObjectId)
@@ -207,13 +208,12 @@ func getObjectRowkeyPrefix(bucketName string, objectName string, version string)
 	}
 	rowkey.WriteString(objectName)
 	if version != "" {
-		versionBytes, err := hex.DecodeString(version)
+		decrypted, err := Decrypt(version)
 		if err != nil {
 			return []byte{}, err
 		}
-		decrypted := xxtea.Decrypt(versionBytes, XXTEA_KEY)
-		unixNanoTimestamp, errno := binary.Uvarint(decrypted)
-		if errno <= 0 {
+		unixNanoTimestamp, err := strconv.ParseUint(decrypted, 10, 64)
+		if err != 0 {
 			return []byte{}, ErrInvalidVersioning
 		}
 		err = binary.Write(&rowkey, binary.BigEndian,
@@ -299,6 +299,7 @@ func ObjectFromResponse(response *hrpc.Result) (object *Object, err error) {
 
 	object.Rowkey = string(rowkey)
 	// rowkey = BucketName + bigEndian(uint16(count("/", ObjectName)))
+	// + bigEndian(uint16(len(ObjectName)))
 	// + ObjectName
 	// + bigEndian(uint64.max - unixNanoTimestamp)
 	object.Name = string(rowkey[len(object.BucketName)+4 : len(rowkey)-8])

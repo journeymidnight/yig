@@ -26,7 +26,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	. "git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
@@ -1117,10 +1116,8 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 		part.ETag = strings.TrimSuffix(part.ETag, "\"")
 		completeParts = append(completeParts, part)
 	}
-	// Complete multipart upload.
-	// Send 200 OK
+
 	SetCommonHeaders(w)
-	w.WriteHeader(http.StatusOK)
 
 	var result CompleteMultipartResult
 	result, err = api.ObjectAPI.CompleteMultipartUpload(credential, bucketName,
@@ -1168,7 +1165,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	}
 	// write success response.
 	w.Write(encodedSuccessResponse)
-	w.(http.Flusher).Flush()
+	w.WriteHeader(http.StatusOK)
 }
 
 /// Delete objectAPIHandlers
@@ -1206,6 +1203,8 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 	}
 	if result.DeleteMarker {
 		w.Header().Set("x-amz-delete-marker", "true")
+	} else {
+		w.Header().Set("x-amz-delete-marker", "false")
 	}
 	if result.VersionId != "" {
 		w.Header().Set("x-amz-version-id", result.VersionId)
