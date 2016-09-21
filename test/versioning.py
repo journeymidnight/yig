@@ -174,11 +174,13 @@ def delete_object_versioning_enabled(name, client):
     current_versions = CURRENT_VERSIONS[name+'hehe']
 
     simple_delete(name, client, current_files, current_versions)
-    ans = client.get_object(
-        Bucket=name+'hehe',
-        Key=name+'_versioning'
-    )
-    assert ans['DeleteMarker'] is True
+    try:
+        ans = client.get_object(
+            Bucket=name+'hehe',
+            Key=name+'_versioning'
+        )
+    except Exception as e:
+        assert 'NoSuchKey' in str(e)
     list_test_unit(name, client, current_files, current_versions)
 
     versioned_delete(name, client, current_files, current_versions)

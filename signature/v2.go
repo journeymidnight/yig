@@ -155,8 +155,10 @@ func DoesSignatureMatchV2(r *http.Request) (credential iam.Credential, err error
 	stringToSign += r.Header.Get("Content-Md5") + "\n"
 	stringToSign += r.Header.Get("Content-Type") + "\n"
 
+	amzDateHeaderIncluded := true
 	date := r.Header.Get("x-amz-date")
 	if date == "" {
+		amzDateHeaderIncluded = false
 		date = r.Header.Get("Date")
 	}
 	if date == "" {
@@ -167,7 +169,14 @@ func DoesSignatureMatchV2(r *http.Request) (credential iam.Credential, err error
 	} else if !verified {
 		return credential, ErrRequestTimeTooSkewed
 	}
-	stringToSign += date + "\n"
+	// "if you include the x-amz-date header, use the empty string for the Date when
+	// constructing the StringToSign."
+	// See http://docs.aws.amazon.com/AmazonS3/latest/dev/RESTAuthentication.html
+	if amzDateHeaderIncluded {
+		stringToSign += "\n"
+	} else {
+		stringToSign += date + "\n"
+	}
 
 	stringToSign += buildCanonicalizedAmzHeaders(&r.Header)
 	stringToSign += buildCanonicalizedResource(r)
