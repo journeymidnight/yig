@@ -82,6 +82,10 @@ def list_test_unit(name, client, current_files, current_versions):
     if list_versions.get('Versions') is not None:
         for f in list_versions.get('Versions'):
             files_versions[(f.get('Key'), f.get('VersionId') or "")] = True
+    if list_versions.get('DeleteMarkers') is not None:
+        for f in list_versions.get('DeleteMarkers'):
+            files_versions[(f.get('Key'), f.get('VersionId') or "")] = True
+
     assert compare_files(current_versions, files_versions)
 
 
@@ -111,6 +115,31 @@ def versioned_delete(name, client, current_files, current_versions):
         returned_version = "" if ans.get('VersionId') == "null" else ans.get('VersionId')
         del current_versions[(f, returned_version)]
 
+
+def count_files_and_versions(name, client):
+    list_objects = client.list_objects(
+        Bucket=name+'hehe'
+    )
+    files = []
+    if list_objects.get('Contents') is not None:
+        for f in list_objects.get('Contents'):
+            files.append(f.get('Key'))
+    print 'Files:', files
+
+    list_versions = client.list_object_versions(
+        Bucket=name+'hehe'
+    )
+    file_versions = []
+    if list_versions.get('Versions') is not None:
+        for f in list_versions.get('Versions'):
+            file_versions.append((f.get('Key'), f.get('VersionId')))
+    print 'File versions:', file_versions
+    delete_markers = []
+    if list_versions.get('DeleteMarkers') is not None:
+        for f in list_versions.get('DeleteMarkers'):
+            delete_markers.append((f.get('Key'), f.get('VersionId')))
+
+    return len(files), len(file_versions), len(delete_markers)
 
 # =====================================================
 
@@ -175,7 +204,7 @@ def delete_object_versioning_enabled(name, client):
 
     simple_delete(name, client, current_files, current_versions)
     try:
-        ans = client.get_object(
+        client.get_object(
             Bucket=name+'hehe',
             Key=name+'_versioning'
         )
@@ -186,6 +215,80 @@ def delete_object_versioning_enabled(name, client):
     versioned_delete(name, client, current_files, current_versions)
     list_test_unit(name, client, current_files, current_versions)
 
+
+def versioning_suspended_senarios(name, client):
+    current_files = {}
+    current_versions = {}
+
+    upload_test_unit(name, client, current_files, current_versions)
+    f, v, d = count_files_and_versions(name, client)
+    print 'After uploading to version disabled bucket:', f, v, d
+    assert f == 1
+    assert v == 1
+    assert d == 0
+
+    client.put_bucket_versioning(
+        Bucket=name+'hehe',
+        VersioningConfiguration={
+            'Status': 'Enabled'
+        }
+    )
+
+    upload_test_unit(name, client, current_files, current_versions)
+    f, v, d = count_files_and_versions(name, client)
+    print 'After uploading to version enabled bucket:', f, v, d
+    assert f == 1
+    assert v == 3
+    assert d == 0
+
+    client.put_bucket_versioning(
+        Bucket=name+'hehe',
+        VersioningConfiguration={
+            'Status': 'Suspended'
+        }
+    )
+
+    upload_test_unit(name, client, current_files, current_versions)
+    f, v, d = count_files_and_versions(name, client)
+    print 'After uploading to version suspended bucket:', f, v, d
+    assert f == 1
+    assert v == 3
+    assert d == 0
+
+    client.delete_object(
+        Bucket=name+'hehe',
+        Key=name+'_versioning'
+    )
+    f, v, d = count_files_and_versions(name, client)
+    print 'After deleting null version object to version suspended bucket:', f, v, d
+    assert f == 0
+    assert v == 2
+    assert d == 1
+
+    # clean the bucket
+    list_versions = client.list_object_versions(
+        Bucket=name+'hehe'
+    )
+    file_versions = []
+    if list_versions.get('Versions') is not None:
+        for f in list_versions.get('Versions'):
+            file_versions.append((f.get('Key'), f.get('VersionId')))
+    if list_versions.get('DeleteMarkers') is not None:
+        for f in list_versions.get('DeleteMarkers'):
+            file_versions.append((f.get('Key'), f.get('VersionId')))
+    for version in file_versions:
+        f, v = version
+        client.delete_object(
+            Bucket=name+'hehe',
+            Key=f,
+            VersionId=v if v else 'null'
+        )
+    f, v, d = count_files_and_versions(name, client)
+    print 'After deleting all objects in version suspended bucket:', f, v, d
+    assert f == 0
+    assert v == 0
+    assert d == 0
+
 # =====================================================
 
 TESTS = [
@@ -193,6 +296,9 @@ TESTS = [
     upload_objects_versioning_disabled,
     upload_objects_versioning_enabled,
     delete_object_versioning_enabled,
+    sanity.delete_bucket,
+    sanity.create_bucket,
+    versioning_suspended_senarios,
     sanity.delete_bucket,
 ]
 

@@ -208,7 +208,7 @@ type Object struct {
 }
 
 type VersionedObject struct {
-	XMLName   xml.Name `xml:"Version"`
+	XMLName   xml.Name
 	Key       string
 	VersionId string
 	// TODO: IsLatest

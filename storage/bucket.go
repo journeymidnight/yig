@@ -629,6 +629,8 @@ func (yig *YigStorage) ListVersionedObjects(credential iam.Credential, bucketNam
 		}
 		if o.DeleteMarker {
 			object.XMLName.Local = "DeleteMarker"
+		} else {
+			object.XMLName.Local = "Version"
 		}
 		if request.FetchOwner {
 			var owner iam.Credential
