@@ -1121,7 +1121,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 
 	var result CompleteMultipartResult
 	result, err = api.ObjectAPI.CompleteMultipartUpload(credential, bucketName,
-			objectName, uploadId, completeParts)
+		objectName, uploadId, completeParts)
 
 	if err != nil {
 		helper.ErrorIf(err, "Unable to complete multipart upload.")
