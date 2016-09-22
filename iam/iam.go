@@ -12,11 +12,6 @@ import (
 	"strings"
 )
 
-// TODO config file
-const (
-	RegisterUrl = "http://10.112.32.208:9006"
-)
-
 // credential container for access and secret keys.
 type Credential struct {
 	UserId          string
@@ -37,7 +32,7 @@ type AccessKeyItem struct {
 type Query struct {
 	Action     string   `json:"action"`
 //	ProjectId  string   `json:"projectId"`
-	AccessKeys []string `json:"accessKeys"`
+	AccessKeys [1]string `json:"accessKeys"`
 //	Limit      int      `json:"limit"`
 }
 
@@ -84,9 +79,10 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 		slog.Println("json err:", err)
 		return Credential{}, err
 	}
-	request, _ := http.NewRequest("POST", RegisterUrl, strings.NewReader(string(b)))
-	request.Header.Set("X-Le-Key", "key")
-	request.Header.Set("X-Le-Secret", "secret")
+
+	request, _ := http.NewRequest("POST", helper.Cfg.IamEndpoint, strings.NewReader(string(b)))
+	request.Header.Set("X-Le-Key", helper.Cfg.IamKey)
+	request.Header.Set("X-Le-Secret", helper.Cfg.IamSecret)
 	response, _ := client.Do(request)
 	if response.StatusCode != 200 {
 		slog.Println("Query to IAM failed as status != 200")
@@ -94,6 +90,9 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 	}
 
 	body, _ := ioutil.ReadAll(response.Body)
+	slog.Println("iam:",helper.Cfg.IamEndpoint)
+	slog.Println("request:",string(b))
+	slog.Println("response:",string(body))
 	dec := json.NewDecoder(strings.NewReader(string(body)))
 	if err := dec.Decode(&queryRetAll); err != nil {
 		slog.Println("Decode QueryHistoryResp failed")
@@ -105,8 +104,7 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 		return Credential{}, fmt.Errorf("Query to IAM failed as RetCode != 0")
 	}
 
-	slog.Println("request:",string(b))
-	slog.Println("response:",string(body))
+
 	uid := queryRetAll.Data.AccessKeySet[0].ProjectId
 	name := queryRetAll.Data.AccessKeySet[0].Name
 	ak := queryRetAll.Data.AccessKeySet[0].AccessKey

@@ -4,12 +4,11 @@ import (
 	"encoding/hex"
 	"github.com/tsuna/gohbase"
 	"github.com/xxtea/xxtea-go/xxtea"
+	"git.letv.cn/yig/yig/helper"
 	"log"
 )
 
 const (
-	ZOOKEEPER_ADDRESS = "10.116.77.35:2181,10.116.77.36:2181,10.116.77.37:2181"
-
 	BUCKET_TABLE                          = "buckets"
 	BUCKET_COLUMN_FAMILY                  = "b"
 	BUCKET_ACL_COLUMN_FAMILY              = "a"
@@ -43,7 +42,7 @@ type Meta struct {
 }
 
 func New(logger *log.Logger) *Meta {
-	hbase := gohbase.NewClient(ZOOKEEPER_ADDRESS)
+	hbase := gohbase.NewClient(helper.Cfg.ZookeeperAddress)
 	meta := Meta{
 		Hbase:  hbase,
 		Logger: logger,

@@ -1,0 +1,15 @@
+//put this file at /etc/yig/yig.json
+{
+    "S3Domain": "s3.test.com",
+    "IamEndpoint": "http://10.11.144.11:9006",
+    "IamKey": "key",
+    "IamSecret": "secret",
+    "LogPath": "/var/log/yig/yig.log",
+    "PanicLogPath":"/var/log/yig/panic.log",
+    "PidFile": "/var/run/yig/yig.pid",
+    "BindApiAddress": "0.0.0.0:3000",
+    "BindAdminAddress": "0.0.0.0:9000",
+    "SSLKeyPath": "",
+    "SSLCertPath": "",
+    "ZookeeperAddress": "10.110.95.56:2181,10.110.95.62:2181"
+}
