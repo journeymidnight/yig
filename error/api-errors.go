@@ -362,7 +362,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrCredMalformed: {
 		AwsErrorCode:   "CredentialMalformed",
-		Description:    "Credential field malformed does not follow accessKeyID/credScope.",
+		Description:    "Credential field does not follow accessKeyID/credentialScope.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrMalformedDate: {

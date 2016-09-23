@@ -665,6 +665,9 @@ func extractHTTPFormValues(reader *multipart.Reader) (filePartReader io.Reader,
 			formValues[http.CanonicalHeaderKey(part.FormName())] = string(buffer)
 		} else {
 			filePartReader = part
+			// "The file or content must be the last field in the form.
+			// Any fields below it are ignored."
+			break
 		}
 	}
 
@@ -739,7 +742,7 @@ func (api ObjectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *h
 
 	// Convert form values to header type so those values could be handled as in
 	// normal requests
-	var headerfiedFormValues http.Header
+	headerfiedFormValues := make(http.Header)
 	for key := range formValues {
 		headerfiedFormValues.Add(key, formValues[key])
 	}

@@ -25,9 +25,9 @@ import (
 	"time"
 
 	. "git.letv.cn/yig/yig/error"
-	"net/http"
 	"regexp"
 	"git.letv.cn/yig/yig/helper"
+	"net/http"
 )
 
 var (
@@ -82,7 +82,7 @@ type PostPolicyForm struct {
 	}
 }
 
-// parsePostPolicyFormV4 - Parse JSON policy string into typed PostPolicyForm structure.
+// parsePostPolicyForm - Parse JSON policy string into typed PostPolicyForm structure.
 func parsePostPolicyForm(policy string,
 	eqPolicyRegExp *regexp.Regexp, startsWithPolicyRegExp *regexp.Regexp) (PostPolicyForm, error) {
 	// Convert po into interfaces and
@@ -104,6 +104,7 @@ func parsePostPolicyForm(policy string,
 	if err != nil {
 		return PostPolicyForm{}, err
 	}
+	// FIXME: should be map[string][]struct{}
 	parsedPolicy.Conditions.Policies = make(map[string]struct {
 		Operator string
 		Value    string
@@ -125,7 +126,7 @@ func parsePostPolicyForm(policy string,
 				}
 				// {"acl": "public-read" } is an alternate way to indicate - [ "eq", "$acl", "public-read" ]
 				// In this case we will just collapse this into "eq" for all use cases.
-				parsedPolicy.Conditions.Policies[k] = struct {
+				parsedPolicy.Conditions.Policies[http.CanonicalHeaderKey(k)] = struct {
 					Operator string
 					Value    string
 				}{
@@ -237,6 +238,7 @@ func CheckPostPolicy(formValues map[string]string,
 				}
 			}
 		} else { // field exists in form but not in policy
+			// TODO make this error more specific to users
 			return ErrMissingFields
 		}
 	}
