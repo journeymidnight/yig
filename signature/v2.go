@@ -221,9 +221,8 @@ func DoesPresignedSignatureMatchV2(r *http.Request) (credential iam.Credential, 
 }
 
 func DoesPolicySignatureMatchV2(formValues map[string]string) (credential iam.Credential,
-	e error) {
-	var secretKey string
-	var err error
+	err error) {
+
 	if accessKey, ok := formValues["Awsaccesskeyid"]; ok {
 		credential, err = iam.GetCredential(accessKey)
 		if err != nil {
@@ -247,5 +246,5 @@ func DoesPolicySignatureMatchV2(formValues map[string]string) (credential iam.Cr
 		return credential, ErrMissingFields
 	}
 
-	return credential, dictate(secretKey, policy, signature)
+	return credential, dictate(credential.SecretAccessKey, policy, signature)
 }

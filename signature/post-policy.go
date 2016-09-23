@@ -15,12 +15,12 @@ const (
 
 var (
 	// Convert to Canonical Form before compare
-	EqPolicyRegExpV2 = regexp.MustCompile("Acl|Cache-Control|Content-Type|Content-Disposition" +
+	EqPolicyRegExpV2 = regexp.MustCompile("(?i)Acl|Cache-Control|Content-Type|Content-Disposition" +
 		"|Content-Encoding|Expires|Key|Success_action_redirect|Redirect|Success_action_status" +
 		"|X-Amz-Meta-.+")
-	StartsWithPolicyRegExpV2 = regexp.MustCompile("Acl|Cache-Control|Content-Type|Content-Disposition" +
+	StartsWithPolicyRegExpV2 = regexp.MustCompile("(?i)Acl|Cache-Control|Content-Type|Content-Disposition" +
 		"|Content-Encoding|Expires|Key|Success_action_redirect|Redirect|X-Amz-Meta-.+")
-	IgnoredFormRegExpV2 = regexp.MustCompile("Awsaccesskeyid|Signature|File|Policy|X-Ignore-.+")
+	IgnoredFormRegExpV2 = regexp.MustCompile("(?i)Awsaccesskeyid|Signature|File|Policy|X-Ignore-.+")
 )
 
 func GetPostPolicyType(formValues map[string]string) PostPolicyType {

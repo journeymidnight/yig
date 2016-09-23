@@ -27,16 +27,17 @@ import (
 	. "git.letv.cn/yig/yig/error"
 	"net/http"
 	"regexp"
+	"git.letv.cn/yig/yig/helper"
 )
 
 var (
 	// Convert to Canonical Form before compare
-	EqPolicyRegExp = regexp.MustCompile("Acl|Bucket|Cache-Control|Content-Type|Content-Disposition" +
+	EqPolicyRegExp = regexp.MustCompile("(?i)Acl|Bucket|Cache-Control|Content-Type|Content-Disposition" +
 		"|Content-Encoding|Expires|Key|Success_action_redirect|Redirect|Success_action_status" +
 		"|X-Amz-.+|X-Amz-Meta-.+")
-	StartsWithPolicyRegExp = regexp.MustCompile("Acl|Cache-Control|Content-Type|Content-Disposition" +
+	StartsWithPolicyRegExp = regexp.MustCompile("(?i)Acl|Cache-Control|Content-Type|Content-Disposition" +
 		"|Content-Encoding|Expires|Key|Success_action_redirect|Redirect|X-Amz-Meta-.+")
-	IgnoredFormRegExp = regexp.MustCompile("X-Amz-Signature|File|Policy|X-Ignore-.+")
+	IgnoredFormRegExp = regexp.MustCompile("(?i)X-Amz-Signature|File|Policy|X-Ignore-.+")
 )
 
 // toString - Safely convert interface to string without causing panic.
@@ -214,6 +215,7 @@ func CheckPostPolicy(formValues map[string]string,
 	postPolicyForm, err := parsePostPolicyForm(string(policyBytes),
 		eqPolicyRegExp, startswithPolicyRegExp)
 	if err != nil {
+		helper.Logger.Println("Parse post-policy form error:", err)
 		return ErrMalformedPOSTRequest
 	}
 	if !postPolicyForm.Expiration.After(time.Now()) {

@@ -649,6 +649,7 @@ func extractHTTPFormValues(reader *multipart.Reader) (filePartReader io.Reader,
 		var part *multipart.Part
 		part, err = reader.NextPart()
 		if err == io.EOF {
+			err = nil
 			break
 		}
 		if err != nil {
@@ -678,7 +679,7 @@ func extractHTTPFormValues(reader *multipart.Reader) (filePartReader io.Reader,
 // This implementation of the POST operation handles object creation with a specified
 // signature policy in multipart/form-data
 
-const ValidSuccessActionStatus = []string{"200", "201", "204"}
+var ValidSuccessActionStatus = []string{"200", "201", "204"}
 
 func (api ObjectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *http.Request) {
 	var err error
@@ -706,8 +707,12 @@ func (api ObjectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *h
 		return
 	}
 
+	helper.Debugln("formValues", formValues)
+	helper.Debugln("bucket", bucketName)
+
 	var credential iam.Credential
 	postPolicyType := signature.GetPostPolicyType(formValues)
+	helper.Debugln("type", postPolicyType)
 	switch postPolicyType {
 	case signature.PostPolicyV2:
 		credential, err = signature.DoesPolicySignatureMatchV2(formValues)
