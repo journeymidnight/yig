@@ -841,9 +841,6 @@ func (api ObjectAPIHandlers) DeleteBucketHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// Delete bucket access policy, if present - ignore any errors.
-	removeBucketPolicy(bucket)
-
 	// Write success response.
 	WriteSuccessNoContent(w)
 }
