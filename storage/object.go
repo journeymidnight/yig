@@ -249,10 +249,11 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 
 	calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
 	if userMd5, ok := metadata["md5Sum"]; ok {
-		if userMd5 != calculatedMd5 {
+		if userMd5 != "" && userMd5 != calculatedMd5 {
 			return result, ErrBadDigest
 		}
 	}
+
 	result.Md5 = calculatedMd5
 
 	if signVerifyReader, ok := data.(*signature.SignVerifyReader); ok {

@@ -17,6 +17,9 @@
 package api
 
 import router "github.com/gorilla/mux"
+import (
+	"git.letv.cn/yig/yig/helper"
+)
 
 // objectAPIHandler implements and provides http handlers for S3 API.
 type ObjectAPIHandlers struct {
@@ -28,8 +31,95 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 	// API Router
 	apiRouter := mux.NewRoute().PathPrefix("/").Subrouter()
 
+//	_, port, _:= net.SplitHostPort(helper.Cfg.BindApiAddress)
+//	HOST_URL := helper.Cfg.S3Domain + ":" +port
+//	helper.Logger.Println("RegisterAPIRouter", HOST_URL)
 	// Bucket router
-	bucket := apiRouter.PathPrefix("/{bucket}").Subrouter()
+	bucket := apiRouter.Host(helper.Cfg.S3Domain).PathPrefix("/{bucket}").Subrouter()
+
+	// Host router
+	bucket_host := apiRouter.Host("{bucket:.+}." + helper.Cfg.S3Domain).Subrouter()
+
+	// HeadObject
+	bucket_host.Methods("HEAD").Path("/{object:.+}").HandlerFunc(api.HeadObjectHandler)
+	// PutObjectPart - Copy
+	bucket_host.Methods("PUT").Path("/{object:.+}").HandlerFunc(api.CopyObjectPartHandler).
+		Queries("partNumber", "{partNumber:[0-9]+}", "uploadId", "{uploadId:.*}").
+		HeadersRegexp("X-Amz-Copy-Source", ".*?(/).*?")
+	// PutObjectPart
+	bucket_host.Methods("PUT").Path("/{object:.+}").HandlerFunc(api.PutObjectPartHandler).
+		Queries("partNumber", "{partNumber:[0-9]+}", "uploadId", "{uploadId:.*}")
+	// ListObjectParts
+	bucket_host.Methods("GET").Path("/{object:.+}").HandlerFunc(api.ListObjectPartsHandler).
+		Queries("uploadId", "{uploadId:.*}")
+	// CompleteMultipartUpload
+	bucket_host.Methods("POST").Path("/{object:.+}").HandlerFunc(api.CompleteMultipartUploadHandler).
+		Queries("uploadId", "{uploadId:.*}")
+	// NewMultipartUpload
+	bucket_host.Methods("POST").Path("/{object:.+}").HandlerFunc(api.NewMultipartUploadHandler).
+		Queries("uploads", "")
+	// AbortMultipartUpload
+	bucket_host.Methods("DELETE").Path("/{object:.+}").HandlerFunc(api.AbortMultipartUploadHandler).
+		Queries("uploadId", "{uploadId:.*}")
+	// CopyObject
+	bucket_host.Methods("PUT").Path("/{object:.+}").HeadersRegexp("X-Amz-Copy-Source", ".*?(/).*?").
+		HandlerFunc(api.CopyObjectHandler)
+	// PutObjectACL
+	bucket_host.Methods("PUT").Path("/{object:.+}").HandlerFunc(api.PutObjectAclHandler).
+		Queries("acl", "")
+	// GetObjectAcl
+	bucket_host.Methods("GET").Path("/{object:.+}").HandlerFunc(api.GetObjectAclHandler).
+		Queries("acl", "")
+	// PutObject
+	bucket_host.Methods("PUT").Path("/{object:.+}").HandlerFunc(api.PutObjectHandler)
+	// GetObject
+	bucket_host.Methods("GET").Path("/{object:.+}").HandlerFunc(api.GetObjectHandler)
+	// DeleteObject
+	bucket_host.Methods("DELETE").Path("/{object:.+}").HandlerFunc(api.DeleteObjectHandler)
+
+	/// Bucket operations
+
+	// GetBucketLocation
+	bucket_host.Methods("GET").HandlerFunc(api.GetBucketLocationHandler).Queries("location", "")
+	// GetBucketPolicy
+	bucket_host.Methods("GET").HandlerFunc(api.GetBucketPolicyHandler).Queries("policy", "")
+	// ListMultipartUploads
+	bucket_host.Methods("GET").HandlerFunc(api.ListMultipartUploadsHandler).Queries("uploads", "")
+	// Get bucket versioning status
+	bucket_host.Methods("GET").HandlerFunc(api.GetBucketVersioningHandler).Queries("versioning", "")
+	// List versioned objects in a bucket
+	bucket_host.Methods("GET").HandlerFunc(api.ListVersionedObjectsHandler).Queries("versions", "")
+	// PutBucketPolicy
+	bucket_host.Methods("PUT").HandlerFunc(api.PutBucketPolicyHandler).Queries("policy", "")
+	// PutBucketACL
+	bucket_host.Methods("PUT").HandlerFunc(api.PutBucketAclHandler).Queries("acl", "")
+	// GetBucketACL
+	bucket_host.Methods("GET").HandlerFunc(api.GetBucketAclHandler).Queries("acl", "")
+	// PutBucketVersioning
+	bucket_host.Methods("PUT").HandlerFunc(api.PutBucketVersioningHandler).Queries("versioning", "")
+	// PutBucketCORS
+	bucket_host.Methods("PUT").HandlerFunc(api.PutBucketCorsHandler).Queries("cors", "")
+	// GetBucketCORS
+	bucket_host.Methods("GET").HandlerFunc(api.GetBucketCorsHandler).Queries("cors", "")
+	// DeleteBucketCORS
+	bucket_host.Methods("DELETE").HandlerFunc(api.DeleteBucketCorsHandler).Queries("cors", "")
+	// HeadBucket
+	bucket_host.Methods("HEAD").HandlerFunc(api.HeadBucketHandler)
+	// PostPolicy
+	bucket_host.Methods("POST").HeadersRegexp("Content-Type", "multipart/form-data*").
+		HandlerFunc(api.PostPolicyBucketHandler)
+	// DeleteMultipleObjects
+	bucket_host.Methods("POST").HandlerFunc(api.DeleteMultipleObjectsHandler)
+	// DeleteBucketPolicy
+	bucket_host.Methods("DELETE").HandlerFunc(api.DeleteBucketPolicyHandler).Queries("policy", "")
+	// DeleteBucket
+	bucket_host.Methods("DELETE").HandlerFunc(api.DeleteBucketHandler)
+	// PutBucket
+	bucket_host.Methods("PUT").HandlerFunc(api.PutBucketHandler)
+	// ListObjects
+	bucket_host.Methods("GET").HandlerFunc(api.ListObjectsHandler)
+
+
 
 	/// Object operations
 

@@ -9,6 +9,7 @@ import (
 
 type GcCfg struct {
 	S3Domain string //YIG域名
+	Region string //YIG域名
 	IamEndpoint string //IAM提供的注册服务地址
 	IamKey string //IAM提供的注册服务地址
 	IamSecret string //IAM提供的注册服务地址

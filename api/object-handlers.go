@@ -499,6 +499,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Request) {
 	// If the matching failed, it means that the X-Amz-Copy-Source was
 	// wrong, fail right here.
+	helper.Logger.Println("PutObjectHandler","enter")
 	if _, ok := r.Header["X-Amz-Copy-Source"]; ok {
 		WriteErrorResponse(w, r, ErrInvalidCopySource, r.URL.Path)
 		return
@@ -507,13 +508,6 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	bucketName := vars["bucket"]
 	objectName := vars["object"]
 
-	// Get Content-Md5 sent by client and verify if valid
-	md5Bytes, err := checkValidMD5(r.Header.Get("Content-Md5"))
-	if err != nil {
-		helper.ErrorIf(err, "Unable to validate content-md5 format.")
-		WriteErrorResponse(w, r, ErrInvalidDigest, r.URL.Path)
-		return
-	}
 	// if Content-Length is unknown/missing, deny the request
 	size := r.ContentLength
 	if size == -1 && !contains(r.TransferEncoding, "chunked") {
@@ -528,7 +522,13 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 
 	// Save metadata.
 	metadata := extractMetadataFromHeader(r.Header)
-	metadata["md5Sum"] = hex.EncodeToString(md5Bytes)
+	// Get Content-Md5 sent by client and verify if valid
+	md5Bytes, err := checkValidMD5(r.Header.Get("Content-Md5"))
+	if err != nil {
+		metadata["md5Sum"] = ""
+	}else {
+		metadata["md5Sum"] = hex.EncodeToString(md5Bytes)
+	}
 
 	// Parse SSE related headers
 	sseRequest, err := parseSseHeader(r.Header)

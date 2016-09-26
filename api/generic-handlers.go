@@ -24,6 +24,7 @@ import (
 	"git.letv.cn/yig/yig/signature"
 	mux "github.com/gorilla/mux"
 	"git.letv.cn/yig/yig/helper"
+	"net"
 )
 
 // HandlerFunc - useful to chain different middleware http.Handler
@@ -123,17 +124,26 @@ func SetIgnoreResourcesHandler(h http.Handler, _ ObjectLayer) http.Handler {
 // Resource handler ServeHTTP() wrapper
 func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Skip the first element which is usually '/' and split the rest.
-	splits := strings.SplitN(r.URL.Path[1:], "/", 2)
-
-	// Save bucketName and objectName extracted from url Path.
+	_, port, _:= net.SplitHostPort(helper.Cfg.BindApiAddress)
+	HOST_URL := helper.Cfg.S3Domain + ":" +port
 	var bucketName, objectName string
-	if len(splits) == 1 {
-		bucketName = splits[0]
+	splits := strings.SplitN(r.URL.Path[1:], "/", 2)
+	if strings.HasSuffix(r.Host, "."+HOST_URL) {
+		bucketName = strings.TrimSuffix(r.Host, "."+HOST_URL)
+		if len(splits) == 1 {
+			objectName = splits[0]
+		}
+	} else {
+		if len(splits) == 1 {
+			bucketName = splits[0]
+		}
+		if len(splits) == 2 {
+			bucketName = splits[0]
+			objectName = splits[1]
+		}
 	}
-	if len(splits) == 2 {
-		bucketName = splits[0]
-		objectName = splits[1]
-	}
+
+	helper.Logger.Println("ServeHTTP",bucketName,objectName)
 	// If bucketName is present and not objectName check for bucket
 	// level resource queries.
 	if bucketName != "" && objectName == "" {
@@ -150,7 +160,7 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// A put method on path "/" doesn't make sense, ignore it.
-	if r.Method == "PUT" && r.URL.Path == "/" {
+	if r.Method == "PUT" && r.URL.Path == "/" && bucketName == ""{
 		WriteErrorResponse(w, r, ErrNotImplemented, r.URL.Path)
 		return
 	}

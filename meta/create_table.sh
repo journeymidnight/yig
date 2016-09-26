@@ -13,7 +13,7 @@ create 'objects',
   {NAME => 'p', VERSIONS => 1}
 
 create 'users',
-  {NAME => 'o', VERSIONS => 1}
+  {NAME => 'u', VERSIONS => 1}
 
 create 'multiparts',
   {NAME => 'm', VERSIONS => 1}

@@ -24,10 +24,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
-)
-
-const (
-	REGION = "cn-bj-1"
+	"git.letv.cn/yig/yig/helper"
 )
 
 // validates location constraint from the request body.
@@ -35,6 +32,7 @@ const (
 // other values of location are not accepted.
 // make bucket fails in such cases.
 func isValidLocationContraint(reqBody io.Reader) error {
+	var region = helper.Cfg.Region
 	var locationContraint CreateBucketLocationConfiguration
 	var errCode error
 	errCode = nil
@@ -55,7 +53,7 @@ func isValidLocationContraint(reqBody io.Reader) error {
 		// It should be equal to Region in serverConfig.
 		// Else ErrInvalidRegion returned.
 		// For empty value location will be to set to  default value from the serverConfig.
-		if locationContraint.Location != "" && REGION != locationContraint.Location {
+		if locationContraint.Location != "" && region != locationContraint.Location {
 			//WriteErrorResponse(w, r, ErrInvalidRegion, r.URL.Path)
 			errCode = ErrInvalidRegion
 		}

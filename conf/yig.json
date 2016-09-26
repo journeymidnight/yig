@@ -1,6 +1,7 @@
 //put this file at /etc/yig/yig.json
 {
     "S3Domain": "s3.test.com",
+    "Region": "cn-bj-1",
     "IamEndpoint": "http://10.11.144.11:9006",
     "IamKey": "key",
     "IamSecret": "secret",
