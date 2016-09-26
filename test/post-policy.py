@@ -87,7 +87,7 @@ def put_bucket_cors(name, client):
 def generate_post_policy(name, client):
     ans = client.generate_presigned_post(
         Bucket=name+'hehe',
-        Key='post-policy-' + name,
+        Key='post-policy-${filename}',
         Fields={
             'acl': 'public-read',
             'Content-Type': 'text/plain',
@@ -103,16 +103,18 @@ def generate_post_policy(name, client):
     print ans
     fields = ans['fields']
     html = HTML[name]
-    html.replace('{URL}', ans['url']).replace('{POLICY}', fields['policy'])
+    html = html.replace('{URL}', ans['url']).replace('{POLICY}', fields['policy'])
     if 'v4' in name:
-        html.replace('{CREDENTIAL}', fields['x-amz-credential'])\
-            .replace('{DATE}', fields['x-amz-date'])\
-            .replace('{SIGNATURE}', fields['x-amz-signature'])
+        html = html.replace('{CREDENTIAL}', fields['x-amz-credential'])\
+               .replace('{DATE}', fields['x-amz-date'])\
+               .replace('{SIGNATURE}', fields['x-amz-signature'])
     else:
-        html.replace('{ACCESS_KEY}', fields['AWSAccessKeyId'])\
-            .replace('{SIGNATURE}', fields['signature'])
+        html = html.replace('{ACCESS_KEY}', fields['AWSAccessKeyId'])\
+               .replace('{SIGNATURE}', fields['signature'])
     f = open('post-policy-' + name + '.html', 'w')
     f.write(html)
+    f.close()
+    print '>>> Now open', 'post-policy-' + name + '.html', 'and test in browser.'
 
 # =====================================================
 

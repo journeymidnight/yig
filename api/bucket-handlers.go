@@ -667,10 +667,12 @@ func extractHTTPFormValues(reader *multipart.Reader) (filePartReader io.Reader,
 			// "All variables within the form are expanded prior to validating
 			// the POST policy"
 			fileName := part.FileName()
-			objectKey := formValues["Key"]
+			objectKey, ok := formValues["Key"]
+			if !ok {
+				return nil, nil, ErrMissingFields
+			}
 			if strings.Contains(objectKey, "${filename}") {
-				strings.Replace(objectKey, "${filename}", fileName, -1)
-				formValues["Key"] = objectKey
+				formValues["Key"] = strings.Replace(objectKey, "${filename}", fileName, -1)
 			}
 
 			filePartReader = part
