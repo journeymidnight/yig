@@ -25,9 +25,9 @@ import (
 	"time"
 
 	. "git.letv.cn/yig/yig/error"
-	"regexp"
 	"git.letv.cn/yig/yig/helper"
 	"net/http"
+	"regexp"
 )
 
 var (

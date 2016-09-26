@@ -2,9 +2,9 @@ package meta
 
 import (
 	"encoding/hex"
+	"git.letv.cn/yig/yig/helper"
 	"github.com/tsuna/gohbase"
 	"github.com/xxtea/xxtea-go/xxtea"
-	"git.letv.cn/yig/yig/helper"
 	"log"
 )
 

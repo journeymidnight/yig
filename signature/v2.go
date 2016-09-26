@@ -14,8 +14,8 @@ import (
 	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/iam"
-	"strconv"
 	"net"
+	"strconv"
 )
 
 const (
@@ -73,8 +73,8 @@ func buildCanonicalizedAmzHeaders(headers *http.Header) string {
 
 func buildCanonicalizedResource(req *http.Request) string {
 	ans := ""
-	_, port, _:= net.SplitHostPort(helper.Cfg.BindApiAddress)
-	HOST_URL := helper.Cfg.S3Domain + ":" +port
+	_, port, _ := net.SplitHostPort(helper.Cfg.BindApiAddress)
+	HOST_URL := helper.Cfg.S3Domain + ":" + port
 	if strings.HasSuffix(req.Host, "."+HOST_URL) {
 		bucket := strings.TrimSuffix(req.Host, "."+HOST_URL)
 		ans += "/" + bucket
@@ -82,7 +82,7 @@ func buildCanonicalizedResource(req *http.Request) string {
 		ans += "/" + req.Host
 	}
 	ans += req.URL.EscapedPath()
-	helper.Logger.Println("HOST:",req.Host, HOST_URL,ans)
+	helper.Debugln("HOST:", req.Host, HOST_URL, ans)
 	requiredQuery := []string{
 		// NOTE: this array is sorted alphabetically
 		"acl", "cors", "delete", "lifecycle", "location",
@@ -125,7 +125,7 @@ func dictate(secretKey string, stringToSign string, signature []byte) error {
 	mac := hmac.New(sha1.New, []byte(secretKey))
 	mac.Write([]byte(stringToSign))
 	expectedMac := mac.Sum(nil)
-	helper.Logger.Println("key，mac",secretKey, string(expectedMac), string(signature))
+	helper.Debugln("key，mac", secretKey, string(expectedMac), string(signature))
 	if !hmac.Equal(expectedMac, signature) {
 		return ErrAccessDenied
 	}
@@ -185,7 +185,7 @@ func DoesSignatureMatchV2(r *http.Request) (credential iam.Credential, err error
 
 	stringToSign += buildCanonicalizedAmzHeaders(&r.Header)
 	stringToSign += buildCanonicalizedResource(r)
-	helper.Logger.Println("stringtosign", stringToSign,credential.SecretAccessKey)
+	helper.Debugln("stringtosign", stringToSign, credential.SecretAccessKey)
 	return credential, dictate(credential.SecretAccessKey, stringToSign, signature)
 }
 

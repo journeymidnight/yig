@@ -30,10 +30,10 @@ type AccessKeyItem struct {
 }
 
 type Query struct {
-	Action     string   `json:"action"`
-//	ProjectId  string   `json:"projectId"`
+	Action string `json:"action"`
+	//	ProjectId  string   `json:"projectId"`
 	AccessKeys [1]string `json:"accessKeys"`
-//	Limit      int      `json:"limit"`
+	//	Limit      int      `json:"limit"`
 }
 
 type QueryResp struct {
@@ -62,8 +62,6 @@ var IsValidSecretKey = regexp.MustCompile(`^.{8,40}$`)
 // IsValidAccessKey - validate access key.
 var IsValidAccessKey = regexp.MustCompile(`^[a-zA-Z0-9\\-\\.\\_\\~]{5,20}$`)
 
-
-
 func GetCredential(accessKey string) (credential Credential, err error) {
 	// should use a cache with timeout
 	// TODO put iam addr to config
@@ -90,9 +88,9 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 	}
 
 	body, _ := ioutil.ReadAll(response.Body)
-	slog.Println("iam:",helper.Cfg.IamEndpoint)
-	slog.Println("request:",string(b))
-	slog.Println("response:",string(body))
+	slog.Println("iam:", helper.Cfg.IamEndpoint)
+	slog.Println("request:", string(b))
+	slog.Println("response:", string(body))
 	dec := json.NewDecoder(strings.NewReader(string(body)))
 	if err := dec.Decode(&queryRetAll); err != nil {
 		slog.Println("Decode QueryHistoryResp failed")
@@ -104,14 +102,13 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 		return Credential{}, fmt.Errorf("Query to IAM failed as RetCode != 0")
 	}
 
-
 	uid := queryRetAll.Data.AccessKeySet[0].ProjectId
 	name := queryRetAll.Data.AccessKeySet[0].Name
 	ak := queryRetAll.Data.AccessKeySet[0].AccessKey
 	sk := queryRetAll.Data.AccessKeySet[0].AccessSecret
 
-	slog.Println("ak:",ak)
-	slog.Println("sk:",sk)
+	slog.Println("ak:", ak)
+	slog.Println("sk:", sk)
 	return Credential{
 		UserId:          uid,
 		DisplayName:     name,

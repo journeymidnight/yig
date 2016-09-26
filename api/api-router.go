@@ -31,9 +31,9 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 	// API Router
 	apiRouter := mux.NewRoute().PathPrefix("/").Subrouter()
 
-//	_, port, _:= net.SplitHostPort(helper.Cfg.BindApiAddress)
-//	HOST_URL := helper.Cfg.S3Domain + ":" +port
-//	helper.Logger.Println("RegisterAPIRouter", HOST_URL)
+	//	_, port, _:= net.SplitHostPort(helper.Cfg.BindApiAddress)
+	//	HOST_URL := helper.Cfg.S3Domain + ":" +port
+	//	helper.Logger.Println("RegisterAPIRouter", HOST_URL)
 	// Bucket router
 	bucket := apiRouter.Host(helper.Cfg.S3Domain).PathPrefix("/{bucket}").Subrouter()
 
@@ -118,8 +118,6 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 	bucket_host.Methods("PUT").HandlerFunc(api.PutBucketHandler)
 	// ListObjects
 	bucket_host.Methods("GET").HandlerFunc(api.ListObjectsHandler)
-
-
 
 	/// Object operations
 

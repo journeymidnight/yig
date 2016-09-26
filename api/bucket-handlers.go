@@ -389,7 +389,7 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
-	helper.Logger.Println("PutBucketHandler","enter")
+	helper.Debugln("PutBucketHandler", "enter")
 	var credential iam.Credential
 	var err error
 	if credential, err = signature.IsReqAuthenticated(r); err != nil {

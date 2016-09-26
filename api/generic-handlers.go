@@ -21,9 +21,9 @@ import (
 	"strings"
 
 	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/signature"
 	mux "github.com/gorilla/mux"
-	"git.letv.cn/yig/yig/helper"
 	"net"
 )
 
@@ -79,7 +79,7 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	urlSplit := strings.SplitN(r.URL.Path[1:], "/", 2) // "1:" to remove leading slash
-	bucketName := urlSplit[0] // assume bucketName is the first part of url path
+	bucketName := urlSplit[0]                          // assume bucketName is the first part of url path
 	helper.Debugln("bucket", bucketName)
 	bucket, err := h.objectLayer.GetBucket(bucketName)
 	if err != nil {
@@ -124,8 +124,8 @@ func SetIgnoreResourcesHandler(h http.Handler, _ ObjectLayer) http.Handler {
 // Resource handler ServeHTTP() wrapper
 func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Skip the first element which is usually '/' and split the rest.
-	_, port, _:= net.SplitHostPort(helper.Cfg.BindApiAddress)
-	HOST_URL := helper.Cfg.S3Domain + ":" +port
+	_, port, _ := net.SplitHostPort(helper.Cfg.BindApiAddress)
+	HOST_URL := helper.Cfg.S3Domain + ":" + port
 	var bucketName, objectName string
 	splits := strings.SplitN(r.URL.Path[1:], "/", 2)
 	if strings.HasSuffix(r.Host, "."+HOST_URL) {
@@ -143,7 +143,7 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	helper.Logger.Println("ServeHTTP",bucketName,objectName)
+	helper.Logger.Println("ServeHTTP", bucketName, objectName)
 	// If bucketName is present and not objectName check for bucket
 	// level resource queries.
 	if bucketName != "" && objectName == "" {
@@ -160,7 +160,7 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// A put method on path "/" doesn't make sense, ignore it.
-	if r.Method == "PUT" && r.URL.Path == "/" && bucketName == ""{
+	if r.Method == "PUT" && r.URL.Path == "/" && bucketName == "" {
 		WriteErrorResponse(w, r, ErrNotImplemented, r.URL.Path)
 		return
 	}

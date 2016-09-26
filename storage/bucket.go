@@ -417,8 +417,7 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 		// various versions from HBase and filter them afterwards
 		if request.Delimiter == "" {
 			// save only the latest object version
-			if savedVersion, ok := objectMap[o.Name];
-				!ok || savedVersion.LastModifiedTime.Before(o.LastModifiedTime){
+			if savedVersion, ok := objectMap[o.Name]; !ok || savedVersion.LastModifiedTime.Before(o.LastModifiedTime) {
 				objectMap[o.Name] = o
 			}
 		} else {
@@ -431,8 +430,7 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 			} else {
 				// save only the latest object version
 				// TODO: refactor, same as above
-				if savedVersion, ok := objectMap[o.Name];
-					!ok || savedVersion.LastModifiedTime.Before(o.LastModifiedTime){
+				if savedVersion, ok := objectMap[o.Name]; !ok || savedVersion.LastModifiedTime.Before(o.LastModifiedTime) {
 					objectMap[o.Name] = o
 				}
 			}

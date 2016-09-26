@@ -21,6 +21,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/helper"
 	"net/http"
 	"regexp"
 	"strings"
@@ -31,7 +32,6 @@ import (
 // client did not calculate sha256 of the payload.
 const (
 	UnsignedPayload = "UNSIGNED-PAYLOAD"
-	REGION          = "cn-bj-1"
 )
 
 // isValidRegion - verify if incoming region value is valid with configured Region.
@@ -40,7 +40,7 @@ func isValidRegion(reqRegion string) bool {
 	if reqRegion == "" {
 		return true
 	}
-	return reqRegion == REGION
+	return reqRegion == helper.Cfg.Region
 }
 
 // sumHMAC calculate hmac between two input byte array.

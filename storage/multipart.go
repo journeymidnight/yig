@@ -324,7 +324,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential i
 	}
 
 	calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
-	if md5Hex != calculatedMd5 {
+	if md5Hex != "" && md5Hex != calculatedMd5 {
 		err = ErrBadDigest
 		return
 	}

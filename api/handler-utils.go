@@ -21,10 +21,10 @@ import (
 	"encoding/base64"
 	. "git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/helper"
 	"io"
 	"net/http"
 	"strings"
-	"git.letv.cn/yig/yig/helper"
 )
 
 // validates location constraint from the request body.

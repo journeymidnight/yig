@@ -499,7 +499,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Request) {
 	// If the matching failed, it means that the X-Amz-Copy-Source was
 	// wrong, fail right here.
-	helper.Logger.Println("PutObjectHandler","enter")
+	helper.Debugln("PutObjectHandler", "enter")
 	if _, ok := r.Header["X-Amz-Copy-Source"]; ok {
 		WriteErrorResponse(w, r, ErrInvalidCopySource, r.URL.Path)
 		return
@@ -526,7 +526,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	md5Bytes, err := checkValidMD5(r.Header.Get("Content-Md5"))
 	if err != nil {
 		metadata["md5Sum"] = ""
-	}else {
+	} else {
 		metadata["md5Sum"] = hex.EncodeToString(md5Bytes)
 	}
 
@@ -737,11 +737,13 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 	bucketName := vars["bucket"]
 	objectName := vars["object"]
 
+	var incomingMd5 string
 	// get Content-Md5 sent by client and verify if valid
 	md5Bytes, err := checkValidMD5(r.Header.Get("Content-Md5"))
 	if err != nil {
-		WriteErrorResponse(w, r, ErrInvalidDigest, r.URL.Path)
-		return
+		incomingMd5 = ""
+	} else {
+		incomingMd5 = hex.EncodeToString(md5Bytes)
 	}
 
 	/// if Content-Length is unknown/missing, throw away
@@ -785,10 +787,9 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 	}
 
 	var result PutObjectPartResult
-	incomingMD5 := hex.EncodeToString(md5Bytes)
 	// No need to verify signature, anonymous request access is already allowed.
 	result, err = api.ObjectAPI.PutObjectPart(bucketName, objectName, credential,
-		uploadID, partID, size, dataReader, incomingMD5, sseRequest)
+		uploadID, partID, size, dataReader, incomingMd5, sseRequest)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to create object part.")
 		// Verify if the underlying error is signature mismatch.
