@@ -664,6 +664,15 @@ func extractHTTPFormValues(reader *multipart.Reader) (filePartReader io.Reader,
 			}
 			formValues[http.CanonicalHeaderKey(part.FormName())] = string(buffer)
 		} else {
+			// "All variables within the form are expanded prior to validating
+			// the POST policy"
+			fileName := part.FileName()
+			objectKey := formValues["Key"]
+			if strings.Contains(objectKey, "${filename}") {
+				strings.Replace(objectKey, "${filename}", fileName, -1)
+				formValues["Key"] = objectKey
+			}
+
 			filePartReader = part
 			// "The file or content must be the last field in the form.
 			// Any fields below it are ignored."
