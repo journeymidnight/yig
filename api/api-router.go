@@ -81,16 +81,12 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 
 	// GetBucketLocation
 	bucket_host.Methods("GET").HandlerFunc(api.GetBucketLocationHandler).Queries("location", "")
-	// GetBucketPolicy
-	bucket_host.Methods("GET").HandlerFunc(api.GetBucketPolicyHandler).Queries("policy", "")
 	// ListMultipartUploads
 	bucket_host.Methods("GET").HandlerFunc(api.ListMultipartUploadsHandler).Queries("uploads", "")
 	// Get bucket versioning status
 	bucket_host.Methods("GET").HandlerFunc(api.GetBucketVersioningHandler).Queries("versioning", "")
 	// List versioned objects in a bucket
 	bucket_host.Methods("GET").HandlerFunc(api.ListVersionedObjectsHandler).Queries("versions", "")
-	// PutBucketPolicy
-	bucket_host.Methods("PUT").HandlerFunc(api.PutBucketPolicyHandler).Queries("policy", "")
 	// PutBucketACL
 	bucket_host.Methods("PUT").HandlerFunc(api.PutBucketAclHandler).Queries("acl", "")
 	// GetBucketACL
@@ -110,8 +106,6 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 		HandlerFunc(api.PostPolicyBucketHandler)
 	// DeleteMultipleObjects
 	bucket_host.Methods("POST").HandlerFunc(api.DeleteMultipleObjectsHandler)
-	// DeleteBucketPolicy
-	bucket_host.Methods("DELETE").HandlerFunc(api.DeleteBucketPolicyHandler).Queries("policy", "")
 	// DeleteBucket
 	bucket_host.Methods("DELETE").HandlerFunc(api.DeleteBucketHandler)
 	// PutBucket
@@ -162,16 +156,12 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 
 	// GetBucketLocation
 	bucket.Methods("GET").HandlerFunc(api.GetBucketLocationHandler).Queries("location", "")
-	// GetBucketPolicy
-	bucket.Methods("GET").HandlerFunc(api.GetBucketPolicyHandler).Queries("policy", "")
 	// ListMultipartUploads
 	bucket.Methods("GET").HandlerFunc(api.ListMultipartUploadsHandler).Queries("uploads", "")
 	// Get bucket versioning status
 	bucket.Methods("GET").HandlerFunc(api.GetBucketVersioningHandler).Queries("versioning", "")
 	// List versioned objects in a bucket
 	bucket.Methods("GET").HandlerFunc(api.ListVersionedObjectsHandler).Queries("versions", "")
-	// PutBucketPolicy
-	bucket.Methods("PUT").HandlerFunc(api.PutBucketPolicyHandler).Queries("policy", "")
 	// PutBucketACL
 	bucket.Methods("PUT").HandlerFunc(api.PutBucketAclHandler).Queries("acl", "")
 	// GetBucketACL
@@ -191,8 +181,6 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 		HandlerFunc(api.PostPolicyBucketHandler)
 	// DeleteMultipleObjects
 	bucket.Methods("POST").HandlerFunc(api.DeleteMultipleObjectsHandler)
-	// DeleteBucketPolicy
-	bucket.Methods("DELETE").HandlerFunc(api.DeleteBucketPolicyHandler).Queries("policy", "")
 	// DeleteBucket
 	bucket.Methods("DELETE").HandlerFunc(api.DeleteBucketHandler)
 	// PutBucket

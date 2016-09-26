@@ -57,17 +57,25 @@ func setGetRespHeaders(w http.ResponseWriter, reqParams url.Values) {
 // this is in keeping with the permissions sections of the docs of both:
 //   HEAD Object: http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectHEAD.html
 //   GET Object: http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGET.html
-func errAllowableObjectNotFound(bucket string, r *http.Request) error {
-	if signature.GetRequestAuthType(r) == signature.AuthTypeAnonymous {
-		//we care about the bucket as a whole, not a particular resource
-		url := *r.URL
-		url.Path = "/" + bucket
+func (api ObjectAPIHandlers) errAllowableObjectNotFound(bucketName string,
+	credential iam.Credential) error {
 
-		if s3Error := enforceBucketPolicy("s3:ListBucket", bucket, &url); s3Error != nil {
+	bucket, err := api.ObjectAPI.GetBucket(bucketName)
+	if err != nil {
+		return ErrAccessDenied
+	}
+	switch bucket.ACL.CannedAcl {
+	case "public-read", "public-read-write":
+		return ErrNoSuchKey
+	case "authenticated-read":
+		if credential.AccessKeyID != "" {
+			return ErrNoSuchKey
+		} else {
 			return ErrAccessDenied
 		}
+	default:
+		return ErrAccessDenied
 	}
-	return ErrNoSuchKey
 }
 
 // Simple way to convert a func to io.Writer type.
@@ -109,7 +117,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
 		if err == ErrNoSuchKey {
-			err = errAllowableObjectNotFound(bucketName, r)
+			err = api.errAllowableObjectNotFound(bucketName, credential)
 		}
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return
@@ -258,7 +266,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
 		if err == ErrNoSuchKey {
-			err = errAllowableObjectNotFound(bucketName, r)
+			err = api.errAllowableObjectNotFound(bucketName, credential)
 		}
 		WriteErrorResponse(w, r, err, r.URL.Path)
 		return

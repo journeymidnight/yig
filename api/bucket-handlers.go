@@ -29,50 +29,10 @@ import (
 	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/iam"
-	"git.letv.cn/yig/yig/meta"
 	"git.letv.cn/yig/yig/signature"
 	mux "github.com/gorilla/mux"
 	"strconv"
 )
-
-// http://docs.aws.amazon.com/AmazonS3/latest/dev/using-with-s3-actions.html
-func enforceBucketPolicy(action string, bucket string, reqURL *url.URL) (s3Error error) {
-	// Read saved bucket policy.
-	policy, err := readBucketPolicy(bucket)
-	if err != nil {
-		helper.ErrorIf(err, "Unable read bucket policy.")
-		switch err.(type) {
-		case meta.BucketNotFound:
-			return ErrNoSuchBucket
-		case meta.BucketNameInvalid:
-			return ErrInvalidBucketName
-		default:
-			// For any other error just return AccessDenied.
-			return ErrAccessDenied
-		}
-	}
-	// Parse the saved policy.
-	bucketPolicy, err := parseBucketPolicy(policy)
-	if err != nil {
-		helper.ErrorIf(err, "Unable to parse bucket policy.")
-		return ErrAccessDenied
-	}
-
-	// Construct resource in 'arn:aws:s3:::examplebucket/object' format.
-	resource := AWSResourcePrefix + strings.TrimPrefix(reqURL.Path, "/")
-
-	// Get conditions for policy verification.
-	conditions := make(map[string]string)
-	for queryParam := range reqURL.Query() {
-		conditions[queryParam] = reqURL.Query().Get(queryParam)
-	}
-
-	// Validate action, resource and conditions with current policy statements.
-	if !bucketPolicyEvalStatements(action, resource, conditions, bucketPolicy.Statements) {
-		return ErrAccessDenied
-	}
-	return nil
-}
 
 // GetBucketLocationHandler - GET Bucket location.
 // -------------------------
