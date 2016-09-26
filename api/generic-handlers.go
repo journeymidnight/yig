@@ -78,7 +78,7 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	urlSplit := strings.SplitN(r.URL.RequestURI()[1:], "/", 2) // "1:" to remove leading slash
+	urlSplit := strings.SplitN(r.URL.Path[1:], "/", 2) // "1:" to remove leading slash
 	bucketName := urlSplit[0] // assume bucketName is the first part of url path
 	helper.Debugln("bucket", bucketName)
 	bucket, err := h.objectLayer.GetBucket(bucketName)
@@ -90,7 +90,7 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "OPTIONS" {
 		for _, rule := range bucket.CORS.CorsRules {
 			if matchedOrigin, matched := rule.MatchSimple(r); matched {
-				rule.SetResponseHeaders(w, r.URL, matchedOrigin)
+				rule.SetResponseHeaders(w, r, matchedOrigin)
 				h.handler.ServeHTTP(w, r)
 				return
 			}
@@ -104,7 +104,7 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Vary", "Access-Control-Request-Headers")
 	for _, rule := range bucket.CORS.CorsRules {
 		if matchedOrigin, matched := rule.MatchPreflight(r); matched {
-			rule.SetResponseHeaders(w, r.URL, matchedOrigin)
+			rule.SetResponseHeaders(w, r, matchedOrigin)
 			WriteSuccessResponse(w, nil)
 			return
 		}

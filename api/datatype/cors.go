@@ -68,7 +68,7 @@ func (rule CorsRule) MatchPreflight(r *http.Request) (matchedOrigin string, matc
 	return "", false
 }
 
-func (rule CorsRule) SetResponseHeaders(w http.ResponseWriter, url *url.URL,
+func (rule CorsRule) SetResponseHeaders(w http.ResponseWriter, r *http.Request,
 	matchedOrigin string) {
 	if matchedOrigin == "*" {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -77,11 +77,23 @@ func (rule CorsRule) SetResponseHeaders(w http.ResponseWriter, url *url.URL,
 		// origin formats like "*.le.com" or "le*.com", so build a full
 		// URL for response
 		w.Header().Set("Access-Control-Allow-Origin",
-			url.Scheme+"://"+url.Host)
+			r.URL.Scheme+"://"+r.URL.Host)
 	}
 	if len(rule.AllowedHeaders) > 0 {
-		w.Header().Set("Access-Control-Allow-Headers",
-			strings.Join(rule.AllowedHeaders, ", "))
+		if len(rule.AllowedHeaders) == 1 && rule.AllowedHeaders[0] == "*" {
+			requestHeaders, ok := r.Header["Access-Control-Request-Headers"]
+			if !ok {
+				w.Header().Set("Access-Control-Allow-Headers", "*")
+			} else {
+				for _, header := range requestHeaders {
+					w.Header().Add("Access-Control-Allow-Headers", header)
+				}
+			}
+		} else {
+			for _, header := range rule.AllowedHeaders {
+				w.Header().Add("Access-Control-Allow-Headers", header)
+			}
+		}
 	}
 	if len(rule.AllowedMethods) > 0 {
 		w.Header().Set("Access-Control-Allow-Methods",
