@@ -760,9 +760,13 @@ func (api ObjectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *h
 
 	metadata := extractMetadataFromHeader(headerfiedFormValues)
 
-	acl, err := getAclFromHeader(headerfiedFormValues)
-	if err != nil {
-		WriteErrorResponse(w, r, err, r.URL.Path)
+	var acl Acl
+	acl.CannedAcl = headerfiedFormValues.Get("acl")
+	if acl.CannedAcl == "" {
+		acl.CannedAcl = "private"
+	}
+	if !helper.StringInSlice(acl.CannedAcl, validCannedAcl) {
+		WriteErrorResponse(w, r, ErrInvalidCannedAcl, r.URL.Path)
 		return
 	}
 
