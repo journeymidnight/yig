@@ -524,7 +524,7 @@ func (yig *YigStorage) addDeleteMarker(bucket meta.Bucket, objectName string) (v
 	deleteMarker := &meta.Object{
 		Name:             objectName,
 		BucketName:       bucket.Name,
-		OwnerId:	  bucket.OwnerId,
+		OwnerId:          bucket.OwnerId,
 		LastModifiedTime: time.Now().UTC(),
 		NullVersion:      false,
 		DeleteMarker:     true,

@@ -25,18 +25,19 @@ import (
 	"time"
 
 	. "git.letv.cn/yig/yig/error"
-	"net/http"
 	"regexp"
+	"git.letv.cn/yig/yig/helper"
+	"net/http"
 )
 
 var (
 	// Convert to Canonical Form before compare
-	EqPolicyRegExp = regexp.MustCompile("Acl|Bucket|Cache-Control|Content-Type|Content-Disposition" +
+	EqPolicyRegExp = regexp.MustCompile("(?i)Acl|Bucket|Cache-Control|Content-Type|Content-Disposition" +
 		"|Content-Encoding|Expires|Key|Success_action_redirect|Redirect|Success_action_status" +
 		"|X-Amz-.+|X-Amz-Meta-.+")
-	StartsWithPolicyRegExp = regexp.MustCompile("Acl|Cache-Control|Content-Type|Content-Disposition" +
+	StartsWithPolicyRegExp = regexp.MustCompile("(?i)Acl|Cache-Control|Content-Type|Content-Disposition" +
 		"|Content-Encoding|Expires|Key|Success_action_redirect|Redirect|X-Amz-Meta-.+")
-	IgnoredFormRegExp = regexp.MustCompile("X-Amz-Signature|File|Policy|X-Ignore-.+")
+	IgnoredFormRegExp = regexp.MustCompile("(?i)X-Amz-Signature|File|Policy|X-Ignore-.+")
 )
 
 // toString - Safely convert interface to string without causing panic.
@@ -81,7 +82,7 @@ type PostPolicyForm struct {
 	}
 }
 
-// parsePostPolicyFormV4 - Parse JSON policy string into typed PostPolicyForm structure.
+// parsePostPolicyForm - Parse JSON policy string into typed PostPolicyForm structure.
 func parsePostPolicyForm(policy string,
 	eqPolicyRegExp *regexp.Regexp, startsWithPolicyRegExp *regexp.Regexp) (PostPolicyForm, error) {
 	// Convert po into interfaces and
@@ -103,6 +104,7 @@ func parsePostPolicyForm(policy string,
 	if err != nil {
 		return PostPolicyForm{}, err
 	}
+	// FIXME: should be map[string][]struct{}
 	parsedPolicy.Conditions.Policies = make(map[string]struct {
 		Operator string
 		Value    string
@@ -124,7 +126,7 @@ func parsePostPolicyForm(policy string,
 				}
 				// {"acl": "public-read" } is an alternate way to indicate - [ "eq", "$acl", "public-read" ]
 				// In this case we will just collapse this into "eq" for all use cases.
-				parsedPolicy.Conditions.Policies[k] = struct {
+				parsedPolicy.Conditions.Policies[http.CanonicalHeaderKey(k)] = struct {
 					Operator string
 					Value    string
 				}{
@@ -190,6 +192,7 @@ func parsePostPolicyForm(policy string,
 // checkPostPolicy - apply policy conditions and validate input values.
 func CheckPostPolicy(formValues map[string]string,
 	postPolicyVersion PostPolicyType) error {
+
 	var eqPolicyRegExp, startswithPolicyRegExp, ignoredFormRegExp *regexp.Regexp
 	switch postPolicyVersion {
 	case PostPolicyV2:
@@ -199,8 +202,9 @@ func CheckPostPolicy(formValues map[string]string,
 		eqPolicyRegExp, startswithPolicyRegExp, ignoredFormRegExp =
 			EqPolicyRegExp, StartsWithPolicyRegExp, IgnoredFormRegExp
 	case PostPolicyAnonymous:
-		// TODO
-		return ErrNotImplemented
+		// "Requests without a security policy are considered anonymous"
+		// so no need to check it
+		return nil
 	default:
 		return ErrNotImplemented
 	}
@@ -212,6 +216,7 @@ func CheckPostPolicy(formValues map[string]string,
 	postPolicyForm, err := parsePostPolicyForm(string(policyBytes),
 		eqPolicyRegExp, startswithPolicyRegExp)
 	if err != nil {
+		helper.Logger.Println("Parse post-policy form error:", err)
 		return ErrMalformedPOSTRequest
 	}
 	if !postPolicyForm.Expiration.After(time.Now()) {
@@ -233,6 +238,7 @@ func CheckPostPolicy(formValues map[string]string,
 				}
 			}
 		} else { // field exists in form but not in policy
+			// TODO make this error more specific to users
 			return ErrMissingFields
 		}
 	}

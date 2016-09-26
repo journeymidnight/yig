@@ -22,15 +22,16 @@ import (
 
 	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/signature"
-	router "github.com/gorilla/mux"
+	mux "github.com/gorilla/mux"
+	"git.letv.cn/yig/yig/helper"
 )
 
 // HandlerFunc - useful to chain different middleware http.Handler
 type HandlerFunc func(http.Handler, ObjectLayer) http.Handler
 
-func RegisterHandlers(mux *router.Router, objectLayer ObjectLayer, handlerFns ...HandlerFunc) http.Handler {
+func RegisterHandlers(router *mux.Router, objectLayer ObjectLayer, handlerFns ...HandlerFunc) http.Handler {
 	var f http.Handler
-	f = mux
+	f = router
 	for _, hFn := range handlerFns {
 		f = hFn(f, objectLayer)
 	}
@@ -76,12 +77,9 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	vars := router.Vars(r)
-	bucketName, ok := vars["bucket"]
-	if !ok {
-		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
-		return
-	}
+	urlSplit := strings.SplitN(r.URL.RequestURI()[1:], "/", 2) // "1:" to remove leading slash
+	bucketName := urlSplit[0] // assume bucketName is the first part of url path
+	helper.Debugln("bucket", bucketName)
 	bucket, err := h.objectLayer.GetBucket(bucketName)
 	if err != nil {
 		WriteErrorResponse(w, r, err, r.URL.Path)
@@ -96,6 +94,8 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		return
 	}
 
 	// r.Method == "OPTIONS", i.e CORS preflight

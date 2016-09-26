@@ -41,7 +41,7 @@ const (
 	ErrAccessDenied ApiErrorCode = iota
 	ErrBadDigest
 	ErrBucketAlreadyExists
-	ErrEntityTooSmall
+	ErrEmptyEntity
 	ErrEntityTooLarge
 	ErrIncompleteBody
 	ErrInternalError
@@ -200,9 +200,9 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		Description:    "The requested bucket name is not available.",
 		HttpStatusCode: http.StatusConflict,
 	},
-	ErrEntityTooSmall: {
-		AwsErrorCode:   "EntityTooSmall",
-		Description:    "Your proposed upload is smaller than the minimum allowed object size.",
+	ErrEmptyEntity: {
+		AwsErrorCode:   "EmptyEntity",
+		Description:    "Your upload does not include a valid object",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrEntityTooLarge: {
@@ -362,7 +362,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrCredMalformed: {
 		AwsErrorCode:   "CredentialMalformed",
-		Description:    "Credential field malformed does not follow accessKeyID/credScope.",
+		Description:    "Credential field does not follow accessKeyID/credentialScope.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrMalformedDate: {
