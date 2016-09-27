@@ -17,26 +17,10 @@
 package api
 
 import (
-	"crypto/md5"
-	"encoding/hex"
-	"fmt"
-	"path"
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode/utf8"
-
-	"git.letv.cn/yig/yig/helper"
-	"git.letv.cn/yig/yig/meta"
-	"github.com/skyrings/skyring-common/tools/uuid"
-)
-
-const (
-	// Minio meta bucket.
-	minioMetaBucket = ".minio"
-	// Multipart meta prefix.
-	mpartMetaPrefix = "multipart"
-	// Tmp meta prefix.
-	tmpMetaPrefix = "tmp"
 )
 
 // validBucket regexp.
@@ -46,116 +30,56 @@ var validBucket = regexp.MustCompile(`^[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]$`)
 // requirements. It must be 3-63 characters long, can contain dashes
 // and periods, but must begin and end with a lowercase letter or a number.
 // See: http://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html
-func IsValidBucketName(bucket string) bool {
-	if len(bucket) < 3 || len(bucket) > 63 {
+func isValidBucketName(bucketName string) bool {
+	if !validBucket.MatchString(bucketName) {
 		return false
 	}
-	if bucket[0] == '.' || bucket[len(bucket)-1] == '.' {
-		return false
+	// make sure there're no continuous dots
+	for i, c := range bucketName {
+		if string(c) == "." && string(bucketName[i-1]) == "." {
+			return false
+		}
 	}
-	return validBucket.MatchString(bucket)
+	// make sure it's not an IP address
+	split := strings.Split(bucketName, ".")
+	if len(split) == 4 {
+		for _, p := range split {
+			n, err := strconv.Atoi(p)
+			if err == nil && n >= 0 && n <= 255 {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 // IsValidObjectName verifies an object name in accordance with Amazon's
 // requirements. It cannot exceed 1024 characters and must be a valid UTF8
 // string.
+// Some characters require special handling:
+// & $ @ = ; : + (space) , ?
+// and ASCII ranges 0x00-0x1F(0-31 decimal) and 7F(127 decimal)
+// Some characters to avoid:
+// \ { ^ } % ` [ ] ' " < > ~ # |
+// and non-printable ASCII characters(128-255 decimal)
 //
-// See:
-// http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMetadata.html
-//
-// You should avoid the following characters in a key name because of
-// significant special handling for consistency across all
-// applications.
-//
-// Rejects strings with following characters.
-//
-// - Backslash ("\")
-// - Caret ("^")
-// - Grave accent / back tick ("`")
-// - Vertical bar / pipe ("|")
-//
-// Minio does not support object names with trailing "/".
-func IsValidObjectName(object string) bool {
-	if len(object) == 0 {
+// As in YIG, we PROHIBIT ALL the characters listed above
+// See http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMetadata.html
+func isValidObjectName(objectName string) bool {
+	if len(objectName) <= 0 || len(objectName) > 1024 {
 		return false
 	}
-	if strings.HasSuffix(object, slashSeparator) {
+	if !utf8.ValidString(objectName) {
 		return false
 	}
-	if strings.HasPrefix(object, slashSeparator) {
-		return false
-	}
-	return IsValidObjectPrefix(object)
-}
-
-// IsValidObjectPrefix verifies whether the prefix is a valid object name.
-// Its valid to have a empty prefix.
-func IsValidObjectPrefix(object string) bool {
-	if len(object) > 1024 {
-		return false
-	}
-	if !utf8.ValidString(object) {
-		return false
-	}
-	// Reject unsupported characters in object name.
-	if strings.ContainsAny(object, "`^*|\\\"") {
-		return false
+	for _, n := range objectName {
+		if (n >= 0 && n <= 31) || (n >= 127 && n <= 255) {
+			return false
+		}
+		c := string(n)
+		if strings.ContainsAny(c, "&$@=;:+ ,?\\^`><{}][#%\"'~|") {
+			return false
+		}
 	}
 	return true
 }
-
-// Slash separator.
-const slashSeparator = "/"
-
-// retainSlash - retains slash from a path.
-func retainSlash(s string) string {
-	return strings.TrimSuffix(s, slashSeparator) + slashSeparator
-}
-
-// pathJoin - like path.Join() but retains trailing "/" of the last element
-func pathJoin(elem ...string) string {
-	trailingSlash := ""
-	if len(elem) > 0 {
-		if strings.HasSuffix(elem[len(elem)-1], slashSeparator) {
-			trailingSlash = "/"
-		}
-	}
-	return path.Join(elem...) + trailingSlash
-}
-
-// getUUID() - get a unique uuid.
-func getUUID() (uuidStr string) {
-	for {
-		uuid, err := uuid.New()
-		if err != nil {
-			helper.ErrorIf(err, "Unable to initialize uuid")
-			continue
-		}
-		uuidStr = uuid.String()
-		break
-	}
-	return uuidStr
-}
-
-// Create an s3 compatible MD5sum for complete multipart transaction.
-func completeMultipartMD5(parts ...meta.CompletePart) (string, error) {
-	var finalMD5Bytes []byte
-	for _, part := range parts {
-		md5Bytes, err := hex.DecodeString(part.ETag)
-		if err != nil {
-			return "", err
-		}
-		finalMD5Bytes = append(finalMD5Bytes, md5Bytes...)
-	}
-	md5Hasher := md5.New()
-	md5Hasher.Write(finalMD5Bytes)
-	s3MD5 := fmt.Sprintf("%s-%d", hex.EncodeToString(md5Hasher.Sum(nil)), len(parts))
-	return s3MD5, nil
-}
-
-// byBucketName is a collection satisfying sort.Interface.
-type byBucketName []meta.Bucket
-
-func (d byBucketName) Len() int           { return len(d) }
-func (d byBucketName) Swap(i, j int)      { d[i], d[j] = d[j], d[i] }
-func (d byBucketName) Less(i, j int) bool { return d[i].Name < d[j].Name }

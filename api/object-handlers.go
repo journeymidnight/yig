@@ -505,9 +505,9 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 // ----------
 // This implementation of the PUT operation adds an object to a bucket.
 func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Request) {
+	helper.Debugln("PutObjectHandler", "enter")
 	// If the matching failed, it means that the X-Amz-Copy-Source was
 	// wrong, fail right here.
-	helper.Debugln("PutObjectHandler", "enter")
 	if _, ok := r.Header["X-Amz-Copy-Source"]; ok {
 		WriteErrorResponse(w, r, ErrInvalidCopySource, r.URL.Path)
 		return
@@ -515,6 +515,11 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 	objectName := vars["object"]
+
+	if !isValidObjectName(objectName) {
+		WriteErrorResponse(w, r, ErrInvalidObjectName, r.URL.Path)
+		return
+	}
 
 	// if Content-Length is unknown/missing, deny the request
 	size := r.ContentLength
@@ -680,6 +685,11 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 	bucketName := vars["bucket"]
 	objectName := vars["object"]
 
+	if !isValidObjectName(objectName) {
+		WriteErrorResponse(w, r, ErrInvalidObjectName, r.URL.Path)
+		return
+	}
+
 	var credential iam.Credential
 	var err error
 	switch signature.GetRequestAuthType(r) {
@@ -830,6 +840,11 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 	vars := mux.Vars(r)
 	targetBucketName := vars["bucket"]
 	targetObjectName := vars["object"]
+
+	if !isValidObjectName(targetObjectName) {
+		WriteErrorResponse(w, r, ErrInvalidObjectName, r.URL.Path)
+		return
+	}
 
 	var credential iam.Credential
 	var err error

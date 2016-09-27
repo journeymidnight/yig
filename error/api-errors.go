@@ -47,6 +47,7 @@ const (
 	ErrInternalError
 	ErrInvalidAccessKeyID
 	ErrInvalidBucketName
+	ErrInvalidObjectName
 	ErrInvalidDigest
 	ErrInvalidRange
 	ErrInvalidEncodingType
@@ -227,7 +228,12 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrInvalidBucketName: {
 		AwsErrorCode:   "InvalidBucketName",
-		Description:    "The specified bucket is not valid.",
+		Description:    "The specified bucket name is not valid.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidObjectName: {
+		AwsErrorCode:   "InvalidObjectName",
+		Description:    "The specified object name is not valid",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidDigest: {

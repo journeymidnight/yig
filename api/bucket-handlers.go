@@ -347,9 +347,13 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 // ----------
 // This implementation of the PUT operation creates a new bucket for authenticated request
 func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	bucket := vars["bucket"]
 	helper.Debugln("PutBucketHandler", "enter")
+	vars := mux.Vars(r)
+	bucketName := strings.ToLower(vars["bucket"])
+	if !isValidBucketName(bucketName) {
+		WriteErrorResponse(w, r, ErrInvalidBucketName, r.URL.Path)
+		return
+	}
 	var credential iam.Credential
 	var err error
 	if credential, err = signature.IsReqAuthenticated(r); err != nil {
@@ -372,7 +376,7 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 	// Make bucket.
-	err = api.ObjectAPI.MakeBucket(bucket, acl, credential)
+	err = api.ObjectAPI.MakeBucket(bucketName, acl, credential)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to create a bucket.")
 		WriteErrorResponse(w, r, err, r.URL.Path)
@@ -672,6 +676,11 @@ func (api ObjectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *h
 		WriteErrorResponse(w, r, ErrMalformedPOSTRequest, r.URL.Path)
 		return
 	}
+	objectName := formValues["Key"]
+	if !isValidObjectName(objectName) {
+		WriteErrorResponse(w, r, ErrInvalidObjectName, r.URL.Path)
+		return
+	}
 
 	bucketName := mux.Vars(r)["bucket"]
 	formValues["Bucket"] = bucketName
@@ -736,7 +745,6 @@ func (api ObjectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *h
 		return
 	}
 
-	objectName := formValues["Key"]
 	result, err := api.ObjectAPI.PutObject(bucketName, objectName, credential, -1, fileBody,
 		metadata, acl, sseRequest)
 	if err != nil {
