@@ -35,10 +35,8 @@ func isValidBucketName(bucketName string) bool {
 		return false
 	}
 	// make sure there're no continuous dots
-	for i, c := range bucketName {
-		if string(c) == "." && string(bucketName[i-1]) == "." {
-			return false
-		}
+	if strings.Contains(bucketName, "..") {
+		return false
 	}
 	// make sure it's not an IP address
 	split := strings.Split(bucketName, ".")
