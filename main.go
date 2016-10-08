@@ -4,6 +4,7 @@ package main
 
 import (
 	"git.letv.cn/yig/yig/helper"
+	"git.letv.cn/yig/yig/redis"
 	"git.letv.cn/yig/yig/storage"
 	"log"
 	"os"
@@ -25,8 +26,10 @@ func main() {
 	logger = log.New(f, "[yig]", log.LstdFlags)
 	helper.Logger = logger
 
-	yig := storage.New(logger)
+	redis.Initialize()
+	defer redis.Close()
 
+	yig := storage.New(logger)
 
 	adminServerConfig := &adminServerConfig{
 		Address:     helper.CONFIG.BindAdminAddress,

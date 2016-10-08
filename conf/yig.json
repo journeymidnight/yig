@@ -12,5 +12,7 @@
     "BindAdminAddress": "0.0.0.0:9000",
     "SSLKeyPath": "",
     "SSLCertPath": "",
-    "ZookeeperAddress": "10.110.95.56:2181,10.110.95.62:2181"
+    "ZookeeperAddress": "10.110.95.56:2181,10.110.95.62:2181",
+    "RedisAddress": "localhost:6379",
+    "RedisConnectionNumber": 500
 }
