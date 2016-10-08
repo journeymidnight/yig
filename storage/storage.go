@@ -19,10 +19,12 @@ const (
 	INITIALIZATION_VECTOR_LENGTH = 16 // block size of AES
 )
 
-// *YigStorage implements minio.ObjectLayer
+// *YigStorage implements api.ObjectLayer
 type YigStorage struct {
 	DataStorage map[string]*CephStorage
+	DataCache   *DataCache
 	MetaStorage *meta.Meta
+	MetaCache   *MetaCache
 	Logger      *log.Logger
 	// TODO
 }
@@ -31,7 +33,9 @@ func New(logger *log.Logger) *YigStorage {
 	metaStorage := meta.New(logger)
 	yig := YigStorage{
 		DataStorage: make(map[string]*CephStorage),
+		DataCache:   newDataCache(),
 		MetaStorage: metaStorage,
+		MetaCache:   newMetaCache(),
 		Logger:      logger,
 	}
 
