@@ -73,8 +73,8 @@ func buildCanonicalizedAmzHeaders(headers *http.Header) string {
 
 func buildCanonicalizedResource(req *http.Request) string {
 	ans := ""
-	_, port, _ := net.SplitHostPort(helper.Cfg.BindApiAddress)
-	HOST_URL := helper.Cfg.S3Domain + ":" + port
+	_, port, _ := net.SplitHostPort(helper.CONFIG.BindApiAddress)
+	HOST_URL := helper.CONFIG.S3Domain + ":" + port
 	if strings.HasSuffix(req.Host, "."+HOST_URL) {
 		bucket := strings.TrimSuffix(req.Host, "."+HOST_URL)
 		ans += "/" + bucket

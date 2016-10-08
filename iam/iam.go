@@ -78,9 +78,9 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 		return Credential{}, err
 	}
 
-	request, _ := http.NewRequest("POST", helper.Cfg.IamEndpoint, strings.NewReader(string(b)))
-	request.Header.Set("X-Le-Key", helper.Cfg.IamKey)
-	request.Header.Set("X-Le-Secret", helper.Cfg.IamSecret)
+	request, _ := http.NewRequest("POST", helper.CONFIG.IamEndpoint, strings.NewReader(string(b)))
+	request.Header.Set("X-Le-Key", helper.CONFIG.IamKey)
+	request.Header.Set("X-Le-Secret", helper.CONFIG.IamSecret)
 	response, _ := client.Do(request)
 	if response.StatusCode != 200 {
 		slog.Println("Query to IAM failed as status != 200")
@@ -88,7 +88,7 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 	}
 
 	body, _ := ioutil.ReadAll(response.Body)
-	slog.Println("iam:", helper.Cfg.IamEndpoint)
+	slog.Println("iam:", helper.CONFIG.IamEndpoint)
 	slog.Println("request:", string(b))
 	slog.Println("response:", string(body))
 	dec := json.NewDecoder(strings.NewReader(string(body)))

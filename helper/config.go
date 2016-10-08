@@ -2,16 +2,15 @@ package helper
 
 import (
 	"encoding/json"
-	"errors"
 	"os"
 )
 
-type GcCfg struct {
-	S3Domain         string //YIG域名
-	Region           string //YIG域名
-	IamEndpoint      string //IAM提供的注册服务地址
-	IamKey           string //IAM提供的注册服务地址
-	IamSecret        string //IAM提供的注册服务地址
+type Config struct {
+	S3Domain         string // Domain name of YIG
+	Region           string // Region name this instance belongs to, e.g cn-bj-1
+	IamEndpoint      string // le IAM endpoint address
+	IamKey           string
+	IamSecret        string
 	LogPath          string
 	PanicLogPath     string
 	PidFile          string
@@ -22,23 +21,17 @@ type GcCfg struct {
 	ZookeeperAddress string
 }
 
-var Cfg *GcCfg
+var CONFIG Config
 
-func GetGcCfg() (cfg GcCfg, err error) {
-	// TODO(wenjianhn): get json from etcd
-
+func SetupConfig() {
 	f, err := os.Open("/etc/yig/yig.json")
 	if err != nil {
-		Logger.Println("Parse adapter.json failed")
-		return
+		panic("Cannot open yig.json")
 	}
 	defer f.Close()
 
-	err = json.NewDecoder(f).Decode(&cfg)
+	err = json.NewDecoder(f).Decode(&CONFIG)
 	if err != nil {
-		err = errors.New("failed to parse adapter.json: " + err.Error())
-		Logger.Println("Parse adapter.json failed")
+		panic("Failed to parse yig.json: " + err.Error())
 	}
-
-	return
 }

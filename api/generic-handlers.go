@@ -124,8 +124,8 @@ func SetIgnoreResourcesHandler(h http.Handler, _ ObjectLayer) http.Handler {
 // Resource handler ServeHTTP() wrapper
 func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Skip the first element which is usually '/' and split the rest.
-	_, port, _ := net.SplitHostPort(helper.Cfg.BindApiAddress)
-	HOST_URL := helper.Cfg.S3Domain + ":" + port
+	_, port, _ := net.SplitHostPort(helper.CONFIG.BindApiAddress)
+	HOST_URL := helper.CONFIG.S3Domain + ":" + port
 	var bucketName, objectName string
 	splits := strings.SplitN(r.URL.Path[1:], "/", 2)
 	if strings.HasSuffix(r.Host, "."+HOST_URL) {

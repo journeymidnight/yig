@@ -40,7 +40,7 @@ func isValidRegion(reqRegion string) bool {
 	if reqRegion == "" {
 		return true
 	}
-	return reqRegion == helper.Cfg.Region
+	return reqRegion == helper.CONFIG.Region
 }
 
 // sumHMAC calculate hmac between two input byte array.

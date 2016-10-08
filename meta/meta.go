@@ -42,7 +42,7 @@ type Meta struct {
 }
 
 func New(logger *log.Logger) *Meta {
-	hbase := gohbase.NewClient(helper.Cfg.ZookeeperAddress)
+	hbase := gohbase.NewClient(helper.CONFIG.ZookeeperAddress)
 	meta := Meta{
 		Hbase:  hbase,
 		Logger: logger,

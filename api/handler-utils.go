@@ -32,7 +32,7 @@ import (
 // other values of location are not accepted.
 // make bucket fails in such cases.
 func isValidLocationContraint(reqBody io.Reader) error {
-	var region = helper.Cfg.Region
+	var region = helper.CONFIG.Region
 	var locationContraint CreateBucketLocationConfiguration
 	var errCode error
 	errCode = nil

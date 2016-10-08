@@ -12,36 +12,33 @@ import (
 var logger *log.Logger
 
 func main() {
-	cfg, err := helper.GetGcCfg()
-	if err != nil {
-		panic("Failed to get config file")
-		return
-	}
+	// Errors should cause panic so as to log to stderr for function calls in main()
 
-	helper.Cfg = &cfg
+	helper.SetupConfig()
 
-	f, err := os.OpenFile(helper.Cfg.LogPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	f, err := os.OpenFile(helper.CONFIG.LogPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
-		panic("Failed to open log file " + helper.Cfg.LogPath)
+		panic("Failed to open log file " + helper.CONFIG.LogPath)
 	}
 	defer f.Close()
 
 	logger = log.New(f, "[yig]", log.LstdFlags)
 	helper.Logger = logger
 
-	yig := storage.New(logger) // New() panics if errors occur
+	yig := storage.New(logger)
+
 
 	adminServerConfig := &adminServerConfig{
-		Address:     helper.Cfg.BindAdminAddress,
+		Address:     helper.CONFIG.BindAdminAddress,
 		Logger:      logger,
 		ObjectLayer: yig,
 	}
 	startAdminServer(adminServerConfig)
 
 	apiServerConfig := &ServerConfig{
-		Address:      helper.Cfg.BindApiAddress,
-		KeyFilePath:  helper.Cfg.SSLKeyPath,
-		CertFilePath: helper.Cfg.SSLCertPath,
+		Address:      helper.CONFIG.BindApiAddress,
+		KeyFilePath:  helper.CONFIG.SSLKeyPath,
+		CertFilePath: helper.CONFIG.SSLCertPath,
 		Logger:       logger,
 		ObjectLayer:  yig,
 	}

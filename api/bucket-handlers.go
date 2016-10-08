@@ -66,7 +66,7 @@ func (api ObjectAPIHandlers) GetBucketLocationHandler(w http.ResponseWriter, r *
 
 	// Generate response.
 	encodedSuccessResponse := EncodeResponse(LocationResponse{
-		Location: helper.Cfg.Region,
+		Location: helper.CONFIG.Region,
 	})
 	SetCommonHeaders(w) // Write headers.
 	WriteSuccessResponse(w, encodedSuccessResponse)
