@@ -38,7 +38,7 @@ var (
 type Meta struct {
 	Hbase  gohbase.Client
 	Logger *log.Logger
-	// TODO Redis and more
+	Cache  *MetaCache
 }
 
 func New(logger *log.Logger) *Meta {
@@ -46,6 +46,7 @@ func New(logger *log.Logger) *Meta {
 	meta := Meta{
 		Hbase:  hbase,
 		Logger: logger,
+		Cache:  newMetaCache(),
 	}
 	return &meta
 }

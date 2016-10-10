@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/redis"
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
 	"time"
@@ -39,44 +40,57 @@ func (b Bucket) GetValues() (values map[string]map[string][]byte, err error) {
 }
 
 func (m *Meta) GetBucket(bucketName string) (bucket Bucket, err error) {
-	getRequest, err := hrpc.NewGetStr(context.Background(), BUCKET_TABLE, bucketName)
-	if err != nil {
-		return
-	}
-	response, err := m.Hbase.Get(getRequest)
-	if err != nil {
-		m.Logger.Println("Error getting bucket info, with error ", err)
-		return
-	}
-	if len(response.Cells) == 0 {
-		err = ErrNoSuchBucket
-		return
-	}
-	for _, cell := range response.Cells {
-		switch string(cell.Qualifier) {
-		case "createTime":
-			bucket.CreateTime, err = time.Parse(CREATE_TIME_LAYOUT, string(cell.Value))
-			if err != nil {
-				return
-			}
-		case "UID":
-			bucket.OwnerId = string(cell.Value)
-		case "CORS":
-			var cors datatype.Cors
-			err = json.Unmarshal(cell.Value, &cors)
-			if err != nil {
-				return
-			}
-			bucket.CORS = cors
-		case "ACL":
-			bucket.ACL.CannedAcl = string(cell.Value)
-		case "versioning":
-			bucket.Versioning = string(cell.Value)
-		default:
+	getBucket := func() (b interface{}, err error) {
+		getRequest, err := hrpc.NewGetStr(context.Background(), BUCKET_TABLE, bucketName)
+		if err != nil {
+			return
 		}
+		response, err := m.Hbase.Get(getRequest)
+		if err != nil {
+			m.Logger.Println("Error getting bucket info, with error ", err)
+			return
+		}
+		if len(response.Cells) == 0 {
+			err = ErrNoSuchBucket
+			return
+		}
+		var bucket Bucket
+		for _, cell := range response.Cells {
+			switch string(cell.Qualifier) {
+			case "createTime":
+				bucket.CreateTime, err = time.Parse(CREATE_TIME_LAYOUT, string(cell.Value))
+				if err != nil {
+					return
+				}
+			case "UID":
+				bucket.OwnerId = string(cell.Value)
+			case "CORS":
+				var cors datatype.Cors
+				err = json.Unmarshal(cell.Value, &cors)
+				if err != nil {
+					return
+				}
+				bucket.CORS = cors
+			case "ACL":
+				bucket.ACL.CannedAcl = string(cell.Value)
+			case "versioning":
+				bucket.Versioning = string(cell.Value)
+			default:
+			}
+		}
+		bucket.Name = bucketName
+		return bucket, nil
 	}
-	bucket.Name = bucketName
-	return
+	b, err := m.Cache.Get(redis.BucketTable, bucketName, getBucket)
+	if err != nil {
+		return
+	}
+	bucket, ok := b.(Bucket)
+	if !ok {
+		err = ErrInternalError
+		return
+	}
+	return bucket, nil
 }
 
 // TODO: use this method in get CORS/Versioning/ACL etc

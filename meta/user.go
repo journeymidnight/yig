@@ -2,6 +2,7 @@ package meta
 
 import (
 	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/redis"
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
 )
@@ -11,17 +12,30 @@ const (
 )
 
 func (m *Meta) GetUserBuckets(userId string) (buckets []string, err error) {
-	getRequest, err := hrpc.NewGetStr(context.Background(), USER_TABLE, userId)
+	getUserBuckets := func() (bs interface{}, err error) {
+		getRequest, err := hrpc.NewGetStr(context.Background(), USER_TABLE, userId)
+		if err != nil {
+			return
+		}
+		response, err := m.Hbase.Get(getRequest)
+		if err != nil {
+			m.Logger.Println("Error getting user info, with error ", err)
+			return
+		}
+		buckets := make([]string, 0, len(response.Cells))
+		for _, cell := range response.Cells {
+			buckets = append(buckets, string(cell.Qualifier))
+		}
+		return buckets, nil
+	}
+	bs, err := m.Cache.Get(redis.UserTable, userId, getUserBuckets)
 	if err != nil {
 		return
 	}
-	response, err := m.Hbase.Get(getRequest)
-	if err != nil {
-		m.Logger.Println("Error getting user info, with error ", err)
+	buckets, ok := bs.([]string)
+	if !ok {
+		err = ErrInternalError
 		return
-	}
-	for _, cell := range response.Cells {
-		buckets = append(buckets, string(cell.Qualifier))
 	}
 	return buckets, nil
 }

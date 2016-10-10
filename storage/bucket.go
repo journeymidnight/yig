@@ -9,6 +9,7 @@ import (
 	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/meta"
+	"git.letv.cn/yig/yig/redis"
 	"github.com/tsuna/gohbase/filter"
 	"github.com/tsuna/gohbase/hrpc"
 	"github.com/xxtea/xxtea-go/xxtea"
@@ -75,6 +76,9 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 			return err
 		}
 	}
+	if err == nil {
+		yig.MetaStorage.Cache.Remove(redis.UserTable, credential.UserId)
+	}
 	return err
 }
 
@@ -101,6 +105,9 @@ func (yig *YigStorage) SetBucketAcl(bucketName string, acl datatype.Acl,
 	_, err = yig.MetaStorage.Hbase.Put(put)
 	if err != nil {
 		return err
+	}
+	if err == nil {
+		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
 	}
 	return nil
 }
@@ -129,6 +136,9 @@ func (yig *YigStorage) SetBucketCors(bucketName string, cors datatype.Cors,
 	if err != nil {
 		return err
 	}
+	if err == nil {
+		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
+	}
 	return nil
 }
 
@@ -154,14 +164,22 @@ func (yig *YigStorage) DeleteBucketCors(bucketName string, credential iam.Creden
 	if err != nil {
 		return err
 	}
+	if err == nil {
+		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
+	}
 	return nil
 }
 
-func (yig *YigStorage) GetBucketCors(bucketName string, credential iam.Credential) (datatype.Cors, error) {
-	var cors datatype.Cors
+func (yig *YigStorage) GetBucketCors(bucketName string,
+	credential iam.Credential) (cors datatype.Cors, err error) {
+
 	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
 		return cors, err
+	}
+	if bucket.OwnerId != credential.UserId {
+		err = ErrBucketAccessForbidden
+		return
 	}
 	return bucket.CORS, nil
 }
@@ -190,6 +208,9 @@ func (yig *YigStorage) SetBucketVersioning(bucketName string, versioning datatyp
 	if err != nil {
 		return err
 	}
+	if err == nil {
+		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
+	}
 	return nil
 }
 
@@ -200,9 +221,8 @@ func (yig *YigStorage) GetBucketVersioning(bucketName string, credential iam.Cre
 	if err != nil {
 		return versioning, err
 	}
-	return datatype.Versioning{
-		Status: bucket.Versioning,
-	}, nil
+	versioning.Status = bucket.Versioning
+	return
 }
 
 // For INTERNAL USE ONLY
@@ -211,12 +231,13 @@ func (yig *YigStorage) GetBucket(bucketName string) (meta.Bucket, error) {
 }
 
 func (yig *YigStorage) GetBucketInfo(bucketName string,
-	credential iam.Credential) (bucketInfo meta.Bucket, err error) {
-	bucketInfo, err = yig.MetaStorage.GetBucket(bucketName)
+	credential iam.Credential) (bucket meta.Bucket, err error) {
+
+	bucket, err = yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
 		return
 	}
-	if bucketInfo.OwnerId != credential.UserId {
+	if bucket.OwnerId != credential.UserId {
 		err = ErrBucketAccessForbidden
 		return
 		// TODO validate bucket policy
@@ -306,6 +327,9 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 				"should be removed for user ", credential.UserId)
 			return err
 		}
+	}
+	if err == nil {
+		yig.MetaStorage.Cache.Remove(redis.UserTable, bucketName)
 	}
 	return nil
 }

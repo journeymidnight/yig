@@ -24,7 +24,6 @@ type YigStorage struct {
 	DataStorage map[string]*CephStorage
 	DataCache   *DataCache
 	MetaStorage *meta.Meta
-	MetaCache   *MetaCache
 	Logger      *log.Logger
 	// TODO
 }
@@ -35,7 +34,6 @@ func New(logger *log.Logger) *YigStorage {
 		DataStorage: make(map[string]*CephStorage),
 		DataCache:   newDataCache(),
 		MetaStorage: metaStorage,
-		MetaCache:   newMetaCache(),
 		Logger:      logger,
 	}
 

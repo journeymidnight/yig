@@ -106,14 +106,14 @@ func Set(table RedisDatabase, key string, value interface{}) (err error) {
 func Get(table RedisDatabase, key string) (value interface{}, err error) {
 	c, err := GetClient()
 	if err != nil {
-		return err
+		return
 	}
 	defer PutClient(c)
 
 	// Use table.String() + key as Redis key
 	encodedValue, err := c.Cmd("get", table.String()+key).Bytes()
 	if err != nil {
-		return err
+		return
 	}
 	err = json.Unmarshal(encodedValue, &value)
 	return
