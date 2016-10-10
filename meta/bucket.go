@@ -92,19 +92,3 @@ func (m *Meta) GetBucket(bucketName string) (bucket Bucket, err error) {
 	}
 	return bucket, nil
 }
-
-// TODO: use this method in get CORS/Versioning/ACL etc
-// otherwise there might be race-conditions, e.g. between SetBucketAcl and SetBucketCors
-func (m *Meta) GetBucketAttribute(bucketName string, attribute string) (result string, err error) {
-	family := map[string][]string{BUCKET_COLUMN_FAMILY: []string{attribute}}
-	get, err := hrpc.NewGetStr(context.Background(), BUCKET_TABLE, bucketName,
-		hrpc.Families(family))
-	if err != nil {
-		return "", err
-	}
-	b, err := m.Hbase.Get(get)
-	if err != nil {
-		return "", err
-	}
-	return string(b.Cells[0].Value), nil
-}

@@ -9,6 +9,7 @@ import (
 	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/meta"
+	"git.letv.cn/yig/yig/redis"
 	"git.letv.cn/yig/yig/signature"
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
@@ -190,6 +191,10 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, versio
 	if err != nil {
 		return err
 	}
+	if err == nil {
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable,
+			bucketName+":"+objectName+":"+version)
+	}
 	return nil
 }
 
@@ -318,6 +323,9 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	if err != nil {
 		return
 	}
+	if err == nil {
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
+	}
 	return result, nil
 }
 
@@ -409,6 +417,10 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 	err = putObjectEntry(targetObject, yig.MetaStorage)
 	if err != nil {
 		return
+	}
+	if err == nil {
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable,
+			targetObject.BucketName+":"+targetObject.Name+":")
 	}
 	return result, nil
 }
@@ -614,6 +626,13 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 		return result, ErrInternalError
 	}
 
+	if err == nil {
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
+		if version != "" {
+			yig.MetaStorage.Cache.Remove(redis.ObjectTable,
+				bucketName+":"+objectName+":"+version)
+		}
+	}
 	// TODO a daemon to check garbage collection table and delete objects in ceph
 	return result, nil
 }

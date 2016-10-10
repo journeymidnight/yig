@@ -114,6 +114,8 @@ func (m *MetaCache) set(table redis.RedisDatabase, key string, value interface{}
 func (m *MetaCache) Get(table redis.RedisDatabase, key string,
 	onCacheMiss func() (interface{}, error)) (value interface{}, err error) {
 
+	helper.Debugln("MetaCache Get()", table, key)
+
 	m.lock.RLock()
 	if element, hit := m.cache[table][key]; hit {
 		m.lruList.MoveToFront(element)
@@ -143,6 +145,8 @@ func (m *MetaCache) Get(table redis.RedisDatabase, key string,
 }
 
 func (m *MetaCache) remove(table redis.RedisDatabase, key string) {
+	helper.Debugln("MetaCache Remove()", table, key)
+
 	m.lock.Lock()
 	element, hit := m.cache[table][key]
 	if hit {

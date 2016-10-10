@@ -12,6 +12,7 @@ import (
 	"git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/helper"
+	"git.letv.cn/yig/yig/redis"
 	"github.com/tsuna/gohbase/filter"
 	"github.com/tsuna/gohbase/hrpc"
 	"github.com/xxtea/xxtea-go/xxtea"
@@ -323,35 +324,47 @@ func ObjectFromResponse(response *hrpc.Result) (object *Object, err error) {
 }
 
 func (m *Meta) GetObject(bucketName string, objectName string) (object *Object, err error) {
-	objectRowkeyPrefix, err := getObjectRowkeyPrefix(bucketName, objectName, "")
+	getObject := func() (o interface{}, err error) {
+		objectRowkeyPrefix, err := getObjectRowkeyPrefix(bucketName, objectName, "")
+		if err != nil {
+			return
+		}
+		prefixFilter := filter.NewPrefixFilter(objectRowkeyPrefix)
+		scanRequest, err := hrpc.NewScanRangeStr(context.Background(), OBJECT_TABLE,
+			string(objectRowkeyPrefix), "", hrpc.Filters(prefixFilter), hrpc.NumberOfRows(1))
+		if err != nil {
+			return
+		}
+		scanResponse, err := m.Hbase.Scan(scanRequest)
+		if err != nil {
+			return
+		}
+		helper.Debugln("GetObject scanResponse length:", len(scanResponse))
+		if len(scanResponse) == 0 {
+			err = ErrNoSuchKey
+			return
+		}
+		object, err := ObjectFromResponse(scanResponse[0])
+		if err != nil {
+			return
+		}
+		helper.Debugln("GetObject object.Name:", object.Name)
+		if object.Name != objectName {
+			err = ErrNoSuchKey
+			return
+		}
+		return object, nil
+	}
+	o, err := m.Cache.Get(redis.ObjectTable, bucketName+":"+objectName+":", getObject)
 	if err != nil {
 		return
 	}
-	prefixFilter := filter.NewPrefixFilter(objectRowkeyPrefix)
-	scanRequest, err := hrpc.NewScanRangeStr(context.Background(), OBJECT_TABLE,
-		string(objectRowkeyPrefix), "", hrpc.Filters(prefixFilter), hrpc.NumberOfRows(1))
-	if err != nil {
+	object, ok := o.(*Object)
+	if !ok {
+		err = ErrInternalError
 		return
 	}
-	scanResponse, err := m.Hbase.Scan(scanRequest)
-	if err != nil {
-		return
-	}
-	helper.Debugln("GetObject scanResponse length:", len(scanResponse))
-	if len(scanResponse) == 0 {
-		err = ErrNoSuchKey
-		return
-	}
-	object, err = ObjectFromResponse(scanResponse[0])
-	if err != nil {
-		return
-	}
-	helper.Debugln("GetObject object.Name:", object.Name)
-	if object.Name != objectName {
-		err = ErrNoSuchKey
-		return
-	}
-	return
+	return object, nil
 }
 
 func (m *Meta) GetNullVersionObject(bucketName, objectName string) (object *Object, err error) {
@@ -387,31 +400,44 @@ func (m *Meta) GetNullVersionObject(bucketName, objectName string) (object *Obje
 }
 
 func (m *Meta) GetObjectVersion(bucketName, objectName, version string) (object *Object, err error) {
-	objectRowkeyPrefix, err := getObjectRowkeyPrefix(bucketName, objectName, version)
+	getObjectVersion := func() (o interface{}, err error) {
+		objectRowkeyPrefix, err := getObjectRowkeyPrefix(bucketName, objectName, version)
+		if err != nil {
+			return
+		}
+		getRequest, err := hrpc.NewGetStr(context.Background(), OBJECT_TABLE, string(objectRowkeyPrefix))
+		if err != nil {
+			return
+		}
+		getResponse, err := m.Hbase.Get(getRequest)
+		if err != nil {
+			return
+		}
+		if len(getResponse.Cells) == 0 {
+			err = ErrNoSuchVersion
+			return
+		}
+		object, err := ObjectFromResponse(getResponse)
+		if err != nil {
+			return
+		}
+		if object.Name != objectName {
+			err = ErrNoSuchKey
+			return
+		}
+		return object, nil
+	}
+	o, err := m.Cache.Get(redis.ObjectTable, bucketName+":"+objectName+":"+version,
+		getObjectVersion)
 	if err != nil {
 		return
 	}
-	getRequest, err := hrpc.NewGetStr(context.Background(), OBJECT_TABLE, string(objectRowkeyPrefix))
-	if err != nil {
+	object, ok := o.(*Object)
+	if !ok {
+		err = ErrInternalError
 		return
 	}
-	getResponse, err := m.Hbase.Get(getRequest)
-	if err != nil {
-		return
-	}
-	if len(getResponse.Cells) == 0 {
-		err = ErrNoSuchVersion
-		return
-	}
-	object, err = ObjectFromResponse(getResponse)
-	if err != nil {
-		return
-	}
-	if object.Name != objectName {
-		err = ErrNoSuchKey
-		return
-	}
-	return
+	return object, nil
 }
 
 func decryptSseKey(initializationVector []byte, cipherText []byte) (plainText []byte, err error) {

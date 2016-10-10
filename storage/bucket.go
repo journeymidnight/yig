@@ -48,13 +48,12 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 		return err
 	}
 	if !processed { // bucket already exists, return accurate message
-		ownerId, err := yig.MetaStorage.GetBucketAttribute(bucketName, "UID")
+		bucket, err := yig.MetaStorage.GetBucket(bucketName)
 		if err != nil {
-			yig.Logger.Println("Error get bucket attribute: ", bucketName, "UID, with error",
-				err)
+			yig.Logger.Println("Error get bucket: ", bucketName, ", with error", err)
 			return ErrBucketAlreadyExists
 		}
-		if ownerId == credential.UserId {
+		if bucket.OwnerId == credential.UserId {
 			return ErrBucketAlreadyOwnedByYou
 		} else {
 			return ErrBucketAlreadyExists
