@@ -64,7 +64,7 @@ func PutClient(c *redis.Client) {
 	redisConnectionPool.Put(c)
 }
 
-func Invalid(table RedisDatabase, key string) (err error) {
+func Remove(table RedisDatabase, key string) (err error) {
 	c, err := GetClient()
 	if err != nil {
 		return err
@@ -72,16 +72,7 @@ func Invalid(table RedisDatabase, key string) (err error) {
 	defer PutClient(c)
 
 	// Use table.String() + key as Redis key
-	err = c.Cmd("del", table.String()+key).Err
-	if err != nil {
-		return err
-	}
-
-	err = c.Cmd("publish", table.InvalidQueue(), key).Err
-	if err != nil {
-		return err
-	}
-	return nil
+	return c.Cmd("del", table.String()+key).Err
 }
 
 func Set(table RedisDatabase, key string, value interface{}) (err error) {
@@ -96,11 +87,7 @@ func Set(table RedisDatabase, key string, value interface{}) (err error) {
 		return err
 	}
 	// Use table.String() + key as Redis key
-	err = c.Cmd("set", table.String()+key, string(encodedValue)).Err
-	if err != nil {
-		return err
-	}
-	return nil
+	return c.Cmd("set", table.String()+key, string(encodedValue)).Err
 }
 
 func Get(table RedisDatabase, key string) (value interface{}, err error) {
@@ -117,4 +104,15 @@ func Get(table RedisDatabase, key string) (value interface{}, err error) {
 	}
 	err = json.Unmarshal(encodedValue, &value)
 	return
+}
+
+// Publish the invalid message to other YIG instances through Redis
+func Invalid(table RedisDatabase, key string) (err error) {
+	c, err := GetClient()
+	if err != nil {
+		return err
+	}
+	defer PutClient(c)
+
+	return c.Cmd("publish", table.InvalidQueue(), key).Err
 }

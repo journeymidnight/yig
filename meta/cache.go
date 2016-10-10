@@ -74,7 +74,13 @@ func invalidLocalCache(m *MetaCache) {
 func invalidRedisCache(m *MetaCache) {
 	for {
 		failedEntry := <-m.failedCacheInvalidOperation
-		err := redis.Invalid(failedEntry.table, failedEntry.key)
+		err := redis.Remove(failedEntry.table, failedEntry.key)
+		if err != nil {
+			m.failedCacheInvalidOperation <- failedEntry
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		err = redis.Invalid(failedEntry.table, failedEntry.key)
 		if err != nil {
 			m.failedCacheInvalidOperation <- failedEntry
 			time.Sleep(1 * time.Second)
@@ -107,8 +113,6 @@ func (m *MetaCache) set(table redis.RedisDatabase, key string, value interface{}
 	if m.lruList.Len() > m.MaxEntries {
 		m.removeOldest()
 	}
-
-	m.invalidRedisCache(table, key)
 }
 
 func (m *MetaCache) Get(table redis.RedisDatabase, key string,
@@ -135,9 +139,15 @@ func (m *MetaCache) Get(table redis.RedisDatabase, key string,
 			return
 		}
 
-		// the returned error could be safely ignored,
-		// only to cause another cache miss
-		redis.Set(table, key, value)
+		err := redis.Set(table, key, value)
+		if err != nil {
+			// invalid the entry asynchronously
+			m.failedCacheInvalidOperation <- entry{
+				table: table,
+				key:   key,
+			}
+		}
+		m.invalidRedisCache(table, key)
 		m.set(table, key, value)
 		return
 	}
@@ -157,8 +167,18 @@ func (m *MetaCache) remove(table redis.RedisDatabase, key string) {
 }
 
 func (m *MetaCache) Remove(table redis.RedisDatabase, key string) {
-	m.remove(table, key)
+	err := redis.Remove(table, key)
+	if err != nil {
+		// invalid the entry asynchronously
+		m.failedCacheInvalidOperation <- entry{
+			table: table,
+			key:   key,
+		}
+	}
 	m.invalidRedisCache(table, key)
+	// this would cause YIG instance handling the API request to call `remove` twice
+	// (another time is when getting cache invalid message from Redis), but let it be
+	m.remove(table, key)
 }
 
 func (m *MetaCache) removeOldest() {
