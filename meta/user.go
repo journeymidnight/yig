@@ -1,7 +1,9 @@
 package meta
 
 import (
+	"encoding/json"
 	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/redis"
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
@@ -28,12 +30,18 @@ func (m *Meta) GetUserBuckets(userId string) (buckets []string, err error) {
 		}
 		return buckets, nil
 	}
-	bs, err := m.Cache.Get(redis.UserTable, userId, getUserBuckets)
+	unmarshaller := func(in []byte) (interface{}, error) {
+		buckets := make([]string, 0)
+		err := json.Unmarshal(in, &buckets)
+		return buckets, err
+	}
+	bs, err := m.Cache.Get(redis.UserTable, userId, getUserBuckets, unmarshaller)
 	if err != nil {
 		return
 	}
 	buckets, ok := bs.([]string)
 	if !ok {
+		helper.Debugln("Cast bs failed:", bs)
 		err = ErrInternalError
 		return
 	}

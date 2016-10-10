@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/redis"
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
@@ -81,12 +82,18 @@ func (m *Meta) GetBucket(bucketName string) (bucket Bucket, err error) {
 		bucket.Name = bucketName
 		return bucket, nil
 	}
-	b, err := m.Cache.Get(redis.BucketTable, bucketName, getBucket)
+	unmarshaller := func(in []byte) (interface{}, error) {
+		var bucket Bucket
+		err := json.Unmarshal(in, &bucket)
+		return bucket, err
+	}
+	b, err := m.Cache.Get(redis.BucketTable, bucketName, getBucket, unmarshaller)
 	if err != nil {
 		return
 	}
 	bucket, ok := b.(Bucket)
 	if !ok {
+		helper.Debugln("Cast b failed:", b)
 		err = ErrInternalError
 		return
 	}

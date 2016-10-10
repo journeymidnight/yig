@@ -90,7 +90,9 @@ func Set(table RedisDatabase, key string, value interface{}) (err error) {
 	return c.Cmd("set", table.String()+key, string(encodedValue)).Err
 }
 
-func Get(table RedisDatabase, key string) (value interface{}, err error) {
+func Get(table RedisDatabase, key string,
+	unmarshal func([]byte) (interface{}, error)) (value interface{}, err error) {
+
 	c, err := GetClient()
 	if err != nil {
 		return
@@ -102,8 +104,7 @@ func Get(table RedisDatabase, key string) (value interface{}, err error) {
 	if err != nil {
 		return
 	}
-	err = json.Unmarshal(encodedValue, &value)
-	return
+	return unmarshal(encodedValue)
 }
 
 // Publish the invalid message to other YIG instances through Redis

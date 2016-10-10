@@ -115,8 +115,11 @@ func (m *MetaCache) set(table redis.RedisDatabase, key string, value interface{}
 	}
 }
 
+// Forces "cache-aside" pattern, calls `onCacheMiss` when key is missed from
+// both memory and Redis, use `unmarshal` get expected type from Redis
 func (m *MetaCache) Get(table redis.RedisDatabase, key string,
-	onCacheMiss func() (interface{}, error)) (value interface{}, err error) {
+	onCacheMiss func() (interface{}, error),
+	unmarshaller func([]byte) (interface{}, error)) (value interface{}, err error) {
 
 	helper.Debugln("MetaCache Get()", table, key)
 
@@ -128,8 +131,9 @@ func (m *MetaCache) Get(table redis.RedisDatabase, key string,
 	}
 	m.lock.RUnlock()
 
-	value, err = redis.Get(table, key)
+	value, err = redis.Get(table, key, unmarshaller)
 	if err == nil && value != nil {
+		m.set(table, key, value)
 		return value, nil
 	}
 
@@ -139,7 +143,7 @@ func (m *MetaCache) Get(table redis.RedisDatabase, key string,
 			return
 		}
 
-		err := redis.Set(table, key, value)
+		err = redis.Set(table, key, value)
 		if err != nil {
 			// invalid the entry asynchronously
 			m.failedCacheInvalidOperation <- entry{
@@ -149,7 +153,7 @@ func (m *MetaCache) Get(table redis.RedisDatabase, key string,
 		}
 		m.invalidRedisCache(table, key)
 		m.set(table, key, value)
-		return
+		return value, nil
 	}
 	return nil, nil
 }

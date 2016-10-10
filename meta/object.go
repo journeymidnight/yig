@@ -355,7 +355,13 @@ func (m *Meta) GetObject(bucketName string, objectName string) (object *Object, 
 		}
 		return object, nil
 	}
-	o, err := m.Cache.Get(redis.ObjectTable, bucketName+":"+objectName+":", getObject)
+	unmarshaller := func(in []byte) (interface{}, error) {
+		var object Object
+		err := json.Unmarshal(in, &object)
+		return &object, err
+	}
+	o, err := m.Cache.Get(redis.ObjectTable, bucketName+":"+objectName+":",
+		getObject, unmarshaller)
 	if err != nil {
 		return
 	}
@@ -427,8 +433,13 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string) (object 
 		}
 		return object, nil
 	}
+	unmarshaller := func(in []byte) (interface{}, error) {
+		var object Object
+		err := json.Unmarshal(in, &object)
+		return &object, err
+	}
 	o, err := m.Cache.Get(redis.ObjectTable, bucketName+":"+objectName+":"+version,
-		getObjectVersion)
+		getObjectVersion, unmarshaller)
 	if err != nil {
 		return
 	}
