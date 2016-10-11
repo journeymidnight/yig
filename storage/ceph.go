@@ -13,9 +13,9 @@ import (
 const (
 	MON_TIMEOUT         = "10"
 	OSD_TIMEOUT         = "10"
-	STRIPE_UNIT         = 512 << 10 /*512K*/
+	STRIPE_UNIT         = 512 << 10 /* 512K */
 	STRIPE_COUNT        = 4
-	OBJECT_SIZE         = 4 << 20         /*4M*/
+	OBJECT_SIZE         = 4 << 20         /* 4M */
 	BUFFER_SIZE         = 1 << 20         /* 1M */
 	MAX_CHUNK_SIZE      = 4 * BUFFER_SIZE /* 4M */
 	SMALL_FILE_POOLNAME = "rabbit"

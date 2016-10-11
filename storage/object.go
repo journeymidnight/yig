@@ -48,18 +48,35 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 		if !ok {
 			return errors.New("Cannot find specified ceph cluster: " + object.Location)
 		}
-		if object.SseType == "" { // unencrypted object
-			err = cephCluster.get(object.Pool, object.ObjectId, startOffset, length, writer)
-			return
+		getWholeObject := func(w io.Writer) error {
+			err := cephCluster.get(object.Pool, object.ObjectId,
+				0, object.Size, w)
+			return err
 		}
 
-		reader, err := cephCluster.getReader(object.Pool, object.ObjectId, startOffset, length)
+		if object.SseType == "" { // unencrypted object
+			normalGet := func(w io.Writer) error {
+				err := cephCluster.get(object.Pool, object.ObjectId,
+					startOffset, length, w)
+				return err
+			}
+			return yig.DataCache.Write(object, startOffset, length, writer,
+				normalGet, getWholeObject)
+		}
+
+		// encrypted object
+		normalGet := func() (io.ReadCloser, error) {
+			return cephCluster.getAlignedReader(object.Pool, object.ObjectId,
+				startOffset, length)
+		}
+		reader, err := yig.DataCache.GetAlignedReader(object, startOffset, length, normalGet,
+			getWholeObject)
 		if err != nil {
-			return err
+			return
 		}
 		defer reader.Close()
 
-		decryptedReader, err := wrapEncryptionReader(reader, encryptionKey,
+		decryptedReader, err := wrapAlignedEncryptionReader(reader, startOffset, encryptionKey,
 			object.InitializationVector)
 		if err != nil {
 			return err

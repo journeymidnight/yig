@@ -25,7 +25,6 @@ type YigStorage struct {
 	DataCache   *DataCache
 	MetaStorage *meta.Meta
 	Logger      *log.Logger
-	// TODO
 }
 
 func New(logger *log.Logger) *YigStorage {

@@ -25,7 +25,6 @@ const (
 	BucketTable
 	ObjectTable
 	FileTable
-	FilePartTable
 )
 
 func TableFromChannelName(name string) (r RedisDatabase, err error) {
@@ -39,7 +38,7 @@ func TableFromChannelName(name string) (r RedisDatabase, err error) {
 }
 
 var MetadataTables = []RedisDatabase{UserTable, BucketTable, ObjectTable}
-var DataTables = []RedisDatabase{FileTable, FilePartTable}
+var DataTables = []RedisDatabase{FileTable}
 
 var redisConnectionPool *pool.Pool
 
@@ -105,6 +104,19 @@ func Get(table RedisDatabase, key string,
 		return
 	}
 	return unmarshal(encodedValue)
+}
+
+// Get file bytes
+// `start` and `end` are inclusive
+// FIXME: this API causes an extra memory copy, need to patch radix to fix it
+func GetBytes(key string, start int64, end int64) ([]byte, error) {
+	c, err := GetClient()
+	if err != nil {
+		return nil, err
+	}
+	defer PutClient(c)
+
+	return c.Cmd("getrange", FileTable.String()+key, start, end).Bytes()
 }
 
 // Publish the invalid message to other YIG instances through Redis
