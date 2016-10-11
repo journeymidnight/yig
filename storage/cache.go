@@ -50,18 +50,24 @@ func (d *DataCache) Write(object *meta.Object, startOffset int64, length int64,
 	cacheKey := object.BucketName + ":" + object.Name + ":" + object.VersionId
 
 	file, err := redis.GetBytes(cacheKey, startOffset, startOffset+length-1)
-	if err == nil && file != nil {
+	if err == nil && file != nil && int64(len(file)) == length {
+		helper.Debugln("File cache HIT")
 		_, err := out.Write(file)
 		return err
 	}
 
+	helper.Debugln("File cache MISS")
 	reader, writer := io.Pipe()
-	go onCacheMiss(writer)
+	writeAll := func() {
+		onCacheMiss(writer)
+		writer.Close()
+	}
+	go writeAll()
 	o, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return err
 	}
-	redis.Set(redis.FileTable, cacheKey, o)
+	redis.SetBytes(cacheKey, o)
 	_, err = out.Write(o[startOffset : startOffset+length])
 	return err
 }
@@ -85,18 +91,24 @@ func (d *DataCache) GetAlignedReader(object *meta.Object, startOffset int64, len
 	cacheKey := object.BucketName + ":" + object.Name + ":" + object.VersionId
 
 	file, err := redis.GetBytes(cacheKey, startOffset, startOffset+length-1)
-	if err == nil && file != nil {
+	if err == nil && file != nil && int64(len(file)) == length {
+		helper.Debugln("File cache HIT")
 		r := newReadCloser(file)
 		return r, nil
 	}
 
+	helper.Debugln("File cache MISS")
 	reader, writer := io.Pipe()
-	go onCacheMiss(writer)
+	writeAll := func() {
+		onCacheMiss(writer)
+		writer.Close()
+	}
+	go writeAll()
 	file, err = ioutil.ReadAll(reader)
 	if err != nil {
 		return nil, err
 	}
-	redis.Set(redis.FileTable, cacheKey, file)
+	redis.SetBytes(cacheKey, file)
 	r := newReadCloser(file[startOffset : startOffset+length])
 	return r, nil
 }

@@ -74,6 +74,9 @@ func (api ObjectAPIHandlers) errAllowableObjectNotFound(bucketName string,
 			return ErrAccessDenied
 		}
 	default:
+		if bucket.OwnerId == credential.UserId {
+			return ErrNoSuchKey
+		}
 		return ErrAccessDenied
 	}
 }

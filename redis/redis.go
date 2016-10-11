@@ -116,7 +116,20 @@ func GetBytes(key string, start int64, end int64) ([]byte, error) {
 	}
 	defer PutClient(c)
 
+	// Note Redis returns "" for nonexist key for GETRANGE
 	return c.Cmd("getrange", FileTable.String()+key, start, end).Bytes()
+}
+
+// Set file bytes
+func SetBytes(key string, value []byte) (err error) {
+	c, err := GetClient()
+	if err != nil {
+		return err
+	}
+	defer PutClient(c)
+
+	// Use table.String() + key as Redis key
+	return c.Cmd("set", FileTable.String()+key, value).Err
 }
 
 // Publish the invalid message to other YIG instances through Redis

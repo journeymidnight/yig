@@ -72,7 +72,7 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 		reader, err := yig.DataCache.GetAlignedReader(object, startOffset, length, normalGet,
 			getWholeObject)
 		if err != nil {
-			return
+			return err
 		}
 		defer reader.Close()
 
