@@ -11,6 +11,7 @@ import (
 	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/meta"
+	"git.letv.cn/yig/yig/redis"
 	"git.letv.cn/yig/yig/signature"
 	"github.com/tsuna/gohbase/filter"
 	"github.com/tsuna/gohbase/hrpc"
@@ -751,6 +752,11 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 	result.SseAwsKmsKeyIdBase64 = base64.StdEncoding.EncodeToString([]byte(sseRequest.SseAwsKmsKeyId))
 	result.SseCustomerAlgorithm = sseRequest.SseCustomerAlgorithm
 	result.SseCustomerKeyMd5Base64 = base64.StdEncoding.EncodeToString(sseRequest.SseCustomerKey)
+
+	if err == nil {
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
+		yig.DataCache.Remove(bucketName+":"+objectName+":"+object.GetVersionId())
+	}
 
 	return
 }

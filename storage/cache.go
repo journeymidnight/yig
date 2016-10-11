@@ -47,7 +47,7 @@ func (d *DataCache) Write(object *meta.Object, startOffset int64, length int64,
 		return writeThrough(out)
 	}
 
-	cacheKey := object.BucketName + ":" + object.Name + ":" + object.VersionId
+	cacheKey := object.BucketName + ":" + object.Name + ":" + object.GetVersionId()
 
 	file, err := redis.GetBytes(cacheKey, startOffset, startOffset+length-1)
 	if err == nil && file != nil && int64(len(file)) == length {
@@ -88,7 +88,7 @@ func (d *DataCache) GetAlignedReader(object *meta.Object, startOffset int64, len
 	length += startOffset - alignedOffset
 	startOffset = alignedOffset
 
-	cacheKey := object.BucketName + ":" + object.Name + ":" + object.VersionId
+	cacheKey := object.BucketName + ":" + object.Name + ":" + object.GetVersionId()
 
 	file, err := redis.GetBytes(cacheKey, startOffset, startOffset+length-1)
 	if err == nil && file != nil && int64(len(file)) == length {
@@ -113,8 +113,7 @@ func (d *DataCache) GetAlignedReader(object *meta.Object, startOffset int64, len
 	return r, nil
 }
 
-func (d *DataCache) Remove(object *meta.Object) {
-	key := object.BucketName + ":" + object.Name + ":" + object.VersionId
+func (d *DataCache) Remove(key string) {
 	err := redis.Remove(redis.FileTable, key)
 	if err != nil {
 		d.failedCacheInvalidOperation <- key
