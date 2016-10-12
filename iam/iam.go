@@ -3,13 +3,13 @@
 package iam
 
 import (
+	"bytes"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"git.letv.cn/yig/yig/helper"
 	"io/ioutil"
 	"net/http"
 	"regexp"
-	"bytes"
 )
 
 // credential container for access and secret keys.
@@ -49,11 +49,10 @@ type QueryRespAll struct {
 	RetCode int       `json:"retCode"`
 }
 
-// stringer colorized access keys.
 func (a Credential) String() string {
 	accessStr := "AccessKey: " + a.AccessKeyID
 	secretStr := "SecretKey: " + a.SecretAccessKey
-	return fmt.Sprint(accessStr + "  " + secretStr)
+	return accessStr + " " + secretStr + "\n"
 }
 
 // IsValidSecretKey - validate secret key.
@@ -97,7 +96,7 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 		return credential, err
 	}
 	if response.StatusCode != 200 {
-		return credential, fmt.Errorf("Query to IAM failed as status != 200")
+		return credential, errors.New("Query to IAM failed as status != 200")
 	}
 
 	body, err := ioutil.ReadAll(response.Body)
@@ -112,10 +111,10 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 	var queryRetAll QueryRespAll
 	err = json.Unmarshal(body, &queryRetAll)
 	if err != nil {
-		return credential, fmt.Errorf("Decode QueryHistoryResp failed")
+		return credential, errors.New("Decode QueryHistoryResp failed")
 	}
 	if queryRetAll.RetCode != 0 {
-		return credential, fmt.Errorf("Query to IAM failed as RetCode != 0")
+		return credential, errors.New("Query to IAM failed as RetCode != 0")
 	}
 
 	credential.UserId = queryRetAll.Data.AccessKeySet[0].ProjectId

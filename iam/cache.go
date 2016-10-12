@@ -1,8 +1,8 @@
 package iam
 
 import (
-	"time"
 	"sync"
+	"time"
 )
 
 const (
@@ -15,9 +15,9 @@ type cacheEntry struct {
 }
 
 // maps access key to Credential object
-type cache struct{
+type cache struct {
 	cache map[string]cacheEntry
-	lock *sync.Mutex
+	lock  *sync.Mutex
 }
 
 var iamCache *cache
@@ -49,7 +49,7 @@ func initializeIamCache() {
 	}
 	iamCache = &cache{
 		cache: make(map[string]cacheEntry),
-		lock: new(sync.Mutex),
+		lock:  new(sync.Mutex),
 	}
 	go cacheInvalidator()
 }
@@ -69,4 +69,3 @@ func (c *cache) set(key string, credential Credential) {
 	}
 	c.cache[key] = entry
 }
-

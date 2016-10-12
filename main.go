@@ -1,5 +1,3 @@
-/* vim: set ts=4 shiftwidth=4 smarttab noet : */
-
 package main
 
 import (
@@ -7,13 +5,17 @@ import (
 	"git.letv.cn/yig/yig/redis"
 	"git.letv.cn/yig/yig/storage"
 	"log"
+	"math/rand"
 	"os"
+	"time"
 )
 
 var logger *log.Logger
 
 func main() {
 	// Errors should cause panic so as to log to stderr for function calls in main()
+
+	rand.Seed(time.Now().UnixNano())
 
 	helper.SetupConfig()
 

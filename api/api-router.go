@@ -16,9 +16,9 @@
 
 package api
 
-import router "github.com/gorilla/mux"
 import (
 	"git.letv.cn/yig/yig/helper"
+	router "github.com/gorilla/mux"
 )
 
 // objectAPIHandler implements and provides http handlers for S3 API.
@@ -31,13 +31,10 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 	// API Router
 	apiRouter := mux.NewRoute().PathPrefix("/").Subrouter()
 
-	//	_, port, _:= net.SplitHostPort(helper.Cfg.BindApiAddress)
-	//	HOST_URL := helper.Cfg.S3Domain + ":" +port
-	//	helper.Logger.Println("RegisterAPIRouter", HOST_URL)
-	// Bucket router
+	// Bucket router, matches domain.name/bucket_name/object_name
 	bucket := apiRouter.Host(helper.CONFIG.S3Domain).PathPrefix("/{bucket}").Subrouter()
 
-	// Host router
+	// Host router, matches bucket_name.domain.name/object_name
 	bucket_host := apiRouter.Host("{bucket:.+}." + helper.CONFIG.S3Domain).Subrouter()
 
 	// HeadObject

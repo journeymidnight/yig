@@ -18,25 +18,22 @@ package api
 
 import (
 	"bytes"
-	"crypto/rand"
 	"encoding/xml"
 	. "git.letv.cn/yig/yig/api/datatype"
 	"git.letv.cn/yig/yig/meta"
+	"math/rand"
 	"net/http"
 	"strconv"
 )
 
-//// helpers
-
 // Static alphaNumeric table used for generating unique request ids
 var alphaNumericTable = []byte("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
-// generateRequestID - Generate request id
 func generateRequestID() []byte {
-	alpha := make([]byte, 16)
-	rand.Read(alpha)
+	alpha := make([]byte, 16, 16)
 	for i := 0; i < 16; i++ {
-		alpha[i] = alphaNumericTable[alpha[i]%byte(len(alphaNumericTable))]
+		n := rand.Intn(len(alphaNumericTable))
+		alpha[i] = alphaNumericTable[n]
 	}
 	return alpha
 }

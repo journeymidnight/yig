@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-// File carries any specific responses constructed/necessary in
-// multipart operations.
 package api
 
 import (

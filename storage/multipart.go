@@ -755,7 +755,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 
 	if err == nil {
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
-		yig.DataCache.Remove(bucketName+":"+objectName+":"+object.GetVersionId())
+		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
 	}
 
 	return
