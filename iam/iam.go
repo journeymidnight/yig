@@ -9,7 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"regexp"
-	"strings"
+	"bytes"
 )
 
 // credential container for access and secret keys.
@@ -62,59 +62,69 @@ var IsValidSecretKey = regexp.MustCompile(`^.{8,40}$`)
 // IsValidAccessKey - validate access key.
 var IsValidAccessKey = regexp.MustCompile(`^[a-zA-Z0-9\\-\\.\\_\\~]{5,20}$`)
 
+var iamClient *http.Client
+
 func GetCredential(accessKey string) (credential Credential, err error) {
-	// should use a cache with timeout
-	// TODO put iam addr to config
+	if iamCache == nil {
+		initializeIamCache()
+	}
+	credential, hit := iamCache.get(accessKey)
+	if hit {
+		return credential, nil
+	}
+
 	var slog = helper.Logger
 	var query Query
-	var queryRetAll QueryRespAll
-	client := &http.Client{}
+	if iamClient == nil {
+		iamClient = new(http.Client)
+	}
 	query.Action = "DescribeAccessKeys"
 	query.AccessKeys[0] = accessKey
 
 	b, err := json.Marshal(query)
 	if err != nil {
-		slog.Println("json err:", err)
-		return Credential{}, err
+		return credential, err
 	}
 
-	request, _ := http.NewRequest("POST", helper.CONFIG.IamEndpoint, strings.NewReader(string(b)))
+	request, err := http.NewRequest("POST", helper.CONFIG.IamEndpoint, bytes.NewReader(b))
+	if err != nil {
+		return credential, err
+	}
 	request.Header.Set("X-Le-Key", helper.CONFIG.IamKey)
 	request.Header.Set("X-Le-Secret", helper.CONFIG.IamSecret)
-	response, _ := client.Do(request)
+	response, err := iamClient.Do(request)
+	if err != nil {
+		return credential, err
+	}
 	if response.StatusCode != 200 {
-		slog.Println("Query to IAM failed as status != 200")
-		return Credential{}, fmt.Errorf("Query to IAM failed as status != 200")
+		return credential, fmt.Errorf("Query to IAM failed as status != 200")
 	}
 
-	body, _ := ioutil.ReadAll(response.Body)
+	body, err := ioutil.ReadAll(response.Body)
+	response.Body.Close()
+	if err != nil {
+		return credential, err
+	}
 	slog.Println("iam:", helper.CONFIG.IamEndpoint)
 	slog.Println("request:", string(b))
 	slog.Println("response:", string(body))
-	dec := json.NewDecoder(strings.NewReader(string(body)))
-	if err := dec.Decode(&queryRetAll); err != nil {
-		slog.Println("Decode QueryHistoryResp failed")
-		return Credential{}, fmt.Errorf("Decode QueryHistoryResp failed")
-	}
 
+	var queryRetAll QueryRespAll
+	err = json.Unmarshal(body, &queryRetAll)
+	if err != nil {
+		return credential, fmt.Errorf("Decode QueryHistoryResp failed")
+	}
 	if queryRetAll.RetCode != 0 {
-		slog.Println("Query to IAM failed as RetCode != 0")
-		return Credential{}, fmt.Errorf("Query to IAM failed as RetCode != 0")
+		return credential, fmt.Errorf("Query to IAM failed as RetCode != 0")
 	}
 
-	uid := queryRetAll.Data.AccessKeySet[0].ProjectId
-	name := queryRetAll.Data.AccessKeySet[0].Name
-	ak := queryRetAll.Data.AccessKeySet[0].AccessKey
-	sk := queryRetAll.Data.AccessKeySet[0].AccessSecret
+	credential.UserId = queryRetAll.Data.AccessKeySet[0].ProjectId
+	credential.DisplayName = queryRetAll.Data.AccessKeySet[0].Name
+	credential.AccessKeyID = queryRetAll.Data.AccessKeySet[0].AccessKey
+	credential.SecretAccessKey = queryRetAll.Data.AccessKeySet[0].AccessSecret
 
-	slog.Println("ak:", ak)
-	slog.Println("sk:", sk)
-	return Credential{
-		UserId:          uid,
-		DisplayName:     name,
-		AccessKeyID:     ak,
-		SecretAccessKey: sk,
-	}, nil // For test now
+	iamCache.set(accessKey, credential)
+	return credential, nil
 }
 
 func GetCredentialByUserId(userId string) (credential Credential, err error) {
