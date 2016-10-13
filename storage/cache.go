@@ -40,7 +40,7 @@ func invalidRedisCache(d *DataCache) {
 
 // `writeThrough` performs normal workflow without cache
 // `onCacheMiss` should be able to read the WHOLE object
-func (d *DataCache) Write(object *meta.Object, startOffset int64, length int64,
+func (d *DataCache) WriteFromCache(object *meta.Object, startOffset int64, length int64,
 	out io.Writer, writeThrough func(io.Writer) error, onCacheMiss func(io.Writer) error) error {
 
 	if object.Size > FILE_CACHE_THRESHOLD_SIZE {

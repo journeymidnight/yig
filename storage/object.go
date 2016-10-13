@@ -60,7 +60,7 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 					startOffset, length, w)
 				return err
 			}
-			return yig.DataCache.Write(object, startOffset, length, writer,
+			return yig.DataCache.WriteFromCache(object, startOffset, length, writer,
 				normalGet, getWholeObject)
 		}
 
