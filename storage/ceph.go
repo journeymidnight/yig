@@ -304,3 +304,21 @@ func (cluster *CephStorage) get(poolName string, oid string, startOffset int64,
 	_, err = io.CopyBuffer(writer, reader, buf)
 	return err
 }
+
+
+func (cluster *CephStorage) remove(poolName string, oid string) error {
+	pool, err := cluster.Conn.OpenPool(poolname)
+	if err != nil {
+		return 0, errors.New("Bad poolname")
+	}
+	defer pool.Destroy()
+
+	striper, err := pool.CreateStriper()
+	if err != nil {
+		return 0, errors.New("Bad ioctx")
+	}
+	defer striper.Destroy()
+
+	return striper.Delete(oid)
+
+}
