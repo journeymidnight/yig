@@ -25,7 +25,7 @@ type logHandler struct {
 func (l logHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Serves the request.
 	helper.Debugln(r.Method, r.Host, r.URL)
-	requestId := GenerateRandomId()
+	requestId := string(GenerateRandomId())
 	helper.Logger.Printf("STARTING %s %s/%s RequestID:%s", r.Method, r.Host, r.URL, requestId)
 	w.Header().Set("X-Amz-Request-Id", requestId)
 	l.handler.ServeHTTP(w, r)
