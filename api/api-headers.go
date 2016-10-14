@@ -21,30 +21,9 @@ import (
 	"encoding/xml"
 	. "git.letv.cn/yig/yig/api/datatype"
 	"git.letv.cn/yig/yig/meta"
-	"math/rand"
 	"net/http"
 	"strconv"
 )
-
-// Static alphaNumeric table used for generating unique request ids
-var alphaNumericTable = []byte("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ")
-
-func generateRequestID() []byte {
-	alpha := make([]byte, 16, 16)
-	for i := 0; i < 16; i++ {
-		n := rand.Intn(len(alphaNumericTable))
-		alpha[i] = alphaNumericTable[n]
-	}
-	return alpha
-}
-
-// Write http common headers
-func SetCommonHeaders(w http.ResponseWriter) {
-	// Set unique request ID for each reply.
-	w.Header().Set("X-Amz-Request-Id", string(generateRequestID()))
-	w.Header().Set("Server", "LeCloud YIG")
-	w.Header().Set("Accept-Ranges", "bytes")
-}
 
 // Encodes the response headers into XML format.
 func EncodeResponse(response interface{}) []byte {
@@ -57,9 +36,6 @@ func EncodeResponse(response interface{}) []byte {
 
 // Write object header
 func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *HttpRange) {
-	// set common headers
-	SetCommonHeaders(w)
-
 	// set object-related metadata headers
 	lastModified := object.LastModifiedTime.UTC().Format(http.TimeFormat)
 	w.Header().Set("Last-Modified", lastModified)

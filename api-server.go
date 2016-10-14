@@ -60,8 +60,7 @@ func configureServerHandler(c *ServerConfig) http.Handler {
 	var handlerFns = []api.HandlerFunc{
 		// Limits the number of concurrent http requests.
 		api.SetRateLimitHandler,
-		// TODO: Adds cache control for all browser requests.
-		api.SetBrowserCacheControlHandler,
+		api.SetCommonHeaderHandler,
 		// CORS setting for all browser API requests.
 		api.SetCorsHandler,
 		// Validates all incoming URL resources, for invalid/unsupported

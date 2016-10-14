@@ -31,22 +31,18 @@ import (
 // the location value in the request body should match the Region in serverConfig.
 // other values of location are not accepted.
 // make bucket fails in such cases.
-func isValidLocationContraint(reqBody io.Reader) error {
+func isValidLocationContraint(reqBody io.Reader) (err error) {
 	var region = helper.CONFIG.Region
 	var locationContraint CreateBucketLocationConfiguration
-	var errCode error
-	errCode = nil
 	e := xmlDecoder(reqBody, &locationContraint)
 	if e != nil {
 		if e == io.EOF {
-			// Do nothing.
-			// failed due to empty body. The location will be set to default value from the serverConfig.
-			// this is valid.
-			errCode = nil
+			// Failed due to empty request body. The location will be set to
+			// default value from the serverConfig
+			err = nil
 		} else {
 			// Failed due to malformed configuration.
-			errCode = ErrMalformedXML
-			//WriteErrorResponse(w, r, ErrMalformedXML, r.URL.Path)
+			err = ErrMalformedXML
 		}
 	} else {
 		// Region obtained from the body.
@@ -54,11 +50,10 @@ func isValidLocationContraint(reqBody io.Reader) error {
 		// Else ErrInvalidRegion returned.
 		// For empty value location will be to set to  default value from the serverConfig.
 		if locationContraint.Location != "" && region != locationContraint.Location {
-			//WriteErrorResponse(w, r, ErrInvalidRegion, r.URL.Path)
-			errCode = ErrInvalidRegion
+			err = ErrInvalidRegion
 		}
 	}
-	return errCode
+	return err
 }
 
 // Supported headers that needs to be extracted.

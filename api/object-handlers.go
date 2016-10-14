@@ -103,14 +103,14 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		WriteErrorResponse(w, r, ErrAccessDenied)
 		return
 	case signature.AuthTypeAnonymous:
 		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err, r.URL.Path)
+			WriteErrorResponse(w, r, err)
 			return
 		}
 	}
@@ -122,13 +122,13 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		if err == ErrNoSuchKey {
 			err = api.errAllowableObjectNotFound(bucketName, credential)
 		}
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 
 	if object.DeleteMarker {
 		w.Header().Set("x-amz-delete-marker", "true")
-		WriteErrorResponse(w, r, ErrNoSuchKey, r.URL.Path)
+		WriteErrorResponse(w, r, ErrNoSuchKey)
 		return
 	}
 
@@ -140,7 +140,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			// Handle only ErrorInvalidRange
 			// Ignore other parse error and treat it as regular Get request like Amazon S3.
 			if err == ErrorInvalidRange {
-				WriteErrorResponse(w, r, ErrInvalidRange, r.URL.Path)
+				WriteErrorResponse(w, r, ErrInvalidRange)
 				return
 			}
 
@@ -158,20 +158,20 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			w.Header().Set("ETag", "\""+object.Etag+"\"")
 		}
 		if err == ContentNotModified { // write only header if is a 304
-			WriteErrorResponseHeaders(w, r, err, r.URL.Path)
+			WriteErrorResponseHeaders(w, err)
 		} else {
-			WriteErrorResponse(w, r, err, r.URL.Path)
+			WriteErrorResponse(w, r, err)
 		}
 		return
 	}
 
 	sseRequest, err := parseSseHeader(r.Header)
 	if err != nil {
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 	if len(sseRequest.CopySourceSseCustomerKey) != 0 {
-		WriteErrorResponse(w, r, ErrInvalidSseHeader, r.URL.Path)
+		WriteErrorResponse(w, r, ErrInvalidSseHeader)
 		return
 	}
 
@@ -225,7 +225,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			// partial data has already been written before an error
 			// occurred then no point in setting StatusCode and
 			// sending error XML.
-			WriteErrorResponse(w, r, err, r.URL.Path)
+			WriteErrorResponse(w, r, err)
 		}
 		return
 	}
@@ -252,14 +252,14 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		WriteErrorResponse(w, r, ErrAccessDenied)
 		return
 	case signature.AuthTypeAnonymous:
 		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err, r.URL.Path)
+			WriteErrorResponse(w, r, err)
 			return
 		}
 	}
@@ -271,13 +271,13 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 		if err == ErrNoSuchKey {
 			err = api.errAllowableObjectNotFound(bucketName, credential)
 		}
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 
 	if object.DeleteMarker {
 		w.Header().Set("x-amz-delete-marker", "true")
-		WriteErrorResponse(w, r, ErrNoSuchKey, r.URL.Path)
+		WriteErrorResponse(w, r, ErrNoSuchKey)
 		return
 	}
 
@@ -288,7 +288,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 			// Handle only ErrorInvalidRange
 			// Ignore other parse error and treat it as regular Get request like Amazon S3.
 			if err == ErrorInvalidRange {
-				WriteErrorResponse(w, r, ErrInvalidRange, r.URL.Path)
+				WriteErrorResponse(w, r, ErrInvalidRange)
 				return
 			}
 
@@ -306,16 +306,16 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 			w.Header().Set("ETag", "\""+object.Etag+"\"")
 		}
 		if err == ContentNotModified { // write only header if is a 304
-			WriteErrorResponseHeaders(w, r, err, r.URL.Path)
+			WriteErrorResponseHeaders(w, err)
 		} else {
-			WriteErrorResponse(w, r, err, r.URL.Path)
+			WriteErrorResponse(w, r, err)
 		}
 		return
 	}
 
 	_, err = parseSseHeader(r.Header)
 	if err != nil {
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 
@@ -354,14 +354,14 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		WriteErrorResponse(w, r, ErrAccessDenied)
 		return
 	case signature.AuthTypeAnonymous:
 		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err, r.URL.Path)
+			WriteErrorResponse(w, r, err)
 			return
 		}
 	}
@@ -385,7 +385,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 	// If source object is empty, reply back error.
 	if sourceObjectName == "" {
-		WriteErrorResponse(w, r, ErrInvalidCopySource, r.URL.Path)
+		WriteErrorResponse(w, r, ErrInvalidCopySource)
 		return
 	}
 
@@ -393,7 +393,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	if len(splits) == 2 {
 		sourceObjectName = splits[0]
 		if !strings.HasPrefix(splits[1], "versionId=") {
-			WriteErrorResponse(w, r, ErrInvalidCopySource, r.URL.Path)
+			WriteErrorResponse(w, r, ErrInvalidCopySource)
 			return
 		}
 		sourceVersion = strings.TrimPrefix(splits[1], "versionId=")
@@ -402,12 +402,12 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	// X-Amz-Copy-Source should be URL-encoded
 	sourceBucketName, err = url.QueryUnescape(sourceBucketName)
 	if err != nil {
-		WriteErrorResponse(w, r, ErrInvalidCopySource, r.URL.Path)
+		WriteErrorResponse(w, r, ErrInvalidCopySource)
 		return
 	}
 	sourceObjectName, err = url.QueryUnescape(sourceObjectName)
 	if err != nil {
-		WriteErrorResponse(w, r, ErrInvalidCopySource, r.URL.Path)
+		WriteErrorResponse(w, r, ErrInvalidCopySource)
 		return
 	}
 
@@ -418,25 +418,25 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		sourceVersion, credential)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
-		WriteErrorResponse(w, r, err, copySource)
+		WriteErrorResponseWithResource(w, r, err, copySource)
 		return
 	}
 
 	sseRequest, err := parseSseHeader(r.Header)
 	if err != nil {
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 
 	// Verify before x-amz-copy-source preconditions before continuing with CopyObject.
 	if err = checkObjectPreconditions(w, r, sourceObject); err != nil {
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 
 	/// maximum Upload size for object in a single CopyObject operation.
 	if isMaxObjectSize(sourceObject.Size) {
-		WriteErrorResponse(w, r, ErrEntityTooLarge, copySource)
+		WriteErrorResponseWithResource(w, r, ErrEntityTooLarge, copySource)
 		return
 	}
 
@@ -456,7 +456,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 
 	targetAcl, err := getAclFromHeader(r.Header)
 	if err != nil {
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 
@@ -470,7 +470,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	result, err := api.ObjectAPI.CopyObject(targetObject, pipeReader, credential, sseRequest)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to create an object.")
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 
@@ -480,7 +480,6 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	if result.Md5 != "" {
 		w.Header().Set("ETag", "\""+result.Md5+"\"")
 	}
-	SetCommonHeaders(w)
 	if sourceVersion != "" {
 		w.Header().Set("x-amz-copy-source-version-id", sourceVersion)
 	}
@@ -512,7 +511,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	// If the matching failed, it means that the X-Amz-Copy-Source was
 	// wrong, fail right here.
 	if _, ok := r.Header["X-Amz-Copy-Source"]; ok {
-		WriteErrorResponse(w, r, ErrInvalidCopySource, r.URL.Path)
+		WriteErrorResponse(w, r, ErrInvalidCopySource)
 		return
 	}
 	vars := mux.Vars(r)
@@ -520,19 +519,19 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	objectName := vars["object"]
 
 	if !isValidObjectName(objectName) {
-		WriteErrorResponse(w, r, ErrInvalidObjectName, r.URL.Path)
+		WriteErrorResponse(w, r, ErrInvalidObjectName)
 		return
 	}
 
 	// if Content-Length is unknown/missing, deny the request
 	size := r.ContentLength
 	if size == -1 && !contains(r.TransferEncoding, "chunked") {
-		WriteErrorResponse(w, r, ErrMissingContentLength, r.URL.Path)
+		WriteErrorResponse(w, r, ErrMissingContentLength)
 		return
 	}
 	// maximum Upload size for objects in a single operation
 	if isMaxObjectSize(size) {
-		WriteErrorResponse(w, r, ErrEntityTooLarge, r.URL.Path)
+		WriteErrorResponse(w, r, ErrEntityTooLarge)
 		return
 	}
 
@@ -549,19 +548,19 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	// Parse SSE related headers
 	sseRequest, err := parseSseHeader(r.Header)
 	if err != nil {
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 
 	acl, err := getAclFromHeader(r.Header)
 	if err != nil {
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 
 	credential, dataReader, err := signature.VerifyUpload(r)
 	if err != nil {
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 
@@ -570,7 +569,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		metadata, acl, sseRequest)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to create an object.")
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 
@@ -604,14 +603,14 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		WriteErrorResponse(w, r, ErrAccessDenied)
 		return
 	case signature.AuthTypeAnonymous:
 		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err, r.URL.Path)
+			WriteErrorResponse(w, r, err)
 			return
 		}
 	}
@@ -620,14 +619,14 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 
 	acl, err := getAclFromHeader(r.Header)
 	if err != nil {
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 
 	err = api.ObjectAPI.SetObjectAcl(bucketName, objectName, version, acl, credential)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to set ACL for object")
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 	if version != "" {
@@ -646,14 +645,14 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		WriteErrorResponse(w, r, ErrAccessDenied)
 		return
 	case signature.AuthTypeAnonymous:
 		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err, r.URL.Path)
+			WriteErrorResponse(w, r, err)
 			return
 		}
 	}
@@ -663,12 +662,12 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 	object, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName, version, credential)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 
 	if object.OwnerId != credential.UserId {
-		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		WriteErrorResponse(w, r, ErrAccessDenied)
 		return
 	}
 
@@ -676,7 +675,6 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 	if version != "" {
 		w.Header().Set("x-amz-version-id", version)
 	}
-	SetCommonHeaders(w)
 	w.Write(nil)
 }
 
@@ -689,7 +687,7 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 	objectName := vars["object"]
 
 	if !isValidObjectName(objectName) {
-		WriteErrorResponse(w, r, ErrInvalidObjectName, r.URL.Path)
+		WriteErrorResponse(w, r, ErrInvalidObjectName)
 		return
 	}
 
@@ -698,21 +696,21 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		WriteErrorResponse(w, r, ErrAccessDenied)
 		return
 	case signature.AuthTypeAnonymous:
 		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err, r.URL.Path)
+			WriteErrorResponse(w, r, err)
 			return
 		}
 	}
 
 	acl, err := getAclFromHeader(r.Header)
 	if err != nil {
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 
@@ -721,7 +719,7 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 
 	sseRequest, err := parseSseHeader(r.Header)
 	if err != nil {
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 
@@ -729,7 +727,7 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 		metadata, acl, sseRequest)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to initiate new multipart upload id.")
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 
@@ -746,8 +744,6 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 			w.Header().Set(headerName, header)
 		}
 	}
-	// write headers
-	SetCommonHeaders(w)
 	// write success response.
 	WriteSuccessResponse(w, encodedSuccessResponse)
 }
@@ -770,13 +766,13 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 	/// if Content-Length is unknown/missing, throw away
 	size := r.ContentLength
 	if size == -1 {
-		WriteErrorResponse(w, r, ErrMissingContentLength, r.URL.Path)
+		WriteErrorResponse(w, r, ErrMissingContentLength)
 		return
 	}
 
 	/// maximum Upload size for multipart objects in a single operation
 	if isMaxObjectSize(size) {
-		WriteErrorResponse(w, r, ErrEntityTooLarge, r.URL.Path)
+		WriteErrorResponse(w, r, ErrEntityTooLarge)
 		return
 	}
 
@@ -785,25 +781,25 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 
 	partID, err := strconv.Atoi(partIDString)
 	if err != nil {
-		WriteErrorResponse(w, r, ErrInvalidPart, r.URL.Path)
+		WriteErrorResponse(w, r, ErrInvalidPart)
 		return
 	}
 
 	// check partID with maximum part ID for multipart objects
 	if isMaxPartID(partID) {
-		WriteErrorResponse(w, r, ErrInvalidMaxParts, r.URL.Path)
+		WriteErrorResponse(w, r, ErrInvalidMaxParts)
 		return
 	}
 
 	sseRequest, err := parseSseHeader(r.Header)
 	if err != nil {
-		WriteErrorResponse(w, r, ErrInvalidSseHeader, r.URL.Path)
+		WriteErrorResponse(w, r, ErrInvalidSseHeader)
 		return
 	}
 
 	credential, dataReader, err := signature.VerifyUpload(r)
 	if err != nil {
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 
@@ -814,7 +810,7 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 	if err != nil {
 		helper.ErrorIf(err, "Unable to create object part.")
 		// Verify if the underlying error is signature mismatch.
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 
@@ -845,7 +841,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 	targetObjectName := vars["object"]
 
 	if !isValidObjectName(targetObjectName) {
-		WriteErrorResponse(w, r, ErrInvalidObjectName, r.URL.Path)
+		WriteErrorResponse(w, r, ErrInvalidObjectName)
 		return
 	}
 
@@ -854,14 +850,14 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		WriteErrorResponse(w, r, ErrAccessDenied)
 		return
 	case signature.AuthTypeAnonymous:
 		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err, r.URL.Path)
+			WriteErrorResponse(w, r, err)
 			return
 		}
 	}
@@ -871,13 +867,13 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 
 	targetPartId, err := strconv.Atoi(partIdString)
 	if err != nil {
-		WriteErrorResponse(w, r, ErrInvalidPart, r.URL.Path)
+		WriteErrorResponse(w, r, ErrInvalidPart)
 		return
 	}
 
 	// check partID with maximum part ID for multipart objects
 	if isMaxPartID(targetPartId) {
-		WriteErrorResponse(w, r, ErrInvalidMaxParts, r.URL.Path)
+		WriteErrorResponse(w, r, ErrInvalidMaxParts)
 		return
 	}
 
@@ -898,7 +894,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 	}
 	// If source object is empty, reply back error.
 	if sourceObjectName == "" {
-		WriteErrorResponse(w, r, ErrInvalidCopySource, r.URL.Path)
+		WriteErrorResponse(w, r, ErrInvalidCopySource)
 		return
 	}
 
@@ -906,7 +902,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 	if len(splits) == 2 {
 		sourceObjectName = splits[0]
 		if !strings.HasPrefix(splits[1], "versionId=") {
-			WriteErrorResponse(w, r, ErrInvalidCopySource, r.URL.Path)
+			WriteErrorResponse(w, r, ErrInvalidCopySource)
 			return
 		}
 		sourceVersion = strings.TrimPrefix(splits[1], "versionId=")
@@ -915,12 +911,12 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 	// X-Amz-Copy-Source should be URL-encoded
 	sourceBucketName, err = url.QueryUnescape(sourceBucketName)
 	if err != nil {
-		WriteErrorResponse(w, r, ErrInvalidCopySource, r.URL.Path)
+		WriteErrorResponse(w, r, ErrInvalidCopySource)
 		return
 	}
 	sourceObjectName, err = url.QueryUnescape(sourceObjectName)
 	if err != nil {
-		WriteErrorResponse(w, r, ErrInvalidCopySource, r.URL.Path)
+		WriteErrorResponse(w, r, ErrInvalidCopySource)
 		return
 	}
 
@@ -928,19 +924,19 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 		sourceVersion, credential)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
-		WriteErrorResponse(w, r, err, copySource)
+		WriteErrorResponseWithResource(w, r, err, copySource)
 		return
 	}
 
 	sseRequest, err := parseSseHeader(r.Header)
 	if err != nil {
-		WriteErrorResponse(w, r, err, copySource)
+		WriteErrorResponseWithResource(w, r, err, copySource)
 		return
 	}
 
 	// Verify before x-amz-copy-source preconditions before continuing with CopyObject.
 	if err = checkObjectPreconditions(w, r, sourceObject); err != nil {
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 
@@ -953,18 +949,18 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 		copySourceRange, err := ParseRequestRange(copySourceRangeString, sourceObject.Size)
 		if err != nil {
 			helper.ErrorIf(err, "Invalid request range")
-			WriteErrorResponse(w, r, ErrInvalidRange, r.URL.Path)
+			WriteErrorResponse(w, r, ErrInvalidRange)
 			return
 		}
 		readOffset = copySourceRange.OffsetBegin
 		readLength = copySourceRange.GetLength()
 		if isMaxObjectSize(copySourceRange.OffsetEnd - copySourceRange.OffsetBegin + 1) {
-			WriteErrorResponse(w, r, ErrEntityTooLarge, copySource)
+			WriteErrorResponseWithResource(w, r, ErrEntityTooLarge, copySource)
 			return
 		}
 	}
 	if isMaxObjectSize(readLength) {
-		WriteErrorResponse(w, r, ErrEntityTooLarge, copySource)
+		WriteErrorResponseWithResource(w, r, ErrEntityTooLarge, copySource)
 		return
 	}
 
@@ -986,7 +982,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 		targetPartId, readLength, pipeReader, credential, sseRequest)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to create an object.")
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 
@@ -996,7 +992,6 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 	if result.Md5 != "" {
 		w.Header().Set("ETag", "\""+result.Md5+"\"")
 	}
-	SetCommonHeaders(w)
 	if sourceVersion != "" {
 		w.Header().Set("x-amz-copy-source-version-id", sourceVersion)
 	}
@@ -1026,14 +1021,14 @@ func (api ObjectAPIHandlers) AbortMultipartUploadHandler(w http.ResponseWriter, 
 	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		WriteErrorResponse(w, r, ErrAccessDenied)
 		return
 	case signature.AuthTypeAnonymous:
 		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err, r.URL.Path)
+			WriteErrorResponse(w, r, err)
 			return
 		}
 	}
@@ -1043,7 +1038,7 @@ func (api ObjectAPIHandlers) AbortMultipartUploadHandler(w http.ResponseWriter, 
 		objectName, uploadId); err != nil {
 
 		helper.ErrorIf(err, "Unable to abort multipart upload.")
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 	WriteSuccessNoContent(w)
@@ -1060,33 +1055,31 @@ func (api ObjectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		WriteErrorResponse(w, r, ErrAccessDenied)
 		return
 	case signature.AuthTypeAnonymous:
 		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err, r.URL.Path)
+			WriteErrorResponse(w, r, err)
 			return
 		}
 	}
 
 	request, err := parseListObjectPartsQuery(r.URL.Query())
 	if err != nil {
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 	listPartsInfo, err := api.ObjectAPI.ListObjectParts(credential, bucketName,
 		objectName, request)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to list uploaded parts.")
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 	encodedSuccessResponse := EncodeResponse(listPartsInfo)
-	// Write headers.
-	SetCommonHeaders(w)
 	// Write success response.
 	WriteSuccessResponse(w, encodedSuccessResponse)
 }
@@ -1105,35 +1098,35 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		WriteErrorResponse(w, r, ErrAccessDenied)
 		return
 	case signature.AuthTypeAnonymous:
 		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err, r.URL.Path)
+			WriteErrorResponse(w, r, err)
 			return
 		}
 	}
 	completeMultipartBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to complete multipart upload.")
-		WriteErrorResponse(w, r, ErrInternalError, r.URL.Path)
+		WriteErrorResponse(w, r, ErrInternalError)
 		return
 	}
 	complMultipartUpload := &meta.CompleteMultipartUpload{}
 	if err = xml.Unmarshal(completeMultipartBytes, complMultipartUpload); err != nil {
 		helper.ErrorIf(err, "Unable to parse complete multipart upload XML.")
-		WriteErrorResponse(w, r, ErrMalformedXML, r.URL.Path)
+		WriteErrorResponse(w, r, ErrMalformedXML)
 		return
 	}
 	if len(complMultipartUpload.Parts) == 0 {
-		WriteErrorResponse(w, r, ErrMalformedXML, r.URL.Path)
+		WriteErrorResponse(w, r, ErrMalformedXML)
 		return
 	}
 	if !sort.IsSorted(meta.CompletedParts(complMultipartUpload.Parts)) {
-		WriteErrorResponse(w, r, ErrInvalidPartOrder, r.URL.Path)
+		WriteErrorResponse(w, r, ErrInvalidPartOrder)
 		return
 	}
 	// Complete parts.
@@ -1143,8 +1136,6 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 		part.ETag = strings.TrimSuffix(part.ETag, "\"")
 		completeParts = append(completeParts, part)
 	}
-
-	SetCommonHeaders(w)
 
 	var result CompleteMultipartResult
 	result, err = api.ObjectAPI.CompleteMultipartUpload(credential, bucketName,
@@ -1208,14 +1199,14 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		WriteErrorResponse(w, r, ErrAccessDenied)
 		return
 	case signature.AuthTypeAnonymous:
 		break
 	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
 		signature.AuthTypeSignedV2, signature.AuthTypePresignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err, r.URL.Path)
+			WriteErrorResponse(w, r, err)
 			return
 		}
 	}
@@ -1225,7 +1216,7 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 	/// only 204.
 	result, err := api.ObjectAPI.DeleteObject(bucketName, objectName, version, credential)
 	if err != nil {
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 	if result.DeleteMarker {

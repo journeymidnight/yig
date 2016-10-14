@@ -1,6 +1,7 @@
 package main
 
 import (
+	"git.letv.cn/yig/yig/api"
 	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/redis"
 	"git.letv.cn/yig/yig/storage"
@@ -18,6 +19,9 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	helper.SetupConfig()
+	if helper.CONFIG.InstanceId == "" {
+		helper.CONFIG.InstanceId = api.GenerateRandomId()
+	}
 
 	f, err := os.OpenFile(helper.CONFIG.LogPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {

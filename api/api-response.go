@@ -24,6 +24,7 @@ import (
 
 	. "git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/iam"
 	"git.letv.cn/yig/yig/meta"
 	"net/url"
@@ -54,14 +55,11 @@ func GetObjectLocation(bucketName string, key string) string {
 	return "/" + bucketName + "/" + key
 }
 
-// takes an array of Bucketmetadata information for serialization
-// input:
-// array of bucket metadata
-//
-// output:
-// populated struct that can be serialized to match xml and json api spec output
+// Takes an array of Bucket metadata information for serialization
+// input: array of bucket metadata
+// output: populated struct that can be serialized to match xml and json api spec output
 func GenerateListBucketsResponse(buckets []meta.Bucket, credential iam.Credential) ListBucketsResponse {
-	var listbuckets []Bucket
+	var listBuckets []Bucket
 	var data = ListBucketsResponse{}
 	var owner = Owner{}
 
@@ -72,11 +70,11 @@ func GenerateListBucketsResponse(buckets []meta.Bucket, credential iam.Credentia
 		var listbucket = Bucket{}
 		listbucket.Name = bucket.Name
 		listbucket.CreationDate = bucket.CreateTime.Format(timeFormatAMZ)
-		listbuckets = append(listbuckets, listbucket)
+		listBuckets = append(listBuckets, listbucket)
 	}
 
 	data.Owner = owner
-	data.Buckets.Buckets = listbuckets
+	data.Buckets.Buckets = listBuckets
 
 	return data
 }
@@ -202,7 +200,6 @@ func GenerateMultiDeleteResponse(quiet bool, deletedObjects []ObjectIdentifier, 
 
 // WriteSuccessResponse write success headers and response if any.
 func WriteSuccessResponse(w http.ResponseWriter, response []byte) {
-	SetCommonHeaders(w)
 	if response == nil {
 		w.WriteHeader(http.StatusOK)
 		return
@@ -213,20 +210,21 @@ func WriteSuccessResponse(w http.ResponseWriter, response []byte) {
 
 // writeSuccessNoContent write success headers with http status 204
 func WriteSuccessNoContent(w http.ResponseWriter) {
-	SetCommonHeaders(w)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// writeErrorRespone write error headers
-func WriteErrorResponse(w http.ResponseWriter, req *http.Request, err error, resource string) {
-	WriteErrorResponseHeaders(w, req, err, resource)
-	WriteErrorResponseNoHeader(w, req, err, resource)
+// writeErrorResponse write error headers
+func WriteErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
+	WriteErrorResponseHeaders(w, err)
+	WriteErrorResponseNoHeader(w, r, err, r.URL.Path)
 }
 
-func WriteErrorResponseHeaders(w http.ResponseWriter, req *http.Request, err error, resource string) {
-	// set common headers
-	SetCommonHeaders(w)
+func WriteErrorResponseWithResource(w http.ResponseWriter, r *http.Request, err error, resource string) {
+	WriteErrorResponseHeaders(w, err)
+	WriteErrorResponseNoHeader(w, r, err, resource)
+}
 
+func WriteErrorResponseHeaders(w http.ResponseWriter, err error) {
 	apiErrorCode, ok := err.(ApiError)
 	if ok {
 		w.WriteHeader(apiErrorCode.HttpStatusCode())
@@ -236,15 +234,28 @@ func WriteErrorResponseHeaders(w http.ResponseWriter, req *http.Request, err err
 }
 
 func WriteErrorResponseNoHeader(w http.ResponseWriter, req *http.Request, err error, resource string) {
-	// Generate error response.
-	errorResponse := GetAPIErrorResponse(err, resource)
-	encodedErrorResponse := EncodeResponse(errorResponse)
 	// HEAD should have no body, do not attempt to write to it
-	if req.Method != "HEAD" {
-		// write error body
-		w.Write(encodedErrorResponse)
-		w.(http.Flusher).Flush()
+	if req.Method == "HEAD" {
+		return
 	}
+
+	// Generate error response.
+	errorResponse := ApiErrorResponse{}
+	apiErrorCode, ok := err.(ApiError)
+	if ok {
+		errorResponse.AwsErrorCode = apiErrorCode.AwsErrorCode()
+		errorResponse.Message = apiErrorCode.Description()
+	} else {
+		errorResponse.AwsErrorCode = "InternalError"
+		errorResponse.Message = "We encountered an internal error, please try again."
+	}
+	errorResponse.Resource = resource
+	errorResponse.RequestId = w.Header().Get("X-Amz-Request-Id")
+	errorResponse.HostId = helper.CONFIG.InstanceId
+
+	encodedErrorResponse := EncodeResponse(errorResponse)
+	w.Write(encodedErrorResponse)
+	w.(http.Flusher).Flush()
 }
 
 // APIErrorResponse - error response format
@@ -257,26 +268,4 @@ type ApiErrorResponse struct {
 	Resource     string
 	RequestId    string
 	HostId       string
-}
-
-// GetErrorResponse gets in standard error and resource value and
-// provides a encodable populated response values
-func GetAPIErrorResponse(err error, resource string) ApiErrorResponse {
-	var data = ApiErrorResponse{}
-	apiErrorCode, ok := err.(ApiError)
-	if ok {
-		data.AwsErrorCode = apiErrorCode.AwsErrorCode()
-		data.Message = apiErrorCode.Description()
-	} else {
-		data.AwsErrorCode = "InternalError"
-		data.Message = "We encountered an internal error, please try again."
-	}
-	if resource != "" {
-		data.Resource = resource
-	}
-	// TODO implement this in future
-	data.RequestId = "3L137"
-	data.HostId = "3L137"
-
-	return data
 }

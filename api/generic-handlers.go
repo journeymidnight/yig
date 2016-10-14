@@ -39,17 +39,20 @@ func RegisterHandlers(router *mux.Router, objectLayer ObjectLayer, handlerFns ..
 	return f
 }
 
-// Adds Cache-Control header
-type cacheControlHandler struct {
+// Common headers among ALL the requests, including "Server", "Accept-Ranges",
+// "Cache-Control" and more to be added
+type commonHeaderHandler struct {
 	handler http.Handler
 }
 
-func SetBrowserCacheControlHandler(h http.Handler, _ ObjectLayer) http.Handler {
-	return cacheControlHandler{h}
+func SetCommonHeaderHandler(h http.Handler, _ ObjectLayer) http.Handler {
+	return commonHeaderHandler{h}
 }
 
-func (h cacheControlHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// TODO
+func (h commonHeaderHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Server", "LeCloud YIG")
+	w.Header().Set("Accept-Ranges", "bytes")
+	w.Header().Set("Cache-Control", "no-store")
 	h.handler.ServeHTTP(w, r)
 }
 
@@ -83,7 +86,7 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	helper.Debugln("bucket", bucketName)
 	bucket, err := h.objectLayer.GetBucket(bucketName)
 	if err != nil {
-		WriteErrorResponse(w, r, err, r.URL.Path)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 
@@ -95,7 +98,7 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+		WriteErrorResponse(w, r, ErrAccessDenied)
 		return
 	}
 
@@ -110,7 +113,7 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	WriteErrorResponse(w, r, ErrAccessDenied, r.URL.Path)
+	WriteErrorResponse(w, r, ErrAccessDenied)
 }
 
 // setIgnoreResourcesHandler -
@@ -148,20 +151,20 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// level resource queries.
 	if bucketName != "" && objectName == "" {
 		if ignoreNotImplementedBucketResources(r) {
-			WriteErrorResponse(w, r, ErrNotImplemented, r.URL.Path)
+			WriteErrorResponse(w, r, ErrNotImplemented)
 			return
 		}
 	}
 	// If bucketName and objectName are present check for its resource queries.
 	if bucketName != "" && objectName != "" {
 		if ignoreNotImplementedObjectResources(r) {
-			WriteErrorResponse(w, r, ErrNotImplemented, r.URL.Path)
+			WriteErrorResponse(w, r, ErrNotImplemented)
 			return
 		}
 	}
 	// A put method on path "/" doesn't make sense, ignore it.
 	if r.Method == "PUT" && r.URL.Path == "/" && bucketName == "" {
-		WriteErrorResponse(w, r, ErrNotImplemented, r.URL.Path)
+		WriteErrorResponse(w, r, ErrNotImplemented)
 		return
 	}
 	h.handler.ServeHTTP(w, r)
@@ -182,7 +185,7 @@ func SetAuthHandler(h http.Handler, _ ObjectLayer) http.Handler {
 func (a AuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch signature.GetRequestAuthType(r) {
 	case signature.AuthTypeUnknown:
-		WriteErrorResponse(w, r, ErrSignatureVersionNotSupported, r.URL.Path)
+		WriteErrorResponse(w, r, ErrSignatureVersionNotSupported)
 		return
 	default:
 		// Let top level caller validate for anonymous and known
