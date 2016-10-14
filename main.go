@@ -20,7 +20,7 @@ func main() {
 
 	helper.SetupConfig()
 	if helper.CONFIG.InstanceId == "" {
-		helper.CONFIG.InstanceId = api.GenerateRandomId()
+		helper.CONFIG.InstanceId = string(api.GenerateRandomId())
 	}
 
 	f, err := os.OpenFile(helper.CONFIG.LogPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
