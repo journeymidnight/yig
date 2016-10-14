@@ -225,12 +225,15 @@ func WriteErrorResponseWithResource(w http.ResponseWriter, r *http.Request, err 
 }
 
 func WriteErrorResponseHeaders(w http.ResponseWriter, err error) {
+	var status int
 	apiErrorCode, ok := err.(ApiError)
 	if ok {
-		w.WriteHeader(apiErrorCode.HttpStatusCode())
+		status = apiErrorCode.HttpStatusCode()
 	} else {
-		w.WriteHeader(http.StatusInternalServerError)
+		status = http.StatusInternalServerError
 	}
+	helper.Logger.Println("Response status code:", status)
+	w.WriteHeader(status)
 }
 
 func WriteErrorResponseNoHeader(w http.ResponseWriter, req *http.Request, err error, resource string) {
