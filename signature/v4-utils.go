@@ -35,7 +35,6 @@ const (
 )
 
 // isValidRegion - verify if incoming region value is valid with configured Region.
-// TODO
 func isValidRegion(reqRegion string) bool {
 	if reqRegion == "" {
 		return true
