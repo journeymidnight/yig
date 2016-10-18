@@ -113,6 +113,27 @@ func (gc GarbageCollection) GetRowkey() (string, error) {
 	return rowkey.String(), nil
 }
 
+// Insert object to `garbageCollection` table
+func (m *Meta) PutObjectToGarbageCollection(object *Object) error {
+	garbageCollection := GarbageCollectionFromObject(object)
+
+	garbageCollectionValues, err := garbageCollection.GetValues()
+	if err != nil {
+		return err
+	}
+	garbageCollectionRowkey, err := garbageCollection.GetRowkey()
+	if err != nil {
+		return err
+	}
+	putRequest, err := hrpc.NewPutStr(context.Background(), GARBAGE_COLLECTION_TABLE,
+		garbageCollectionRowkey, garbageCollectionValues)
+	if err != nil {
+		return err
+	}
+	_, err = m.Hbase.Put(putRequest)
+	return err
+}
+
 func (m *Meta) ScanGarbageCollection(limit int) ([]GarbageCollection, error) {
 	scanRequest, err := hrpc.NewScanStr(context.Background(), GARBAGE_COLLECTION_TABLE,
 		hrpc.NumberOfRows(uint32(limit)))

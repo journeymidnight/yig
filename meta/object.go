@@ -451,6 +451,39 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string) (object 
 	return object, nil
 }
 
+func (m *Meta) PutObjectEntry(object *Object) error {
+	rowkey, err := object.GetRowkey()
+	if err != nil {
+		return err
+	}
+	values, err := object.GetValues()
+	if err != nil {
+		return err
+	}
+	helper.Debugln("values", values)
+	put, err := hrpc.NewPutStr(context.Background(), OBJECT_TABLE,
+		rowkey, values)
+	if err != nil {
+		return err
+	}
+	_, err = m.Hbase.Put(put)
+	return err
+}
+
+func (m *Meta) DeleteObjectEntry(object *Object) error {
+	rowkeyToDelete, err := object.GetRowkey()
+	if err != nil {
+		return err
+	}
+	deleteRequest, err := hrpc.NewDelStr(context.Background(), OBJECT_TABLE,
+		rowkeyToDelete, object.GetValuesForDelete())
+	if err != nil {
+		return err
+	}
+	_, err = m.Hbase.Delete(deleteRequest)
+	return err
+}
+
 func decryptSseKey(initializationVector []byte, cipherText []byte) (plainText []byte, err error) {
 	if len(cipherText) == 0 {
 		return

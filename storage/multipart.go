@@ -769,7 +769,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 		return
 	}
 
-	err = putObjectEntry(object, yig.MetaStorage)
+	err = yig.MetaStorage.PutObjectEntry(object)
 	if err != nil {
 		return
 	}

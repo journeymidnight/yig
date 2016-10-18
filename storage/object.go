@@ -11,8 +11,6 @@ import (
 	"git.letv.cn/yig/yig/meta"
 	"git.letv.cn/yig/yig/redis"
 	"git.letv.cn/yig/yig/signature"
-	"github.com/tsuna/gohbase/hrpc"
-	"golang.org/x/net/context"
 	"io"
 	"time"
 )
@@ -204,7 +202,7 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, versio
 		return err
 	}
 	object.ACL = acl
-	err = putObjectEntry(object, yig.MetaStorage)
+	err = yig.MetaStorage.PutObjectEntry(object)
 	if err != nil {
 		return err
 	}
@@ -348,7 +346,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		return
 	}
 
-	err = putObjectEntry(object, yig.MetaStorage)
+	err = yig.MetaStorage.PutObjectEntry(object)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
@@ -457,7 +455,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		return
 	}
 
-	err = putObjectEntry(targetObject, yig.MetaStorage)
+	err = yig.MetaStorage.PutObjectEntry(targetObject)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
@@ -470,70 +468,18 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 	return result, nil
 }
 
-func putObjectEntry(object *meta.Object, metaStorage *meta.Meta) error {
-	rowkey, err := object.GetRowkey()
-	if err != nil {
-		return err
-	}
-	values, err := object.GetValues()
-	if err != nil {
-		return err
-	}
-	helper.Debugln("values", values)
-	put, err := hrpc.NewPutStr(context.Background(), meta.OBJECT_TABLE,
-		rowkey, values)
-	if err != nil {
-		return err
-	}
-	_, err = metaStorage.Hbase.Put(put)
-	return err
-}
 
-func deleteObjectEntry(object *meta.Object, metaStorage *meta.Meta) error {
-	rowkeyToDelete, err := object.GetRowkey()
-	if err != nil {
-		return err
-	}
-	deleteRequest, err := hrpc.NewDelStr(context.Background(), meta.OBJECT_TABLE,
-		rowkeyToDelete, object.GetValuesForDelete())
-	if err != nil {
-		return err
-	}
-	_, err = metaStorage.Hbase.Delete(deleteRequest)
-	return err
-}
-
-// Insert object to `garbageCollection` table
-func putObjectToGarbageCollection(object *meta.Object, metaStorage *meta.Meta) error {
-	garbageCollection := meta.GarbageCollectionFromObject(object)
-
-	garbageCollectionValues, err := garbageCollection.GetValues()
-	if err != nil {
-		return err
-	}
-	garbageCollectionRowkey, err := garbageCollection.GetRowkey()
-	if err != nil {
-		return err
-	}
-	putRequest, err := hrpc.NewPutStr(context.Background(), meta.GARBAGE_COLLECTION_TABLE,
-		garbageCollectionRowkey, garbageCollectionValues)
-	if err != nil {
-		return err
-	}
-	_, err = metaStorage.Hbase.Put(putRequest)
-	return err
-}
 
 func (yig *YigStorage) removeByObject(object *meta.Object) (err error) {
-	err = deleteObjectEntry(object, yig.MetaStorage)
+	err = yig.MetaStorage.DeleteObjectEntry(object)
 	if err != nil {
 		return
 	}
 
-	err = putObjectToGarbageCollection(object, yig.MetaStorage)
+	err = yig.MetaStorage.PutObjectToGarbageCollection(object)
 	if err != nil { // try to rollback `objects` table
-		yig.Logger.Println("Error putObjectToGarbageCollection: ", err)
-		err = putObjectEntry(object, yig.MetaStorage)
+		yig.Logger.Println("Error PutObjectToGarbageCollection: ", err)
+		err = yig.MetaStorage.PutObjectEntry(object)
 		if err != nil {
 			yig.Logger.Println("Error insertObjectEntry: ", err)
 			yig.Logger.Println("Inconsistent data: object should be removed:",
@@ -588,7 +534,7 @@ func (yig *YigStorage) addDeleteMarker(bucket meta.Bucket, objectName string) (v
 		DeleteMarker:     true,
 	}
 	versionId = deleteMarker.GetVersionId()
-	err = putObjectEntry(deleteMarker, yig.MetaStorage)
+	err = yig.MetaStorage.PutObjectEntry(deleteMarker)
 	return
 }
 
@@ -681,6 +627,5 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 			yig.DataCache.Remove(bucketName + ":" + objectName + ":" + version)
 		}
 	}
-	// TODO a daemon to check garbage collection table and delete objects in ceph
 	return result, nil
 }
