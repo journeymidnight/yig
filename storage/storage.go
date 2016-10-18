@@ -46,6 +46,7 @@ func New(logger *log.Logger) *YigStorage {
 		yig.DataStorage[c.Name] = c
 	}
 
+	initializeRecycler(&yig)
 	return &yig
 }
 
