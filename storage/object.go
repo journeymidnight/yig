@@ -265,13 +265,22 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	if err != nil {
 		return
 	}
+	// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
+	// so the object in Ceph could be removed asynchronously
+	maybeObjectToRecycle := objectToRecycle{
+		location: cephCluster.Name,
+		pool:     poolName,
+		objectId: oid,
+	}
 	if bytesWritten < size {
+		RecycleQueue <- maybeObjectToRecycle
 		return result, ErrIncompleteBody
 	}
 
 	calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
 	if userMd5, ok := metadata["md5Sum"]; ok {
 		if userMd5 != "" && userMd5 != calculatedMd5 {
+			RecycleQueue <- maybeObjectToRecycle
 			return result, ErrBadDigest
 		}
 	}
@@ -281,13 +290,14 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	if signVerifyReader, ok := data.(*signature.SignVerifyReader); ok {
 		credential, err = signVerifyReader.Verify()
 		if err != nil {
-			// FIXME: remove object in ceph
+			RecycleQueue <- maybeObjectToRecycle
 			return
 		}
 	}
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
+		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
 
@@ -296,6 +306,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		break
 	default:
 		if bucket.OwnerId != credential.UserId {
+			RecycleQueue <- maybeObjectToRecycle
 			return result, ErrBucketAccessForbidden
 		}
 	}
@@ -333,11 +344,13 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		err = yig.removeNullVersionObject(bucketName, objectName)
 	}
 	if err != nil {
+		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
 
 	err = putObjectEntry(object, yig.MetaStorage)
 	if err != nil {
+		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
 	if err == nil {
@@ -379,18 +392,28 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 	if err != nil {
 		return
 	}
+	// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
+	// so the object in Ceph could be removed asynchronously
+	maybeObjectToRecycle := objectToRecycle{
+		location: cephCluster.Name,
+		pool:     poolName,
+		objectId: oid,
+	}
 	if bytesWritten < targetObject.Size {
+		RecycleQueue <- maybeObjectToRecycle
 		return result, ErrIncompleteBody
 	}
 
 	calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
 	if calculatedMd5 != targetObject.Etag {
+		RecycleQueue <- maybeObjectToRecycle
 		return result, ErrBadDigest
 	}
 	result.Md5 = calculatedMd5
 
 	bucket, err := yig.MetaStorage.GetBucket(targetObject.BucketName)
 	if err != nil {
+		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
 
@@ -399,6 +422,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		break
 	default:
 		if bucket.OwnerId != credential.UserId {
+			RecycleQueue <- maybeObjectToRecycle
 			return result, ErrBucketAccessForbidden
 		}
 	}
@@ -429,11 +453,13 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		err = yig.removeNullVersionObject(targetObject.BucketName, targetObject.Name)
 	}
 	if err != nil {
+		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
 
 	err = putObjectEntry(targetObject, yig.MetaStorage)
 	if err != nil {
+		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
 	if err == nil {
