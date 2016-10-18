@@ -319,13 +319,22 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential i
 	if err != nil {
 		return
 	}
+	// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
+	// so the object in Ceph could be removed asynchronously
+	maybeObjectToRecycle := objectToRecycle{
+		location: cephCluster.Name,
+		pool:     poolName,
+		objectId: oid,
+	}
 	if bytesWritten < size {
+		RecycleQueue <- maybeObjectToRecycle
 		err = ErrIncompleteBody
 		return
 	}
 
 	calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
 	if md5Hex != "" && md5Hex != calculatedMd5 {
+		RecycleQueue <- maybeObjectToRecycle
 		err = ErrBadDigest
 		return
 	}
@@ -333,13 +342,14 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential i
 	if signVerifyReader, ok := data.(*signature.SignVerifyReader); ok {
 		credential, err = signVerifyReader.Verify()
 		if err != nil {
-			// FIXME: remove object in ceph
+			RecycleQueue <- maybeObjectToRecycle
 			return
 		}
 	}
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
+		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
 	switch bucket.ACL.CannedAcl {
@@ -347,6 +357,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential i
 		break
 	default:
 		if bucket.OwnerId != credential.UserId {
+			RecycleQueue <- maybeObjectToRecycle
 			return result, ErrBucketAccessForbidden
 		}
 	} // TODO policy and fancy ACL
@@ -363,21 +374,33 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential i
 	}
 	partValues, err := part.GetValues()
 	if err != nil {
+		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
 	rowkey, err := multipart.GetRowkey()
 	if err != nil {
+		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
 	partMetaPut, err := hrpc.NewPutStr(context.Background(), meta.MULTIPART_TABLE,
 		rowkey, partValues)
 	if err != nil {
+		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
 	_, err = yig.MetaStorage.Hbase.Put(partMetaPut)
 	if err != nil {
-		// TODO remove object in Ceph
+		RecycleQueue <- maybeObjectToRecycle
 		return
+	}
+
+	// remove possible old object in Ceph
+	if part, ok := multipart.Parts[partId]; ok {
+		RecycleQueue <- objectToRecycle{
+			location: part.Location,
+			pool:     part.Pool,
+			objectId: part.ObjectId,
+		}
 	}
 
 	result.ETag = calculatedMd5
@@ -386,7 +409,6 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential i
 	result.SseCustomerAlgorithm = sseRequest.SseCustomerAlgorithm
 	result.SseCustomerKeyMd5Base64 = base64.StdEncoding.EncodeToString(sseRequest.SseCustomerKey)
 	return result, nil
-	// TODO remove possible old object in Ceph
 }
 
 func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, partId int,
@@ -442,7 +464,16 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	if err != nil {
 		return
 	}
+	// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
+	// so the object in Ceph could be removed asynchronously
+	maybeObjectToRecycle := objectToRecycle{
+		location: cephCluster.Name,
+		pool:     poolName,
+		objectId: oid,
+	}
+
 	if bytesWritten < size {
+		RecycleQueue <- maybeObjectToRecycle
 		err = ErrIncompleteBody
 		return
 	}
@@ -451,6 +482,7 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
+		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
 	switch bucket.ACL.CannedAcl {
@@ -458,6 +490,7 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 		break
 	default:
 		if bucket.OwnerId != credential.UserId {
+			RecycleQueue <- maybeObjectToRecycle
 			err = ErrBucketAccessForbidden
 			return
 		}
@@ -480,24 +513,36 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 
 	partValues, err := part.GetValues()
 	if err != nil {
+		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
 	rowkey, err := multipart.GetRowkey()
 	if err != nil {
+		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
 	partMetaPut, err := hrpc.NewPutStr(context.Background(), meta.MULTIPART_TABLE,
 		rowkey, partValues)
 	if err != nil {
+		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
 	_, err = yig.MetaStorage.Hbase.Put(partMetaPut)
 	if err != nil {
-		// TODO remove object in Ceph
+		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
+
+	// remove possible old object in Ceph
+	if part, ok := multipart.Parts[partId]; ok {
+		RecycleQueue <- objectToRecycle{
+			location: part.Location,
+			pool:     part.Pool,
+			objectId: part.ObjectId,
+		}
+	}
+
 	return result, nil
-	// TODO remove possible old object in Ceph
 }
 
 func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, objectName string,
@@ -617,8 +662,18 @@ func (yig *YigStorage) AbortMultipartUpload(credential iam.Credential,
 		return err
 	}
 	_, err = yig.MetaStorage.Hbase.Delete(deleteRequest)
-	return err
-	// TODO remove parts in Ceph
+	if err != nil {
+		return err
+	}
+	// remove parts in Ceph
+	for _, p := range multipart.Parts {
+		RecycleQueue <- objectToRecycle{
+			location: p.Location,
+			pool:     p.Pool,
+			objectId: p.ObjectId,
+		}
+	}
+	return nil
 }
 
 func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucketName,
