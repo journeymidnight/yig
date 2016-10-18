@@ -57,7 +57,7 @@ func removeFailed(yig *YigStorage) {
 func removeDeleted(yig *YigStorage) {
 	for {
 		// randomize garbageCollection table access
-		time.Sleep(rand.Intn(10000) * time.Millisecond)
+		time.Sleep(time.Duration(rand.Intn(10000)) * time.Millisecond)
 
 		garbages, err := yig.MetaStorage.ScanGarbageCollection(10)
 		if err != nil {
@@ -65,15 +65,19 @@ func removeDeleted(yig *YigStorage) {
 		}
 		for _, garbage := range garbages {
 			garbage.Status = "Deleting"
+			values, err := garbage.GetValues()
+			if err != nil {
+				continue
+			}
 			put, err := hrpc.NewPutStr(context.Background(),
 				meta.GARBAGE_COLLECTION_TABLE, garbage.Rowkey,
-				garbage.GetValues())
+				values)
 			if err != nil {
 				continue
 			}
 			processed, err := yig.MetaStorage.Hbase.CheckAndPut(put,
-				meta.GARBAGE_COLLECTION_COLUMN_FAMILY, "status", "Pending")
-			if !processed || err {
+				meta.GARBAGE_COLLECTION_COLUMN_FAMILY, "status", []byte("Pending"))
+			if !processed || err != nil {
 				continue
 			}
 			success := true
@@ -103,9 +107,13 @@ func removeDeleted(yig *YigStorage) {
 					continue
 				}
 				garbage.Status = "Pending"
+				values, err := garbage.GetValues()
+				if err != nil {
+					continue
+				}
 				put, err := hrpc.NewPutStr(context.Background(),
 					meta.GARBAGE_COLLECTION_TABLE, garbage.Rowkey,
-					garbage.GetValues())
+					values)
 				if err != nil {
 					continue
 				}
