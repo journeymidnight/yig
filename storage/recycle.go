@@ -32,7 +32,8 @@ func initializeRecycler(yig *YigStorage) {
 	if RecycleQueue == nil {
 		RecycleQueue = make(chan objectToRecycle, RECYCLE_QUEUE_SIZE)
 	}
-	go removeDeleted(yig)
+	// TODO: move this part of code to an isolated daemon
+	//go removeDeleted(yig)
 	go removeFailed(yig)
 }
 
@@ -40,24 +41,28 @@ func removeFailed(yig *YigStorage) {
 	yig.WaitGroup.Add(1)
 	defer yig.WaitGroup.Done()
 	for {
-		object := <-RecycleQueue
-		err := yig.DataStorage[object.location].remove(object.pool, object.objectId)
-		if err != nil {
-			object.triedTimes += 1
-			if object.triedTimes > MAX_TRY_TIMES {
-				helper.Logger.Println("Failed to remove object in Ceph:",
-					object.location, object.pool, object.objectId,
-					"with error", err)
-				continue
+		select {
+		case object := <-RecycleQueue:
+			err := yig.DataStorage[object.location].remove(object.pool, object.objectId)
+			if err != nil {
+				object.triedTimes += 1
+				if object.triedTimes > MAX_TRY_TIMES {
+					helper.Logger.Println("Failed to remove object in Ceph:",
+						object.location, object.pool, object.objectId,
+						"with error", err)
+					continue
+				}
+				RecycleQueue <- object
+				time.Sleep(1 * time.Second)
 			}
-			RecycleQueue <- object
-			time.Sleep(1 * time.Second)
-		}
-		if yig.Stopping {
-			helper.Logger.Print(".")
-			if len(RecycleQueue) == 0 {
-				return
+		default:
+			if yig.Stopping {
+				helper.Logger.Print(".")
+				if len(RecycleQueue) == 0 {
+					return
+				}
 			}
+			time.Sleep(5 * time.Second)
 		}
 	}
 }

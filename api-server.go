@@ -237,8 +237,8 @@ func startApiServer(c *ServerConfig) {
 	// Configure server.
 	apiServer := configureServer(c)
 
-	hosts, port := getListenIPs(apiServer)   // get listen ips and port.
-	tls := apiServer.Server.TLSConfig != nil // 'true' if TLS is enabled.
+	hosts, port := getListenIPs(apiServer.Server) // get listen ips and port.
+	tls := apiServer.Server.TLSConfig != nil      // 'true' if TLS is enabled.
 
 	logger.Println("\nS3 Object Storage:")
 	// Print api listen ips.
