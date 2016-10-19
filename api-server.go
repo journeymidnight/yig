@@ -80,14 +80,16 @@ func configureServerHandler(c *ServerConfig) http.Handler {
 }
 
 // configureServer configure a new server instance
-func configureServer(c *ServerConfig) *http.Server {
-	apiServer := &http.Server{
-		Addr: c.Address,
-		// Adding timeout of 10 minutes for unresponsive client connections.
-		ReadTimeout:    10 * time.Minute,
-		WriteTimeout:   10 * time.Minute,
-		Handler:        configureServerHandler(c),
-		MaxHeaderBytes: 1 << 20,
+func configureServer(c *ServerConfig) *api.Server {
+	apiServer := &api.Server{
+		Server: &http.Server{
+			Addr: c.Address,
+			// Adding timeout of 10 minutes for unresponsive client connections.
+			ReadTimeout:    10 * time.Minute,
+			WriteTimeout:   10 * time.Minute,
+			Handler:        configureServerHandler(c),
+			MaxHeaderBytes: 1 << 20,
+		},
 	}
 
 	// Returns configured HTTP server.
@@ -213,6 +215,8 @@ func isSSL(c *ServerConfig) bool {
 	return false
 }
 
+var ApiServer *api.Server
+
 // blocks after server started
 func startApiServer(c *ServerConfig) {
 	serverAddress := c.Address
@@ -233,21 +237,26 @@ func startApiServer(c *ServerConfig) {
 	// Configure server.
 	apiServer := configureServer(c)
 
-	hosts, port := getListenIPs(apiServer) // get listen ips and port.
-	tls := apiServer.TLSConfig != nil      // 'true' if TLS is enabled.
+	hosts, port := getListenIPs(apiServer)   // get listen ips and port.
+	tls := apiServer.Server.TLSConfig != nil // 'true' if TLS is enabled.
 
 	logger.Println("\nS3 Object Storage:")
 	// Print api listen ips.
 	printListenIPs(tls, hosts, port)
 
-	// Start server.
-	var err error
-	// Configure TLS if certs are available.
-	if isSSL(c) {
-		err = apiServer.ListenAndServeTLS(c.CertFilePath, c.KeyFilePath)
-	} else {
-		// Fallback to http.
-		err = apiServer.ListenAndServe()
-	}
-	helper.FatalIf(err, "API server error.")
+	go func() {
+		var err error
+		// Configure TLS if certs are available.
+		if isSSL(c) {
+			err = apiServer.Server.ListenAndServeTLS(c.CertFilePath, c.KeyFilePath)
+		} else {
+			// Fallback to http.
+			err = apiServer.Server.ListenAndServe()
+		}
+		helper.FatalIf(err, "API server error.")
+	}()
+}
+
+func stopApiServer() {
+	ApiServer.Stop()
 }

@@ -37,6 +37,8 @@ func initializeRecycler(yig *YigStorage) {
 }
 
 func removeFailed(yig *YigStorage) {
+	yig.WaitGroup.Add(1)
+	defer yig.WaitGroup.Done()
 	for {
 		object := <-RecycleQueue
 		err := yig.DataStorage[object.location].remove(object.pool, object.objectId)
@@ -51,13 +53,26 @@ func removeFailed(yig *YigStorage) {
 			RecycleQueue <- object
 			time.Sleep(1 * time.Second)
 		}
+		if yig.Stopping {
+			helper.Logger.Print(".")
+			if len(RecycleQueue) == 0 {
+				return
+			}
+		}
 	}
 }
 
 func removeDeleted(yig *YigStorage) {
+	yig.WaitGroup.Add(1)
+	defer yig.WaitGroup.Done()
 	for {
 		// randomize garbageCollection table access
 		time.Sleep(time.Duration(rand.Intn(10000)) * time.Millisecond)
+
+		if yig.Stopping {
+			helper.Logger.Print(".")
+			return
+		}
 
 		garbages, err := yig.MetaStorage.ScanGarbageCollection(10)
 		if err != nil {

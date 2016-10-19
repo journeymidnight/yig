@@ -8,6 +8,8 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 )
 
@@ -52,4 +54,22 @@ func main() {
 		ObjectLayer:  yig,
 	}
 	startApiServer(apiServerConfig)
+
+	signalQueue := make(chan os.Signal)
+	signal.Notify(signalQueue, syscall.SIGINT, syscall.SIGTERM,
+		syscall.SIGQUIT, syscall.SIGHUP)
+	for {
+		s := <-signalQueue
+		switch s {
+		case syscall.SIGHUP:
+			// reload config file
+			helper.SetupConfig()
+		default:
+			// stop YIG server, order matters
+			stopAdminServer()
+			stopApiServer()
+			yig.Stop()
+			return
+		}
+	}
 }

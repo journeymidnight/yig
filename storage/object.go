@@ -468,8 +468,6 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 	return result, nil
 }
 
-
-
 func (yig *YigStorage) removeByObject(object *meta.Object) (err error) {
 	err = yig.MetaStorage.DeleteObjectEntry(object)
 	if err != nil {

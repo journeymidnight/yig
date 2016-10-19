@@ -18,3 +18,7 @@ func startAdminServer(config *adminServerConfig) {
 	})
 	go iris.Listen(config.Address)
 }
+
+func stopAdminServer() {
+	// TODO should shutdown admin API server gracefully
+}

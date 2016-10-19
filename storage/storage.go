@@ -6,10 +6,12 @@ import (
 	"crypto/rand"
 	"git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/meta"
 	"io"
 	"log"
 	"path/filepath"
+	"sync"
 )
 
 const (
@@ -25,6 +27,8 @@ type YigStorage struct {
 	DataCache   *DataCache
 	MetaStorage *meta.Meta
 	Logger      *log.Logger
+	Stopping    bool
+	WaitGroup   *sync.WaitGroup
 }
 
 func New(logger *log.Logger) *YigStorage {
@@ -34,6 +38,8 @@ func New(logger *log.Logger) *YigStorage {
 		DataCache:   newDataCache(),
 		MetaStorage: metaStorage,
 		Logger:      logger,
+		Stopping:    false,
+		WaitGroup:   new(sync.WaitGroup),
 	}
 
 	cephConfs, err := filepath.Glob(CEPH_CONFIG_PATTERN)
@@ -48,6 +54,13 @@ func New(logger *log.Logger) *YigStorage {
 
 	initializeRecycler(&yig)
 	return &yig
+}
+
+func (y *YigStorage) Stop() {
+	y.Stopping = true
+	helper.Logger.Print("Stopping storage...")
+	y.WaitGroup.Wait()
+	helper.Logger.Println("done")
 }
 
 func encryptionKeyFromSseRequest(sseRequest datatype.SseRequest) (encryptionKey []byte, err error) {

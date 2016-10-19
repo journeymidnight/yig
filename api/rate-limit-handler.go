@@ -17,50 +17,71 @@
 package api
 
 import (
+	"git.letv.cn/yig/yig/helper"
 	"net/http"
+	"sync"
+	"time"
 )
 
 const (
-	CONCURRENT_REQUEST_LIMIT = 100 // 0 for "no limit"
+	CONCURRENT_REQUEST_LIMIT = 1000
 )
 
-// rateLimit - represents datatype of the functionality implemented to
-// limit the number of concurrent http requests.
-type rateLimit struct {
-	handler http.Handler
-	rqueue  chan struct{}
-}
+var rateLimiter *rateLimit
 
-// acquire and release implement a way to send and receive from the
-// channel this is in-turn used to rate limit incoming connections in
-// ServeHTTP() http.Handler method.
-func (c *rateLimit) acquire() { c.rqueue <- struct{}{} }
-func (c *rateLimit) release() { <-c.rqueue }
+// rateLimit performs both concurrent request limit and graceful shutdown
+type rateLimit struct {
+	handler         http.Handler
+	currentRequests int
+	requestLimit    int
+	lock            *sync.Mutex
+}
 
 // ServeHTTP is an http.Handler ServeHTTP method, implemented to rate
 // limit incoming HTTP requests.
-func (c *rateLimit) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Acquire the connection if queue is not full, otherwise
-	// code path waits here until the previous case is true.
-	c.acquire()
+func (l *rateLimit) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	l.lock.Lock()
+	if l.currentRequests+1 > l.requestLimit {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write([]byte("Server too busy"))
+		l.lock.Unlock()
+		return
+	}
+	l.currentRequests += 1
+	l.lock.Unlock()
 
-	// Serves the request.
-	c.handler.ServeHTTP(w, r)
+	l.handler.ServeHTTP(w, r)
 
-	// Release by draining the channel
-	c.release()
+	l.lock.Lock()
+	l.currentRequests -= 1
+	l.lock.Unlock()
+}
+
+func (l *rateLimit) ShutdownServer() {
+	l.lock.Lock()
+	l.requestLimit = 0
+	l.lock.Unlock()
+
+	for {
+		time.Sleep(1 * time.Second)
+		helper.Logger.Print(".")
+		l.lock.Lock()
+		if l.currentRequests == 0 {
+			// deliberately leave the lock locked
+			return
+		}
+		l.lock.Unlock()
+	}
 }
 
 // setRateLimitHandler limits the number of concurrent http requests based on
 // CONCURRENT_REQUEST_LIMIT.
 func SetRateLimitHandler(handler http.Handler, _ ObjectLayer) http.Handler {
-	if CONCURRENT_REQUEST_LIMIT == 0 {
-		return handler
-	} // else proceed to rate limiting.
-
-	// For max connection limit of > '0' we initialize rate limit handler.
-	return &rateLimit{
-		handler: handler,
-		rqueue:  make(chan struct{}, CONCURRENT_REQUEST_LIMIT),
+	rateLimiter = &rateLimit{
+		handler:         handler,
+		currentRequests: 0,
+		requestLimit:    CONCURRENT_REQUEST_LIMIT,
+		lock:            new(sync.Mutex),
 	}
+	return rateLimiter
 }
