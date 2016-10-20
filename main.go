@@ -55,6 +55,8 @@ func main() {
 	}
 	startApiServer(apiServerConfig)
 
+	// ignore signal handlers set by Iris
+	signal.Ignore()
 	signalQueue := make(chan os.Signal)
 	signal.Notify(signalQueue, syscall.SIGINT, syscall.SIGTERM,
 		syscall.SIGQUIT, syscall.SIGHUP)
