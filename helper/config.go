@@ -23,6 +23,7 @@ type Config struct {
 	RedisConnectionNumber      int    // number of connections to redis(i.e max concurrent request number)
 	InMemoryCacheMaxEntryCount int
 	InstanceId                 string // if empty, generated one at server startup
+	HbaseZnodeParent           string // won't change default("/hbase") if leave this option empty
 }
 
 var CONFIG Config
