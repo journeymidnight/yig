@@ -23,6 +23,8 @@ const (
 	GARBAGE_COLLECTION_PART_COLUMN_FAMILY = "p"
 	MULTIPART_TABLE                       = "multiparts"
 	MULTIPART_COLUMN_FAMILY               = "m"
+	CLUSTER_TABLE                         = "cluster"
+	CLUSTER_COLUMN_FAMILY                 = "c"
 
 	CREATE_TIME_LAYOUT = "2006-01-02T15:04:05.000Z"
 

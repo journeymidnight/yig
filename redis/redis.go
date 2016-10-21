@@ -25,6 +25,7 @@ const (
 	BucketTable
 	ObjectTable
 	FileTable
+	ClusterTable
 )
 
 func TableFromChannelName(name string) (r RedisDatabase, err error) {
@@ -37,7 +38,7 @@ func TableFromChannelName(name string) (r RedisDatabase, err error) {
 	return
 }
 
-var MetadataTables = []RedisDatabase{UserTable, BucketTable, ObjectTable}
+var MetadataTables = []RedisDatabase{UserTable, BucketTable, ObjectTable, ClusterTable}
 var DataTables = []RedisDatabase{FileTable}
 
 var redisConnectionPool *pool.Pool

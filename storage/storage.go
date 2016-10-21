@@ -144,7 +144,7 @@ func (r *alignedReader) Read(p []byte) (n int, err error) {
 // us only three choices: ECB, CTR, and GCM.
 // ECB is best known for its insecurity, meanwhile the GCM implementation of golang(as in 1.7) discourage
 // users to encrypt large files in one pass, which requires us to read the whole file into memory. So
-// the implement complexity is similar between GCM and CTR, we choose CTR because it's faster(but less
+// the implement complexity is similar between GCM and CTR, we choose CTR because it's faster(but more
 // prone to man-in-the-middle modifications)
 //
 // See https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation

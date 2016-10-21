@@ -21,4 +21,7 @@ create 'multiparts',
 create 'garbageCollection',
   {NAME => 'gc', VERSIONS => 1},
   {NAME => 'p', VERSIONS => 1}
+
+create 'cluster',
+  {NAME => 'c', VERSIONS => 1}
 EOF

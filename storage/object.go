@@ -12,19 +12,55 @@ import (
 	"git.letv.cn/yig/yig/redis"
 	"git.letv.cn/yig/yig/signature"
 	"io"
+	"math/rand"
 	"time"
 )
 
-func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size int64) (cluster *CephStorage, poolName string) {
-	// always choose the first cluster for testing
+func (yig *YigStorage) pickCluster() (fsid string, err error) {
+	var totalWeight int
+	clusterWeights := make(map[string]int, len(yig.DataStorage))
+	for fsid, _ := range yig.DataStorage {
+		cluster, err := yig.MetaStorage.GetCluster(fsid)
+		if err != nil {
+			return "", err
+		}
+		totalWeight += cluster.Weight
+		clusterWeights[fsid] = cluster.Weight
+	}
+	N := rand.Intn(totalWeight)
+	n := 0
+	for fsid, weight := range clusterWeights {
+		n += weight
+		if n > N {
+			return fsid, nil
+		}
+	}
+	return "", ErrInternalError
+}
+
+func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size int64) (cluster *CephStorage,
+	poolName string) {
+
+	fsid, err := yig.pickCluster()
+	if err != nil || fsid == "" {
+		helper.Logger.Println("Error picking cluster:", err)
+		for _, c := range yig.DataStorage {
+			cluster = c
+			break
+		}
+	} else {
+		cluster = yig.DataStorage[fsid]
+	}
+
 	if size < 0 { // request.ContentLength is -1 if length is unknown
-		return yig.DataStorage["7b3c9d3a-65f3-4024-aaf1-a29b9422665c"], BIG_FILE_POOLNAME
+		poolName = BIG_FILE_POOLNAME
 	}
 	if size < BIG_FILE_THRESHOLD {
-		return yig.DataStorage["7b3c9d3a-65f3-4024-aaf1-a29b9422665c"], SMALL_FILE_POOLNAME
+		poolName = SMALL_FILE_POOLNAME
 	} else {
-		return yig.DataStorage["7b3c9d3a-65f3-4024-aaf1-a29b9422665c"], BIG_FILE_POOLNAME
+		poolName = BIG_FILE_POOLNAME
 	}
+	return
 }
 
 func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
