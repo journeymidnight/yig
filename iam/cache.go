@@ -67,5 +67,7 @@ func (c *cache) set(key string, credential Credential) {
 		createTime: time.Now(),
 		credential: credential,
 	}
+	c.lock.Lock()
 	c.cache[key] = entry
+	c.lock.Unlock()
 }
