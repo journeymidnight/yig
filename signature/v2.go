@@ -142,6 +142,7 @@ func DoesSignatureMatchV2(r *http.Request) (credential iam.Credential, err error
 	}
 	accessKey := splitSignature[0]
 	credential, e := iam.GetCredential(accessKey)
+	helper.Logger.Printf("cre1:%s,%s,%s,%s",credential.UserId,credential.DisplayName,credential.AccessKeyID,credential.SecretAccessKey)
 	if e != nil {
 		return credential, ErrInvalidAccessKeyID
 	}
@@ -186,6 +187,7 @@ func DoesSignatureMatchV2(r *http.Request) (credential iam.Credential, err error
 	stringToSign += buildCanonicalizedAmzHeaders(&r.Header)
 	stringToSign += buildCanonicalizedResource(r)
 	helper.Debugln("stringtosign", stringToSign, credential.SecretAccessKey)
+	helper.Logger.Println("credential", credential.UserId, credential.AccessKeyID, credential.SecretAccessKey)
 	return credential, dictate(credential.SecretAccessKey, stringToSign, signature)
 }
 

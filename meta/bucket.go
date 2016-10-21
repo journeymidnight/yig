@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"bytes"
 	"encoding/json"
 	"git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
@@ -9,6 +10,7 @@ import (
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
 	"time"
+	"encoding/binary"
 )
 
 type Bucket struct {
@@ -20,10 +22,16 @@ type Bucket struct {
 	CORS       datatype.Cors
 	ACL        datatype.Acl
 	Versioning string // actually enum: Disabled/Enabled/Suspended
+	Usage int64
 }
 
 func (b Bucket) GetValues() (values map[string]map[string][]byte, err error) {
 	cors, err := json.Marshal(b.CORS)
+	if err != nil {
+		return
+	}
+	var usage bytes.Buffer
+	err = binary.Write(&usage, binary.BigEndian, b.Usage)
 	if err != nil {
 		return
 	}
@@ -34,6 +42,7 @@ func (b Bucket) GetValues() (values map[string]map[string][]byte, err error) {
 			"CORS":       cors,
 			"createTime": []byte(b.CreateTime.Format(CREATE_TIME_LAYOUT)),
 			"versioning": []byte(b.Versioning),
+			"usage":      usage.Bytes(),
 		},
 		// TODO fancy ACL
 	}
@@ -76,9 +85,17 @@ func (m *Meta) GetBucket(bucketName string) (bucket Bucket, err error) {
 				bucket.ACL.CannedAcl = string(cell.Value)
 			case "versioning":
 				bucket.Versioning = string(cell.Value)
+			case "usage":
+				helper.Logger.Println("enter usage",cell.Value)
+				err = binary.Read(bytes.NewReader(cell.Value), binary.BigEndian,
+					&bucket.Usage)
+				if err != nil {
+					return
+				}
 			default:
 			}
 		}
+		helper.Logger.Println("enter usage1")
 		bucket.Name = bucketName
 		return bucket, nil
 	}

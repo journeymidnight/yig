@@ -230,6 +230,21 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	size int64, data io.Reader, metadata map[string]string, acl datatype.Acl,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
 
+	bucket, err := yig.MetaStorage.GetBucket(bucketName)
+	if err != nil {
+		return
+	}
+
+	switch bucket.ACL.CannedAcl {
+	case "public-read-write":
+		break
+	default:
+		if bucket.OwnerId != credential.UserId {
+			helper.Logger.Printf("bucketid:%s,%s",bucket.OwnerId,credential.UserId)
+			return result, ErrBucketAccessForbidden
+		}
+	}
+
 	md5Writer := md5.New()
 
 	// Limit the reader to its provided size if specified.
@@ -286,19 +301,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		}
 	}
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName)
-	if err != nil {
-		return
-	}
 
-	switch bucket.ACL.CannedAcl {
-	case "public-read-write":
-		break
-	default:
-		if bucket.OwnerId != credential.UserId {
-			return result, ErrBucketAccessForbidden
-		}
-	}
 	// TODO validate bucket policy and fancy ACL
 
 	object := &meta.Object{
@@ -340,6 +343,11 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	if err != nil {
 		return
 	}
+
+	err = yig.UpdateUsage(object.BucketName, object.Size, "add")
+	if err != nil {
+		return
+	}
 	if err == nil {
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
@@ -349,6 +357,20 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 
 func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, credential iam.Credential,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
+
+	bucket, err := yig.MetaStorage.GetBucket(targetObject.BucketName)
+	if err != nil {
+		return
+	}
+
+	switch bucket.ACL.CannedAcl {
+	case "public-read-write":
+		break
+	default:
+		if bucket.OwnerId != credential.UserId {
+			return result, ErrBucketAccessForbidden
+		}
+	}
 
 	md5Writer := md5.New()
 
@@ -389,19 +411,6 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 	}
 	result.Md5 = calculatedMd5
 
-	bucket, err := yig.MetaStorage.GetBucket(targetObject.BucketName)
-	if err != nil {
-		return
-	}
-
-	switch bucket.ACL.CannedAcl {
-	case "public-read-write":
-		break
-	default:
-		if bucket.OwnerId != credential.UserId {
-			return result, ErrBucketAccessForbidden
-		}
-	}
 	// TODO validate bucket policy and fancy ACL
 
 	targetObject.Rowkey = ""    // clear the rowkey cache
@@ -436,6 +445,12 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 	if err != nil {
 		return
 	}
+
+	err = yig.UpdateUsage(targetObject.BucketName, targetObject.Size, "add")
+	if err != nil {
+		return
+	}
+
 	if err == nil {
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable,
 			targetObject.BucketName+":"+targetObject.Name+":")
@@ -504,6 +519,11 @@ func (yig *YigStorage) removeByObject(object *meta.Object) (err error) {
 		return
 	}
 
+	err = yig.UpdateUsage(object.BucketName, object.Size, "del")
+	if err != nil {
+		return
+	}
+	yig.MetaStorage.Cache.Remove(redis.BucketTable, object.BucketName)
 	err = putObjectToGarbageCollection(object, yig.MetaStorage)
 	if err != nil { // try to rollback `objects` table
 		yig.Logger.Println("Error putObjectToGarbageCollection: ", err)
@@ -657,4 +677,31 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 	}
 	// TODO a daemon to check garbage collection table and delete objects in ceph
 	return result, nil
+}
+
+func (yig *YigStorage) UpdateUsage(bucketName string, size int64, method string) error {
+	bucket, err := yig.MetaStorage.GetBucket(bucketName)
+	if err != nil {
+		return err
+	}
+	var change int64
+	if method == "add" {
+		change = size
+	} else {
+		change = -size
+	}
+
+	inc, err := hrpc.NewIncStrSingle(context.Background(), meta.BUCKET_TABLE, bucketName,"b","usage", change)
+	retValue, err := yig.MetaStorage.Hbase.Increment(inc)
+	yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
+	helper.Logger.Println("Usage old, new:", bucket.Usage, retValue)
+	return err
+}
+
+func (yig *YigStorage) GetUsage(bucketName string, metaStorage *meta.Meta) (int64, error) {
+	bucket, err := metaStorage.GetBucket(bucketName)
+	if err != nil {
+		return 0, err
+	}
+	return bucket.Usage, nil
 }

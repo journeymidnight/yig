@@ -36,7 +36,7 @@ func main() {
 	defer redis.Close()
 
 	yig := storage.New(logger)
-
+	helper.Yig = yig
 	adminServerConfig := &adminServerConfig{
 		Address:     helper.CONFIG.BindAdminAddress,
 		Logger:      logger,

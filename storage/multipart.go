@@ -380,6 +380,11 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential i
 		return
 	}
 
+	err = yig.UpdateUsage(bucketName, part.Size, "add")
+	if err != nil {
+		return
+	}
+
 	result.ETag = calculatedMd5
 	result.SseType = sseRequest.Type
 	result.SseAwsKmsKeyIdBase64 = base64.StdEncoding.EncodeToString([]byte(sseRequest.SseAwsKmsKeyId))
@@ -496,6 +501,12 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 		// TODO remove object in Ceph
 		return
 	}
+
+	err = yig.UpdateUsage(bucketName, part.Size, "add")
+	if err != nil {
+		return
+	}
+
 	return result, nil
 	// TODO remove possible old object in Ceph
 }
