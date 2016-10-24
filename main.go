@@ -39,9 +39,9 @@ func main() {
 
 	yig := storage.New(logger)
 	adminServerConfig := &adminServerConfig{
-		Address:     helper.CONFIG.BindAdminAddress,
-		Logger:      logger,
-		ObjectLayer: yig,
+		Address: helper.CONFIG.BindAdminAddress,
+		Logger:  logger,
+		Yig:     yig,
 	}
 	startAdminServer(adminServerConfig)
 
