@@ -338,6 +338,7 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 	request datatype.ListObjectsRequest) (result meta.ListObjectsInfo, err error) {
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName)
+	helper.Debugln("GetBucket", bucket)
 	if err != nil {
 		return
 	}

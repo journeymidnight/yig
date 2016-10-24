@@ -402,6 +402,10 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential i
 			objectId: part.ObjectId,
 		}
 	}
+	err = yig.MetaStorage.UpdateUsage(bucketName, part.Size, "add")
+	if err != nil {
+		return
+	}
 
 	result.ETag = calculatedMd5
 	result.SseType = sseRequest.Type
@@ -541,6 +545,11 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 			objectId: part.ObjectId,
 		}
 	}
+	err = yig.MetaStorage.UpdateUsage(bucketName, part.Size, "add")
+	if err != nil {
+		return
+
+	}
 
 	return result, nil
 }
@@ -672,6 +681,8 @@ func (yig *YigStorage) AbortMultipartUpload(credential iam.Credential,
 			pool:     p.Pool,
 			objectId: p.ObjectId,
 		}
+		err = yig.MetaStorage.UpdateUsage(bucketName, p.Size, "del")
+
 	}
 	return nil
 }

@@ -121,7 +121,6 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 	credential.DisplayName = queryRetAll.Data.AccessKeySet[0].Name
 	credential.AccessKeyID = queryRetAll.Data.AccessKeySet[0].AccessKey
 	credential.SecretAccessKey = queryRetAll.Data.AccessKeySet[0].AccessSecret
-
 	iamCache.set(accessKey, credential)
 	return credential, nil
 }

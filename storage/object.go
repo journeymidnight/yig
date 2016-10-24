@@ -344,6 +344,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 			return result, ErrBucketAccessForbidden
 		}
 	}
+
 	// TODO validate bucket policy and fancy ACL
 
 	object := &meta.Object{
@@ -385,6 +386,11 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	err = yig.MetaStorage.PutObjectEntry(object)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
+		return
+	}
+
+	err = yig.MetaStorage.UpdateUsage(object.BucketName, object.Size, "add")
+	if err != nil {
 		return
 	}
 	if err == nil {
@@ -445,6 +451,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 	}
 	result.Md5 = calculatedMd5
 
+
 	bucket, err := yig.MetaStorage.GetBucket(targetObject.BucketName)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
@@ -460,6 +467,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 			return result, ErrBucketAccessForbidden
 		}
 	}
+
 	// TODO validate bucket policy and fancy ACL
 
 	targetObject.Rowkey = ""    // clear the rowkey cache
@@ -496,6 +504,12 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
+
+	err = yig.MetaStorage.UpdateUsage(targetObject.BucketName, targetObject.Size, "add")
+	if err != nil {
+		return
+	}
+
 	if err == nil {
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable,
 			targetObject.BucketName+":"+targetObject.Name+":")
@@ -506,6 +520,11 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 
 func (yig *YigStorage) removeByObject(object *meta.Object) (err error) {
 	err = yig.MetaStorage.DeleteObjectEntry(object)
+	if err != nil {
+		return
+	}
+
+	err = yig.MetaStorage.UpdateUsage(object.BucketName, object.Size, "del")
 	if err != nil {
 		return
 	}
@@ -663,3 +682,4 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 	}
 	return result, nil
 }
+
