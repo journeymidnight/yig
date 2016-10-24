@@ -212,6 +212,23 @@ func DoesPresignedSignatureMatchV4(r *http.Request,
 	return credential, nil
 }
 
+// get credential but not verify it, used only for signed v4 auth
+func getCredentialUnverified(r *http.Request) (credential iam.Credential, err error) {
+	v4Auth := r.Header.Get("Authorization")
+
+	signV4Values, err := parseSignV4(v4Auth, r.Header)
+	if err != nil {
+		return credential, err
+	}
+
+	credential, e := iam.GetCredential(signV4Values.Credential.accessKey)
+	if e != nil {
+		return credential, ErrInvalidAccessKeyID
+	}
+
+	return credential, nil
+}
+
 // doesSignatureMatch - Verify authorization header with calculated header in accordance with
 //     - http://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-authenticating-requests.html
 // returns true if matches, false otherwise. if error is not nil then it is always false

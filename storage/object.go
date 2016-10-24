@@ -264,6 +264,20 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	size int64, data io.Reader, metadata map[string]string, acl datatype.Acl,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
 
+	bucket, err := yig.MetaStorage.GetBucket(bucketName)
+	if err != nil {
+		return
+	}
+
+	switch bucket.ACL.CannedAcl {
+	case "public-read-write":
+		break
+	default:
+		if bucket.OwnerId != credential.UserId {
+			return result, ErrBucketAccessForbidden
+		}
+	}
+
 	md5Writer := md5.New()
 
 	// Limit the reader to its provided size if specified.
@@ -329,22 +343,6 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		}
 	}
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName)
-	if err != nil {
-		RecycleQueue <- maybeObjectToRecycle
-		return
-	}
-
-	switch bucket.ACL.CannedAcl {
-	case "public-read-write":
-		break
-	default:
-		if bucket.OwnerId != credential.UserId {
-			RecycleQueue <- maybeObjectToRecycle
-			return result, ErrBucketAccessForbidden
-		}
-	}
-
 	// TODO validate bucket policy and fancy ACL
 
 	object := &meta.Object{
@@ -389,11 +387,9 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		return
 	}
 
-	err = yig.MetaStorage.UpdateUsage(object.BucketName, object.Size, "add")
-	if err != nil {
-		return
-	}
 	if err == nil {
+		yig.MetaStorage.UpdateUsage(object.BucketName, object.Size)
+
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
 	}
@@ -402,6 +398,20 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 
 func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, credential iam.Credential,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
+
+	bucket, err := yig.MetaStorage.GetBucket(targetObject.BucketName)
+	if err != nil {
+		return
+	}
+
+	switch bucket.ACL.CannedAcl {
+	case "public-read-write":
+		break
+	default:
+		if bucket.OwnerId != credential.UserId {
+			return result, ErrBucketAccessForbidden
+		}
+	}
 
 	md5Writer := md5.New()
 
@@ -451,23 +461,6 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 	}
 	result.Md5 = calculatedMd5
 
-
-	bucket, err := yig.MetaStorage.GetBucket(targetObject.BucketName)
-	if err != nil {
-		RecycleQueue <- maybeObjectToRecycle
-		return
-	}
-
-	switch bucket.ACL.CannedAcl {
-	case "public-read-write":
-		break
-	default:
-		if bucket.OwnerId != credential.UserId {
-			RecycleQueue <- maybeObjectToRecycle
-			return result, ErrBucketAccessForbidden
-		}
-	}
-
 	// TODO validate bucket policy and fancy ACL
 
 	targetObject.Rowkey = ""    // clear the rowkey cache
@@ -505,12 +498,9 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		return
 	}
 
-	err = yig.MetaStorage.UpdateUsage(targetObject.BucketName, targetObject.Size, "add")
-	if err != nil {
-		return
-	}
-
 	if err == nil {
+		yig.MetaStorage.UpdateUsage(targetObject.BucketName, targetObject.Size)
+
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable,
 			targetObject.BucketName+":"+targetObject.Name+":")
 		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
@@ -520,11 +510,6 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 
 func (yig *YigStorage) removeByObject(object *meta.Object) (err error) {
 	err = yig.MetaStorage.DeleteObjectEntry(object)
-	if err != nil {
-		return
-	}
-
-	err = yig.MetaStorage.UpdateUsage(object.BucketName, object.Size, "del")
 	if err != nil {
 		return
 	}
@@ -541,6 +526,8 @@ func (yig *YigStorage) removeByObject(object *meta.Object) (err error) {
 		}
 		return ErrInternalError
 	}
+
+	yig.MetaStorage.UpdateUsage(object.BucketName, -object.Size)
 	return nil
 }
 
@@ -682,4 +669,3 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 	}
 	return result, nil
 }
-

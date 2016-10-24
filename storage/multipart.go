@@ -395,17 +395,17 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential i
 	}
 
 	// remove possible old object in Ceph
+	var removedSize int64 = 0
 	if part, ok := multipart.Parts[partId]; ok {
 		RecycleQueue <- objectToRecycle{
 			location: part.Location,
 			pool:     part.Pool,
 			objectId: part.ObjectId,
 		}
+		removedSize += part.Size
 	}
-	err = yig.MetaStorage.UpdateUsage(bucketName, part.Size, "add")
-	if err != nil {
-		return
-	}
+
+	yig.MetaStorage.UpdateUsage(bucketName, part.Size-removedSize)
 
 	result.ETag = calculatedMd5
 	result.SseType = sseRequest.Type
@@ -538,18 +538,17 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	}
 
 	// remove possible old object in Ceph
+	var removedSize int64 = 0
 	if part, ok := multipart.Parts[partId]; ok {
 		RecycleQueue <- objectToRecycle{
 			location: part.Location,
 			pool:     part.Pool,
 			objectId: part.ObjectId,
 		}
+		removedSize += part.Size
 	}
-	err = yig.MetaStorage.UpdateUsage(bucketName, part.Size, "add")
-	if err != nil {
-		return
 
-	}
+	yig.MetaStorage.UpdateUsage(bucketName, part.Size-removedSize)
 
 	return result, nil
 }
@@ -675,15 +674,16 @@ func (yig *YigStorage) AbortMultipartUpload(credential iam.Credential,
 		return err
 	}
 	// remove parts in Ceph
+	var removedSize int64 = 0
 	for _, p := range multipart.Parts {
 		RecycleQueue <- objectToRecycle{
 			location: p.Location,
 			pool:     p.Pool,
 			objectId: p.ObjectId,
 		}
-		err = yig.MetaStorage.UpdateUsage(bucketName, p.Size, "del")
-
+		removedSize += p.Size
 	}
+	yig.MetaStorage.UpdateUsage(bucketName, -removedSize)
 	return nil
 }
 

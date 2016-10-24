@@ -83,6 +83,7 @@ func VerifyUpload(r *http.Request) (credential iam.Credential, dataReader io.Rea
 	case AuthTypeSignedV2:
 		credential, err = DoesSignatureMatchV2(r)
 	case AuthTypeSignedV4:
+		credential, err = getCredentialUnverified(r)
 		dataReader = newSignVerify(r)
 	case AuthTypePresignedV2:
 		credential, err = DoesPresignedSignatureMatchV2(r)

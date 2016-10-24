@@ -503,30 +503,3 @@ func decryptSseKey(initializationVector []byte, cipherText []byte) (plainText []
 	// for performance
 	return aesGcm.Open(nil, initializationVector[:12], cipherText, nil)
 }
-
-func (m *Meta) UpdateUsage(bucketName string, size int64, method string) error {
-	bucket, err := m.GetBucket(bucketName)
-	if err != nil {
-		return err
-	}
-	var change int64
-	if method == "add" {
-		change = size
-	} else {
-		change = -size
-	}
-
-	inc, err := hrpc.NewIncStrSingle(context.Background(), BUCKET_TABLE, bucketName,"b","usage", change)
-	retValue, err := m.Hbase.Increment(inc)
-	m.Cache.Remove(redis.BucketTable, bucketName)
-	helper.Logger.Println("Usage old, new:", bucket.Usage, retValue)
-	return err
-}
-
-func (m *Meta) GetUsage(bucketName string) (int64, error) {
-	bucket, err := m.GetBucket(bucketName)
-	if err != nil {
-		return 0, err
-	}
-	return bucket.Usage, nil
-}

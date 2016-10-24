@@ -2,6 +2,7 @@ package meta
 
 import (
 	"bytes"
+	"encoding/binary"
 	"encoding/json"
 	"git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
@@ -10,7 +11,6 @@ import (
 	"github.com/tsuna/gohbase/hrpc"
 	"golang.org/x/net/context"
 	"time"
-	"encoding/binary"
 )
 
 type Bucket struct {
@@ -22,7 +22,7 @@ type Bucket struct {
 	CORS       datatype.Cors
 	ACL        datatype.Acl
 	Versioning string // actually enum: Disabled/Enabled/Suspended
-	Usage int64
+	Usage      int64
 }
 
 func (b Bucket) GetValues() (values map[string]map[string][]byte, err error) {
@@ -86,7 +86,7 @@ func (m *Meta) GetBucket(bucketName string) (bucket Bucket, err error) {
 			case "versioning":
 				bucket.Versioning = string(cell.Value)
 			case "usage":
-				helper.Logger.Println("enter usage",cell.Value)
+				helper.Logger.Println("enter usage", cell.Value)
 				err = binary.Read(bytes.NewReader(cell.Value), binary.BigEndian,
 					&bucket.Usage)
 				if err != nil {
@@ -115,4 +115,24 @@ func (m *Meta) GetBucket(bucketName string) (bucket Bucket, err error) {
 		return
 	}
 	return bucket, nil
+}
+
+func (m *Meta) UpdateUsage(bucketName string, size int64) {
+	inc, err := hrpc.NewIncStrSingle(context.Background(), BUCKET_TABLE,
+		bucketName, BUCKET_COLUMN_FAMILY, "usage", size)
+	retValue, err := m.Hbase.Increment(inc)
+	if err != nil {
+		helper.Logger.Println("Inconsistent data: usage of bucket", bucketName,
+			"should add by", size)
+	}
+	m.Cache.Remove(redis.BucketTable, bucketName)
+	helper.Debugln("New usage:", retValue)
+}
+
+func (m *Meta) GetUsage(bucketName string) (int64, error) {
+	bucket, err := m.GetBucket(bucketName)
+	if err != nil {
+		return 0, err
+	}
+	return bucket.Usage, nil
 }

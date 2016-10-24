@@ -74,4 +74,7 @@ type ObjectLayer interface {
 	AbortMultipartUpload(credential iam.Credential, bucket, object, uploadID string) error
 	CompleteMultipartUpload(credential iam.Credential, bucket, object, uploadID string,
 		uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult, err error)
+
+	// admin operations
+	GetUsage(bucketName string) (int64, error)
 }

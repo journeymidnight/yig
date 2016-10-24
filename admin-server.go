@@ -2,10 +2,9 @@ package main
 
 import (
 	"git.letv.cn/yig/yig/api"
+	"git.letv.cn/yig/yig/helper"
 	"github.com/kataras/iris"
 	"log"
-	"git.letv.cn/yig/yig/helper"
-	"git.letv.cn/yig/yig/storage"
 )
 
 type adminServerConfig struct {
@@ -14,22 +13,24 @@ type adminServerConfig struct {
 	ObjectLayer api.ObjectLayer
 }
 
+var adminServer *adminServerConfig
+
 func getUsage(ctx *iris.Context) {
-	helper.Logger.Println("enter getusage")
+	helper.Debugln("enter getusage")
 	bucketName := ctx.Param("bucket")
-	yig, _ := helper.Yig.(*storage.YigStorage)
-	usage, err := yig.MetaStorage.GetUsage(bucketName)
+	usage, err := adminServer.ObjectLayer.GetUsage(bucketName)
 	if err != nil {
 		ctx.Write("get usage for bucket:%s failed", bucketName)
 		return
 	}
-	helper.Logger.Println("enter getusage",bucketName,usage)
+	helper.Debugln("enter getusage", bucketName, usage)
 	ctx.Write("usage for bucket:%s,%d", bucketName, usage)
 
 	return
 
 }
 func startAdminServer(config *adminServerConfig) {
+	adminServer = config
 	iris.Get("/hi", func(ctx *iris.Context) {
 		ctx.Write("Hi %s", "YIG")
 	})
