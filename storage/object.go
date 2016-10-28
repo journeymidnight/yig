@@ -151,26 +151,35 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 				continue
 			}
 
-			reader, err := cephCluster.getAlignedReader(p.Pool, p.ObjectId,
-				readOffset, length)
-			if err != nil {
-				return err
-			}
-			decryptedReader, err := wrapAlignedEncryptionReader(reader, readOffset,
-				encryptionKey, p.InitializationVector)
-			if err != nil {
-				return err
-			}
-			buffer := make([]byte, MAX_CHUNK_SIZE)
-			_, err = io.CopyBuffer(writer, decryptedReader, buffer)
+			// encrypted object
+			err = copyEncryptedPart(p, cephCluster, readOffset, readLength, encryptionKey, writer)
 			if err != nil {
 				helper.Debugln("Multipart uploaded object write error:", err)
 				return err
 			}
-			reader.Close()
 		}
 	}
 	return
+}
+
+func copyEncryptedPart(part *meta.Part, cephCluster *CephStorage, readOffset int64, length int64,
+	encryptionKey []byte, targetWriter io.Writer) (err error) {
+
+	reader, err := cephCluster.getAlignedReader(part.Pool, part.ObjectId,
+		readOffset, length)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+
+	decryptedReader, err := wrapAlignedEncryptionReader(reader, readOffset,
+		encryptionKey, part.InitializationVector)
+	if err != nil {
+		return err
+	}
+	buffer := make([]byte, MAX_CHUNK_SIZE)
+	_, err = io.CopyBuffer(targetWriter, decryptedReader, buffer)
+	return err
 }
 
 func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
