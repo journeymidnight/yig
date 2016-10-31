@@ -153,12 +153,12 @@ func (cluster *CephStorage) put(poolname string, oid string, data io.Reader) (si
 	var offset int64 = 0
 	for {
 		count, err := data.Read(buf)
-		if count == 0 {
-			break
-		}
 		if err != nil && err != io.EOF {
 			drain_pending(pending)
 			return 0, errors.New("Read from client failed")
+		}
+		if count == 0 {
+			break
 		}
 
 		pending_data = append(pending_data, buf[:count]...)
