@@ -73,6 +73,7 @@ func configureServerHandler(c *ServerConfig) http.Handler {
 		// Add new handlers here.
 
 		api.SetLogHandler,
+		api.SetRecoveryHandler,
 	}
 
 	// Register rest of the handlers.

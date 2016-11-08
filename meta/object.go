@@ -335,10 +335,13 @@ func (m *Meta) GetObject(bucketName string, objectName string) (object *Object, 
 		if err != nil {
 			return
 		}
+		before := time.Now()
 		scanResponse, err := m.Hbase.Scan(scanRequest)
 		if err != nil {
 			return
 		}
+		after := time.Now()
+		helper.Logger.Println("Scan time: ", after.Sub(before))
 		helper.Debugln("GetObject scanResponse length:", len(scanResponse))
 		if len(scanResponse) == 0 {
 			err = ErrNoSuchKey

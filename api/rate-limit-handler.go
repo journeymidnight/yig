@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	CONCURRENT_REQUEST_LIMIT = 1000
+	CONCURRENT_REQUEST_LIMIT = 1000000000
 )
 
 var rateLimiter *rateLimit
