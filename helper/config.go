@@ -23,6 +23,7 @@ type Config struct {
 	RedisConnectionNumber      int    // number of connections to redis(i.e max concurrent request number)
 	InMemoryCacheMaxEntryCount int
 	InstanceId                 string // if empty, generated one at server startup
+	ConcurrentRequestLimit     int
 }
 
 var CONFIG Config
