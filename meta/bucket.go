@@ -86,7 +86,6 @@ func (m *Meta) GetBucket(bucketName string) (bucket Bucket, err error) {
 			case "versioning":
 				bucket.Versioning = string(cell.Value)
 			case "usage":
-				helper.Logger.Println("enter usage", cell.Value)
 				err = binary.Read(bytes.NewReader(cell.Value), binary.BigEndian,
 					&bucket.Usage)
 				if err != nil {
@@ -95,7 +94,6 @@ func (m *Meta) GetBucket(bucketName string) (bucket Bucket, err error) {
 			default:
 			}
 		}
-		helper.Logger.Println("enter usage1")
 		bucket.Name = bucketName
 		return bucket, nil
 	}

@@ -367,7 +367,7 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 	// Make bucket.
 	err = api.ObjectAPI.MakeBucket(bucketName, acl, credential)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to create a bucket.")
+		helper.ErrorIf(err, "Unable to create bucket " + bucketName)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -736,7 +736,7 @@ func (api ObjectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *h
 	result, err := api.ObjectAPI.PutObject(bucketName, objectName, credential, -1, fileBody,
 		metadata, acl, sseRequest)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to create object.")
+		helper.ErrorIf(err, "Unable to create object " + objectName)
 		WriteErrorResponse(w, r, err)
 		return
 	}
