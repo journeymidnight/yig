@@ -24,6 +24,7 @@ type Config struct {
 	InMemoryCacheMaxEntryCount int
 	InstanceId                 string // if empty, generated one at server startup
 	ConcurrentRequestLimit     int
+	HbaseZnodeParent           string // won't change default("/hbase") if leave this option empty
 }
 
 var CONFIG Config

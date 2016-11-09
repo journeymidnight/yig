@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
-	"github.com/tsuna/gohbase/hrpc"
+	"github.com/cannium/gohbase/hrpc"
 	"golang.org/x/net/context"
 	"strconv"
 	"time"

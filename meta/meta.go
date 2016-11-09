@@ -3,7 +3,7 @@ package meta
 import (
 	"encoding/hex"
 	"git.letv.cn/yig/yig/helper"
-	"github.com/tsuna/gohbase"
+	"github.com/cannium/gohbase"
 	"github.com/xxtea/xxtea-go/xxtea"
 	"log"
 )
@@ -44,9 +44,15 @@ type Meta struct {
 }
 
 func New(logger *log.Logger) *Meta {
-	hbase := gohbase.NewClient(helper.CONFIG.ZookeeperAddress)
+	var hbaseClient gohbase.Client
+	if helper.CONFIG.HbaseZnodeParent == "" {
+		hbaseClient = gohbase.NewClient(helper.CONFIG.ZookeeperAddress)
+	} else {
+		znodeOption := gohbase.SetZnodeParentOption(helper.CONFIG.HbaseZnodeParent)
+		hbaseClient = gohbase.NewClient(helper.CONFIG.ZookeeperAddress, znodeOption)
+	}
 	meta := Meta{
-		Hbase:  hbase,
+		Hbase:  hbaseClient,
 		Logger: logger,
 		Cache:  newMetaCache(),
 	}
