@@ -17,7 +17,7 @@ type cacheEntry struct {
 // maps access key to Credential object
 type cache struct {
 	cache map[string]cacheEntry
-	lock  *sync.Mutex
+	lock  *sync.RWMutex
 }
 
 var iamCache *cache
@@ -49,13 +49,15 @@ func initializeIamCache() {
 	}
 	iamCache = &cache{
 		cache: make(map[string]cacheEntry),
-		lock:  new(sync.Mutex),
+		lock:  new(sync.RWMutex),
 	}
 	go cacheInvalidator()
 }
 
 func (c *cache) get(key string) (credential Credential, hit bool) {
+	c.lock.RLock()
 	entry, hit := c.cache[key]
+	c.lock.RUnlock()
 	if hit {
 		credential = entry.credential
 	}
