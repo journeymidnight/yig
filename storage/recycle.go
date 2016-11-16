@@ -1,10 +1,10 @@
 package storage
 
 import (
+	"context"
 	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/meta"
 	"github.com/cannium/gohbase/hrpc"
-	"golang.org/x/net/context"
 	"math/rand"
 	"time"
 )

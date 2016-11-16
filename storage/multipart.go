@@ -2,6 +2,7 @@ package storage
 
 import (
 	"bytes"
+	"context"
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/binary"
@@ -15,7 +16,6 @@ import (
 	"git.letv.cn/yig/yig/signature"
 	"github.com/cannium/gohbase/filter"
 	"github.com/cannium/gohbase/hrpc"
-	"golang.org/x/net/context"
 	"io"
 	"net/url"
 	"sort"

@@ -2,6 +2,7 @@ package meta
 
 import (
 	"bytes"
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -16,7 +17,6 @@ import (
 	"github.com/cannium/gohbase/filter"
 	"github.com/cannium/gohbase/hrpc"
 	"github.com/xxtea/xxtea-go/xxtea"
-	"golang.org/x/net/context"
 	"io"
 	"math"
 	"strconv"

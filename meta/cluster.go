@@ -1,12 +1,12 @@
 package meta
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/redis"
 	"github.com/cannium/gohbase/hrpc"
-	"golang.org/x/net/context"
 	"strconv"
 )
 

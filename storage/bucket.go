@@ -2,6 +2,7 @@ package storage
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/hex"
 	"git.letv.cn/yig/yig/api/datatype"
@@ -13,7 +14,6 @@ import (
 	"github.com/cannium/gohbase/filter"
 	"github.com/cannium/gohbase/hrpc"
 	"github.com/xxtea/xxtea-go/xxtea"
-	"golang.org/x/net/context"
 	"math"
 	"net/url"
 	"sort"

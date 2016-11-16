@@ -469,8 +469,8 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	// Create the object.
 	result, err := api.ObjectAPI.CopyObject(targetObject, pipeReader, credential, sseRequest)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to copy object from " +
-			sourceObjectName + " to " + targetObjectName)
+		helper.ErrorIf(err, "Unable to copy object from "+
+			sourceObjectName+" to "+targetObjectName)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -569,7 +569,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	result, err = api.ObjectAPI.PutObject(bucketName, objectName, credential, size, dataReader,
 		metadata, acl, sseRequest)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to create object " + objectName)
+		helper.ErrorIf(err, "Unable to create object "+objectName)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -809,7 +809,7 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 	result, err = api.ObjectAPI.PutObjectPart(bucketName, objectName, credential,
 		uploadID, partID, size, dataReader, incomingMd5, sseRequest)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to create object part for " + objectName)
+		helper.ErrorIf(err, "Unable to create object part for "+objectName)
 		// Verify if the underlying error is signature mismatch.
 		WriteErrorResponse(w, r, err)
 		return
@@ -982,8 +982,8 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 	result, err := api.ObjectAPI.CopyObjectPart(targetBucketName, targetObjectName, targetUploadId,
 		targetPartId, readLength, pipeReader, credential, sseRequest)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to copy object part from " + sourceObjectName +
-			" to " + targetObjectName)
+		helper.ErrorIf(err, "Unable to copy object part from "+sourceObjectName+
+			" to "+targetObjectName)
 		WriteErrorResponse(w, r, err)
 		return
 	}

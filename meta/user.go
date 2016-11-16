@@ -1,12 +1,12 @@
 package meta
 
 import (
+	"context"
 	"encoding/json"
 	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/redis"
 	"github.com/cannium/gohbase/hrpc"
-	"golang.org/x/net/context"
 )
 
 const (

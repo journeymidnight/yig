@@ -2,6 +2,7 @@ package meta
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"git.letv.cn/yig/yig/api/datatype"
@@ -9,7 +10,6 @@ import (
 	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/redis"
 	"github.com/cannium/gohbase/hrpc"
-	"golang.org/x/net/context"
 	"time"
 )
 

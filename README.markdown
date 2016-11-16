@@ -9,7 +9,7 @@ See http://wiki.letv.cn/pages/viewpage.action?pageId=55651555 for development do
 Require:
 
 - ceph-devel
-- go(>=1.6)
+- go(>=1.7)
 
 Steps:
 

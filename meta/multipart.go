@@ -2,6 +2,7 @@ package meta
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
@@ -10,7 +11,6 @@ import (
 	. "git.letv.cn/yig/yig/error"
 	"github.com/cannium/gohbase/hrpc"
 	"github.com/xxtea/xxtea-go/xxtea"
-	"golang.org/x/net/context"
 	"strconv"
 	"strings"
 	"time"

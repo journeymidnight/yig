@@ -2,10 +2,10 @@ package meta
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"github.com/cannium/gohbase/hrpc"
-	"golang.org/x/net/context"
 	"strconv"
 	"time"
 )
