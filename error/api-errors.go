@@ -442,7 +442,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrExpiredPresignRequest: {
-		AwsErrorCode:   "AccessDenied",
+		AwsErrorCode:   "ExpiredToken",
 		Description:    "Request has expired.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
