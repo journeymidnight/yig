@@ -12,7 +12,7 @@ import (
 // metadata is organized in 3 layers: YIG instance memory, Redis, HBase
 // `MetaCache` forces "Cache-Aside Pattern", see https://msdn.microsoft.com/library/dn589799.aspx
 type MetaCache struct {
-	lock       *sync.RWMutex
+	lock       *sync.Mutex // protects both `lruList` and `cache`
 	MaxEntries int
 	lruList    *list.List
 	// maps table -> key -> value
@@ -28,7 +28,7 @@ type entry struct {
 
 func newMetaCache() (m *MetaCache) {
 	m = &MetaCache{
-		lock:       new(sync.RWMutex),
+		lock:       new(sync.Mutex),
 		MaxEntries: helper.CONFIG.InMemoryCacheMaxEntryCount,
 		lruList:    list.New(),
 		cache:      make(map[redis.RedisDatabase]map[string]*list.Element),
@@ -123,13 +123,13 @@ func (m *MetaCache) Get(table redis.RedisDatabase, key string,
 
 	helper.Debugln("MetaCache Get()", table, key)
 
-	m.lock.RLock()
+	m.lock.Lock()
 	if element, hit := m.cache[table][key]; hit {
 		m.lruList.MoveToFront(element)
-		m.lock.RUnlock()
+		m.lock.Unlock()
 		return element.Value.(*entry).value, nil
 	}
-	m.lock.RUnlock()
+	m.lock.Unlock()
 
 	value, err = redis.Get(table, key, unmarshaller)
 	if err == nil && value != nil {
