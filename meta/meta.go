@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"context"
 	"encoding/hex"
 	"git.letv.cn/yig/yig/helper"
 	"github.com/cannium/gohbase"
@@ -35,6 +36,7 @@ const (
 var (
 	XXTEA_KEY         = []byte("hehehehe")
 	SSE_S3_MASTER_KEY = []byte("hehehehehehehehehehehehehehehehe") // 32 bytes to select AES-256
+	RootContext       = context.Background()
 )
 
 type Meta struct {

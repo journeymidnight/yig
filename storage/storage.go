@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -19,6 +20,10 @@ const (
 	AES_BLOCK_SIZE               = 16
 	ENCRYPTION_KEY_LENGTH        = 32 // key size for AES-"256"
 	INITIALIZATION_VECTOR_LENGTH = 16 // block size of AES
+)
+
+var (
+	RootContext = context.Background()
 )
 
 // *YigStorage implements api.ObjectLayer

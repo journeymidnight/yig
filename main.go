@@ -24,6 +24,9 @@ func main() {
 	if helper.CONFIG.InstanceId == "" {
 		helper.CONFIG.InstanceId = string(api.GenerateRandomId())
 	}
+	if helper.CONFIG.HbaseTimeout == 0 {
+		helper.CONFIG.HbaseTimeout = 30
+	}
 
 	f, err := os.OpenFile(helper.CONFIG.LogPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
@@ -33,6 +36,8 @@ func main() {
 
 	logger = log.New(f, "[yig]", log.LstdFlags)
 	helper.Logger = logger
+
+	logger.Println("YIG instance ID:", helper.CONFIG.InstanceId)
 
 	redis.Initialize()
 	defer redis.Close()

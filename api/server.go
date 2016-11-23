@@ -5,6 +5,12 @@ import (
 	"net/http"
 )
 
+type ContextKey int
+
+const (
+	RequestId ContextKey = iota
+)
+
 type Server struct {
 	Server *http.Server
 }

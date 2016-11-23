@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"git.letv.cn/yig/yig/helper"
 	"math/rand"
 	"net/http"
@@ -24,11 +25,10 @@ type logHandler struct {
 
 func (l logHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Serves the request.
-	helper.Debugln(r.Method, r.Host, r.URL)
 	requestId := string(GenerateRandomId())
+	ctx := context.WithValue(r.Context(), RequestId, requestId)
 	helper.Logger.Printf("STARTING %s %s%s RequestID:%s", r.Method, r.Host, r.URL, requestId)
-	w.Header().Set("X-Amz-Request-Id", requestId)
-	l.handler.ServeHTTP(w, r)
+	l.handler.ServeHTTP(w, r.WithContext(ctx))
 	helper.Logger.Printf("COMPLETED %s %s%s RequestID:%s", r.Method, r.Host, r.URL, requestId)
 }
 

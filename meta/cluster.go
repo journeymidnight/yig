@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/redis"
 	"github.com/cannium/gohbase/hrpc"
 	"strconv"
+	"time"
 )
 
 type Cluster struct {
@@ -26,7 +28,9 @@ func (c Cluster) GetValues() (values map[string]map[string][]byte, err error) {
 
 func (m *Meta) GetCluster(fsid string) (cluster Cluster, err error) {
 	getCluster := func() (c interface{}, err error) {
-		getRequest, err := hrpc.NewGetStr(context.Background(), CLUSTER_TABLE, fsid)
+		getRequest, err := hrpc.NewGetStr(
+			context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+			CLUSTER_TABLE, fsid)
 		if err != nil {
 			return
 		}

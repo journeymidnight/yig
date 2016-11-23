@@ -25,6 +25,7 @@ type Config struct {
 	InstanceId                 string // if empty, generated one at server startup
 	ConcurrentRequestLimit     int
 	HbaseZnodeParent           string // won't change default("/hbase") if leave this option empty
+	HbaseTimeout               int    // in seconds
 }
 
 var CONFIG Config

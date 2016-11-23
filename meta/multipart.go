@@ -9,6 +9,7 @@ import (
 	"errors"
 	"git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/helper"
 	"github.com/cannium/gohbase/hrpc"
 	"github.com/xxtea/xxtea-go/xxtea"
 	"strconv"
@@ -165,7 +166,9 @@ func (m *Meta) GetMultipart(bucketName, objectName, uploadId string) (multipart 
 	if err != nil {
 		return
 	}
-	getMultipartRequest, err := hrpc.NewGetStr(context.Background(), MULTIPART_TABLE, rowkey)
+	getMultipartRequest, err := hrpc.NewGetStr(
+		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+		MULTIPART_TABLE, rowkey)
 	if err != nil {
 		return
 	}
