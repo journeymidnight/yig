@@ -1,7 +1,6 @@
 package main
 
 import (
-	"git.letv.cn/yig/yig/api"
 	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/redis"
 	"git.letv.cn/yig/yig/storage"
