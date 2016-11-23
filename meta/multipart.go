@@ -166,9 +166,9 @@ func (m *Meta) GetMultipart(bucketName, objectName, uploadId string) (multipart 
 	if err != nil {
 		return
 	}
-	getMultipartRequest, err := hrpc.NewGetStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
-		MULTIPART_TABLE, rowkey)
+	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+	defer done()
+	getMultipartRequest, err := hrpc.NewGetStr(ctx, MULTIPART_TABLE, rowkey)
 	if err != nil {
 		return
 	}

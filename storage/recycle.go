@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"context"
 	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/meta"
 	"github.com/cannium/gohbase/hrpc"
@@ -89,9 +88,8 @@ func removeDeleted(yig *YigStorage) {
 			if err != nil {
 				continue
 			}
-			put, err := hrpc.NewPutStr(
-				context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
-				meta.GARBAGE_COLLECTION_TABLE, garbage.Rowkey, values)
+			put, err := hrpc.NewPutStr(RootContext, meta.GARBAGE_COLLECTION_TABLE,
+				garbage.Rowkey, values)
 			if err != nil {
 				continue
 			}
@@ -131,8 +129,7 @@ func removeDeleted(yig *YigStorage) {
 				if err != nil {
 					continue
 				}
-				put, err := hrpc.NewPutStr(
-					context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
+				put, err := hrpc.NewPutStr(RootContext,
 					meta.GARBAGE_COLLECTION_TABLE, garbage.Rowkey, values)
 				if err != nil {
 					continue

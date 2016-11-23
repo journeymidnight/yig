@@ -36,9 +36,9 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 	if err != nil {
 		return err
 	}
-	put, err := hrpc.NewPutStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
-		meta.BUCKET_TABLE, bucketName, values)
+	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+	defer done()
+	put, err := hrpc.NewPutStr(ctx, meta.BUCKET_TABLE, bucketName, values)
 	if err != nil {
 		yig.Logger.Println("Error making hbase put: ", err)
 		return err
@@ -64,9 +64,9 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 	err = yig.MetaStorage.AddBucketForUser(bucketName, credential.UserId)
 	if err != nil { // roll back bucket table, i.e. remove inserted bucket
 		yig.Logger.Println("Error AddBucketForUser: ", err)
-		del, err := hrpc.NewDelStr(
-			context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
-			meta.BUCKET_TABLE, bucketName, values)
+		ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+		defer done()
+		del, err := hrpc.NewDelStr(ctx, meta.BUCKET_TABLE, bucketName, values)
 		if err != nil {
 			yig.Logger.Println("Error making hbase del: ", err)
 			yig.Logger.Println("Leaving junk bucket unremoved: ", bucketName)
@@ -100,9 +100,9 @@ func (yig *YigStorage) SetBucketAcl(bucketName string, acl datatype.Acl,
 	if err != nil {
 		return err
 	}
-	put, err := hrpc.NewPutStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
-		meta.BUCKET_TABLE, bucketName, values)
+	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+	defer done()
+	put, err := hrpc.NewPutStr(ctx, meta.BUCKET_TABLE, bucketName, values)
 	if err != nil {
 		yig.Logger.Println("Error making hbase put: ", err)
 		return err
@@ -132,9 +132,9 @@ func (yig *YigStorage) SetBucketCors(bucketName string, cors datatype.Cors,
 	if err != nil {
 		return err
 	}
-	put, err := hrpc.NewPutStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
-		meta.BUCKET_TABLE, bucketName, values)
+	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+	defer done()
+	put, err := hrpc.NewPutStr(ctx, meta.BUCKET_TABLE, bucketName, values)
 	if err != nil {
 		yig.Logger.Println("Error making hbase put: ", err)
 		return err
@@ -162,9 +162,9 @@ func (yig *YigStorage) DeleteBucketCors(bucketName string, credential iam.Creden
 	if err != nil {
 		return err
 	}
-	put, err := hrpc.NewPutStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
-		meta.BUCKET_TABLE, bucketName, values)
+	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+	defer done()
+	put, err := hrpc.NewPutStr(ctx, meta.BUCKET_TABLE, bucketName, values)
 	if err != nil {
 		yig.Logger.Println("Error making hbase put: ", err)
 		return err
@@ -208,9 +208,9 @@ func (yig *YigStorage) SetBucketVersioning(bucketName string, versioning datatyp
 	if err != nil {
 		return err
 	}
-	put, err := hrpc.NewPutStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
-		meta.BUCKET_TABLE, bucketName, values)
+	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+	defer done()
+	put, err := hrpc.NewPutStr(ctx, meta.BUCKET_TABLE, bucketName, values)
 	if err != nil {
 		yig.Logger.Println("Error making hbase put: ", err)
 		return err
@@ -284,9 +284,10 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 	// Check if bucket is empty
 	// FIXME: add a terminator after bucketName in hbase table
 	prefixFilter := filter.NewPrefixFilter([]byte(bucketName))
-	scanRequest, err := hrpc.NewScanRangeStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
-		meta.OBJECT_TABLE, bucketName, "", hrpc.Filters(prefixFilter), hrpc.NumberOfRows(1))
+	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+	defer done()
+	scanRequest, err := hrpc.NewScanRangeStr(ctx, meta.OBJECT_TABLE, bucketName,
+		"", hrpc.Filters(prefixFilter), hrpc.NumberOfRows(1))
 	if err != nil {
 		return
 	}
@@ -309,9 +310,7 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 	values := map[string]map[string][]byte{
 		meta.BUCKET_COLUMN_FAMILY: map[string][]byte{},
 	}
-	deleteRequest, err := hrpc.NewDelStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
-		meta.BUCKET_TABLE, bucketName, values)
+	deleteRequest, err := hrpc.NewDelStr(ctx, meta.BUCKET_TABLE, bucketName, values)
 	if err != nil {
 		return err
 	}
@@ -326,9 +325,7 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 		if err != nil {
 			return err
 		}
-		put, err := hrpc.NewPutStr(
-			context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
-			meta.BUCKET_TABLE, bucketName, values)
+		put, err := hrpc.NewPutStr(ctx, meta.BUCKET_TABLE, bucketName, values)
 		if err != nil {
 			yig.Logger.Println("Error making hbase put: ", err)
 			yig.Logger.Println("Inconsistent data: bucket ", bucketName,
@@ -413,9 +410,9 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 	compareFilter := filter.NewCompareFilter(filter.Equal, comparator)
 	rowFilter := filter.NewRowFilter(compareFilter)
 
-	scanRequest, err := hrpc.NewScanRangeStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
-		meta.OBJECT_TABLE,
+	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+	defer done()
+	scanRequest, err := hrpc.NewScanRangeStr(ctx, meta.OBJECT_TABLE,
 		// scan for max+1 rows to determine if results are truncated
 		startRowkey.String(), "", hrpc.Filters(rowFilter),
 		hrpc.NumberOfRows(uint32(request.MaxKeys+1)))
@@ -600,9 +597,9 @@ func (yig *YigStorage) ListVersionedObjects(credential iam.Credential, bucketNam
 	compareFilter := filter.NewCompareFilter(filter.Equal, comparator)
 	rowFilter := filter.NewRowFilter(compareFilter)
 
-	scanRequest, err := hrpc.NewScanRangeStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
-		meta.OBJECT_TABLE,
+	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+	defer done()
+	scanRequest, err := hrpc.NewScanRangeStr(ctx, meta.OBJECT_TABLE,
 		// scan for max+1 rows to determine if results are truncated
 		startRowkey.String(), "", hrpc.Filters(rowFilter),
 		hrpc.NumberOfRows(uint32(request.MaxKeys+1)))
