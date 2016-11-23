@@ -37,7 +37,7 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 		return err
 	}
 	put, err := hrpc.NewPutStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 		meta.BUCKET_TABLE, bucketName, values)
 	if err != nil {
 		yig.Logger.Println("Error making hbase put: ", err)
@@ -65,7 +65,7 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 	if err != nil { // roll back bucket table, i.e. remove inserted bucket
 		yig.Logger.Println("Error AddBucketForUser: ", err)
 		del, err := hrpc.NewDelStr(
-			context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+			context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 			meta.BUCKET_TABLE, bucketName, values)
 		if err != nil {
 			yig.Logger.Println("Error making hbase del: ", err)
@@ -101,7 +101,7 @@ func (yig *YigStorage) SetBucketAcl(bucketName string, acl datatype.Acl,
 		return err
 	}
 	put, err := hrpc.NewPutStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 		meta.BUCKET_TABLE, bucketName, values)
 	if err != nil {
 		yig.Logger.Println("Error making hbase put: ", err)
@@ -133,7 +133,7 @@ func (yig *YigStorage) SetBucketCors(bucketName string, cors datatype.Cors,
 		return err
 	}
 	put, err := hrpc.NewPutStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 		meta.BUCKET_TABLE, bucketName, values)
 	if err != nil {
 		yig.Logger.Println("Error making hbase put: ", err)
@@ -163,7 +163,7 @@ func (yig *YigStorage) DeleteBucketCors(bucketName string, credential iam.Creden
 		return err
 	}
 	put, err := hrpc.NewPutStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 		meta.BUCKET_TABLE, bucketName, values)
 	if err != nil {
 		yig.Logger.Println("Error making hbase put: ", err)
@@ -209,7 +209,7 @@ func (yig *YigStorage) SetBucketVersioning(bucketName string, versioning datatyp
 		return err
 	}
 	put, err := hrpc.NewPutStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 		meta.BUCKET_TABLE, bucketName, values)
 	if err != nil {
 		yig.Logger.Println("Error making hbase put: ", err)
@@ -285,7 +285,7 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 	// FIXME: add a terminator after bucketName in hbase table
 	prefixFilter := filter.NewPrefixFilter([]byte(bucketName))
 	scanRequest, err := hrpc.NewScanRangeStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 		meta.OBJECT_TABLE, bucketName, "", hrpc.Filters(prefixFilter), hrpc.NumberOfRows(1))
 	if err != nil {
 		return
@@ -310,7 +310,7 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 		meta.BUCKET_COLUMN_FAMILY: map[string][]byte{},
 	}
 	deleteRequest, err := hrpc.NewDelStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 		meta.BUCKET_TABLE, bucketName, values)
 	if err != nil {
 		return err
@@ -327,7 +327,7 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 			return err
 		}
 		put, err := hrpc.NewPutStr(
-			context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+			context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 			meta.BUCKET_TABLE, bucketName, values)
 		if err != nil {
 			yig.Logger.Println("Error making hbase put: ", err)
@@ -414,7 +414,7 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 	rowFilter := filter.NewRowFilter(compareFilter)
 
 	scanRequest, err := hrpc.NewScanRangeStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 		meta.OBJECT_TABLE,
 		// scan for max+1 rows to determine if results are truncated
 		startRowkey.String(), "", hrpc.Filters(rowFilter),
@@ -601,7 +601,7 @@ func (yig *YigStorage) ListVersionedObjects(credential iam.Credential, bucketNam
 	rowFilter := filter.NewRowFilter(compareFilter)
 
 	scanRequest, err := hrpc.NewScanRangeStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 		meta.OBJECT_TABLE,
 		// scan for max+1 rows to determine if results are truncated
 		startRowkey.String(), "", hrpc.Filters(rowFilter),

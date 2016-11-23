@@ -21,12 +21,6 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	helper.SetupConfig()
-	if helper.CONFIG.InstanceId == "" {
-		helper.CONFIG.InstanceId = string(api.GenerateRandomId())
-	}
-	if helper.CONFIG.HbaseTimeout == 0 {
-		helper.CONFIG.HbaseTimeout = 30
-	}
 
 	f, err := os.OpenFile(helper.CONFIG.LogPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {

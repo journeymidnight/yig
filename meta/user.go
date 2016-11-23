@@ -17,7 +17,7 @@ const (
 func (m *Meta) GetUserBuckets(userId string) (buckets []string, err error) {
 	getUserBuckets := func() (bs interface{}, err error) {
 		getRequest, err := hrpc.NewGetStr(
-			context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+			context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 			USER_TABLE, userId)
 		if err != nil {
 			return
@@ -66,7 +66,7 @@ func (m *Meta) AddBucketForUser(bucketName string, userId string) (err error) {
 		},
 	}
 	putRequest, err := hrpc.NewPutStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 		USER_TABLE, userId, newUserBucket)
 	if err != nil {
 		return err
@@ -82,7 +82,7 @@ func (m *Meta) RemoveBucketForUser(bucketName string, userId string) (err error)
 		},
 	}
 	deleteRequest, err := hrpc.NewDelStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 		USER_TABLE, userId, deleteValue)
 	if err != nil {
 		return

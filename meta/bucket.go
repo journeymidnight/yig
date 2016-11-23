@@ -52,7 +52,7 @@ func (b Bucket) GetValues() (values map[string]map[string][]byte, err error) {
 func (m *Meta) GetBucket(bucketName string) (bucket Bucket, err error) {
 	getBucket := func() (b interface{}, err error) {
 		getRequest, err := hrpc.NewGetStr(
-			context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+			context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 			BUCKET_TABLE, bucketName)
 		if err != nil {
 			return
@@ -119,7 +119,7 @@ func (m *Meta) GetBucket(bucketName string) (bucket Bucket, err error) {
 
 func (m *Meta) UpdateUsage(bucketName string, size int64) {
 	inc, err := hrpc.NewIncStrSingle(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 		BUCKET_TABLE, bucketName, BUCKET_COLUMN_FAMILY, "usage", size)
 	retValue, err := m.Hbase.Increment(inc)
 	if err != nil {

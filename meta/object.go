@@ -331,7 +331,7 @@ func (m *Meta) GetObject(bucketName string, objectName string) (object *Object, 
 		}
 		prefixFilter := filter.NewPrefixFilter(objectRowkeyPrefix)
 		scanRequest, err := hrpc.NewScanRangeStr(
-			context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+			context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 			OBJECT_TABLE,
 			string(objectRowkeyPrefix), "", hrpc.Filters(prefixFilter), hrpc.NumberOfRows(1))
 		if err != nil {
@@ -383,7 +383,7 @@ func (m *Meta) GetNullVersionObject(bucketName, objectName string) (object *Obje
 	prefixFilter := filter.NewPrefixFilter(objectRowkeyPrefix)
 	// FIXME use a proper filter instead of naively getting 1000 and compare
 	scanRequest, err := hrpc.NewScanRangeStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 		OBJECT_TABLE,
 		string(objectRowkeyPrefix), "", hrpc.Filters(prefixFilter), hrpc.NumberOfRows(1000))
 	if err != nil {
@@ -416,7 +416,7 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string) (object 
 			return
 		}
 		getRequest, err := hrpc.NewGetStr(
-			context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+			context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 			OBJECT_TABLE, string(objectRowkeyPrefix))
 		if err != nil {
 			return
@@ -468,7 +468,7 @@ func (m *Meta) PutObjectEntry(object *Object) error {
 	}
 	helper.Debugln("values", values)
 	put, err := hrpc.NewPutStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 		OBJECT_TABLE, rowkey, values)
 	if err != nil {
 		return err
@@ -483,7 +483,7 @@ func (m *Meta) DeleteObjectEntry(object *Object) error {
 		return err
 	}
 	deleteRequest, err := hrpc.NewDelStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 		OBJECT_TABLE, rowkeyToDelete, object.GetValuesForDelete())
 	if err != nil {
 		return err

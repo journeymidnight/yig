@@ -90,7 +90,7 @@ func removeDeleted(yig *YigStorage) {
 				continue
 			}
 			put, err := hrpc.NewPutStr(
-				context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+				context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 				meta.GARBAGE_COLLECTION_TABLE, garbage.Rowkey, values)
 			if err != nil {
 				continue
@@ -132,7 +132,7 @@ func removeDeleted(yig *YigStorage) {
 					continue
 				}
 				put, err := hrpc.NewPutStr(
-					context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+					context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 					meta.GARBAGE_COLLECTION_TABLE, garbage.Rowkey, values)
 				if err != nil {
 					continue

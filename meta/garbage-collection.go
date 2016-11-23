@@ -127,7 +127,7 @@ func (m *Meta) PutObjectToGarbageCollection(object *Object) error {
 		return err
 	}
 	putRequest, err := hrpc.NewPutStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 		GARBAGE_COLLECTION_TABLE,
 		garbageCollectionRowkey, garbageCollectionValues)
 	if err != nil {
@@ -139,7 +139,7 @@ func (m *Meta) PutObjectToGarbageCollection(object *Object) error {
 
 func (m *Meta) ScanGarbageCollection(limit int) ([]GarbageCollection, error) {
 	scanRequest, err := hrpc.NewScanStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 		GARBAGE_COLLECTION_TABLE,
 		hrpc.NumberOfRows(uint32(limit)))
 	if err != nil {
@@ -162,7 +162,7 @@ func (m *Meta) ScanGarbageCollection(limit int) ([]GarbageCollection, error) {
 
 func (m *Meta) RemoveGarbageCollection(garbage GarbageCollection) error {
 	deleteRequest, err := hrpc.NewDelStr(
-		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+		context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 		GARBAGE_COLLECTION_TABLE,
 		garbage.Rowkey, garbage.GetValuesForDelete())
 	if err != nil {

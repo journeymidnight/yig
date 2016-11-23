@@ -29,7 +29,7 @@ func (c Cluster) GetValues() (values map[string]map[string][]byte, err error) {
 func (m *Meta) GetCluster(fsid string) (cluster Cluster, err error) {
 	getCluster := func() (c interface{}, err error) {
 		getRequest, err := hrpc.NewGetStr(
-			context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout*time.Second),
+			context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout),
 			CLUSTER_TABLE, fsid)
 		if err != nil {
 			return

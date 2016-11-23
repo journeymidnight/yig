@@ -47,12 +47,8 @@ type Meta struct {
 
 func New(logger *log.Logger) *Meta {
 	var hbaseClient gohbase.Client
-	if helper.CONFIG.HbaseZnodeParent == "" {
-		hbaseClient = gohbase.NewClient(helper.CONFIG.ZookeeperAddress)
-	} else {
-		znodeOption := gohbase.SetZnodeParentOption(helper.CONFIG.HbaseZnodeParent)
-		hbaseClient = gohbase.NewClient(helper.CONFIG.ZookeeperAddress, znodeOption)
-	}
+	znodeOption := gohbase.SetZnodeParentOption(helper.CONFIG.HbaseZnodeParent)
+	hbaseClient = gohbase.NewClient(helper.CONFIG.ZookeeperAddress, znodeOption)
 	meta := Meta{
 		Hbase:  hbaseClient,
 		Logger: logger,
