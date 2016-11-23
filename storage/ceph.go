@@ -17,10 +17,11 @@ const (
 	STRIPE_COUNT        = 4
 	OBJECT_SIZE         = 4 << 20         /* 4M */
 	BUFFER_SIZE         = 1 << 20         /* 1M */
+	MIN_CHUNK_SIZE      = 512 << 10       /* 512K */
 	MAX_CHUNK_SIZE      = 4 * BUFFER_SIZE /* 4M */
 	SMALL_FILE_POOLNAME = "rabbit"
 	BIG_FILE_POOLNAME   = "tiger"
-	BIG_FILE_THRESHOLD  = 256 << 10
+	BIG_FILE_THRESHOLD  = 128 << 10       /* 128K */
 	AIO_CONCURRENT      = 4
 )
 
@@ -144,33 +145,53 @@ func (cluster *CephStorage) put(poolname string, oid string, data io.Reader) (si
 
 	setStripeLayout(&striper)
 
-	buf := make([]byte, BUFFER_SIZE)
-	/* if the data len in pending_data is bigger than MAX_CHUNK_SIZE, I will flush the data to ceph */
-	var pending_data []byte
+
+	/* if the data len in pending_data is bigger than current_upload_window, I will flush the data to ceph */
+	/* current_upload_window could not dynamically increase or shrink */
+
+
+
 	var c *rados.AioCompletion
 	pending := list.New()
+	var current_upload_window = MIN_CHUNK_SIZE /* initial window size as MIN_CHUNK_SIZE, max size is MAX_CHUNK_SIZE */
+	var pending_data = make([]byte, current_upload_window)
 
-	var offset int64 = 0
+
+	var slice_offset = 0
+	var slice_len = 0
+	var slice = pending_data[0:current_upload_window]
+
+	var offset = 0
+
 	for {
-		count, err := data.Read(buf)
-		if err != nil && err != io.EOF {
-			drain_pending(pending)
-			return 0, errors.New("Read from client failed")
-		}
+
+		count, err := data.Read(slice)
 		if count == 0 {
 			break
 		}
 
-		pending_data = append(pending_data, buf[:count]...)
+		slice_offset += count
+		slice_len = len(pending_data) - slice_offset
+		slice = pending_data[slice_offset:slice_len]
 
-		if len(pending_data) < MAX_CHUNK_SIZE {
+
+		if err != nil && err != io.EOF {
+			drain_pending(pending)
+			return 0, errors.New("Read from client failed")
+		}
+
+		//is pending_data full?
+		if slice_offset < len(pending_data) {
 			continue
 		}
 
-		/* will write bl to ceph */
-		var bl []byte = pending_data[:MAX_CHUNK_SIZE]
-		/* now pending_data point to remaining data */
-		pending_data = pending_data[MAX_CHUNK_SIZE:]
+		/* pending data is full now */
+		var bl []byte = pending_data[:]
+
+		/* allocate a new pending data */
+		pending_data = make([]byte, current_upload_window)
+		slice_offset=0;
+		slice = pending_data[0:current_upload_window]
 
 		c = new(rados.AioCompletion)
 		c.Create()
@@ -181,6 +202,7 @@ func (cluster *CephStorage) put(poolname string, oid string, data io.Reader) (si
 			return 0, errors.New("Bad io")
 		}
 		pending.PushBack(c)
+
 
 		for pending_has_completed(pending) {
 			if ret := wait_pending_front(pending); ret < 0 {
@@ -195,15 +217,15 @@ func (cluster *CephStorage) put(poolname string, oid string, data io.Reader) (si
 				return 0, errors.New("Error wait_pending_front")
 			}
 		}
-		offset += int64(len(bl))
+		offset += len(bl)
 	}
 
-	size = offset + int64(len(pending_data))
+	size = int64(slice_offset + offset)
 	//write all remaining data
-	if len(pending_data) > 0 {
+	if slice_offset > 0 {
 		c = new(rados.AioCompletion)
 		c.Create()
-		striper.WriteAIO(c, oid, pending_data, uint64(offset))
+		striper.WriteAIO(c, oid, pending_data[:slice_offset], uint64(offset))
 		pending.PushBack(c)
 	}
 
