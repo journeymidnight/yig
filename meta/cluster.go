@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/redis"
 	"github.com/cannium/gohbase/hrpc"
 	"strconv"
@@ -26,7 +27,9 @@ func (c Cluster) GetValues() (values map[string]map[string][]byte, err error) {
 
 func (m *Meta) GetCluster(fsid string) (cluster Cluster, err error) {
 	getCluster := func() (c interface{}, err error) {
-		getRequest, err := hrpc.NewGetStr(context.Background(), CLUSTER_TABLE, fsid)
+		ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+		defer done()
+		getRequest, err := hrpc.NewGetStr(ctx, CLUSTER_TABLE, fsid)
 		if err != nil {
 			return
 		}

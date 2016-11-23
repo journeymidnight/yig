@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"context"
 	"encoding/hex"
 	"git.letv.cn/yig/yig/helper"
 	"github.com/cannium/gohbase"
@@ -35,6 +36,7 @@ const (
 var (
 	XXTEA_KEY         = []byte("hehehehe")
 	SSE_S3_MASTER_KEY = []byte("hehehehehehehehehehehehehehehehe") // 32 bytes to select AES-256
+	RootContext       = context.Background()
 )
 
 type Meta struct {
@@ -45,12 +47,8 @@ type Meta struct {
 
 func New(logger *log.Logger) *Meta {
 	var hbaseClient gohbase.Client
-	if helper.CONFIG.HbaseZnodeParent == "" {
-		hbaseClient = gohbase.NewClient(helper.CONFIG.ZookeeperAddress)
-	} else {
-		znodeOption := gohbase.SetZnodeParentOption(helper.CONFIG.HbaseZnodeParent)
-		hbaseClient = gohbase.NewClient(helper.CONFIG.ZookeeperAddress, znodeOption)
-	}
+	znodeOption := gohbase.SetZnodeParentOption(helper.CONFIG.HbaseZnodeParent)
+	hbaseClient = gohbase.NewClient(helper.CONFIG.ZookeeperAddress, znodeOption)
 	meta := Meta{
 		Hbase:  hbaseClient,
 		Logger: logger,

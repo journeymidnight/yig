@@ -1,7 +1,6 @@
 package main
 
 import (
-	"git.letv.cn/yig/yig/api"
 	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/redis"
 	"git.letv.cn/yig/yig/storage"
@@ -21,9 +20,6 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	helper.SetupConfig()
-	if helper.CONFIG.InstanceId == "" {
-		helper.CONFIG.InstanceId = string(api.GenerateRandomId())
-	}
 
 	f, err := os.OpenFile(helper.CONFIG.LogPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
@@ -33,6 +29,8 @@ func main() {
 
 	logger = log.New(f, "[yig]", log.LstdFlags)
 	helper.Logger = logger
+
+	logger.Println("YIG instance ID:", helper.CONFIG.InstanceId)
 
 	redis.Initialize()
 	defer redis.Close()

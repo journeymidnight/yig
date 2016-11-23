@@ -73,14 +73,10 @@ func (l *rateLimit) ShutdownServer() {
 // setRateLimitHandler limits the number of concurrent http requests based on
 // CONFIG.ConcurrentRequestLimit
 func SetRateLimitHandler(handler http.Handler, _ ObjectLayer) http.Handler {
-	limit := helper.CONFIG.ConcurrentRequestLimit
-	if limit == 0 {
-		limit = 10000
-	}
 	rateLimiter = &rateLimit{
 		handler:         handler,
 		currentRequests: 0,
-		requestLimit:    limit,
+		requestLimit:    helper.CONFIG.ConcurrentRequestLimit,
 		lock:            new(sync.Mutex),
 	}
 	return rateLimiter

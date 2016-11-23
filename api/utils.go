@@ -17,6 +17,7 @@
 package api
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/xml"
 	"io"
@@ -66,4 +67,8 @@ func contains(stringList []string, element string) bool {
 		}
 	}
 	return false
+}
+
+func requestIdFromContext(ctx context.Context) string {
+	return ctx.Value(RequestId).(string)
 }

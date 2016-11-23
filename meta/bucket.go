@@ -51,7 +51,9 @@ func (b Bucket) GetValues() (values map[string]map[string][]byte, err error) {
 
 func (m *Meta) GetBucket(bucketName string) (bucket Bucket, err error) {
 	getBucket := func() (b interface{}, err error) {
-		getRequest, err := hrpc.NewGetStr(context.Background(), BUCKET_TABLE, bucketName)
+		ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+		defer done()
+		getRequest, err := hrpc.NewGetStr(ctx, BUCKET_TABLE, bucketName)
 		if err != nil {
 			return
 		}
@@ -116,8 +118,10 @@ func (m *Meta) GetBucket(bucketName string) (bucket Bucket, err error) {
 }
 
 func (m *Meta) UpdateUsage(bucketName string, size int64) {
-	inc, err := hrpc.NewIncStrSingle(context.Background(), BUCKET_TABLE,
-		bucketName, BUCKET_COLUMN_FAMILY, "usage", size)
+	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+	defer done()
+	inc, err := hrpc.NewIncStrSingle(ctx, BUCKET_TABLE, bucketName,
+		BUCKET_COLUMN_FAMILY, "usage", size)
 	retValue, err := m.Hbase.Increment(inc)
 	if err != nil {
 		helper.Logger.Println("Inconsistent data: usage of bucket", bucketName,

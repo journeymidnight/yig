@@ -15,7 +15,9 @@ const (
 
 func (m *Meta) GetUserBuckets(userId string) (buckets []string, err error) {
 	getUserBuckets := func() (bs interface{}, err error) {
-		getRequest, err := hrpc.NewGetStr(context.Background(), USER_TABLE, userId)
+		ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+		defer done()
+		getRequest, err := hrpc.NewGetStr(ctx, USER_TABLE, userId)
 		if err != nil {
 			return
 		}
@@ -62,7 +64,9 @@ func (m *Meta) AddBucketForUser(bucketName string, userId string) (err error) {
 			bucketName: []byte{},
 		},
 	}
-	putRequest, err := hrpc.NewPutStr(context.Background(), USER_TABLE, userId, newUserBucket)
+	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+	defer done()
+	putRequest, err := hrpc.NewPutStr(ctx, USER_TABLE, userId, newUserBucket)
 	if err != nil {
 		return err
 	}
@@ -76,7 +80,9 @@ func (m *Meta) RemoveBucketForUser(bucketName string, userId string) (err error)
 			bucketName: []byte{},
 		},
 	}
-	deleteRequest, err := hrpc.NewDelStr(context.Background(), USER_TABLE, userId, deleteValue)
+	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+	defer done()
+	deleteRequest, err := hrpc.NewDelStr(ctx, USER_TABLE, userId, deleteValue)
 	if err != nil {
 		return
 	}

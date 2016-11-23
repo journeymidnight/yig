@@ -90,7 +90,9 @@ func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketNam
 	compareFilter := filter.NewCompareFilter(filter.Equal, comparator)
 	rowFilter := filter.NewRowFilter(compareFilter)
 
-	scanRequest, err := hrpc.NewScanRangeStr(context.Background(), meta.MULTIPART_TABLE,
+	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+	defer done()
+	scanRequest, err := hrpc.NewScanRangeStr(ctx, meta.MULTIPART_TABLE,
 		// scan for max+1 rows to determine if results are truncated
 		startRowkey.String(), "", hrpc.Filters(rowFilter),
 		hrpc.NumberOfRows(uint32(request.MaxUploads+1)))
@@ -257,7 +259,9 @@ func (yig *YigStorage) NewMultipartUpload(credential iam.Credential, bucketName,
 	if err != nil {
 		return
 	}
-	newMultipartPut, err := hrpc.NewPutStr(context.Background(), meta.MULTIPART_TABLE,
+	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+	defer done()
+	newMultipartPut, err := hrpc.NewPutStr(ctx, meta.MULTIPART_TABLE,
 		rowkey, multipartValues)
 	if err != nil {
 		return
@@ -382,8 +386,9 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential i
 		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
-	partMetaPut, err := hrpc.NewPutStr(context.Background(), meta.MULTIPART_TABLE,
-		rowkey, partValues)
+	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+	defer done()
+	partMetaPut, err := hrpc.NewPutStr(ctx, meta.MULTIPART_TABLE, rowkey, partValues)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
@@ -525,8 +530,9 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
-	partMetaPut, err := hrpc.NewPutStr(context.Background(), meta.MULTIPART_TABLE,
-		rowkey, partValues)
+	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+	defer done()
+	partMetaPut, err := hrpc.NewPutStr(ctx, meta.MULTIPART_TABLE, rowkey, partValues)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
@@ -664,8 +670,9 @@ func (yig *YigStorage) AbortMultipartUpload(credential iam.Credential,
 		return err
 	}
 
-	deleteRequest, err := hrpc.NewDelStr(context.Background(), meta.MULTIPART_TABLE,
-		rowkey, values)
+	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+	defer done()
+	deleteRequest, err := hrpc.NewDelStr(ctx, meta.MULTIPART_TABLE, rowkey, values)
 	if err != nil {
 		return err
 	}
@@ -791,16 +798,17 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 	if err != nil {
 		return
 	}
-	deleteRequest, err := hrpc.NewDelStr(context.Background(), meta.MULTIPART_TABLE,
-		rowkey, deleteValues)
+	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+	defer done()
+	deleteRequest, err := hrpc.NewDelStr(ctx, meta.MULTIPART_TABLE, rowkey, deleteValues)
 	if err != nil {
 		return
 	}
 	_, err = yig.MetaStorage.Hbase.Delete(deleteRequest)
 	if err != nil { // rollback objects table
 		objectDeleteValues := object.GetValuesForDelete()
-		objectDeleteRequest, err := hrpc.NewDelStr(context.Background(), meta.OBJECT_TABLE,
-			object.Rowkey, objectDeleteValues)
+		objectDeleteRequest, err := hrpc.NewDelStr(ctx,
+			meta.OBJECT_TABLE, object.Rowkey, objectDeleteValues)
 		if err != nil {
 			return result, err
 		}

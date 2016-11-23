@@ -330,7 +330,9 @@ func (m *Meta) GetObject(bucketName string, objectName string) (object *Object, 
 			return
 		}
 		prefixFilter := filter.NewPrefixFilter(objectRowkeyPrefix)
-		scanRequest, err := hrpc.NewScanRangeStr(context.Background(), OBJECT_TABLE,
+		ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+		defer done()
+		scanRequest, err := hrpc.NewScanRangeStr(ctx, OBJECT_TABLE,
 			string(objectRowkeyPrefix), "", hrpc.Filters(prefixFilter), hrpc.NumberOfRows(1))
 		if err != nil {
 			return
@@ -380,7 +382,9 @@ func (m *Meta) GetNullVersionObject(bucketName, objectName string) (object *Obje
 	}
 	prefixFilter := filter.NewPrefixFilter(objectRowkeyPrefix)
 	// FIXME use a proper filter instead of naively getting 1000 and compare
-	scanRequest, err := hrpc.NewScanRangeStr(context.Background(), OBJECT_TABLE,
+	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+	defer done()
+	scanRequest, err := hrpc.NewScanRangeStr(ctx, OBJECT_TABLE,
 		string(objectRowkeyPrefix), "", hrpc.Filters(prefixFilter), hrpc.NumberOfRows(1000))
 	if err != nil {
 		return
@@ -411,7 +415,9 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string) (object 
 		if err != nil {
 			return
 		}
-		getRequest, err := hrpc.NewGetStr(context.Background(), OBJECT_TABLE, string(objectRowkeyPrefix))
+		ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+		defer done()
+		getRequest, err := hrpc.NewGetStr(ctx, OBJECT_TABLE, string(objectRowkeyPrefix))
 		if err != nil {
 			return
 		}
@@ -461,8 +467,9 @@ func (m *Meta) PutObjectEntry(object *Object) error {
 		return err
 	}
 	helper.Debugln("values", values)
-	put, err := hrpc.NewPutStr(context.Background(), OBJECT_TABLE,
-		rowkey, values)
+	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+	defer done()
+	put, err := hrpc.NewPutStr(ctx, OBJECT_TABLE, rowkey, values)
 	if err != nil {
 		return err
 	}
@@ -475,8 +482,10 @@ func (m *Meta) DeleteObjectEntry(object *Object) error {
 	if err != nil {
 		return err
 	}
-	deleteRequest, err := hrpc.NewDelStr(context.Background(), OBJECT_TABLE,
-		rowkeyToDelete, object.GetValuesForDelete())
+	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+	defer done()
+	deleteRequest, err := hrpc.NewDelStr(ctx, OBJECT_TABLE, rowkeyToDelete,
+		object.GetValuesForDelete())
 	if err != nil {
 		return err
 	}
