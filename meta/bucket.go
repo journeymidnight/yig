@@ -49,6 +49,8 @@ func (b Bucket) GetValues() (values map[string]map[string][]byte, err error) {
 	return
 }
 
+// Note the usage info got from this method is possibly not accurate because we don't
+// invalid cache when updating usage. For accurate usage info, use `GetUsage()`
 func (m *Meta) GetBucket(bucketName string) (bucket Bucket, err error) {
 	getBucket := func() (b interface{}, err error) {
 		ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
@@ -127,11 +129,11 @@ func (m *Meta) UpdateUsage(bucketName string, size int64) {
 		helper.Logger.Println("Inconsistent data: usage of bucket", bucketName,
 			"should add by", size)
 	}
-	m.Cache.Remove(redis.BucketTable, bucketName)
 	helper.Debugln("New usage:", retValue)
 }
 
 func (m *Meta) GetUsage(bucketName string) (int64, error) {
+	m.Cache.Remove(redis.BucketTable, bucketName)
 	bucket, err := m.GetBucket(bucketName)
 	if err != nil {
 		return 0, err
