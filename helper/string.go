@@ -8,3 +8,9 @@ func StringInSlice(s string, ss []string) bool {
 	}
 	return false
 }
+
+func CopiedBytes(source []byte) (destination []byte) {
+	destination = make([]byte, len(source), len(source))
+	copy(destination, source)
+	return destination
+}

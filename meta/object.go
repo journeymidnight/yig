@@ -330,10 +330,13 @@ func (m *Meta) GetObject(bucketName string, objectName string) (object *Object, 
 			return
 		}
 		prefixFilter := filter.NewPrefixFilter(objectRowkeyPrefix)
+		stopKey := helper.CopiedBytes(objectRowkeyPrefix)
+		stopKey[len(stopKey)-1]++
 		ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
 		defer done()
 		scanRequest, err := hrpc.NewScanRangeStr(ctx, OBJECT_TABLE,
-			string(objectRowkeyPrefix), "", hrpc.Filters(prefixFilter), hrpc.NumberOfRows(1))
+			string(objectRowkeyPrefix), string(stopKey),
+			hrpc.Filters(prefixFilter), hrpc.NumberOfRows(1))
 		if err != nil {
 			return
 		}
@@ -381,11 +384,14 @@ func (m *Meta) GetNullVersionObject(bucketName, objectName string) (object *Obje
 		return
 	}
 	prefixFilter := filter.NewPrefixFilter(objectRowkeyPrefix)
-	// FIXME use a proper filter instead of naively getting 1000 and compare
+	stopKey := helper.CopiedBytes(objectRowkeyPrefix)
+	stopKey[len(stopKey)-1]++
 	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
 	defer done()
 	scanRequest, err := hrpc.NewScanRangeStr(ctx, OBJECT_TABLE,
-		string(objectRowkeyPrefix), "", hrpc.Filters(prefixFilter), hrpc.NumberOfRows(1000))
+		string(objectRowkeyPrefix), string(stopKey),
+		// FIXME use a proper filter instead of naively getting 1000 and compare
+		hrpc.Filters(prefixFilter), hrpc.NumberOfRows(1000))
 	if err != nil {
 		return
 	}

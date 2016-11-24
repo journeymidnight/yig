@@ -282,12 +282,14 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 	}
 
 	// Check if bucket is empty
-	// FIXME: add a terminator after bucketName in hbase table
 	prefixFilter := filter.NewPrefixFilter([]byte(bucketName))
+	stopKey := []byte(bucketName)
+	stopKey[len(stopKey)-1]++
 	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
 	defer done()
-	scanRequest, err := hrpc.NewScanRangeStr(ctx, meta.OBJECT_TABLE, bucketName,
-		"", hrpc.Filters(prefixFilter), hrpc.NumberOfRows(1))
+	scanRequest, err := hrpc.NewScanRangeStr(ctx, meta.OBJECT_TABLE,
+		bucketName, string(stopKey),
+		hrpc.Filters(prefixFilter), hrpc.NumberOfRows(1))
 	if err != nil {
 		return
 	}
@@ -400,6 +402,8 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 		}
 		startRowkey.WriteString(marker)
 	}
+	stopKey := []byte(bucketName)
+	stopKey[len(bucketName)-1]++
 
 	comparator := filter.NewRegexStringComparator(
 		"^"+bucketName+"...."+request.Prefix+".*"+".{8}"+"$",
@@ -413,9 +417,9 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
 	defer done()
 	scanRequest, err := hrpc.NewScanRangeStr(ctx, meta.OBJECT_TABLE,
+		startRowkey.String(), string(stopKey),
 		// scan for max+1 rows to determine if results are truncated
-		startRowkey.String(), "", hrpc.Filters(rowFilter),
-		hrpc.NumberOfRows(uint32(request.MaxKeys+1)))
+		hrpc.Filters(rowFilter), hrpc.NumberOfRows(uint32(request.MaxKeys+1)))
 	if err != nil {
 		return
 	}
@@ -587,6 +591,8 @@ func (yig *YigStorage) ListVersionedObjects(credential iam.Credential, bucketNam
 			}
 		}
 	}
+	stopKey := []byte(bucketName)
+	stopKey[len(stopKey)-1]++
 
 	comparator := filter.NewRegexStringComparator(
 		"^"+bucketName+"...."+request.Prefix+".*"+".{8}"+"$",
@@ -600,8 +606,8 @@ func (yig *YigStorage) ListVersionedObjects(credential iam.Credential, bucketNam
 	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
 	defer done()
 	scanRequest, err := hrpc.NewScanRangeStr(ctx, meta.OBJECT_TABLE,
+		startRowkey.String(), string(stopKey), hrpc.Filters(rowFilter),
 		// scan for max+1 rows to determine if results are truncated
-		startRowkey.String(), "", hrpc.Filters(rowFilter),
 		hrpc.NumberOfRows(uint32(request.MaxKeys+1)))
 	if err != nil {
 		return

@@ -54,7 +54,9 @@ func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketNam
 	// TODO policy and fancy ACL
 
 	var startRowkey bytes.Buffer
+	var stopKey []byte
 	startRowkey.WriteString(bucketName)
+	stopKey = helper.CopiedBytes(startRowkey.Bytes())
 	// TODO: refactor, same as in getMultipartRowkeyFromUploadId
 	if request.KeyMarker != "" {
 		err = binary.Write(&startRowkey, binary.BigEndian,
@@ -63,6 +65,7 @@ func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketNam
 			return
 		}
 		startRowkey.WriteString(request.KeyMarker)
+		stopKey = helper.CopiedBytes(startRowkey.Bytes())
 		if request.UploadIdMarker != "" {
 			var timestampString string
 			timestampString, err = meta.Decrypt(request.UploadIdMarker)
@@ -80,6 +83,7 @@ func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketNam
 			}
 		}
 	}
+	stopKey[len(stopKey)-1]++
 
 	comparator := filter.NewRegexStringComparator(
 		"^"+bucketName+".."+request.Prefix+".*"+".{8}"+"$",
@@ -93,8 +97,8 @@ func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketNam
 	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
 	defer done()
 	scanRequest, err := hrpc.NewScanRangeStr(ctx, meta.MULTIPART_TABLE,
+		startRowkey.String(), string(stopKey), hrpc.Filters(rowFilter),
 		// scan for max+1 rows to determine if results are truncated
-		startRowkey.String(), "", hrpc.Filters(rowFilter),
 		hrpc.NumberOfRows(uint32(request.MaxUploads+1)))
 	if err != nil {
 		return
