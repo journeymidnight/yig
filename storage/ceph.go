@@ -21,7 +21,7 @@ const (
 	MAX_CHUNK_SIZE      = 4 * BUFFER_SIZE /* 4M */
 	SMALL_FILE_POOLNAME = "rabbit"
 	BIG_FILE_POOLNAME   = "tiger"
-	BIG_FILE_THRESHOLD  = 128 << 10       /* 128K */
+	BIG_FILE_THRESHOLD  = 128 << 10 /* 128K */
 	AIO_CONCURRENT      = 4
 )
 
@@ -145,17 +145,13 @@ func (cluster *CephStorage) put(poolname string, oid string, data io.Reader) (si
 
 	setStripeLayout(&striper)
 
-
 	/* if the data len in pending_data is bigger than current_upload_window, I will flush the data to ceph */
 	/* current_upload_window could not dynamically increase or shrink */
-
-
 
 	var c *rados.AioCompletion
 	pending := list.New()
 	var current_upload_window = MIN_CHUNK_SIZE /* initial window size as MIN_CHUNK_SIZE, max size is MAX_CHUNK_SIZE */
 	var pending_data = make([]byte, current_upload_window)
-
 
 	var slice_offset = 0
 	var slice_len = 0
@@ -174,7 +170,6 @@ func (cluster *CephStorage) put(poolname string, oid string, data io.Reader) (si
 		slice_len = len(pending_data) - slice_offset
 		slice = pending_data[slice_offset:slice_len]
 
-
 		if err != nil && err != io.EOF {
 			drain_pending(pending)
 			return 0, errors.New("Read from client failed")
@@ -190,7 +185,7 @@ func (cluster *CephStorage) put(poolname string, oid string, data io.Reader) (si
 
 		/* allocate a new pending data */
 		pending_data = make([]byte, current_upload_window)
-		slice_offset=0;
+		slice_offset = 0
 		slice = pending_data[0:current_upload_window]
 
 		c = new(rados.AioCompletion)
@@ -202,7 +197,6 @@ func (cluster *CephStorage) put(poolname string, oid string, data io.Reader) (si
 			return 0, errors.New("Bad io")
 		}
 		pending.PushBack(c)
-
 
 		for pending_has_completed(pending) {
 			if ret := wait_pending_front(pending); ret < 0 {
