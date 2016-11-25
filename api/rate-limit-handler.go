@@ -60,8 +60,8 @@ func (l *rateLimit) ShutdownServer() {
 
 	for {
 		time.Sleep(1 * time.Second)
-		helper.Logger.Print(".")
 		l.lock.Lock()
+		helper.Logger.Print("Remaining requests:", l.currentRequests)
 		if l.currentRequests == 0 {
 			// deliberately leave the lock locked
 			return
