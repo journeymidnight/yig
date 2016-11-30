@@ -19,7 +19,7 @@ type Cluster struct {
 func (c Cluster) GetValues() (values map[string]map[string][]byte, err error) {
 	values = map[string]map[string][]byte{
 		CLUSTER_COLUMN_FAMILY: map[string][]byte{
-			"fsid": []byte(c.Fsid),
+			"weight": []byte(strconv.Itoa(c.Weight)),
 		},
 	}
 	return
