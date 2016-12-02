@@ -157,7 +157,7 @@ func (cluster *CephStorage) put(poolname string, oid string, data io.Reader) (si
 	var slice_len = 0
 	var slice = pending_data[0:current_upload_window]
 
-	var offset = 0
+	var offset uint64 = 0
 
 	for {
 
@@ -190,7 +190,7 @@ func (cluster *CephStorage) put(poolname string, oid string, data io.Reader) (si
 
 		c = new(rados.AioCompletion)
 		c.Create()
-		_, err = striper.WriteAIO(c, oid, bl, uint64(offset))
+		_, err = striper.WriteAIO(c, oid, bl, offset)
 		if err != nil {
 			c.Release()
 			drain_pending(pending)
@@ -211,15 +211,15 @@ func (cluster *CephStorage) put(poolname string, oid string, data io.Reader) (si
 				return 0, errors.New("Error wait_pending_front")
 			}
 		}
-		offset += len(bl)
+		offset += uint64(len(bl))
 	}
 
-	size = int64(slice_offset + offset)
+	size = int64(uint64(slice_offset) + offset)
 	//write all remaining data
 	if slice_offset > 0 {
 		c = new(rados.AioCompletion)
 		c.Create()
-		striper.WriteAIO(c, oid, pending_data[:slice_offset], uint64(offset))
+		striper.WriteAIO(c, oid, pending_data[:slice_offset], offset)
 		pending.PushBack(c)
 	}
 
