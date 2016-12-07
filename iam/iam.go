@@ -12,56 +12,11 @@ import (
 	"regexp"
 )
 
-// credential container for access and secret keys.
-type Credential struct {
-	UserId          string
-	DisplayName     string
-	AccessKeyID     string
-	SecretAccessKey string
-}
-
-type AccessKeyItem struct {
-	ProjectId    string `json:"projectId"`
-	Name         string `json:"name"`
-	AccessKey    string `json:"accessKey"`
-	AccessSecret string `json:"accessSecret"`
-	Status       string `json:"status"`
-	Updated      string `json:"updated"`
-}
-
-type Query struct {
-	Action string `json:"action"`
-	//	ProjectId  string   `json:"projectId"`
-	AccessKeys [1]string `json:"accessKeys"`
-	//	Limit      int      `json:"limit"`
-}
-
-type QueryResp struct {
-	Limit        int             `json:"limit"`
-	Total        int             `json:"total"`
-	Offset       int             `json:"offset"`
-	AccessKeySet []AccessKeyItem `json:"accessKeySet"`
-}
-
-type QueryRespAll struct {
-	Message string    `json:"message"`
-	Data    QueryResp `json:"data"`
-	RetCode int       `json:"retCode"`
-}
-
-func (a Credential) String() string {
-	accessStr := "AccessKey: " + a.AccessKeyID
-	secretStr := "SecretKey: " + a.SecretAccessKey
-	return accessStr + " " + secretStr + "\n"
-}
-
 // IsValidSecretKey - validate secret key.
 var IsValidSecretKey = regexp.MustCompile(`^.{8,40}$`)
 
 // IsValidAccessKey - validate access key.
 var IsValidAccessKey = regexp.MustCompile(`^[a-zA-Z0-9\\-\\.\\_\\~]{5,20}$`)
-
-var iamClient *http.Client
 
 func GetCredential(accessKey string) (credential Credential, err error) {
 	if iamCache == nil {
@@ -78,7 +33,7 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 		iamClient = new(http.Client)
 	}
 	query.Action = "DescribeAccessKeys"
-	query.AccessKeys[0] = accessKey
+	query.AccessKeys = append(query.AccessKeys, accessKey)
 
 	b, err := json.Marshal(query)
 	if err != nil {

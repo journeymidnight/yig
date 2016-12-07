@@ -140,3 +140,21 @@ func (m *Meta) GetUsage(bucketName string) (int64, error) {
 	}
 	return bucket.Usage, nil
 }
+
+func (m *Meta) GetBucketInfo(bucketName string) (Bucket, error) {
+	m.Cache.Remove(redis.BucketTable, bucketName)
+	bucket, err := m.GetBucket(bucketName)
+	if err != nil {
+		return bucket, err
+	}
+	return bucket, nil
+}
+
+func (m *Meta) GetUserInfo(uid string) ([]string, error) {
+	m.Cache.Remove(redis.UserTable, uid)
+	buckets, err := m.GetUserBuckets(uid)
+	if err != nil {
+		return nil, err
+	}
+	return buckets, nil
+}

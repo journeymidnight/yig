@@ -154,7 +154,6 @@ func (cluster *CephStorage) put(poolname string, oid string, data io.Reader) (si
 	var pending_data = make([]byte, current_upload_window)
 
 	var slice_offset = 0
-	var slice_len = 0
 	var slice = pending_data[0:current_upload_window]
 
 	var offset uint64 = 0
@@ -167,9 +166,7 @@ func (cluster *CephStorage) put(poolname string, oid string, data io.Reader) (si
 		}
 
 		slice_offset += count
-		slice_len = len(pending_data) - slice_offset
-		slice = pending_data[slice_offset:slice_len]
-
+		slice = pending_data[slice_offset:current_upload_window]
 		if err != nil && err != io.EOF {
 			drain_pending(pending)
 			return 0, errors.New("Read from client failed")

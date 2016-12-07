@@ -3,24 +3,8 @@
 package iam
 
 import (
-	"fmt"
 	"regexp"
 )
-
-// credential container for access and secret keys.
-type Credential struct {
-	UserId          string
-	DisplayName     string
-	AccessKeyID     string
-	SecretAccessKey string
-}
-
-// stringer colorized access keys.
-func (a Credential) String() string {
-	accessStr := "AccessKey: " + a.AccessKeyID
-	secretStr := "SecretKey: " + a.SecretAccessKey
-	return fmt.Sprint(accessStr + "  " + secretStr)
-}
 
 // IsValidSecretKey - validate secret key.
 var IsValidSecretKey = regexp.MustCompile(`^.{8,40}$`)

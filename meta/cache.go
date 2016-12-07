@@ -16,6 +16,8 @@ type MetaCache struct {
 	MaxEntries int
 	lruList    *list.List
 	// maps table -> key -> value
+	Hit int64
+	Miss int64
 	cache                       map[redis.RedisDatabase]map[string]*list.Element
 	failedCacheInvalidOperation chan entry
 }
@@ -32,6 +34,8 @@ func newMetaCache() (m *MetaCache) {
 		MaxEntries: helper.CONFIG.InMemoryCacheMaxEntryCount,
 		lruList:    list.New(),
 		cache:      make(map[redis.RedisDatabase]map[string]*list.Element),
+		Hit:        0,
+		Miss:       0,
 		failedCacheInvalidOperation: make(chan entry, helper.CONFIG.RedisConnectionNumber),
 	}
 	for _, table := range redis.MetadataTables {
@@ -127,6 +131,7 @@ func (m *MetaCache) Get(table redis.RedisDatabase, key string,
 	if element, hit := m.cache[table][key]; hit {
 		m.lruList.MoveToFront(element)
 		m.lock.Unlock()
+		m.Hit = m.Hit + 1
 		return element.Value.(*entry).value, nil
 	}
 	m.lock.Unlock()
@@ -134,6 +139,7 @@ func (m *MetaCache) Get(table redis.RedisDatabase, key string,
 	value, err = redis.Get(table, key, unmarshaller)
 	if err == nil && value != nil {
 		m.set(table, key, value)
+		m.Hit = m.Hit + 1
 		return value, nil
 	}
 
@@ -153,6 +159,7 @@ func (m *MetaCache) Get(table redis.RedisDatabase, key string,
 		}
 		m.invalidRedisCache(table, key)
 		m.set(table, key, value)
+		m.Miss = m.Miss + 1
 		return value, nil
 	}
 	return nil, nil
@@ -172,6 +179,7 @@ func (m *MetaCache) remove(table redis.RedisDatabase, key string) {
 
 func (m *MetaCache) Remove(table redis.RedisDatabase, key string) {
 	err := redis.Remove(table, key)
+
 	if err != nil {
 		// invalid the entry asynchronously
 		m.failedCacheInvalidOperation <- entry{
