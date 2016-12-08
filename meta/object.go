@@ -25,7 +25,7 @@ import (
 )
 
 type Object struct {
-	Rowkey           string // Rowkey cache
+	Rowkey           []byte // Rowkey cache
 	Name             string
 	BucketName       string
 	Location         string // which Ceph cluster this object locates
@@ -72,8 +72,8 @@ func (o *Object) String() (s string) {
 // ObjectName +
 // bigEndian(uint64.max - unixNanoTimestamp)
 func (o *Object) GetRowkey() (string, error) {
-	if o.Rowkey != "" {
-		return o.Rowkey, nil
+	if len(o.Rowkey) != 0 {
+		return string(o.Rowkey), nil
 	}
 	var rowkey bytes.Buffer
 	rowkey.WriteString(o.BucketName)
@@ -91,8 +91,8 @@ func (o *Object) GetRowkey() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	o.Rowkey = rowkey.String()
-	return o.Rowkey, nil
+	o.Rowkey = rowkey.Bytes()
+	return string(o.Rowkey), nil
 }
 
 func (o *Object) GetValues() (values map[string]map[string][]byte, err error) {
@@ -299,7 +299,7 @@ func ObjectFromResponse(response *hrpc.Result) (object *Object, err error) {
 		return
 	}
 
-	object.Rowkey = string(rowkey)
+	object.Rowkey = rowkey
 	// rowkey = BucketName + bigEndian(uint16(count("/", ObjectName)))
 	// + bigEndian(uint16(len(ObjectName)))
 	// + ObjectName

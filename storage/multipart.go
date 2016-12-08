@@ -812,7 +812,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 	if err != nil { // rollback objects table
 		objectDeleteValues := object.GetValuesForDelete()
 		objectDeleteRequest, err := hrpc.NewDelStr(ctx,
-			meta.OBJECT_TABLE, object.Rowkey, objectDeleteValues)
+			meta.OBJECT_TABLE, object.GetRowkey(), objectDeleteValues)
 		if err != nil {
 			return result, err
 		}
