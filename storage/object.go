@@ -472,7 +472,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 
 	// TODO validate bucket policy and fancy ACL
 
-	targetObject.Rowkey = ""    // clear the rowkey cache
+	targetObject.Rowkey = nil   // clear the rowkey cache
 	targetObject.VersionId = "" // clear the versionId cache
 	targetObject.Location = cephCluster.Name
 	targetObject.Pool = poolName
