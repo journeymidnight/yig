@@ -27,6 +27,7 @@ type Config struct {
 	ConcurrentRequestLimit     int
 	HbaseZnodeParent           string // won't change default("/hbase") if leave this option empty
 	HbaseTimeout               time.Duration
+	DebugMode                  bool
 }
 
 type config struct {
@@ -50,6 +51,7 @@ type config struct {
 	ConcurrentRequestLimit     int
 	HbaseZnodeParent           string // won't change default("/hbase") if leave this option empty
 	HbaseTimeout               int    // in seconds
+	DebugMode                  bool
 }
 
 var CONFIG Config
@@ -94,4 +96,5 @@ func SetupConfig() {
 		"/hbase", c.HbaseZnodeParent).(string)
 	CONFIG.HbaseTimeout = Ternary(c.HbaseTimeout == 0, 30*time.Second,
 		time.Duration(c.HbaseTimeout)*time.Second).(time.Duration)
+	CONFIG.DebugMode = c.DebugMode
 }

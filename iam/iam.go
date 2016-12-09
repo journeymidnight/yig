@@ -1,5 +1,3 @@
-// +build !debug
-
 package iam
 
 import (
@@ -19,6 +17,15 @@ var IsValidSecretKey = regexp.MustCompile(`^.{8,40}$`)
 var IsValidAccessKey = regexp.MustCompile(`^[a-zA-Z0-9\\-\\.\\_\\~]{5,20}$`)
 
 func GetCredential(accessKey string) (credential Credential, err error) {
+	if helper.CONFIG.DebugMode == true {
+		return Credential{
+			UserId:          "hehehehe",
+			DisplayName:     "hehehehe",
+			AccessKeyID:     accessKey,
+			SecretAccessKey: "hehehehe",
+		}, nil // For test now
+	}
+
 	if iamCache == nil {
 		initializeIamCache()
 	}

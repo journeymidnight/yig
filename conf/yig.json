@@ -16,4 +16,5 @@
     "RedisAddress": "localhost:6379",
     "RedisConnectionNumber": 10,
     "InMemoryCacheMaxEntryCount": 100000
+    "DebugMode": false
 }
