@@ -10,6 +10,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
+	"math"
+	"strconv"
+	"strings"
+	"time"
+
 	"git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/helper"
@@ -17,11 +23,10 @@ import (
 	"github.com/cannium/gohbase/filter"
 	"github.com/cannium/gohbase/hrpc"
 	"github.com/xxtea/xxtea-go/xxtea"
-	"io"
-	"math"
-	"strconv"
-	"strings"
-	"time"
+)
+
+const (
+	ObjectNameEnding = ":"
 )
 
 type Object struct {
@@ -68,8 +73,8 @@ func (o *Object) String() (s string) {
 // Rowkey format:
 // BucketName +
 // bigEndian(uint16(count("/", ObjectName))) +
-// bigEndian(uint16(len([]byte((ObjectName)))) +
 // ObjectName +
+// ObjectNameEnding +
 // bigEndian(uint64.max - unixNanoTimestamp)
 func (o *Object) GetRowkey() (string, error) {
 	if len(o.Rowkey) != 0 {
@@ -81,11 +86,7 @@ func (o *Object) GetRowkey() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	err = binary.Write(&rowkey, binary.BigEndian, uint16(len([]byte(o.Name))))
-	if err != nil {
-		return "", err
-	}
-	rowkey.WriteString(o.Name)
+	rowkey.WriteString(o.Name + ObjectNameEnding)
 	err = binary.Write(&rowkey, binary.BigEndian,
 		math.MaxUint64-uint64(o.LastModifiedTime.UnixNano()))
 	if err != nil {
@@ -193,8 +194,8 @@ func (o *Object) encryptSseKey() (err error) {
 // Rowkey format:
 // BucketName +
 // bigEndian(uint16(count("/", ObjectName))) +
-// bigEndian(uint16(len([]byte((ObjectName)))) +
 // ObjectName +
+// ObjectNameEnding +
 // bigEndian(uint64.max - unixNanoTimestamp)
 // The prefix excludes timestamp part if version is empty
 func getObjectRowkeyPrefix(bucketName string, objectName string, version string) ([]byte, error) {
@@ -204,11 +205,7 @@ func getObjectRowkeyPrefix(bucketName string, objectName string, version string)
 	if err != nil {
 		return []byte{}, err
 	}
-	err = binary.Write(&rowkey, binary.BigEndian, uint16(len([]byte(objectName))))
-	if err != nil {
-		return []byte{}, err
-	}
-	rowkey.WriteString(objectName)
+	rowkey.WriteString(objectName + ObjectNameEnding)
 	if version != "" {
 		decrypted, err := Decrypt(version)
 		if err != nil {
@@ -301,10 +298,10 @@ func ObjectFromResponse(response *hrpc.Result) (object *Object, err error) {
 
 	object.Rowkey = rowkey
 	// rowkey = BucketName + bigEndian(uint16(count("/", ObjectName)))
-	// + bigEndian(uint16(len(ObjectName)))
 	// + ObjectName
+	// + ObjectNameEnding
 	// + bigEndian(uint64.max - unixNanoTimestamp)
-	object.Name = string(rowkey[len(object.BucketName)+4 : len(rowkey)-8])
+	object.Name = string(rowkey[len(object.BucketName)+2 : len(rowkey)-9])
 	if object.NullVersion {
 		object.VersionId = "null"
 	} else {

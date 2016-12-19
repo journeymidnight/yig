@@ -5,6 +5,12 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
+	"math"
+	"net/url"
+	"sort"
+	"strings"
+	"time"
+
 	"git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/helper"
@@ -14,11 +20,6 @@ import (
 	"github.com/cannium/gohbase/filter"
 	"github.com/cannium/gohbase/hrpc"
 	"github.com/xxtea/xxtea-go/xxtea"
-	"math"
-	"net/url"
-	"sort"
-	"strings"
-	"time"
 )
 
 func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
@@ -396,17 +397,13 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 		if err != nil {
 			return
 		}
-		err = binary.Write(&startRowkey, binary.BigEndian, uint16(len([]byte(marker))))
-		if err != nil {
-			return
-		}
-		startRowkey.WriteString(marker)
+		startRowkey.WriteString(marker + meta.ObjectNameEnding)
 	}
 	stopKey := []byte(bucketName)
 	stopKey[len(bucketName)-1]++
 
 	comparator := filter.NewRegexStringComparator(
-		"^"+bucketName+"...."+request.Prefix+".*"+".{8}"+"$",
+		"^"+bucketName+".."+request.Prefix+".*"+meta.ObjectNameEnding+".{8}"+"$",
 		0x20, // Dot-all mode
 		"ISO-8859-1",
 		"JAVA", // regexp engine name, in `JAVA` or `JONI`
@@ -564,12 +561,7 @@ func (yig *YigStorage) ListVersionedObjects(credential iam.Credential, bucketNam
 		if err != nil {
 			return
 		}
-		err = binary.Write(&startRowkey, binary.BigEndian,
-			uint16(len([]byte(request.KeyMarker))))
-		if err != nil {
-			return
-		}
-		startRowkey.WriteString(request.KeyMarker)
+		startRowkey.WriteString(request.KeyMarker + meta.ObjectNameEnding)
 
 		// TODO: refactor, same as in getObjectRowkeyPrefix
 		if request.VersionIdMarker != "" {
@@ -595,7 +587,7 @@ func (yig *YigStorage) ListVersionedObjects(credential iam.Credential, bucketNam
 	stopKey[len(stopKey)-1]++
 
 	comparator := filter.NewRegexStringComparator(
-		"^"+bucketName+"...."+request.Prefix+".*"+".{8}"+"$",
+		"^"+bucketName+".."+request.Prefix+".*"+meta.ObjectNameEnding+".{8}"+"$",
 		0x20, // Dot-all mode
 		"ISO-8859-1",
 		"JAVA", // regexp engine name, in `JAVA` or `JONI`
