@@ -4,6 +4,10 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
+	"io"
+	"math/rand"
+	"time"
+
 	"git.letv.cn/yig/yig/api/datatype"
 	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/helper"
@@ -11,9 +15,6 @@ import (
 	"git.letv.cn/yig/yig/meta"
 	"git.letv.cn/yig/yig/redis"
 	"git.letv.cn/yig/yig/signature"
-	"io"
-	"math/rand"
-	"time"
 )
 
 func (yig *YigStorage) pickCluster() (fsid string, err error) {
@@ -573,13 +574,15 @@ func (yig *YigStorage) removeNullVersionObject(bucketName, objectName string) er
 	return yig.removeByObject(object)
 }
 
-func (yig *YigStorage) addDeleteMarker(bucket meta.Bucket, objectName string) (versionId string, err error) {
+func (yig *YigStorage) addDeleteMarker(bucket meta.Bucket, objectName string,
+	nullVersion bool) (versionId string, err error) {
+
 	deleteMarker := &meta.Object{
 		Name:             objectName,
 		BucketName:       bucket.Name,
 		OwnerId:          bucket.OwnerId,
 		LastModifiedTime: time.Now().UTC(),
-		NullVersion:      false,
+		NullVersion:      nullVersion,
 		DeleteMarker:     true,
 	}
 	versionId = deleteMarker.GetVersionId()
@@ -593,7 +596,8 @@ func (yig *YigStorage) addDeleteMarker(bucket meta.Bucket, objectName string) (v
 // |-----------|------------------------------|--------------------------------------------------------|
 // | Disabled  | error                        | remove object                                          |
 // | Enabled   | remove corresponding version | add a delete marker                                    |
-// | Suspended | remove corresponding version | remove null version(if exists) and add a delete marker |
+// | Suspended | remove corresponding version | remove null version object(if exists) and add a        |
+// |           |                              | null version delete marker                             |
 //
 // See http://docs.aws.amazon.com/AmazonS3/latest/dev/Versioning.html
 func (yig *YigStorage) DeleteObject(bucketName string, objectName string, version string,
@@ -623,7 +627,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 		}
 	case "Enabled":
 		if version == "" {
-			result.VersionId, err = yig.addDeleteMarker(bucket, objectName)
+			result.VersionId, err = yig.addDeleteMarker(bucket, objectName, false)
 			if err != nil {
 				return
 			}
@@ -645,7 +649,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 			if err != nil {
 				return
 			}
-			result.VersionId, err = yig.addDeleteMarker(bucket, objectName)
+			result.VersionId, err = yig.addDeleteMarker(bucket, objectName, true)
 			if err != nil {
 				return
 			}

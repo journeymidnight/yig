@@ -405,7 +405,7 @@ func (m *Meta) GetNullVersionObject(bucketName, objectName string) (object *Obje
 		if err != nil {
 			return
 		}
-		if object.Name == objectName && object.NullVersion {
+		if object.Name == objectName && object.NullVersion && !object.DeleteMarker {
 			return object, nil
 		}
 	}
