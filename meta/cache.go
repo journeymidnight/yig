@@ -2,11 +2,12 @@ package meta
 
 import (
 	"container/list"
+	"sync"
+	"time"
+
 	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/redis"
 	"github.com/mediocregopher/radix.v2/pubsub"
-	"sync"
-	"time"
 )
 
 // metadata is organized in 3 layers: YIG instance memory, Redis, HBase
@@ -15,9 +16,9 @@ type MetaCache struct {
 	lock       *sync.Mutex // protects both `lruList` and `cache`
 	MaxEntries int
 	lruList    *list.List
+	Hit        int64
+	Miss       int64
 	// maps table -> key -> value
-	Hit int64
-	Miss int64
 	cache                       map[redis.RedisDatabase]map[string]*list.Element
 	failedCacheInvalidOperation chan entry
 }
