@@ -421,7 +421,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrPolicyViolation: {
 		AwsErrorCode:   "AccessDenied",
-		Description:    "File uploading policy violatedd.",
+		Description:    "File uploading policy violated.",
 		HttpStatusCode: http.StatusForbidden,
 	},
 	ErrMalformedExpires: {
@@ -489,17 +489,17 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrInvalidHeader: {
 		AwsErrorCode:   "InvalidRequest",
-		Description:    "This request is illegal because some header is bad.",
-	    HttpStatusCode: http.StatusBadRequest,
+		Description:    "This request is illegal because some header is malformed.",
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrNoSuchBucketCors: {
 		AwsErrorCode:   "NoSuchBucketCors",
-		Description:    "The specified bucket does not have a bucket cors.",
+		Description:    "The specified bucket does not have CORS configured.",
 		HttpStatusCode: http.StatusNotFound,
 	},
 	ErrPolicyMissingFields: {
 		AwsErrorCode:   "AccessDenied",
-		Description:    "Policy missing condition",
+		Description:    "Missing policy condition",
 		HttpStatusCode: http.StatusForbidden,
 	},
 }
