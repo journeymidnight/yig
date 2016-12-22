@@ -79,12 +79,17 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 		return credential, errors.New("Query to IAM failed as RetCode != 0")
 	}
 
-	credential.UserId = queryRetAll.Data.AccessKeySet[0].ProjectId
-	credential.DisplayName = queryRetAll.Data.AccessKeySet[0].Name
-	credential.AccessKeyID = queryRetAll.Data.AccessKeySet[0].AccessKey
-	credential.SecretAccessKey = queryRetAll.Data.AccessKeySet[0].AccessSecret
-	iamCache.set(accessKey, credential)
-	return credential, nil
+	if queryRetAll.Data.Total > 0{
+		credential.UserId = queryRetAll.Data.AccessKeySet[0].ProjectId
+		credential.DisplayName = queryRetAll.Data.AccessKeySet[0].Name
+		credential.AccessKeyID = queryRetAll.Data.AccessKeySet[0].AccessKey
+		credential.SecretAccessKey = queryRetAll.Data.AccessKeySet[0].AccessSecret
+		iamCache.set(accessKey, credential)
+		return credential, nil
+	} else {
+		return credential, errors.New("Access key does not exist")
+	}
+
 }
 
 func GetCredentialByUserId(userId string) (credential Credential, err error) {

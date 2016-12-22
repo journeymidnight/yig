@@ -1,13 +1,16 @@
-// +build debug
-
 package helper
 
 import "fmt"
 
 func Debug(format string, args ...interface{}) {
-	fmt.Printf(format, args...)
+	if CONFIG.DebugMode == true {
+		fmt.Printf(format, args...)
+	}
+
 }
 
 func Debugln(args ...interface{}) {
-	fmt.Println(args...)
+	if CONFIG.DebugMode == true {
+		fmt.Println(args...)
+	}
 }

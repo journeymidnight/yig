@@ -28,6 +28,7 @@ type Config struct {
 	HbaseZnodeParent           string // won't change default("/hbase") if leave this option empty
 	HbaseTimeout               time.Duration
 	DebugMode                  bool
+	AdminKey                   string
 }
 
 type config struct {
@@ -52,6 +53,7 @@ type config struct {
 	HbaseZnodeParent           string // won't change default("/hbase") if leave this option empty
 	HbaseTimeout               int    // in seconds
 	DebugMode                  bool
+	AdminKey                   string
 }
 
 var CONFIG Config
@@ -97,4 +99,5 @@ func SetupConfig() {
 	CONFIG.HbaseTimeout = Ternary(c.HbaseTimeout == 0, 30*time.Second,
 		time.Duration(c.HbaseTimeout)*time.Second).(time.Duration)
 	CONFIG.DebugMode = c.DebugMode
+	CONFIG.AdminKey = c.AdminKey
 }

@@ -17,4 +17,5 @@
     "RedisConnectionNumber": 10,
     "InMemoryCacheMaxEntryCount": 100000
     "DebugMode": false
+    "AdminKey": "secret"
 }
