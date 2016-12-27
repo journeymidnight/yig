@@ -191,6 +191,10 @@ func (yig *YigStorage) GetBucketCors(bucketName string,
 		err = ErrBucketAccessForbidden
 		return
 	}
+	if len(bucket.CORS.CorsRules) == 0 {
+		err = ErrNoSuchBucketCors
+		return
+	}
 	return bucket.CORS, nil
 }
 
@@ -250,9 +254,13 @@ func (yig *YigStorage) GetBucketInfo(bucketName string,
 		return
 	}
 	if bucket.OwnerId != credential.UserId {
-		err = ErrBucketAccessForbidden
-		return
-		// TODO validate bucket policy
+		switch bucket.ACL.CannedAcl {
+		case "public-read", "public-read-write", "authenticated-read":
+			break
+		default:
+			err = ErrBucketAccessForbidden
+			return
+		}
 	}
 	return
 }

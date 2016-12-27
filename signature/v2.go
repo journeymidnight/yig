@@ -127,7 +127,7 @@ func dictate(secretKey string, stringToSign string, signature []byte) error {
 	expectedMac := mac.Sum(nil)
 	helper.Debugln("key，mac", secretKey, string(expectedMac), string(signature))
 	if !hmac.Equal(expectedMac, signature) {
-		return ErrAccessDenied
+		return ErrSignatureDoesNotMatch
 	}
 	return nil
 }

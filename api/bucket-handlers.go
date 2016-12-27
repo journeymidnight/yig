@@ -350,6 +350,12 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	if len(r.Header.Get("Content-Length")) == 0 {
+		helper.Debugln("Content Length is null!")
+		WriteErrorResponse(w, r, ErrInvalidHeader)
+		return
+	}
+
 	acl, err := getAclFromHeader(r.Header)
 	if err != nil {
 		WriteErrorResponse(w, r, err)

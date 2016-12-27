@@ -116,6 +116,8 @@ const (
 
 	// Add new extended error codes here.
 	ContentNotModified // actually not an error
+	ErrInvalidHeader   // supplementary error for golang http lib
+	ErrNoSuchBucketCors
 )
 
 // error code to APIError structure, these fields carry respective
@@ -337,9 +339,9 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrSignatureVersionNotSupported: {
-		AwsErrorCode:   "InvalidRequest",
+		AwsErrorCode:   "AccessDenied",
 		Description:    "The authorization mechanism you have provided is not supported. Please use AWS4-HMAC-SHA256.",
-		HttpStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusForbidden,
 	},
 	ErrBucketNotEmpty: {
 		AwsErrorCode:   "BucketNotEmpty",
@@ -347,7 +349,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		HttpStatusCode: http.StatusConflict,
 	},
 	ErrBucketAccessForbidden: {
-		AwsErrorCode:   "BucketAccessForbidden",
+		AwsErrorCode:   "AccessDenied",
 		Description:    "You have no access to this bucket.",
 		HttpStatusCode: http.StatusForbidden,
 	},
@@ -483,6 +485,16 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "",
 		Description:    "",
 		HttpStatusCode: http.StatusNotModified,
+	},
+	ErrInvalidHeader: {
+		AwsErrorCode:   "InvalidRequest",
+		Description:    "This request is illegal because some header is bad.",
+	    HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrNoSuchBucketCors: {
+		AwsErrorCode:   "NoSuchBucketCors",
+		Description:    "The specified bucket does not have a bucket cors.",
+		HttpStatusCode: http.StatusNotFound,
 	},
 }
 

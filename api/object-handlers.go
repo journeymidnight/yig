@@ -42,6 +42,8 @@ var supportedGetReqParams = map[string]string{
 	"response-content-type":        "Content-Type",
 	"response-cache-control":       "Cache-Control",
 	"response-content-disposition": "Content-Disposition",
+	"response-content-language":    "Content-Language",
+	"response-content-encoding":    "Content-Encoding",
 }
 
 // setGetRespHeaders - set any requested parameters as response headers.
@@ -61,7 +63,9 @@ func (api ObjectAPIHandlers) errAllowableObjectNotFound(bucketName string,
 	credential iam.Credential) error {
 
 	bucket, err := api.ObjectAPI.GetBucket(bucketName)
-	if err != nil {
+	if err == ErrNoSuchBucket {
+		return ErrNoSuchKey
+	} else if err != nil {
 		return ErrAccessDenied
 	}
 	switch bucket.ACL.CannedAcl {
@@ -411,6 +415,11 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName {
+		WriteErrorResponse(w, r, ErrInvalidCopyDest)
+		return
+	}
+
 	helper.Debugln("sourceBucketName", sourceBucketName, "sourceObjectName", sourceObjectName,
 		"sourceVersion", sourceVersion)
 
@@ -539,11 +548,22 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	// Save metadata.
 	metadata := extractMetadataFromHeader(r.Header)
 	// Get Content-Md5 sent by client and verify if valid
-	md5Bytes, err := checkValidMD5(r.Header.Get("Content-Md5"))
-	if err != nil {
+	if _, ok := r.Header["Content-Md5"]; !ok {
 		metadata["md5Sum"] = ""
 	} else {
-		metadata["md5Sum"] = hex.EncodeToString(md5Bytes)
+		if len(r.Header.Get("Content-Md5")) == 0 {
+			helper.Debugln("Content Md5 is null!")
+			WriteErrorResponse(w, r, ErrInvalidDigest)
+			return
+		}
+		md5Bytes, err := checkValidMD5(r.Header.Get("Content-Md5"))
+		if err != nil {
+			helper.Debugln("Content Md5 is invalid!")
+			WriteErrorResponse(w, r, ErrInvalidDigest)
+			return
+		} else {
+			metadata["md5Sum"] = hex.EncodeToString(md5Bytes)
+		}
 	}
 
 	// Parse SSE related headers
@@ -1151,7 +1171,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 			writePartSmallErrorResponse(w, r, oErr)
 		default:
 			// Handle all other generic issues.
-			WriteErrorResponseNoHeader(w, r, err, r.URL.Path)
+			WriteErrorResponse(w, r, err)
 		}
 		return
 	}
