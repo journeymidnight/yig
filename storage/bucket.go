@@ -237,7 +237,8 @@ func (yig *YigStorage) GetBucketVersioning(bucketName string, credential iam.Cre
 	if err != nil {
 		return versioning, err
 	}
-	versioning.Status = bucket.Versioning
+	versioning.Status = helper.Ternary(bucket.Versioning == "Disabled",
+		"", bucket.Versioning).(string)
 	return
 }
 
@@ -443,7 +444,7 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 			if len(scanResponse) > request.MaxKeys {
 				result.IsTruncated = true
 				var nextObject *meta.Object
-				nextObject, err = meta.ObjectFromResponse(scanResponse[request.MaxKeys - 1])
+				nextObject, err = meta.ObjectFromResponse(scanResponse[request.MaxKeys-1])
 				if err != nil {
 					return
 				}
@@ -467,11 +468,11 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 				} else {
 					result.NextMarker = nextObject.Name
 				}
-				scanResponse = scanResponse[1:request.MaxKeys + 1]
+				scanResponse = scanResponse[1 : request.MaxKeys+1]
 			} else {
 				scanResponse = scanResponse[1:(len(scanResponse))]
 			}
-	    }
+		}
 	}
 
 	var currentLevel int
