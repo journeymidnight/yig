@@ -614,7 +614,7 @@ func extractHTTPFormValues(reader *multipart.Reader) (filePartReader io.Reader,
 			return nil, nil, err
 		}
 
-		if part.FileName() == "" {
+		if part.FormName() != "file" {
 			var buffer []byte
 			buffer, err = ioutil.ReadAll(part)
 			if err != nil {
@@ -751,7 +751,7 @@ func (api ObjectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *h
 	}
 
 	var redirect string
-	redirect, _ = formValues["success_action_redirect"]
+	redirect, _ = formValues["Success_action_redirect"]
 	if redirect == "" {
 		redirect, _ = formValues["redirect"]
 	}
@@ -768,7 +768,7 @@ func (api ObjectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *h
 	}
 
 	var status string
-	status, _ = formValues["success_action_status"]
+	status, _ = formValues["Success_action_status"]
 	if !helper.StringInSlice(status, ValidSuccessActionStatus) {
 		status = "204"
 	}

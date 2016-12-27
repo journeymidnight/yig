@@ -246,7 +246,7 @@ func DoesPolicySignatureMatchV2(formValues map[string]string) (credential iam.Cr
 	}
 	signature, err := base64.StdEncoding.DecodeString(signatureString)
 	if err != nil {
-		return credential, ErrMalformedPOSTRequest
+		return credential, ErrSignatureDoesNotMatch
 	}
 	var policy string
 	if policy, ok = formValues["Policy"]; !ok {

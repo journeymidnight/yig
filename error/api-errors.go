@@ -118,6 +118,7 @@ const (
 	ContentNotModified // actually not an error
 	ErrInvalidHeader   // supplementary error for golang http lib
 	ErrNoSuchBucketCors
+	ErrPolicyMissingFields
 )
 
 // error code to APIError structure, these fields carry respective
@@ -416,12 +417,12 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrPolicyAlreadyExpired: {
 		AwsErrorCode:   "AccessDenied",
 		Description:    "Invalid according to Policy: Policy expired.",
-		HttpStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusForbidden,
 	},
 	ErrPolicyViolation: {
 		AwsErrorCode:   "AccessDenied",
 		Description:    "File uploading policy violatedd.",
-		HttpStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusForbidden,
 	},
 	ErrMalformedExpires: {
 		AwsErrorCode:   "MalformedExpires",
@@ -446,7 +447,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrExpiredPresignRequest: {
 		AwsErrorCode:   "ExpiredToken",
 		Description:    "Request has expired.",
-		HttpStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusForbidden,
 	},
 	ErrInvalidQueryParams: {
 		AwsErrorCode:   "AuthorizationQueryParametersError",
@@ -495,6 +496,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "NoSuchBucketCors",
 		Description:    "The specified bucket does not have a bucket cors.",
 		HttpStatusCode: http.StatusNotFound,
+	},
+	ErrPolicyMissingFields: {
+		AwsErrorCode:   "AccessDenied",
+		Description:    "Policy missing condition",
+		HttpStatusCode: http.StatusForbidden,
 	},
 }
 

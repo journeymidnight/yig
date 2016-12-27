@@ -47,7 +47,7 @@ type ListObjectsResponse struct {
 	BucketName     string `xml:"Name"`
 
 	// v1 specific
-	Marker     string `xml:",omitempty"`
+	Marker     string
 	NextMarker string `xml:",omitempty"`
 
 	// v2 specific

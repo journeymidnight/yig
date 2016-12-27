@@ -535,6 +535,9 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 
 	// if Content-Length is unknown/missing, deny the request
 	size := r.ContentLength
+	if _, ok := r.Header["Content-Length"]; !ok {
+		size = -1
+	}
 	if size == -1 && !contains(r.TransferEncoding, "chunked") {
 		WriteErrorResponse(w, r, ErrMissingContentLength)
 		return
