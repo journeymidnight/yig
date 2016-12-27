@@ -97,6 +97,10 @@ func parsePostPolicyForm(policy string,
 		return PostPolicyForm{}, err
 	}
 
+	if len(rawPolicy.Conditions) == 0 {
+		return PostPolicyForm{}, ErrMalformedPOSTRequest
+	}
+
 	parsedPolicy := PostPolicyForm{}
 
 	// Parse expiry time.
@@ -141,7 +145,7 @@ func parsePostPolicyForm(policy string,
 						condt, reflect.TypeOf(condt).String())
 			}
 			operator := toString(condt[0])
-			switch operator {
+			switch strings.ToLower(operator) {
 			case "eq", "starts-with":
 				for _, v := range condt { // Pre-check all values for type.
 					if !isString(v) {
@@ -239,7 +243,7 @@ func CheckPostPolicy(formValues map[string]string,
 			}
 		} else { // field exists in form but not in policy
 			// TODO make this error more specific to users
-			return ErrMissingFields
+			return ErrPolicyMissingFields
 		}
 	}
 	// TODO: verify ContentLengthRange

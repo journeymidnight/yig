@@ -116,6 +116,9 @@ const (
 
 	// Add new extended error codes here.
 	ContentNotModified // actually not an error
+	ErrInvalidHeader   // supplementary error for golang http lib
+	ErrNoSuchBucketCors
+	ErrPolicyMissingFields
 )
 
 // error code to APIError structure, these fields carry respective
@@ -337,9 +340,9 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrSignatureVersionNotSupported: {
-		AwsErrorCode:   "InvalidRequest",
+		AwsErrorCode:   "AccessDenied",
 		Description:    "The authorization mechanism you have provided is not supported. Please use AWS4-HMAC-SHA256.",
-		HttpStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusForbidden,
 	},
 	ErrBucketNotEmpty: {
 		AwsErrorCode:   "BucketNotEmpty",
@@ -347,7 +350,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		HttpStatusCode: http.StatusConflict,
 	},
 	ErrBucketAccessForbidden: {
-		AwsErrorCode:   "BucketAccessForbidden",
+		AwsErrorCode:   "AccessDenied",
 		Description:    "You have no access to this bucket.",
 		HttpStatusCode: http.StatusForbidden,
 	},
@@ -414,12 +417,12 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrPolicyAlreadyExpired: {
 		AwsErrorCode:   "AccessDenied",
 		Description:    "Invalid according to Policy: Policy expired.",
-		HttpStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusForbidden,
 	},
 	ErrPolicyViolation: {
 		AwsErrorCode:   "AccessDenied",
 		Description:    "File uploading policy violatedd.",
-		HttpStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusForbidden,
 	},
 	ErrMalformedExpires: {
 		AwsErrorCode:   "MalformedExpires",
@@ -444,7 +447,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrExpiredPresignRequest: {
 		AwsErrorCode:   "ExpiredToken",
 		Description:    "Request has expired.",
-		HttpStatusCode: http.StatusBadRequest,
+		HttpStatusCode: http.StatusForbidden,
 	},
 	ErrInvalidQueryParams: {
 		AwsErrorCode:   "AuthorizationQueryParametersError",
@@ -483,6 +486,21 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "",
 		Description:    "",
 		HttpStatusCode: http.StatusNotModified,
+	},
+	ErrInvalidHeader: {
+		AwsErrorCode:   "InvalidRequest",
+		Description:    "This request is illegal because some header is bad.",
+	    HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrNoSuchBucketCors: {
+		AwsErrorCode:   "NoSuchBucketCors",
+		Description:    "The specified bucket does not have a bucket cors.",
+		HttpStatusCode: http.StatusNotFound,
+	},
+	ErrPolicyMissingFields: {
+		AwsErrorCode:   "AccessDenied",
+		Description:    "Policy missing condition",
+		HttpStatusCode: http.StatusForbidden,
 	},
 }
 

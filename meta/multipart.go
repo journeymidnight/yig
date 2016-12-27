@@ -164,6 +164,8 @@ func MultipartFromResponse(response *hrpc.Result, bucketName string) (multipart 
 func (m *Meta) GetMultipart(bucketName, objectName, uploadId string) (multipart Multipart, err error) {
 	rowkey, err := getMultipartRowkeyFromUploadId(bucketName, objectName, uploadId)
 	if err != nil {
+		helper.ErrorIf(err, "Unable to get multipart row key.")
+		err = ErrNoSuchUpload
 		return
 	}
 	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)

@@ -127,7 +127,7 @@ func dictate(secretKey string, stringToSign string, signature []byte) error {
 	expectedMac := mac.Sum(nil)
 	helper.Debugln("key，mac", secretKey, string(expectedMac), string(signature))
 	if !hmac.Equal(expectedMac, signature) {
-		return ErrAccessDenied
+		return ErrSignatureDoesNotMatch
 	}
 	return nil
 }
@@ -246,7 +246,7 @@ func DoesPolicySignatureMatchV2(formValues map[string]string) (credential iam.Cr
 	}
 	signature, err := base64.StdEncoding.DecodeString(signatureString)
 	if err != nil {
-		return credential, ErrMalformedPOSTRequest
+		return credential, ErrSignatureDoesNotMatch
 	}
 	var policy string
 	if policy, ok = formValues["Policy"]; !ok {

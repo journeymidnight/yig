@@ -186,6 +186,11 @@ func copyEncryptedPart(part *meta.Part, cephCluster *CephStorage, readOffset int
 func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 	version string, credential iam.Credential) (object *meta.Object, err error) {
 
+	_, err = yig.MetaStorage.GetBucket(bucketName)
+	if err != nil {
+		return
+	}
+
 	if version == "" {
 		object, err = yig.MetaStorage.GetObject(bucketName, objectName)
 	} else {

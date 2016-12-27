@@ -35,6 +35,9 @@ import (
 // for v4, starts with "AWS4-HMAC-SHA256 " (notice the space after string)
 func isRequestSignature(r *http.Request) (bool, AuthType) {
 	if _, ok := r.Header["Authorization"]; ok {
+		if len(r.Header.Get("Authorization")) == 0 {
+			return false, AuthTypeUnknown
+		}
 		header := r.Header.Get("Authorization")
 		if strings.HasPrefix(header, signV4Algorithm+" ") {
 			return true, AuthTypeSignedV4

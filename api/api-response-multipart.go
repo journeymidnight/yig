@@ -60,6 +60,7 @@ func writePartSmallErrorResponse(w http.ResponseWriter, r *http.Request, err met
 	}
 	encodedErrorResponse := EncodeResponse(cmpErrResp)
 	// Write error body
+	w.WriteHeader(http.StatusBadRequest)
 	w.Write(encodedErrorResponse)
 	w.(http.Flusher).Flush()
 }

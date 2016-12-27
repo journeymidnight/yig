@@ -191,6 +191,10 @@ func (yig *YigStorage) GetBucketCors(bucketName string,
 		err = ErrBucketAccessForbidden
 		return
 	}
+	if len(bucket.CORS.CorsRules) == 0 {
+		err = ErrNoSuchBucketCors
+		return
+	}
 	return bucket.CORS, nil
 }
 
@@ -250,9 +254,13 @@ func (yig *YigStorage) GetBucketInfo(bucketName string,
 		return
 	}
 	if bucket.OwnerId != credential.UserId {
-		err = ErrBucketAccessForbidden
-		return
-		// TODO validate bucket policy
+		switch bucket.ACL.CannedAcl {
+		case "public-read", "public-read-write", "authenticated-read":
+			break
+		default:
+			err = ErrBucketAccessForbidden
+			return
+		}
 	}
 	return
 }
@@ -415,8 +423,8 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 	defer done()
 	scanRequest, err := hrpc.NewScanRangeStr(ctx, meta.OBJECT_TABLE,
 		startRowkey.String(), string(stopKey),
-		// scan for max+1 rows to determine if results are truncated
-		hrpc.Filters(rowFilter), hrpc.NumberOfRows(uint32(request.MaxKeys+1)))
+		// scan for max+2 rows to determine if results are truncated
+		hrpc.Filters(rowFilter), hrpc.NumberOfRows(uint32(request.MaxKeys+2)))
 	if err != nil {
 		return
 	}
@@ -424,19 +432,46 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 	if err != nil {
 		return
 	}
-	if len(scanResponse) > request.MaxKeys {
-		result.IsTruncated = true
-		var nextObject *meta.Object
-		nextObject, err = meta.ObjectFromResponse(scanResponse[request.MaxKeys])
+	if len(scanResponse) > 0 {
+		var firstObject *meta.Object
+		firstObject, err = meta.ObjectFromResponse(scanResponse[0])
 		if err != nil {
 			return
 		}
-		if request.Version == 2 {
-			result.NextMarker = meta.Encrypt(nextObject.Name)
-		} else {
-			result.NextMarker = nextObject.Name
-		}
-		scanResponse = scanResponse[:request.MaxKeys]
+
+		if marker == "" || (marker != "" && marker != firstObject.Name) {
+			if len(scanResponse) > request.MaxKeys {
+				result.IsTruncated = true
+				var nextObject *meta.Object
+				nextObject, err = meta.ObjectFromResponse(scanResponse[request.MaxKeys - 1])
+				if err != nil {
+					return
+				}
+				if request.Version == 2 {
+					result.NextMarker = meta.Encrypt(nextObject.Name)
+				} else {
+					result.NextMarker = nextObject.Name
+				}
+				scanResponse = scanResponse[:request.MaxKeys]
+			}
+		} else if marker != "" && marker == firstObject.Name {
+			if len(scanResponse) > (request.MaxKeys + 1) {
+				result.IsTruncated = true
+				var nextObject *meta.Object
+				nextObject, err = meta.ObjectFromResponse(scanResponse[request.MaxKeys])
+				if err != nil {
+					return
+				}
+				if request.Version == 2 {
+					result.NextMarker = meta.Encrypt(nextObject.Name)
+				} else {
+					result.NextMarker = nextObject.Name
+				}
+				scanResponse = scanResponse[1:request.MaxKeys + 1]
+			} else {
+				scanResponse = scanResponse[1:(len(scanResponse))]
+			}
+	    }
 	}
 
 	var currentLevel int
@@ -664,6 +699,8 @@ func (yig *YigStorage) ListVersionedObjects(credential iam.Credential, bucketNam
 		}
 		if !o.NullVersion {
 			object.VersionId = o.GetVersionId()
+		} else {
+			object.VersionId = "null"
 		}
 		if o.DeleteMarker {
 			object.XMLName.Local = "DeleteMarker"

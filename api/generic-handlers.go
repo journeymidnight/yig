@@ -164,7 +164,7 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	// A put method on path "/" doesn't make sense, ignore it.
 	if r.Method == "PUT" && r.URL.Path == "/" && bucketName == "" {
-		WriteErrorResponse(w, r, ErrNotImplemented)
+		WriteErrorResponse(w, r, ErrMethodNotAllowed)
 		return
 	}
 	h.handler.ServeHTTP(w, r)
