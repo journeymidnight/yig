@@ -23,7 +23,7 @@ type CorsRule struct {
 	ExposedHeaders []string `xml:"ExposeHeader"`
 }
 
-func matchOrigin(url *url.URL, allowedOrigin string) bool {
+func matchOrigin(urlStr string, allowedOrigin string) bool {
 	if allowedOrigin == "*" {
 		return true
 	}
@@ -31,8 +31,12 @@ func matchOrigin(url *url.URL, allowedOrigin string) bool {
 	if err != nil {
 		return false
 	}
+    url, err := url.Parse(urlStr)
+	if err != nil {
+		return false
+	}
 	if allowedUrl.Scheme == url.Scheme {
-		split := strings.Split(url.Host, "*")
+		split := strings.Split(allowedUrl.Host, "*")
 		if len(split) == 1 { // no "*" in allowed origin
 			if url.Host == allowedUrl.Host {
 				return true
@@ -47,37 +51,36 @@ func matchOrigin(url *url.URL, allowedOrigin string) bool {
 	return false
 }
 
-func (rule CorsRule) MatchSimple(r *http.Request) (matchedOrigin string, matched bool) {
+func (rule CorsRule) MatchSimple(r *http.Request) (matched bool) {
 	if !helper.StringInSlice(r.Method, rule.AllowedMethods) {
-		return "", false
+		return false
 	}
 	for _, origin := range rule.AllowedOrigins {
-		if matchOrigin(r.URL, origin) {
-			return origin, true
+		if matchOrigin(r.Header.Get("Origin"), origin) {
+			return true
 		}
 	}
-	return "", false
+	return false
 }
 
-func (rule CorsRule) MatchPreflight(r *http.Request) (matchedOrigin string, matched bool) {
+func (rule CorsRule) MatchPreflight(r *http.Request) (matched bool) {
+	if !helper.StringInSlice(r.Header.Get("Access-Control-Request-Method"), rule.AllowedMethods) {
+		return false
+	}
 	for _, origin := range rule.AllowedOrigins {
-		if matchOrigin(r.URL, origin) {
-			return origin, true
+		if matchOrigin(r.Header.Get("Origin"), origin) {
+			return true
 		}
 	}
-	return "", false
+	return false
 }
 
-func (rule CorsRule) SetResponseHeaders(w http.ResponseWriter, r *http.Request,
-	matchedOrigin string) {
-	if matchedOrigin == "*" {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-	} else {
+func (rule CorsRule) SetResponseHeaders(w http.ResponseWriter, r *http.Request, origin string) {
+	if origin != "" {
 		// the CORS spec(https://www.w3.org/TR/cors) does not define
 		// origin formats like "*.le.com" or "le*.com", so build a full
 		// URL for response
-		w.Header().Set("Access-Control-Allow-Origin",
-			r.URL.Scheme+"://"+r.URL.Host)
+		w.Header().Set("Access-Control-Allow-Origin", origin)
 	}
 	if len(rule.AllowedHeaders) > 0 {
 		if len(rule.AllowedHeaders) == 1 && rule.AllowedHeaders[0] == "*" {

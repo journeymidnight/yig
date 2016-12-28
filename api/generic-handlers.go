@@ -76,9 +76,17 @@ func SetCorsHandler(h http.Handler, objectLayer ObjectLayer) http.Handler {
 func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Vary", "Origin")
 
-	if r.Header.Get("Origin") == "" { // not a CORS request
-		h.handler.ServeHTTP(w, r)
-		return
+	if r.Method != "OPTIONS" {
+		if r.Header.Get("Origin") == "" { // not a CORS request
+			h.handler.ServeHTTP(w, r)
+			return
+		}
+	} else {
+		// not a CORS request
+		if r.Header.Get("Origin") == "" || r.Header.Get("Access-Control-Request-Method") == "" {
+			WriteErrorResponse(w, r, ErrInvalidHeader)
+			return
+		}
 	}
 
 	urlSplit := strings.SplitN(r.URL.Path[1:], "/", 2) // "1:" to remove leading slash
@@ -92,13 +100,13 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != "OPTIONS" {
 		for _, rule := range bucket.CORS.CorsRules {
-			if matchedOrigin, matched := rule.MatchSimple(r); matched {
-				rule.SetResponseHeaders(w, r, matchedOrigin)
+			if matched := rule.MatchSimple(r); matched {
+				rule.SetResponseHeaders(w, r, r.Header.Get("Origin"))
 				h.handler.ServeHTTP(w, r)
 				return
 			}
 		}
-		WriteErrorResponse(w, r, ErrAccessDenied)
+		h.handler.ServeHTTP(w, r)
 		return
 	}
 
@@ -106,8 +114,8 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Vary", "Access-Control-Request-Method")
 	w.Header().Add("Vary", "Access-Control-Request-Headers")
 	for _, rule := range bucket.CORS.CorsRules {
-		if matchedOrigin, matched := rule.MatchPreflight(r); matched {
-			rule.SetResponseHeaders(w, r, matchedOrigin)
+		if matched := rule.MatchPreflight(r); matched {
+			rule.SetResponseHeaders(w, r, r.Header.Get("Origin"))
 			WriteSuccessResponse(w, nil)
 			return
 		}
