@@ -2,12 +2,13 @@ package datatype
 
 import (
 	"encoding/xml"
-	. "git.letv.cn/yig/yig/error"
-	"git.letv.cn/yig/yig/helper"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+
+	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/helper"
 )
 
 const (
@@ -31,11 +32,12 @@ func matchOrigin(urlStr string, allowedOrigin string) bool {
 	if err != nil {
 		return false
 	}
-    url, err := url.Parse(urlStr)
+	url, err := url.Parse(urlStr)
 	if err != nil {
 		return false
 	}
-	if allowedUrl.Scheme == url.Scheme {
+	if allowedUrl.Scheme == url.Scheme ||
+		(allowedUrl.Scheme == "" && url.Scheme == "http") {
 		split := strings.Split(allowedUrl.Host, "*")
 		if len(split) == 1 { // no "*" in allowed origin
 			if url.Host == allowedUrl.Host {

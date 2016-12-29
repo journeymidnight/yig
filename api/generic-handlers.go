@@ -17,6 +17,7 @@
 package api
 
 import (
+	"net"
 	"net/http"
 	"strings"
 
@@ -24,7 +25,6 @@ import (
 	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/signature"
 	mux "github.com/gorilla/mux"
-	"net"
 )
 
 // HandlerFunc - useful to chain different middleware http.Handler
@@ -82,7 +82,7 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		// not a CORS request
+		// an OPTIONS request without "Origin" and "Access-Control-Request-Method" set properly
 		if r.Header.Get("Origin") == "" || r.Header.Get("Access-Control-Request-Method") == "" {
 			WriteErrorResponse(w, r, ErrInvalidHeader)
 			return
@@ -102,8 +102,7 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		for _, rule := range bucket.CORS.CorsRules {
 			if matched := rule.MatchSimple(r); matched {
 				rule.SetResponseHeaders(w, r, r.Header.Get("Origin"))
-				h.handler.ServeHTTP(w, r)
-				return
+				break
 			}
 		}
 		h.handler.ServeHTTP(w, r)
