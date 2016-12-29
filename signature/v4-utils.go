@@ -21,7 +21,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	. "git.letv.cn/yig/yig/error"
-	"git.letv.cn/yig/yig/helper"
 	"net/http"
 	"regexp"
 	"strings"
@@ -36,10 +35,7 @@ const (
 
 // isValidRegion - verify if incoming region value is valid with configured Region.
 func isValidRegion(reqRegion string) bool {
-	if reqRegion == "" {
-		return true
-	}
-	return reqRegion == helper.CONFIG.Region
+	return true
 }
 
 // sumHMAC calculate hmac between two input byte array.
