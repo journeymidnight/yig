@@ -130,7 +130,7 @@ func (c *CephStorage) Shutdown() {
 	c.Conn.Shutdown()
 }
 
-func (cluster *CephStorage) put(poolname string, oid string, data io.Reader) (size int64, err error) {
+func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (size int64, err error) {
 	pool, err := cluster.Conn.OpenPool(poolname)
 	if err != nil {
 		return 0, errors.New("Bad poolname")

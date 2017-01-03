@@ -324,7 +324,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	if err != nil {
 		return
 	}
-	bytesWritten, err := cephCluster.put(poolName, oid, storageReader)
+	bytesWritten, err := cephCluster.Put(poolName, oid, storageReader)
 	if err != nil {
 		return
 	}
@@ -453,7 +453,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 	if err != nil {
 		return
 	}
-	bytesWritten, err := cephCluster.put(poolName, oid, storageReader)
+	bytesWritten, err := cephCluster.Put(poolName, oid, storageReader)
 	if err != nil {
 		return
 	}
