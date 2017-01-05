@@ -17,7 +17,6 @@
 package api
 
 import (
-	"net"
 	"net/http"
 	"strings"
 
@@ -134,16 +133,17 @@ func SetIgnoreResourcesHandler(h http.Handler, _ ObjectLayer) http.Handler {
 // Resource handler ServeHTTP() wrapper
 func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Skip the first element which is usually '/' and split the rest.
-	_, port, _ := net.SplitHostPort(helper.CONFIG.BindApiAddress)
-	HOST_URL := helper.CONFIG.S3Domain + ":" + port
-	var bucketName, objectName string
+	var objectName string
+	var bucketName string
 	splits := strings.SplitN(r.URL.Path[1:], "/", 2)
-	if strings.HasSuffix(r.Host, "."+HOST_URL) {
-		bucketName = strings.TrimSuffix(r.Host, "."+HOST_URL)
+	v := strings.Split(r.Host, ":")
+	hostWithOutPort := v[0]
+	if strings.HasSuffix(hostWithOutPort, "."+helper.CONFIG.S3Domain) {
+		bucketName = strings.TrimSuffix(hostWithOutPort, "."+helper.CONFIG.S3Domain)
 		if len(splits) == 1 {
 			objectName = splits[0]
 		}
-	} else {
+	}else {
 		if len(splits) == 1 {
 			bucketName = splits[0]
 		}
