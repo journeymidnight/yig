@@ -761,6 +761,11 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 	// See http://stackoverflow.com/questions/12186993
 	// for how to calculate multipart Etag
 
+	objMap := &meta.ObjMap{
+		Name:             objectName,
+		BucketName:       bucketName,
+	}
+
 	// Add to objects table
 	contentType := multipart.Metadata.ContentType
 	object := &meta.Object{
@@ -783,9 +788,11 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 	case "Enabled":
 		result.VersionId = object.GetVersionId()
 	case "Disabled":
-		err = yig.removeObject(bucketName, objectName)
+		objMap.NullVerNum = uint64(object.LastModifiedTime.UnixNano())
+		err = yig.removeObjAndMap(bucketName, objectName)
 	case "Suspended":
-		err = yig.removeNullVersionObject(bucketName, objectName)
+		objMap.NullVerNum = uint64(object.LastModifiedTime.UnixNano())
+		err = yig.removeNullVerObjAndMap(bucketName, objectName)
 	}
 	if err != nil {
 		return
@@ -794,6 +801,14 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 	err = yig.MetaStorage.PutObjectEntry(object)
 	if err != nil {
 		return
+	}
+
+	if objMap.NullVerNum != 0 {
+		err = yig.MetaStorage.PutObjMapEntry(objMap)
+		if err != nil {
+			yig.delTableEntryForRollback(object, nil)
+			return
+		}
 	}
 
 	// Remove from multiparts table
@@ -810,24 +825,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 	}
 	_, err = yig.MetaStorage.Hbase.Delete(deleteRequest)
 	if err != nil { // rollback objects table
-		objectDeleteValues := object.GetValuesForDelete()
-		objectRowkey, err := object.GetRowkey()
-		if err != nil {
-			yig.Logger.Println("Error deleting object: ", err)
-			yig.Logger.Println("Inconsistent data: object with rowkey ", object.Rowkey,
-				"should be removed in HBase")
-		}
-		objectDeleteRequest, err := hrpc.NewDelStr(ctx,
-			meta.OBJECT_TABLE, objectRowkey, objectDeleteValues)
-		if err != nil {
-			return result, err
-		}
-		_, err = yig.MetaStorage.Hbase.Delete(objectDeleteRequest)
-		if err != nil {
-			yig.Logger.Println("Error deleting object: ", err)
-			yig.Logger.Println("Inconsistent data: object with rowkey ", object.Rowkey,
-				"should be removed in HBase")
-		}
+		yig.delTableEntryForRollback(object, objMap)
 		return result, err
 	}
 

@@ -24,4 +24,7 @@ create 'garbageCollection',
 
 create 'cluster',
   {NAME => 'c', VERSIONS => 1}
+
+create 'objMap',
+  {NAME => 'om', VERSIONS => 1}
 EOF

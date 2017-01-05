@@ -56,6 +56,43 @@ type Object struct {
 	InitializationVector []byte
 }
 
+type ObjMap struct {
+	Rowkey           []byte // Rowkey cache
+	Name             string
+	BucketName       string
+	NullVerNum       uint64
+	NullVerId        string
+}
+
+func (om *ObjMap) GetRowKey() (string, error) {
+	if len(om.Rowkey) != 0 {
+		return string(om.Rowkey), nil
+	}
+	var rowkey bytes.Buffer
+	rowkey.WriteString(om.BucketName)
+	err := binary.Write(&rowkey, binary.BigEndian, uint16(strings.Count(om.Name, "/")))
+	if err != nil {
+		return "", err
+	}
+	rowkey.WriteString(om.Name + ObjectNameEnding)
+	om.Rowkey = rowkey.Bytes()
+	return string(om.Rowkey), nil
+}
+
+func (om *ObjMap) GetValues() (values map[string]map[string][]byte, err error) {
+	var nullVerNum bytes.Buffer
+	err = binary.Write(&nullVerNum, binary.BigEndian, om.NullVerNum)
+	if err != nil {
+		return
+	}
+	values = map[string]map[string][]byte{
+		OBJMAP_COLUMN_FAMILY: map[string][]byte{
+			"nullVerNum":   nullVerNum.Bytes(),
+		},
+	}
+	return
+}
+
 func (o *Object) String() (s string) {
 	s += "Name: " + o.Name + "\n"
 	s += "Location: " + o.Location + "\n"
@@ -145,6 +182,12 @@ func (o *Object) GetValuesForDelete() (values map[string]map[string][]byte) {
 	return map[string]map[string][]byte{
 		OBJECT_COLUMN_FAMILY:      map[string][]byte{},
 		OBJECT_PART_COLUMN_FAMILY: map[string][]byte{},
+	}
+}
+
+func (om *ObjMap) GetValuesForDelete() (values map[string]map[string][]byte) {
+	return map[string]map[string][]byte{
+		OBJMAP_COLUMN_FAMILY:      map[string][]byte{},
 	}
 }
 
@@ -320,6 +363,27 @@ func ObjectFromResponse(response *hrpc.Result) (object *Object, err error) {
 	return
 }
 
+func ObjMapFromResponse(response *hrpc.Result) (objMap *ObjMap, err error) {
+	objMap = new(ObjMap)
+	for _, cell := range response.Cells {
+		switch string(cell.Family) {
+		case OBJMAP_COLUMN_FAMILY:
+			switch string(cell.Qualifier) {
+			case "nullVerNum":
+				err = binary.Read(bytes.NewReader(cell.Value), binary.BigEndian,
+					&objMap.NullVerNum)
+				if err != nil {
+					return
+				}
+			}
+		}
+	}
+	timeData := []byte(strconv.FormatUint(objMap.NullVerNum, 10))
+	objMap.NullVerId = hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
+	//helper.Debugln("ObjectFromResponse:", objMap)
+	return
+}
+
 func (m *Meta) GetObject(bucketName string, objectName string) (object *Object, err error) {
 	getObject := func() (o interface{}, err error) {
 		objectRowkeyPrefix, err := getObjectRowkeyPrefix(bucketName, objectName, "")
@@ -375,41 +439,32 @@ func (m *Meta) GetObject(bucketName string, objectName string) (object *Object, 
 	return object, nil
 }
 
-func (m *Meta) GetNullVersionObject(bucketName, objectName string) (object *Object, err error) {
-	objectRowkeyPrefix, err := getObjectRowkeyPrefix(bucketName, objectName, "")
+func (m *Meta) GetObjectMap(bucketName, objectName string) (objMap *ObjMap, err error) {
+	objMapRowkeyPrefix, err := getObjectRowkeyPrefix(bucketName, objectName, "")
 	if err != nil {
 		return
 	}
-	prefixFilter := filter.NewPrefixFilter(objectRowkeyPrefix)
-	stopKey := helper.CopiedBytes(objectRowkeyPrefix)
-	stopKey[len(stopKey)-1]++
 	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
 	defer done()
-	scanRequest, err := hrpc.NewScanRangeStr(ctx, OBJECT_TABLE,
-		string(objectRowkeyPrefix), string(stopKey),
-		// FIXME use a proper filter instead of naively getting 1000 and compare
-		hrpc.Filters(prefixFilter), hrpc.NumberOfRows(1000))
+	getRequest, err := hrpc.NewGetStr(ctx, OBJMAP_TABLE, string(objMapRowkeyPrefix))
 	if err != nil {
 		return
 	}
-	scanResponse, err := m.Hbase.Scan(scanRequest)
+	getResponse, err := m.Hbase.Get(getRequest)
 	if err != nil {
 		return
 	}
-	if len(scanResponse) == 0 {
-		err = ErrNoSuchVersion
+	if len(getResponse.Cells) == 0 {
+		err = ErrNoSuchKey
 		return
 	}
-	for _, response := range scanResponse {
-		object, err = ObjectFromResponse(response)
-		if err != nil {
-			return
-		}
-		if object.Name == objectName && object.NullVersion && !object.DeleteMarker {
-			return object, nil
-		}
+	objMap, err = ObjMapFromResponse(getResponse)
+	if err != nil {
+		return
 	}
-	return object, ErrNoSuchVersion
+	objMap.BucketName = bucketName
+	objMap.Name = objectName
+	return
 }
 
 func (m *Meta) GetObjectVersion(bucketName, objectName, version string) (object *Object, err error) {
@@ -480,6 +535,26 @@ func (m *Meta) PutObjectEntry(object *Object) error {
 	return err
 }
 
+func (m *Meta) PutObjMapEntry(objMap *ObjMap) error {
+	rowkey, err := objMap.GetRowKey()
+	if err != nil {
+		return err
+	}
+	values, err := objMap.GetValues()
+	if err != nil {
+		return err
+	}
+	helper.Debugln("values", values)
+	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+	defer done()
+	put, err := hrpc.NewPutStr(ctx, OBJMAP_TABLE, rowkey, values)
+	if err != nil {
+		return err
+	}
+	_, err = m.Hbase.Put(put)
+	return err
+}
+
 func (m *Meta) DeleteObjectEntry(object *Object) error {
 	rowkeyToDelete, err := object.GetRowkey()
 	if err != nil {
@@ -489,6 +564,22 @@ func (m *Meta) DeleteObjectEntry(object *Object) error {
 	defer done()
 	deleteRequest, err := hrpc.NewDelStr(ctx, OBJECT_TABLE, rowkeyToDelete,
 		object.GetValuesForDelete())
+	if err != nil {
+		return err
+	}
+	_, err = m.Hbase.Delete(deleteRequest)
+	return err
+}
+
+func (m *Meta) DeleteObjMapEntry(objMap *ObjMap) error {
+	rowkeyToDelete, err := objMap.GetRowKey()
+	if err != nil {
+		return err
+	}
+	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+	defer done()
+	deleteRequest, err := hrpc.NewDelStr(ctx, OBJMAP_TABLE, rowkeyToDelete,
+		objMap.GetValuesForDelete())
 	if err != nil {
 		return err
 	}
