@@ -14,7 +14,7 @@ import (
 	. "git.letv.cn/yig/yig/error"
 	"git.letv.cn/yig/yig/helper"
 	"git.letv.cn/yig/yig/iam"
-	"net"
+//	"net"
 	"strconv"
 )
 
@@ -73,22 +73,14 @@ func buildCanonicalizedAmzHeaders(headers *http.Header) string {
 
 func buildCanonicalizedResource(req *http.Request) string {
 	ans := ""
-	var HOST_URL string
-	_, port, _ := net.SplitHostPort(helper.CONFIG.BindApiAddress)
-	if port != "80" {
-		HOST_URL = helper.CONFIG.S3Domain + ":" + port
-	} else {
-		HOST_URL = helper.CONFIG.S3Domain
-	}
-
-	if strings.HasSuffix(req.Host, "."+HOST_URL) {
-		bucket := strings.TrimSuffix(req.Host, "."+HOST_URL)
+	v := strings.Split(req.Host, ":")
+	hostWithOutPort := v[0]
+	if strings.HasSuffix(hostWithOutPort, "."+helper.CONFIG.S3Domain) {
+		bucket := strings.TrimSuffix(hostWithOutPort, "."+helper.CONFIG.S3Domain)
 		ans += "/" + bucket
-	} else if req.Host != "" && req.Host != HOST_URL {
-		ans += "/" + req.Host
 	}
 	ans += req.URL.EscapedPath()
-	helper.Debugln("HOST:", req.Host, HOST_URL, ans)
+	helper.Debugln("HOST:", req.Host, hostWithOutPort, ans)
 	requiredQuery := []string{
 		// NOTE: this array is sorted alphabetically
 		"acl", "cors", "delete", "lifecycle", "location",
