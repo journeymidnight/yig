@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"sync"
+	"io/ioutil"
 )
 
 const (
@@ -130,7 +131,31 @@ func (c *CephStorage) Shutdown() {
 	c.Conn.Shutdown()
 }
 
+func (cluster *CephStorage) doSmallPut(poolname string, oid string, data io.Reader) (size int64, err error) {
+	pool, err := cluster.Conn.OpenPool(poolname)
+	if err != nil {
+		return 0, errors.New("Bad poolname")
+	}
+	defer pool.Destroy()
+
+	buf, err := ioutil.ReadAll(data)
+	if err != nil {
+		return 0, errors.New("Read from client failed")
+	}
+	err = pool.WriteSmallObject(oid, buf)
+	if err != nil {
+		return 0, err
+	}
+
+	return size, nil
+}
+
 func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (size int64, err error) {
+
+	if poolname == SMALL_FILE_POOLNAME {
+		return cluster.doSmallPut(poolname, oid, data)
+	}
+
 	pool, err := cluster.Conn.OpenPool(poolname)
 	if err != nil {
 		return 0, errors.New("Bad poolname")
@@ -318,8 +343,22 @@ func (cluster *CephStorage) get(poolName string, oid string, startOffset int64,
 	return err
 }
 
-func (cluster *CephStorage) remove(poolName string, oid string) error {
-	pool, err := cluster.Conn.OpenPool(poolName)
+func (cluster *CephStorage) doSmallRemove(poolname string, oid string) error {
+	pool, err := cluster.Conn.OpenPool(poolname)
+	if err != nil {
+		return errors.New("Bad poolname")
+	}
+	defer pool.Destroy()
+	return pool.Delete(oid)
+}
+
+func (cluster *CephStorage) Remove(poolname string, oid string) error {
+
+	if poolname == SMALL_FILE_POOLNAME {
+		return cluster.doSmallRemove(poolname, oid)
+	}
+
+	pool, err := cluster.Conn.OpenPool(poolname)
 	if err != nil {
 		return errors.New("Bad poolname")
 	}

@@ -42,7 +42,7 @@ func removeFailed(yig *YigStorage) {
 	for {
 		select {
 		case object := <-RecycleQueue:
-			err := yig.DataStorage[object.location].remove(object.pool, object.objectId)
+			err := yig.DataStorage[object.location].Remove(object.pool, object.objectId)
 			if err != nil {
 				object.triedTimes += 1
 				if object.triedTimes > MAX_TRY_TIMES {
@@ -101,14 +101,14 @@ func removeDeleted(yig *YigStorage) {
 			success := true
 			if len(garbage.Parts) == 0 {
 				err = yig.DataStorage[garbage.Location].
-					remove(garbage.Pool, garbage.ObjectId)
+					Remove(garbage.Pool, garbage.ObjectId)
 				if err != nil {
 					success = false
 				}
 			} else {
 				for _, p := range garbage.Parts {
 					err = yig.DataStorage[p.Location].
-						remove(p.Pool, p.ObjectId)
+						Remove(p.Pool, p.ObjectId)
 					if err != nil {
 						success = false
 					}
