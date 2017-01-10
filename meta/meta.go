@@ -3,10 +3,11 @@ package meta
 import (
 	"context"
 	"encoding/hex"
+	"log"
+
 	"git.letv.cn/yig/yig/helper"
 	"github.com/cannium/gohbase"
 	"github.com/xxtea/xxtea-go/xxtea"
-	"log"
 )
 
 const (
@@ -42,17 +43,17 @@ var (
 type Meta struct {
 	Hbase  gohbase.Client
 	Logger *log.Logger
-	Cache  *MetaCache
+	Cache  MetaCache
 }
 
-func New(logger *log.Logger) *Meta {
+func New(logger *log.Logger, cacheEnabled bool) *Meta {
 	var hbaseClient gohbase.Client
 	znodeOption := gohbase.SetZnodeParentOption(helper.CONFIG.HbaseZnodeParent)
 	hbaseClient = gohbase.NewClient(helper.CONFIG.ZookeeperAddress, znodeOption)
 	meta := Meta{
 		Hbase:  hbaseClient,
 		Logger: logger,
-		Cache:  newMetaCache(),
+		Cache:  newMetaCache(cacheEnabled),
 	}
 	return &meta
 }

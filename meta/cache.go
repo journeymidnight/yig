@@ -10,9 +10,17 @@ import (
 	"github.com/mediocregopher/radix.v2/pubsub"
 )
 
+type MetaCache interface {
+	Get(table redis.RedisDatabase, key string,
+		onCacheMiss func() (interface{}, error),
+		unmarshaller func([]byte) (interface{}, error)) (value interface{}, err error)
+	Remove(table redis.RedisDatabase, key string)
+	GetCacheHitRatio() float64
+}
+
 // metadata is organized in 3 layers: YIG instance memory, Redis, HBase
 // `MetaCache` forces "Cache-Aside Pattern", see https://msdn.microsoft.com/library/dn589799.aspx
-type MetaCache struct {
+type enabledMetaCache struct {
 	lock       *sync.Mutex // protects both `lruList` and `cache`
 	MaxEntries int
 	lruList    *list.List
@@ -23,32 +31,38 @@ type MetaCache struct {
 	failedCacheInvalidOperation chan entry
 }
 
+type disabledMetaCache struct{}
+
 type entry struct {
 	table redis.RedisDatabase
 	key   string
 	value interface{}
 }
 
-func newMetaCache() (m *MetaCache) {
-	m = &MetaCache{
-		lock:       new(sync.Mutex),
-		MaxEntries: helper.CONFIG.InMemoryCacheMaxEntryCount,
-		lruList:    list.New(),
-		cache:      make(map[redis.RedisDatabase]map[string]*list.Element),
-		Hit:        0,
-		Miss:       0,
-		failedCacheInvalidOperation: make(chan entry, helper.CONFIG.RedisConnectionNumber),
+func newMetaCache(cacheEnabled bool) (m MetaCache) {
+	if cacheEnabled {
+		m := &enabledMetaCache{
+			lock:       new(sync.Mutex),
+			MaxEntries: helper.CONFIG.InMemoryCacheMaxEntryCount,
+			lruList:    list.New(),
+			cache:      make(map[redis.RedisDatabase]map[string]*list.Element),
+			Hit:        0,
+			Miss:       0,
+			failedCacheInvalidOperation: make(chan entry, helper.CONFIG.RedisConnectionNumber),
+		}
+		for _, table := range redis.MetadataTables {
+			m.cache[table] = make(map[string]*list.Element)
+		}
+		go invalidLocalCache(m)
+		go invalidRedisCache(m)
+		return m
 	}
-	for _, table := range redis.MetadataTables {
-		m.cache[table] = make(map[string]*list.Element)
-	}
-	go invalidLocalCache(m)
-	go invalidRedisCache(m)
-	return m
+
+	return &disabledMetaCache{}
 }
 
 // subscribe to Redis channels and handle cache invalid info
-func invalidLocalCache(m *MetaCache) {
+func invalidLocalCache(m *enabledMetaCache) {
 	c, err := redis.GetClient()
 	if err != nil {
 		panic("Cannot get Redis client: " + err.Error())
@@ -75,8 +89,8 @@ func invalidLocalCache(m *MetaCache) {
 	}
 }
 
-// redo failed invalid operation in MetaCache.failedCacheInvalidOperation channel
-func invalidRedisCache(m *MetaCache) {
+// redo failed invalid operation in enabledMetaCache.failedCacheInvalidOperation channel
+func invalidRedisCache(m *enabledMetaCache) {
 	for {
 		failedEntry := <-m.failedCacheInvalidOperation
 		err := redis.Remove(failedEntry.table, failedEntry.key)
@@ -93,7 +107,7 @@ func invalidRedisCache(m *MetaCache) {
 	}
 }
 
-func (m *MetaCache) invalidRedisCache(table redis.RedisDatabase, key string) {
+func (m *enabledMetaCache) invalidRedisCache(table redis.RedisDatabase, key string) {
 	err := redis.Invalid(table, key)
 	if err != nil {
 		m.failedCacheInvalidOperation <- entry{
@@ -103,7 +117,7 @@ func (m *MetaCache) invalidRedisCache(table redis.RedisDatabase, key string) {
 	}
 }
 
-func (m *MetaCache) set(table redis.RedisDatabase, key string, value interface{}) {
+func (m *enabledMetaCache) set(table redis.RedisDatabase, key string, value interface{}) {
 	m.lock.Lock()
 	if element, ok := m.cache[table][key]; ok {
 		m.lruList.MoveToFront(element)
@@ -122,11 +136,11 @@ func (m *MetaCache) set(table redis.RedisDatabase, key string, value interface{}
 
 // Forces "cache-aside" pattern, calls `onCacheMiss` when key is missed from
 // both memory and Redis, use `unmarshal` get expected type from Redis
-func (m *MetaCache) Get(table redis.RedisDatabase, key string,
+func (m *enabledMetaCache) Get(table redis.RedisDatabase, key string,
 	onCacheMiss func() (interface{}, error),
 	unmarshaller func([]byte) (interface{}, error)) (value interface{}, err error) {
 
-	helper.Debugln("MetaCache Get()", table, key)
+	helper.Debugln("enabledMetaCache Get()", table, key)
 
 	m.lock.Lock()
 	if element, hit := m.cache[table][key]; hit {
@@ -166,8 +180,15 @@ func (m *MetaCache) Get(table redis.RedisDatabase, key string,
 	return nil, nil
 }
 
-func (m *MetaCache) remove(table redis.RedisDatabase, key string) {
-	helper.Debugln("MetaCache Remove()", table, key)
+func (m *disabledMetaCache) Get(table redis.RedisDatabase, key string,
+	onCacheMiss func() (interface{}, error),
+	unmarshaller func([]byte) (interface{}, error)) (value interface{}, err error) {
+
+	return onCacheMiss()
+}
+
+func (m *enabledMetaCache) remove(table redis.RedisDatabase, key string) {
+	helper.Debugln("enabledMetaCache Remove()", table, key)
 
 	m.lock.Lock()
 	element, hit := m.cache[table][key]
@@ -178,7 +199,7 @@ func (m *MetaCache) remove(table redis.RedisDatabase, key string) {
 	m.lock.Unlock()
 }
 
-func (m *MetaCache) Remove(table redis.RedisDatabase, key string) {
+func (m *enabledMetaCache) Remove(table redis.RedisDatabase, key string) {
 	err := redis.Remove(table, key)
 
 	if err != nil {
@@ -194,7 +215,11 @@ func (m *MetaCache) Remove(table redis.RedisDatabase, key string) {
 	m.remove(table, key)
 }
 
-func (m *MetaCache) removeOldest() {
+func (m *disabledMetaCache) Remove(table redis.RedisDatabase, key string) {
+	return
+}
+
+func (m *enabledMetaCache) removeOldest() {
 	m.lock.Lock()
 	element := m.lruList.Back()
 	if element != nil {
@@ -205,4 +230,12 @@ func (m *MetaCache) removeOldest() {
 	m.lock.Unlock()
 
 	// Do not invalid Redis cache because data there is still _valid_
+}
+
+func (m *enabledMetaCache) GetCacheHitRatio() float64 {
+	return float64(m.Hit) / float64(m.Hit+m.Miss)
+}
+
+func (m *disabledMetaCache) GetCacheHitRatio() float64 {
+	return -1
 }

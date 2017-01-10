@@ -1,15 +1,16 @@
 package main
 
 import (
-	"git.letv.cn/yig/yig/helper"
-	"git.letv.cn/yig/yig/redis"
-	"git.letv.cn/yig/yig/storage"
 	"log"
 	"math/rand"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"git.letv.cn/yig/yig/helper"
+	"git.letv.cn/yig/yig/redis"
+	"git.letv.cn/yig/yig/storage"
 )
 
 var logger *log.Logger
@@ -32,10 +33,12 @@ func main() {
 
 	logger.Println("YIG instance ID:", helper.CONFIG.InstanceId)
 
-	redis.Initialize()
-	defer redis.Close()
+	if helper.CONFIG.EnableCache {
+		redis.Initialize()
+		defer redis.Close()
+	}
 
-	yig := storage.New(logger)
+	yig := storage.New(logger, helper.CONFIG.EnableCache)
 	adminServerConfig := &adminServerConfig{
 		Address: helper.CONFIG.BindAdminAddress,
 		Logger:  logger,

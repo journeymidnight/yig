@@ -1,15 +1,16 @@
 package main
 
 import (
-	"git.letv.cn/yig/yig/helper"
-	"git.letv.cn/yig/yig/storage"
-	. "git.letv.cn/yig/yig/error"
-	"git.letv.cn/yig/yig/iam"
-	"github.com/kataras/iris"
 	"log"
 	"net/http"
+
+	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/helper"
+	"git.letv.cn/yig/yig/iam"
+	"git.letv.cn/yig/yig/storage"
 	"github.com/dgrijalva/jwt-go"
 	jwtmiddleware "github.com/iris-contrib/middleware/jwt"
+	"github.com/kataras/iris"
 )
 
 type adminServerConfig struct {
@@ -20,7 +21,7 @@ type adminServerConfig struct {
 
 type userJson struct {
 	Buckets []string
-	Keys []iam.AccessKeyItem
+	Keys    []iam.AccessKeyItem
 }
 
 type cacheJson struct {
@@ -47,15 +48,13 @@ func getUsage(ctx *iris.Context) {
 
 	usage, err := adminServer.Yig.MetaStorage.GetUsage(bucketName)
 	if err != nil {
-		ctx.Write("get usage for bucket:%s failed", bucketName)
+		ctx.Writef("get usage for bucket:%s failed", bucketName)
 		return
 	}
 	helper.Debugln("enter getusage", bucketName, usage)
-	ctx.JSON(iris.StatusOK, usageJson{Usage:usage})
+	ctx.JSON(iris.StatusOK, usageJson{Usage: usage})
 	return
 }
-
-
 
 func getBucketInfo(ctx *iris.Context) {
 
@@ -129,7 +128,7 @@ func getUserInfo(ctx *iris.Context) {
 			return
 		}
 	}
-	ctx.JSON(iris.StatusOK, userJson{Buckets: buckets,Keys:keys})
+	ctx.JSON(iris.StatusOK, userJson{Buckets: buckets, Keys: keys})
 
 	return
 }
@@ -165,25 +164,23 @@ func getObjectInfo(ctx *iris.Context) {
 	return
 }
 
-func getCacheHitRate(ctx *iris.Context) {
-	helper.Debugln("enter getCacheHitRate")
+func getCacheHitRatio(ctx *iris.Context) {
+	helper.Debugln("enter getCacheHitRatio")
 	userToken := myJwtMiddleware.Get(ctx)
 	if userToken.Valid == false {
 		ctx.EmitError(403)
 		return
 	}
 
-	hit := adminServer.Yig.MetaStorage.Cache.Hit
-	miss := adminServer.Yig.MetaStorage.Cache.Miss
-	rate := float64(hit)/float64(hit+miss)
-	ctx.JSON(iris.StatusOK, cacheJson{HitRate:rate})
+	rate := adminServer.Yig.MetaStorage.Cache.GetCacheHitRatio()
+	ctx.JSON(iris.StatusOK, cacheJson{HitRate: rate})
 	return
 }
 
 func startAdminServer(config *adminServerConfig) {
 	adminServer = config
 	iris.Get("/hi", func(ctx *iris.Context) {
-		ctx.Write("Hi %s", "YIG")
+		ctx.Writef("Hi %s", "YIG")
 	})
 
 	myJwtMiddleware = jwtmiddleware.New(jwtmiddleware.Config{
@@ -197,7 +194,7 @@ func startAdminServer(config *adminServerConfig) {
 	iris.Get("/admin/user", myJwtMiddleware.Serve, getUserInfo)
 	iris.Get("/admin/bucket", myJwtMiddleware.Serve, getBucketInfo)
 	iris.Get("/admin/object", myJwtMiddleware.Serve, getObjectInfo)
-	iris.Get("/admin/cachehit", myJwtMiddleware.Serve, getCacheHitRate)
+	iris.Get("/admin/cachehit", myJwtMiddleware.Serve, getCacheHitRatio)
 	go iris.Listen(config.Address)
 }
 

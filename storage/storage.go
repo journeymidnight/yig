@@ -5,14 +5,15 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"git.letv.cn/yig/yig/api/datatype"
-	. "git.letv.cn/yig/yig/error"
-	"git.letv.cn/yig/yig/helper"
-	"git.letv.cn/yig/yig/meta"
 	"io"
 	"log"
 	"path/filepath"
 	"sync"
+
+	"git.letv.cn/yig/yig/api/datatype"
+	. "git.letv.cn/yig/yig/error"
+	"git.letv.cn/yig/yig/helper"
+	"git.letv.cn/yig/yig/meta"
 )
 
 const (
@@ -29,18 +30,18 @@ var (
 // *YigStorage implements api.ObjectLayer
 type YigStorage struct {
 	DataStorage map[string]*CephStorage
-	DataCache   *DataCache
+	DataCache   DataCache
 	MetaStorage *meta.Meta
 	Logger      *log.Logger
 	Stopping    bool
 	WaitGroup   *sync.WaitGroup
 }
 
-func New(logger *log.Logger) *YigStorage {
-	metaStorage := meta.New(logger)
+func New(logger *log.Logger, cacheEnabled bool) *YigStorage {
+	metaStorage := meta.New(logger, cacheEnabled)
 	yig := YigStorage{
 		DataStorage: make(map[string]*CephStorage),
-		DataCache:   newDataCache(),
+		DataCache:   newDataCache(cacheEnabled),
 		MetaStorage: metaStorage,
 		Logger:      logger,
 		Stopping:    false,

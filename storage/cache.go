@@ -1,12 +1,13 @@
 package storage
 
 import (
-	"git.letv.cn/yig/yig/helper"
-	"git.letv.cn/yig/yig/meta"
-	"git.letv.cn/yig/yig/redis"
 	"io"
 	"io/ioutil"
 	"time"
+
+	"git.letv.cn/yig/yig/helper"
+	"git.letv.cn/yig/yig/meta"
+	"git.letv.cn/yig/yig/redis"
 )
 
 const (
@@ -14,20 +15,36 @@ const (
 	FILE_CACHE_THRESHOLD_SIZE = 4 << 20 // 4M
 )
 
-type DataCache struct {
+type DataCache interface {
+	WriteFromCache(object *meta.Object, startOffset int64, length int64,
+		out io.Writer, writeThrough func(io.Writer) error,
+		onCacheMiss func(io.Writer) error) error
+	GetAlignedReader(object *meta.Object, startOffset int64, length int64,
+		readThrough func() (io.ReadCloser, error),
+		onCacheMiss func(io.Writer) error) (io.ReadCloser, error)
+	Remove(key string)
+}
+
+type enabledDataCache struct {
 	failedCacheInvalidOperation chan string
 }
 
-func newDataCache() (d *DataCache) {
-	d = &DataCache{
-		failedCacheInvalidOperation: make(chan string, helper.CONFIG.RedisConnectionNumber),
+type disabledDataCache struct{}
+
+func newDataCache(cacheEnabled bool) (d DataCache) {
+	if cacheEnabled {
+		d := &enabledDataCache{
+			failedCacheInvalidOperation: make(chan string, helper.CONFIG.RedisConnectionNumber),
+		}
+		go invalidRedisCache(d)
+		return d
 	}
-	go invalidRedisCache(d)
-	return d
+
+	return &disabledDataCache{}
 }
 
-// redo failed invalid operation in DataCache.failedCacheInvalidOperation channel
-func invalidRedisCache(d *DataCache) {
+// redo failed invalid operation in enabledDataCache.failedCacheInvalidOperation channel
+func invalidRedisCache(d *enabledDataCache) {
 	for {
 		key := <-d.failedCacheInvalidOperation
 		err := redis.Remove(redis.FileTable, key)
@@ -40,7 +57,7 @@ func invalidRedisCache(d *DataCache) {
 
 // `writeThrough` performs normal workflow without cache
 // `onCacheMiss` should be able to read the WHOLE object
-func (d *DataCache) WriteFromCache(object *meta.Object, startOffset int64, length int64,
+func (d *enabledDataCache) WriteFromCache(object *meta.Object, startOffset int64, length int64,
 	out io.Writer, writeThrough func(io.Writer) error, onCacheMiss func(io.Writer) error) error {
 
 	if object.Size > FILE_CACHE_THRESHOLD_SIZE {
@@ -72,11 +89,17 @@ func (d *DataCache) WriteFromCache(object *meta.Object, startOffset int64, lengt
 	return err
 }
 
+func (d *disabledDataCache) WriteFromCache(object *meta.Object, startOffset int64, length int64,
+	out io.Writer, writeThrough func(io.Writer) error, onCacheMiss func(io.Writer) error) error {
+
+	return writeThrough(out)
+}
+
 // actually get a `ReadCloser`, aligned to AES_BLOCK_SIZE for encryption
 // `readThrough` performs normal workflow without cache
 // `onCacheMiss` should be able to read the WHOLE object
 // FIXME: this API causes an extra memory copy, need to patch radix to fix it
-func (d *DataCache) GetAlignedReader(object *meta.Object, startOffset int64, length int64,
+func (d *enabledDataCache) GetAlignedReader(object *meta.Object, startOffset int64, length int64,
 	readThrough func() (io.ReadCloser, error),
 	onCacheMiss func(io.Writer) error) (io.ReadCloser, error) {
 
@@ -113,11 +136,22 @@ func (d *DataCache) GetAlignedReader(object *meta.Object, startOffset int64, len
 	return r, nil
 }
 
-func (d *DataCache) Remove(key string) {
+func (d *disabledDataCache) GetAlignedReader(object *meta.Object, startOffset int64, length int64,
+	readThrough func() (io.ReadCloser, error),
+	onCacheMiss func(io.Writer) error) (io.ReadCloser, error) {
+
+	return readThrough()
+}
+
+func (d *enabledDataCache) Remove(key string) {
 	err := redis.Remove(redis.FileTable, key)
 	if err != nil {
 		d.failedCacheInvalidOperation <- key
 	}
+}
+
+func (d *disabledDataCache) Remove(key string) {
+	return
 }
 
 type ReadCloser struct {
