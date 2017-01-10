@@ -13,6 +13,7 @@
     "SSLKeyPath": "",
     "SSLCertPath": "",
     "ZookeeperAddress": "10.110.95.56:2181,10.110.95.62:2181",
+    "EnableCache": true,
     "RedisAddress": "localhost:6379",
     "RedisConnectionNumber": 10,
     "InMemoryCacheMaxEntryCount": 100000,

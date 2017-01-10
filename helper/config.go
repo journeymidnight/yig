@@ -20,6 +20,7 @@ type Config struct {
 	SSLKeyPath                 string
 	SSLCertPath                string
 	ZookeeperAddress           string
+	EnableCache                bool
 	RedisAddress               string // redis connection string, e.g localhost:1234
 	RedisConnectionNumber      int    // number of connections to redis(i.e max concurrent request number)
 	InMemoryCacheMaxEntryCount int
@@ -45,6 +46,7 @@ type config struct {
 	SSLKeyPath                 string
 	SSLCertPath                string
 	ZookeeperAddress           string
+	EnableCache                bool
 	RedisAddress               string // redis connection string, e.g localhost:1234
 	RedisConnectionNumber      int    // number of connections to redis(i.e max concurrent request number)
 	InMemoryCacheMaxEntryCount int
@@ -84,6 +86,7 @@ func SetupConfig() {
 	CONFIG.BindAdminAddress = c.BindAdminAddress
 	CONFIG.SSLKeyPath = c.SSLKeyPath
 	CONFIG.SSLCertPath = c.SSLCertPath
+	CONFIG.EnableCache = c.EnableCache
 	CONFIG.ZookeeperAddress = c.ZookeeperAddress
 	CONFIG.RedisAddress = c.RedisAddress
 	CONFIG.RedisConnectionNumber = Ternary(c.RedisConnectionNumber == 0,
