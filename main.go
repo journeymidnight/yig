@@ -33,8 +33,10 @@ func main() {
 
 	logger.Println("YIG instance ID:", helper.CONFIG.InstanceId)
 
-	redis.Initialize()
-	defer redis.Close()
+	if helper.CONFIG.EnableCache {
+		redis.Initialize()
+		defer redis.Close()
+	}
 
 	yig := storage.New(logger, helper.CONFIG.EnableCache)
 	adminServerConfig := &adminServerConfig{
