@@ -15,6 +15,7 @@ type MetaCache interface {
 		onCacheMiss func() (interface{}, error),
 		unmarshaller func([]byte) (interface{}, error)) (value interface{}, err error)
 	Remove(table redis.RedisDatabase, key string)
+	GetCacheHitRatio() float64
 }
 
 // metadata is organized in 3 layers: YIG instance memory, Redis, HBase
@@ -229,4 +230,12 @@ func (m *enabledMetaCache) removeOldest() {
 	m.lock.Unlock()
 
 	// Do not invalid Redis cache because data there is still _valid_
+}
+
+func (m *enabledMetaCache) GetCacheHitRatio() float64 {
+	return float64(m.Hit) / float64(m.Hit+m.Miss)
+}
+
+func (m *disabledMetaCache) GetCacheHitRatio() float64 {
+	return -1
 }
