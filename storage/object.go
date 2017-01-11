@@ -228,8 +228,58 @@ func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 	return
 }
 
+func (yig *YigStorage) GetObjectAcl(bucketName string, objectName string,
+        version string, credential iam.Credential) (policy datatype.AccessControlPolicy, err error) {
+
+	bucket, err := yig.MetaStorage.GetBucket(bucketName)
+	if err != nil {
+		return
+	}
+
+	var object *meta.Object
+	if version == "" {
+		object, err = yig.MetaStorage.GetObject(bucketName, objectName)
+	} else {
+		object, err = yig.getObjWithVersion(bucketName, objectName, version)
+	}
+	if err != nil {
+		return
+	}
+
+	switch object.ACL.CannedAcl {
+	case "bucket-owner-full-control":
+		if bucket.OwnerId != credential.UserId {
+			err = ErrAccessDenied
+			return
+		}
+	default:
+		if object.OwnerId != credential.UserId {
+			err = ErrAccessDenied
+			return
+		}
+	}
+
+	owner := datatype.Owner{ID: credential.UserId, DisplayName: credential.DisplayName}
+	bucketCred, err := iam.GetCredentialByUserId(bucket.OwnerId)
+	if err != nil {
+		return
+	}
+	bucketOwner := datatype.Owner{ID: bucketCred.UserId, DisplayName: bucketCred.DisplayName}
+	policy, err = datatype.CreatePolicyFromCanned(owner, bucketOwner, object.ACL)
+	if err != nil {
+		return
+	}
+
+	return
+}
+
 func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, version string,
-	acl datatype.Acl, credential iam.Credential) error {
+	policy datatype.AccessControlPolicy, credential iam.Credential) error {
+
+	acl, err := datatype.GetCannedAclFromPolicy(policy)
+	if err != nil {
+		return err
+	}
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {

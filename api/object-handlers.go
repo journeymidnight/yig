@@ -639,15 +639,22 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 		}
 	}
 
-	version := r.URL.Query().Get("versionId")
-
-	acl, err := getAclFromHeader(r.Header)
+	aclBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 1024))
 	if err != nil {
-		WriteErrorResponse(w, r, err)
+		helper.ErrorIf(err, "Unable to read acls body")
+		WriteErrorResponse(w, r, ErrInvalidAcl)
+		return
+	}
+	var policy AccessControlPolicy
+	err = xml.Unmarshal(aclBuffer, &policy)
+	if err != nil {
+		helper.ErrorIf(err, "Unable to Unmarshal xml for acl")
+		WriteErrorResponse(w, r, ErrInternalError)
 		return
 	}
 
-	err = api.ObjectAPI.SetObjectAcl(bucketName, objectName, version, acl, credential)
+	version := r.URL.Query().Get("versionId")
+	err = api.ObjectAPI.SetObjectAcl(bucketName, objectName, version, policy, credential)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to set ACL for object")
 		WriteErrorResponse(w, r, err)
@@ -682,24 +689,24 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 	}
 
 	version := r.URL.Query().Get("versionId")
-
-	object, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName, version, credential)
+	policy, err := api.ObjectAPI.GetObjectAcl(bucketName, objectName, version, credential)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to fetch object info.")
+		helper.ErrorIf(err, "Unable to fetch object policy.")
 		WriteErrorResponse(w, r, err)
 		return
 	}
 
-	if object.OwnerId != credential.UserId {
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	aclBuffer, err := xml.Marshal(policy)
+	if err != nil {
+		helper.ErrorIf(err, "Failed to marshal acl XML for object", objectName)
+		WriteErrorResponse(w, r, ErrInternalError)
 		return
 	}
 
-	w.Header().Set("X-Amz-Acl", object.ACL.CannedAcl)
 	if version != "" {
 		w.Header().Set("x-amz-version-id", version)
 	}
-	w.Write(nil)
+	WriteSuccessResponse(w, aclBuffer)
 }
 
 /// Multipart objectAPIHandlers

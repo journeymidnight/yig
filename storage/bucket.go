@@ -86,8 +86,13 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 	return err
 }
 
-func (yig *YigStorage) SetBucketAcl(bucketName string, acl datatype.Acl,
+func (yig *YigStorage) SetBucketAcl(bucketName string, policy datatype.AccessControlPolicy,
 	credential iam.Credential) error {
+
+	acl, err := datatype.GetCannedAclFromPolicy(policy)
+	if err != nil {
+		return err
+	}
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName)
 	if err != nil {
@@ -239,6 +244,27 @@ func (yig *YigStorage) GetBucketVersioning(bucketName string, credential iam.Cre
 	}
 	versioning.Status = helper.Ternary(bucket.Versioning == "Disabled",
 		"", bucket.Versioning).(string)
+	return
+}
+
+func (yig *YigStorage) GetBucketAcl(bucketName string, credential iam.Credential) (
+        policy datatype.AccessControlPolicy, err error) {
+
+	bucket, err := yig.MetaStorage.GetBucket(bucketName)
+	if err != nil {
+		return policy, err
+	}
+	if bucket.OwnerId != credential.UserId {
+		err = ErrBucketAccessForbidden
+		return
+	}
+	owner := datatype.Owner{ID: credential.UserId, DisplayName: credential.DisplayName}
+	bucketOwner := datatype.Owner{}
+	policy, err = datatype.CreatePolicyFromCanned(owner, bucketOwner, bucket.ACL)
+	if err != nil {
+		return policy, err
+	}
+
 	return
 }
 
