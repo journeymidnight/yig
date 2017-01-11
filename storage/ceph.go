@@ -139,6 +139,7 @@ func (cluster *CephStorage) doSmallPut(poolname string, oid string, data io.Read
 	defer pool.Destroy()
 
 	buf, err := ioutil.ReadAll(data)
+	size = int64(len(buf))
 	if err != nil {
 		return 0, errors.New("Read from client failed")
 	}

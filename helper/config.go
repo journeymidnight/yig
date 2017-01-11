@@ -30,6 +30,7 @@ type Config struct {
 	HbaseTimeout               time.Duration
 	DebugMode                  bool
 	AdminKey                   string
+	GcThread                   int
 }
 
 type config struct {
@@ -56,6 +57,7 @@ type config struct {
 	HbaseTimeout               int    // in seconds
 	DebugMode                  bool
 	AdminKey                   string
+	GcThread                   int
 }
 
 var CONFIG Config
@@ -103,4 +105,6 @@ func SetupConfig() {
 		time.Duration(c.HbaseTimeout)*time.Second).(time.Duration)
 	CONFIG.DebugMode = c.DebugMode
 	CONFIG.AdminKey = c.AdminKey
+	CONFIG.GcThread = Ternary(c.GcThread == 0,
+		1, c.GcThread).(int)
 }

@@ -19,6 +19,7 @@ type GarbageCollection struct {
 	Pool       string
 	ObjectId   string
 	Status     string // status of this entry, in Pending/Deleting
+	MTime      time.Time // last modify time of status
 	Parts      map[int]*Part
 	TriedTimes int
 }
@@ -30,6 +31,7 @@ func GarbageCollectionFromObject(o *Object) (gc GarbageCollection) {
 	gc.Pool = o.Pool
 	gc.ObjectId = o.ObjectId
 	gc.Status = "Pending"
+	gc.MTime = time.Now().UTC()
 	gc.Parts = o.Parts
 	gc.TriedTimes = 0
 	return
@@ -81,6 +83,7 @@ func (gc GarbageCollection) GetValues() (values map[string]map[string][]byte, er
 			"pool":     []byte(gc.Pool),
 			"oid":      []byte(gc.ObjectId),
 			"status":   []byte(gc.Status),
+			"mtime":    []byte(gc.MTime.Format(CREATE_TIME_LAYOUT)),
 			"tried":    []byte(strconv.Itoa(gc.TriedTimes)),
 		},
 	}
@@ -149,7 +152,7 @@ func (m *Meta) ScanGarbageCollection(limit int) ([]GarbageCollection, error) {
 	if err != nil {
 		return nil, err
 	}
-	objectsToRemove := make([]GarbageCollection, len(scanResponse))
+	objectsToRemove := make([]GarbageCollection, 0, limit)
 	for _, result := range scanResponse {
 		garbage, err := GarbageCollectionFromResponse(result)
 		if err != nil {
