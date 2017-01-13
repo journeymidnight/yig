@@ -27,6 +27,8 @@ const (
 	MULTIPART_COLUMN_FAMILY               = "m"
 	CLUSTER_TABLE                         = "cluster"
 	CLUSTER_COLUMN_FAMILY                 = "c"
+	OBJMAP_TABLE                          = "objMap"
+	OBJMAP_COLUMN_FAMILY                  = "om"
 
 	CREATE_TIME_LAYOUT = "2006-01-02T15:04:05.000Z"
 
