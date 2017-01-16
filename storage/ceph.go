@@ -151,6 +151,27 @@ func (cluster *CephStorage) doSmallPut(poolname string, oid string, data io.Read
 	return size, nil
 }
 
+func (cluster *CephStorage) doSmallGet(poolName string, oid string, offset int64, length int64,
+					write io.Writer) (size int64, err error) {
+	pool, err := cluster.Conn.OpenPool(poolName)
+	if err != nil {
+		return 0, errors.New("Bad poolname")
+	}
+	defer pool.Destroy()
+
+	buf := make([]byte, length)
+	_, err = pool.Read(oid, buf, uint64(offset))
+	if err != nil {
+		return 0, err
+	}
+	wSize, err := write.Write(buf)
+	size = int64(wSize)
+	if err != nil {
+		return 0, err
+	}
+	return size, nil
+}
+
 func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (size int64, err error) {
 
 	if poolname == SMALL_FILE_POOLNAME {
@@ -332,7 +353,10 @@ func (cluster *CephStorage) getAlignedReader(poolName string, oid string, startO
 
 func (cluster *CephStorage) get(poolName string, oid string, startOffset int64,
 	length int64, writer io.Writer) error {
-
+	if poolName == SMALL_FILE_POOLNAME {
+		_, err := cluster.doSmallGet(poolName, oid, startOffset, length, writer)
+		return err
+	}
 	reader, err := cluster.getReader(poolName, oid, startOffset, length)
 	if err != nil {
 		return err
