@@ -36,7 +36,6 @@ type LocationResponse struct {
 type ListObjectsResponse struct {
 	XMLName xml.Name `xml:"ListBucketResult"`
 
-	Contents       []Object
 	CommonPrefixes []CommonPrefix
 	Delimiter      string
 	EncodingType   string `xml:"Encoding-Type,omitempty"`
@@ -54,6 +53,8 @@ type ListObjectsResponse struct {
 	ContinuationToken     string `xml:",omitempty"`
 	NextContinuationToken string `xml:",omitempty"`
 	StartAfter            string `xml:",omitempty"`
+
+	Contents       []Object
 }
 
 type VersionedListObjectsResponse struct {
@@ -164,11 +165,11 @@ type ListMultipartUploadsResponse struct {
 // ListBucketsResponse - format for list buckets response
 type ListBucketsResponse struct {
 	XMLName xml.Name `xml:"http://s3.amazonaws.com/doc/2006-03-01/ ListAllMyBucketsResult" json:"-"`
+	Owner Owner
 	// Container for one or more buckets.
 	Buckets struct {
 		Buckets []Bucket `xml:"Bucket"`
 	} // Buckets are nested
-	Owner Owner
 }
 
 // Upload container for in progress multipart upload
