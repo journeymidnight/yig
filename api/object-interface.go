@@ -27,7 +27,8 @@ import (
 type ObjectLayer interface {
 	// Bucket operations.
 	MakeBucket(bucket string, acl datatype.Acl, credential iam.Credential) error
-	SetBucketAcl(bucket string, policy datatype.AccessControlPolicy, credential iam.Credential) error
+	SetBucketAcl(bucket string, policy datatype.AccessControlPolicy, acl datatype.Acl,
+		credential iam.Credential) error
 	GetBucketAcl(bucket string, credential iam.Credential) (datatype.AccessControlPolicy, error)
 	SetBucketCors(bucket string, cors datatype.Cors, credential iam.Credential) error
 	SetBucketVersioning(bucket string, versioning datatype.Versioning, credential iam.Credential) error
@@ -54,7 +55,7 @@ type ObjectLayer interface {
 	CopyObject(targetObject *meta.Object, source io.Reader, credential iam.Credential,
 		sse datatype.SseRequest) (result datatype.PutObjectResult, err error)
 	SetObjectAcl(bucket string, object string, version string, policy datatype.AccessControlPolicy,
-		credential iam.Credential) error
+		acl datatype.Acl, credential iam.Credential) error
 	GetObjectAcl(bucket string, object string, version string, credential iam.Credential) (
 	        policy datatype.AccessControlPolicy, err error)
 	DeleteObject(bucket, object, version string, credential iam.Credential) (datatype.DeleteObjectResult,

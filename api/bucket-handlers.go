@@ -393,21 +393,26 @@ func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	aclBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 1024))
-	if err != nil {
-		helper.ErrorIf(err, "Unable to read acls body")
-		WriteErrorResponse(w, r, ErrInvalidAcl)
-		return
-	}
+	var acl Acl
 	var policy AccessControlPolicy
-	err = xml.Unmarshal(aclBuffer, &policy)
-	if err != nil {
-		helper.ErrorIf(err, "Unable to parse acls xml body")
-		WriteErrorResponse(w, r, ErrInternalError)
-		return
+	if _, ok := r.Header["X-Amz-Acl"]; ok {
+		acl, err = getAclFromHeader(r.Header)
+	} else {
+		aclBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 1024))
+		if err != nil {
+			helper.ErrorIf(err, "Unable to read acls body")
+			WriteErrorResponse(w, r, ErrInvalidAcl)
+			return
+		}
+		err = xml.Unmarshal(aclBuffer, &policy)
+		if err != nil {
+			helper.ErrorIf(err, "Unable to parse acls xml body")
+			WriteErrorResponse(w, r, ErrInternalError)
+			return
+		}
 	}
 
-	err = api.ObjectAPI.SetBucketAcl(bucket, policy, credential)
+	err = api.ObjectAPI.SetBucketAcl(bucket, policy, acl, credential)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to set ACL for bucket.")
 		WriteErrorResponse(w, r, err)
