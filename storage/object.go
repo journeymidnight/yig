@@ -274,11 +274,14 @@ func (yig *YigStorage) GetObjectAcl(bucketName string, objectName string,
 }
 
 func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, version string,
-	policy datatype.AccessControlPolicy, credential iam.Credential) error {
+	policy datatype.AccessControlPolicy, acl datatype.Acl, credential iam.Credential) error {
 
-	acl, err := datatype.GetCannedAclFromPolicy(policy)
-	if err != nil {
-		return err
+	if acl.CannedAcl == "" {
+		newCannedAcl, err := datatype.GetCannedAclFromPolicy(policy)
+		if err != nil {
+			return err
+		}
+		acl = newCannedAcl
 	}
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName)

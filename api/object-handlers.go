@@ -638,23 +638,27 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 			return
 		}
 	}
-
-	aclBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 1024))
-	if err != nil {
-		helper.ErrorIf(err, "Unable to read acls body")
-		WriteErrorResponse(w, r, ErrInvalidAcl)
-		return
-	}
+	var acl Acl
 	var policy AccessControlPolicy
-	err = xml.Unmarshal(aclBuffer, &policy)
-	if err != nil {
-		helper.ErrorIf(err, "Unable to Unmarshal xml for acl")
-		WriteErrorResponse(w, r, ErrInternalError)
-		return
+	if _, ok := r.Header["X-Amz-Acl"]; ok {
+		acl, err = getAclFromHeader(r.Header)
+	} else {
+		aclBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 1024))
+		if err != nil {
+			helper.ErrorIf(err, "Unable to read acls body")
+			WriteErrorResponse(w, r, ErrInvalidAcl)
+			return
+		}
+		err = xml.Unmarshal(aclBuffer, &policy)
+		if err != nil {
+			helper.ErrorIf(err, "Unable to Unmarshal xml for acl")
+			WriteErrorResponse(w, r, ErrInternalError)
+			return
+		}
 	}
 
 	version := r.URL.Query().Get("versionId")
-	err = api.ObjectAPI.SetObjectAcl(bucketName, objectName, version, policy, credential)
+	err = api.ObjectAPI.SetObjectAcl(bucketName, objectName, version, policy, acl, credential)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to set ACL for object")
 		WriteErrorResponse(w, r, err)

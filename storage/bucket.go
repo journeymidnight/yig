@@ -86,12 +86,15 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 	return err
 }
 
-func (yig *YigStorage) SetBucketAcl(bucketName string, policy datatype.AccessControlPolicy,
+func (yig *YigStorage) SetBucketAcl(bucketName string, policy datatype.AccessControlPolicy, acl datatype.Acl,
 	credential iam.Credential) error {
 
-	acl, err := datatype.GetCannedAclFromPolicy(policy)
-	if err != nil {
-		return err
+	if acl.CannedAcl == "" {
+		newCannedAcl, err := datatype.GetCannedAclFromPolicy(policy)
+		if err != nil {
+			return err
+		}
+		acl = newCannedAcl
 	}
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName)
