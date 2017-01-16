@@ -393,12 +393,21 @@ func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	acl, err := getAclFromHeader(r.Header)
+	aclBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 1024))
 	if err != nil {
-		WriteErrorResponse(w, r, err)
+		helper.ErrorIf(err, "Unable to read acls body")
+		WriteErrorResponse(w, r, ErrInvalidAcl)
 		return
 	}
-	err = api.ObjectAPI.SetBucketAcl(bucket, acl, credential)
+	var policy AccessControlPolicy
+	err = xml.Unmarshal(aclBuffer, &policy)
+	if err != nil {
+		helper.ErrorIf(err, "Unable to parse acls xml body")
+		WriteErrorResponse(w, r, ErrInternalError)
+		return
+	}
+
+	err = api.ObjectAPI.SetBucketAcl(bucket, policy, credential)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to set ACL for bucket.")
 		WriteErrorResponse(w, r, err)
@@ -428,15 +437,20 @@ func (api ObjectAPIHandlers) GetBucketAclHandler(w http.ResponseWriter, r *http.
 		}
 	}
 
-	bucket, err := api.ObjectAPI.GetBucketInfo(bucketName, credential)
+	policy, err := api.ObjectAPI.GetBucketAcl(bucketName, credential)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to fetch bucket info.")
+		helper.ErrorIf(err, "Failed to get bucket acl policy for bucket", bucketName)
 		WriteErrorResponse(w, r, err)
 		return
 	}
 
-	w.Header().Set("X-Amz-Acl", bucket.ACL.CannedAcl)
-	w.Write(nil)
+	aclBuffer, err := xml.Marshal(policy)
+	if err != nil {
+		helper.ErrorIf(err, "Failed to marshal acl XML for bucket", bucketName)
+		WriteErrorResponse(w, r, ErrInternalError)
+		return
+	}
+	WriteSuccessResponse(w, aclBuffer)
 }
 
 func (api ObjectAPIHandlers) PutBucketCorsHandler(w http.ResponseWriter, r *http.Request) {
@@ -728,7 +742,8 @@ func (api ObjectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *h
 	if acl.CannedAcl == "" {
 		acl.CannedAcl = "private"
 	}
-	if !helper.StringInSlice(acl.CannedAcl, validCannedAcl) {
+	err = IsValidCannedAcl(acl)
+	if err != nil {
 		WriteErrorResponse(w, r, ErrInvalidCannedAcl)
 		return
 	}

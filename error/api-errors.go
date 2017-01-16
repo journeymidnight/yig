@@ -119,6 +119,8 @@ const (
 	ErrInvalidHeader   // supplementary error for golang http lib
 	ErrNoSuchBucketCors
 	ErrPolicyMissingFields
+	ErrInvalidAcl
+	ErrUnsupportedAcl
 )
 
 // error code to APIError structure, these fields carry respective
@@ -501,6 +503,16 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "AccessDenied",
 		Description:    "Missing policy condition",
 		HttpStatusCode: http.StatusForbidden,
+	},
+	ErrInvalidAcl: {
+		AwsErrorCode:   "IllegalAclConfigurationException",
+		Description:    "The ACL configuration specified in the request is invalid.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrUnsupportedAcl: {
+		AwsErrorCode:   "UnsupportedAclConfigurationException",
+		Description:    "The ACL configuration specified in the request is unsupported.",
+		HttpStatusCode: http.StatusBadRequest,
 	},
 }
 
