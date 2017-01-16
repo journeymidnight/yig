@@ -3,16 +3,21 @@ package main
 import (
     "fmt"
     "github.com/dgrijalva/jwt-go"
-    "git.letv.cn/yig/yig/helper"
     "net/http"
-    "strings"
     "io/ioutil"
     "os"
     "flag"
+    "encoding/json"
 )
 
 var client = &http.Client{}
 
+type Config struct {
+    RequestUrl                     string
+    AdminKey                       string
+}
+
+var config Config
 func printHelp() {
     fmt.Println("Usage: admin <commands> [options...] ")
     fmt.Println("Commands: usage|bucket|object|user|cachehit")
@@ -40,7 +45,7 @@ func getusage(bucket string) {
         "bucket": bucket,
     })
 
-    tokenString, err := token.SignedString([]byte(helper.CONFIG.AdminKey))
+    tokenString, err := token.SignedString([]byte(config.AdminKey))
 
     if(err==nil) {
         //go use token
@@ -50,8 +55,7 @@ func getusage(bucket string) {
         return
     }
 
-    port := strings.Split(helper.CONFIG.BindAdminAddress,":")[1]
-    url := "http://" + "127.0.0.1:" + port + "/admin/usage"
+    url := config.RequestUrl + "/admin/usage"
     request, _ := http.NewRequest("GET", url, nil)
     request.Header.Set("Authorization", "Bearer " + tokenString)
     response,_ := client.Do(request)
@@ -74,7 +78,7 @@ func getBucketInfo(bucket string) {
         "bucket": bucket,
     })
 
-    tokenString, err := token.SignedString([]byte(helper.CONFIG.AdminKey))
+    tokenString, err := token.SignedString([]byte(config.AdminKey))
 
     if(err==nil) {
         //go use token
@@ -84,8 +88,7 @@ func getBucketInfo(bucket string) {
         return
     }
 
-    port := strings.Split(helper.CONFIG.BindAdminAddress,":")[1]
-    url := "http://" + "127.0.0.1:" + port + "/admin/bucket"
+    url := config.RequestUrl + "/admin/bucket"
     request, _ := http.NewRequest("GET", url, nil)
     request.Header.Set("Authorization", "Bearer " + tokenString)
     response,_ := client.Do(request)
@@ -109,7 +112,7 @@ func getUserInfo(uid string) {
         "uid": uid,
     })
 
-    tokenString, err := token.SignedString([]byte(helper.CONFIG.AdminKey))
+    tokenString, err := token.SignedString([]byte(config.AdminKey))
 
     if(err==nil) {
         //go use token
@@ -119,8 +122,7 @@ func getUserInfo(uid string) {
         return
     }
 
-    port := strings.Split(helper.CONFIG.BindAdminAddress,":")[1]
-    url := "http://" + "127.0.0.1:" + port + "/admin/user"
+    url := config.RequestUrl + "/admin/user"
     request, _ := http.NewRequest("GET", url, nil)
     request.Header.Set("Authorization", "Bearer " + tokenString)
     response,_ := client.Do(request)
@@ -145,7 +147,7 @@ func getObjectInfo(bucket string, object string) {
         "object": object,
     })
 
-    tokenString, err := token.SignedString([]byte(helper.CONFIG.AdminKey))
+    tokenString, err := token.SignedString([]byte(config.AdminKey))
 
     if(err==nil) {
         //go use token
@@ -155,8 +157,7 @@ func getObjectInfo(bucket string, object string) {
         return
     }
 
-    port := strings.Split(helper.CONFIG.BindAdminAddress,":")[1]
-    url := "http://" + "127.0.0.1:" + port + "/admin/object"
+    url := config.RequestUrl + "/admin/object"
     request, _ := http.NewRequest("GET", url, nil)
     request.Header.Set("Authorization","Bearer " + tokenString)
     response,_ := client.Do(request)
@@ -174,7 +175,7 @@ func getCacheHit() {
     token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
     })
 
-    tokenString, err := token.SignedString([]byte(helper.CONFIG.AdminKey))
+    tokenString, err := token.SignedString([]byte(config.AdminKey))
 
     if(err==nil) {
         //go use token
@@ -184,8 +185,7 @@ func getCacheHit() {
         return
     }
 
-    port := strings.Split(helper.CONFIG.BindAdminAddress,":")[1]
-    url := "http://" + "127.0.0.1:" + port + "/admin/cachehit"
+    url := config.RequestUrl + "/admin/cachehit"
     request, _ := http.NewRequest("GET", url, nil)
     request.Header.Set("Authorization", "Bearer " + tokenString)
     response,_ := client.Do(request)
@@ -201,7 +201,16 @@ func getCacheHit() {
 }
 
 func main() {
-    helper.SetupConfig()
+    f, err := os.Open("./admin.json")
+    if err != nil {
+        panic("Cannot open admin.json")
+    }
+    defer f.Close()
+
+    err = json.NewDecoder(f).Decode(&config)
+    if err != nil {
+        panic("Failed to parse yig.json: " + err.Error())
+    }
     if len(os.Args) <= 1 {
         printHelp()
         return

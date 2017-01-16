@@ -32,7 +32,6 @@ func initializeRecycler(yig *YigStorage) {
 		RecycleQueue = make(chan objectToRecycle, RECYCLE_QUEUE_SIZE)
 	}
 	// TODO: move this part of code to an isolated daemon
-	//go removeDeleted(yig)
 	go removeFailed(yig)
 }
 
