@@ -26,8 +26,8 @@ import (
 	"net/http"
 	"strings"
 
-	. "git.letv.cn/yig/yig/error"
-	"git.letv.cn/yig/yig/iam"
+	. "legitlab.letv.cn/yig/yig/error"
+	"legitlab.letv.cn/yig/yig/iam"
 )
 
 // Verify if request has AWS Signature

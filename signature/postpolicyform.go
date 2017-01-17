@@ -24,8 +24,8 @@ import (
 	"strings"
 	"time"
 
-	. "git.letv.cn/yig/yig/error"
-	"git.letv.cn/yig/yig/helper"
+	. "legitlab.letv.cn/yig/yig/error"
+	"legitlab.letv.cn/yig/yig/helper"
 	"net/http"
 	"regexp"
 )

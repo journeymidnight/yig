@@ -5,7 +5,7 @@ import (
 	"encoding/hex"
 	"log"
 
-	"git.letv.cn/yig/yig/helper"
+	"legitlab.letv.cn/yig/yig/helper"
 	"github.com/cannium/gohbase"
 	"github.com/xxtea/xxtea-go/xxtea"
 )

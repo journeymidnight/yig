@@ -19,10 +19,11 @@ package api
 import (
 	"bytes"
 	"encoding/xml"
-	. "git.letv.cn/yig/yig/api/datatype"
-	"git.letv.cn/yig/yig/meta"
 	"net/http"
 	"strconv"
+
+	. "legitlab.letv.cn/yig/yig/api/datatype"
+	"legitlab.letv.cn/yig/yig/meta"
 )
 
 // Encodes the response headers into XML format.

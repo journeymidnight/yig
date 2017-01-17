@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"git.letv.cn/yig/yig/helper"
-	"git.letv.cn/yig/yig/redis"
+	"legitlab.letv.cn/yig/yig/helper"
+	"legitlab.letv.cn/yig/yig/redis"
 	"github.com/mediocregopher/radix.v2/pubsub"
 )
 

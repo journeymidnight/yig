@@ -17,7 +17,7 @@
 package meta
 
 import (
-	"git.letv.cn/yig/yig/api/datatype"
+	"legitlab.letv.cn/yig/yig/api/datatype"
 )
 
 // ListObjectsInfo - container for list objects.

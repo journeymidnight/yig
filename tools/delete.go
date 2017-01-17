@@ -1,10 +1,10 @@
 package main
 
 import (
-	"git.letv.cn/yig/yig/helper"
+	"legitlab.letv.cn/yig/yig/helper"
 	"time"
-	"git.letv.cn/yig/yig/storage"
-	"git.letv.cn/yig/yig/meta"
+	"legitlab.letv.cn/yig/yig/storage"
+	"legitlab.letv.cn/yig/yig/meta"
 	"log"
 	"os"
 	"context"

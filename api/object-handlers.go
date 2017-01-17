@@ -27,12 +27,12 @@ import (
 	"strconv"
 	"strings"
 
-	. "git.letv.cn/yig/yig/api/datatype"
-	. "git.letv.cn/yig/yig/error"
-	"git.letv.cn/yig/yig/helper"
-	"git.letv.cn/yig/yig/iam"
-	"git.letv.cn/yig/yig/meta"
-	"git.letv.cn/yig/yig/signature"
+	. "legitlab.letv.cn/yig/yig/api/datatype"
+	. "legitlab.letv.cn/yig/yig/error"
+	"legitlab.letv.cn/yig/yig/helper"
+	"legitlab.letv.cn/yig/yig/iam"
+	"legitlab.letv.cn/yig/yig/meta"
+	"legitlab.letv.cn/yig/yig/signature"
 	mux "github.com/gorilla/mux"
 )
 

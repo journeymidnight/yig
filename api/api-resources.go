@@ -20,9 +20,9 @@ import (
 	"net/url"
 	"strconv"
 
-	. "git.letv.cn/yig/yig/api/datatype"
-	. "git.letv.cn/yig/yig/error"
-	"git.letv.cn/yig/yig/helper"
+	. "legitlab.letv.cn/yig/yig/api/datatype"
+	. "legitlab.letv.cn/yig/yig/error"
+	"legitlab.letv.cn/yig/yig/helper"
 )
 
 func parseListObjectsQuery(query url.Values) (request ListObjectsRequest, err error) {

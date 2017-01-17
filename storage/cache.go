@@ -5,9 +5,9 @@ import (
 	"io/ioutil"
 	"time"
 
-	"git.letv.cn/yig/yig/helper"
-	"git.letv.cn/yig/yig/meta"
-	"git.letv.cn/yig/yig/redis"
+	"legitlab.letv.cn/yig/yig/helper"
+	"legitlab.letv.cn/yig/yig/meta"
+	"legitlab.letv.cn/yig/yig/redis"
 )
 
 const (

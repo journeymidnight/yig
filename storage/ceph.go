@@ -4,7 +4,7 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
-	"git.letv.cn/ceph/radoshttpd/rados"
+	"legitlab.letv.cn/ceph/radoshttpd/rados"
 	"io"
 	"log"
 	"sync"

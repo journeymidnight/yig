@@ -27,9 +27,9 @@ import (
 	"syscall"
 	"time"
 
-	"git.letv.cn/yig/yig/api"
-	"git.letv.cn/yig/yig/helper"
-	"git.letv.cn/yig/yig/storage"
+	"legitlab.letv.cn/yig/yig/api"
+	"legitlab.letv.cn/yig/yig/helper"
+	"legitlab.letv.cn/yig/yig/storage"
 	router "github.com/gorilla/mux"
 )
 

@@ -2,7 +2,7 @@ package api
 
 import (
 	"context"
-	"git.letv.cn/yig/yig/helper"
+	"legitlab.letv.cn/yig/yig/helper"
 	"net/http"
 )
 

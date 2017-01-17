@@ -19,9 +19,9 @@ package api
 import (
 	"crypto/md5"
 	"encoding/base64"
-	. "git.letv.cn/yig/yig/api/datatype"
-	. "git.letv.cn/yig/yig/error"
-	"git.letv.cn/yig/yig/helper"
+	. "legitlab.letv.cn/yig/yig/api/datatype"
+	. "legitlab.letv.cn/yig/yig/error"
+	"legitlab.letv.cn/yig/yig/helper"
 	"io"
 	"net/http"
 	"strings"

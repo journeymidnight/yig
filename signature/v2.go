@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"errors"
-	"git.letv.cn/yig/yig/api/datatype"
-	. "git.letv.cn/yig/yig/error"
-	"git.letv.cn/yig/yig/helper"
-	"git.letv.cn/yig/yig/iam"
+	"legitlab.letv.cn/yig/yig/api/datatype"
+	. "legitlab.letv.cn/yig/yig/error"
+	"legitlab.letv.cn/yig/yig/helper"
+	"legitlab.letv.cn/yig/yig/iam"
 //	"net"
 	"strconv"
 )

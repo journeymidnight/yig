@@ -1,7 +1,7 @@
 package api
 
 import (
-	. "git.letv.cn/yig/yig/api/datatype"
+	. "legitlab.letv.cn/yig/yig/api/datatype"
 	"net/http"
 )
 

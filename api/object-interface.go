@@ -17,9 +17,9 @@
 package api
 
 import (
-	"git.letv.cn/yig/yig/api/datatype"
-	"git.letv.cn/yig/yig/iam"
-	"git.letv.cn/yig/yig/meta"
+	"legitlab.letv.cn/yig/yig/api/datatype"
+	"legitlab.letv.cn/yig/yig/iam"
+	"legitlab.letv.cn/yig/yig/meta"
 	"io"
 )
 

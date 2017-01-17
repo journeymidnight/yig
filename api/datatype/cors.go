@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	. "git.letv.cn/yig/yig/error"
-	"git.letv.cn/yig/yig/helper"
+	. "legitlab.letv.cn/yig/yig/error"
+	"legitlab.letv.cn/yig/yig/helper"
 )
 
 const (

@@ -1,7 +1,7 @@
 package datatype
 
 import (
-	. "git.letv.cn/yig/yig/error"
+	. "legitlab.letv.cn/yig/yig/error"
 	"time"
 )
 

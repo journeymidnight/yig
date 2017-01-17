@@ -3,8 +3,8 @@ package datatype
 import (
 	"encoding/xml"
 
-	. "git.letv.cn/yig/yig/error"
-	"git.letv.cn/yig/yig/helper"
+	. "legitlab.letv.cn/yig/yig/error"
+	"legitlab.letv.cn/yig/yig/helper"
 )
 
 type Versioning struct {

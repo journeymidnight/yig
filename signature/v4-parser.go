@@ -21,9 +21,9 @@ import (
 	"strings"
 	"time"
 
-	. "git.letv.cn/yig/yig/api/datatype"
-	. "git.letv.cn/yig/yig/error"
-	"git.letv.cn/yig/yig/iam"
+	. "legitlab.letv.cn/yig/yig/api/datatype"
+	. "legitlab.letv.cn/yig/yig/error"
+	"legitlab.letv.cn/yig/yig/iam"
 	"net/http"
 	"sort"
 )

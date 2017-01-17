@@ -2,7 +2,7 @@ package redis
 
 import (
 	"encoding/json"
-	"git.letv.cn/yig/yig/helper"
+	"legitlab.letv.cn/yig/yig/helper"
 	"github.com/mediocregopher/radix.v2/pool"
 	"github.com/mediocregopher/radix.v2/redis"
 	"strconv"

@@ -14,9 +14,9 @@ Require:
 Steps:
 
 ```shell
-mkdir -p $GOPATH/src/git.letv.cn/yig
-cd $GOPATH/src/git.letv.cn/yig
-git clone git@git.letv.cn:yig/yig.git 
+mkdir -p $GOPATH/src/legitlab.letv.cn/yig
+cd $GOPATH/src/legitlab.letv.cn/yig
+git clone git@legitlab.letv.cn:yig/yig.git 
 cd $YIG_DIR
 go get ./...
 go build
