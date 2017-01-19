@@ -3,14 +3,16 @@ package main
 import (
 	"log"
 	"net/http"
-
-	. "legitlab.letv.cn/yig/yig/error"
 	"legitlab.letv.cn/yig/yig/helper"
 	"legitlab.letv.cn/yig/yig/iam"
 	"legitlab.letv.cn/yig/yig/storage"
+	router "github.com/gorilla/mux"
 	"github.com/dgrijalva/jwt-go"
-	jwtmiddleware "github.com/iris-contrib/middleware/jwt"
-	"github.com/kataras/iris"
+	"net"
+	"time"
+	"legitlab.letv.cn/yig/yig/api"
+	"encoding/json"
+	"legitlab.letv.cn/yig/yig/meta"
 )
 
 type adminServerConfig struct {
@@ -24,6 +26,14 @@ type userJson struct {
 	Keys    []iam.AccessKeyItem
 }
 
+type bucketJson struct {
+	Bucket meta.Bucket
+}
+
+type objectJson struct {
+	Object *meta.Object
+}
+
 type cacheJson struct {
 	HitRate float64
 }
@@ -33,81 +43,46 @@ type usageJson struct {
 }
 
 var adminServer *adminServerConfig
-var myJwtMiddleware *jwtmiddleware.Middleware
+type handlerFunc func(http.Handler) http.Handler
 
-func getUsage(ctx *iris.Context) {
-	helper.Debugln("enter getusage")
-	var bucketName string
-	userToken := myJwtMiddleware.Get(ctx)
-	if claims, ok := userToken.Claims.(jwt.MapClaims); ok && userToken.Valid {
-		bucketName = claims["bucket"].(string)
-	} else {
-		ctx.EmitError(400)
-		return
-	}
+
+func getUsage(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value("claims").(jwt.MapClaims)
+	bucketName := claims["bucket"].(string)
 
 	usage, err := adminServer.Yig.MetaStorage.GetUsage(bucketName)
 	if err != nil {
-		ctx.Writef("get usage for bucket:%s failed", bucketName)
+		api.WriteErrorResponse(w,r,err)
 		return
 	}
-	helper.Debugln("enter getusage", bucketName, usage)
-	ctx.JSON(iris.StatusOK, usageJson{Usage: usage})
+	b, err := json.Marshal(usageJson{Usage: usage})
+	w.Write(b)
 	return
 }
 
-func getBucketInfo(ctx *iris.Context) {
-
-	helper.Debugln("enter getBucketInfo")
-	var bucketName string
-
-	userToken := myJwtMiddleware.Get(ctx)
-	if claims, ok := userToken.Claims.(jwt.MapClaims); ok && userToken.Valid {
-		bucketName = claims["bucket"].(string)
-	} else {
-		ctx.EmitError(400)
-		return
-	}
+func getBucketInfo(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value("claims").(jwt.MapClaims)
+	bucketName := claims["bucket"].(string)
 
 	helper.Debugln("bucketName:", bucketName)
 	bucket, err := adminServer.Yig.MetaStorage.GetBucketInfo(bucketName)
 	if err != nil {
-		var status int
-		apiErrorCode, ok := err.(ApiError)
-		if ok {
-			status = apiErrorCode.HttpStatusCode()
-		} else {
-			status = http.StatusInternalServerError
-		}
-		ctx.JSON(status, "")
+		api.WriteErrorResponse(w,r,err)
 		return
 	}
 
-	ctx.JSON(iris.StatusOK, bucket)
+	b, err := json.Marshal(bucketJson{Bucket: bucket})
+	w.Write(b)
 	return
 }
 
-func getUserInfo(ctx *iris.Context) {
-	helper.Debugln("enter getUserInfo")
-	var uid string
-	userToken := myJwtMiddleware.Get(ctx)
-	if claims, ok := userToken.Claims.(jwt.MapClaims); ok && userToken.Valid {
-		uid = claims["uid"].(string)
-	} else {
-		ctx.EmitError(400)
-		return
-	}
+func getUserInfo(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value("claims").(jwt.MapClaims)
+	uid := claims["uid"].(string)
 
 	buckets, err := adminServer.Yig.MetaStorage.GetUserInfo(uid)
 	if err != nil {
-		var status int
-		apiErrorCode, ok := err.(ApiError)
-		if ok {
-			status = apiErrorCode.HttpStatusCode()
-		} else {
-			status = http.StatusInternalServerError
-		}
-		ctx.EmitError(status)
+		api.WriteErrorResponse(w,r,err)
 		return
 	}
 	helper.Debugln("enter getUserInfo", uid, buckets)
@@ -116,86 +91,101 @@ func getUserInfo(ctx *iris.Context) {
 	if helper.CONFIG.DebugMode == false {
 		keys, err = iam.GetKeysByUid(uid)
 		if err != nil {
-			var status int
-
-			apiErrorCode, ok := err.(ApiError)
-			if ok {
-				status = apiErrorCode.HttpStatusCode()
-			} else {
-				status = http.StatusInternalServerError
-			}
-			ctx.EmitError(status)
+			api.WriteErrorResponse(w,r,err)
 			return
 		}
 	}
-	ctx.JSON(iris.StatusOK, userJson{Buckets: buckets, Keys: keys})
-
+	b, err := json.Marshal(userJson{Buckets: buckets, Keys: keys})
+	w.Write(b)
 	return
 }
 
-func getObjectInfo(ctx *iris.Context) {
+func getObjectInfo(w http.ResponseWriter, r *http.Request) {
 	helper.Debugln("enter getObjectInfo")
-	var bucketName string
-	var objectName string
-
-	userToken := myJwtMiddleware.Get(ctx)
-	if claims, ok := userToken.Claims.(jwt.MapClaims); ok && userToken.Valid {
-		bucketName = claims["bucket"].(string)
-		objectName = claims["object"].(string)
-	} else {
-		ctx.EmitError(400)
-		return
-	}
+	claims := r.Context().Value("claims").(jwt.MapClaims)
+	bucketName := claims["bucket"].(string)
+	objectName := claims["object"].(string)
 
 	object, err := adminServer.Yig.MetaStorage.GetObject(bucketName, objectName)
 	if err != nil {
-		var status int
-
-		apiErrorCode, ok := err.(ApiError)
-		if ok {
-			status = apiErrorCode.HttpStatusCode()
-		} else {
-			status = http.StatusInternalServerError
-		}
-		ctx.EmitError(status)
+		api.WriteErrorResponse(w,r,err)
 		return
 	}
-	ctx.JSON(iris.StatusOK, object)
+	b, err := json.Marshal(objectJson{Object: object})
+	w.Write(b)
 	return
 }
 
-func getCacheHitRatio(ctx *iris.Context) {
+func getCacheHitRatio(w http.ResponseWriter, r *http.Request) {
 	helper.Debugln("enter getCacheHitRatio")
-	userToken := myJwtMiddleware.Get(ctx)
-	if userToken.Valid == false {
-		ctx.EmitError(403)
-		return
-	}
 
 	rate := adminServer.Yig.MetaStorage.Cache.GetCacheHitRatio()
-	ctx.JSON(iris.StatusOK, cacheJson{HitRate: rate})
+	b, _ := json.Marshal(cacheJson{HitRate: rate})
+	w.Write(b)
 	return
 }
 
-func startAdminServer(config *adminServerConfig) {
-	adminServer = config
-	iris.Get("/hi", func(ctx *iris.Context) {
-		ctx.Writef("Hi %s", "YIG")
-	})
+var handlerFns = []handlerFunc{
+	SetJwtMiddlewareHandler,
+}
 
-	myJwtMiddleware = jwtmiddleware.New(jwtmiddleware.Config{
-		ValidationKeyGetter: func(token *jwt.Token) (interface{}, error) {
-			return []byte(helper.CONFIG.AdminKey), nil
-		},
-		SigningMethod: jwt.SigningMethodHS256,
-	})
+func RegisterHandlers(router *router.Router, handlerFns ...handlerFunc) http.Handler {
+	var f http.Handler
+	f = router
+	for _, hFn := range handlerFns {
+		f = hFn(f)
+	}
+	return f
+}
 
-	iris.Get("/admin/usage", myJwtMiddleware.Serve, getUsage)
-	iris.Get("/admin/user", myJwtMiddleware.Serve, getUserInfo)
-	iris.Get("/admin/bucket", myJwtMiddleware.Serve, getBucketInfo)
-	iris.Get("/admin/object", myJwtMiddleware.Serve, getObjectInfo)
-	iris.Get("/admin/cachehit", myJwtMiddleware.Serve, getCacheHitRatio)
-	go iris.Listen(config.Address)
+func configureAdminHandler() http.Handler {
+	mux := router.NewRouter()
+	apiRouter := mux.NewRoute().PathPrefix("/").Subrouter()
+	admin := apiRouter.PathPrefix("/admin").Subrouter()
+	admin.Methods("GET").Path("/usage").HandlerFunc(getUsage)
+	admin.Methods("GET").Path("/user").HandlerFunc(getUserInfo)
+	admin.Methods("GET").Path("/bucket").HandlerFunc(getBucketInfo)
+	admin.Methods("GET").Path("/object").HandlerFunc(getObjectInfo)
+	admin.Methods("GET").Path("/cachehit").HandlerFunc(getCacheHitRatio)
+
+	handle := RegisterHandlers(mux, handlerFns...)
+	return handle
+}
+
+func startAdminServer(c *adminServerConfig) {
+	adminServer = c
+	serverAddress := c.Address
+	host, port, _ := net.SplitHostPort(serverAddress)
+	// If port empty, default to port '80'
+	if port == "" {
+		port = "9000"
+	}
+
+	// Check if requested port is available.
+	checkPortAvailability(getPort(net.JoinHostPort(host, port)))
+
+	adminServer := &http.Server{
+		Addr: c.Address,
+		// Adding timeout of 10 minutes for unresponsive client connections.
+		ReadTimeout:    10 * time.Minute,
+		WriteTimeout:   10 * time.Minute,
+		Handler:        configureAdminHandler(),
+		MaxHeaderBytes: 1 << 20,
+	}
+
+
+	hosts, port := getListenIPs(adminServer) // get listen ips and port.
+
+	logger.Println("\nS3 Object Storage:")
+	// Print api listen ips.
+	printListenIPs(false, hosts, port)
+
+	go func() {
+		var err error
+		// Configure TLS if certs are available.
+		err = adminServer.ListenAndServe()
+		helper.FatalIf(err, "API server error.")
+	}()
 }
 
 func stopAdminServer() {

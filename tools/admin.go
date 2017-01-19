@@ -56,9 +56,17 @@ func getusage(bucket string) {
     }
 
     url := config.RequestUrl + "/admin/usage"
-    request, _ := http.NewRequest("GET", url, nil)
+    request, err := http.NewRequest("GET", url, nil)
+    if err != nil {
+        fmt.Println("create request failed", err)
+        return
+    }
     request.Header.Set("Authorization", "Bearer " + tokenString)
-    response,_ := client.Do(request)
+    response, err := client.Do(request)
+    if err != nil {
+        fmt.Println("send request failed",err)
+        return
+    }
     if response.StatusCode != 200 {
         fmt.Println("getBucketInfo failed as status != 200", response.StatusCode)
         return
