@@ -2,12 +2,12 @@ package storage
 
 import (
 	"io"
-	"io/ioutil"
 	"time"
 
 	"legitlab.letv.cn/yig/yig/helper"
 	"legitlab.letv.cn/yig/yig/meta"
 	"legitlab.letv.cn/yig/yig/redis"
+	"bytes"
 )
 
 const (
@@ -74,18 +74,12 @@ func (d *enabledDataCache) WriteFromCache(object *meta.Object, startOffset int64
 	}
 
 	helper.Debugln("File cache MISS")
-	reader, writer := io.Pipe()
-	writeAll := func() {
-		onCacheMiss(writer)
-		writer.Close()
-	}
-	go writeAll()
-	o, err := ioutil.ReadAll(reader)
-	if err != nil {
-		return err
-	}
-	redis.SetBytes(cacheKey, o)
-	_, err = out.Write(o[startOffset : startOffset+length])
+
+	var buffer bytes.Buffer
+	onCacheMiss(&buffer)
+
+	redis.SetBytes(cacheKey, buffer.Bytes())
+	_, err = out.Write(buffer.Bytes()[startOffset : startOffset+length])
 	return err
 }
 
@@ -121,18 +115,12 @@ func (d *enabledDataCache) GetAlignedReader(object *meta.Object, startOffset int
 	}
 
 	helper.Debugln("File cache MISS")
-	reader, writer := io.Pipe()
-	writeAll := func() {
-		onCacheMiss(writer)
-		writer.Close()
-	}
-	go writeAll()
-	file, err = ioutil.ReadAll(reader)
-	if err != nil {
-		return nil, err
-	}
-	redis.SetBytes(cacheKey, file)
-	r := newReadCloser(file[startOffset : startOffset+length])
+
+	var buffer bytes.Buffer
+	onCacheMiss(&buffer)
+
+	redis.SetBytes(cacheKey, buffer.Bytes())
+	r := newReadCloser(buffer.Bytes()[startOffset : startOffset+length])
 	return r, nil
 }
 
