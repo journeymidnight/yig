@@ -53,6 +53,11 @@ func GarbageCollectionFromResponse(response *hrpc.Result) (garbage GarbageCollec
 				garbage.ObjectId = string(cell.Value)
 			case "status":
 				garbage.Status = string(cell.Value)
+			case "mtime":
+				garbage.MTime, err = time.Parse(CREATE_TIME_LAYOUT, string(cell.Value))
+				if err != nil {
+					return
+				}
 			case "tried":
 				garbage.TriedTimes, err = strconv.Atoi(string(cell.Value))
 				if err != nil {

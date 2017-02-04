@@ -27,6 +27,10 @@ import (
 type ObjectLayer interface {
 	// Bucket operations.
 	MakeBucket(bucket string, acl datatype.Acl, credential iam.Credential) error
+	SetBucketLc(bucket string, config datatype.Lc,
+	credential iam.Credential) error
+	GetBucketLc(bucket string, credential iam.Credential) (datatype.Lc, error)
+	DelBucketLc(bucket string, credential iam.Credential) error
 	SetBucketAcl(bucket string, policy datatype.AccessControlPolicy, acl datatype.Acl,
 		credential iam.Credential) error
 	GetBucketAcl(bucket string, credential iam.Credential) (datatype.AccessControlPolicy, error)

@@ -127,6 +127,96 @@ func (yig *YigStorage) SetBucketAcl(bucketName string, policy datatype.AccessCon
 	return nil
 }
 
+func (yig *YigStorage) SetBucketLc(bucketName string, lc datatype.Lc,
+	credential iam.Credential) error {
+	helper.Logger.Println("enter SetBucketLc")
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
+	if err != nil {
+		return err
+	}
+	if bucket.OwnerId != credential.UserId {
+		return ErrBucketAccessForbidden
+	}
+	bucket.LC = lc
+	values, err := bucket.GetValues()
+	if err != nil {
+		return err
+	}
+	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+	defer done()
+	put, err := hrpc.NewPutStr(ctx, meta.BUCKET_TABLE, bucketName, values)
+	if err != nil {
+		yig.Logger.Println("Error making hbase put: ", err)
+		return err
+	}
+	_, err = yig.MetaStorage.Hbase.Put(put)
+	if err != nil {
+		return err
+	}
+	if err == nil {
+		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
+	}
+
+	err = yig.MetaStorage.PutBucketToLifeCycle(bucket)
+	if err != nil {
+		yig.Logger.Println("Error Put bucket to LC table hbase: ", err)
+		return err
+	}
+	return nil
+}
+
+func (yig *YigStorage) GetBucketLc(bucketName string, credential iam.Credential) (lc datatype.Lc,
+	err error) {
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
+	if err != nil {
+		return lc, err
+	}
+	if bucket.OwnerId != credential.UserId {
+		err = ErrBucketAccessForbidden
+		return
+	}
+	if len(bucket.LC.Rule) == 0 {
+		err = ErrNoSuchBucketLc
+		return
+	}
+	return bucket.LC, nil
+}
+
+func (yig *YigStorage) DelBucketLc(bucketName string, credential iam.Credential) error {
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
+	if err != nil {
+		return err
+	}
+	if bucket.OwnerId != credential.UserId {
+		return ErrBucketAccessForbidden
+	}
+	bucket.LC = datatype.Lc{}
+	values, err := bucket.GetValues()
+	if err != nil {
+		return err
+	}
+	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+	defer done()
+	put, err := hrpc.NewPutStr(ctx, meta.BUCKET_TABLE, bucketName, values)
+	if err != nil {
+		yig.Logger.Println("Error making hbase put: ", err)
+		return err
+	}
+	_, err = yig.MetaStorage.Hbase.Put(put)
+	if err != nil {
+		return err
+	}
+	if err == nil {
+		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
+	}
+	err = yig.MetaStorage.RemoveBucketFromLifeCycle(bucket)
+	if err != nil {
+		yig.Logger.Println("Error Remove bucket From LC table hbase: ", err)
+		return err
+	}
+	return nil
+}
+
 func (yig *YigStorage) SetBucketCors(bucketName string, cors datatype.Cors,
 	credential iam.Credential) error {
 
@@ -382,14 +472,23 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 			return err
 		}
 	}
+
 	if err == nil {
 		yig.MetaStorage.Cache.Remove(redis.UserTable, credential.UserId)
 		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
 	}
+
+	if bucket.LC.Rule != nil {
+		err = yig.MetaStorage.RemoveBucketFromLifeCycle(bucket)
+		if err != nil {
+			yig.Logger.Println("Error remove bucket from lifeCycle: ", err)
+		}
+	}
+
 	return nil
 }
 
-func (yig *YigStorage) listObjects(credential iam.Credential, bucketName string,
+func (yig *YigStorage) ListObjectsInternal(bucketName string,
         request datatype.ListObjectsRequest) (retObjects []*meta.Object, prefixes []string, truncated bool,
         nextMarker, nextVerIdMarker string, err error) {
 
@@ -651,7 +750,7 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 	}
 	// TODO validate user policy and ACL
 
-	retObjects, prefixes, truncated, nextMarker, _, err := yig.listObjects(credential, bucketName, request)
+	retObjects, prefixes, truncated, nextMarker, _, err := yig.ListObjectsInternal(bucketName, request)
 	if truncated && len(nextMarker) != 0 {
 		result.NextMarker = nextMarker
 	}
@@ -724,7 +823,7 @@ func (yig *YigStorage) ListVersionedObjects(credential iam.Credential, bucketNam
 		}
 	}
 
-	retObjects, prefixes, truncated, nextMarker, nextVerIdMarker, err := yig.listObjects(credential, bucketName, request)
+	retObjects, prefixes, truncated, nextMarker, nextVerIdMarker, err := yig.ListObjectsInternal(bucketName, request)
 	if truncated && len(nextMarker) != 0 {
 		result.NextKeyMarker = nextMarker
 		result.NextVersionIdMarker = nextVerIdMarker

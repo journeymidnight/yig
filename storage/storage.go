@@ -47,7 +47,6 @@ func New(logger *log.Logger, metaCacheType int, enableDataCache bool) *YigStorag
 		Stopping:    false,
 		WaitGroup:   new(sync.WaitGroup),
 	}
-
 	cephConfs, err := filepath.Glob(CEPH_CONFIG_PATTERN)
 	if err != nil {
 		panic("No ceph conf found")

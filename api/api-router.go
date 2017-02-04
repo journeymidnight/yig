@@ -96,6 +96,12 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 	bucket_host.Methods("GET").HandlerFunc(api.GetBucketCorsHandler).Queries("cors", "")
 	// DeleteBucketCORS
 	bucket_host.Methods("DELETE").HandlerFunc(api.DeleteBucketCorsHandler).Queries("cors", "")
+	// PutLifeCycleConfig
+	bucket_host.Methods("PUT").HandlerFunc(api.PutBucketLifeCycleHandler).Queries("lifecycle", "")
+	// GetLifeCycleConfig
+	bucket_host.Methods("GET").HandlerFunc(api.GetBucketLifeCycleHandler).Queries("lifecycle", "")
+	// DelLifeCycleConfig
+	bucket_host.Methods("DELETE").HandlerFunc(api.DelBucketLifeCycleHandler).Queries("lifecycle", "")
 	// HeadBucket
 	bucket_host.Methods("HEAD").HandlerFunc(api.HeadBucketHandler)
 	// PostPolicy
@@ -109,6 +115,7 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 	bucket_host.Methods("PUT").HandlerFunc(api.PutBucketHandler)
 	// ListObjects
 	bucket_host.Methods("GET").HandlerFunc(api.ListObjectsHandler)
+
 
 	/// Object operations
 
@@ -171,6 +178,12 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 	bucket.Methods("GET").HandlerFunc(api.GetBucketCorsHandler).Queries("cors", "")
 	// DeleteBucketCORS
 	bucket.Methods("DELETE").HandlerFunc(api.DeleteBucketCorsHandler).Queries("cors", "")
+	// PutLifeCycleConfig
+	bucket.Methods("PUT").HandlerFunc(api.PutBucketLifeCycleHandler).Queries("lifecycle", "")
+	// GetLifeCycleConfig
+	bucket.Methods("GET").HandlerFunc(api.GetBucketLifeCycleHandler).Queries("lifecycle", "")
+	// DelLifeCycleConfig
+	bucket.Methods("DELETE").HandlerFunc(api.DelBucketLifeCycleHandler).Queries("lifecycle", "")
 	// HeadBucket
 	bucket.Methods("HEAD").HandlerFunc(api.HeadBucketHandler)
 	// PostPolicy
@@ -184,6 +197,7 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 	bucket.Methods("PUT").HandlerFunc(api.PutBucketHandler)
 	// ListObjects
 	bucket.Methods("GET").HandlerFunc(api.ListObjectsHandler)
+
 
 	/// Root operation
 
