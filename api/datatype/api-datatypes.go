@@ -41,7 +41,7 @@ type ListObjectsResponse struct {
 	EncodingType   string `xml:"Encoding-Type,omitempty"`
 	IsTruncated    bool
 	MaxKeys        int
-	KeyCount       int
+	KeyCount       int  `xml:",omitempty"`
 	Prefix         string
 	BucketName     string `xml:"Name"`
 

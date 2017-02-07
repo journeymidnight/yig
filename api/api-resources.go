@@ -23,6 +23,7 @@ import (
 	. "legitlab.letv.cn/yig/yig/api/datatype"
 	. "legitlab.letv.cn/yig/yig/error"
 	"legitlab.letv.cn/yig/yig/helper"
+	"unicode/utf8"
 )
 
 func parseListObjectsQuery(query url.Values) (request ListObjectsRequest, err error) {
@@ -30,13 +31,25 @@ func parseListObjectsQuery(query url.Values) (request ListObjectsRequest, err er
 		request.Version = 2
 		request.ContinuationToken = query.Get("continuation-token")
 		request.StartAfter = query.Get("start-after")
+		if !utf8.ValidString(request.StartAfter) {
+			err = ErrNonUTF8Encode
+			return
+		}
 		request.FetchOwner = helper.Ternary(query.Get("fetch-owner") == "true",
 			true, false).(bool)
 	} else {
 		request.Version = 1
 		request.Marker = query.Get("marker")
+		if !utf8.ValidString(request.Marker) {
+			err = ErrNonUTF8Encode
+			return
+		}
 	}
 	request.Delimiter = query.Get("delimiter")
+	if !utf8.ValidString(request.Delimiter) {
+		err = ErrNonUTF8Encode
+		return
+	}
 	request.EncodingType = query.Get("encoding-type")
 	if request.EncodingType != "" && request.EncodingType != "url" {
 		err = ErrInvalidEncodingType
@@ -56,9 +69,21 @@ func parseListObjectsQuery(query url.Values) (request ListObjectsRequest, err er
 		}
 	}
 	request.Prefix = query.Get("prefix")
+	if !utf8.ValidString(request.Prefix) {
+		err = ErrNonUTF8Encode
+		return
+	}
 
 	request.KeyMarker = query.Get("key-marker")
+	if !utf8.ValidString(request.KeyMarker) {
+		err = ErrNonUTF8Encode
+		return
+	}
 	request.VersionIdMarker = query.Get("version-id-marker")
+	if !utf8.ValidString(request.VersionIdMarker) {
+		err = ErrNonUTF8Encode
+		return
+	}
 	return
 }
 

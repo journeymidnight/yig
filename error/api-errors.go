@@ -121,6 +121,7 @@ const (
 	ErrPolicyMissingFields
 	ErrInvalidAcl
 	ErrUnsupportedAcl
+	ErrNonUTF8Encode
 )
 
 // error code to APIError structure, these fields carry respective
@@ -512,6 +513,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrUnsupportedAcl: {
 		AwsErrorCode:   "UnsupportedAclConfigurationException",
 		Description:    "The ACL configuration specified in the request is unsupported.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrNonUTF8Encode: {
+		AwsErrorCode:   "InvalidArgument",
+		Description:    "URL Argument must be UTF8 encoded.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 }

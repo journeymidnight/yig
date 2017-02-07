@@ -812,7 +812,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 
 	switch bucket.Versioning {
 	case "Disabled":
-		if version != "" {
+		if version != "" && version != "null"{
 			return result, ErrNoSuchVersion
 		}
 		err = yig.removeObjAndMap(bucketName, objectName)
