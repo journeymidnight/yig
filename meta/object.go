@@ -13,7 +13,6 @@ import (
 	"io"
 	"math"
 	"strconv"
-	"strings"
 	"time"
 
 	"legitlab.letv.cn/yig/yig/api/datatype"
@@ -27,6 +26,8 @@ import (
 
 const (
 	ObjectNameEnding = ":"
+	ObjectNameSeparator = "\n"
+	ObjectNameSmallestStr = " "
 )
 
 type Object struct {
@@ -69,12 +70,10 @@ func (om *ObjMap) GetRowKey() (string, error) {
 		return string(om.Rowkey), nil
 	}
 	var rowkey bytes.Buffer
-	rowkey.WriteString(om.BucketName)
-	err := binary.Write(&rowkey, binary.BigEndian, uint16(strings.Count(om.Name, "/")))
-	if err != nil {
-		return "", err
-	}
-	rowkey.WriteString(om.Name + ObjectNameEnding)
+	rowkey.WriteString(om.BucketName + ObjectNameSeparator)
+
+	rowkey.WriteString(om.Name + ObjectNameSeparator)
+
 	om.Rowkey = rowkey.Bytes()
 	return string(om.Rowkey), nil
 }
@@ -107,6 +106,10 @@ func (o *Object) String() (s string) {
 	return s
 }
 
+func (o *Object) GetVersionNumber() (uint64) {
+	return uint64(o.LastModifiedTime.UnixNano())
+}
+
 // Rowkey format:
 // BucketName +
 // bigEndian(uint16(count("/", ObjectName))) +
@@ -118,13 +121,9 @@ func (o *Object) GetRowkey() (string, error) {
 		return string(o.Rowkey), nil
 	}
 	var rowkey bytes.Buffer
-	rowkey.WriteString(o.BucketName)
-	err := binary.Write(&rowkey, binary.BigEndian, uint16(strings.Count(o.Name, "/")))
-	if err != nil {
-		return "", err
-	}
-	rowkey.WriteString(o.Name + ObjectNameEnding)
-	err = binary.Write(&rowkey, binary.BigEndian,
+	rowkey.WriteString(o.BucketName + ObjectNameSeparator)
+	rowkey.WriteString(o.Name + ObjectNameSeparator)
+	err := binary.Write(&rowkey, binary.BigEndian,
 		math.MaxUint64-uint64(o.LastModifiedTime.UnixNano()))
 	if err != nil {
 		return "", err
@@ -244,11 +243,15 @@ func (o *Object) encryptSseKey() (err error) {
 func getObjectRowkeyPrefix(bucketName string, objectName string, version string) ([]byte, error) {
 	var rowkey bytes.Buffer
 	rowkey.WriteString(bucketName)
-	err := binary.Write(&rowkey, binary.BigEndian, uint16(strings.Count(objectName, "/")))
+	err := binary.Write(&rowkey, binary.BigEndian, uint8(10))
 	if err != nil {
 		return []byte{}, err
 	}
-	rowkey.WriteString(objectName + ObjectNameEnding)
+	rowkey.WriteString(objectName)
+	err = binary.Write(&rowkey, binary.BigEndian, uint8(10))
+	if err != nil {
+		return []byte{}, err
+	}
 	if version != "" {
 		decrypted, err := Decrypt(version)
 		if err != nil {
@@ -344,7 +347,7 @@ func ObjectFromResponse(response *hrpc.Result) (object *Object, err error) {
 	// + ObjectName
 	// + ObjectNameEnding
 	// + bigEndian(uint64.max - unixNanoTimestamp)
-	object.Name = string(rowkey[len(object.BucketName)+2 : len(rowkey)-9])
+	object.Name = string(rowkey[len(object.BucketName)+1 : len(rowkey)-9])
 	if object.NullVersion {
 		object.VersionId = "null"
 	} else {

@@ -98,11 +98,12 @@ func GenerateListObjectsResponse(bucketName string, request ListObjectsRequest,
 	response.EncodingType = request.EncodingType
 	response.IsTruncated = objectsInfo.IsTruncated
 	response.MaxKeys = request.MaxKeys
-	response.KeyCount = len(response.Contents)
 	response.Prefix = request.Prefix
 	response.BucketName = bucketName
 
 	if request.Version == 2 {
+		response.KeyCount = len(response.Contents)
+
 		response.ContinuationToken = request.ContinuationToken
 		response.NextContinuationToken = objectsInfo.NextMarker
 		response.StartAfter = request.StartAfter
