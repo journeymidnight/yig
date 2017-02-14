@@ -387,7 +387,7 @@ func ObjMapFromResponse(response *hrpc.Result) (objMap *ObjMap, err error) {
 	return
 }
 
-func (m *Meta) GetObject(bucketName string, objectName string) (object *Object, err error) {
+func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (object *Object, err error) {
 	getObject := func() (o interface{}, err error) {
 		objectRowkeyPrefix, err := getObjectRowkeyPrefix(bucketName, objectName, "")
 		if err != nil {
@@ -429,8 +429,9 @@ func (m *Meta) GetObject(bucketName string, objectName string) (object *Object, 
 		err := json.Unmarshal(in, &object)
 		return &object, err
 	}
+
 	o, err := m.Cache.Get(redis.ObjectTable, bucketName+":"+objectName+":",
-		getObject, unmarshaller)
+		getObject, unmarshaller, willNeed)
 	if err != nil {
 		return
 	}
@@ -470,7 +471,7 @@ func (m *Meta) GetObjectMap(bucketName, objectName string) (objMap *ObjMap, err 
 	return
 }
 
-func (m *Meta) GetObjectVersion(bucketName, objectName, version string) (object *Object, err error) {
+func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed bool) (object *Object, err error) {
 	getObjectVersion := func() (o interface{}, err error) {
 		objectRowkeyPrefix, err := getObjectRowkeyPrefix(bucketName, objectName, version)
 		if err != nil {
@@ -506,7 +507,7 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string) (object 
 		return &object, err
 	}
 	o, err := m.Cache.Get(redis.ObjectTable, bucketName+":"+objectName+":"+version,
-		getObjectVersion, unmarshaller)
+		getObjectVersion, unmarshaller, willNeed)
 	if err != nil {
 		return
 	}

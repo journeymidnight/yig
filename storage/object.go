@@ -1,14 +1,15 @@
 package storage
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
 	"io"
 	"math/rand"
 	"time"
-	"context"
 
+	"github.com/cannium/gohbase/hrpc"
 	"legitlab.letv.cn/yig/yig/api/datatype"
 	. "legitlab.letv.cn/yig/yig/error"
 	"legitlab.letv.cn/yig/yig/helper"
@@ -16,7 +17,6 @@ import (
 	"legitlab.letv.cn/yig/yig/meta"
 	"legitlab.letv.cn/yig/yig/redis"
 	"legitlab.letv.cn/yig/yig/signature"
-	"github.com/cannium/gohbase/hrpc"
 )
 
 func (yig *YigStorage) pickCluster() (fsid string, err error) {
@@ -188,13 +188,13 @@ func copyEncryptedPart(part *meta.Part, cephCluster *CephStorage, readOffset int
 func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 	version string, credential iam.Credential) (object *meta.Object, err error) {
 
-	_, err = yig.MetaStorage.GetBucket(bucketName)
+	_, err = yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
 		return
 	}
 
 	if version == "" {
-		object, err = yig.MetaStorage.GetObject(bucketName, objectName)
+		object, err = yig.MetaStorage.GetObject(bucketName, objectName, true)
 	} else {
 		object, err = yig.getObjWithVersion(bucketName, objectName, version)
 	}
@@ -229,16 +229,16 @@ func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 }
 
 func (yig *YigStorage) GetObjectAcl(bucketName string, objectName string,
-        version string, credential iam.Credential) (policy datatype.AccessControlPolicy, err error) {
+	version string, credential iam.Credential) (policy datatype.AccessControlPolicy, err error) {
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName)
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
 		return
 	}
 
 	var object *meta.Object
 	if version == "" {
-		object, err = yig.MetaStorage.GetObject(bucketName, objectName)
+		object, err = yig.MetaStorage.GetObject(bucketName, objectName, true)
 	} else {
 		object, err = yig.getObjWithVersion(bucketName, objectName, version)
 	}
@@ -284,7 +284,7 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, versio
 		acl = newCannedAcl
 	}
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName)
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
 		return err
 	}
@@ -300,7 +300,7 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, versio
 	} // TODO policy and fancy ACL
 	var object *meta.Object
 	if version == "" {
-		object, err = yig.MetaStorage.GetObject(bucketName, objectName)
+		object, err = yig.MetaStorage.GetObject(bucketName, objectName, false)
 	} else {
 		object, err = yig.getObjWithVersion(bucketName, objectName, version)
 	}
@@ -382,7 +382,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	size int64, data io.Reader, metadata map[string]string, acl datatype.Acl,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName)
+	bucket, err := yig.MetaStorage.GetBucket(bucketName,true)
 	if err != nil {
 		return
 	}
@@ -486,8 +486,8 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 
 	result.LastModified = object.LastModifiedTime
 	objMap := &meta.ObjMap{
-		Name:             objectName,
-		BucketName:       bucketName,
+		Name:       objectName,
+		BucketName: bucketName,
 	}
 
 	switch bucket.Versioning {
@@ -532,7 +532,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, credential iam.Credential,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
 
-	bucket, err := yig.MetaStorage.GetBucket(targetObject.BucketName)
+	bucket, err := yig.MetaStorage.GetBucket(targetObject.BucketName, true)
 	if err != nil {
 		return
 	}
@@ -612,8 +612,8 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 
 	result.LastModified = targetObject.LastModifiedTime
 	objMap := &meta.ObjMap{
-		Name:             targetObject.Name,
-		BucketName:       targetObject.BucketName,
+		Name:       targetObject.Name,
+		BucketName: targetObject.BucketName,
 	}
 
 	switch bucket.Versioning {
@@ -657,6 +657,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 }
 
 func (yig *YigStorage) removeByObject(object *meta.Object) (err error) {
+
 	err = yig.MetaStorage.DeleteObjectEntry(object)
 	if err != nil {
 		return
@@ -687,23 +688,13 @@ func (yig *YigStorage) getObjWithVersion(bucketName, objectName, version string)
 		}
 		version = objMap.NullVerId
 	}
-	return yig.MetaStorage.GetObjectVersion(bucketName, objectName, version)
+	return yig.MetaStorage.GetObjectVersion(bucketName, objectName, version, true)
 
-}
-
-func (yig *YigStorage) removeObject(bucketName, objectName string) error {
-	object, err := yig.MetaStorage.GetObject(bucketName, objectName)
-	if err == ErrNoSuchKey {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	return yig.removeByObject(object)
 }
 
 func (yig *YigStorage) removeObjAndMap(bucketName, objectName string) error {
-	object, err := yig.MetaStorage.GetObject(bucketName, objectName)
+
+	object, err := yig.MetaStorage.GetObject(bucketName, objectName, false)
 	if err == ErrNoSuchKey {
 		return nil
 	}
@@ -716,8 +707,8 @@ func (yig *YigStorage) removeObjAndMap(bucketName, objectName string) error {
 	}
 
 	objMap := &meta.ObjMap{
-		Name:             objectName,
-		BucketName:       bucketName,
+		Name:       objectName,
+		BucketName: bucketName,
 	}
 	return yig.MetaStorage.DeleteObjMapEntry(objMap)
 }
@@ -748,8 +739,8 @@ func (yig *YigStorage) removeNullVerObjAndMap(bucketName, objectName string) err
 	}
 
 	objMap := &meta.ObjMap{
-		Name:             objectName,
-		BucketName:       bucketName,
+		Name:       objectName,
+		BucketName: bucketName,
 	}
 	return yig.MetaStorage.DeleteObjMapEntry(objMap)
 }
@@ -770,8 +761,8 @@ func (yig *YigStorage) addDeleteMarker(bucket meta.Bucket, objectName string,
 
 	if nullVersion {
 		objMap := &meta.ObjMap{
-			Name:             objectName,
-			BucketName:       bucket.Name,
+			Name:       objectName,
+			BucketName: bucket.Name,
 		}
 		objMap.NullVerNum = uint64(deleteMarker.LastModifiedTime.UnixNano())
 		err = yig.MetaStorage.PutObjMapEntry(objMap)
@@ -797,7 +788,7 @@ func (yig *YigStorage) addDeleteMarker(bucket meta.Bucket, objectName string,
 func (yig *YigStorage) DeleteObject(bucketName string, objectName string, version string,
 	credential iam.Credential) (result datatype.DeleteObjectResult, err error) {
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName)
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
 		return
 	}
@@ -812,7 +803,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 
 	switch bucket.Versioning {
 	case "Disabled":
-		if version != "" && version != "null"{
+		if version != "" && version != "null" {
 			return result, ErrNoSuchVersion
 		}
 		err = yig.removeObjAndMap(bucketName, objectName)

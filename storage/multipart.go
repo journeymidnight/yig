@@ -33,7 +33,7 @@ const (
 func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketName string,
 	request datatype.ListUploadsRequest) (result datatype.ListMultipartUploadsResponse, err error) {
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName)
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
 		return
 	}
@@ -210,7 +210,7 @@ func (yig *YigStorage) NewMultipartUpload(credential iam.Credential, bucketName,
 	metadata map[string]string, acl datatype.Acl,
 	sseRequest datatype.SseRequest) (uploadId string, err error) {
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName)
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
 		return
 	}
@@ -355,7 +355,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential i
 		}
 	}
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName)
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
@@ -493,7 +493,7 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 
 	result.Md5 = hex.EncodeToString(md5Writer.Sum(nil))
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName)
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
@@ -584,7 +584,7 @@ func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, ob
 		}
 	case "bucket-owner-read", "bucket-owner-full-controll":
 		var bucket meta.Bucket
-		bucket, err = yig.MetaStorage.GetBucket(bucketName)
+		bucket, err = yig.MetaStorage.GetBucket(bucketName,true)
 		if err != nil {
 			return
 		}
@@ -650,7 +650,7 @@ func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, ob
 func (yig *YigStorage) AbortMultipartUpload(credential iam.Credential,
 	bucketName, objectName, uploadId string) error {
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName)
+	bucket, err := yig.MetaStorage.GetBucket(bucketName,true)
 	if err != nil {
 		return err
 	}
@@ -702,7 +702,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 	objectName, uploadId string, uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult,
 	err error) {
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName)
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
 		return
 	}

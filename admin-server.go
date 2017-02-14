@@ -106,7 +106,7 @@ func getObjectInfo(w http.ResponseWriter, r *http.Request) {
 	bucketName := claims["bucket"].(string)
 	objectName := claims["object"].(string)
 
-	object, err := adminServer.Yig.MetaStorage.GetObject(bucketName, objectName)
+	object, err := adminServer.Yig.MetaStorage.GetObject(bucketName, objectName, true)
 	if err != nil {
 		api.WriteErrorResponse(w,r,err)
 		return

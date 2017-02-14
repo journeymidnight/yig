@@ -37,11 +37,11 @@ type YigStorage struct {
 	WaitGroup   *sync.WaitGroup
 }
 
-func New(logger *log.Logger, cacheEnabled bool) *YigStorage {
-	metaStorage := meta.New(logger, cacheEnabled)
+func New(logger *log.Logger, metaCacheType int, enableDataCache bool) *YigStorage {
+	metaStorage := meta.New(logger, meta.CacheType(metaCacheType))
 	yig := YigStorage{
 		DataStorage: make(map[string]*CephStorage),
-		DataCache:   newDataCache(cacheEnabled),
+		DataCache:   newDataCache(enableDataCache),
 		MetaStorage: metaStorage,
 		Logger:      logger,
 		Stopping:    false,

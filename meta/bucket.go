@@ -51,7 +51,7 @@ func (b Bucket) GetValues() (values map[string]map[string][]byte, err error) {
 
 // Note the usage info got from this method is possibly not accurate because we don't
 // invalid cache when updating usage. For accurate usage info, use `GetUsage()`
-func (m *Meta) GetBucket(bucketName string) (bucket Bucket, err error) {
+func (m *Meta) GetBucket(bucketName string, willNeed bool) (bucket Bucket, err error) {
 	getBucket := func() (b interface{}, err error) {
 		ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
 		defer done()
@@ -106,7 +106,7 @@ func (m *Meta) GetBucket(bucketName string) (bucket Bucket, err error) {
 		err := json.Unmarshal(in, &bucket)
 		return bucket, err
 	}
-	b, err := m.Cache.Get(redis.BucketTable, bucketName, getBucket, unmarshaller)
+	b, err := m.Cache.Get(redis.BucketTable, bucketName, getBucket, unmarshaller, willNeed)
 	if err != nil {
 		return
 	}
@@ -134,7 +134,7 @@ func (m *Meta) UpdateUsage(bucketName string, size int64) {
 
 func (m *Meta) GetUsage(bucketName string) (int64, error) {
 	m.Cache.Remove(redis.BucketTable, bucketName)
-	bucket, err := m.GetBucket(bucketName)
+	bucket, err := m.GetBucket(bucketName, true)
 	if err != nil {
 		return 0, err
 	}
@@ -143,7 +143,7 @@ func (m *Meta) GetUsage(bucketName string) (int64, error) {
 
 func (m *Meta) GetBucketInfo(bucketName string) (Bucket, error) {
 	m.Cache.Remove(redis.BucketTable, bucketName)
-	bucket, err := m.GetBucket(bucketName)
+	bucket, err := m.GetBucket(bucketName, true)
 	if err != nil {
 		return bucket, err
 	}
@@ -152,7 +152,7 @@ func (m *Meta) GetBucketInfo(bucketName string) (Bucket, error) {
 
 func (m *Meta) GetUserInfo(uid string) ([]string, error) {
 	m.Cache.Remove(redis.UserTable, uid)
-	buckets, err := m.GetUserBuckets(uid)
+	buckets, err := m.GetUserBuckets(uid, true)
 	if err != nil {
 		return nil, err
 	}
