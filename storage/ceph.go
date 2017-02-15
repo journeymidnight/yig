@@ -151,25 +151,44 @@ func (cluster *CephStorage) doSmallPut(poolname string, oid string, data io.Read
 	return size, nil
 }
 
-func (cluster *CephStorage) doSmallGet(poolName string, oid string, offset int64, length int64,
-					write io.Writer) (size int64, err error) {
-	pool, err := cluster.Conn.OpenPool(poolName)
-	if err != nil {
-		return 0, errors.New("Bad poolname")
-	}
-	defer pool.Destroy()
+type RadosSmallDownloader struct {
+	oid       string
+	offset    int64
+	remaining int64
+	pool      *rados.Pool
+}
 
-	buf := make([]byte, length)
-	_, err = pool.Read(oid, buf, uint64(offset))
-	if err != nil {
-		return 0, err
+func (rd *RadosSmallDownloader) Read(p []byte) (n int, err error) {
+	if rd.remaining <= 0 {
+		return 0, io.EOF
 	}
-	wSize, err := write.Write(buf)
-	size = int64(wSize)
-	if err != nil {
-		return 0, err
+	if int64(len(p)) > rd.remaining {
+		p = p[:rd.remaining]
 	}
-	return size, nil
+	count, err := rd.pool.Read(rd.oid, p, uint64(rd.offset))
+	if count == 0 {
+		return 0, io.EOF
+	}
+	rd.offset += int64(count)
+	rd.remaining -= int64(count)
+	return count, err
+}
+
+func (rd *RadosSmallDownloader) Seek(offset int64, whence int) (int64, error) {
+	switch whence {
+	case 0:
+		rd.offset = offset
+	case 1:
+		rd.offset += offset
+	case 2:
+		panic("Not implemented")
+	}
+	return rd.offset, nil
+}
+
+func (rd *RadosSmallDownloader) Close() error {
+	rd.pool.Destroy()
+	return nil
 }
 
 func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (size int64, err error) {
@@ -319,6 +338,22 @@ func (rd *RadosDownloader) Close() error {
 func (cluster *CephStorage) getReader(poolName string, oid string, startOffset int64,
 	length int64) (reader io.ReadCloser, err error) {
 
+	if poolName == SMALL_FILE_POOLNAME {
+		pool, e := cluster.Conn.OpenPool(poolName)
+		if e != nil {
+			err = errors.New("bad poolname")
+			return
+		}
+		radosSmallReader := &RadosSmallDownloader{
+			oid:       oid,
+			offset:    startOffset,
+			pool:      pool,
+			remaining: length,
+		}
+
+		return radosSmallReader, nil
+	}
+
 	pool, err := cluster.Conn.OpenPool(poolName)
 	if err != nil {
 		err = errors.New("bad poolname")
@@ -353,10 +388,7 @@ func (cluster *CephStorage) getAlignedReader(poolName string, oid string, startO
 
 func (cluster *CephStorage) get(poolName string, oid string, startOffset int64,
 	length int64, writer io.Writer) error {
-	if poolName == SMALL_FILE_POOLNAME {
-		_, err := cluster.doSmallGet(poolName, oid, startOffset, length, writer)
-		return err
-	}
+
 	reader, err := cluster.getReader(poolName, oid, startOffset, length)
 	if err != nil {
 		return err
