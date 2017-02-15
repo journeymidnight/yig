@@ -272,7 +272,6 @@ type enabledSimpleMetaCache struct {
 	Miss       int64
 }
 
-
 func (m *enabledSimpleMetaCache) Get(table redis.RedisDatabase, key string,
 	onCacheMiss func() (interface{}, error),
 	unmarshaller func([]byte) (interface{}, error), willNeed bool) (value interface{}, err error) {
@@ -295,7 +294,7 @@ func (m *enabledSimpleMetaCache) Get(table redis.RedisDatabase, key string,
 		if willNeed == true {
 			err = redis.Set(table, key, value)
 			if err != nil {
-				return nil, err
+				//do nothing, even if redis is down.
 			}
 		}
 		m.Miss = m.Miss + 1
