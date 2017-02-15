@@ -48,14 +48,15 @@ type Meta struct {
 	Cache  MetaCache
 }
 
-func New(logger *log.Logger, cacheEnabled bool) *Meta {
+
+func New(logger *log.Logger, myCacheType CacheType ) *Meta {
 	var hbaseClient gohbase.Client
 	znodeOption := gohbase.SetZnodeParentOption(helper.CONFIG.HbaseZnodeParent)
 	hbaseClient = gohbase.NewClient(helper.CONFIG.ZookeeperAddress, znodeOption)
 	meta := Meta{
 		Hbase:  hbaseClient,
 		Logger: logger,
-		Cache:  newMetaCache(cacheEnabled),
+		Cache:  newMetaCache(myCacheType),
 	}
 	return &meta
 }

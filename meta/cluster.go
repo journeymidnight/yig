@@ -60,7 +60,7 @@ func (m *Meta) GetCluster(fsid string) (cluster Cluster, err error) {
 		err := json.Unmarshal(in, &cluster)
 		return cluster, err
 	}
-	c, err := m.Cache.Get(redis.ClusterTable, fsid, getCluster, unmarshaller)
+	c, err := m.Cache.Get(redis.ClusterTable, fsid, getCluster, unmarshaller, true)
 	if err != nil {
 		return
 	}

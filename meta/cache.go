@@ -10,10 +10,20 @@ import (
 	"github.com/mediocregopher/radix.v2/pubsub"
 )
 
+type CacheType int
+
+const (
+	NoCache CacheType = iota
+	EnableCache
+	SimpleCache
+)
+
+var cacheNames = [...]string{"NOCACHE", "EnableCache", "SimpleCache"}
+
 type MetaCache interface {
 	Get(table redis.RedisDatabase, key string,
 		onCacheMiss func() (interface{}, error),
-		unmarshaller func([]byte) (interface{}, error)) (value interface{}, err error)
+		unmarshaller func([]byte) (interface{}, error), willNeed bool) (value interface{}, err error)
 	Remove(table redis.RedisDatabase, key string)
 	GetCacheHitRatio() float64
 }
@@ -39,8 +49,11 @@ type entry struct {
 	value interface{}
 }
 
-func newMetaCache(cacheEnabled bool) (m MetaCache) {
-	if cacheEnabled {
+func newMetaCache(myType CacheType) (m MetaCache) {
+
+	helper.Logger.Printf("Setting Up Metadata Cache: %s\n", cacheNames[int(myType)])
+
+	if myType == EnableCache {
 		m := &enabledMetaCache{
 			lock:       new(sync.Mutex),
 			MaxEntries: helper.CONFIG.InMemoryCacheMaxEntryCount,
@@ -56,8 +69,12 @@ func newMetaCache(cacheEnabled bool) (m MetaCache) {
 		go invalidLocalCache(m)
 		go invalidRedisCache(m)
 		return m
+	} else if myType == SimpleCache {
+		m := new(enabledSimpleMetaCache)
+		m.Hit = 0
+		m.Miss = 0
+		return m
 	}
-
 	return &disabledMetaCache{}
 }
 
@@ -138,42 +155,49 @@ func (m *enabledMetaCache) set(table redis.RedisDatabase, key string, value inte
 // both memory and Redis, use `unmarshal` get expected type from Redis
 func (m *enabledMetaCache) Get(table redis.RedisDatabase, key string,
 	onCacheMiss func() (interface{}, error),
-	unmarshaller func([]byte) (interface{}, error)) (value interface{}, err error) {
+	unmarshaller func([]byte) (interface{}, error), willNeed bool) (value interface{}, err error) {
 
-	helper.Debugln("enabledMetaCache Get()", table, key)
+	helper.Logger.Println("enabledMetaCache Get()", table, key)
 
 	m.lock.Lock()
 	if element, hit := m.cache[table][key]; hit {
 		m.lruList.MoveToFront(element)
-		m.lock.Unlock()
+		defer m.lock.Unlock()
 		m.Hit = m.Hit + 1
+
 		return element.Value.(*entry).value, nil
 	}
 	m.lock.Unlock()
 
 	value, err = redis.Get(table, key, unmarshaller)
 	if err == nil && value != nil {
-		m.set(table, key, value)
+		if willNeed == true {
+			m.set(table, key, value)
+		}
 		m.Hit = m.Hit + 1
 		return value, nil
 	}
 
+	//if redis doesn't have the entry
 	if onCacheMiss != nil {
 		value, err = onCacheMiss()
 		if err != nil {
 			return
 		}
 
-		err = redis.Set(table, key, value)
-		if err != nil {
-			// invalid the entry asynchronously
-			m.failedCacheInvalidOperation <- entry{
-				table: table,
-				key:   key,
+		if willNeed == true {
+			err = redis.Set(table, key, value)
+			if err != nil {
+				// invalid the entry asynchronously
+				m.failedCacheInvalidOperation <- entry{
+					table: table,
+					key:   key,
+				}
 			}
+			m.invalidRedisCache(table, key)
+			m.set(table, key, value)
 		}
-		m.invalidRedisCache(table, key)
-		m.set(table, key, value)
+
 		m.Miss = m.Miss + 1
 		return value, nil
 	}
@@ -182,13 +206,13 @@ func (m *enabledMetaCache) Get(table redis.RedisDatabase, key string,
 
 func (m *disabledMetaCache) Get(table redis.RedisDatabase, key string,
 	onCacheMiss func() (interface{}, error),
-	unmarshaller func([]byte) (interface{}, error)) (value interface{}, err error) {
+	unmarshaller func([]byte) (interface{}, error), willNeed bool) (value interface{}, err error) {
 
 	return onCacheMiss()
 }
 
 func (m *enabledMetaCache) remove(table redis.RedisDatabase, key string) {
-	helper.Debugln("enabledMetaCache Remove()", table, key)
+	helper.Logger.Println("enabledMetaCache Remove()", table, key)
 
 	m.lock.Lock()
 	element, hit := m.cache[table][key]
@@ -239,3 +263,52 @@ func (m *enabledMetaCache) GetCacheHitRatio() float64 {
 func (m *disabledMetaCache) GetCacheHitRatio() float64 {
 	return -1
 }
+
+
+
+
+type enabledSimpleMetaCache struct {
+	Hit        int64
+	Miss       int64
+}
+
+
+func (m *enabledSimpleMetaCache) Get(table redis.RedisDatabase, key string,
+	onCacheMiss func() (interface{}, error),
+	unmarshaller func([]byte) (interface{}, error), willNeed bool) (value interface{}, err error) {
+
+	helper.Logger.Println("enabledMetaCache Get()", table, key)
+
+	value, err = redis.Get(table, key, unmarshaller)
+	if err == nil && value != nil {
+		m.Hit = m.Hit + 1
+		return value, nil
+	}
+
+	//if redis doesn't have the entry
+	if onCacheMiss != nil {
+		value, err = onCacheMiss()
+		if err != nil {
+			return
+		}
+
+		if willNeed == true {
+			err = redis.Set(table, key, value)
+			if err != nil {
+				return nil, err
+			}
+		}
+		m.Miss = m.Miss + 1
+		return value, nil
+	}
+	return nil, nil
+}
+
+func (m *enabledSimpleMetaCache) Remove(table redis.RedisDatabase, key string) {
+	redis.Remove(table, key)
+}
+
+func (m *enabledSimpleMetaCache) GetCacheHitRatio() float64 {
+	return float64(m.Hit) / float64(m.Hit+m.Miss)
+}
+

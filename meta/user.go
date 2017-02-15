@@ -13,7 +13,7 @@ const (
 	BUCKET_NUMBER_LIMIT = 100
 )
 
-func (m *Meta) GetUserBuckets(userId string) (buckets []string, err error) {
+func (m *Meta) GetUserBuckets(userId string, willNeed bool) (buckets []string, err error) {
 	getUserBuckets := func() (bs interface{}, err error) {
 		ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
 		defer done()
@@ -37,7 +37,7 @@ func (m *Meta) GetUserBuckets(userId string) (buckets []string, err error) {
 		err := json.Unmarshal(in, &buckets)
 		return buckets, err
 	}
-	bs, err := m.Cache.Get(redis.UserTable, userId, getUserBuckets, unmarshaller)
+	bs, err := m.Cache.Get(redis.UserTable, userId, getUserBuckets, unmarshaller, willNeed)
 	if err != nil {
 		return
 	}
@@ -51,7 +51,7 @@ func (m *Meta) GetUserBuckets(userId string) (buckets []string, err error) {
 }
 
 func (m *Meta) AddBucketForUser(bucketName string, userId string) (err error) {
-	buckets, err := m.GetUserBuckets(userId)
+	buckets, err := m.GetUserBuckets(userId, false)
 	if err != nil {
 		return err
 	}
