@@ -382,6 +382,99 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 	WriteSuccessResponse(w, nil)
 }
 
+func (api ObjectAPIHandlers) PutBucketLifeCycleHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	bucket := vars["bucket"]
+	helper.Logger.Println("enter PutBucketLCHandler")
+	var credential iam.Credential
+	var err error
+	if credential, err = signature.IsReqAuthenticated(r); err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+
+	var lc Lc
+	lcBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 4096))
+	if err != nil {
+		helper.ErrorIf(err, "Unable to read lifecycle body")
+		WriteErrorResponse(w, r, ErrInvalidLc)
+		return
+	}
+	err = xml.Unmarshal(lcBuffer, &lc)
+	if err != nil {
+		helper.ErrorIf(err, "Unable to parse lifecycle xml body")
+		WriteErrorResponse(w, r, ErrInternalError)
+		return
+	}
+
+	err = api.ObjectAPI.SetBucketLc(bucket, lc, credential)
+	if err != nil {
+		helper.ErrorIf(err, "Unable to set LC for bucket.")
+		WriteErrorResponse(w, r, err)
+		return
+	}
+	WriteSuccessResponse(w, nil)
+}
+
+func (api ObjectAPIHandlers) GetBucketLifeCycleHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+
+	var credential iam.Credential
+	var err error
+	switch signature.GetRequestAuthType(r) {
+	default:
+		// For all unknown auth types return error.
+		WriteErrorResponse(w, r, ErrAccessDenied)
+		return
+	case signature.AuthTypeAnonymous:
+		break
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
+		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
+		if credential, err = signature.IsReqAuthenticated(r); err != nil {
+			WriteErrorResponse(w, r, err)
+			return
+		}
+	}
+
+	lc, err := api.ObjectAPI.GetBucketLc(bucketName, credential)
+	if err != nil {
+		helper.ErrorIf(err, "Failed to get bucket acl policy for bucket", bucketName)
+		WriteErrorResponse(w, r, err)
+		return
+	}
+
+	lcBuffer, err := xml.Marshal(lc)
+	if err != nil {
+		helper.ErrorIf(err, "Failed to marshal lc XML for bucket", bucketName)
+		WriteErrorResponse(w, r, ErrInternalError)
+		return
+	}
+	WriteSuccessResponse(w, lcBuffer)
+
+}
+
+func (api ObjectAPIHandlers) DelBucketLifeCycleHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+
+	var credential iam.Credential
+	var err error
+	if credential, err = signature.IsReqAuthenticated(r); err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+
+	err = api.ObjectAPI.DelBucketLc(bucketName, credential)
+	if err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+	WriteSuccessNoContent(w)
+
+
+}
+
 func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]

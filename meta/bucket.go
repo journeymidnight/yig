@@ -21,12 +21,17 @@ type Bucket struct {
 	OwnerId    string
 	CORS       datatype.Cors
 	ACL        datatype.Acl
+	LC	   datatype.Lc
 	Versioning string // actually enum: Disabled/Enabled/Suspended
 	Usage      int64
 }
 
 func (b Bucket) GetValues() (values map[string]map[string][]byte, err error) {
 	cors, err := json.Marshal(b.CORS)
+	if err != nil {
+		return
+	}
+	lc, err := json.Marshal(b.LC)
 	if err != nil {
 		return
 	}
@@ -40,6 +45,7 @@ func (b Bucket) GetValues() (values map[string]map[string][]byte, err error) {
 			"UID":        []byte(b.OwnerId),
 			"ACL":        []byte(b.ACL.CannedAcl),
 			"CORS":       cors,
+			"LC":         lc,
 			"createTime": []byte(b.CreateTime.Format(CREATE_TIME_LAYOUT)),
 			"versioning": []byte(b.Versioning),
 			"usage":      usage.Bytes(),
@@ -85,6 +91,13 @@ func (m *Meta) GetBucket(bucketName string, willNeed bool) (bucket Bucket, err e
 					return
 				}
 				bucket.CORS = cors
+			case "LC":
+				var lc datatype.Lc
+				err = json.Unmarshal(cell.Value, &lc)
+				if err != nil {
+					return
+				}
+				bucket.LC = lc
 			case "ACL":
 				bucket.ACL.CannedAcl = string(cell.Value)
 			case "versioning":

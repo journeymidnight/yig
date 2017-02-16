@@ -27,4 +27,7 @@ create 'cluster',
 
 create 'objMap',
   {NAME => 'om', VERSIONS => 1}
+
+create 'lifeCycle',
+  {NAME => 'lc', VERSIONS => 1}
 EOF

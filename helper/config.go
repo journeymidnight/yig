@@ -32,6 +32,8 @@ type Config struct {
 	GcThread                   int
 	MetaCacheType              int
 	EnableDataCache            bool
+	LcThread                   int
+	LcDebug                    bool   //if this was set true, lc expiration will treat days as seconds for test
 }
 
 type config struct {
@@ -60,6 +62,8 @@ type config struct {
 	GcThread                   int
 	MetaCacheType              int
 	EnableDataCache            bool
+	LcThread                   int
+	LcDebug                    bool   //if this was set true, lc expiration will treat days as seconds for test
 }
 
 var CONFIG Config
@@ -110,4 +114,7 @@ func SetupConfig() {
 	CONFIG.AdminKey = c.AdminKey
 	CONFIG.GcThread = Ternary(c.GcThread == 0,
 		1, c.GcThread).(int)
+	CONFIG.LcThread = Ternary(c.LcThread == 0,
+		1, c.LcThread).(int)
+	CONFIG.LcDebug = c.LcDebug
 }

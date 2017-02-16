@@ -796,7 +796,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 	case "public-read-write":
 		break
 	default:
-		if bucket.OwnerId != credential.UserId {
+		if bucket.OwnerId != credential.UserId && credential.UserId != "" {
 			return result, ErrBucketAccessForbidden
 		}
 	} // TODO policy and fancy ACL

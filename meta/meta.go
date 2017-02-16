@@ -23,6 +23,8 @@ const (
 	GARBAGE_COLLECTION_TABLE              = "garbageCollection"
 	GARBAGE_COLLECTION_COLUMN_FAMILY      = "gc"
 	GARBAGE_COLLECTION_PART_COLUMN_FAMILY = "p"
+	LIFE_CYCLE_TABLE                      = "lifeCycle"
+	LIFE_CYCLE_COLUMN_FAMILY              = "lc"
 	MULTIPART_TABLE                       = "multiparts"
 	MULTIPART_COLUMN_FAMILY               = "m"
 	CLUSTER_TABLE                         = "cluster"

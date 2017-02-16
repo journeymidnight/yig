@@ -43,11 +43,12 @@ func deleteFromCeph()  {
 			err    error
 		)
 		garbage := <- taskQ
-		waitgroup.Add(1)
 		now := time.Now().UTC()
+		waitgroup.Add(1)
 		if garbage.Status == "Deleting" { //处于Deleting状态超过60秒则重置状态为Pending
-			duration := now.Sub(garbage.MTime).Seconds()
+			duration := int(time.Since(garbage.MTime).Seconds())
 			if duration > 60 {
+				garbage.Status = "Pending"
 				values, err := garbage.GetValues()
 				if err != nil {
 					helper.Logger.Println("GetValues error:", err)
@@ -176,7 +177,7 @@ func main() {
 	stop = false
 	logger = log.New(f, "[yig]", log.LstdFlags)
 	helper.Logger = logger
-	yig = storage.New(logger, false)
+	yig = storage.New(logger, int(meta.NoCache), false)
 	taskQ = make(chan meta.GarbageCollection, SCAN_HBASE_LIMIT)
 	signal.Ignore()
 	signalQueue := make(chan os.Signal)
