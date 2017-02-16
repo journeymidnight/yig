@@ -1,4 +1,5 @@
 import base
+from urllib import unquote
 
 SMALL_TEST_FILE = bytes('a' * 1024 * 1024)  # 1M
 RANGE_1 = bytes('abcdefghijklmnop' * 64 * 1024)  # 1M
@@ -80,6 +81,82 @@ def list_objects_v2(name, client):
         Bucket=name+'hehe'
     )
     print 'List objects v2:', ans
+
+def _put_obj_with_str(client, bucket, key):
+        client.put_object(
+            Bucket=bucket,
+            Key=key,
+            Body=bytes(key),
+        )
+
+def _get_keys_prefixes(li):
+    if li.has_key('Contents'):
+           keys = [unquote(x['Key']) for x in li['Contents']]
+    else:
+        keys = []
+    if li.has_key('CommonPrefixes'):
+           prefixes = [unquote(x['Prefix']) for x in li['CommonPrefixes']]
+    else:
+        prefixes = []
+    return (keys, prefixes)
+
+def _validate_bucket_list(client, bucket, prefix, delimiter, marker, max_keys,
+                          is_truncated, check_objs, check_prefixes, next_marker):
+   
+    li = client.list_objects(Bucket=bucket, Delimiter=delimiter, Prefix=prefix, MaxKeys=max_keys, Marker=marker)
+
+    assert li['IsTruncated'] == is_truncated
+    marker = None
+    if li.has_key('NextMarker'):
+           marker = unquote(li['NextMarker'])
+    assert marker == next_marker
+
+    (keys, prefixes) = _get_keys_prefixes(li)
+
+    assert len(keys) == len(check_objs)
+    assert len(prefixes) == len(check_prefixes)
+
+    objs = [e for e in keys]
+    assert objs == check_objs
+
+    prefix_names = [e for e in prefixes]
+    assert prefix_names == check_prefixes
+
+    return marker
+
+def list_objects_with_delimiter_prefix(name, client):
+    bucket = name+'hehe' + "-listobj"
+    client.create_bucket(Bucket=bucket)
+    _put_obj_with_str(client, bucket, "asdf")
+    _put_obj_with_str(client, bucket, "boo/bar")
+    _put_obj_with_str(client, bucket, "boo/baz/xyzzy")
+    _put_obj_with_str(client, bucket, "cquux/thud")
+    _put_obj_with_str(client, bucket, "cquux/bla")
+
+    delim = '/'
+    marker = ''
+    prefix = ''
+
+    marker = _validate_bucket_list(client, bucket, prefix, delim, '', 1, True, ['asdf'], [], 'asdf')
+    marker = _validate_bucket_list(client, bucket, prefix, delim, marker, 1, True, [], ['boo/'], 'boo/')
+    marker = _validate_bucket_list(client, bucket, prefix, delim, marker, 1, False, [], ['cquux/'], None)
+
+    marker = _validate_bucket_list(client, bucket, prefix, delim, '', 2, True, ['asdf'], ['boo/'], 'boo/')
+    marker = _validate_bucket_list(client, bucket, prefix, delim, marker, 2, False, [], ['cquux/'], None)
+
+    prefix = 'boo/'
+
+    marker = _validate_bucket_list(client, bucket, prefix, delim, '', 1, True, ['boo/bar'], [], 'boo/bar')
+    marker = _validate_bucket_list(client, bucket, prefix, delim, marker, 1, False, [], ['boo/baz/'], None)
+
+    marker = _validate_bucket_list(client, bucket, prefix, delim, '', 2, False, ['boo/bar'], ['boo/baz/'], None)
+
+    client.delete_object(Bucket=bucket, Key='asdf')
+    client.delete_object(Bucket=bucket, Key='boo/bar')
+    client.delete_object(Bucket=bucket, Key='boo/baz/xyzzy')
+    client.delete_object(Bucket=bucket, Key='cquux/thud')
+    client.delete_object(Bucket=bucket, Key='cquux/bla')
+    client.delete_bucket(Bucket=bucket)
 
 
 def list_object_versions(name, client):
@@ -288,7 +365,7 @@ TESTS = [create_bucket,
          put_object,
          put_object_copy,
          get_object, get_object_nonexist,
-         list_objects_v1, list_objects_v2, list_object_versions,
+         list_objects_v1, list_objects_v2, list_object_versions,list_objects_with_delimiter_prefix,
          delete_nonempty_bucket_should_fail,
          delete_object,
          create_multipart_upload, upload_part, list_multipart_uploads, list_parts, abort_multipart_upload, complete_multipart_upload,
