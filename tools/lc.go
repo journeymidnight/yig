@@ -70,6 +70,19 @@ func checkIfExpiration(updateTime time.Time, days int) bool {
 	}
 }
 
+// If a rule has an empty prifex ,the days in it will be consider as a default days for all objects that not specified in
+// other rules. For this reason, we have two conditions to check if a object has expired and should be deleted
+//  if defaultConfig == true
+//                    for each object           check if object name has a prifix
+//  list all objects --------------->loop rules---------------------------------->
+//                                                                      |     NO
+//                                                                      |--------> days = default days ---
+//                                                                      |     YES                         |->delete object if expired
+//                                                                      |--------> days = specify days ---
+//
+//  if defaultConfig == false
+//                 for each rule get objects by prefix
+//  iterator rules ----------------------------------> loop objects-------->delete object if expired
 func retrieveBucket(lc meta.LifeCycle) error {
 	defaultConfig := false
 	defaultDays   := 0

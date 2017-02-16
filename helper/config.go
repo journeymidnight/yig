@@ -28,12 +28,12 @@ type Config struct {
 	HbaseZnodeParent           string // won't change default("/hbase") if leave this option empty
 	HbaseTimeout               time.Duration
 	DebugMode                  bool
-	AdminKey                   string
+	AdminKey                   string //used for tools/admin to communicate with yig
 	GcThread                   int
 	MetaCacheType              int
 	EnableDataCache            bool
-	LcThread                   int
-	LcDebug                    bool   //if this was set true, lc expiration will treat days as seconds for test
+	LcThread                   int    //used for tools/lc only, set worker numbers to do lc
+	LcDebug                    bool   //used for tools/lc only, if this was set true, will treat days as seconds
 }
 
 type config struct {
@@ -58,12 +58,12 @@ type config struct {
 	HbaseZnodeParent           string // won't change default("/hbase") if leave this option empty
 	HbaseTimeout               int    // in seconds
 	DebugMode                  bool
-	AdminKey                   string
+	AdminKey                   string //used for tools/admin to communicate with yig
 	GcThread                   int
 	MetaCacheType              int
 	EnableDataCache            bool
-	LcThread                   int
-	LcDebug                    bool   //if this was set true, lc expiration will treat days as seconds for test
+	LcThread                   int    //used for tools/lc only, set worker numbers to do lc
+	LcDebug                    bool   //used for tools/lc only, if this was set true, will treat days as seconds
 }
 
 var CONFIG Config
