@@ -44,6 +44,7 @@ type Object struct {
 	ContentType      string
 	CustomAttributes map[string]string
 	Parts            map[int]*Part
+	PartsIndex       *SimpleIndex
 	ACL              datatype.Acl
 	NullVersion      bool   // if this entry has `null` version
 	DeleteMarker     bool   // if this entry is a delete marker
@@ -334,6 +335,16 @@ func ObjectFromResponse(response *hrpc.Result) (object *Object, err error) {
 			}
 			object.Parts[partNumber] = &p
 		}
+	}
+
+
+	//build simple index for multipart
+	if len(object.Parts) != 0 {
+		var sortedPartNum  = make([]int64, len(object.Parts))
+		for k, v := range object.Parts {
+			sortedPartNum[k - 1] = v.Offset
+		}
+		object.PartsIndex = &SimpleIndex{Index: sortedPartNum}
 	}
 
 	// To decrypt encryption key, we need to know IV first
