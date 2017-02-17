@@ -46,7 +46,7 @@ func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size 
 
 	fsid, err := yig.pickCluster()
 	if err != nil || fsid == "" {
-		helper.Logger.Println("Error picking cluster:", err)
+		helper.Logger.Println(5, "Error picking cluster:", err)
 		for _, c := range yig.DataStorage {
 			cluster = c
 			break
@@ -340,8 +340,8 @@ func (yig *YigStorage) delTableEntryForRollback(object *meta.Object, objMap *met
 		objectDeleteValues := object.GetValuesForDelete()
 		objectRowkey, err := object.GetRowkey()
 		if err != nil {
-			yig.Logger.Println("Error deleting object: ", err)
-			yig.Logger.Println("Inconsistent data: object with rowkey ", object.Rowkey,
+			yig.Logger.Println(5, "Error deleting object: ", err)
+			yig.Logger.Println(5, "Inconsistent data: object with rowkey ", object.Rowkey,
 				"should be removed in HBase")
 		}
 		objectDeleteRequest, err := hrpc.NewDelStr(ctx,
@@ -351,8 +351,8 @@ func (yig *YigStorage) delTableEntryForRollback(object *meta.Object, objMap *met
 		}
 		_, err = yig.MetaStorage.Hbase.Delete(objectDeleteRequest)
 		if err != nil {
-			yig.Logger.Println("Error deleting object: ", err)
-			yig.Logger.Println("Inconsistent data: object with rowkey ", object.Rowkey,
+			yig.Logger.Println(5, "Error deleting object: ", err)
+			yig.Logger.Println(5, "Inconsistent data: object with rowkey ", object.Rowkey,
 				"should be removed in HBase")
 		}
 	}
@@ -361,8 +361,8 @@ func (yig *YigStorage) delTableEntryForRollback(object *meta.Object, objMap *met
 		objMapDeleteValues := objMap.GetValuesForDelete()
 		objMapRowkey, err := objMap.GetRowKey()
 		if err != nil {
-			yig.Logger.Println("Error deleting objMap: ", err)
-			yig.Logger.Println("Inconsistent data: objMap with rowkey ", objMap.Rowkey,
+			yig.Logger.Println(5, "Error deleting objMap: ", err)
+			yig.Logger.Println(5, "Inconsistent data: objMap with rowkey ", objMap.Rowkey,
 				"should be removed in HBase")
 		}
 		objMapDeleteRequest, err := hrpc.NewDelStr(ctx,
@@ -372,8 +372,8 @@ func (yig *YigStorage) delTableEntryForRollback(object *meta.Object, objMap *met
 		}
 		_, err = yig.MetaStorage.Hbase.Delete(objMapDeleteRequest)
 		if err != nil {
-			yig.Logger.Println("Error deleting objMap: ", err)
-			yig.Logger.Println("Inconsistent data: objMap with rowkey ", objMap.Rowkey,
+			yig.Logger.Println(5, "Error deleting objMap: ", err)
+			yig.Logger.Println(5, "Inconsistent data: objMap with rowkey ", objMap.Rowkey,
 				"should be removed in HBase")
 		}
 	}
@@ -678,11 +678,11 @@ func (yig *YigStorage) removeByObject(object *meta.Object) (err error) {
 
 	err = yig.MetaStorage.PutObjectToGarbageCollection(object)
 	if err != nil { // try to rollback `objects` table
-		yig.Logger.Println("Error PutObjectToGarbageCollection: ", err)
+		yig.Logger.Println(5, "Error PutObjectToGarbageCollection: ", err)
 		err = yig.MetaStorage.PutObjectEntry(object)
 		if err != nil {
-			yig.Logger.Println("Error insertObjectEntry: ", err)
-			yig.Logger.Println("Inconsistent data: object should be removed:",
+			yig.Logger.Println(5, "Error insertObjectEntry: ", err)
+			yig.Logger.Println(5, "Inconsistent data: object should be removed:",
 				object)
 			return
 		}
@@ -864,7 +864,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 			result.VersionId = version
 		}
 	default:
-		yig.Logger.Println("Invalid bucket versioning: ", bucketName)
+		yig.Logger.Println(5, "Invalid bucket versioning: ", bucketName)
 		return result, ErrInternalError
 	}
 

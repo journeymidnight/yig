@@ -6,13 +6,13 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"io"
-	"log"
 	"path/filepath"
 	"sync"
 
 	"legitlab.letv.cn/yig/yig/api/datatype"
 	. "legitlab.letv.cn/yig/yig/error"
 	"legitlab.letv.cn/yig/yig/helper"
+	"legitlab.letv.cn/yig/yig/log"
 	"legitlab.letv.cn/yig/yig/meta"
 )
 
@@ -63,9 +63,9 @@ func New(logger *log.Logger, metaCacheType int, enableDataCache bool) *YigStorag
 
 func (y *YigStorage) Stop() {
 	y.Stopping = true
-	helper.Logger.Print("Stopping storage...")
+	helper.Logger.Print(5, "Stopping storage...")
 	y.WaitGroup.Wait()
-	helper.Logger.Println("done")
+	helper.Logger.Println(5, "done")
 }
 
 func encryptionKeyFromSseRequest(sseRequest datatype.SseRequest) (encryptionKey []byte, err error) {

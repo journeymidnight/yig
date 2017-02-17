@@ -1,13 +1,12 @@
 package main
 
 import (
-	"log"
 	"math/rand"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
-
+	"legitlab.letv.cn/yig/yig/log"
 	"legitlab.letv.cn/yig/yig/helper"
 	"legitlab.letv.cn/yig/yig/redis"
 	"legitlab.letv.cn/yig/yig/storage"
@@ -28,10 +27,10 @@ func main() {
 	}
 	defer f.Close()
 
-	logger = log.New(f, "[yig]", log.LstdFlags)
+	logger = log.New(f, "[yig]", log.LstdFlags, helper.CONFIG.LogLevel)
 	helper.Logger = logger
 
-	logger.Println("YIG instance ID:", helper.CONFIG.InstanceId)
+	logger.Println(5, "YIG instance ID:", helper.CONFIG.InstanceId)
 
 	if helper.CONFIG.MetaCacheType > 0 || helper.CONFIG.EnableDataCache {
 		redis.Initialize()

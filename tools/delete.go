@@ -5,7 +5,7 @@ import (
 	"time"
 	"legitlab.letv.cn/yig/yig/storage"
 	"legitlab.letv.cn/yig/yig/meta"
-	"log"
+	"legitlab.letv.cn/yig/yig/log"
 	"os"
 	"context"
 	"github.com/cannium/gohbase/hrpc"
@@ -31,7 +31,7 @@ var (
 func deleteFromCeph()  {
 	for {
 		if stop {
-			helper.Logger.Print(".")
+			helper.Logger.Print(5, ".")
 			return
 		}
 		var (
@@ -51,18 +51,18 @@ func deleteFromCeph()  {
 				garbage.Status = "Pending"
 				values, err := garbage.GetValues()
 				if err != nil {
-					helper.Logger.Println("GetValues error:", err)
+					helper.Logger.Println(5, "GetValues error:", err)
 					goto release
 				}
 				put, err := hrpc.NewPutStr(RootContext,
 					meta.GARBAGE_COLLECTION_TABLE, garbage.Rowkey, values)
 				if err != nil {
-					helper.Logger.Println("NewPutStr error:", err)
+					helper.Logger.Println(5, "NewPutStr error:", err)
 					goto release
 				}
 				_, err = yig.MetaStorage.Hbase.Put(put)
 				if err != nil {
-					helper.Logger.Println("Try recover status failed:",
+					helper.Logger.Println(5, "Try recover status failed:",
 						"garbage collection", garbage.Rowkey)
 				}
 			}
@@ -72,19 +72,19 @@ func deleteFromCeph()  {
 		garbage.MTime = now
 		values, err = garbage.GetValues()
 		if err != nil {
-			helper.Logger.Println("GetValues error:", err)
+			helper.Logger.Println(5, "GetValues error:", err)
 			goto release
 		}
 		put, err = hrpc.NewPutStr(RootContext, meta.GARBAGE_COLLECTION_TABLE,
 			garbage.Rowkey, values)
 		if err != nil {
-			helper.Logger.Println("NewPutStr error:", err)
+			helper.Logger.Println(5, "NewPutStr error:", err)
 			goto release
 		}
 		processed, err = yig.MetaStorage.Hbase.CheckAndPut(put,
 			meta.GARBAGE_COLLECTION_COLUMN_FAMILY, "status", []byte("Pending"))
 		if !processed || err != nil {
-			helper.Logger.Println("CheckAndPut error:", processed, err)
+			helper.Logger.Println(5, "CheckAndPut error:", processed, err)
 			goto release
 		}
 		success = true
@@ -93,10 +93,10 @@ func deleteFromCeph()  {
 				Remove(garbage.Pool, garbage.ObjectId)
 			if err != nil {
 				success = false
-				helper.Logger.Println("failed delete", garbage.BucketName, ":", garbage.ObjectName, ":",
+				helper.Logger.Println(5, "failed delete", garbage.BucketName, ":", garbage.ObjectName, ":",
 					garbage.Location,":",garbage.Pool,":",garbage.ObjectId)
 			} else {
-				helper.Logger.Println("success delete",garbage.BucketName, ":", garbage.ObjectName, ":",
+				helper.Logger.Println(5, "success delete",garbage.BucketName, ":", garbage.ObjectName, ":",
 					garbage.Location,":",garbage.Pool,":",garbage.ObjectId)
 			}
 
@@ -106,9 +106,9 @@ func deleteFromCeph()  {
 					Remove(p.Pool, p.ObjectId)
 				if err != nil {
 					success = false
-					helper.Logger.Println("failed delete part", p.Location, ":", p.Pool, ":", p.ObjectId)
+					helper.Logger.Println(5, "failed delete part", p.Location, ":", p.Pool, ":", p.ObjectId)
 				} else {
-					helper.Logger.Println("success delete part", p.Location, ":", p.Pool, ":", p.ObjectId)
+					helper.Logger.Println(5, "success delete part", p.Location, ":", p.Pool, ":", p.ObjectId)
 				}
 
 			}
@@ -118,7 +118,7 @@ func deleteFromCeph()  {
 		} else {
 			garbage.TriedTimes += 1
 			if garbage.TriedTimes > MAX_TRY_TIMES {
-				helper.Logger.Println("Failed to remove object in Ceph:",
+				helper.Logger.Println(5, "Failed to remove object in Ceph:",
 					garbage)
 				yig.MetaStorage.RemoveGarbageCollection(garbage)
 				goto release
@@ -126,18 +126,18 @@ func deleteFromCeph()  {
 			garbage.Status = "Pending"
 			values, err := garbage.GetValues()
 			if err != nil {
-				helper.Logger.Println("GetValues error:", err)
+				helper.Logger.Println(5, "GetValues error:", err)
 				goto release
 			}
 			put, err := hrpc.NewPutStr(RootContext,
 				meta.GARBAGE_COLLECTION_TABLE, garbage.Rowkey, values)
 			if err != nil {
-				helper.Logger.Println("NewPutStr error:", err)
+				helper.Logger.Println(5, "NewPutStr error:", err)
 				goto release
 			}
 			_, err = yig.MetaStorage.Hbase.Put(put)
 			if err != nil {
-				helper.Logger.Println("Inconsistent data:",
+				helper.Logger.Println(5, "Inconsistent data:",
 					"garbage collection", garbage.Rowkey,
 					"should have status `Pending`")
 			}
@@ -150,7 +150,7 @@ func deleteFromCeph()  {
 func removeDeleted () {
 	for {
 		if stop {
-			helper.Logger.Print(".")
+			helper.Logger.Print(5, ".")
 			return
 		}
 		time.Sleep(time.Duration(1000) * time.Millisecond)
@@ -175,7 +175,7 @@ func main() {
 	}
 	defer f.Close()
 	stop = false
-	logger = log.New(f, "[yig]", log.LstdFlags)
+	logger = log.New(f, "[yig]", log.LstdFlags, helper.CONFIG.LogLevel)
 	helper.Logger = logger
 	yig = storage.New(logger, int(meta.NoCache), false)
 	taskQ = make(chan meta.GarbageCollection, SCAN_HBASE_LIMIT)
@@ -183,7 +183,7 @@ func main() {
 	signalQueue := make(chan os.Signal)
 
 	numOfWorkers := helper.CONFIG.GcThread
-	helper.Logger.Println("start gc thread:",numOfWorkers)
+	helper.Logger.Println(5, "start gc thread:",numOfWorkers)
 	for i := 0; i< numOfWorkers; i++ {
 		go deleteFromCeph()
 	}

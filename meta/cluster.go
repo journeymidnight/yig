@@ -35,7 +35,7 @@ func (m *Meta) GetCluster(fsid string) (cluster Cluster, err error) {
 		}
 		response, err := m.Hbase.Get(getRequest)
 		if err != nil {
-			m.Logger.Println("Error getting cluster info, with error", err)
+			m.Logger.Println(5, "Error getting cluster info, with error", err)
 			return
 		}
 		if len(response.Cells) == 0 {

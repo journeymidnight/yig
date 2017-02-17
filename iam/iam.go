@@ -66,9 +66,9 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 	if err != nil {
 		return credential, err
 	}
-	slog.Println("iam:", helper.CONFIG.IamEndpoint)
-	slog.Println("request:", string(b))
-	slog.Println("response:", string(body))
+	slog.Println(10, "iam:", helper.CONFIG.IamEndpoint)
+	slog.Println(10, "request:", string(b))
+	slog.Println(10, "response:", string(body))
 
 	var queryRetAll QueryRespAll
 	err = json.Unmarshal(body, &queryRetAll)

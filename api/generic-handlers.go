@@ -153,7 +153,7 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	helper.Logger.Println("ServeHTTP", bucketName, objectName)
+	helper.Logger.Println(5, "ServeHTTP", bucketName, objectName)
 	// If bucketName is present and not objectName check for bucket
 	// level resource queries.
 	if bucketName != "" && objectName == "" {

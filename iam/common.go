@@ -71,27 +71,27 @@ func GetKeysByUid(uid string) (keyslist []AccessKeyItem, err error) {
 		query.Offset = offset
 		b, err := json.Marshal(query)
 		if err != nil {
-			slog.Println("json err:", err)
+			slog.Println(5, "json err:", err)
 			return keyslist, err
 		}
 		request, _ := http.NewRequest("POST", helper.CONFIG.IamEndpoint, strings.NewReader(string(b)))
 		request.Header.Set("X-Le-Key", "key")
 		request.Header.Set("X-Le-Secret", "secret")
-		slog.Println("replay request:",request,string(b))
+		slog.Println(10, "replay request:",request,string(b))
 		response,err := iamClient.Do(request)
 		if err != nil {
-			slog.Println("replay histroy send request failed", err)
+			slog.Println(5, "replay histroy send request failed", err)
 			return keyslist, err
 		}
 
 		if response.StatusCode != 200 {
-			slog.Println("QueryHistory to IAM failed as status != 200")
+			slog.Println(5, "QueryHistory to IAM failed as status != 200")
 			return keyslist, fmt.Errorf("QueryHistory to IAM failed as status != 200")
 		}
 
 		body, err := ioutil.ReadAll(response.Body)
 		if err != nil {
-			slog.Println("QueryHistory ioutil.ReadAll failed")
+			slog.Println(5, "QueryHistory ioutil.ReadAll failed")
 			return keyslist, fmt.Errorf("QueryHistory ioutil.ReadAll failed")
 		}
 

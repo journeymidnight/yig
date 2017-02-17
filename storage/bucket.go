@@ -42,19 +42,19 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 	defer done()
 	put, err := hrpc.NewPutStr(ctx, meta.BUCKET_TABLE, bucketName, values)
 	if err != nil {
-		yig.Logger.Println("Error making hbase put: ", err)
+		yig.Logger.Println(5, "Error making hbase put: ", err)
 		return err
 	}
 	processed, err := yig.MetaStorage.Hbase.CheckAndPut(put, meta.BUCKET_COLUMN_FAMILY,
 		"UID", []byte{})
 	if err != nil {
-		yig.Logger.Println("Error making hbase checkandput: ", err)
+		yig.Logger.Println(5, "Error making hbase checkandput: ", err)
 		return err
 	}
 	if !processed { // bucket already exists, return accurate message
 		bucket, err := yig.MetaStorage.GetBucket(bucketName, false)
 		if err != nil {
-			yig.Logger.Println("Error get bucket: ", bucketName, ", with error", err)
+			yig.Logger.Println(5, "Error get bucket: ", bucketName, ", with error", err)
 			return ErrBucketAlreadyExists
 		}
 		if bucket.OwnerId == credential.UserId {
@@ -65,19 +65,19 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 	}
 	err = yig.MetaStorage.AddBucketForUser(bucketName, credential.UserId)
 	if err != nil { // roll back bucket table, i.e. remove inserted bucket
-		yig.Logger.Println("Error AddBucketForUser: ", err)
+		yig.Logger.Println(5, "Error AddBucketForUser: ", err)
 		ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
 		defer done()
 		del, err := hrpc.NewDelStr(ctx, meta.BUCKET_TABLE, bucketName, values)
 		if err != nil {
-			yig.Logger.Println("Error making hbase del: ", err)
-			yig.Logger.Println("Leaving junk bucket unremoved: ", bucketName)
+			yig.Logger.Println(5, "Error making hbase del: ", err)
+			yig.Logger.Println(5, "Leaving junk bucket unremoved: ", bucketName)
 			return err
 		}
 		_, err = yig.MetaStorage.Hbase.Delete(del)
 		if err != nil {
-			yig.Logger.Println("Error deleting: ", err)
-			yig.Logger.Println("Leaving junk bucket unremoved: ", bucketName)
+			yig.Logger.Println(5, "Error deleting: ", err)
+			yig.Logger.Println(5, "Leaving junk bucket unremoved: ", bucketName)
 			return err
 		}
 	}
@@ -114,7 +114,7 @@ func (yig *YigStorage) SetBucketAcl(bucketName string, policy datatype.AccessCon
 	defer done()
 	put, err := hrpc.NewPutStr(ctx, meta.BUCKET_TABLE, bucketName, values)
 	if err != nil {
-		yig.Logger.Println("Error making hbase put: ", err)
+		yig.Logger.Println(5, "Error making hbase put: ", err)
 		return err
 	}
 	_, err = yig.MetaStorage.Hbase.Put(put)
@@ -129,7 +129,7 @@ func (yig *YigStorage) SetBucketAcl(bucketName string, policy datatype.AccessCon
 
 func (yig *YigStorage) SetBucketLc(bucketName string, lc datatype.Lc,
 	credential iam.Credential) error {
-	helper.Logger.Println("enter SetBucketLc")
+	helper.Logger.Println(10, "enter SetBucketLc")
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
 		return err
@@ -146,7 +146,7 @@ func (yig *YigStorage) SetBucketLc(bucketName string, lc datatype.Lc,
 	defer done()
 	put, err := hrpc.NewPutStr(ctx, meta.BUCKET_TABLE, bucketName, values)
 	if err != nil {
-		yig.Logger.Println("Error making hbase put: ", err)
+		yig.Logger.Println(5, "Error making hbase put: ", err)
 		return err
 	}
 	_, err = yig.MetaStorage.Hbase.Put(put)
@@ -159,7 +159,7 @@ func (yig *YigStorage) SetBucketLc(bucketName string, lc datatype.Lc,
 
 	err = yig.MetaStorage.PutBucketToLifeCycle(bucket)
 	if err != nil {
-		yig.Logger.Println("Error Put bucket to LC table hbase: ", err)
+		yig.Logger.Println(5, "Error Put bucket to LC table hbase: ", err)
 		return err
 	}
 	return nil
@@ -199,7 +199,7 @@ func (yig *YigStorage) DelBucketLc(bucketName string, credential iam.Credential)
 	defer done()
 	put, err := hrpc.NewPutStr(ctx, meta.BUCKET_TABLE, bucketName, values)
 	if err != nil {
-		yig.Logger.Println("Error making hbase put: ", err)
+		yig.Logger.Println(5, "Error making hbase put: ", err)
 		return err
 	}
 	_, err = yig.MetaStorage.Hbase.Put(put)
@@ -211,7 +211,7 @@ func (yig *YigStorage) DelBucketLc(bucketName string, credential iam.Credential)
 	}
 	err = yig.MetaStorage.RemoveBucketFromLifeCycle(bucket)
 	if err != nil {
-		yig.Logger.Println("Error Remove bucket From LC table hbase: ", err)
+		yig.Logger.Println(5, "Error Remove bucket From LC table hbase: ", err)
 		return err
 	}
 	return nil
@@ -236,7 +236,7 @@ func (yig *YigStorage) SetBucketCors(bucketName string, cors datatype.Cors,
 	defer done()
 	put, err := hrpc.NewPutStr(ctx, meta.BUCKET_TABLE, bucketName, values)
 	if err != nil {
-		yig.Logger.Println("Error making hbase put: ", err)
+		yig.Logger.Println(5, "Error making hbase put: ", err)
 		return err
 	}
 	_, err = yig.MetaStorage.Hbase.Put(put)
@@ -266,7 +266,7 @@ func (yig *YigStorage) DeleteBucketCors(bucketName string, credential iam.Creden
 	defer done()
 	put, err := hrpc.NewPutStr(ctx, meta.BUCKET_TABLE, bucketName, values)
 	if err != nil {
-		yig.Logger.Println("Error making hbase put: ", err)
+		yig.Logger.Println(5, "Error making hbase put: ", err)
 		return err
 	}
 	_, err = yig.MetaStorage.Hbase.Put(put)
@@ -316,7 +316,7 @@ func (yig *YigStorage) SetBucketVersioning(bucketName string, versioning datatyp
 	defer done()
 	put, err := hrpc.NewPutStr(ctx, meta.BUCKET_TABLE, bucketName, values)
 	if err != nil {
-		yig.Logger.Println("Error making hbase put: ", err)
+		yig.Logger.Println(5, "Error making hbase put: ", err)
 		return err
 	}
 	_, err = yig.MetaStorage.Hbase.Put(put)
@@ -459,15 +459,15 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 		}
 		put, err := hrpc.NewPutStr(ctx, meta.BUCKET_TABLE, bucketName, values)
 		if err != nil {
-			yig.Logger.Println("Error making hbase put: ", err)
-			yig.Logger.Println("Inconsistent data: bucket ", bucketName,
+			yig.Logger.Println(5, "Error making hbase put: ", err)
+			yig.Logger.Println(5, "Inconsistent data: bucket ", bucketName,
 				"should be removed for user ", credential.UserId)
 			return err
 		}
 		_, err = yig.MetaStorage.Hbase.Put(put)
 		if err != nil {
-			yig.Logger.Println("Error making hbase put: ", err)
-			yig.Logger.Println("Inconsistent data: bucket ", bucketName,
+			yig.Logger.Println(5, "Error making hbase put: ", err)
+			yig.Logger.Println(5, "Inconsistent data: bucket ", bucketName,
 				"should be removed for user ", credential.UserId)
 			return err
 		}
@@ -481,7 +481,7 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 	if bucket.LC.Rule != nil {
 		err = yig.MetaStorage.RemoveBucketFromLifeCycle(bucket)
 		if err != nil {
-			yig.Logger.Println("Error remove bucket from lifeCycle: ", err)
+			yig.Logger.Println(5, "Error remove bucket from lifeCycle: ", err)
 		}
 	}
 

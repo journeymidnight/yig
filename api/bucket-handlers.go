@@ -385,7 +385,7 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 func (api ObjectAPIHandlers) PutBucketLifeCycleHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
-	helper.Logger.Println("enter PutBucketLCHandler")
+	helper.Logger.Println(10, "enter PutBucketLCHandler")
 	var credential iam.Credential
 	var err error
 	if credential, err = signature.IsReqAuthenticated(r); err != nil {

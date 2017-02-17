@@ -67,7 +67,7 @@ func (m *Meta) GetBucket(bucketName string, willNeed bool) (bucket Bucket, err e
 		}
 		response, err := m.Hbase.Get(getRequest)
 		if err != nil {
-			m.Logger.Println("Error getting bucket info, with error ", err)
+			m.Logger.Println(5, "Error getting bucket info, with error ", err)
 			return
 		}
 		if len(response.Cells) == 0 {
@@ -139,7 +139,7 @@ func (m *Meta) UpdateUsage(bucketName string, size int64) {
 		BUCKET_COLUMN_FAMILY, "usage", size)
 	retValue, err := m.Hbase.Increment(inc)
 	if err != nil {
-		helper.Logger.Println("Inconsistent data: usage of bucket", bucketName,
+		helper.Logger.Println(5, "Inconsistent data: usage of bucket", bucketName,
 			"should add by", size)
 	}
 	helper.Debugln("New usage:", retValue)
