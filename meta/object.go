@@ -15,18 +15,18 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/cannium/gohbase/filter"
+	"github.com/cannium/gohbase/hrpc"
+	"github.com/xxtea/xxtea-go/xxtea"
 	"legitlab.letv.cn/yig/yig/api/datatype"
 	. "legitlab.letv.cn/yig/yig/error"
 	"legitlab.letv.cn/yig/yig/helper"
 	"legitlab.letv.cn/yig/yig/redis"
-	"github.com/cannium/gohbase/filter"
-	"github.com/cannium/gohbase/hrpc"
-	"github.com/xxtea/xxtea-go/xxtea"
 )
 
 const (
-	ObjectNameEnding = ":"
-	ObjectNameSeparator = "\n"
+	ObjectNameEnding      = ":"
+	ObjectNameSeparator   = "\n"
 	ObjectNameSmallestStr = " "
 )
 
@@ -59,11 +59,11 @@ type Object struct {
 }
 
 type ObjMap struct {
-	Rowkey           []byte // Rowkey cache
-	Name             string
-	BucketName       string
-	NullVerNum       uint64
-	NullVerId        string
+	Rowkey     []byte // Rowkey cache
+	Name       string
+	BucketName string
+	NullVerNum uint64
+	NullVerId  string
 }
 
 func (om *ObjMap) GetRowKey() (string, error) {
@@ -87,7 +87,7 @@ func (om *ObjMap) GetValues() (values map[string]map[string][]byte, err error) {
 	}
 	values = map[string]map[string][]byte{
 		OBJMAP_COLUMN_FAMILY: map[string][]byte{
-			"nullVerNum":   nullVerNum.Bytes(),
+			"nullVerNum": nullVerNum.Bytes(),
 		},
 	}
 	return
@@ -107,7 +107,7 @@ func (o *Object) String() (s string) {
 	return s
 }
 
-func (o *Object) GetVersionNumber() (uint64) {
+func (o *Object) GetVersionNumber() uint64 {
 	return uint64(o.LastModifiedTime.UnixNano())
 }
 
@@ -187,7 +187,7 @@ func (o *Object) GetValuesForDelete() (values map[string]map[string][]byte) {
 
 func (om *ObjMap) GetValuesForDelete() (values map[string]map[string][]byte) {
 	return map[string]map[string][]byte{
-		OBJMAP_COLUMN_FAMILY:      map[string][]byte{},
+		OBJMAP_COLUMN_FAMILY: map[string][]byte{},
 	}
 }
 
@@ -337,12 +337,11 @@ func ObjectFromResponse(response *hrpc.Result) (object *Object, err error) {
 		}
 	}
 
-
 	//build simple index for multipart
 	if len(object.Parts) != 0 {
-		var sortedPartNum  = make([]int64, len(object.Parts))
+		var sortedPartNum = make([]int64, len(object.Parts))
 		for k, v := range object.Parts {
-			sortedPartNum[k - 1] = v.Offset
+			sortedPartNum[k-1] = v.Offset
 		}
 		object.PartsIndex = &SimpleIndex{Index: sortedPartNum}
 	}
@@ -437,7 +436,7 @@ func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (o
 	}
 	unmarshaller := func(in []byte) (interface{}, error) {
 		var object Object
-		err := json.Unmarshal(in, &object)
+		err := helper.MsgPackUnMarshal(in, &object)
 		return &object, err
 	}
 
@@ -514,7 +513,7 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed
 	}
 	unmarshaller := func(in []byte) (interface{}, error) {
 		var object Object
-		err := json.Unmarshal(in, &object)
+		err := helper.MsgPackUnMarshal(in, &object)
 		return &object, err
 	}
 	o, err := m.Cache.Get(redis.ObjectTable, bucketName+":"+objectName+":"+version,

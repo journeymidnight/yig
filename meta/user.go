@@ -2,11 +2,11 @@ package meta
 
 import (
 	"context"
-	"encoding/json"
+
+	"github.com/cannium/gohbase/hrpc"
 	. "legitlab.letv.cn/yig/yig/error"
 	"legitlab.letv.cn/yig/yig/helper"
 	"legitlab.letv.cn/yig/yig/redis"
-	"github.com/cannium/gohbase/hrpc"
 )
 
 const (
@@ -34,7 +34,7 @@ func (m *Meta) GetUserBuckets(userId string, willNeed bool) (buckets []string, e
 	}
 	unmarshaller := func(in []byte) (interface{}, error) {
 		buckets := make([]string, 0)
-		err := json.Unmarshal(in, &buckets)
+		err := helper.MsgPackUnMarshal(in, &buckets)
 		return buckets, err
 	}
 	bs, err := m.Cache.Get(redis.UserTable, userId, getUserBuckets, unmarshaller, willNeed)

@@ -5,12 +5,13 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"time"
+
+	"github.com/cannium/gohbase/hrpc"
 	"legitlab.letv.cn/yig/yig/api/datatype"
 	. "legitlab.letv.cn/yig/yig/error"
 	"legitlab.letv.cn/yig/yig/helper"
 	"legitlab.letv.cn/yig/yig/redis"
-	"github.com/cannium/gohbase/hrpc"
-	"time"
 )
 
 type Bucket struct {
@@ -21,7 +22,7 @@ type Bucket struct {
 	OwnerId    string
 	CORS       datatype.Cors
 	ACL        datatype.Acl
-	LC	   datatype.Lc
+	LC         datatype.Lc
 	Versioning string // actually enum: Disabled/Enabled/Suspended
 	Usage      int64
 }
@@ -116,7 +117,7 @@ func (m *Meta) GetBucket(bucketName string, willNeed bool) (bucket Bucket, err e
 	}
 	unmarshaller := func(in []byte) (interface{}, error) {
 		var bucket Bucket
-		err := json.Unmarshal(in, &bucket)
+		err := helper.MsgPackUnMarshal(in, &bucket)
 		return bucket, err
 	}
 	b, err := m.Cache.Get(redis.BucketTable, bucketName, getBucket, unmarshaller, willNeed)
