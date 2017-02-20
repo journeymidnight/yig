@@ -5,12 +5,16 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
+	"time"
+
+	"fmt"
+
+	"github.com/cannium/gohbase/hrpc"
+	"github.com/dustin/go-humanize"
 	"legitlab.letv.cn/yig/yig/api/datatype"
 	. "legitlab.letv.cn/yig/yig/error"
 	"legitlab.letv.cn/yig/yig/helper"
 	"legitlab.letv.cn/yig/yig/redis"
-	"github.com/cannium/gohbase/hrpc"
-	"time"
 )
 
 type Bucket struct {
@@ -21,12 +25,26 @@ type Bucket struct {
 	OwnerId    string
 	CORS       datatype.Cors
 	ACL        datatype.Acl
-	LC	   datatype.Lc
+	LC         datatype.Lc
 	Versioning string // actually enum: Disabled/Enabled/Suspended
 	Usage      int64
 }
 
-func (b Bucket) GetValues() (values map[string]map[string][]byte, err error) {
+func (b *Bucket) String() (s string) {
+	s += "Name: " + b.Name + "\n"
+	s += "CreateTime: " + b.CreateTime.Format(CREATE_TIME_LAYOUT) + "\n"
+	s += "OwnerId: " + b.OwnerId + "\n"
+	s += "CORS: " + fmt.Sprintf("%+v", b.CORS) + "\n"
+	s += "ACL: " + fmt.Sprintf("%+v", b.ACL) + "\n"
+	s += "LifeCycle: " + fmt.Sprintf("%+v", b.LC) + "\n"
+	s += "Version: " + b.Versioning + "\n"
+	s += "Usage: " + humanize.Bytes(uint64(b.Usage)) + "\n"
+	return
+}
+
+/* Learn from this, http://stackoverflow.com/questions/33587227/golang-method-sets-pointer-vs-value-receiver */
+/* If you have a T and it is addressable you can call methods that have a receiver type of *T as well as methods that have a receiver type of T */
+func (b *Bucket) GetValues() (values map[string]map[string][]byte, err error) {
 	cors, err := json.Marshal(b.CORS)
 	if err != nil {
 		return
@@ -116,7 +134,7 @@ func (m *Meta) GetBucket(bucketName string, willNeed bool) (bucket Bucket, err e
 	}
 	unmarshaller := func(in []byte) (interface{}, error) {
 		var bucket Bucket
-		err := json.Unmarshal(in, &bucket)
+		err := helper.MsgPackUnMarshal(in, &bucket)
 		return bucket, err
 	}
 	b, err := m.Cache.Get(redis.BucketTable, bucketName, getBucket, unmarshaller, willNeed)

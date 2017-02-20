@@ -1,11 +1,11 @@
 package redis
 
 import (
-	"encoding/json"
-	"legitlab.letv.cn/yig/yig/helper"
+	"strconv"
+
 	"github.com/mediocregopher/radix.v2/pool"
 	"github.com/mediocregopher/radix.v2/redis"
-	"strconv"
+	"legitlab.letv.cn/yig/yig/helper"
 )
 
 const InvalidQueueName = "InvalidQueue"
@@ -82,7 +82,7 @@ func Set(table RedisDatabase, key string, value interface{}) (err error) {
 	}
 	defer PutClient(c)
 
-	encodedValue, err := json.Marshal(value)
+	encodedValue, err := helper.MsgPackMarshal(value)
 	if err != nil {
 		return err
 	}

@@ -2,13 +2,13 @@ package meta
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
+	"strconv"
+
+	"github.com/cannium/gohbase/hrpc"
 	. "legitlab.letv.cn/yig/yig/error"
 	"legitlab.letv.cn/yig/yig/helper"
 	"legitlab.letv.cn/yig/yig/redis"
-	"github.com/cannium/gohbase/hrpc"
-	"strconv"
 )
 
 type Cluster struct {
@@ -57,7 +57,7 @@ func (m *Meta) GetCluster(fsid string) (cluster Cluster, err error) {
 	}
 	unmarshaller := func(in []byte) (interface{}, error) {
 		var cluster Cluster
-		err := json.Unmarshal(in, &cluster)
+		err := helper.MsgPackUnMarshal(in, &cluster)
 		return cluster, err
 	}
 	c, err := m.Cache.Get(redis.ClusterTable, fsid, getCluster, unmarshaller, true)
