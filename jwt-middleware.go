@@ -16,7 +16,7 @@ type JwtMiddleware struct {
 func FromAuthHeader(r *http.Request) (string, error) {
 
 	authHeader, ok := r.Header["Authorization"]
-	helper.Logger.Println("authHeader:",authHeader)
+	helper.Logger.Println(5, "authHeader:",authHeader)
 	if ok == false || authHeader[0] == "" {
 		return "", nil // No error, just no token
 	}

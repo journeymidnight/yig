@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"legitlab.letv.cn/ceph/radoshttpd/rados"
 	"io"
-	"log"
+	"legitlab.letv.cn/yig/yig/log"
 	"sync"
 	"io/ioutil"
 )
@@ -37,7 +37,7 @@ type CephStorage struct {
 
 func NewCephStorage(configFile string, logger *log.Logger) *CephStorage {
 
-	logger.Printf("Loading Ceph file %s\n", configFile)
+	logger.Printf(5, "Loading Ceph file %s\n", configFile)
 
 	Rados, err := rados.NewConn("admin")
 	Rados.SetConfigOption("rados_mon_op_timeout", MON_TIMEOUT)
@@ -68,7 +68,7 @@ func NewCephStorage(configFile string, logger *log.Logger) *CephStorage {
 		CountMutex: new(sync.Mutex),
 	}
 
-	logger.Printf("Ceph Cluster %s is ready, InstanceId is %d\n", name, id)
+	logger.Printf(5, "Ceph Cluster %s is ready, InstanceId is %d\n", name, id)
 	return &cluster
 }
 

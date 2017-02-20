@@ -19,13 +19,12 @@ package helper
 import (
 	"bufio"
 	"bytes"
-	"log"
 	"os"
 	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
-
+	"legitlab.letv.cn/yig/yig/log"
 	"github.com/dustin/go-humanize"
 )
 
@@ -74,9 +73,9 @@ func ErrorIf(err error, msg string, data ...interface{}) {
 	if err == nil {
 		return
 	}
-	Logger.Printf(msg, data...)
-	Logger.Println("With error: ", err.Error())
-	Logger.Println("System Info: ", sysInfo())
+	Logger.Printf(5, msg, data...)
+	Logger.Println(5, "With error: ", err.Error())
+	Logger.Println(5, "System Info: ", sysInfo())
 }
 
 // fatalIf wrapper function which takes error and prints error messages.
@@ -84,9 +83,9 @@ func FatalIf(err error, msg string, data ...interface{}) {
 	if err == nil {
 		return
 	}
-	Logger.Printf(msg, data...)
-	Logger.Println("With error: ", err.Error())
-	Logger.Println("System Info: ", sysInfo())
-	Logger.Println("Stack trace: ", stackInfo())
+	Logger.Printf(5, msg, data...)
+	Logger.Println(5, "With error: ", err.Error())
+	Logger.Println(5, "System Info: ", sysInfo())
+	Logger.Println(5, "Stack trace: ", stackInfo())
 	os.Exit(1)
 }

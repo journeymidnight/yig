@@ -233,7 +233,7 @@ func WriteErrorResponseHeaders(w http.ResponseWriter, err error) {
 	} else {
 		status = http.StatusInternalServerError
 	}
-	helper.Logger.Println("Response status code:", status)
+	helper.Logger.Println(5, "Response status code:", status)
 	w.WriteHeader(status)
 }
 

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"log"
 	"net/http"
+	"legitlab.letv.cn/yig/yig/log"
 	"legitlab.letv.cn/yig/yig/helper"
 	"legitlab.letv.cn/yig/yig/iam"
 	"legitlab.letv.cn/yig/yig/storage"
@@ -176,7 +176,7 @@ func startAdminServer(c *adminServerConfig) {
 
 	hosts, port := getListenIPs(adminServer) // get listen ips and port.
 
-	logger.Println("\nS3 Object Storage:")
+	logger.Println(5, "\nS3 Object Storage:")
 	// Print api listen ips.
 	printListenIPs(false, hosts, port)
 

@@ -51,7 +51,7 @@ type entry struct {
 
 func newMetaCache(myType CacheType) (m MetaCache) {
 
-	helper.Logger.Printf("Setting Up Metadata Cache: %s\n", cacheNames[int(myType)])
+	helper.Logger.Printf(10, "Setting Up Metadata Cache: %s\n", cacheNames[int(myType)])
 
 	if myType == EnableCache {
 		m := &enabledMetaCache{
@@ -91,7 +91,7 @@ func invalidLocalCache(m *enabledMetaCache) {
 		response := subClient.Receive() // should block
 		if response.Err != nil {
 			if !response.Timeout() {
-				helper.Logger.Println("Error receiving from redis channel:",
+				helper.Logger.Println(5, "Error receiving from redis channel:",
 					response.Err)
 			}
 			continue
@@ -99,7 +99,7 @@ func invalidLocalCache(m *enabledMetaCache) {
 
 		table, err := redis.TableFromChannelName(response.Channel)
 		if err != nil {
-			helper.Logger.Println("Bad redis channel name: ", response.Channel)
+			helper.Logger.Println(5, "Bad redis channel name: ", response.Channel)
 			continue
 		}
 		m.remove(table, response.Message)
@@ -157,7 +157,7 @@ func (m *enabledMetaCache) Get(table redis.RedisDatabase, key string,
 	onCacheMiss func() (interface{}, error),
 	unmarshaller func([]byte) (interface{}, error), willNeed bool) (value interface{}, err error) {
 
-	helper.Logger.Println("enabledMetaCache Get()", table, key)
+	helper.Logger.Println(10, "enabledMetaCache Get()", table, key)
 
 	m.lock.Lock()
 	if element, hit := m.cache[table][key]; hit {
@@ -212,7 +212,7 @@ func (m *disabledMetaCache) Get(table redis.RedisDatabase, key string,
 }
 
 func (m *enabledMetaCache) remove(table redis.RedisDatabase, key string) {
-	helper.Logger.Println("enabledMetaCache Remove()", table, key)
+	helper.Logger.Println(10, "enabledMetaCache Remove()", table, key)
 
 	m.lock.Lock()
 	element, hit := m.cache[table][key]
@@ -276,7 +276,7 @@ func (m *enabledSimpleMetaCache) Get(table redis.RedisDatabase, key string,
 	onCacheMiss func() (interface{}, error),
 	unmarshaller func([]byte) (interface{}, error), willNeed bool) (value interface{}, err error) {
 
-	helper.Logger.Println("enabledMetaCache Get()", table, key)
+	helper.Logger.Println(10, "enabledMetaCache Get()", table, key)
 
 	value, err = redis.Get(table, key, unmarshaller)
 	if err == nil && value != nil {

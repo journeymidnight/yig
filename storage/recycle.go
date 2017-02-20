@@ -45,7 +45,7 @@ func removeFailed(yig *YigStorage) {
 			if err != nil {
 				object.triedTimes += 1
 				if object.triedTimes > MAX_TRY_TIMES {
-					helper.Logger.Println("Failed to remove object in Ceph:",
+					helper.Logger.Println(5, "Failed to remove object in Ceph:",
 						object.location, object.pool, object.objectId,
 						"with error", err)
 					continue
@@ -55,7 +55,7 @@ func removeFailed(yig *YigStorage) {
 			}
 		default:
 			if yig.Stopping {
-				helper.Logger.Print(".")
+				helper.Logger.Print(5, ".")
 				if len(RecycleQueue) == 0 {
 					return
 				}
@@ -73,7 +73,7 @@ func removeDeleted(yig *YigStorage) {
 		time.Sleep(time.Duration(rand.Intn(10000)) * time.Millisecond)
 
 		if yig.Stopping {
-			helper.Logger.Print(".")
+			helper.Logger.Print(5, ".")
 			return
 		}
 
@@ -118,7 +118,7 @@ func removeDeleted(yig *YigStorage) {
 			} else {
 				garbage.TriedTimes += 1
 				if garbage.TriedTimes > MAX_TRY_TIMES {
-					helper.Logger.Println("Failed to remove object in Ceph:",
+					helper.Logger.Println(5, "Failed to remove object in Ceph:",
 						garbage)
 					yig.MetaStorage.RemoveGarbageCollection(garbage)
 					continue
@@ -135,7 +135,7 @@ func removeDeleted(yig *YigStorage) {
 				}
 				_, err = yig.MetaStorage.Hbase.Put(put)
 				if err != nil {
-					helper.Logger.Println("Inconsistent data:",
+					helper.Logger.Println(5, "Inconsistent data:",
 						"garbage collection", garbage.Rowkey,
 						"should have status `Pending`")
 				}

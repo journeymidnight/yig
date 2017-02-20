@@ -18,7 +18,6 @@ package main
 
 import (
 	"errors"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -26,7 +25,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
-
+	"legitlab.letv.cn/yig/yig/log"
 	"legitlab.letv.cn/yig/yig/api"
 	"legitlab.letv.cn/yig/yig/helper"
 	"legitlab.letv.cn/yig/yig/storage"
@@ -123,9 +122,9 @@ func getListenIPs(httpServerConf *http.Server) (hosts []string, port string) {
 func printListenIPs(tls bool, hosts []string, port string) {
 	for _, host := range hosts {
 		if tls {
-			logger.Printf("    https://%s:%s\n", host, port)
+			logger.Printf(5, "    https://%s:%s\n", host, port)
 		} else {
-			logger.Printf("    http://%s:%s\n", host, port)
+			logger.Printf(5, "    http://%s:%s\n", host, port)
 		}
 	}
 }
@@ -240,7 +239,7 @@ func startApiServer(c *ServerConfig) {
 	hosts, port := getListenIPs(apiServer.Server) // get listen ips and port.
 	tls := apiServer.Server.TLSConfig != nil      // 'true' if TLS is enabled.
 
-	logger.Println("\nS3 Object Storage:")
+	logger.Println(5, "\nS3 Object Storage:")
 	// Print api listen ips.
 	printListenIPs(tls, hosts, port)
 

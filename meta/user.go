@@ -23,7 +23,7 @@ func (m *Meta) GetUserBuckets(userId string, willNeed bool) (buckets []string, e
 		}
 		response, err := m.Hbase.Get(getRequest)
 		if err != nil {
-			m.Logger.Println("Error getting user info, with error ", err)
+			m.Logger.Println(5, "Error getting user info, with error ", err)
 			return
 		}
 		buckets := make([]string, 0, len(response.Cells))

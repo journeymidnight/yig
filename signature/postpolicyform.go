@@ -220,7 +220,7 @@ func CheckPostPolicy(formValues map[string]string,
 	postPolicyForm, err := parsePostPolicyForm(string(policyBytes),
 		eqPolicyRegExp, startswithPolicyRegExp)
 	if err != nil {
-		helper.Logger.Println("Parse post-policy form error:", err)
+		helper.Logger.Println(5, "Parse post-policy form error:", err)
 		return ErrMalformedPOSTRequest
 	}
 	if !postPolicyForm.Expiration.After(time.Now()) {

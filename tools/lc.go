@@ -6,7 +6,7 @@ import (
 	"legitlab.letv.cn/yig/yig/meta"
 	"legitlab.letv.cn/yig/yig/iam"
 	"legitlab.letv.cn/yig/yig/api/datatype"
-	"log"
+	"legitlab.letv.cn/yig/yig/log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -33,18 +33,18 @@ const (
 
 func getLifeCycles () {
 	var marker string
-	logger.Println("all bucket lifecycle handle start")
+	logger.Println(5, 5, "all bucket lifecycle handle start")
 	waitgroup.Add(1)
 	defer waitgroup.Done()
 	for {
 		if stop {
-			helper.Logger.Print(".")
+			helper.Logger.Print(5, ".")
 			return
 		}
 
 		result, err := yig.MetaStorage.ScanLifeCycle(SCAN_HBASE_LIMIT, marker)
 		if err != nil {
-			logger.Println("ScanLifeCycle failed", err)
+			logger.Println(5, "ScanLifeCycle failed", err)
 			signalQueue <- syscall.SIGQUIT
 			return
 		}
@@ -137,11 +137,11 @@ func retrieveBucket(lc meta.LifeCycle) error {
 					helper.Debugln("come here")
 					_, err = yig.DeleteObject(object.BucketName, object.Name, object.VersionId, iam.Credential{})
 					if err != nil {
-						helper.Logger.Println("[FAILED]", object.BucketName, object.Name, object.VersionId, err)
+						helper.Logger.Println(5, "[FAILED]", object.BucketName, object.Name, object.VersionId, err)
 						fmt.Println("[FAILED]", object.BucketName, object.Name, object.VersionId, err)
 						continue
 					}
-					helper.Logger.Println("[DELETED]", object.BucketName, object.Name, object.VersionId)
+					helper.Logger.Println(5, "[DELETED]", object.BucketName, object.Name, object.VersionId)
 					fmt.Println("[DELETED]", object.BucketName, object.Name, object.VersionId)
 				}
 			}
@@ -172,12 +172,12 @@ func retrieveBucket(lc meta.LifeCycle) error {
 					if checkIfExpiration(object.LastModifiedTime, days) {
 						_, err = yig.DeleteObject(object.BucketName, object.Name, object.VersionId, iam.Credential{})
 						if err != nil {
-							logger.Println("failed to delete object:", object.Name, object.BucketName)
-							helper.Logger.Println("[FAILED]", object.BucketName, object.Name, object.VersionId, err)
+							logger.Println(5, "failed to delete object:", object.Name, object.BucketName)
+							helper.Logger.Println(5, "[FAILED]", object.BucketName, object.Name, object.VersionId, err)
 							fmt.Println("[FAILED]", object.BucketName, object.Name, object.VersionId, err)
 							continue
 						}
-						helper.Logger.Println("[DELETED]", object.BucketName, object.Name, object.VersionId)
+						helper.Logger.Println(5, "[DELETED]", object.BucketName, object.Name, object.VersionId)
 						fmt.Println("[DELETED]", object.BucketName, object.Name, object.VersionId)
 					}
 				}
@@ -199,7 +199,7 @@ func processLifecycle() {
 	time.Sleep(time.Second * 1)
 	for {
 		if stop {
-			helper.Logger.Print(".")
+			helper.Logger.Print(5, ".")
 			return
 		}
 		waitgroup.Add(1)
@@ -207,7 +207,7 @@ func processLifecycle() {
 		case item := <-taskQ:
 			err := retrieveBucket(item)
 			if err != nil {
-				logger.Println("[ERR] Bucket: ", item.BucketName, err)
+				logger.Println(5, "[ERR] Bucket: ", item.BucketName, err)
 				fmt.Printf("[ERR] Bucket:%v, %v", item.BucketName, err)
 				waitgroup.Done()
 				continue
@@ -215,7 +215,7 @@ func processLifecycle() {
 			fmt.Printf("[DONE] Bucket:%s", item.BucketName)
 		default:
 			if empty == true {
-				logger.Println("all bucket lifecycle handle complete. QUIT")
+				logger.Println(5, "all bucket lifecycle handle complete. QUIT")
 				signalQueue <- syscall.SIGQUIT
 				waitgroup.Done()
 				return
@@ -234,7 +234,7 @@ func main() {
 	}
 	defer f.Close()
 	stop = false
-	logger = log.New(f, "[yig]", log.LstdFlags)
+	logger = log.New(f, "[yig]", log.LstdFlags, helper.CONFIG.LogLevel)
 	helper.Logger = logger
 	yig = storage.New(logger, int(meta.NoCache), false)
 	taskQ = make(chan meta.LifeCycle, SCAN_HBASE_LIMIT)
@@ -242,7 +242,7 @@ func main() {
 	signalQueue = make(chan os.Signal)
 
 	numOfWorkers := helper.CONFIG.LcThread
-	helper.Logger.Println("start lc thread:",numOfWorkers)
+	helper.Logger.Println(5, "start lc thread:",numOfWorkers)
 	empty = false
 	for i := 0; i< numOfWorkers; i++ {
 		go processLifecycle()
