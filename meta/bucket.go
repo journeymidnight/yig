@@ -27,7 +27,7 @@ type Bucket struct {
 	Usage      int64
 }
 
-func (b Bucket) GetValues() (values map[string]map[string][]byte, err error) {
+func (b *Bucket) GetValues() (values map[string]map[string][]byte, err error) {
 	cors, err := json.Marshal(b.CORS)
 	if err != nil {
 		return
