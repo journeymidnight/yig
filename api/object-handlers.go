@@ -27,13 +27,13 @@ import (
 	"strconv"
 	"strings"
 
+	mux "github.com/gorilla/mux"
 	. "legitlab.letv.cn/yig/yig/api/datatype"
 	. "legitlab.letv.cn/yig/yig/error"
 	"legitlab.letv.cn/yig/yig/helper"
 	"legitlab.letv.cn/yig/yig/iam"
 	"legitlab.letv.cn/yig/yig/meta"
 	"legitlab.letv.cn/yig/yig/signature"
-	mux "github.com/gorilla/mux"
 )
 
 // supportedGetReqParams - supported request parameters for GET presigned request.
@@ -1218,8 +1218,8 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 			result.SseCustomerKeyMd5Base64)
 	}
 	// write success response.
-	w.Write(encodedSuccessResponse)
 	w.WriteHeader(http.StatusOK)
+	w.Write(encodedSuccessResponse)
 }
 
 /// Delete objectAPIHandlers
