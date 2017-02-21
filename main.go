@@ -6,8 +6,9 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-	"legitlab.letv.cn/yig/yig/log"
+
 	"legitlab.letv.cn/yig/yig/helper"
+	"legitlab.letv.cn/yig/yig/log"
 	"legitlab.letv.cn/yig/yig/redis"
 	"legitlab.letv.cn/yig/yig/storage"
 )
@@ -33,11 +34,11 @@ func main() {
 	logger.Println(5, "YIG instance ID:", helper.CONFIG.InstanceId)
 
 	if helper.CONFIG.MetaCacheType > 0 || helper.CONFIG.EnableDataCache {
-		redis.Initialize()
 		defer redis.Close()
+		redis.Initialize()
 	}
 
-	yig := storage.New(logger, helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache)
+	yig := storage.New(logger, helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache, helper.CONFIG.CephConfigPattern)
 	adminServerConfig := &adminServerConfig{
 		Address: helper.CONFIG.BindAdminAddress,
 		Logger:  logger,

@@ -32,9 +32,10 @@ type Config struct {
 	GcThread                   int
 	MetaCacheType              int
 	EnableDataCache            bool
-	LcThread                   int    //used for tools/lc only, set worker numbers to do lc
-	LcDebug                    bool   //used for tools/lc only, if this was set true, will treat days as seconds
-	LogLevel                   int    //1-20
+	LcThread                   int  //used for tools/lc only, set worker numbers to do lc
+	LcDebug                    bool //used for tools/lc only, if this was set true, will treat days as seconds
+	LogLevel                   int  //1-20
+	CephConfigPattern          string
 }
 
 type config struct {
@@ -63,9 +64,10 @@ type config struct {
 	GcThread                   int
 	MetaCacheType              int
 	EnableDataCache            bool
-	LcThread                   int    //used for tools/lc only, set worker numbers to do lc
-	LcDebug                    bool   //used for tools/lc only, if this was set true, will treat days as seconds
-	LogLevel                   int    //1-20
+	LcThread                   int  //used for tools/lc only, set worker numbers to do lc
+	LcDebug                    bool //used for tools/lc only, if this was set true, will treat days as seconds
+	LogLevel                   int  //1-20
+	CephConfigPattern          string
 }
 
 var CONFIG Config
@@ -120,4 +122,5 @@ func SetupConfig() {
 		1, c.LcThread).(int)
 	CONFIG.LcDebug = c.LcDebug
 	CONFIG.LogLevel = Ternary(c.LogLevel == 0, 5, c.LogLevel).(int)
+	CONFIG.CephConfigPattern = c.CephConfigPattern
 }

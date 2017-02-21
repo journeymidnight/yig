@@ -4,11 +4,13 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
-	"legitlab.letv.cn/ceph/radoshttpd/rados"
 	"io"
-	"legitlab.letv.cn/yig/yig/log"
-	"sync"
 	"io/ioutil"
+	"sync"
+
+	"legitlab.letv.cn/ceph/radoshttpd/rados"
+	"legitlab.letv.cn/yig/yig/helper"
+	"legitlab.letv.cn/yig/yig/log"
 )
 
 const (
@@ -45,17 +47,21 @@ func NewCephStorage(configFile string, logger *log.Logger) *CephStorage {
 
 	err = Rados.ReadConfigFile(configFile)
 	if err != nil {
-		panic("Failed to open ceph.conf")
+		helper.Logger.Printf(0, "Failed to open ceph.conf: %s\n", configFile)
+		return nil
 	}
 
 	err = Rados.Connect()
 	if err != nil {
-		panic("Failed to connect to remote cluster")
+		helper.Logger.Printf(0, "Failed to connect to remote cluster: %s\n", configFile)
+		return nil
 	}
 
 	name, err := Rados.GetFSID()
 	if err != nil {
-		panic("Failed to get fsid")
+		helper.Logger.Printf(0, "Failed to get FSID: %s\n", configFile)
+		Rados.Shutdown()
+		return nil
 	}
 
 	id := Rados.GetInstanceID()

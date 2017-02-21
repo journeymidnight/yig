@@ -17,10 +17,10 @@ import (
 )
 
 const (
-	CEPH_CONFIG_PATTERN          = "conf/*.conf"
 	AES_BLOCK_SIZE               = 16
 	ENCRYPTION_KEY_LENGTH        = 32 // key size for AES-"256"
 	INITIALIZATION_VECTOR_LENGTH = 16 // block size of AES
+	DEFAULT_CEPHCONFIG_PATTERN   = "conf/*.conf"
 )
 
 var (
@@ -37,7 +37,7 @@ type YigStorage struct {
 	WaitGroup   *sync.WaitGroup
 }
 
-func New(logger *log.Logger, metaCacheType int, enableDataCache bool) *YigStorage {
+func New(logger *log.Logger, metaCacheType int, enableDataCache bool, CephConfigPattern string) *YigStorage {
 	metaStorage := meta.New(logger, meta.CacheType(metaCacheType))
 	yig := YigStorage{
 		DataStorage: make(map[string]*CephStorage),
@@ -47,14 +47,21 @@ func New(logger *log.Logger, metaCacheType int, enableDataCache bool) *YigStorag
 		Stopping:    false,
 		WaitGroup:   new(sync.WaitGroup),
 	}
-	cephConfs, err := filepath.Glob(CEPH_CONFIG_PATTERN)
-	if err != nil {
-		panic("No ceph conf found")
+	if CephConfigPattern == "" {
+		CephConfigPattern = DEFAULT_CEPHCONFIG_PATTERN
+	}
+
+	cephConfs, err := filepath.Glob(CephConfigPattern)
+	helper.Logger.Printf(5, "Reading Ceph conf files from %+v\n", cephConfs)
+	if err != nil || len(cephConfs) == 0 {
+		helper.Logger.Panic(0, "PANIC: No ceph conf found")
 	}
 
 	for _, conf := range cephConfs {
 		c := NewCephStorage(conf, logger)
-		yig.DataStorage[c.Name] = c
+		if c != nil {
+			yig.DataStorage[c.Name] = c
+		}
 	}
 
 	initializeRecycler(&yig)

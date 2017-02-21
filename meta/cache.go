@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mediocregopher/radix.v2/pubsub"
 	"legitlab.letv.cn/yig/yig/helper"
 	"legitlab.letv.cn/yig/yig/redis"
-	"github.com/mediocregopher/radix.v2/pubsub"
 )
 
 type CacheType int
@@ -82,7 +82,7 @@ func newMetaCache(myType CacheType) (m MetaCache) {
 func invalidLocalCache(m *enabledMetaCache) {
 	c, err := redis.GetClient()
 	if err != nil {
-		panic("Cannot get Redis client: " + err.Error())
+		helper.Logger.Panicln(0, "Connot get Redis client: "+err.Error())
 	}
 
 	subClient := pubsub.NewSubClient(c)
@@ -264,12 +264,9 @@ func (m *disabledMetaCache) GetCacheHitRatio() float64 {
 	return -1
 }
 
-
-
-
 type enabledSimpleMetaCache struct {
-	Hit        int64
-	Miss       int64
+	Hit  int64
+	Miss int64
 }
 
 func (m *enabledSimpleMetaCache) Get(table redis.RedisDatabase, key string,
@@ -310,4 +307,3 @@ func (m *enabledSimpleMetaCache) Remove(table redis.RedisDatabase, key string) {
 func (m *enabledSimpleMetaCache) GetCacheHitRatio() float64 {
 	return float64(m.Hit) / float64(m.Hit+m.Miss)
 }
-
