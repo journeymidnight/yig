@@ -24,7 +24,9 @@ Requires:       librados2
 
 
 %build
-ln -fs `pwd` $GOPATH/src/legitlab.letv.cn/yig/
+#The go build still use source code in GOPATH/src/legitlab/yig/
+#keep git source tree clean, better ways to build?
+#I do not know
 go build
 go build tools/admin.go
 go build tools/delete.go
