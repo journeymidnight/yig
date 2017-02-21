@@ -19,4 +19,7 @@
     "InMemoryCacheMaxEntryCount": 100000,
     "DebugMode": false,
     "AdminKey": "secret"
+    "MetaCacheType": 2,
+    "EnableDataCache": true,
+    "CephConfigPattern": "conf/*.conf"
 }

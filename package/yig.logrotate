@@ -1,0 +1,10 @@
+compress
+/var/log/yig/yig.log {
+    weekly
+    rotate 4
+    missingok
+    compress
+    minsize 100k
+}
+
+
