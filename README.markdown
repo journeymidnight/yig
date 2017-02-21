@@ -6,6 +6,11 @@ See http://wiki.letv.cn/pages/viewpage.action?pageId=55651555 for development do
 
 ### Build
 
+
+How to build?
+
+http://wiki.letv.cn/pages/viewpage.action?pageId=64550662
+
 Require:
 
 - ceph-devel
@@ -23,9 +28,21 @@ go build
 ```
 
 
+build rpm package
+```shell
+yum install ceph-devel
+sh package/rpmbuild.sh
+```
+
 Start server:
 ```shell
 cd $YIG_DIR
 sudo ./yig
+```
+
+OR 
+
+```
+systemctl start yig
 ```
 
