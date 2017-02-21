@@ -131,18 +131,15 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 		//parts number starts from 1, so plus 1 here
 		low += 1
 	}
-	// Turn startOffset + length TO last byte's real OFFSET
-	var high int = object.PartsIndex.SearchUpperBound(startOffset + length - 1)
-	if high == -1 {
-		high = len(object.Parts)
-	} else {
-		//parts number starts from 1, so plus 1 here
-		//high = high - 1 + 1
-	}
 
-	for i := low ; i <= high; i ++ {
+	for i := low ; i <= len(object.Parts); i ++ {
 		p := object.Parts[i]
-		if p.Offset + p.Size >= startOffset {
+		//for high
+		if p.Offset > startOffset + length {
+				return
+		}
+		//for low
+		{
 			var readOffset, readLength int64
 			if startOffset <= p.Offset {
 				readOffset = 0
