@@ -19,49 +19,71 @@ import (
 	"legitlab.letv.cn/yig/yig/signature"
 )
 
-func (yig *YigStorage) pickCluster() (fsid string, err error) {
+var latestQueryTime [2]time.Time // 0 is for SMALL_FILE_POOLNAME, 1 is for BIG_FILE_POOLNAME
+const CLUSTER_MAX_USED_SPACE_PERCENT  = 85
+
+func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size int64) (cluster *CephStorage,
+	poolName string) {
+
+	var idx int
+	if size < 0 { // request.ContentLength is -1 if length is unknown
+		poolName = BIG_FILE_POOLNAME
+		idx = 1
+	}
+	if size < BIG_FILE_THRESHOLD {
+		poolName = SMALL_FILE_POOLNAME
+		idx = 0
+	} else {
+		poolName = BIG_FILE_POOLNAME
+		idx = 1
+	}
+	var needCheck bool
+	queryTime := latestQueryTime[idx]
+	if time.Since(queryTime).Hours() > 24 {  // check used space every 24 hours
+		latestQueryTime[idx] = time.Now()
+		needCheck = true
+	}
 	var totalWeight int
 	clusterWeights := make(map[string]int, len(yig.DataStorage))
 	for fsid, _ := range yig.DataStorage {
-		cluster, err := yig.MetaStorage.GetCluster(fsid)
+		cluster, err := yig.MetaStorage.GetCluster(fsid, poolName)
 		if err != nil {
-			return "", err
+			helper.Debugln("Error getting cluster: ", err)
+			continue
+		}
+		if cluster.Weight == 0 {
+			continue
+		}
+		if needCheck {
+			pct, err := yig.DataStorage[fsid].GetUsedSpacePercent()
+			if err != nil {
+				helper.Logger.Println(0, "Error getting used space: ", err, "fsid: ", fsid)
+				continue
+			}
+			if pct > CLUSTER_MAX_USED_SPACE_PERCENT {
+				helper.Logger.Println(0, "Cluster used space exceed ", CLUSTER_MAX_USED_SPACE_PERCENT, fsid)
+				continue
+			}
 		}
 		totalWeight += cluster.Weight
 		clusterWeights[fsid] = cluster.Weight
+	}
+	if len(clusterWeights) == 0 || totalWeight == 0 {
+		helper.Logger.Println(5, "Error picking cluster from Hbase!")
+		for _, c := range yig.DataStorage {
+			cluster = c
+			break
+		}
+		return
 	}
 	N := rand.Intn(totalWeight)
 	n := 0
 	for fsid, weight := range clusterWeights {
 		n += weight
 		if n > N {
-			return fsid, nil
-		}
-	}
-	return "", ErrInternalError
-}
-
-func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size int64) (cluster *CephStorage,
-	poolName string) {
-
-	fsid, err := yig.pickCluster()
-	if err != nil || fsid == "" {
-		helper.Logger.Println(5, "Error picking cluster:", err)
-		for _, c := range yig.DataStorage {
-			cluster = c
+			cluster = yig.DataStorage[fsid]
 			break
 		}
-	} else {
-		cluster = yig.DataStorage[fsid]
-	}
-
-	if size < 0 { // request.ContentLength is -1 if length is unknown
-		poolName = BIG_FILE_POOLNAME
-	}
-	if size < BIG_FILE_THRESHOLD {
-		poolName = SMALL_FILE_POOLNAME
-	} else {
-		poolName = BIG_FILE_POOLNAME
 	}
 	return
 }

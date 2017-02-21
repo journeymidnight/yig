@@ -2,7 +2,6 @@ package meta
 
 import (
 	"context"
-	"errors"
 	"strconv"
 
 	"github.com/cannium/gohbase/hrpc"
@@ -13,6 +12,7 @@ import (
 
 type Cluster struct {
 	Fsid   string
+	Pool   string
 	Weight int
 }
 
@@ -25,11 +25,12 @@ func (c Cluster) GetValues() (values map[string]map[string][]byte, err error) {
 	return
 }
 
-func (m *Meta) GetCluster(fsid string) (cluster Cluster, err error) {
+func (m *Meta) GetCluster(fsid string, pool string) (cluster Cluster, err error) {
 	getCluster := func() (c interface{}, err error) {
 		ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
 		defer done()
-		getRequest, err := hrpc.NewGetStr(ctx, CLUSTER_TABLE, fsid)
+		rowKey := fsid + ObjectNameSeparator + pool
+		getRequest, err := hrpc.NewGetStr(ctx, CLUSTER_TABLE, rowKey)
 		if err != nil {
 			return
 		}
@@ -39,11 +40,11 @@ func (m *Meta) GetCluster(fsid string) (cluster Cluster, err error) {
 			return
 		}
 		if len(response.Cells) == 0 {
-			err = errors.New("No such cluster")
 			return
 		}
 		var cluster Cluster
 		cluster.Fsid = fsid
+		cluster.Pool = pool
 		for _, cell := range response.Cells {
 			switch string(cell.Qualifier) {
 			case "weight":

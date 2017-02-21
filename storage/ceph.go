@@ -435,3 +435,12 @@ func (cluster *CephStorage) Remove(poolname string, oid string) error {
 
 	return striper.Delete(oid)
 }
+
+func (cluster *CephStorage) GetUsedSpacePercent() (pct int, err error) {
+	stat, err := cluster.Conn.GetClusterStats()
+	if err != nil {
+		return 0, errors.New("Stat error")
+	}
+	pct = int(stat.Kb_used * uint64(100) / stat.Kb)
+	return
+}
