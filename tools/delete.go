@@ -177,7 +177,7 @@ func main() {
 	stop = false
 	logger = log.New(f, "[yig]", log.LstdFlags, helper.CONFIG.LogLevel)
 	helper.Logger = logger
-	yig = storage.New(logger, int(meta.NoCache), false)
+	yig = storage.New(logger, int(meta.NoCache), false, helper.CONFIG.CephConfigPattern)
 	taskQ = make(chan meta.GarbageCollection, SCAN_HBASE_LIMIT)
 	signal.Ignore()
 	signalQueue := make(chan os.Signal)
