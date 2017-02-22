@@ -102,13 +102,13 @@ func deleteFromCeph()  {
 
 		} else {
 			for _, p = range garbage.Parts {
-				err = yig.DataStorage[p.Location].
-					Remove(p.Pool, p.ObjectId)
+				err = yig.DataStorage[garbage.Location].
+					Remove(garbage.Pool, p.ObjectId)
 				if err != nil {
 					success = false
-					helper.Logger.Println(5, "failed delete part", p.Location, ":", p.Pool, ":", p.ObjectId)
+					helper.Logger.Println(5, "failed delete part", garbage.Location, ":", garbage.Pool, ":", p.ObjectId)
 				} else {
-					helper.Logger.Println(5, "success delete part", p.Location, ":", p.Pool, ":", p.ObjectId)
+					helper.Logger.Println(5, "success delete part",garbage.Location, ":", garbage.Pool, ":", p.ObjectId)
 				}
 
 			}
