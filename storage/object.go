@@ -88,6 +88,15 @@ func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size 
 	return
 }
 
+func (yig *YigStorage) GetClusterByFsName(fsName string) (cluster *CephStorage, err error) {
+	if c, ok := yig.DataStorage[fsName]; ok {
+		cluster = c
+	} else {
+		err = errors.New("Cannot find specified ceph cluster: " + fsName)
+	}
+	return
+}
+
 func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 	length int64, writer io.Writer, sseRequest datatype.SseRequest) (err error) {
 
@@ -173,13 +182,13 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 			} else {
 				readLength = startOffset + length - (p.Offset + readOffset)
 			}
-			cephCluster, ok := yig.DataStorage[p.Location]
+			cephCluster, ok := yig.DataStorage[object.Location]
 			if !ok {
 				return errors.New("Cannot find specified ceph cluster: " +
-					p.Location)
+				       object.Location)
 			}
 			if object.SseType == "" { // unencrypted object
-				err = cephCluster.get(p.Pool, p.ObjectId, readOffset, readLength, writer)
+				err = cephCluster.get(object.Pool, p.ObjectId, readOffset, readLength, writer)
 				if err != nil {
 					return err
 				}
@@ -187,7 +196,7 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 			}
 
 			// encrypted object
-			err = copyEncryptedPart(p, cephCluster, readOffset, readLength, encryptionKey, writer)
+			err = copyEncryptedPart(object.Pool, p, cephCluster, readOffset, readLength, encryptionKey, writer)
 			if err != nil {
 				helper.Debugln("Multipart uploaded object write error:", err)
 				return err
@@ -197,10 +206,10 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 	return
 }
 
-func copyEncryptedPart(part *meta.Part, cephCluster *CephStorage, readOffset int64, length int64,
+func copyEncryptedPart(pool string, part *meta.Part, cephCluster *CephStorage, readOffset int64, length int64,
 	encryptionKey []byte, targetWriter io.Writer) (err error) {
 
-	reader, err := cephCluster.getAlignedReader(part.Pool, part.ObjectId,
+	reader, err := cephCluster.getAlignedReader(pool, part.ObjectId,
 		readOffset, length)
 	if err != nil {
 		return err
