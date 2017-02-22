@@ -101,8 +101,7 @@ func (o *Object) String() (s string) {
 	s += "Last Modified Time: " + o.LastModifiedTime.Format(CREATE_TIME_LAYOUT) + "\n"
 	s += "Version: " + o.VersionId + "\n"
 	for n, part := range o.Parts {
-		s += fmt.Sprintln("Part", n, " Location:", part.Location, "Pool:", part.Pool,
-			"Object ID:", part.ObjectId)
+		s += fmt.Sprintln("Part", n, "Object ID:", part.ObjectId)
 	}
 	return s
 }
@@ -333,6 +332,8 @@ func ObjectFromResponse(response *hrpc.Result) (object *Object, err error) {
 			if err != nil {
 				return
 			}
+			p.Etag = ""  // The member is not used, so give it null value
+			p.LastModified = "" // The member is not used, so give it null value
 			object.Parts[partNumber] = &p
 		}
 	}

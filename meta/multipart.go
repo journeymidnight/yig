@@ -19,8 +19,6 @@ import (
 
 type Part struct {
 	PartNumber int
-	Location   string
-	Pool       string
 	Size       int64
 	ObjectId   string
 
@@ -28,7 +26,7 @@ type Part struct {
 	// `multiparts` table to `objects` table
 	Offset               int64
 	Etag                 string
-	LastModified         time.Time
+	LastModified         string // time string of format "2006-01-02T15:04:05.000Z"
 	InitializationVector []byte
 }
 
@@ -50,6 +48,8 @@ type MultipartMetadata struct {
 	InitiatorId   string
 	OwnerId       string
 	ContentType   string
+	Location      string
+	Pool          string
 	Acl           datatype.Acl
 	SseRequest    datatype.SseRequest
 	EncryptionKey []byte

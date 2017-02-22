@@ -228,10 +228,13 @@ func (yig *YigStorage) NewMultipartUpload(credential iam.Credential, bucketName,
 	if !ok {
 		contentType = "application/octet-stream"
 	}
+	cephCluster, pool := yig.PickOneClusterAndPool(bucketName, objectName, -1)
 	multipartMetadata := meta.MultipartMetadata{
 		InitiatorId: credential.UserId,
 		OwnerId:     bucket.OwnerId,
 		ContentType: contentType,
+		Location:    cephCluster.Name,
+		Pool:        pool,
 		Acl:         acl,
 		SseRequest:  sseRequest,
 	}
@@ -307,7 +310,11 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential i
 
 	md5Writer := md5.New()
 	limitedDataReader := io.LimitReader(data, size)
-	cephCluster, poolName := yig.PickOneClusterAndPool(bucketName, objectName, size)
+	poolName := multipart.Metadata.Pool
+	cephCluster, err := yig.GetClusterByFsName(multipart.Metadata.Location)
+	if err != nil {
+		return
+	}
 	oid := cephCluster.GetUniqUploadName()
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
 
@@ -372,12 +379,10 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential i
 
 	part := meta.Part{
 		PartNumber:           partId,
-		Location:             cephCluster.Name,
-		Pool:                 poolName,
 		Size:                 size,
 		ObjectId:             oid,
 		Etag:                 calculatedMd5,
-		LastModified:         time.Now().UTC(),
+		LastModified:         time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT),
 		InitializationVector: initializationVector,
 	}
 	partValues, err := part.GetValues()
@@ -407,8 +412,8 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential i
 	var removedSize int64 = 0
 	if part, ok := multipart.Parts[partId]; ok {
 		RecycleQueue <- objectToRecycle{
-			location: part.Location,
-			pool:     part.Pool,
+			location: multipart.Metadata.Location,
+			pool:     multipart.Metadata.Pool,
 			objectId: part.ObjectId,
 		}
 		removedSize += part.Size
@@ -457,7 +462,11 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 
 	md5Writer := md5.New()
 	limitedDataReader := io.LimitReader(data, size)
-	cephCluster, poolName := yig.PickOneClusterAndPool(bucketName, objectName, size)
+	poolName := multipart.Metadata.Pool
+	cephCluster, err := yig.GetClusterByFsName(multipart.Metadata.Location)
+	if err != nil {
+		return
+	}
 	oid := cephCluster.GetUniqUploadName()
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
 
@@ -512,17 +521,16 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	if initializationVector == nil {
 		initializationVector = []byte{}
 	}
+	now := time.Now().UTC()
 	part := meta.Part{
 		PartNumber:           partId,
-		Location:             cephCluster.Name,
-		Pool:                 poolName,
 		Size:                 size,
 		ObjectId:             oid,
 		Etag:                 result.Md5,
-		LastModified:         time.Now().UTC(),
+		LastModified:         now.Format(meta.CREATE_TIME_LAYOUT),
 		InitializationVector: initializationVector,
 	}
-	result.LastModified = part.LastModified
+	result.LastModified = now
 
 	partValues, err := part.GetValues()
 	if err != nil {
@@ -551,8 +559,8 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	var removedSize int64 = 0
 	if part, ok := multipart.Parts[partId]; ok {
 		RecycleQueue <- objectToRecycle{
-			location: part.Location,
-			pool:     part.Pool,
+			location: multipart.Metadata.Location,
+			pool:     multipart.Metadata.Pool,
 			objectId: part.ObjectId,
 		}
 		removedSize += part.Size
@@ -603,7 +611,7 @@ func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, ob
 			part := datatype.Part{
 				PartNumber:   i,
 				ETag:         "\"" + p.Etag + "\"",
-				LastModified: p.LastModified.UTC().Format(meta.CREATE_TIME_LAYOUT),
+				LastModified: p.LastModified,
 				Size:         p.Size,
 			}
 			result.Parts = append(result.Parts, part)
@@ -688,8 +696,8 @@ func (yig *YigStorage) AbortMultipartUpload(credential iam.Credential,
 	var removedSize int64 = 0
 	for _, p := range multipart.Parts {
 		RecycleQueue <- objectToRecycle{
-			location: p.Location,
-			pool:     p.Pool,
+			location: multipart.Metadata.Location,
+			pool:     multipart.Metadata.Pool,
 			objectId: p.ObjectId,
 		}
 		removedSize += p.Size
@@ -772,6 +780,8 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 		Name:             objectName,
 		BucketName:       bucketName,
 		OwnerId:          multipart.Metadata.OwnerId,
+		Pool:             multipart.Metadata.Pool,
+		Location:         multipart.Metadata.Location,
 		Size:             totalSize,
 		LastModifiedTime: time.Now().UTC(),
 		Etag:             result.ETag,
