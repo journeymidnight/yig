@@ -470,10 +470,12 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	// Note that sourceObject and targetObject are pointers
-	targetObject := sourceObject
+	targetObject := &meta.Object{}
 	targetObject.ACL = targetAcl
 	targetObject.BucketName = targetBucketName
 	targetObject.Name = targetObjectName
+	targetObject.Size = sourceObject.Size
+	targetObject.Etag = sourceObject.Etag
 
 	// Create the object.
 	result, err := api.ObjectAPI.CopyObject(targetObject, pipeReader, credential, sseRequest)
