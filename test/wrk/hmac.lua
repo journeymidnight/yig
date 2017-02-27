@@ -2,7 +2,7 @@
 -- Copyright (C) James Marlowe (jamesmarlowe), Lumate LLC.
 
 
-local crypto = require("sha1")
+local hmacCrypt = require("openssl.hmac")
 
 
 -- obtain a copy of enc() here: http://lua-users.org/wiki/BaseSixtyFour
@@ -85,7 +85,9 @@ function _M.generate_signature(self, dtype, message, delimiter)
     end
 
     -- local sig_hmac  =  crypto.hmac.digest(dtype, StringToSign, secret, true)
-    local sig_hmac = hmac_sha1_binary(secret, StringToSign)
+    -- local sig_hmac = hmac_sha1_binary(secret, StringToSign)
+    local hm = hmacCrypt.new(secret)
+    local sig_hmac = hm:final(StringToSign)
     local signature  =  enc(sig_hmac)
 
     self.StringToSign = StringToSign

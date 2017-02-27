@@ -1,3 +1,4 @@
 #!/usr/bin/env bash
 
-wrk -c100 -t10 --timeout 10 -d1h -s put.lua http://10.75.144.240:3000
+echo "RUN luarocks install luaossl FIRST'
+wrk -c64 -d10s --timeout 10s -s put.lua http://yig-test.lecloudapis.com:3000
