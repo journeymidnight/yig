@@ -23,7 +23,7 @@ def upload_test_unit(name, client, current_files, current_versions):
     )
     print 'Put object:', name + '_versioning', ans
     current_files[name+'_versioning'] = True
-    current_versions[(name+'_versioning', ans.get('VersionId') or "")] = True
+    current_versions[(name+'_versioning', ans.get('VersionId') or "null")] = True
 
     ans = client.create_multipart_upload(
         Bucket=name+'hehe',
@@ -50,7 +50,7 @@ def upload_test_unit(name, client, current_files, current_versions):
     ),
     print 'Put object multipart:', name + '_versioning', ans
     current_files[name+'_versioning'] = True
-    current_versions[(name+'_versioning', ans[0].get('VersionId') or "")] = True
+    current_versions[(name+'_versioning', ans[0].get('VersionId') or "null")] = True
 
 
 def list_test_unit(name, client, current_files, current_versions):
@@ -112,7 +112,7 @@ def versioned_delete(name, client, current_files, current_versions):
             Key=f,
             VersionId=v if v else 'null'
         )
-        returned_version = "" if ans.get('VersionId') == "null" else ans.get('VersionId')
+        returned_version = "null" if ans.get('VersionId') == "null" else ans.get('VersionId')
         del current_versions[(f, returned_version)]
 
 
