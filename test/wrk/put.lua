@@ -4,8 +4,8 @@ local hmac = require('hmac')
 
 
 config = {
-    ACCESS_KEY='K37ThoXzqN8CDqWhyM2x',
-    SECRET_KEY='dkCgPPDL9ZVAA5xaLFBazVRhqmRtF2XY3rYWjCef',
+    ACCESS_KEY='hehehehe',
+    SECRET_KEY='hehehehe',
     BUCKET='smallfiles',
 }
 
@@ -55,7 +55,7 @@ function put(key, data)
     return wrk.format("PUT", path, headers, data)
 end
 
-local file = io.open('4k', "rb")
+local file = io.open('4K', "rb")
 if file == nil then
     print("error")
     return nil
