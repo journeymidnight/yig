@@ -17,7 +17,7 @@ const (
 	MON_TIMEOUT         = "10"
 	OSD_TIMEOUT         = "10"
 	STRIPE_UNIT         = 512 << 10 /* 512K */
-	STRIPE_COUNT        = 4
+	STRIPE_COUNT        = 1
 	OBJECT_SIZE         = 4 << 20         /* 4M */
 	BUFFER_SIZE         = 1 << 20         /* 1M */
 	MIN_CHUNK_SIZE      = 512 << 10       /* 512K */
