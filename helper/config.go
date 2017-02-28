@@ -22,6 +22,7 @@ type Config struct {
 	ZookeeperAddress           string
 	RedisAddress               string // redis connection string, e.g localhost:1234
 	RedisConnectionNumber      int    // number of connections to redis(i.e max concurrent request number)
+	RedisPassword              string // redis auth passowrd
 	InMemoryCacheMaxEntryCount int
 	InstanceId                 string // if empty, generated one at server startup
 	ConcurrentRequestLimit     int
@@ -54,6 +55,7 @@ type config struct {
 	ZookeeperAddress           string
 	RedisAddress               string // redis connection string, e.g localhost:1234
 	RedisConnectionNumber      int    // number of connections to redis(i.e max concurrent request number)
+	RedisPassword              string // redis auth passowrd
 	InMemoryCacheMaxEntryCount int
 	InstanceId                 string // if empty, generated one at server startup
 	ConcurrentRequestLimit     int
@@ -104,6 +106,7 @@ func SetupConfig() {
 	CONFIG.RedisAddress = c.RedisAddress
 	CONFIG.RedisConnectionNumber = Ternary(c.RedisConnectionNumber == 0,
 		10, c.RedisConnectionNumber).(int)
+	CONFIG.RedisPassword = c.RedisPassword
 	CONFIG.InMemoryCacheMaxEntryCount = Ternary(c.InMemoryCacheMaxEntryCount == 0,
 		100000, c.InMemoryCacheMaxEntryCount).(int)
 	CONFIG.InstanceId = Ternary(c.InstanceId == "",

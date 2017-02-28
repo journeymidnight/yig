@@ -45,8 +45,20 @@ var redisConnectionPool *pool.Pool
 
 func Initialize() {
 	var err error
-	redisConnectionPool, err = pool.New("tcp", helper.CONFIG.RedisAddress,
-		helper.CONFIG.RedisConnectionNumber)
+	df := func(network, addr string) (*redis.Client, error) {
+		client, err := redis.Dial(network, addr)
+		if err != nil {
+			return nil, err
+		}
+		if helper.CONFIG.RedisPassword != "" {
+			if err = client.Cmd("AUTH", helper.CONFIG.RedisPassword).Err; err != nil {
+				client.Close()
+				return nil, err
+			}
+		}
+		return client, nil
+	}
+	redisConnectionPool, err = pool.NewCustom("tcp", helper.CONFIG.RedisAddress, helper.CONFIG.RedisConnectionNumber, df)
 	if err != nil {
 		panic("Failed to connect to Redis server: " + err.Error())
 	}
