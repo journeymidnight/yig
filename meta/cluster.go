@@ -2,6 +2,7 @@ package meta
 
 import (
 	"context"
+	"errors"
 	"strconv"
 
 	"github.com/cannium/gohbase/hrpc"
@@ -40,6 +41,8 @@ func (m *Meta) GetCluster(fsid string, pool string) (cluster Cluster, err error)
 			return
 		}
 		if len(response.Cells) == 0 {
+			str := "No such cluster: " + fsid + " pool: " + pool
+			err = errors.New(str)
 			return
 		}
 		var cluster Cluster
