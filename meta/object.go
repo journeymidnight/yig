@@ -106,8 +106,16 @@ func (o *Object) String() (s string) {
 	return s
 }
 
-func (o *Object) GetVersionNumber() uint64 {
-	return uint64(o.LastModifiedTime.UnixNano())
+func (o *Object) GetVersionNumber() (uint64, error) {
+	decrypted, err := Decrypt(o.VersionId)
+	if err != nil {
+		return 0, err
+	}
+	version, err := strconv.ParseUint(decrypted, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return version, nil
 }
 
 // Rowkey format:
@@ -191,11 +199,10 @@ func (om *ObjMap) GetValuesForDelete() (values map[string]map[string][]byte) {
 }
 
 func (o *Object) GetVersionId() string {
-	if o.VersionId != "" {
-		return o.VersionId
-	}
 	if o.NullVersion {
-		o.VersionId = "null"
+		return "null"
+	}
+	if o.VersionId != "" {
 		return o.VersionId
 	}
 	timeData := []byte(strconv.FormatUint(uint64(o.LastModifiedTime.UnixNano()), 10))
@@ -359,20 +366,16 @@ func ObjectFromResponse(response *hrpc.Result) (object *Object, err error) {
 	// + ObjectNameEnding
 	// + bigEndian(uint64.max - unixNanoTimestamp)
 	object.Name = string(rowkey[len(object.BucketName)+1 : len(rowkey)-9])
-	if object.NullVersion {
-		object.VersionId = "null"
-	} else {
-		reversedTimeBytes := rowkey[len(rowkey)-8:]
-		var reversedTime uint64
-		err = binary.Read(bytes.NewReader(reversedTimeBytes), binary.BigEndian,
-			&reversedTime)
-		if err != nil {
-			return
-		}
-		timestamp := math.MaxUint64 - reversedTime
-		timeData := []byte(strconv.FormatUint(timestamp, 10))
-		object.VersionId = hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
+	reversedTimeBytes := rowkey[len(rowkey)-8:]
+	var reversedTime uint64
+	err = binary.Read(bytes.NewReader(reversedTimeBytes), binary.BigEndian,
+		&reversedTime)
+	if err != nil {
+		return
 	}
+	timestamp := math.MaxUint64 - reversedTime
+	timeData := []byte(strconv.FormatUint(timestamp, 10))
+	object.VersionId = hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
 	helper.Debugln("ObjectFromResponse:", object)
 	return
 }
