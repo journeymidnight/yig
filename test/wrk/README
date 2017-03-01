@@ -1,0 +1,36 @@
+# build your own wrk
+
+```
+git clone https://github.com/wg/wrk.git
+```
+
+## install requires:
+
+```
+yum install luajit-devel
+yum install luarocks
+yum install lua-devel
+yum install openssl-devel
+```
+
+## install luaossl is FOR openssl.hmac
+
+```
+luarocks install luaossl
+
+```
+
+
+## modify wrk's Makefile
+
+ADD two variablies
+```
+WITH_OPENSSL=0
+WITH_LUAJIT=0
+```
+
+run, make sure your wrk build does not build its own openssl or luagit
+```
+make
+```
+

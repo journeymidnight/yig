@@ -64,11 +64,24 @@ local content = file:read "*a"
 file:close()
 
 
+function getpid()
+	local file = io.open('/proc/self/stat')
+	c = file:read "*a"
+	for word in string.gmatch(c, '%d+')
+	do 
+		return (word)
+	end
+end
+
+
+local myPid=getpid()
 local threadId = 1
+local threads = {}
 
 function setup(thread)
     thread:set("id", threadId)
     threadId = threadId + 1
+    table.insert(threads, thread)
 end
 
 function init(args)
@@ -77,6 +90,21 @@ end
 
 function request()
     count = count + 1
-    local key = tostring(id) .. "_" .. tostring(count)
+    local key = myPid .. "_" .. tostring(id) .. "_" .. tostring(count)
     return put(key, content)
+end
+
+function formatFilename(pid, id, count)
+    return pid .. "_" .. tostring(id) .. "_" .. tostring(count)
+end
+
+function done()
+    local result_file = io.open('result_' .. myPid ..'.log', 'a+')
+    for index, thread in ipairs(threads)
+    do
+	result_file:write("Range:" .. thread:get('id') .. '\n')
+	result_file:write("START:" ..  formatFilename(myPid, thread:get('id'), 0) .. '\n')
+        result_file:write("STOP :" ..  formatFilename(myPid, thread:get('id'), thread:get('count')) .. '\n')
+    end
+    result_file:close()
 end
