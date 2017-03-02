@@ -58,7 +58,6 @@ func configureServerHandler(c *ServerConfig) http.Handler {
 	// incoming requests.
 	var handlerFns = []api.HandlerFunc{
 		// Limits the number of concurrent http requests.
-		api.SetRateLimitHandler,
 		api.SetCommonHeaderHandler,
 		// CORS setting for all browser API requests.
 		api.SetCorsHandler,
