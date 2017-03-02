@@ -13,6 +13,7 @@ import (
 	"legitlab.letv.cn/yig/yig/api"
 	"encoding/json"
 	"legitlab.letv.cn/yig/yig/meta"
+	"net/http/pprof"
 )
 
 type adminServerConfig struct {
@@ -147,6 +148,8 @@ func configureAdminHandler() http.Handler {
 	admin.Methods("GET").Path("/bucket").HandlerFunc(getBucketInfo)
 	admin.Methods("GET").Path("/object").HandlerFunc(getObjectInfo)
 	admin.Methods("GET").Path("/cachehit").HandlerFunc(getCacheHitRatio)
+
+	mux.PathPrefix("/debug/pprof/").HandlerFunc(pprof.Index)
 
 	handle := RegisterHandlers(mux, handlerFns...)
 	return handle
