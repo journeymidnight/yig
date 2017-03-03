@@ -17,10 +17,13 @@ import (
 	"legitlab.letv.cn/yig/yig/meta"
 	"legitlab.letv.cn/yig/yig/redis"
 	"legitlab.letv.cn/yig/yig/signature"
+	"sync"
 )
 
 var latestQueryTime [2]time.Time // 0 is for SMALL_FILE_POOLNAME, 1 is for BIG_FILE_POOLNAME
 const CLUSTER_MAX_USED_SPACE_PERCENT  = 85
+
+
 
 func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size int64) (cluster *CephStorage,
 	poolName string) {
@@ -97,6 +100,50 @@ func (yig *YigStorage) GetClusterByFsName(fsName string) (cluster *CephStorage, 
 	return
 }
 
+
+/*this pool is for download only */
+var (
+	downloadBufPool sync.Pool
+)
+
+func init(){
+	downloadBufPool.New = func() interface{} {
+		return make([]byte, MIN_CHUNK_SIZE)
+	}
+}
+
+func generateTransWholeObjectFunc(cephCluster *CephStorage, object *meta.Object) (func(io.Writer) error) {
+	getWholeObject := func(w io.Writer) error {
+		reader, err := cephCluster.getReader(object.Pool, object.ObjectId, 0, object.Size)
+		if err != nil {
+			return nil
+		}
+		defer reader.Close()
+
+		buf := downloadBufPool.Get().([]byte)
+		_, err = io.CopyBuffer(w, reader, buf)
+		downloadBufPool.Put(buf)
+		return err
+	}
+	return getWholeObject
+}
+
+
+func generateTransPartObjectFunc(cephCluster *CephStorage, object *meta.Object, offset, length int64 ) (func(io.Writer) error){
+	getNormalObject := func(w io.Writer) error {
+		reader, err := cephCluster.getReader(object.Pool, object.ObjectId, offset, length)
+		if err != nil {
+			return nil
+		}
+		defer reader.Close()
+		buf := downloadBufPool.Get().([]byte)
+		_, err = io.CopyBuffer(w, reader, buf)
+		downloadBufPool.Put(buf)
+		return err
+	}
+	return getNormalObject
+}
+
 func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 	length int64, writer io.Writer, sseRequest datatype.SseRequest) (err error) {
 
@@ -116,29 +163,23 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 		if !ok {
 			return errors.New("Cannot find specified ceph cluster: " + object.Location)
 		}
-		getWholeObject := func(w io.Writer) error {
-			err := cephCluster.get(object.Pool, object.ObjectId,
-				0, object.Size, w)
-			return err
-		}
+
+		transWholeObjectWriter := generateTransWholeObjectFunc(cephCluster, object)
 
 		if object.SseType == "" { // unencrypted object
-			normalGet := func(w io.Writer) error {
-				err := cephCluster.get(object.Pool, object.ObjectId,
-					startOffset, length, w)
-				return err
-			}
+			transPartObjectWriter :=  generateTransPartObjectFunc(cephCluster,object, startOffset, length)
+
 			return yig.DataCache.WriteFromCache(object, startOffset, length, writer,
-				normalGet, getWholeObject)
+				transPartObjectWriter, transWholeObjectWriter)
 		}
 
 		// encrypted object
-		normalGet := func() (io.ReadCloser, error) {
+		normalAligenedGet := func() (io.ReadCloser, error) {
 			return cephCluster.getAlignedReader(object.Pool, object.ObjectId,
 				startOffset, length)
 		}
-		reader, err := yig.DataCache.GetAlignedReader(object, startOffset, length, normalGet,
-			getWholeObject)
+		reader, err := yig.DataCache.GetAlignedReader(object, startOffset, length, normalAligenedGet,
+			transWholeObjectWriter)
 		if err != nil {
 			return err
 		}
@@ -188,9 +229,11 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 				       object.Location)
 			}
 			if object.SseType == "" { // unencrypted object
-				err = cephCluster.get(object.Pool, p.ObjectId, readOffset, readLength, writer)
+
+				transPartFunc := generateTransPartObjectFunc(cephCluster, object, readOffset, readLength)
+				err := transPartFunc(writer)
 				if err != nil {
-					return err
+					return nil
 				}
 				continue
 			}
@@ -199,8 +242,8 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 			err = copyEncryptedPart(object.Pool, p, cephCluster, readOffset, readLength, encryptionKey, writer)
 			if err != nil {
 				helper.Debugln("Multipart uploaded object write error:", err)
-				return err
 			}
+				return err
 		}
 	}
 	return
@@ -221,8 +264,9 @@ func copyEncryptedPart(pool string, part *meta.Part, cephCluster *CephStorage, r
 	if err != nil {
 		return err
 	}
-	buffer := make([]byte, MAX_CHUNK_SIZE)
+	buffer := downloadBufPool.Get().([]byte)
 	_, err = io.CopyBuffer(targetWriter, decryptedReader, buffer)
+	downloadBufPool.Put(buffer)
 	return err
 }
 
