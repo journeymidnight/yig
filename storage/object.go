@@ -526,24 +526,18 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	}
 
 	result.LastModified = object.LastModifiedTime
-	objMap := &meta.ObjMap{
-		Name:       objectName,
-		BucketName: bucketName,
-	}
-
-	switch bucket.Versioning {
-	case "Enabled":
-		result.VersionId = object.GetVersionId()
-	case "Disabled":
-		objMap.NullVerNum = uint64(object.LastModifiedTime.UnixNano())
-		err = yig.removeObjAndMap(bucketName, objectName)
-	case "Suspended":
-		objMap.NullVerNum = uint64(object.LastModifiedTime.UnixNano())
-		err = yig.removeNullVerObjAndMap(bucketName, objectName)
-	}
+	var nullVerNum uint64
+	nullVerNum, err = yig.checkOldObject(bucketName, objectName, bucket.Versioning)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
+	}
+	if bucket.Versioning == "Enabled" {
+		result.VersionId = object.GetVersionId()
+	}
+	// update null version number
+	if bucket.Versioning == "Suspended" {
+		nullVerNum = uint64(object.LastModifiedTime.UnixNano())
 	}
 
 	err = yig.MetaStorage.PutObjectEntry(object)
@@ -551,8 +545,12 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
-
-	if objMap.NullVerNum != 0 {
+	objMap := &meta.ObjMap{
+		Name:       objectName,
+		BucketName: bucketName,
+	}
+	if nullVerNum != 0 {
+		objMap.NullVerNum = nullVerNum
 		err = yig.MetaStorage.PutObjMapEntry(objMap)
 		if err != nil {
 			yig.delTableEntryForRollback(object, nil)
@@ -652,24 +650,19 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 	targetObject.InitializationVector = initializationVector
 
 	result.LastModified = targetObject.LastModifiedTime
-	objMap := &meta.ObjMap{
-		Name:       targetObject.Name,
-		BucketName: targetObject.BucketName,
-	}
 
-	switch bucket.Versioning {
-	case "Enabled":
-		result.VersionId = targetObject.GetVersionId()
-	case "Disabled":
-		objMap.NullVerNum = uint64(targetObject.LastModifiedTime.UnixNano())
-		err = yig.removeObjAndMap(targetObject.BucketName, targetObject.Name)
-	case "Suspended":
-		objMap.NullVerNum = uint64(targetObject.LastModifiedTime.UnixNano())
-		err = yig.removeNullVerObjAndMap(targetObject.BucketName, targetObject.Name)
-	}
+	var nullVerNum uint64
+	nullVerNum, err = yig.checkOldObject(targetObject.BucketName, targetObject.Name, bucket.Versioning)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
+	}
+	if bucket.Versioning == "Enabled" {
+		result.VersionId = targetObject.GetVersionId()
+	}
+	// update null version number
+	if bucket.Versioning == "Suspended" {
+		nullVerNum = uint64(targetObject.LastModifiedTime.UnixNano())
 	}
 
 	err = yig.MetaStorage.PutObjectEntry(targetObject)
@@ -677,8 +670,12 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
-
-	if objMap.NullVerNum != 0 {
+	objMap := &meta.ObjMap{
+		Name:       targetObject.Name,
+		BucketName: targetObject.BucketName,
+	}
+	if nullVerNum != 0 {
+		objMap.NullVerNum = nullVerNum
 		err = yig.MetaStorage.PutObjMapEntry(objMap)
 		if err != nil {
 			yig.delTableEntryForRollback(targetObject, nil)
@@ -733,7 +730,7 @@ func (yig *YigStorage) getObjWithVersion(bucketName, objectName, version string)
 
 }
 
-func (yig *YigStorage) removeObjAndMap(bucketName, objectName string) error {
+func (yig *YigStorage) removeObjectEntry(bucketName, objectName string) (err error) {
 
 	object, err := yig.MetaStorage.GetObject(bucketName, objectName, false)
 	if err == ErrNoSuchKey {
@@ -746,12 +743,74 @@ func (yig *YigStorage) removeObjAndMap(bucketName, objectName string) error {
 	if err != nil {
 		return err
 	}
+	return
+}
 
-	objMap := &meta.ObjMap{
-		Name:       objectName,
-		BucketName: bucketName,
+func (yig *YigStorage) checkOldObject(bucketName, objectName, versioning string) (version uint64, err error) {
+
+	if versioning == "Disabled" {
+		err = yig.removeObjectEntry(bucketName, objectName)
+		return
 	}
-	return yig.MetaStorage.DeleteObjMapEntry(objMap)
+
+	if versioning == "Enabled" || versioning == "Suspended" {
+		objMapExist := true
+		objectExist := true
+
+		var objMap *meta.ObjMap
+		objMap, err = yig.MetaStorage.GetObjectMap(bucketName, objectName)
+		if err == ErrNoSuchKey {
+			err = nil
+			objMapExist = false
+		} else if err != nil {
+			return 0, err
+		}
+		var object *meta.Object
+		if objMapExist {
+			object, err = yig.MetaStorage.GetObjectVersion(bucketName, objectName, objMap.NullVerId, false)
+			if err == ErrNoSuchKey {
+				err = nil
+				objectExist = false
+			} else if err != nil {
+				return 0, err
+			}
+		} else {
+			object, err = yig.MetaStorage.GetObject(bucketName, objectName, false)
+			if err == ErrNoSuchKey {
+				err = nil
+				objectExist = false
+			} else if err != nil {
+				return 0, err
+			}
+		}
+
+		if versioning == "Enabled" {
+			if !objMapExist && objectExist && object.NullVersion {
+				/*decrypted, err := meta.Decrypt(object.GetVersionNumber())
+				if err != nil {
+					return []byte{}, err
+				}
+				version, err := strconv.ParseUint(decrypted, 10, 64)
+				if err != nil {
+					return []byte{}, ErrInvalidVersioning
+				}*/
+				version, err = object.GetVersionNumber()
+				if err != nil {
+					helper.Debugln("-----------old object version:", err)
+					return 0, err
+				}
+				helper.Debugln("-----------old object version:", version)
+				return
+			}
+		} else {
+			if objectExist && object.NullVersion {
+				err = yig.removeByObject(object)
+			}
+		}
+		return
+	}
+
+	return 0, errors.New("No Such versioning status!")
 }
 
 func (yig *YigStorage) removeObjectVersion(bucketName, objectName, version string) error {
@@ -762,28 +821,19 @@ func (yig *YigStorage) removeObjectVersion(bucketName, objectName, version strin
 	if err != nil {
 		return err
 	}
-	return yig.removeByObject(object)
-}
-
-func (yig *YigStorage) removeNullVerObjAndMap(bucketName, objectName string) error {
-	object, err := yig.getObjWithVersion(bucketName, objectName, "null")
-	if err == ErrNoSuchKey {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-
 	err = yig.removeByObject(object)
 	if err != nil {
 		return err
 	}
-
-	objMap := &meta.ObjMap{
-		Name:       objectName,
-		BucketName: bucketName,
+	if version == "null" {
+		objMap := &meta.ObjMap{
+			Name:       objectName,
+			BucketName: bucketName,
+		}
+		err := yig.MetaStorage.DeleteObjMapEntry(objMap)
+		return err
 	}
-	return yig.MetaStorage.DeleteObjMapEntry(objMap)
+	return nil
 }
 
 func (yig *YigStorage) addDeleteMarker(bucket meta.Bucket, objectName string,
@@ -847,7 +897,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 		if version != "" && version != "null" {
 			return result, ErrNoSuchVersion
 		}
-		err = yig.removeObjAndMap(bucketName, objectName)
+		err = yig.removeObjectEntry(bucketName, objectName)
 		if err != nil {
 			return
 		}
@@ -859,11 +909,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 			}
 			result.DeleteMarker = true
 		} else {
-			if version == "null" {
-				err = yig.removeNullVerObjAndMap(bucketName, objectName)
-			} else {
-				err = yig.removeObjectVersion(bucketName, objectName, version)
-			}
+			err = yig.removeObjectVersion(bucketName, objectName, version)
 			if err != nil {
 				return
 			}
@@ -871,7 +917,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 		}
 	case "Suspended":
 		if version == "" {
-			err = yig.removeNullVerObjAndMap(bucketName, objectName)
+			err = yig.removeObjectVersion(bucketName, objectName, "null")
 			if err != nil {
 				return
 			}
@@ -881,11 +927,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 			}
 			result.DeleteMarker = true
 		} else {
-			if version == "null" {
-				err = yig.removeNullVerObjAndMap(bucketName, objectName)
-			} else {
-				err = yig.removeObjectVersion(bucketName, objectName, version)
-			}
+			err = yig.removeObjectVersion(bucketName, objectName, version)
 			if err != nil {
 				return
 			}

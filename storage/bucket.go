@@ -641,7 +641,10 @@ func (yig *YigStorage) ListObjectsInternal(bucketName string,
 				}
 				currMarker = lstObject.Name
 				if request.Versioned {
-					currVerMarkerNum = lstObject.GetVersionNumber()
+					currVerMarkerNum, err = lstObject.GetVersionNumber()
+					if err != nil {
+						return
+					}
 				}
 
 				scanResponse = scanResponse[0:request.MaxKeys+1]
@@ -842,11 +845,7 @@ func (yig *YigStorage) ListVersionedObjects(credential iam.Credential, bucketNam
 		if request.EncodingType != "" { // only support "url" encoding for now
 			object.Key = url.QueryEscape(object.Key)
 		}
-		if !o.NullVersion {
-			object.VersionId = o.GetVersionId()
-		} else {
-			object.VersionId = "null"
-		}
+		object.VersionId = o.GetVersionId()
 		if o.DeleteMarker {
 			object.XMLName.Local = "DeleteMarker"
 		} else {

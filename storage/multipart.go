@@ -769,11 +769,6 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 	// See http://stackoverflow.com/questions/12186993
 	// for how to calculate multipart Etag
 
-	objMap := &meta.ObjMap{
-		Name:             objectName,
-		BucketName:       bucketName,
-	}
-
 	// Add to objects table
 	contentType := multipart.Metadata.ContentType
 	object := &meta.Object{
@@ -794,18 +789,17 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 		EncryptionKey:    multipart.Metadata.EncryptionKey,
 	}
 
-	switch bucket.Versioning {
-	case "Enabled":
-		result.VersionId = object.GetVersionId()
-	case "Disabled":
-		objMap.NullVerNum = uint64(object.LastModifiedTime.UnixNano())
-		err = yig.removeObjAndMap(bucketName, objectName)
-	case "Suspended":
-		objMap.NullVerNum = uint64(object.LastModifiedTime.UnixNano())
-		err = yig.removeNullVerObjAndMap(bucketName, objectName)
-	}
+	var nullVerNum uint64
+	nullVerNum, err = yig.checkOldObject(bucketName, objectName, bucket.Versioning)
 	if err != nil {
 		return
+	}
+	if bucket.Versioning == "Enabled" {
+		result.VersionId = object.GetVersionId()
+	}
+	// update null version number
+	if bucket.Versioning == "Suspended" {
+		nullVerNum = uint64(object.LastModifiedTime.UnixNano())
 	}
 
 	err = yig.MetaStorage.PutObjectEntry(object)
@@ -813,7 +807,12 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 		return
 	}
 
-	if objMap.NullVerNum != 0 {
+	objMap := &meta.ObjMap{
+		Name:       objectName,
+		BucketName: bucketName,
+	}
+	if nullVerNum != 0 {
+		objMap.NullVerNum = nullVerNum
 		err = yig.MetaStorage.PutObjMapEntry(objMap)
 		if err != nil {
 			yig.delTableEntryForRollback(object, nil)
