@@ -129,9 +129,16 @@ func generateTransWholeObjectFunc(cephCluster *CephStorage, object *meta.Object)
 }
 
 
-func generateTransPartObjectFunc(cephCluster *CephStorage, object *meta.Object, offset, length int64 ) (func(io.Writer) error){
+func generateTransPartObjectFunc(cephCluster *CephStorage, object *meta.Object, part *meta.Part, offset, length int64 ) (func(io.Writer) error){
 	getNormalObject := func(w io.Writer) error {
-		reader, err := cephCluster.getReader(object.Pool, object.ObjectId, offset, length)
+		var oid string
+		/* the transfered part could be Part or Object */
+		if part != nil {
+			oid = part.ObjectId
+		} else {
+			oid = object.ObjectId
+		}
+		reader, err := cephCluster.getReader(object.Pool, oid, offset, length)
 		if err != nil {
 			return nil
 		}
@@ -167,7 +174,7 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 		transWholeObjectWriter := generateTransWholeObjectFunc(cephCluster, object)
 
 		if object.SseType == "" { // unencrypted object
-			transPartObjectWriter :=  generateTransPartObjectFunc(cephCluster,object, startOffset, length)
+			transPartObjectWriter :=  generateTransPartObjectFunc(cephCluster,object, nil,  startOffset, length)
 
 			return yig.DataCache.WriteFromCache(object, startOffset, length, writer,
 				transPartObjectWriter, transWholeObjectWriter)
@@ -230,7 +237,7 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 			}
 			if object.SseType == "" { // unencrypted object
 
-				transPartFunc := generateTransPartObjectFunc(cephCluster, object, readOffset, readLength)
+				transPartFunc := generateTransPartObjectFunc(cephCluster, object, p, readOffset, readLength)
 				err := transPartFunc(writer)
 				if err != nil {
 					return nil
