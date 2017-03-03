@@ -149,7 +149,13 @@ func configureAdminHandler() http.Handler {
 	admin.Methods("GET").Path("/object").HandlerFunc(getObjectInfo)
 	admin.Methods("GET").Path("/cachehit").HandlerFunc(getCacheHitRatio)
 
-	mux.PathPrefix("/debug/pprof/").HandlerFunc(pprof.Index)
+	apiRouter.Path("/debug/cmdline").HandlerFunc(pprof.Cmdline)
+	apiRouter.Path("/debug/profile").HandlerFunc(pprof.Profile)
+	apiRouter.Path("/debug/symbol").HandlerFunc(pprof.Symbol)
+	apiRouter.Path("/debug/trace").HandlerFunc(pprof.Trace)
+	apiRouter.PathPrefix("/debug/pprof/").HandlerFunc(pprof.Index)
+
+
 
 	handle := RegisterHandlers(mux, handlerFns...)
 	return handle
