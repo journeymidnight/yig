@@ -55,13 +55,6 @@ function put(key, data)
     return wrk.format("PUT", path, headers, data)
 end
 
-local file = io.open('4K', "rb")
-if file == nil then
-    print("error")
-    return nil
-end
-local content = file:read "*a"
-file:close()
 
 
 function getpid()
@@ -82,6 +75,14 @@ function setup(thread)
     thread:set("id", threadId)
     threadId = threadId + 1
     table.insert(threads, thread)
+    local file = io.open('4K', "rb")
+    if file == nil then
+        print("error")
+        return nil
+    end
+    local content = file:read "*a"
+    thread:set("content",content)
+    file:close()
 end
 
 function init(args)
