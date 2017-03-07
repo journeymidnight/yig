@@ -94,6 +94,8 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 	bucket_host.Methods("PUT").HandlerFunc(api.PutBucketCorsHandler).Queries("cors", "")
 	// GetBucketCORS
 	bucket_host.Methods("GET").HandlerFunc(api.GetBucketCorsHandler).Queries("cors", "")
+	// GetBucketPolicy
+	bucket_host.Methods("GET").HandlerFunc(api.GetBucketPolicyHandler).Queries("policy", "")
 	// DeleteBucketCORS
 	bucket_host.Methods("DELETE").HandlerFunc(api.DeleteBucketCorsHandler).Queries("cors", "")
 	// PutLifeCycleConfig
@@ -176,6 +178,8 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 	bucket.Methods("PUT").HandlerFunc(api.PutBucketCorsHandler).Queries("cors", "")
 	// GetBucketCORS
 	bucket.Methods("GET").HandlerFunc(api.GetBucketCorsHandler).Queries("cors", "")
+	// GetBucketPolicy
+	bucket.Methods("GET").HandlerFunc(api.GetBucketPolicyHandler).Queries("policy", "")
 	// DeleteBucketCORS
 	bucket.Methods("DELETE").HandlerFunc(api.DeleteBucketCorsHandler).Queries("cors", "")
 	// PutLifeCycleConfig
