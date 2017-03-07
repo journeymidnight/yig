@@ -640,6 +640,17 @@ func (api ObjectAPIHandlers) GetBucketCorsHandler(w http.ResponseWriter, r *http
 	WriteSuccessResponse(w, corsBuffer)
 }
 
+func (api ObjectAPIHandlers) GetBucketPolicyHandler(w http.ResponseWriter, r *http.Request) {
+	var err error
+	if _, err = signature.IsReqAuthenticated(r); err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+
+	WriteErrorResponse(w, r, ErrNoSuchBucketPolicy)
+	return
+}
+
 func (api ObjectAPIHandlers) GetBucketVersioningHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
