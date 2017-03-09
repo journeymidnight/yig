@@ -4,11 +4,11 @@ import (
 	"os"
 	"strconv"
 
-	"legitlab.letv.cn/yig/yig/redis"
-
 	"fmt"
 
+	yigredis "legitlab.letv.cn/yig/yig/redis"
 	"github.com/mediocregopher/radix.v2/pool"
+	"github.com/mediocregopher/radix.v2/redis"
 	"legitlab.letv.cn/yig/yig/helper"
 	"legitlab.letv.cn/yig/yig/meta"
 )
@@ -22,7 +22,21 @@ func main() {
 
 	var err error
 	//initialize
-	redisConnectionPool, err := pool.New("tcp", os.Args[1], 1)
+	df := func(network, addr string) (*redis.Client, error) {
+		client, err := redis.Dial(network, addr)
+		if err != nil {
+			return nil, err
+		}
+		if helper.CONFIG.RedisPassword != "" {
+			if err = client.Cmd("AUTH", helper.CONFIG.RedisPassword).Err; err != nil {
+				client.Close()
+				return nil, err
+			}
+		}
+		return client, nil
+	}
+
+	redisConnectionPool, err := pool.NewCustom("tcp", os.Args[1], 1 , df)
 	if err != nil {
 		panic("Failed to connect to Redis server: " + err.Error())
 	}
@@ -36,9 +50,9 @@ func main() {
 
 	key := os.Args[2]
 	//parse table name
-	var tableType redis.RedisDatabase
+	var tableType yigredis.RedisDatabase
 	if t, err := strconv.Atoi(string(key[0])); err == nil {
-		tableType = redis.RedisDatabase(t)
+		tableType = yigredis.RedisDatabase(t)
 	} else {
 		panic("Failed Get A table type, key value should start with a number")
 	}
@@ -50,7 +64,7 @@ func main() {
 		return
 	}
 	switch tableType {
-	case redis.BucketTable:
+	case yigredis.BucketTable:
 		var v meta.Bucket
 		err = helper.MsgPackUnMarshal(encodeValue, &v)
 		if err != nil {
@@ -58,7 +72,7 @@ func main() {
 			return
 		}
 		fmt.Println(v.String())
-	case redis.ClusterTable:
+	case yigredis.ClusterTable:
 		var v meta.Cluster
 		err = helper.MsgPackUnMarshal(encodeValue, &v)
 		if err != nil {
@@ -66,7 +80,7 @@ func main() {
 			return
 		}
 		fmt.Println(v)
-	case redis.ObjectTable:
+	case yigredis.ObjectTable:
 		var v meta.Object
 		err = helper.MsgPackUnMarshal(encodeValue, &v)
 		if err != nil {
@@ -74,7 +88,7 @@ func main() {
 			return
 		}
 		fmt.Println(v.String())
-	case redis.UserTable:
+	case yigredis.UserTable:
 		buckets := make([]string, 0)
 		err := helper.MsgPackUnMarshal(encodeValue, &buckets)
 		if err != nil {
@@ -82,7 +96,7 @@ func main() {
 			return
 		}
 		fmt.Println(buckets)
-	case redis.FileTable:
+	case yigredis.FileTable:
 		fmt.Println(encodeValue)
 	}
 }
