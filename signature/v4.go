@@ -25,7 +25,6 @@
 package signature
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
 	"net/http"
 	"sort"
@@ -94,7 +93,7 @@ func getScope(t time.Time, region string) string {
 func getStringToSign(canonicalRequest string, t time.Time, region string) string {
 	stringToSign := signV4Algorithm + "\n" + t.Format(Iso8601Format) + "\n"
 	stringToSign = stringToSign + getScope(t, region) + "\n"
-	canonicalRequestBytes := sha256.Sum256([]byte(canonicalRequest))
+	canonicalRequestBytes := sum256([]byte(canonicalRequest))
 	stringToSign = stringToSign + hex.EncodeToString(canonicalRequestBytes[:])
 	return stringToSign
 }

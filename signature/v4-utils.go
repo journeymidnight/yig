@@ -18,7 +18,7 @@ package signature
 
 import (
 	"crypto/hmac"
-	"crypto/sha256"
+	"github.com/minio/sha256-simd"
 	"encoding/hex"
 	. "legitlab.letv.cn/yig/yig/error"
 	"net/http"
