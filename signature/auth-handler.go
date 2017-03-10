@@ -19,7 +19,7 @@ package signature
 import (
 	"bytes"
 	"crypto/md5"
-	"github.com/minio/sha256-simd"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"io/ioutil"

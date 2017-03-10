@@ -17,7 +17,7 @@
 package signature
 
 import (
-	"github.com/minio/sha256-simd"
+	"crypto/sha256"
 	"encoding/hex"
 	"hash"
 	"io"
