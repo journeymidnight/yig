@@ -67,3 +67,11 @@ func SetJwtMiddlewareHandler(handler http.Handler) http.Handler {
 	}
 	return jwtChecker
 }
+
+func SetJwtMiddlewareFunc(f func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
+	jwtChecker := &JwtMiddleware{
+		handler:         http.HandlerFunc(f),
+	}
+	return jwtChecker.ServeHTTP
+}
+

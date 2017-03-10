@@ -44,8 +44,8 @@ type usageJson struct {
 }
 
 var adminServer *adminServerConfig
-type handlerFunc func(http.Handler) http.Handler
 
+type handlerFunc func(http.Handler) http.Handler
 
 func getUsage(w http.ResponseWriter, r *http.Request) {
 	claims := r.Context().Value("claims").(jwt.MapClaims)
@@ -127,7 +127,7 @@ func getCacheHitRatio(w http.ResponseWriter, r *http.Request) {
 }
 
 var handlerFns = []handlerFunc{
-	SetJwtMiddlewareHandler,
+//	SetJwtMiddlewareHandler,
 }
 
 func RegisterHandlers(router *router.Router, handlerFns ...handlerFunc) http.Handler {
@@ -143,11 +143,11 @@ func configureAdminHandler() http.Handler {
 	mux := router.NewRouter()
 	apiRouter := mux.NewRoute().PathPrefix("/").Subrouter()
 	admin := apiRouter.PathPrefix("/admin").Subrouter()
-	admin.Methods("GET").Path("/usage").HandlerFunc(getUsage)
-	admin.Methods("GET").Path("/user").HandlerFunc(getUserInfo)
-	admin.Methods("GET").Path("/bucket").HandlerFunc(getBucketInfo)
-	admin.Methods("GET").Path("/object").HandlerFunc(getObjectInfo)
-	admin.Methods("GET").Path("/cachehit").HandlerFunc(getCacheHitRatio)
+	admin.Methods("GET").Path("/usage").HandlerFunc(SetJwtMiddlewareFunc(getUsage))
+	admin.Methods("GET").Path("/user").HandlerFunc(SetJwtMiddlewareFunc(getUserInfo))
+	admin.Methods("GET").Path("/bucket").HandlerFunc(SetJwtMiddlewareFunc(getBucketInfo))
+	admin.Methods("GET").Path("/object").HandlerFunc(SetJwtMiddlewareFunc(getObjectInfo))
+	admin.Methods("GET").Path("/cachehit").HandlerFunc(SetJwtMiddlewareFunc(getCacheHitRatio))
 
 	apiRouter.Path("/debug/cmdline").HandlerFunc(pprof.Cmdline)
 	apiRouter.Path("/debug/profile").HandlerFunc(pprof.Profile)
