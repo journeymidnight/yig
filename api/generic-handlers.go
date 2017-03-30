@@ -72,11 +72,25 @@ func SetCorsHandler(h http.Handler, objectLayer ObjectLayer) http.Handler {
 	}
 }
 
+func InReservedOrigins(origin string) bool {
+	OriginsSplit := strings.Split(helper.CONFIG.ReservedOrigins, ",")
+	for _, r := range OriginsSplit {
+		if strings.Contains(origin, r) {
+			return true
+		}
+	}
+	return false
+}
 func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Vary", "Origin")
-
+	origin := r.Header.Get("Origin")
 	if r.Method != "OPTIONS" {
-		if r.Header.Get("Origin") == "" { // not a CORS request
+		if origin == "" {
+			h.handler.ServeHTTP(w, r)
+			return
+		}
+		if origin != "" && InReservedOrigins(origin) {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
 			h.handler.ServeHTTP(w, r)
 			return
 		}
@@ -86,6 +100,15 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			WriteErrorResponse(w, r, ErrInvalidHeader)
 			return
 		}
+	}
+
+	if r.Method == "OPTIONS" && InReservedOrigins(origin) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "x-amz-date, x-amz-user-agent, authorization")
+		w.Header().Set("Access-Control-Allow-Methods", "PUT, GET, DELETE, POST")
+		w.Header().Set("Access-Control-Expose-Headers", "x-amz-acl, Etag")
+		WriteSuccessResponse(w, nil)
+		return
 	}
 
 	urlSplit := strings.SplitN(r.URL.Path[1:], "/", 2) // "1:" to remove leading slash

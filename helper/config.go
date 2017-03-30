@@ -37,6 +37,7 @@ type Config struct {
 	LcDebug                    bool //used for tools/lc only, if this was set true, will treat days as seconds
 	LogLevel                   int  //1-20
 	CephConfigPattern          string
+	ReservedOrigins            string // www.ccc.com,www.bbb.com,127.0.0.1
 }
 
 type config struct {
@@ -70,6 +71,7 @@ type config struct {
 	LcDebug                    bool //used for tools/lc only, if this was set true, will treat days as seconds
 	LogLevel                   int  //1-20
 	CephConfigPattern          string
+	ReservedOrigins            string // www.ccc.com,www.bbb.com,127.0.0.1
 }
 
 var CONFIG Config
@@ -126,4 +128,5 @@ func SetupConfig() {
 	CONFIG.LcDebug = c.LcDebug
 	CONFIG.LogLevel = Ternary(c.LogLevel == 0, 5, c.LogLevel).(int)
 	CONFIG.CephConfigPattern = c.CephConfigPattern
+	CONFIG.ReservedOrigins = c.ReservedOrigins
 }
