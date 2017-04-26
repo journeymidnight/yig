@@ -27,13 +27,7 @@ Requires:       librados2
 #The go build still use source code in GOPATH/src/legitlab/yig/
 #keep git source tree clean, better ways to build?
 #I do not know
-go build
-go build tools/admin.go
-go build tools/delete.go
-go build tools/getrediskeys.go
-go build tools/lc.go
-
-
+make
 
 %install
 rm -rf %{buildroot}
@@ -41,7 +35,7 @@ install -D -m 755 admin %{buildroot}%{_bindir}/yig_admin
 install -D -m 755 delete %{buildroot}%{_bindir}/yig_delete_daemon
 install -D -m 755 getrediskeys %{buildroot}%{_bindir}/yig_getrediskeys
 install -D -m 755 lc     %{buildroot}%{_bindir}/yig_lifecyle_daemon
-install -D -m 755 yig-%{version}-%{rel} %{buildroot}%{_bindir}/yig
+install -D -m 755 %{_builddir}/yig-%{version}-%{rel}/build/bin/yig %{buildroot}%{_bindir}/yig
 install -D -m 644 package/yig.logrotate %{buildroot}/etc/logrotate.d/yig.logrotate
 install -D -m 644 package/yig.service   %{buildroot}/usr/lib/systemd/system/yig.service
 install -D -m 644 conf/yig.json %{buildroot}%{_sysconfdir}/yig/yig.json
