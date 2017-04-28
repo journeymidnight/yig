@@ -1,6 +1,8 @@
 clone:
   tags: true
   depth: 50
+  when:
+    branch: master
 build:
   image: plato/build
   commands:
@@ -13,4 +15,6 @@ build:
     - yum install --nogpgcheck -y ceph-devel
     - bash package/rpmbuild.sh
     - bash cipostbuild.sh
+  when:
+    branch: master
 
