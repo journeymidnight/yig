@@ -32,8 +32,7 @@ func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size 
 	if size < 0 { // request.ContentLength is -1 if length is unknown
 		poolName = BIG_FILE_POOLNAME
 		idx = 1
-	}
-	if size < BIG_FILE_THRESHOLD {
+	} else if size < BIG_FILE_THRESHOLD {
 		poolName = SMALL_FILE_POOLNAME
 		idx = 0
 	} else {
