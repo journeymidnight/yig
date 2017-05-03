@@ -249,7 +249,6 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 			if err != nil {
 				helper.Debugln("Multipart uploaded object write error:", err)
 			}
-				return err
 		}
 	}
 	return

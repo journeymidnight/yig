@@ -2,7 +2,6 @@ package meta
 
 import (
 	"context"
-	"errors"
 	"strconv"
 
 	"github.com/cannium/gohbase/hrpc"
@@ -27,10 +26,10 @@ func (c Cluster) GetValues() (values map[string]map[string][]byte, err error) {
 }
 
 func (m *Meta) GetCluster(fsid string, pool string) (cluster Cluster, err error) {
+	rowKey := fsid + ObjectNameSeparator + pool
 	getCluster := func() (c interface{}, err error) {
 		ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
 		defer done()
-		rowKey := fsid + ObjectNameSeparator + pool
 		getRequest, err := hrpc.NewGetStr(ctx, CLUSTER_TABLE, rowKey)
 		if err != nil {
 			return
@@ -41,9 +40,7 @@ func (m *Meta) GetCluster(fsid string, pool string) (cluster Cluster, err error)
 			return
 		}
 		if len(response.Cells) == 0 {
-			str := "No such cluster: " + fsid + " pool: " + pool
-			err = errors.New(str)
-			return
+			return cluster, nil
 		}
 		var cluster Cluster
 		cluster.Fsid = fsid
@@ -64,7 +61,7 @@ func (m *Meta) GetCluster(fsid string, pool string) (cluster Cluster, err error)
 		err := helper.MsgPackUnMarshal(in, &cluster)
 		return cluster, err
 	}
-	c, err := m.Cache.Get(redis.ClusterTable, fsid, getCluster, unmarshaller, true)
+	c, err := m.Cache.Get(redis.ClusterTable, rowKey, getCluster, unmarshaller, true)
 	if err != nil {
 		return
 	}
