@@ -73,6 +73,9 @@ func SetCorsHandler(h http.Handler, objectLayer ObjectLayer) http.Handler {
 }
 
 func InReservedOrigins(origin string) bool {
+	if len(helper.CONFIG.ReservedOrigins) == 0 {
+		return false
+	}
 	OriginsSplit := strings.Split(helper.CONFIG.ReservedOrigins, ",")
 	for _, r := range OriginsSplit {
 		if strings.Contains(origin, r) {

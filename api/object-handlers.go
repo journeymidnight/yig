@@ -476,6 +476,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	targetObject.Name = targetObjectName
 	targetObject.Size = sourceObject.Size
 	targetObject.Etag = sourceObject.Etag
+	targetObject.ContentType = sourceObject.ContentType
 
 	// Create the object.
 	result, err := api.ObjectAPI.CopyObject(targetObject, pipeReader, credential, sseRequest)
