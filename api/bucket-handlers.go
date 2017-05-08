@@ -490,6 +490,11 @@ func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.
 	var policy AccessControlPolicy
 	if _, ok := r.Header["X-Amz-Acl"]; ok {
 		acl, err = getAclFromHeader(r.Header)
+		if err != nil {
+			helper.ErrorIf(err, "Unable to read canned acls")
+			WriteErrorResponse(w, r, ErrInvalidAcl)
+			return
+		}
 	} else {
 		aclBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 1024))
 		if err != nil {

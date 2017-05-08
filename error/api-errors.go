@@ -230,7 +230,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		HttpStatusCode: http.StatusInternalServerError,
 	},
 	ErrInvalidAccessKeyID: {
-		AwsErrorCode:   "InvalidAccessKeyID",
+		AwsErrorCode:   "InvalidAccessKeyId",
 		Description:    "The access key ID you provided does not exist in our records.",
 		HttpStatusCode: http.StatusForbidden,
 	},

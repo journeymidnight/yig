@@ -6,7 +6,8 @@ import (
 )
 
 const (
-	CACHE_EXPIRE_TIME = 60 * time.Second
+	CACHE_EXPIRE_TIME = 600 * time.Second
+	CACHE_CHECK_TIME = 60 * time.Second
 )
 
 type cacheEntry struct {
@@ -31,7 +32,7 @@ func cacheInvalidator() {
 		now := time.Now()
 		iamCache.lock.Lock()
 		for k, entry := range iamCache.cache {
-			if entry.createTime.Add(CACHE_EXPIRE_TIME).After(now) {
+			if entry.createTime.Add(CACHE_EXPIRE_TIME).Before(now) {
 				keysToExpire = append(keysToExpire, k)
 			}
 		}
@@ -39,7 +40,7 @@ func cacheInvalidator() {
 			delete(iamCache.cache, key)
 		}
 		iamCache.lock.Unlock()
-		time.Sleep(CACHE_EXPIRE_TIME)
+		time.Sleep(CACHE_CHECK_TIME)
 	}
 }
 
