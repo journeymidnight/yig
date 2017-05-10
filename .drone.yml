@@ -17,4 +17,3 @@ build:
     - bash cipostbuild.sh
   when:
     branch: master
-
