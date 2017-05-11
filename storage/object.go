@@ -749,6 +749,10 @@ func (yig *YigStorage) removeByObject(object *meta.Object) (err error) {
 	if err != nil {
 		return
 	}
+	
+	if object.DeleteMarker {
+		return
+	}
 
 	err = yig.MetaStorage.PutObjectToGarbageCollection(object)
 	if err != nil { // try to rollback `objects` table
