@@ -1,8 +1,8 @@
 package storage
 
 import (
-	"legitlab.letv.cn/yig/yig/helper"
-	"legitlab.letv.cn/yig/yig/meta"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/meta"
 	"github.com/cannium/gohbase/hrpc"
 	"math/rand"
 	"time"

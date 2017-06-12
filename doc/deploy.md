@@ -241,7 +241,7 @@
 	
 clone yig
 
-	git clone http://legitlab.letv.cn/yig/yig.git
+	git clone http://github.com/journeymidnight/yig.git
 	go build 
 	
 修改/letv/yig/conf/ 下ceph配置文件,global部分从部署ceph的机器上/etc/ceph/ceph.conf复制

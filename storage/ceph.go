@@ -8,9 +8,9 @@ import (
 	"io/ioutil"
 	"sync"
 
-	"legitlab.letv.cn/ceph/radoshttpd/rados"
-	"legitlab.letv.cn/yig/yig/helper"
-	"legitlab.letv.cn/yig/yig/log"
+	"github.com/journeymidnight/radoshttpd/rados"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/log"
 )
 
 const (

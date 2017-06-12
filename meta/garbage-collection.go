@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/json"
-	"legitlab.letv.cn/yig/yig/helper"
+	"github.com/journeymidnight/yig/helper"
 	"github.com/cannium/gohbase/hrpc"
 	"strconv"
 	"time"

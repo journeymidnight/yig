@@ -1,12 +1,12 @@
 package main
 
 import (
-	"legitlab.letv.cn/yig/yig/helper"
-	"legitlab.letv.cn/yig/yig/storage"
-	"legitlab.letv.cn/yig/yig/meta"
-	"legitlab.letv.cn/yig/yig/iam"
-	"legitlab.letv.cn/yig/yig/api/datatype"
-	"legitlab.letv.cn/yig/yig/log"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/storage"
+	"github.com/journeymidnight/yig/meta"
+	"github.com/journeymidnight/yig/iam"
+	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/log"
 	"os"
 	"os/signal"
 	"syscall"

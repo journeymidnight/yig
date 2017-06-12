@@ -32,7 +32,7 @@ HTML = {
 <form action="{URL}" method="POST" enctype="multipart/form-data">
     Key to upload: <input type="input" name="key" value="post-policy-${filename}" /><br />
     <input type="hidden" name="acl" value="public-read" />
-    <input type="hidden" name="success_action_redirect" value="http://legitlab.letv.cn" />
+    <input type="hidden" name="success_action_redirect" value="http://github.com" />
     Content-Type: <input type="input" name="Content-Type" value="text/plain" /><br />
     <input type="hidden" name="AWSAccessKeyId" value="{ACCESS_KEY}" />
     <input type="hidden" name="Policy" value="{POLICY}" />
@@ -57,7 +57,7 @@ HTML = {
 <form action="{URL}" method="post" enctype="multipart/form-data">
     Key to upload: <input type="input"  name="key" value="post-policy-${filename}" /><br />
     <input type="hidden" name="acl" value="public-read" />
-    <input type="hidden" name="success_action_redirect" value="http://legitlab.letv.cn" />
+    <input type="hidden" name="success_action_redirect" value="http://github.com" />
     Content-Type: <input type="input"  name="Content-Type" value="text/plain" /><br />
     <input type="hidden"   name="X-Amz-Credential" value="{CREDENTIAL}" />
     <input type="hidden"   name="X-Amz-Algorithm" value="AWS4-HMAC-SHA256" />
@@ -91,13 +91,13 @@ def generate_post_policy(name, client):
         Fields={
             'acl': 'public-read',
             'Content-Type': 'text/plain',
-            'success_action_redirect': 'http://legitlab.letv.cn',
+            'success_action_redirect': 'http://github.com',
         },
         Conditions=[
             {'acl': 'public-read'},
             ['starts-with', '$key', 'post-policy-'],
             ['eq', '$content-type', 'text/plain'],
-            ['eq', '$success_action_redirect', 'http://legitlab.letv.cn']
+            ['eq', '$success_action_redirect', 'http://github.com']
         ]
     )
     print ans

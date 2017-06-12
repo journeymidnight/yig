@@ -20,7 +20,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
-	. "legitlab.letv.cn/yig/yig/error"
+	. "github.com/journeymidnight/yig/error"
 	"net/http"
 	"regexp"
 	"strings"

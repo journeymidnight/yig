@@ -5,9 +5,9 @@ import (
 	"strconv"
 
 	"github.com/cannium/gohbase/hrpc"
-	. "legitlab.letv.cn/yig/yig/error"
-	"legitlab.letv.cn/yig/yig/helper"
-	"legitlab.letv.cn/yig/yig/redis"
+	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/redis"
 )
 
 type Cluster struct {

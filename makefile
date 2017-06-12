@@ -2,7 +2,7 @@ GOPATH = $(PWD)/build
 export GOPATH
 GOBIN = $(PWD)/build/bin
 export GOBIN
-URL = legitlab.letv.cn/yig
+URL = github.com/journeymidnight
 REPO = yig
 URLPATH = $(PWD)/build/src/$(URL)
 

@@ -2,7 +2,7 @@ package main
 
 
 import (
-	"legitlab.letv.cn/yig/yig/helper"
+	"github.com/journeymidnight/yig/helper"
 	"github.com/dgrijalva/jwt-go"
 	"net/http"
 	"context"

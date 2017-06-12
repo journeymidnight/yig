@@ -22,8 +22,8 @@ import (
 	"net/http"
 	"strconv"
 
-	. "legitlab.letv.cn/yig/yig/api/datatype"
-	"legitlab.letv.cn/yig/yig/meta"
+	. "github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/meta"
 )
 
 // Encodes the response headers into XML format.

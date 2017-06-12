@@ -23,8 +23,8 @@ import (
 	"io"
 	"net/http"
 
-	. "legitlab.letv.cn/yig/yig/error"
-	"legitlab.letv.cn/yig/yig/iam"
+	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/iam"
 )
 
 // SignVerifyReader represents an io.Reader compatible interface which

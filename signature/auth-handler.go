@@ -26,8 +26,8 @@ import (
 	"net/http"
 	"strings"
 
-	. "legitlab.letv.cn/yig/yig/error"
-	"legitlab.letv.cn/yig/yig/iam"
+	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/iam"
 )
 
 // Verify if request has AWS Signature

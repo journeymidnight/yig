@@ -6,11 +6,11 @@ import (
 
 	"fmt"
 
-	yigredis "legitlab.letv.cn/yig/yig/redis"
+	yigredis "github.com/journeymidnight/yig/redis"
 	"github.com/mediocregopher/radix.v2/pool"
 	"github.com/mediocregopher/radix.v2/redis"
-	"legitlab.letv.cn/yig/yig/helper"
-	"legitlab.letv.cn/yig/yig/meta"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/meta"
 )
 
 func main() {

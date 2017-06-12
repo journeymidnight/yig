@@ -6,10 +6,10 @@ clone:
 build:
   image: plato/build
   commands:
-    - export GOPATH=/app/src/legitlab.letv.cn/yig/yig/build
-    - mkdir -p /app/src/legitlab.letv.cn/yig
-    - ln -s `pwd` /app/src/legitlab.letv.cn/yig/yig
-    - cd /app/src/legitlab.letv.cn/yig/yig
+    - export GOPATH=/app/src/github.com/journeymidnight/yig/build
+    - mkdir -p /app/src/github.com/journeymidnight
+    - ln -s `pwd` /app/src/github.com/journeymidnight/yig
+    - cd /app/src/github.com/journeymidnight/yig
     - yum-config-manager --add-repo  http://s3s.lecloud.com/ceph-jewel/el7/update/
     - yum-config-manager --add-repo  http://10.110.122.221/7/epel/
     - yum install --nogpgcheck -y ceph-devel

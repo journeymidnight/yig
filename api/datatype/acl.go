@@ -2,8 +2,8 @@ package datatype
 
 import (
 	"encoding/xml"
-	. "legitlab.letv.cn/yig/yig/error"
-	"legitlab.letv.cn/yig/yig/helper"
+	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/helper"
 )
 
 var ValidCannedAcl = []string{

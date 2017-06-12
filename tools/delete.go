@@ -1,11 +1,11 @@
 package main
 
 import (
-	"legitlab.letv.cn/yig/yig/helper"
+	"github.com/journeymidnight/yig/helper"
 	"time"
-	"legitlab.letv.cn/yig/yig/storage"
-	"legitlab.letv.cn/yig/yig/meta"
-	"legitlab.letv.cn/yig/yig/log"
+	"github.com/journeymidnight/yig/storage"
+	"github.com/journeymidnight/yig/meta"
+	"github.com/journeymidnight/yig/log"
 	"os"
 	"context"
 	"github.com/cannium/gohbase/hrpc"

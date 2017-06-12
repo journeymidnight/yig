@@ -5,7 +5,7 @@ import (
 
 	"github.com/mediocregopher/radix.v2/pool"
 	"github.com/mediocregopher/radix.v2/redis"
-	"legitlab.letv.cn/yig/yig/helper"
+	"github.com/journeymidnight/yig/helper"
 )
 
 const InvalidQueueName = "InvalidQueue"

@@ -4,9 +4,9 @@ import (
 	"io"
 	"time"
 
-	"legitlab.letv.cn/yig/yig/helper"
-	"legitlab.letv.cn/yig/yig/meta"
-	"legitlab.letv.cn/yig/yig/redis"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/meta"
+	"github.com/journeymidnight/yig/redis"
 	"bytes"
 )
 

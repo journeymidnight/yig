@@ -3,8 +3,8 @@ package meta
 import (
 	"context"
 	"encoding/hex"
-	"legitlab.letv.cn/yig/yig/log"
-	"legitlab.letv.cn/yig/yig/helper"
+	"github.com/journeymidnight/yig/log"
+	"github.com/journeymidnight/yig/helper"
 	"github.com/cannium/gohbase"
 	"github.com/xxtea/xxtea-go/xxtea"
 )

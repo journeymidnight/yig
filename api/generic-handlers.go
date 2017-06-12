@@ -20,9 +20,9 @@ import (
 	"net/http"
 	"strings"
 
-	. "legitlab.letv.cn/yig/yig/error"
-	"legitlab.letv.cn/yig/yig/helper"
-	"legitlab.letv.cn/yig/yig/signature"
+	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/signature"
 	mux "github.com/gorilla/mux"
 )
 

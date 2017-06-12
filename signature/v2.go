@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"errors"
-	"legitlab.letv.cn/yig/yig/api/datatype"
-	. "legitlab.letv.cn/yig/yig/error"
-	"legitlab.letv.cn/yig/yig/helper"
-	"legitlab.letv.cn/yig/yig/iam"
+	"github.com/journeymidnight/yig/api/datatype"
+	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/iam"
 //	"net"
 	"strconv"
 )

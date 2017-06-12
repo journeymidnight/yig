@@ -17,7 +17,7 @@
 package api
 
 import (
-	"legitlab.letv.cn/yig/yig/helper"
+	"github.com/journeymidnight/yig/helper"
 	"net/http"
 	"sync"
 	"time"

@@ -2,7 +2,7 @@ package meta
 
 import (
 	"context"
-	"legitlab.letv.cn/yig/yig/helper"
+	"github.com/journeymidnight/yig/helper"
 	"github.com/cannium/gohbase/hrpc"
 	"bytes"
 )

@@ -17,9 +17,9 @@
 package api
 
 import (
-	"legitlab.letv.cn/yig/yig/api/datatype"
-	"legitlab.letv.cn/yig/yig/iam"
-	"legitlab.letv.cn/yig/yig/meta"
+	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/iam"
+	"github.com/journeymidnight/yig/meta"
 	"io"
 )
 

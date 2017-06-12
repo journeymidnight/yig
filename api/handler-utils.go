@@ -19,9 +19,9 @@ package api
 import (
 	"crypto/md5"
 	"encoding/base64"
-	. "legitlab.letv.cn/yig/yig/api/datatype"
-	. "legitlab.letv.cn/yig/yig/error"
-	"legitlab.letv.cn/yig/yig/helper"
+	. "github.com/journeymidnight/yig/api/datatype"
+	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/helper"
 	"io"
 	"net/http"
 	"strings"

@@ -1,6 +1,9 @@
 package pool
 
 import (
+	"sync"
+	"time"
+
 	"github.com/mediocregopher/radix.v2/redis"
 )
 
@@ -11,6 +14,9 @@ import (
 type Pool struct {
 	pool chan *redis.Client
 	df   DialFunc
+
+	stopOnce sync.Once
+	stopCh   chan bool
 
 	// The network/address that the pool is connecting to. These are going to be
 	// whatever was passed into the New function. These should not be
@@ -44,10 +50,32 @@ func NewCustom(network, addr string, size int, df DialFunc) (*Pool, error) {
 		Addr:    addr,
 		pool:    make(chan *redis.Client, len(pool)),
 		df:      df,
+		stopCh:  make(chan bool),
 	}
 	for i := range pool {
 		p.pool <- pool[i]
 	}
+
+	if size < 1 {
+		return &p, err
+	}
+
+	// set up a go-routine which will periodically ping connections in the pool.
+	// if the pool is idle every connection will be hit once every 10 seconds.
+	go func() {
+		tick := time.NewTicker(10 * time.Second / time.Duration(size))
+		defer tick.Stop()
+		for {
+			select {
+			case <-p.stopCh:
+				close(p.stopCh)
+				return
+			case <-tick.C:
+				p.Cmd("PING")
+			}
+		}
+	}()
+
 	return &p, err
 }
 
@@ -99,6 +127,10 @@ func (p *Pool) Cmd(cmd string, args ...interface{}) *redis.Resp {
 // Assuming there are no other connections waiting to be Put back this method
 // effectively closes and cleans up the pool.
 func (p *Pool) Empty() {
+	p.stopOnce.Do(func() {
+		p.stopCh <- true
+		<-p.stopCh
+	})
 	var conn *redis.Client
 	for {
 		select {

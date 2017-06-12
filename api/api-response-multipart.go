@@ -17,7 +17,7 @@
 package api
 
 import (
-	"legitlab.letv.cn/yig/yig/meta"
+	"github.com/journeymidnight/yig/meta"
 	"net/http"
 )
 

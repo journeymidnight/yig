@@ -2,17 +2,17 @@ package main
 
 import (
 	"net/http"
-	"legitlab.letv.cn/yig/yig/log"
-	"legitlab.letv.cn/yig/yig/helper"
-	"legitlab.letv.cn/yig/yig/iam"
-	"legitlab.letv.cn/yig/yig/storage"
+	"github.com/journeymidnight/yig/log"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/iam"
+	"github.com/journeymidnight/yig/storage"
 	router "github.com/gorilla/mux"
 	"github.com/dgrijalva/jwt-go"
 	"net"
 	"time"
-	"legitlab.letv.cn/yig/yig/api"
+	"github.com/journeymidnight/yig/api"
 	"encoding/json"
-	"legitlab.letv.cn/yig/yig/meta"
+	"github.com/journeymidnight/yig/meta"
 	"net/http/pprof"
 )
 

@@ -21,8 +21,8 @@ import (
 	"strings"
 	"time"
 
-	. "legitlab.letv.cn/yig/yig/error"
-	"legitlab.letv.cn/yig/yig/meta"
+	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/meta"
 )
 
 // Validates the preconditions for CopyObject, returns nil if validates

@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/mediocregopher/radix.v2/pubsub"
-	"legitlab.letv.cn/yig/yig/helper"
-	"legitlab.letv.cn/yig/yig/redis"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/redis"
 )
 
 type CacheType int

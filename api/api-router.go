@@ -17,7 +17,7 @@
 package api
 
 import (
-	"legitlab.letv.cn/yig/yig/helper"
+	"github.com/journeymidnight/yig/helper"
 	router "github.com/gorilla/mux"
 )
 

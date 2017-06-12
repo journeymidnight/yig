@@ -7,10 +7,10 @@ import (
 	"syscall"
 	"time"
 
-	"legitlab.letv.cn/yig/yig/helper"
-	"legitlab.letv.cn/yig/yig/log"
-	"legitlab.letv.cn/yig/yig/redis"
-	"legitlab.letv.cn/yig/yig/storage"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/log"
+	"github.com/journeymidnight/yig/redis"
+	"github.com/journeymidnight/yig/storage"
 )
 
 var logger *log.Logger

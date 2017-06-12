@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 	"sync"
 
-	"legitlab.letv.cn/yig/yig/api/datatype"
-	. "legitlab.letv.cn/yig/yig/error"
-	"legitlab.letv.cn/yig/yig/helper"
-	"legitlab.letv.cn/yig/yig/log"
-	"legitlab.letv.cn/yig/yig/meta"
+	"github.com/journeymidnight/yig/api/datatype"
+	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/log"
+	"github.com/journeymidnight/yig/meta"
 )
 
 const (

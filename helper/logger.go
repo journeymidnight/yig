@@ -24,7 +24,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
-	"legitlab.letv.cn/yig/yig/log"
+	"github.com/journeymidnight/yig/log"
 	"github.com/dustin/go-humanize"
 )
 

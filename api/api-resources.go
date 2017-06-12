@@ -20,9 +20,9 @@ import (
 	"net/url"
 	"strconv"
 
-	. "legitlab.letv.cn/yig/yig/api/datatype"
-	. "legitlab.letv.cn/yig/yig/error"
-	"legitlab.letv.cn/yig/yig/helper"
+	. "github.com/journeymidnight/yig/api/datatype"
+	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/helper"
 	"unicode/utf8"
 )
 

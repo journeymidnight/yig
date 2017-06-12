@@ -19,9 +19,9 @@ Require:
 Steps:
 
 ```shell
-mkdir -p $GOPATH/src/legitlab.letv.cn/yig
-cd $GOPATH/src/legitlab.letv.cn/yig
-git clone git@legitlab.letv.cn:yig/yig.git 
+mkdir -p $GOPATH/src/github.com/journeymidnight
+cd $GOPATH/src/github.com/journeymidnight
+git clone git@github.com:yig/yig.git
 cd $YIG_DIR
 go get ./...
 go build

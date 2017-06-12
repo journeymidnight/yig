@@ -25,11 +25,11 @@ import (
 	"net/url"
 	"strings"
 
-	. "legitlab.letv.cn/yig/yig/api/datatype"
-	. "legitlab.letv.cn/yig/yig/error"
-	"legitlab.letv.cn/yig/yig/helper"
-	"legitlab.letv.cn/yig/yig/iam"
-	"legitlab.letv.cn/yig/yig/signature"
+	. "github.com/journeymidnight/yig/api/datatype"
+	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/iam"
+	"github.com/journeymidnight/yig/signature"
 	mux "github.com/gorilla/mux"
 	"strconv"
 )

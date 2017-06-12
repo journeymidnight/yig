@@ -1,7 +1,7 @@
 package api
 
 import (
-	. "legitlab.letv.cn/yig/yig/api/datatype"
+	. "github.com/journeymidnight/yig/api/datatype"
 	"net/http"
 )
 

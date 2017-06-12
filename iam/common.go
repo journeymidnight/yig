@@ -3,7 +3,7 @@ package iam
 import (
 	"fmt"
 	"io/ioutil"
-	"legitlab.letv.cn/yig/yig/helper"
+	"github.com/journeymidnight/yig/helper"
 	"strings"
 	"net/http"
 	"encoding/json"
