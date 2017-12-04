@@ -31,9 +31,9 @@
 			
 	3.下载安装包到/letv
 		cd /letv
-		wget http://yig-install.los-cn-north-1.lecloudapis.com/zookeeper-3.4.9.tar.gz
-		wget http://yig-install.los-cn-north-1.lecloudapis.com/hadoop-2.7.3.tar.gz
-		wget http://yig-install.los-cn-north-1.lecloudapis.com/hbase-1.2.4-bin.tar.gz
+		wget https://mirrors.cnnic.cn/apache/zookeeper/stable/zookeeper-3.4.10.tar.gz
+		wget http://mirrors.tuna.tsinghua.edu.cn/apache/hadoop/common/hadoop-2.7.4/hadoop-2.7.4.tar.gz
+		wget https://mirrors.tuna.tsinghua.edu.cn/apache/hbase/1.2.6/hbase-1.2.6-bin.tar.gz
 		
 	
 ##安装Zookeeper
