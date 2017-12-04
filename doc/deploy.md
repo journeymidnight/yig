@@ -180,7 +180,7 @@
 	
 在备nomenode节点执行
 
-	hdfs namenode –bootstrapStandby
+	hdfs namenode -bootstrapStandby
 	hadoop-daemon.sh start namenode
 
 在主namenode节点执行
