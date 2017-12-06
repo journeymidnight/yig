@@ -12,7 +12,7 @@ License:	GPL
 URL:		http://github.com/journeymidnight
 Source0:	%{name}-%{version}-%{rel}.tar.gz
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
-BuildRequires:  ceph-devel
+#BuildRequires:  
 Requires:       libradosstriper1
 Requires:       librados2
 
