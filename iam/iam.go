@@ -53,6 +53,7 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 	}
 	request.Header.Set("X-Le-Key", helper.CONFIG.IamKey)
 	request.Header.Set("X-Le-Secret", helper.CONFIG.IamSecret)
+        request.Header.Set("content-type", "application/json")
 	response, err := iamClient.Do(request)
 	if err != nil {
 		return credential, err
