@@ -159,7 +159,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		w.Header().Set("Last-Modified", object.LastModifiedTime.UTC().Format(http.TimeFormat))
 
 		if object.Etag != "" {
-			w.Header().Set("ETag", "\""+object.Etag+"\"")
+			w.Header()["ETag"] = []string{"\""+object.Etag+"\""}
 		}
 		if err == ContentNotModified { // write only header if is a 304
 			WriteErrorResponseHeaders(w, err)
@@ -307,7 +307,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 		w.Header().Set("Last-Modified", object.LastModifiedTime.UTC().Format(http.TimeFormat))
 
 		if object.Etag != "" {
-			w.Header().Set("ETag", "\""+object.Etag+"\"")
+			 w.Header()["ETag"] = []string{"\""+object.Etag+"\""}
 		}
 		if err == ContentNotModified { // write only header if is a 304
 			WriteErrorResponseHeaders(w, err)
@@ -491,7 +491,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	encodedSuccessResponse := EncodeResponse(response)
 	// write headers
 	if result.Md5 != "" {
-		w.Header().Set("ETag", "\""+result.Md5+"\"")
+		w.Header()["ETag"] = []string{"\""+result.Md5+"\""}
 	}
 	if sourceVersion != "" {
 		w.Header().Set("x-amz-copy-source-version-id", sourceVersion)
@@ -601,7 +601,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	if result.Md5 != "" {
-		w.Header().Set("ETag", "\""+result.Md5+"\"")
+		w.Header()["ETag"] = []string{"\""+result.Md5+"\""}
 	}
 	if result.VersionId != "" {
 		w.Header().Set("x-amz-version-id", result.VersionId)
@@ -853,7 +853,7 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 	}
 
 	if result.ETag != "" {
-		w.Header().Set("ETag", "\""+result.ETag+"\"")
+		w.Header()["ETag"] = []string{"\""+result.ETag+"\""}
 	}
 	switch result.SseType {
 	case "":
@@ -1029,7 +1029,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 	encodedSuccessResponse := EncodeResponse(response)
 	// write headers
 	if result.Md5 != "" {
-		w.Header().Set("ETag", "\""+result.Md5+"\"")
+		w.Header()["ETag"] = []string{"\""+result.Md5+"\""}
 	}
 	if sourceVersion != "" {
 		w.Header().Set("x-amz-copy-source-version-id", sourceVersion)
