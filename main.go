@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	"runtime"
 
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
@@ -14,6 +15,12 @@ import (
 )
 
 var logger *log.Logger
+
+func DumpStacks() {
+	buf := make([]byte, 1<<16)
+	stacklen := runtime.Stack(buf, true)
+	helper.Logger.Printf(5,"=== received SIGQUIT ===\n*** goroutine dump...\n%s\n*** end\n", buf[:stacklen])
+}
 
 func main() {
 	// Errors should cause panic so as to log to stderr for function calls in main()
@@ -59,13 +66,15 @@ func main() {
 	signal.Ignore()
 	signalQueue := make(chan os.Signal)
 	signal.Notify(signalQueue, syscall.SIGINT, syscall.SIGTERM,
-		syscall.SIGQUIT, syscall.SIGHUP)
+		syscall.SIGQUIT, syscall.SIGHUP, syscall.SIGUSR1)
 	for {
 		s := <-signalQueue
 		switch s {
 		case syscall.SIGHUP:
 			// reload config file
 			helper.SetupConfig()
+		case syscall.SIGUSR1:
+			go DumpStacks()
 		default:
 			// stop YIG server, order matters
 			stopAdminServer()
