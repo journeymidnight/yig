@@ -8,6 +8,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"regexp"
+	"context"
+	"time"
 )
 
 // IsValidSecretKey - validate secret key.
@@ -47,13 +49,27 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 		return credential, err
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	go func () {
+		select {
+		case <-time.After(10 * time.Second):
+			slog.Println(5,"send iam request timeout, over 10s")
+		case <-ctx.Done():
+			slog.Println(20, ctx.Err()) // prints "context deadline exceeded"
+		}
+	}()
+
 	request, err := http.NewRequest("POST", helper.CONFIG.IamEndpoint, bytes.NewReader(b))
 	if err != nil {
 		return credential, err
 	}
+
 	request.Header.Set("X-Le-Key", helper.CONFIG.IamKey)
 	request.Header.Set("X-Le-Secret", helper.CONFIG.IamSecret)
-        request.Header.Set("content-type", "application/json")
+	request.Header.Set("content-type", "application/json")
+	request = request.WithContext(ctx)
 	response, err := iamClient.Do(request)
 	if err != nil {
 		return credential, err
@@ -103,3 +119,4 @@ func GetCredentialByUserId(userId string) (credential Credential, err error) {
 		SecretAccessKey: "hehehehe",
 	}, nil // For test now
 }
+
