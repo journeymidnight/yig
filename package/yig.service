@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 ExecStart=/usr/bin/yig
-ExecStop=/usr/bin/killall yig
+ExecStop=/usr/bin/kill $MAINPID
 Restart=always
 
 [Install]
