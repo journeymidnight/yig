@@ -1,19 +1,26 @@
-clone:
-  tags: true
-  depth: 50
-  when:
-    branch: master
-build:
-  image: plato/build
-  commands:
-    - export GOPATH=/app/src/github.com/journeymidnight/yig/build
-    - mkdir -p /app/src/github.com/journeymidnight
-    - ln -s `pwd` /app/src/github.com/journeymidnight/yig
-    - cd /app/src/github.com/journeymidnight/yig
-    - yum-config-manager --add-repo  http://s3s.lecloud.com/ceph-jewel/el7/update/
-    - yum-config-manager --add-repo  http://10.110.122.221/7/epel/
-    - yum install --nogpgcheck -y ceph-devel
-    - bash package/rpmbuild.sh
-    - bash cipostbuild.sh
-  when:
-    branch: master
+workspace:
+  base: /go
+  path: src/github.com/journeymidnight/yig
+pipeline:
+  build:
+    image: centos:7.2.1511
+    commands:
+      # ceph
+      - yum install -y epel-release
+      - rpm -ivh https://download.ceph.com/rpm-luminous/el7/noarch/ceph-release-1-1.el7.noarch.rpm
+      - yum install -y libradosstriper-devel
+      #go
+      - yum install -y golang git
+      - yum install -y rpm-build make
+      - bash package/rpmbuild.sh
+  pushbear:
+    image: thesues/drone-pushbear
+    url: XXXX
+    secrets: [sendkey]
+  github_release:
+    image: plugins/github-release
+    files:
+      - "yig*.x86_64.rpm"
+    secrets: [github_token]
+    when:
+      event: [tag]
