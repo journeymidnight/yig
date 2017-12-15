@@ -28,6 +28,7 @@ const (
 	ObjectNameEnding      = ":"
 	ObjectNameSeparator   = "\n"
 	ObjectNameSmallestStr = " "
+	ResponseNumberOfRows  = 1024
 )
 
 type Object struct {
@@ -241,24 +242,13 @@ func (o *Object) encryptSseKey() (err error) {
 }
 
 // Rowkey format:
-// BucketName +
-// bigEndian(uint16(count("/", ObjectName))) +
-// ObjectName +
-// ObjectNameEnding +
+// BucketName + ObjectNameSeparator + ObjectName + ObjectNameSeparator +
 // bigEndian(uint64.max - unixNanoTimestamp)
 // The prefix excludes timestamp part if version is empty
 func getObjectRowkeyPrefix(bucketName string, objectName string, version string) ([]byte, error) {
 	var rowkey bytes.Buffer
-	rowkey.WriteString(bucketName)
-	err := binary.Write(&rowkey, binary.BigEndian, uint8(10))
-	if err != nil {
-		return []byte{}, err
-	}
-	rowkey.WriteString(objectName)
-	err = binary.Write(&rowkey, binary.BigEndian, uint8(10))
-	if err != nil {
-		return []byte{}, err
-	}
+	rowkey.WriteString(bucketName + ObjectNameSeparator)
+	rowkey.WriteString(objectName + ObjectNameSeparator)
 	if version != "" {
 		decrypted, err := Decrypt(version)
 		if err != nil {
@@ -455,6 +445,69 @@ func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (o
 		return
 	}
 	return object, nil
+}
+
+func (m *Meta) GetAllObject(bucketName string, objectName string) (object []*Object, err error) {
+	var objs []*Object
+	objectRowkeyPrefix, err := getObjectRowkeyPrefix(bucketName, objectName, "")
+	if err != nil {
+		return nil, err
+	}
+	var exit bool
+	startRowkey := objectRowkeyPrefix
+	stopKey := helper.CopiedBytes(objectRowkeyPrefix)
+	stopKey[len(stopKey)-1]++
+	prefixFilter := filter.NewPrefixFilter(objectRowkeyPrefix)
+	for ; !exit; {
+		ctx, _ := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
+		//defer done() // TODO:
+
+		scanRequest, err := hrpc.NewScanRangeStr(ctx, OBJECT_TABLE,
+			string(startRowkey), string(stopKey),
+			hrpc.Filters(prefixFilter), hrpc.NumberOfRows(ResponseNumberOfRows))
+		if err != nil {
+			helper.Logger.Printf(5,"Error new scan range str, err:", err)
+			return nil, ErrInternalError
+		}
+		helper.Logger.Printf(20, "Start to call hbase scan:")
+		scanResponse, err := m.Hbase.Scan(scanRequest)
+		if err != nil {
+			helper.Logger.Printf(5,"Error getting scan response, err:", err)
+			return nil, ErrInternalError
+		}
+		if len(scanResponse) == 0 {
+			break
+		}
+
+		for _, obj := range scanResponse {
+			object, err := ObjectFromResponse(obj)
+			if err != nil {
+				helper.Logger.Printf(5,"Error converting response to object, err:", err)
+				return nil, ErrInternalError
+			}
+			if object.Name != objectName {
+				exit = true
+				break
+			}
+			objs = append(objs, object)
+			strRowkey, err := object.GetRowkey()
+			if err != nil {
+				helper.Logger.Printf(5,"Error getting row key for object, err:", err)
+				return nil, ErrInternalError
+			}
+			startRowkey = []byte(strRowkey)
+			helper.Logger.Println(20, "GetAllObject(): Row key:", startRowkey)
+		}
+		startRowkey[len(startRowkey)-1]++
+		if len(scanResponse) != ResponseNumberOfRows {
+			break
+		}
+	}
+
+	if len(objs) == 0 {
+		return nil, ErrNoSuchKey
+	}
+	return objs, nil
 }
 
 func (m *Meta) GetObjectMap(bucketName, objectName string) (objMap *ObjMap, err error) {

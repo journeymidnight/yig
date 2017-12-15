@@ -783,18 +783,20 @@ func (yig *YigStorage) getObjWithVersion(bucketName, objectName, version string)
 
 }
 
-func (yig *YigStorage) removeObjectEntry(bucketName, objectName string) (err error) {
+func (yig *YigStorage) removeAllObjectsEntryByName(bucketName, objectName string) (err error) {
 
-	object, err := yig.MetaStorage.GetObject(bucketName, objectName, false)
+	objs, err := yig.MetaStorage.GetAllObject(bucketName, objectName)
 	if err == ErrNoSuchKey {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	err = yig.removeByObject(object)
-	if err != nil {
-		return err
+	for _, obj := range objs {
+		err = yig.removeByObject(obj)
+		if err != nil {
+			return err
+		}
 	}
 	return
 }
@@ -802,7 +804,7 @@ func (yig *YigStorage) removeObjectEntry(bucketName, objectName string) (err err
 func (yig *YigStorage) checkOldObject(bucketName, objectName, versioning string) (version uint64, err error) {
 
 	if versioning == "Disabled" {
-		err = yig.removeObjectEntry(bucketName, objectName)
+		err = yig.removeAllObjectsEntryByName(bucketName, objectName)
 		return
 	}
 
@@ -950,7 +952,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 		if version != "" && version != "null" {
 			return result, ErrNoSuchVersion
 		}
-		err = yig.removeObjectEntry(bucketName, objectName)
+		err = yig.removeAllObjectsEntryByName(bucketName, objectName)
 		if err != nil {
 			return
 		}
