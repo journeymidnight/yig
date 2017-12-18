@@ -108,7 +108,19 @@ func (p *Pool) WriteSmallObject(oid string, data []byte) error {
     defer C.free(unsafe.Pointer(c_oid))
     hdr := (*reflect.SliceHeader)(unsafe.Pointer(&data))
     buf := unsafe.Pointer(hdr.Data)
-    ret := C.rados_write_with_newobj(p.ioctx, c_oid, (*C.char)(buf), (C.size_t)(len(data)))
+
+    /*
+    *
+    * Now I want to user bluestore to store the small files, So before we use kvstore to store the
+    * small files, and added a new flag "NEWOBJ" to indicate ceph do not pre-read the object, this
+    * FLAG have been increase the write iops greatly, but it requires a hacked ceph.
+    * So since I used the upstream ceph, and deprecated this "performace" patch, So, we do not need
+    * this flag anymore
+    * ret := C.rados_write_with_newobj(p.ioctx, c_oid, (*C.char)(buf), (C.size_t)(len(data)))
+    *
+    */
+
+    ret := C.rados_write(p.ioctx, c_oid, (*C.char)(buf), (C.size_t)(len(data)))
     if ret == 0 {
         return nil
     } else {
