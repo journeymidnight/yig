@@ -3,6 +3,10 @@ Description=yig
 After=network.target
 
 [Service]
+LimitAS=infinity
+LimitRSS=infinity
+LimitCORE=infinity
+LimitNOFILE=65535
 Type=simple
 ExecStart=/usr/bin/yig
 ExecStop=/usr/bin/kill $MAINPID
