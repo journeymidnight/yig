@@ -241,26 +241,45 @@
 
 
 ### prometheus监控hbase
-安装jmx_exporter 
+
+HBase与Ceph不同, Ceph把数据统一收到ceph-mgr, 而HBase的话, 需要单独访问每个进程拿数据
+
+注意:我只测试过用start\_hbase.sh和stop\_hbase.sh的情况,在所有HBase节点安装jmx_exporter_agent和配置
 
 https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.1.0/jmx_prometheus_javaagent-0.1.0.jar
 
 
-hbase.yml文件
+增加文件$HBASE\_HOME/conf/hbase_exporter.yml文件
 
+	lowercaseOutputLabelNames: true
+	lowercaseOutputName: true
 	rules:
-	- pattern: Hadoop<service=HBase, name=RegionServer, sub=Regions><>Namespace_([^\W_]+)_table_([^\W_]+)_region_([^\W_]+)_metric_(\w+)
-		name: HBase_metric_$4
-		labels:
-		namespace: "$1"
-		table: "$2"
-		region: "$3"	
+	  - pattern: Hadoop<service=HBase, name=RegionServer, sub=Regions><>Namespace_([^\W_]+)_table_([^\W_]+)_region_([^\W_]+)_metric_(\w+)
+	    name: hbase_$4
+	    labels:
+	      namespace: "$1"
+	      table: "$2"
+	      region: "$3"
+	  - pattern: Hadoop<service=HBase, name=(\w+), sub=(\w+)><>([\w.-]+)
+	    name: hbase_$1_$2_$3
 
-修改$HBASE_HOME/conf/hbase-env.sh, 增加一行
 
-	export HBASE_OPTS="$HBASE_OPTS -javaagent:/usr/share/prometheus/jmx_exporter/jmx_javaagent_exporter.jar=9138:/usr/share/prometheus/jmx_exporter/examples/hbase.yml"
+修改$HBASE_HOME/bin/hbase, 增加如下, 注意修改jar和yml文件的位置
 
-正常启动访问:9138/metrics得到监控数据
+	if [ "$COMMAND" = "master" ] || [ "$COMMAND" = "regionserver" ]; then
+	  for port in {7000..7010}; do
+	    if [ `ss -ltpn|grep ":$port" | wc -l` == "1" ]; then
+	      echo "Checking port $port - port $port in use"
+	    else
+	      echo "Checking port $port - port $port not in use - using port $port"
+	      HBASE_OPTS="$HBASE_OPTS -javaagent:$HBASE_HOME/conf/jmx_prometheus_javaagent-0.1.0.jar=$port:$HBASE_HOME/conf/hbase_exporter.yml"
+	      break
+	    fi
+	  done
+	fi
+
+port从7000到7010,有可能是master, 也有可能是region server
+正常启动访问:7000/metrics得到监控数据
 
 
 
