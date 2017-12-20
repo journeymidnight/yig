@@ -232,6 +232,38 @@
 
 通过http://10.183.97.150:16010 http://10.183.97.151:16010检查hbase是否工作正常
 
+## 监控HBase
+
+
+### webui监控hbase
+
+访问:16010端口, 查看webUI
+
+
+### prometheus监控hbase
+安装jmx_exporter 
+
+https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.1.0/jmx_prometheus_javaagent-0.1.0.jar
+
+
+hbase.yml文件
+
+	rules:
+	- pattern: Hadoop<service=HBase, name=RegionServer, sub=Regions><>Namespace_([^\W_]+)_table_([^\W_]+)_region_([^\W_]+)_metric_(\w+)
+		name: HBase_metric_$4
+		labels:
+		namespace: "$1"
+		table: "$2"
+		region: "$3"	
+
+修改$HBASE_HOME/conf/hbase-env.sh, 增加一行
+
+	export HBASE_OPTS="$HBASE_OPTS -javaagent:/usr/share/prometheus/jmx_exporter/jmx_javaagent_exporter.jar=9138:/usr/share/prometheus/jmx_exporter/examples/hbase.yml"
+
+正常启动访问:9138/metrics得到监控数据
+
+
+
 ##安装YIG
 
 安装redis
