@@ -264,8 +264,9 @@ https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.1.0/
 	    name: hbase_$1_$2_$3
 
 
-修改$HBASE_HOME/bin/hbase, 增加如下, 注意修改jar和yml文件的位置
+修改$HBASE\_HOME/bin/hbase, 增加如下, 注意修改jar和yml文件的位置
 
+	if [ $1 == "start" ]; then
 	if [ "$COMMAND" = "master" ] || [ "$COMMAND" = "regionserver" ]; then
 	  for port in {7000..7010}; do
 	    if [ `ss -ltpn|grep ":$port" | wc -l` == "1" ]; then
@@ -276,6 +277,7 @@ https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/0.1.0/
 	      break
 	    fi
 	  done
+	fi
 	fi
 
 port从7000到7010,有可能是master, 也有可能是region server
