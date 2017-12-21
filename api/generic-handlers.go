@@ -50,7 +50,7 @@ func SetCommonHeaderHandler(h http.Handler, _ ObjectLayer) http.Handler {
 
 func (h commonHeaderHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Accept-Ranges", "bytes")
-	w.Header().Set("Cache-Control", "public, max-age=30672000")
+	w.Header().Set("Cache-Control", "no-store")
 	h.handler.ServeHTTP(w, r)
 }
 
