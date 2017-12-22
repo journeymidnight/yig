@@ -1,4 +1,3 @@
-//put this file at /etc/yig/yig.json
 {
     "S3Domain": "s3.test.com",
     "Region": "cn-bj-1",
@@ -18,7 +17,7 @@
     "RedisConnectionNumber": 10,
     "InMemoryCacheMaxEntryCount": 100000,
     "DebugMode": false,
-    "AdminKey": "secret"
+    "AdminKey": "secret",
     "MetaCacheType": 2,
     "EnableDataCache": true,
     "CephConfigPattern": "conf/*.conf"
