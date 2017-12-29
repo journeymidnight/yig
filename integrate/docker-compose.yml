@@ -1,0 +1,41 @@
+#  vim:ts=2:sts=2:sw=2:et
+#  There is a bug of ceph/demo, it does not support NETWORK_AUTO_DETECT
+#  So I use static IP address for this docker-compose file
+
+version: '2'
+
+services:
+  hbase:
+    image: harisekhon/hbase
+    container_name: hbase
+    networks:
+      vpcbr:
+        ipv4_address: "10.5.0.5"
+
+  ceph:
+    image: ceph/demo
+    container_name: ceph
+    environment:
+      - MON_IP=10.5.0.6
+      - CEPH_PUBLIC_NETWORK=10.5.0.0/16
+    networks:
+      vpcbr:
+        ipv4_address: "10.5.0.6"
+    volumes:
+      - ./cephconf:/etc/ceph/
+
+  redis:
+    image: redis
+    container_name: redis
+    networks:
+      vpcbr:
+        ipv4_address: "10.5.0.8"
+
+
+networks:
+  vpcbr:
+    driver: bridge
+    ipam:
+     config:
+       - subnet: 10.5.0.0/16
+         gateway: 10.5.0.1
