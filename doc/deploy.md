@@ -75,7 +75,7 @@
 	<configuration>
 	<property>
   		<name>hadoop.tmp.dir</name>
-  		<value>file:/letv/hadoop/tmp</value>
+  		<value>/letv/hadoop/tmp</value>
   		<description>Abase for other temporary directories.</description>
 	</property>
 	<property>
@@ -168,6 +168,10 @@
 	bj-test-yig-97-150
 	bj-test-yig-97-151
 	bj-test-yig-97-152
+
+修改hadoop-env.sh, 添加pid文件存放位置
+
+	export HADOOP_PID_DIR=/letv/hadoop/tmp
 	
 拷贝/etv/hadoop目录到其他节点/letv下
 
