@@ -58,7 +58,8 @@ func guessIsBrowserReq(req *http.Request) bool {
 	if req == nil {
 		return false
 	}
-	return strings.Contains(req.Header.Get("User-Agent"), "Mozilla")
+	return true
+	//return strings.Contains(req.Header.Get("User-Agent"), "Mozilla")
 }
 
 func (h commonHeaderHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
