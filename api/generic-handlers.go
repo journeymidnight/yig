@@ -48,9 +48,38 @@ func SetCommonHeaderHandler(h http.Handler, _ ObjectLayer) http.Handler {
 	return commonHeaderHandler{h}
 }
 
+// guessIsBrowserReq - returns true if the request is browser.
+// This implementation just validates user-agent and
+// looks for "Mozilla" string. This is no way certifiable
+// way to know if the request really came from a browser
+// since User-Agent's can be arbitrary. But this is just
+// a best effort function.
+func guessIsBrowserReq(req *http.Request) bool {
+	if req == nil {
+		return false
+	}
+	return strings.Contains(req.Header.Get("User-Agent"), "Mozilla")
+}
+
 func (h commonHeaderHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Accept-Ranges", "bytes")
-	w.Header().Set("Cache-Control", "no-store")
+	if r.Method == "GET" && guessIsBrowserReq(r) {
+		if strings.HasSuffix(r.URL.Path, ".js")   ||
+			strings.HasSuffix(r.URL.Path, ".css") ||
+			strings.HasSuffix(r.URL.Path, ".jpg") ||
+			strings.HasSuffix(r.URL.Path, ".png") ||
+			strings.HasSuffix(r.URL.Path, ".gif") ||
+			strings.HasSuffix(r.URL.Path, ".jpeg"){
+			// For assets set cache expiry of one year. For each release, the name
+			// of the asset name will change and hence it can not be served from cache.
+			w.Header().Set("Cache-Control", "public, max-age=30672000")
+		} else {
+			// For non asset requests we serve index.html which will never be cached.
+			w.Header().Set("Cache-Control", "no-store")
+		}
+	} else {
+        w.Header().Set("Cache-Control", "no-store")
+    }
 	h.handler.ServeHTTP(w, r)
 }
 
