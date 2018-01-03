@@ -218,7 +218,7 @@
 		},
 		{
 			"ImportPath": "github.com/journeymidnight/radoshttpd/rados",
-			"Rev": "7c3ddf732733ce70e6650ad0c56309a8e1ecc175"
+			"Rev": "e910039a97b8c73ddf2450adc619b42ef7cb15f0"
 		}
 	]
 }

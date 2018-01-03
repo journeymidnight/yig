@@ -120,7 +120,7 @@ func (p *Pool) WriteSmallObject(oid string, data []byte) error {
     *
     */
 
-    ret := C.rados_write(p.ioctx, c_oid, (*C.char)(buf), (C.size_t)(len(data)))
+    ret := C.rados_write(p.ioctx, c_oid, (*C.char)(buf), (C.size_t)(len(data)), 0)
     if ret == 0 {
         return nil
     } else {
