@@ -7,7 +7,6 @@ import (
 	"syscall"
 	"time"
 	"runtime"
-
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/redis"

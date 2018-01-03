@@ -10,6 +10,8 @@ REL=`git log --oneline|wc -l`.$REL
 RPMTOPDIR=$GITROOT/rpm-build
 echo "Ver: $VER, Release: $REL"
 
+
+rm -rf $RPMTOPDIR
 # Create tarball
 mkdir -p $RPMTOPDIR/{SOURCES,SPECS}
 git archive --format=tar --prefix=${PACKAGENAME}-${VER}-${REL}/ HEAD | gzip -c > $RPMTOPDIR/SOURCES/${PACKAGENAME}-${VER}-${REL}.tar.gz
@@ -23,7 +25,5 @@ rpmbuild \
 --define "_rpmdir $PWD" \
 --define "_srcrpmdir $PWD" \
 --define '_rpmfilename %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm' \
--ba $RPMTOPDIR/SPECS/${PACKAGENAME}.spec &&
-echo Done
-rm -rf $RPMTOPDIR &
+-ba $RPMTOPDIR/SPECS/${PACKAGENAME}.spec
 
