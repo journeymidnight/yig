@@ -64,23 +64,6 @@ func guessIsBrowserReq(req *http.Request) bool {
 
 func (h commonHeaderHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Accept-Ranges", "bytes")
-	if r.Method == "GET" && guessIsBrowserReq(r) {
-		if strings.HasSuffix(r.URL.Path, ".js")   ||
-			strings.HasSuffix(r.URL.Path, ".css") ||
-			strings.HasSuffix(r.URL.Path, ".jpg") ||
-			strings.HasSuffix(r.URL.Path, ".png") ||
-			strings.HasSuffix(r.URL.Path, ".gif") ||
-			strings.HasSuffix(r.URL.Path, ".jpeg"){
-			// For assets set cache expiry of one year. For each release, the name
-			// of the asset name will change and hence it can not be served from cache.
-			w.Header().Set("Cache-Control", "public, max-age=30672000")
-		} else {
-			// For non asset requests we serve index.html which will never be cached.
-			w.Header().Set("Cache-Control", "no-store")
-		}
-	} else {
-        w.Header().Set("Cache-Control", "no-store")
-    }
 	h.handler.ServeHTTP(w, r)
 }
 

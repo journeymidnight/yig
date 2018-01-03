@@ -53,6 +53,7 @@ type MultipartMetadata struct {
 	Acl           datatype.Acl
 	SseRequest    datatype.SseRequest
 	EncryptionKey []byte
+	Attrs         map[string]string
 }
 
 type Multipart struct {

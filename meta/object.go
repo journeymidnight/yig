@@ -157,6 +157,13 @@ func (o *Object) GetValues() (values map[string]map[string][]byte, err error) {
 	if o.InitializationVector == nil {
 		o.InitializationVector = []byte{}
 	}
+	var attrsData []byte
+	if o.CustomAttributes != nil {
+		attrsData, err = json.Marshal(o.CustomAttributes)
+		if err != nil {
+			return
+		}
+	}
 	values = map[string]map[string][]byte{
 		OBJECT_COLUMN_FAMILY: map[string][]byte{
 			"bucket":        []byte(o.BucketName),
@@ -168,7 +175,7 @@ func (o *Object) GetValues() (values map[string]map[string][]byte, err error) {
 			"lastModified":  []byte(o.LastModifiedTime.Format(CREATE_TIME_LAYOUT)),
 			"etag":          []byte(o.Etag),
 			"content-type":  []byte(o.ContentType),
-			"attributes":    []byte{}, // TODO
+			"attributes":    attrsData, // TODO
 			"ACL":           []byte(o.ACL.CannedAcl),
 			"nullVersion":   []byte(helper.Ternary(o.NullVersion, "true", "false").(string)),
 			"deleteMarker":  []byte(helper.Ternary(o.DeleteMarker, "true", "false").(string)),
@@ -317,6 +324,13 @@ func ObjectFromResponse(response *hrpc.Result) (object *Object, err error) {
 				object.EncryptionKey = cell.Value
 			case "IV":
 				object.InitializationVector = cell.Value
+			case "attributes":
+				var attrs map[string]string
+				err = json.Unmarshal(cell.Value, &attrs)
+				if err != nil {
+					return
+				}
+				object.CustomAttributes = attrs
 			}
 		case OBJECT_PART_COLUMN_FAMILY:
 			var partNumber int

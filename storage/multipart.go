@@ -228,6 +228,10 @@ func (yig *YigStorage) NewMultipartUpload(credential iam.Credential, bucketName,
 	if !ok {
 		contentType = "application/octet-stream"
 	}
+	attrs, err := getCustomedAttrs(metadata)
+	if err != nil {
+		return
+	}
 	cephCluster, pool := yig.PickOneClusterAndPool(bucketName, objectName, -1)
 	multipartMetadata := meta.MultipartMetadata{
 		InitiatorId: credential.UserId,
@@ -237,6 +241,7 @@ func (yig *YigStorage) NewMultipartUpload(credential iam.Credential, bucketName,
 		Pool:        pool,
 		Acl:         acl,
 		SseRequest:  sseRequest,
+		Attrs:       attrs,
 	}
 	if sseRequest.Type == "S3" {
 		multipartMetadata.EncryptionKey, err = encryptionKeyFromSseRequest(sseRequest)
@@ -787,6 +792,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 		DeleteMarker:     false,
 		SseType:          multipart.Metadata.SseRequest.Type,
 		EncryptionKey:    multipart.Metadata.EncryptionKey,
+		CustomAttributes: multipart.Metadata.Attrs,
 	}
 
 	var nullVerNum uint64

@@ -47,6 +47,17 @@ func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *
 		w.Header()["ETag"] = []string{"\""+object.Etag+"\""}
 	}
 
+	var existCacheControl bool
+	for key, val := range object.CustomAttributes {
+		if key == "Cache-Control" {
+			existCacheControl = true
+		}
+		w.Header().Set(key, val)
+	}
+	if !existCacheControl {
+		w.Header().Set("Cache-Control", "public, max-age=30672000")
+	}
+
 	w.Header().Set("Content-Length", strconv.FormatInt(object.Size, 10))
 
 	// for providing ranged content

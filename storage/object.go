@@ -20,10 +20,29 @@ import (
 	"sync"
 )
 
+// Supported headers that needs to be extracted.
+var customedAttrs = []string{
+	"Cache-Control",
+	// Add more supported headers here, in "canonical" form
+}
+
 var latestQueryTime [2]time.Time // 0 is for SMALL_FILE_POOLNAME, 1 is for BIG_FILE_POOLNAME
 const CLUSTER_MAX_USED_SPACE_PERCENT  = 85
 
-
+func getCustomedAttrs(metaData map[string]string) (map[string]string, error){
+	if metaData == nil {
+		return nil, nil
+	}
+	attrs := make(map[string]string)
+	for _, v := range customedAttrs {
+		attr, ok := metaData[v]
+		if !ok {
+			continue
+		}
+		attrs[v] = attr
+	}
+	return attrs, nil
+}
 
 func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size int64) (cluster *CephStorage,
 	poolName string) {
@@ -550,6 +569,11 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 			return
 		}
 	}
+	attrs, err := getCustomedAttrs(metadata)
+	if err != nil {
+		RecycleQueue <- maybeObjectToRecycle
+		return
+	}
 
 	// TODO validate bucket policy and fancy ACL
 
@@ -571,7 +595,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		EncryptionKey: helper.Ternary(sseRequest.Type == "S3",
 			encryptionKey, []byte("")).([]byte),
 		InitializationVector: initializationVector,
-		// TODO CustomAttributes
+		CustomAttributes: attrs,
 	}
 
 	result.LastModified = object.LastModifiedTime
