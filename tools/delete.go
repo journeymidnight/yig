@@ -8,10 +8,10 @@ import (
 	"github.com/journeymidnight/yig/log"
 	"os"
 	"context"
-	"github.com/cannium/gohbase/hrpc"
 	"os/signal"
 	"syscall"
 	"sync"
+	"strings"
 )
 
 const (
@@ -35,115 +35,42 @@ func deleteFromCeph()  {
 			return
 		}
 		var (
-			put *hrpc.Mutate
-			processed bool
-			success bool
 			p	*meta.Part
-			values map[string]map[string][]byte
 			err    error
 		)
 		garbage := <- taskQ
-		now := time.Now().UTC()
 		waitgroup.Add(1)
-		if garbage.Status == "Deleting" { //处于Deleting状态超过60秒则重置状态为Pending
-			duration := int(time.Since(garbage.MTime).Seconds())
-			if duration > 60 {
-				garbage.Status = "Pending"
-				values, err := garbage.GetValues()
-				if err != nil {
-					helper.Logger.Println(5, "GetValues error:", err)
-					goto release
-				}
-				put, err := hrpc.NewPutStr(RootContext,
-					meta.GARBAGE_COLLECTION_TABLE, garbage.Rowkey, values)
-				if err != nil {
-					helper.Logger.Println(5, "NewPutStr error:", err)
-					goto release
-				}
-				_, err = yig.MetaStorage.Hbase.Put(put)
-				if err != nil {
-					helper.Logger.Println(5, "Try recover status failed:",
-						"garbage collection", garbage.Rowkey)
-				}
-			}
-			goto release
-		}
-		garbage.Status = "Deleting"
-		garbage.MTime = now
-		values, err = garbage.GetValues()
-		if err != nil {
-			helper.Logger.Println(5, "GetValues error:", err)
-			goto release
-		}
-		put, err = hrpc.NewPutStr(RootContext, meta.GARBAGE_COLLECTION_TABLE,
-			garbage.Rowkey, values)
-		if err != nil {
-			helper.Logger.Println(5, "NewPutStr error:", err)
-			goto release
-		}
-		processed, err = yig.MetaStorage.Hbase.CheckAndPut(put,
-			meta.GARBAGE_COLLECTION_COLUMN_FAMILY, "status", []byte("Pending"))
-		if !processed || err != nil {
-			helper.Logger.Println(5, "CheckAndPut error:", processed, err)
-			goto release
-		}
-		success = true
 		if len(garbage.Parts) == 0 {
 			err = yig.DataStorage[garbage.Location].
 				Remove(garbage.Pool, garbage.ObjectId)
+
 			if err != nil {
-				success = false
+				if strings.Contains(err.Error(), "ret=-2") {
+					goto release
+				}
 				helper.Logger.Println(5, "failed delete", garbage.BucketName, ":", garbage.ObjectName, ":",
-					garbage.Location,":",garbage.Pool,":",garbage.ObjectId)
+					garbage.Location,":",garbage.Pool,":",garbage.ObjectId, " error:", err)
 			} else {
 				helper.Logger.Println(5, "success delete",garbage.BucketName, ":", garbage.ObjectName, ":",
 					garbage.Location,":",garbage.Pool,":",garbage.ObjectId)
 			}
-
 		} else {
 			for _, p = range garbage.Parts {
 				err = yig.DataStorage[garbage.Location].
 					Remove(garbage.Pool, p.ObjectId)
 				if err != nil {
-					success = false
-					helper.Logger.Println(5, "failed delete part", garbage.Location, ":", garbage.Pool, ":", p.ObjectId)
+					if strings.Contains(err.Error(), "ret=-2") {
+						goto release
+					}
+					helper.Logger.Println(5, "failed delete part", garbage.Location, ":", garbage.Pool, ":", p.ObjectId, " error:", err)
 				} else {
 					helper.Logger.Println(5, "success delete part",garbage.Location, ":", garbage.Pool, ":", p.ObjectId)
 				}
-
 			}
 		}
-		if success {
-			yig.MetaStorage.RemoveGarbageCollection(garbage)
-		} else {
-			garbage.TriedTimes += 1
-			if garbage.TriedTimes > MAX_TRY_TIMES {
-				helper.Logger.Println(5, "Failed to remove object in Ceph:",
-					garbage)
-				yig.MetaStorage.RemoveGarbageCollection(garbage)
-				goto release
-			}
-			garbage.Status = "Pending"
-			values, err := garbage.GetValues()
-			if err != nil {
-				helper.Logger.Println(5, "GetValues error:", err)
-				goto release
-			}
-			put, err := hrpc.NewPutStr(RootContext,
-				meta.GARBAGE_COLLECTION_TABLE, garbage.Rowkey, values)
-			if err != nil {
-				helper.Logger.Println(5, "NewPutStr error:", err)
-				goto release
-			}
-			_, err = yig.MetaStorage.Hbase.Put(put)
-			if err != nil {
-				helper.Logger.Println(5, "Inconsistent data:",
-					"garbage collection", garbage.Rowkey,
-					"should have status `Pending`")
-			}
-		}
-		release:
-			waitgroup.Done()
+	release:
+		yig.MetaStorage.RemoveGarbageCollection(garbage)
+		waitgroup.Done()
 	}
 }
 
