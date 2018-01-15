@@ -296,6 +296,11 @@ port从7000到7010,有可能是master, 也有可能是region server
 	yum install redis
 	redis-server /etc/redis.conf
 	
+	redis配置文件添加一下配置项(最大内存&过期策略)
+	
+	maxmemory 64gb
+	maxmemory-policy allkeys-lru
+	
 clone yig
 
 	git clone http://github.com/journeymidnight/yig.git
