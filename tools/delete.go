@@ -2,7 +2,6 @@ package main
 
 import (
 	"github.com/journeymidnight/yig/helper"
-	"time"
 	"github.com/journeymidnight/yig/storage"
 	"github.com/journeymidnight/yig/meta"
 	"github.com/journeymidnight/yig/log"
@@ -12,23 +11,25 @@ import (
 	"syscall"
 	"sync"
 	"strings"
+	"time"
 )
 
 const (
-	MAX_TRY_TIMES      = 3
 	SCAN_HBASE_LIMIT   = 50
+	WATER_LOW   = 120
+	TASKQ_MAX_LENGTH   = 200
 )
 
 var (
 	RootContext = context.Background()
 	logger *log.Logger
-	yig *storage.YigStorage
+	yigs []*storage.YigStorage
 	taskQ chan meta.GarbageCollection
 	waitgroup sync.WaitGroup
 	stop bool
 )
 
-func deleteFromCeph()  {
+func deleteFromCeph(index int)  {
 	for {
 		if stop {
 			helper.Logger.Print(5, ".")
@@ -41,9 +42,8 @@ func deleteFromCeph()  {
 		garbage := <- taskQ
 		waitgroup.Add(1)
 		if len(garbage.Parts) == 0 {
-			err = yig.DataStorage[garbage.Location].
+			err = yigs[index].DataStorage[garbage.Location].
 				Remove(garbage.Pool, garbage.ObjectId)
-
 			if err != nil {
 				if strings.Contains(err.Error(), "ret=-2") {
 					goto release
@@ -56,7 +56,7 @@ func deleteFromCeph()  {
 			}
 		} else {
 			for _, p = range garbage.Parts {
-				err = yig.DataStorage[garbage.Location].
+				err = yigs[index].DataStorage[garbage.Location].
 					Remove(garbage.Pool, p.ObjectId)
 				if err != nil {
 					if strings.Contains(err.Error(), "ret=-2") {
@@ -69,27 +69,54 @@ func deleteFromCeph()  {
 			}
 		}
 	release:
-		yig.MetaStorage.RemoveGarbageCollection(garbage)
+		yigs[index].MetaStorage.RemoveGarbageCollection(garbage)
 		waitgroup.Done()
 	}
 }
 
 func removeDeleted () {
+	time.Sleep(time.Duration(1000) * time.Millisecond)
+	var startRowKey string
+	var garbages []meta.GarbageCollection
+	var err error
 	for {
 		if stop {
 			helper.Logger.Print(5, ".")
 			return
 		}
-		time.Sleep(time.Duration(1000) * time.Millisecond)
-		garbages, err := yig.MetaStorage.ScanGarbageCollection(SCAN_HBASE_LIMIT)
-		if err != nil {
-			continue
+	wait:
+		if len(taskQ) >= WATER_LOW {
+			time.Sleep(time.Duration(1) * time.Millisecond)
+			goto wait
 		}
-		for _, garbage := range garbages {
-			taskQ <- garbage
+
+		if len(taskQ) < WATER_LOW {
+			garbages = garbages[:0]
+			garbages, err = yigs[0].MetaStorage.ScanGarbageCollection(SCAN_HBASE_LIMIT, startRowKey)
+			if err != nil {
+				continue
+			}
+		}
+
+		if len(garbages) == 0 {
+			time.Sleep(time.Duration(10000) * time.Millisecond)
+			startRowKey = ""
+			continue
+		} else if len(garbages) == 1 {
+			for _, garbage := range garbages {
+				taskQ <- garbage
+			}
+			startRowKey = ""
+			time.Sleep(time.Duration(5000) * time.Millisecond)
+			continue
+		} else {
+			startRowKey = garbages[len(garbages)-1].Rowkey
+			garbages = garbages[:len(garbages)-1]
+			for _, garbage := range garbages{
+				taskQ <- garbage
+			}
 		}
 	}
-
 }
 
 
@@ -104,15 +131,17 @@ func main() {
 	stop = false
 	logger = log.New(f, "[yig]", log.LstdFlags, helper.CONFIG.LogLevel)
 	helper.Logger = logger
-	yig = storage.New(logger, int(meta.NoCache), false, helper.CONFIG.CephConfigPattern)
-	taskQ = make(chan meta.GarbageCollection, SCAN_HBASE_LIMIT)
+	taskQ = make(chan meta.GarbageCollection, TASKQ_MAX_LENGTH)
 	signal.Ignore()
 	signalQueue := make(chan os.Signal)
 
 	numOfWorkers := helper.CONFIG.GcThread
+	yigs = make([]*storage.YigStorage, helper.CONFIG.GcThread+1)
+	yigs[0] = storage.New(logger, int(meta.NoCache), false, helper.CONFIG.CephConfigPattern)
 	helper.Logger.Println(5, "start gc thread:",numOfWorkers)
 	for i := 0; i< numOfWorkers; i++ {
-		go deleteFromCeph()
+		yigs[i+1] = storage.New(logger, int(meta.NoCache), false, helper.CONFIG.CephConfigPattern)
+		go deleteFromCeph(i+1)
 	}
 	go removeDeleted()
 	signal.Notify(signalQueue, syscall.SIGINT, syscall.SIGTERM,

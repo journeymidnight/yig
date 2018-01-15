@@ -145,11 +145,16 @@ func (m *Meta) PutObjectToGarbageCollection(object *Object) error {
 	return err
 }
 
-func (m *Meta) ScanGarbageCollection(limit int) ([]GarbageCollection, error) {
+func (m *Meta) ScanGarbageCollection(limit int, startRowKey string) ([]GarbageCollection, error) {
 	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
 	defer done()
-	scanRequest, err := hrpc.NewScanStr(ctx, GARBAGE_COLLECTION_TABLE,
+	scanRequest, err := hrpc.NewScanRangeStr(ctx, GARBAGE_COLLECTION_TABLE,
+		startRowKey, "",
+		// scan for max+1 rows to determine if results are truncated
 		hrpc.NumberOfRows(uint32(limit)))
+
+	//scanRequest, err := hrpc.NewScanStr(ctx, GARBAGE_COLLECTION_TABLE,
+	//	hrpc.NumberOfRows(uint32(limit)))
 	if err != nil {
 		return nil, err
 	}
