@@ -7,6 +7,8 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
+	"github.com/cannium/gohbase/filter"
+	"github.com/cannium/gohbase/hrpc"
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
@@ -14,8 +16,6 @@ import (
 	"github.com/journeymidnight/yig/meta"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/signature"
-	"github.com/cannium/gohbase/filter"
-	"github.com/cannium/gohbase/hrpc"
 	"io"
 	"net/url"
 	"sort"
@@ -156,7 +156,7 @@ func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketNam
 				upload.Key = m.ObjectName
 			}
 		}
-		upload.Key = strings.TrimPrefix(upload.Key, request.Prefix)
+		//upload.Key = strings.TrimPrefix(upload.Key, request.Prefix)
 		if request.EncodingType != "" { // only support "url" encoding for now
 			upload.Key = url.QueryEscape(upload.Key)
 		}
@@ -597,7 +597,7 @@ func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, ob
 		}
 	case "bucket-owner-read", "bucket-owner-full-controll":
 		var bucket meta.Bucket
-		bucket, err = yig.MetaStorage.GetBucket(bucketName,true)
+		bucket, err = yig.MetaStorage.GetBucket(bucketName, true)
 		if err != nil {
 			return
 		}
@@ -663,7 +663,7 @@ func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, ob
 func (yig *YigStorage) AbortMultipartUpload(credential iam.Credential,
 	bucketName, objectName, uploadId string) error {
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName,true)
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
 		return err
 	}
