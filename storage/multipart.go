@@ -191,6 +191,7 @@ func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketNam
 		})
 	}
 
+	result.Bucket = bucketName
 	result.KeyMarker = request.KeyMarker
 	result.UploadIdMarker = request.UploadIdMarker
 	result.MaxUploads = request.MaxUploads
