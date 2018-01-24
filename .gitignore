@@ -2,3 +2,10 @@ test/*.html
 *.pyc
 .idea
 .DS_Store
+admin
+build
+delete
+getrediskeys
+integrate/cephconf
+lc
+yig.log
