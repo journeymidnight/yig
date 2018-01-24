@@ -1,7 +1,7 @@
 compress
 /var/log/yig/yig.log {
-    weekly
-    rotate 4
+    daily
+    rotate 7
     missingok
     compress
     minsize 100k
