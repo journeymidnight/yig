@@ -17,11 +17,11 @@ import (
 
 	"github.com/cannium/gohbase/filter"
 	"github.com/cannium/gohbase/hrpc"
-	"github.com/xxtea/xxtea-go/xxtea"
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/redis"
+	"github.com/xxtea/xxtea-go/xxtea"
 )
 
 const (
@@ -325,12 +325,14 @@ func ObjectFromResponse(response *hrpc.Result) (object *Object, err error) {
 			case "IV":
 				object.InitializationVector = cell.Value
 			case "attributes":
-				var attrs map[string]string
-				err = json.Unmarshal(cell.Value, &attrs)
-				if err != nil {
-					return
+				if len(cell.Value) != 0 {
+					var attrs map[string]string
+					err = json.Unmarshal(cell.Value, &attrs)
+					if err != nil {
+						return
+					}
+					object.CustomAttributes = attrs
 				}
-				object.CustomAttributes = attrs
 			}
 		case OBJECT_PART_COLUMN_FAMILY:
 			var partNumber int
@@ -343,7 +345,7 @@ func ObjectFromResponse(response *hrpc.Result) (object *Object, err error) {
 			if err != nil {
 				return
 			}
-			p.Etag = ""  // The member is not used, so give it null value
+			p.Etag = ""         // The member is not used, so give it null value
 			p.LastModified = "" // The member is not used, so give it null value
 			object.Parts[partNumber] = &p
 		}
@@ -472,7 +474,7 @@ func (m *Meta) GetAllObject(bucketName string, objectName string) (object []*Obj
 	stopKey := helper.CopiedBytes(objectRowkeyPrefix)
 	stopKey[len(stopKey)-1]++
 	prefixFilter := filter.NewPrefixFilter(objectRowkeyPrefix)
-	for ; !exit; {
+	for !exit {
 		ctx, _ := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
 		//defer done() // TODO:
 
@@ -480,13 +482,13 @@ func (m *Meta) GetAllObject(bucketName string, objectName string) (object []*Obj
 			string(startRowkey), string(stopKey),
 			hrpc.Filters(prefixFilter), hrpc.NumberOfRows(ResponseNumberOfRows))
 		if err != nil {
-			helper.Logger.Printf(5,"Error new scan range str, err:", err)
+			helper.Logger.Printf(5, "Error new scan range str, err:", err)
 			return nil, ErrInternalError
 		}
 		helper.Logger.Printf(20, "Start to call hbase scan:")
 		scanResponse, err := m.Hbase.Scan(scanRequest)
 		if err != nil {
-			helper.Logger.Printf(5,"Error getting scan response, err:", err)
+			helper.Logger.Printf(5, "Error getting scan response, err:", err)
 			return nil, ErrInternalError
 		}
 		if len(scanResponse) == 0 {
@@ -496,7 +498,7 @@ func (m *Meta) GetAllObject(bucketName string, objectName string) (object []*Obj
 		for _, obj := range scanResponse {
 			object, err := ObjectFromResponse(obj)
 			if err != nil {
-				helper.Logger.Printf(5,"Error converting response to object, err:", err)
+				helper.Logger.Printf(5, "Error converting response to object, err:", err)
 				return nil, ErrInternalError
 			}
 			if object.Name != objectName {
@@ -506,7 +508,7 @@ func (m *Meta) GetAllObject(bucketName string, objectName string) (object []*Obj
 			objs = append(objs, object)
 			strRowkey, err := object.GetRowkey()
 			if err != nil {
-				helper.Logger.Printf(5,"Error getting row key for object, err:", err)
+				helper.Logger.Printf(5, "Error getting row key for object, err:", err)
 				return nil, ErrInternalError
 			}
 			startRowkey = []byte(strRowkey)
