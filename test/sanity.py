@@ -263,6 +263,31 @@ def complete_multipart_upload(name, client):
     )
     print 'Complete multipart upload:', ans
 
+def put_object_copy_multipart(name, client):
+    ans = client.copy_object(
+        Bucket=name+'hehe',
+        Key=name+'hehe-multipart-copied',
+        CopySource={
+            'Bucket': name+'hehe',
+            'Key': name+'multipart',
+        }
+    )
+    print 'Copy multipart object:', ans
+
+    ans = client.get_object(
+        Bucket=name+'hehe',
+        Key=name+'hehe-multipart-copied',
+    )
+    body = ans['Body'].read()
+    assert body == RANGE_1 + RANGE_2
+    print 'Get object:', ans
+
+    # clean-up
+    client.delete_object(
+        Bucket=name+'hehe',
+        Key=name+'hehe-multipart-copied',
+    )
+
 
 def get_multipart_uploaded_object(name, client):
     ans = client.get_object(
@@ -369,6 +394,7 @@ TESTS = [create_bucket,
          delete_nonempty_bucket_should_fail,
          delete_object,
          create_multipart_upload, upload_part, list_multipart_uploads, list_parts, abort_multipart_upload, complete_multipart_upload,
+	 put_object_copy_multipart,
          get_multipart_uploaded_object,
          get_object_ranged,
          delete_multipart_object,

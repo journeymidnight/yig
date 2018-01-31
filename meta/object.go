@@ -345,8 +345,8 @@ func ObjectFromResponse(response *hrpc.Result) (object *Object, err error) {
 			if err != nil {
 				return
 			}
-			p.Etag = ""         // The member is not used, so give it null value
-			p.LastModified = "" // The member is not used, so give it null value
+			//		p.Etag = ""         // The member is not used, so give it null value
+			//		p.LastModified = "" // The member is not used, so give it null value
 			object.Parts[partNumber] = &p
 		}
 	}

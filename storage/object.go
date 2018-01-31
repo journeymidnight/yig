@@ -27,9 +27,9 @@ var customedAttrs = []string{
 }
 
 var latestQueryTime [2]time.Time // 0 is for SMALL_FILE_POOLNAME, 1 is for BIG_FILE_POOLNAME
-const CLUSTER_MAX_USED_SPACE_PERCENT  = 85
+const CLUSTER_MAX_USED_SPACE_PERCENT = 85
 
-func getCustomedAttrs(metaData map[string]string) (map[string]string, error){
+func getCustomedAttrs(metaData map[string]string) (map[string]string, error) {
 	if metaData == nil {
 		return nil, nil
 	}
@@ -60,7 +60,7 @@ func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size 
 	}
 	var needCheck bool
 	queryTime := latestQueryTime[idx]
-	if time.Since(queryTime).Hours() > 24 {  // check used space every 24 hours
+	if time.Since(queryTime).Hours() > 24 { // check used space every 24 hours
 		latestQueryTime[idx] = time.Now()
 		needCheck = true
 	}
@@ -118,19 +118,18 @@ func (yig *YigStorage) GetClusterByFsName(fsName string) (cluster *CephStorage, 
 	return
 }
 
-
 /*this pool is for download only */
 var (
 	downloadBufPool sync.Pool
 )
 
-func init(){
+func init() {
 	downloadBufPool.New = func() interface{} {
 		return make([]byte, MIN_CHUNK_SIZE)
 	}
 }
 
-func generateTransWholeObjectFunc(cephCluster *CephStorage, object *meta.Object) (func(io.Writer) error) {
+func generateTransWholeObjectFunc(cephCluster *CephStorage, object *meta.Object) func(io.Writer) error {
 	getWholeObject := func(w io.Writer) error {
 		reader, err := cephCluster.getReader(object.Pool, object.ObjectId, 0, object.Size)
 		if err != nil {
@@ -146,8 +145,7 @@ func generateTransWholeObjectFunc(cephCluster *CephStorage, object *meta.Object)
 	return getWholeObject
 }
 
-
-func generateTransPartObjectFunc(cephCluster *CephStorage, object *meta.Object, part *meta.Part, offset, length int64 ) (func(io.Writer) error){
+func generateTransPartObjectFunc(cephCluster *CephStorage, object *meta.Object, part *meta.Part, offset, length int64) func(io.Writer) error {
 	getNormalObject := func(w io.Writer) error {
 		var oid string
 		/* the transfered part could be Part or Object */
@@ -192,7 +190,7 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 		transWholeObjectWriter := generateTransWholeObjectFunc(cephCluster, object)
 
 		if object.SseType == "" { // unencrypted object
-			transPartObjectWriter :=  generateTransPartObjectFunc(cephCluster,object, nil,  startOffset, length)
+			transPartObjectWriter := generateTransPartObjectFunc(cephCluster, object, nil, startOffset, length)
 
 			return yig.DataCache.WriteFromCache(object, startOffset, length, writer,
 				transPartObjectWriter, transWholeObjectWriter)
@@ -229,11 +227,11 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 		low += 1
 	}
 
-	for i := low ; i <= len(object.Parts); i ++ {
+	for i := low; i <= len(object.Parts); i++ {
 		p := object.Parts[i]
 		//for high
-		if p.Offset > startOffset + length {
-				return
+		if p.Offset > startOffset+length {
+			return
 		}
 		//for low
 		{
@@ -251,7 +249,7 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 			cephCluster, ok := yig.DataStorage[object.Location]
 			if !ok {
 				return errors.New("Cannot find specified ceph cluster: " +
-				       object.Location)
+					object.Location)
 			}
 			if object.SseType == "" { // unencrypted object
 
@@ -491,7 +489,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	size int64, data io.Reader, metadata map[string]string, acl datatype.Acl,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName,true)
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
 		return
 	}
@@ -595,7 +593,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		EncryptionKey: helper.Ternary(sseRequest.Type == "S3",
 			encryptionKey, []byte("")).([]byte),
 		InitializationVector: initializationVector,
-		CustomAttributes: attrs,
+		CustomAttributes:     attrs,
 	}
 
 	result.LastModified = object.LastModifiedTime
@@ -658,8 +656,6 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		}
 	}
 
-	md5Writer := md5.New()
-
 	// Limit the reader to its provided size if specified.
 	var limitedDataReader io.Reader
 	limitedDataReader = io.LimitReader(source, targetObject.Size)
@@ -667,45 +663,125 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 	cephCluster, poolName := yig.PickOneClusterAndPool(targetObject.BucketName,
 		targetObject.Name, targetObject.Size)
 
-	// Mapping a shorter name for the object
-	oid := cephCluster.GetUniqUploadName()
-	dataReader := io.TeeReader(limitedDataReader, md5Writer)
+	var oid string
+	var maybeObjectToRecycle objectToRecycle
+	var encryptionKey []byte
+	encryptionKey, err = encryptionKeyFromSseRequest(sseRequest)
+	if err != nil {
+		return
+	}
+	if len(targetObject.Parts) != 0 {
+		var targetParts map[int]*meta.Part = make(map[int]*meta.Part, len(targetObject.Parts))
+		//		etaglist := make([]string, len(sourceObject.Parts))
+		for partNum, part := range targetObject.Parts {
+			targetParts[partNum] = part
+			pr, pw := io.Pipe()
+			defer pr.Close()
+			var total = part.Size
+			go func() {
+				/*
+					buf := make([]byte, 1<<10)
+					for total != 0 {
+						fmt.Println("total of part is for now is", total)
+						if total < int64(len(buf)) {
+							left := make([]byte, total)
+							source.Read(left)
+							pw.Write(left)
+							pw.Close()
+							total = 0
+						} else {
+							pw.Write(buf)
+							total = total - int64(len(buf))
+						}
+					} */
+				io.CopyN(pw, source, total)
+				pw.Close()
+			}()
+			md5Writer := md5.New()
+			dataReader := io.TeeReader(pr, md5Writer)
+			oid = cephCluster.GetUniqUploadName()
+			var bytesW int64
+			var storageReader io.Reader
+			var initializationVector []byte
+			if len(encryptionKey) != 0 {
+				initializationVector, err = newInitializationVector()
+				if err != nil {
+					return
+				}
+			}
+			storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
+			bytesW, err = cephCluster.Put(poolName, oid, storageReader)
+			maybeObjectToRecycle = objectToRecycle{
+				location: cephCluster.Name,
+				pool:     poolName,
+				objectId: oid,
+			}
+			if bytesW < part.Size {
+				RecycleQueue <- maybeObjectToRecycle
+				return result, ErrIncompleteBody
+			}
+			if err != nil {
+				return result, err
+			}
+			calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
+			//we will only chack part etag,overall etag will be same if each part of etag is same
+			if calculatedMd5 != part.Etag {
+				err = ErrInternalError
+				RecycleQueue <- maybeObjectToRecycle
+				return
+			}
+			part.LastModified = time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT)
+			part.ObjectId = oid
 
-	encryptionKey, err := encryptionKeyFromSseRequest(sseRequest)
-	if err != nil {
-		return
-	}
-	initializationVector, err := newInitializationVector()
-	if err != nil {
-		return
-	}
-	storageReader, err := wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
-	if err != nil {
-		return
-	}
-	bytesWritten, err := cephCluster.Put(poolName, oid, storageReader)
-	if err != nil {
-		return
-	}
-	// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
-	// so the object in Ceph could be removed asynchronously
-	maybeObjectToRecycle := objectToRecycle{
-		location: cephCluster.Name,
-		pool:     poolName,
-		objectId: oid,
-	}
-	if bytesWritten < targetObject.Size {
-		RecycleQueue <- maybeObjectToRecycle
-		return result, ErrIncompleteBody
-	}
+			part.InitializationVector = initializationVector
+		}
+		targetObject.ObjectId = ""
+		targetObject.Parts = targetParts
+		result.Md5 = targetObject.Etag
+	} else {
+		md5Writer := md5.New()
 
-	calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
-	if calculatedMd5 != targetObject.Etag {
-		RecycleQueue <- maybeObjectToRecycle
-		return result, ErrBadDigest
-	}
-	result.Md5 = calculatedMd5
+		// Mapping a shorter name for the object
+		oid = cephCluster.GetUniqUploadName()
+		dataReader := io.TeeReader(limitedDataReader, md5Writer)
+		var storageReader io.Reader
+		var initializationVector []byte
+		if len(encryptionKey) != 0 {
+			initializationVector, err = newInitializationVector()
+			if err != nil {
+				return
+			}
+		}
+		storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
+		if err != nil {
+			return
+		}
+		var bytesWritten int64
+		bytesWritten, err = cephCluster.Put(poolName, oid, storageReader)
+		if err != nil {
+			return
+		}
+		// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
+		// so the object in Ceph could be removed asynchronously
+		maybeObjectToRecycle = objectToRecycle{
+			location: cephCluster.Name,
+			pool:     poolName,
+			objectId: oid,
+		}
+		if bytesWritten < targetObject.Size {
+			RecycleQueue <- maybeObjectToRecycle
+			return result, ErrIncompleteBody
+		}
 
+		calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
+		if calculatedMd5 != targetObject.Etag {
+			RecycleQueue <- maybeObjectToRecycle
+			return result, ErrBadDigest
+		}
+		result.Md5 = calculatedMd5
+		targetObject.ObjectId = oid
+		targetObject.InitializationVector = initializationVector
+	}
 	// TODO validate bucket policy and fancy ACL
 
 	targetObject.Rowkey = nil   // clear the rowkey cache
@@ -713,14 +789,12 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 	targetObject.Location = cephCluster.Name
 	targetObject.Pool = poolName
 	targetObject.OwnerId = credential.UserId
-	targetObject.ObjectId = oid
 	targetObject.LastModifiedTime = time.Now().UTC()
 	targetObject.NullVersion = helper.Ternary(bucket.Versioning == "Enabled", false, true).(bool)
 	targetObject.DeleteMarker = false
 	targetObject.SseType = sseRequest.Type
 	targetObject.EncryptionKey = helper.Ternary(sseRequest.Type == "S3",
 		encryptionKey, []byte("")).([]byte)
-	targetObject.InitializationVector = initializationVector
 
 	result.LastModified = targetObject.LastModifiedTime
 
@@ -773,7 +847,7 @@ func (yig *YigStorage) removeByObject(object *meta.Object) (err error) {
 	if err != nil {
 		return
 	}
-	
+
 	if object.DeleteMarker {
 		return
 	}

@@ -392,8 +392,6 @@ func (cluster *CephStorage) getAlignedReader(poolName string, oid string, startO
 	return cluster.getReader(poolName, oid, alignedOffset, length)
 }
 
-
-
 /*
 func (cluster *CephStorage) get(poolName string, oid string, startOffset int64,
 	length int64, writer io.Writer) error {
