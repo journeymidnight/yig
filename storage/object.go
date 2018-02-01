@@ -679,22 +679,10 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 			defer pr.Close()
 			var total = part.Size
 			go func() {
-				/*
-					buf := make([]byte, 1<<10)
-					for total != 0 {
-						fmt.Println("total of part is for now is", total)
-						if total < int64(len(buf)) {
-							left := make([]byte, total)
-							source.Read(left)
-							pw.Write(left)
-							pw.Close()
-							total = 0
-						} else {
-							pw.Write(buf)
-							total = total - int64(len(buf))
-						}
-					} */
-				io.CopyN(pw, source, total)
+				_, err = io.CopyN(pw, source, total)
+				if err != nil {
+					return
+				}
 				pw.Close()
 			}()
 			md5Writer := md5.New()
