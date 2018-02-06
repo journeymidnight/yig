@@ -17,7 +17,7 @@
 package api
 
 import (
-	"github.com/journeymidnight/yig/meta"
+	meta "github.com/journeymidnight/yig/meta/types"
 	"net/http"
 )
 

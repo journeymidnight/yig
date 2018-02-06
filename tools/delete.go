@@ -1,45 +1,46 @@
 package main
 
 import (
-	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/storage"
-	"github.com/journeymidnight/yig/meta"
-	"github.com/journeymidnight/yig/log"
-	"os"
 	"context"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/log"
+	"github.com/journeymidnight/yig/meta"
+	"github.com/journeymidnight/yig/meta/types"
+	"github.com/journeymidnight/yig/storage"
+	"os"
 	"os/signal"
-	"syscall"
-	"sync"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 )
 
 const (
-	SCAN_HBASE_LIMIT   = 50
-	WATER_LOW   = 120
-	TASKQ_MAX_LENGTH   = 200
+	SCAN_HBASE_LIMIT = 50
+	WATER_LOW        = 120
+	TASKQ_MAX_LENGTH = 200
 )
 
 var (
 	RootContext = context.Background()
-	logger *log.Logger
-	yigs []*storage.YigStorage
-	taskQ chan meta.GarbageCollection
-	waitgroup sync.WaitGroup
-	stop bool
+	logger      *log.Logger
+	yigs        []*storage.YigStorage
+	taskQ       chan types.GarbageCollection
+	waitgroup   sync.WaitGroup
+	stop        bool
 )
 
-func deleteFromCeph(index int)  {
+func deleteFromCeph(index int) {
 	for {
 		if stop {
 			helper.Logger.Print(5, ".")
 			return
 		}
 		var (
-			p	*meta.Part
-			err    error
+			p   *types.Part
+			err error
 		)
-		garbage := <- taskQ
+		garbage := <-taskQ
 		waitgroup.Add(1)
 		if len(garbage.Parts) == 0 {
 			err = yigs[index].DataStorage[garbage.Location].
@@ -49,10 +50,10 @@ func deleteFromCeph(index int)  {
 					goto release
 				}
 				helper.Logger.Println(5, "failed delete", garbage.BucketName, ":", garbage.ObjectName, ":",
-					garbage.Location,":",garbage.Pool,":",garbage.ObjectId, " error:", err)
+					garbage.Location, ":", garbage.Pool, ":", garbage.ObjectId, " error:", err)
 			} else {
-				helper.Logger.Println(5, "success delete",garbage.BucketName, ":", garbage.ObjectName, ":",
-					garbage.Location,":",garbage.Pool,":",garbage.ObjectId)
+				helper.Logger.Println(5, "success delete", garbage.BucketName, ":", garbage.ObjectName, ":",
+					garbage.Location, ":", garbage.Pool, ":", garbage.ObjectId)
 			}
 		} else {
 			for _, p = range garbage.Parts {
@@ -64,7 +65,7 @@ func deleteFromCeph(index int)  {
 					}
 					helper.Logger.Println(5, "failed delete part", garbage.Location, ":", garbage.Pool, ":", p.ObjectId, " error:", err)
 				} else {
-					helper.Logger.Println(5, "success delete part",garbage.Location, ":", garbage.Pool, ":", p.ObjectId)
+					helper.Logger.Println(5, "success delete part", garbage.Location, ":", garbage.Pool, ":", p.ObjectId)
 				}
 			}
 		}
@@ -74,10 +75,10 @@ func deleteFromCeph(index int)  {
 	}
 }
 
-func removeDeleted () {
+func removeDeleted() {
 	time.Sleep(time.Duration(1000) * time.Millisecond)
 	var startRowKey string
-	var garbages []meta.GarbageCollection
+	var garbages []types.GarbageCollection
 	var err error
 	for {
 		if stop {
@@ -112,13 +113,12 @@ func removeDeleted () {
 		} else {
 			startRowKey = garbages[len(garbages)-1].Rowkey
 			garbages = garbages[:len(garbages)-1]
-			for _, garbage := range garbages{
+			for _, garbage := range garbages {
 				taskQ <- garbage
 			}
 		}
 	}
 }
-
 
 func main() {
 	helper.SetupConfig()
@@ -131,17 +131,17 @@ func main() {
 	stop = false
 	logger = log.New(f, "[yig]", log.LstdFlags, helper.CONFIG.LogLevel)
 	helper.Logger = logger
-	taskQ = make(chan meta.GarbageCollection, TASKQ_MAX_LENGTH)
+	taskQ = make(chan types.GarbageCollection, TASKQ_MAX_LENGTH)
 	signal.Ignore()
 	signalQueue := make(chan os.Signal)
 
 	numOfWorkers := helper.CONFIG.GcThread
 	yigs = make([]*storage.YigStorage, helper.CONFIG.GcThread+1)
 	yigs[0] = storage.New(logger, int(meta.NoCache), false, helper.CONFIG.CephConfigPattern)
-	helper.Logger.Println(5, "start gc thread:",numOfWorkers)
-	for i := 0; i< numOfWorkers; i++ {
+	helper.Logger.Println(5, "start gc thread:", numOfWorkers)
+	for i := 0; i < numOfWorkers; i++ {
 		yigs[i+1] = storage.New(logger, int(meta.NoCache), false, helper.CONFIG.CephConfigPattern)
-		go deleteFromCeph(i+1)
+		go deleteFromCeph(i + 1)
 	}
 	go removeDeleted()
 	signal.Notify(signalQueue, syscall.SIGINT, syscall.SIGTERM,

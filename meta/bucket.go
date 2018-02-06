@@ -1,136 +1,18 @@
 package meta
 
 import (
-	"bytes"
-	"context"
-	"encoding/binary"
-	"encoding/json"
-	"time"
-
-	"fmt"
-
-	"github.com/cannium/gohbase/hrpc"
-	"github.com/dustin/go-humanize"
-	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
+	. "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
 )
-
-type Bucket struct {
-	Name string
-	// Date and time when the bucket was created,
-	// should be serialized into format "2006-01-02T15:04:05.000Z"
-	CreateTime time.Time
-	OwnerId    string
-	CORS       datatype.Cors
-	ACL        datatype.Acl
-	LC         datatype.Lc
-	Versioning string // actually enum: Disabled/Enabled/Suspended
-	Usage      int64
-}
-
-func (b *Bucket) String() (s string) {
-	s += "Name: " + b.Name + "\n"
-	s += "CreateTime: " + b.CreateTime.Format(CREATE_TIME_LAYOUT) + "\n"
-	s += "OwnerId: " + b.OwnerId + "\n"
-	s += "CORS: " + fmt.Sprintf("%+v", b.CORS) + "\n"
-	s += "ACL: " + fmt.Sprintf("%+v", b.ACL) + "\n"
-	s += "LifeCycle: " + fmt.Sprintf("%+v", b.LC) + "\n"
-	s += "Version: " + b.Versioning + "\n"
-	s += "Usage: " + humanize.Bytes(uint64(b.Usage)) + "\n"
-	return
-}
-
-/* Learn from this, http://stackoverflow.com/questions/33587227/golang-method-sets-pointer-vs-value-receiver */
-/* If you have a T and it is addressable you can call methods that have a receiver type of *T as well as methods that have a receiver type of T */
-func (b *Bucket) GetValues() (values map[string]map[string][]byte, err error) {
-	cors, err := json.Marshal(b.CORS)
-	if err != nil {
-		return
-	}
-	lc, err := json.Marshal(b.LC)
-	if err != nil {
-		return
-	}
-	var usage bytes.Buffer
-	err = binary.Write(&usage, binary.BigEndian, b.Usage)
-	if err != nil {
-		return
-	}
-	values = map[string]map[string][]byte{
-		BUCKET_COLUMN_FAMILY: map[string][]byte{
-			"UID":        []byte(b.OwnerId),
-			"ACL":        []byte(b.ACL.CannedAcl),
-			"CORS":       cors,
-			"LC":         lc,
-			"createTime": []byte(b.CreateTime.Format(CREATE_TIME_LAYOUT)),
-			"versioning": []byte(b.Versioning),
-			"usage":      usage.Bytes(),
-		},
-		// TODO fancy ACL
-	}
-	return
-}
 
 // Note the usage info got from this method is possibly not accurate because we don't
 // invalid cache when updating usage. For accurate usage info, use `GetUsage()`
 func (m *Meta) GetBucket(bucketName string, willNeed bool) (bucket Bucket, err error) {
 	getBucket := func() (b interface{}, err error) {
-		ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
-		defer done()
-		getRequest, err := hrpc.NewGetStr(ctx, BUCKET_TABLE, bucketName)
-		if err != nil {
-			return
-		}
-		response, err := m.Hbase.Get(getRequest)
-		if err != nil {
-			m.Logger.Println(5, "Error getting bucket info, with error ", err)
-			return
-		}
-		if len(response.Cells) == 0 {
-			err = ErrNoSuchBucket
-			return
-		}
-		var bucket Bucket
-		for _, cell := range response.Cells {
-			switch string(cell.Qualifier) {
-			case "createTime":
-				bucket.CreateTime, err = time.Parse(CREATE_TIME_LAYOUT, string(cell.Value))
-				if err != nil {
-					return
-				}
-			case "UID":
-				bucket.OwnerId = string(cell.Value)
-			case "CORS":
-				var cors datatype.Cors
-				err = json.Unmarshal(cell.Value, &cors)
-				if err != nil {
-					return
-				}
-				bucket.CORS = cors
-			case "LC":
-				var lc datatype.Lc
-				err = json.Unmarshal(cell.Value, &lc)
-				if err != nil {
-					return
-				}
-				bucket.LC = lc
-			case "ACL":
-				bucket.ACL.CannedAcl = string(cell.Value)
-			case "versioning":
-				bucket.Versioning = string(cell.Value)
-			case "usage":
-				err = binary.Read(bytes.NewReader(cell.Value), binary.BigEndian,
-					&bucket.Usage)
-				if err != nil {
-					return
-				}
-			default:
-			}
-		}
-		bucket.Name = bucketName
-		return bucket, nil
+		b, err = m.Client.GetBucket(bucketName)
+		return b, err
 	}
 	unmarshaller := func(in []byte) (interface{}, error) {
 		var bucket Bucket
@@ -151,16 +33,7 @@ func (m *Meta) GetBucket(bucketName string, willNeed bool) (bucket Bucket, err e
 }
 
 func (m *Meta) UpdateUsage(bucketName string, size int64) {
-	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
-	defer done()
-	inc, err := hrpc.NewIncStrSingle(ctx, BUCKET_TABLE, bucketName,
-		BUCKET_COLUMN_FAMILY, "usage", size)
-	retValue, err := m.Hbase.Increment(inc)
-	if err != nil {
-		helper.Logger.Println(5, "Inconsistent data: usage of bucket", bucketName,
-			"should add by", size)
-	}
-	helper.Debugln("New usage:", retValue)
+	m.Client.UpdateUsage(bucketName, size)
 }
 
 func (m *Meta) GetUsage(bucketName string) (int64, error) {

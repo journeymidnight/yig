@@ -6,11 +6,11 @@ import (
 
 	"fmt"
 
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/meta/types"
 	yigredis "github.com/journeymidnight/yig/redis"
 	"github.com/mediocregopher/radix.v2/pool"
 	"github.com/mediocregopher/radix.v2/redis"
-	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/meta"
 )
 
 func main() {
@@ -36,7 +36,7 @@ func main() {
 		return client, nil
 	}
 
-	redisConnectionPool, err := pool.NewCustom("tcp", os.Args[1], 1 , df)
+	redisConnectionPool, err := pool.NewCustom("tcp", os.Args[1], 1, df)
 	if err != nil {
 		panic("Failed to connect to Redis server: " + err.Error())
 	}
@@ -65,7 +65,7 @@ func main() {
 	}
 	switch tableType {
 	case yigredis.BucketTable:
-		var v meta.Bucket
+		var v types.Bucket
 		err = helper.MsgPackUnMarshal(encodeValue, &v)
 		if err != nil {
 			fmt.Println("Failed to Unmarshal")
@@ -73,7 +73,7 @@ func main() {
 		}
 		fmt.Println(v.String())
 	case yigredis.ClusterTable:
-		var v meta.Cluster
+		var v types.Cluster
 		err = helper.MsgPackUnMarshal(encodeValue, &v)
 		if err != nil {
 			fmt.Println("Failed to Unmarshal")
@@ -81,7 +81,7 @@ func main() {
 		}
 		fmt.Println(v)
 	case yigredis.ObjectTable:
-		var v meta.Object
+		var v types.Object
 		err = helper.MsgPackUnMarshal(encodeValue, &v)
 		if err != nil {
 			fmt.Println("Failed to Unmarshal")

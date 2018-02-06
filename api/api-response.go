@@ -26,7 +26,7 @@ import (
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
-	"github.com/journeymidnight/yig/meta"
+	meta "github.com/journeymidnight/yig/meta/types"
 	"net/url"
 )
 

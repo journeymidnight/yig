@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/meta"
+	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
 	"bytes"
 )

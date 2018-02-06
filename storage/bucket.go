@@ -1,26 +1,16 @@
 package storage
 
 import (
-	"bytes"
-	"context"
-	"encoding/binary"
-	"encoding/hex"
-	"math"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
-	"github.com/journeymidnight/yig/meta"
+	meta "github.com/journeymidnight/yig/meta/types"
+	"github.com/journeymidnight/yig/meta/util"
 	"github.com/journeymidnight/yig/redis"
-	"github.com/cannium/gohbase/filter"
-	"github.com/cannium/gohbase/hrpc"
-	"github.com/xxtea/xxtea-go/xxtea"
-	"unicode/utf8"
-	"strconv"
 )
 
 func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
@@ -34,19 +24,7 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 		ACL:        acl,
 		Versioning: "Disabled", // it's the default
 	}
-	values, err := bucket.GetValues()
-	if err != nil {
-		return err
-	}
-	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
-	defer done()
-	put, err := hrpc.NewPutStr(ctx, meta.BUCKET_TABLE, bucketName, values)
-	if err != nil {
-		yig.Logger.Println(5, "Error making hbase put: ", err)
-		return err
-	}
-	processed, err := yig.MetaStorage.Hbase.CheckAndPut(put, meta.BUCKET_COLUMN_FAMILY,
-		"UID", []byte{})
+	processed, err := yig.MetaStorage.Client.CheckAndPutBucket(bucket)
 	if err != nil {
 		yig.Logger.Println(5, "Error making hbase checkandput: ", err)
 		return err
@@ -66,15 +44,7 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 	err = yig.MetaStorage.AddBucketForUser(bucketName, credential.UserId)
 	if err != nil { // roll back bucket table, i.e. remove inserted bucket
 		yig.Logger.Println(5, "Error AddBucketForUser: ", err)
-		ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
-		defer done()
-		del, err := hrpc.NewDelStr(ctx, meta.BUCKET_TABLE, bucketName, values)
-		if err != nil {
-			yig.Logger.Println(5, "Error making hbase del: ", err)
-			yig.Logger.Println(5, "Leaving junk bucket unremoved: ", bucketName)
-			return err
-		}
-		_, err = yig.MetaStorage.Hbase.Delete(del)
+		err = yig.MetaStorage.Client.DeleteBucket(bucket)
 		if err != nil {
 			yig.Logger.Println(5, "Error deleting: ", err)
 			yig.Logger.Println(5, "Leaving junk bucket unremoved: ", bucketName)
@@ -106,18 +76,7 @@ func (yig *YigStorage) SetBucketAcl(bucketName string, policy datatype.AccessCon
 		return ErrBucketAccessForbidden
 	}
 	bucket.ACL = acl
-	values, err := bucket.GetValues()
-	if err != nil {
-		return err
-	}
-	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
-	defer done()
-	put, err := hrpc.NewPutStr(ctx, meta.BUCKET_TABLE, bucketName, values)
-	if err != nil {
-		yig.Logger.Println(5, "Error making hbase put: ", err)
-		return err
-	}
-	_, err = yig.MetaStorage.Hbase.Put(put)
+	err = yig.MetaStorage.Client.PutBucket(bucket)
 	if err != nil {
 		return err
 	}
@@ -138,18 +97,7 @@ func (yig *YigStorage) SetBucketLc(bucketName string, lc datatype.Lc,
 		return ErrBucketAccessForbidden
 	}
 	bucket.LC = lc
-	values, err := bucket.GetValues()
-	if err != nil {
-		return err
-	}
-	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
-	defer done()
-	put, err := hrpc.NewPutStr(ctx, meta.BUCKET_TABLE, bucketName, values)
-	if err != nil {
-		yig.Logger.Println(5, "Error making hbase put: ", err)
-		return err
-	}
-	_, err = yig.MetaStorage.Hbase.Put(put)
+	err = yig.MetaStorage.Client.PutBucket(bucket)
 	if err != nil {
 		return err
 	}
@@ -191,18 +139,7 @@ func (yig *YigStorage) DelBucketLc(bucketName string, credential iam.Credential)
 		return ErrBucketAccessForbidden
 	}
 	bucket.LC = datatype.Lc{}
-	values, err := bucket.GetValues()
-	if err != nil {
-		return err
-	}
-	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
-	defer done()
-	put, err := hrpc.NewPutStr(ctx, meta.BUCKET_TABLE, bucketName, values)
-	if err != nil {
-		yig.Logger.Println(5, "Error making hbase put: ", err)
-		return err
-	}
-	_, err = yig.MetaStorage.Hbase.Put(put)
+	err = yig.MetaStorage.Client.PutBucket(bucket)
 	if err != nil {
 		return err
 	}
@@ -228,18 +165,7 @@ func (yig *YigStorage) SetBucketCors(bucketName string, cors datatype.Cors,
 		return ErrBucketAccessForbidden
 	}
 	bucket.CORS = cors
-	values, err := bucket.GetValues()
-	if err != nil {
-		return err
-	}
-	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
-	defer done()
-	put, err := hrpc.NewPutStr(ctx, meta.BUCKET_TABLE, bucketName, values)
-	if err != nil {
-		yig.Logger.Println(5, "Error making hbase put: ", err)
-		return err
-	}
-	_, err = yig.MetaStorage.Hbase.Put(put)
+	err = yig.MetaStorage.Client.PutBucket(bucket)
 	if err != nil {
 		return err
 	}
@@ -258,18 +184,7 @@ func (yig *YigStorage) DeleteBucketCors(bucketName string, credential iam.Creden
 		return ErrBucketAccessForbidden
 	}
 	bucket.CORS = datatype.Cors{}
-	values, err := bucket.GetValues()
-	if err != nil {
-		return err
-	}
-	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
-	defer done()
-	put, err := hrpc.NewPutStr(ctx, meta.BUCKET_TABLE, bucketName, values)
-	if err != nil {
-		yig.Logger.Println(5, "Error making hbase put: ", err)
-		return err
-	}
-	_, err = yig.MetaStorage.Hbase.Put(put)
+	err = yig.MetaStorage.Client.PutBucket(bucket)
 	if err != nil {
 		return err
 	}
@@ -308,18 +223,7 @@ func (yig *YigStorage) SetBucketVersioning(bucketName string, versioning datatyp
 		return ErrBucketAccessForbidden
 	}
 	bucket.Versioning = versioning.Status
-	values, err := bucket.GetValues()
-	if err != nil {
-		return err
-	}
-	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
-	defer done()
-	put, err := hrpc.NewPutStr(ctx, meta.BUCKET_TABLE, bucketName, values)
-	if err != nil {
-		yig.Logger.Println(5, "Error making hbase put: ", err)
-		return err
-	}
-	_, err = yig.MetaStorage.Hbase.Put(put)
+	err = yig.MetaStorage.Client.PutBucket(bucket)
 	if err != nil {
 		return err
 	}
@@ -342,7 +246,7 @@ func (yig *YigStorage) GetBucketVersioning(bucketName string, credential iam.Cre
 }
 
 func (yig *YigStorage) GetBucketAcl(bucketName string, credential iam.Credential) (
-        policy datatype.AccessControlPolicy, err error) {
+	policy datatype.AccessControlPolicy, err error) {
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, false)
 	if err != nil {
@@ -412,63 +316,22 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 	}
 
 	// Check if bucket is empty
-	prefixFilter := filter.NewPrefixFilter([]byte(bucketName))
-	stopKey := []byte(bucketName)
-	stopKey[len(stopKey)-1]++
-	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
-	defer done()
-	scanRequest, err := hrpc.NewScanRangeStr(ctx, meta.OBJECT_TABLE,
-		bucketName, string(stopKey),
-		hrpc.Filters(prefixFilter), hrpc.NumberOfRows(1))
-	if err != nil {
-		return
-	}
-	scanResponse, err := yig.MetaStorage.Hbase.Scan(scanRequest)
-	if err != nil {
-		return
-	}
-	if len(scanResponse) != 0 {
-		o, err := meta.ObjectFromResponse(scanResponse[0])
-		if err != nil {
-			return err
-		}
-		// to make sure the object is exactly from `bucketName` bucket,
-		// not some `bucketNameAndSuffix` bucket
-		if o.BucketName == bucketName {
-			return ErrBucketNotEmpty
-		}
-	}
-
-	values := map[string]map[string][]byte{
-		meta.BUCKET_COLUMN_FAMILY: map[string][]byte{},
-	}
-	deleteRequest, err := hrpc.NewDelStr(ctx, meta.BUCKET_TABLE, bucketName, values)
+	objs, _, _, _, _, err := yig.MetaStorage.Client.ListObjects(bucketName, "", "", "", "", false, 1)
 	if err != nil {
 		return err
 	}
-	_, err = yig.MetaStorage.Hbase.Delete(deleteRequest)
+	if len(objs) != 0 {
+		return ErrBucketNotEmpty
+	}
+	err = yig.MetaStorage.Client.DeleteBucket(bucket)
 	if err != nil {
 		return err
 	}
 
 	err = yig.MetaStorage.RemoveBucketForUser(bucketName, credential.UserId)
 	if err != nil { // roll back bucket table, i.e. re-add removed bucket entry
-		values, err = bucket.GetValues()
+		err = yig.MetaStorage.Client.AddBucketForUser(bucketName, credential.UserId)
 		if err != nil {
-			return err
-		}
-		put, err := hrpc.NewPutStr(ctx, meta.BUCKET_TABLE, bucketName, values)
-		if err != nil {
-			yig.Logger.Println(5, "Error making hbase put: ", err)
-			yig.Logger.Println(5, "Inconsistent data: bucket ", bucketName,
-				"should be removed for user ", credential.UserId)
-			return err
-		}
-		_, err = yig.MetaStorage.Hbase.Put(put)
-		if err != nil {
-			yig.Logger.Println(5, "Error making hbase put: ", err)
-			yig.Logger.Println(5, "Inconsistent data: bucket ", bucketName,
-				"should be removed for user ", credential.UserId)
 			return err
 		}
 	}
@@ -489,8 +352,8 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential iam.Credential
 }
 
 func (yig *YigStorage) ListObjectsInternal(bucketName string,
-        request datatype.ListObjectsRequest) (retObjects []*meta.Object, prefixes []string, truncated bool,
-        nextMarker, nextVerIdMarker string, err error) {
+	request datatype.ListObjectsRequest) (retObjects []*meta.Object, prefixes []string, truncated bool,
+	nextMarker, nextVerIdMarker string, err error) {
 
 	var marker string
 	var verIdMarker string
@@ -499,7 +362,7 @@ func (yig *YigStorage) ListObjectsInternal(bucketName string,
 		verIdMarker = request.VersionIdMarker
 	} else if request.Version == 2 {
 		if request.ContinuationToken != "" {
-			marker, err = meta.Decrypt(request.ContinuationToken)
+			marker, err = util.Decrypt(request.ContinuationToken)
 			if err != nil {
 				err = ErrInvalidContinuationToken
 				return
@@ -512,220 +375,8 @@ func (yig *YigStorage) ListObjectsInternal(bucketName string,
 	}
 	helper.Debugln("Prefix:", request.Prefix, "Marker:", request.Marker, "MaxKeys:",
 		request.MaxKeys, "Delimiter:", request.Delimiter, "Version:", request.Version,
-	        "keyMarker:", request.KeyMarker, "versionIdMarker:", request.VersionIdMarker)
-
-	var exit bool
-	var count int
-	truncated = true
-	currMarker := marker
-	var currVerMarkerNum uint64
-	if verIdMarker == "null" {
-		objMap, e := yig.MetaStorage.GetObjectMap(bucketName, marker)
-		if e != nil {
-			err = e
-			return
-		}
-		verIdMarker = objMap.NullVerId
-	}
-	if verIdMarker != "" {
-		var versionBytes []byte
-		versionBytes, err = hex.DecodeString(verIdMarker)
-		if err == nil {
-			decrypted := xxtea.Decrypt(versionBytes, meta.XXTEA_KEY)
-			unixNanoTimestamp, e := strconv.ParseUint(string(decrypted), 10, 64)
-			if e != nil {
-				helper.Debugln("Error convert version id to int")
-				err = ErrInvalidVersioning
-				return
-			}
-			currVerMarkerNum = unixNanoTimestamp
-		} else {
-			err = nil
-			helper.Debugln("Error decoding version id, skip to next object")
-			currVerMarkerNum = 0
-		}
-	}
-	var biggerThanDelim string
-	var skipAfterDelim string
-	var skipOldVerObj string
-	objectMap := make(map[string]*meta.Object)
-	commonPrefixes := make(map[string]bool)
-	if len(request.Delimiter) != 0 {
-		r, _ := utf8.DecodeRune([]byte(request.Delimiter))
-		r = r + 1
-		buf := make([]byte, 3)
-		utf8.EncodeRune(buf, r)
-		biggerThanDelim = string(buf)
-		helper.Debugln("list objects, biggerThanDelim:", biggerThanDelim)
-	}
-
-	var newMarker bool
-	if len(request.Delimiter) != 0 && len(request.Prefix) < len(currMarker){
-		len := len(request.Prefix)
-		subStr := currMarker[len:]
-		idx := strings.Index(subStr, request.Delimiter)
-		if idx != -1 {
-			newMarker = true
-			currMarker = currMarker[0:(len + idx)]
-			currMarker += biggerThanDelim
-			currVerMarkerNum = 0
-			helper.Debugln("sub:", subStr, "len", len, "idx", idx, "currMarker", currMarker)
-		}
-	}
-	if currMarker!= "" && !newMarker {
-		if !request.Versioned || currVerMarkerNum == 0 {
-			currMarker += meta.ObjectNameSmallestStr
-		} else {
-			currVerMarkerNum -= 1
-		}
-	}
-
-	for ;truncated && count <= request.MaxKeys; {
-		// Because start rowkey is included in scan result, update currMarker
-		if strings.Compare(skipAfterDelim, currMarker) > 0 {
-			currMarker = skipAfterDelim
-			currVerMarkerNum = 0
-			helper.Debugln("set new currMarker:", currMarker)
-		}
-		if strings.Compare(skipOldVerObj, currMarker) > 0 {
-			currMarker = skipOldVerObj
-			currVerMarkerNum = 0
-			helper.Debugln("set new currMarker:", currMarker)
-		}
-
-		var startRowkey bytes.Buffer
-		startRowkey.WriteString(bucketName + meta.ObjectNameSeparator)
-		if currMarker != "" {
-			startRowkey.WriteString(currMarker)
-		}
-		if currVerMarkerNum != 0 {
-			startRowkey.WriteString(meta.ObjectNameSeparator)
-			err = binary.Write(&startRowkey, binary.BigEndian,
-				math.MaxUint64-currVerMarkerNum)
-			if err != nil {
-				return
-			}
-		}
-		stopKey := []byte(bucketName)
-		stopKey[len(bucketName)-1]++
-		comparator := filter.NewRegexStringComparator(
-			"^"+bucketName+ meta.ObjectNameSeparator +request.Prefix+".*",
-			0x20, // Dot-all mode
-			"UTF-8",
-			"JAVA", // regexp engine name, in `JAVA` or `JONI`
-		)
-		compareFilter := filter.NewCompareFilter(filter.Equal, comparator)
-		rowFilter := filter.NewRowFilter(compareFilter)
-
-		ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
-		defer done()
-		scanRequest, e := hrpc.NewScanRangeStr(ctx, meta.OBJECT_TABLE,
-			startRowkey.String(), string(stopKey),
-			// scan for max+1 rows to determine if results are truncated
-			hrpc.Filters(rowFilter), hrpc.NumberOfRows(uint32(request.MaxKeys+1)))
-		if e != nil {
-			err = e
-			return
-		}
-		scanResponse, e := yig.MetaStorage.Hbase.Scan(scanRequest)
-		if e != nil {
-			err = e
-			return
-		}
-		if len(scanResponse) > 0 {
-			if len(scanResponse) > request.MaxKeys {
-				var lstObject *meta.Object
-				lstObject, err = meta.ObjectFromResponse(scanResponse[request.MaxKeys])
-				if err != nil {
-					return
-				}
-				currMarker = lstObject.Name
-				if request.Versioned {
-					currVerMarkerNum, err = lstObject.GetVersionNumber()
-					if err != nil {
-						return
-					}
-				}
-
-				scanResponse = scanResponse[0:request.MaxKeys+1]
-				truncated = true
-			} else {
-				truncated = false
-			}
-		} else {
-			truncated = false
-			exit = true
-		}
-		// search objects
-		var idx int
-		var row *hrpc.Result
-		for idx, row = range scanResponse {
-			var o *meta.Object
-			o, e = meta.ObjectFromResponse(row)
-			if e != nil {
-				err = e
-				return
-			}
-			if _, ok := objectMap[o.Name]; !ok {
-				objectMap[o.Name] = o
-				if o.DeleteMarker && !request.Versioned {
-					continue
-				}
-			} else {
-				if !request.Versioned {
-					skipOldVerObj = o.Name + meta.ObjectNameSmallestStr
-					continue
-				}
-			}
-			if count < request.MaxKeys {
-				//request.Marker = o.Name
-				nextMarker = o.Name
-				if request.Versioned {
-					nextVerIdMarker = o.VersionId
-				}
-			}
-
-			if len(request.Delimiter) != 0 {
-				objName := o.Name
-				len := len(request.Prefix)
-				subStr := objName[len:]
-				n := strings.Index(subStr, request.Delimiter)
-				if n != -1 {
-					prefixKey := string([]rune(objName)[0:(len + n + 1)])
-					if _, ok := commonPrefixes[prefixKey]; !ok {
-						if count >= request.MaxKeys {
-							truncated = true
-							exit = true
-							break
-						}
-						nextMarker = prefixKey
-						commonPrefixes[prefixKey] = true
-
-						skipAfterDelim = objName[0:(len + n)]
-						skipAfterDelim += biggerThanDelim
-						helper.Debugln("skipAfterDelim:", skipAfterDelim)
-						count += 1
-					}
-					continue
-				}
-			}
-
-			if count >= request.MaxKeys {
-				truncated = true
-				exit = true
-				break
-			}
-
-			retObjects = append(retObjects, o)
-			count += 1
-		}
-		if exit {
-			break
-		}
-		truncated = truncated || (idx + 1 != len(scanResponse))
-	}
-	prefixes = helper.Keys(commonPrefixes)
-	return
+		"keyMarker:", request.KeyMarker, "versionIdMarker:", request.VersionIdMarker)
+	return yig.MetaStorage.Client.ListObjects(bucketName, marker, verIdMarker, request.Prefix, request.Delimiter, request.Versioned, request.MaxKeys)
 }
 
 func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
@@ -758,7 +409,7 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 		result.NextMarker = nextMarker
 	}
 	if request.Version == 2 {
-		result.NextMarker = meta.Encrypt(result.NextMarker)
+		result.NextMarker = util.Encrypt(result.NextMarker)
 	}
 	objects := make([]datatype.Object, 0, len(retObjects))
 	for _, obj := range retObjects {
@@ -769,7 +420,7 @@ func (yig *YigStorage) ListObjects(credential iam.Credential, bucketName string,
 			Size:         obj.Size,
 			StorageClass: "STANDARD",
 		}
-		if request.EncodingType != "" {// only support "url" encoding for now
+		if request.EncodingType != "" { // only support "url" encoding for now
 			object.Key = url.QueryEscape(obj.Name)
 		} else {
 			object.Key = obj.Name

@@ -22,7 +22,7 @@ import (
 	"time"
 
 	. "github.com/journeymidnight/yig/error"
-	"github.com/journeymidnight/yig/meta"
+	meta "github.com/journeymidnight/yig/meta/types"
 )
 
 // Validates the preconditions for CopyObject, returns nil if validates

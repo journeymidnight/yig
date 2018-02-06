@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
@@ -9,12 +8,11 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/cannium/gohbase/hrpc"
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
-	"github.com/journeymidnight/yig/meta"
+	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/signature"
 	"sync"
@@ -427,49 +425,14 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, versio
 }
 
 func (yig *YigStorage) delTableEntryForRollback(object *meta.Object, objMap *meta.ObjMap) error {
-	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
-	defer done()
-
 	if object != nil {
-		objectDeleteValues := object.GetValuesForDelete()
-		objectRowkey, err := object.GetRowkey()
-		if err != nil {
-			yig.Logger.Println(5, "Error deleting object: ", err)
-			yig.Logger.Println(5, "Inconsistent data: object with rowkey ", object.Rowkey,
-				"should be removed in HBase")
-		}
-		objectDeleteRequest, err := hrpc.NewDelStr(ctx,
-			meta.OBJECT_TABLE, objectRowkey, objectDeleteValues)
-		if err != nil {
-			return err
-		}
-		_, err = yig.MetaStorage.Hbase.Delete(objectDeleteRequest)
-		if err != nil {
-			yig.Logger.Println(5, "Error deleting object: ", err)
-			yig.Logger.Println(5, "Inconsistent data: object with rowkey ", object.Rowkey,
-				"should be removed in HBase")
-		}
+		err := yig.MetaStorage.Client.DeleteObject(object)
+		return err
 	}
 
 	if objMap != nil {
-		objMapDeleteValues := objMap.GetValuesForDelete()
-		objMapRowkey, err := objMap.GetRowKey()
-		if err != nil {
-			yig.Logger.Println(5, "Error deleting objMap: ", err)
-			yig.Logger.Println(5, "Inconsistent data: objMap with rowkey ", objMap.Rowkey,
-				"should be removed in HBase")
-		}
-		objMapDeleteRequest, err := hrpc.NewDelStr(ctx,
-			meta.OBJMAP_TABLE, objMapRowkey, objMapDeleteValues)
-		if err != nil {
-			return err
-		}
-		_, err = yig.MetaStorage.Hbase.Delete(objMapDeleteRequest)
-		if err != nil {
-			yig.Logger.Println(5, "Error deleting objMap: ", err)
-			yig.Logger.Println(5, "Inconsistent data: objMap with rowkey ", objMap.Rowkey,
-				"should be removed in HBase")
-		}
+		err := yig.MetaStorage.Client.DeleteObjectMap(objMap)
+		return err
 	}
 	return nil
 }

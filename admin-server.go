@@ -1,19 +1,19 @@
 package main
 
 import (
-	"net/http"
-	"github.com/journeymidnight/yig/log"
+	"encoding/json"
+	"github.com/dgrijalva/jwt-go"
+	router "github.com/gorilla/mux"
+	"github.com/journeymidnight/yig/api"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
+	"github.com/journeymidnight/yig/log"
+	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/storage"
-	router "github.com/gorilla/mux"
-	"github.com/dgrijalva/jwt-go"
 	"net"
-	"time"
-	"github.com/journeymidnight/yig/api"
-	"encoding/json"
-	"github.com/journeymidnight/yig/meta"
+	"net/http"
 	"net/http/pprof"
+	"time"
 )
 
 type adminServerConfig struct {
@@ -53,7 +53,7 @@ func getUsage(w http.ResponseWriter, r *http.Request) {
 
 	usage, err := adminServer.Yig.MetaStorage.GetUsage(bucketName)
 	if err != nil {
-		api.WriteErrorResponse(w,r,err)
+		api.WriteErrorResponse(w, r, err)
 		return
 	}
 	b, err := json.Marshal(usageJson{Usage: usage})
@@ -68,7 +68,7 @@ func getBucketInfo(w http.ResponseWriter, r *http.Request) {
 	helper.Debugln("bucketName:", bucketName)
 	bucket, err := adminServer.Yig.MetaStorage.GetBucketInfo(bucketName)
 	if err != nil {
-		api.WriteErrorResponse(w,r,err)
+		api.WriteErrorResponse(w, r, err)
 		return
 	}
 
@@ -83,7 +83,7 @@ func getUserInfo(w http.ResponseWriter, r *http.Request) {
 
 	buckets, err := adminServer.Yig.MetaStorage.GetUserInfo(uid)
 	if err != nil {
-		api.WriteErrorResponse(w,r,err)
+		api.WriteErrorResponse(w, r, err)
 		return
 	}
 	helper.Debugln("enter getUserInfo", uid, buckets)
@@ -92,7 +92,7 @@ func getUserInfo(w http.ResponseWriter, r *http.Request) {
 	if helper.CONFIG.DebugMode == false {
 		keys, err = iam.GetKeysByUid(uid)
 		if err != nil {
-			api.WriteErrorResponse(w,r,err)
+			api.WriteErrorResponse(w, r, err)
 			return
 		}
 	}
@@ -109,7 +109,7 @@ func getObjectInfo(w http.ResponseWriter, r *http.Request) {
 
 	object, err := adminServer.Yig.MetaStorage.GetObject(bucketName, objectName, true)
 	if err != nil {
-		api.WriteErrorResponse(w,r,err)
+		api.WriteErrorResponse(w, r, err)
 		return
 	}
 	b, err := json.Marshal(objectJson{Object: object})
@@ -155,8 +155,6 @@ func configureAdminHandler() http.Handler {
 	apiRouter.Path("/debug/trace").HandlerFunc(pprof.Trace)
 	apiRouter.PathPrefix("/debug/pprof/").HandlerFunc(pprof.Index)
 
-
-
 	handle := RegisterHandlers(mux, handlerFns...)
 	return handle
 }
@@ -181,7 +179,6 @@ func startAdminServer(c *adminServerConfig) {
 		Handler:        configureAdminHandler(),
 		MaxHeaderBytes: 1 << 20,
 	}
-
 
 	hosts, port := getListenIPs(adminServer) // get listen ips and port.
 

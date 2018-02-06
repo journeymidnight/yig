@@ -23,7 +23,7 @@ import (
 	"strconv"
 
 	. "github.com/journeymidnight/yig/api/datatype"
-	"github.com/journeymidnight/yig/meta"
+	meta "github.com/journeymidnight/yig/meta/types"
 )
 
 // Encodes the response headers into XML format.
@@ -43,8 +43,8 @@ func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *
 
 	w.Header().Set("Content-Type", object.ContentType)
 	if object.Etag != "" {
-	//	w.Header().Set("ETag", "\""+object.Etag+"\"")
-		w.Header()["ETag"] = []string{"\""+object.Etag+"\""}
+		//	w.Header().Set("ETag", "\""+object.Etag+"\"")
+		w.Header()["ETag"] = []string{"\"" + object.Etag + "\""}
 	}
 
 	var existCacheControl bool

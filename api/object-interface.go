@@ -19,7 +19,7 @@ package api
 import (
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/iam"
-	"github.com/journeymidnight/yig/meta"
+	meta "github.com/journeymidnight/yig/meta/types"
 	"io"
 )
 

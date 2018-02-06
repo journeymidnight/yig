@@ -1,26 +1,20 @@
 package storage
 
 import (
-	"bytes"
-	"context"
 	"crypto/md5"
 	"encoding/base64"
-	"encoding/binary"
 	"encoding/hex"
-	"github.com/cannium/gohbase/filter"
-	"github.com/cannium/gohbase/hrpc"
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
-	"github.com/journeymidnight/yig/meta"
+	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/signature"
 	"io"
 	"net/url"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -53,137 +47,15 @@ func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketNam
 	}
 	// TODO policy and fancy ACL
 
-	var startRowkey bytes.Buffer
-	var stopKey []byte
-	startRowkey.WriteString(bucketName)
-	stopKey = helper.CopiedBytes(startRowkey.Bytes())
-	// TODO: refactor, same as in getMultipartRowkeyFromUploadId
-	if request.KeyMarker != "" {
-		err = binary.Write(&startRowkey, binary.BigEndian,
-			uint16(strings.Count(request.KeyMarker, "/")))
-		if err != nil {
-			return
-		}
-		startRowkey.WriteString(request.KeyMarker)
-		stopKey = helper.CopiedBytes(startRowkey.Bytes())
-		if request.UploadIdMarker != "" {
-			var timestampString string
-			timestampString, err = meta.Decrypt(request.UploadIdMarker)
-			if err != nil {
-				return result, err
-			}
-			var timestamp uint64
-			timestamp, err = strconv.ParseUint(timestampString, 10, 64)
-			if err != nil {
-				return result, err
-			}
-			err = binary.Write(&startRowkey, binary.BigEndian, timestamp)
-			if err != nil {
-				return
-			}
-		}
-	}
-	stopKey[len(stopKey)-1]++
-
-	comparator := filter.NewRegexStringComparator(
-		"^"+bucketName+".."+request.Prefix+".*"+".{8}"+"$",
-		0x20, // Dot-all mode
-		"ISO-8859-1",
-		"JAVA", // regexp engine name, in `JAVA` or `JONI`
-	)
-	compareFilter := filter.NewCompareFilter(filter.Equal, comparator)
-	rowFilter := filter.NewRowFilter(compareFilter)
-
-	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
-	defer done()
-	scanRequest, err := hrpc.NewScanRangeStr(ctx, meta.MULTIPART_TABLE,
-		startRowkey.String(), string(stopKey), hrpc.Filters(rowFilter),
-		// scan for max+1 rows to determine if results are truncated
-		hrpc.NumberOfRows(uint32(request.MaxUploads+1)))
+	uploads, prefixes, isTruncated, nextKeyMarker, nextUploadIdMarker, err := yig.MetaStorage.Client.ListMultipartUploads(bucketName, request.KeyMarker, request.UploadIdMarker, request.Prefix, request.Delimiter, request.EncodingType, request.MaxUploads)
 	if err != nil {
 		return
 	}
-	scanResponse, err := yig.MetaStorage.Hbase.Scan(scanRequest)
-	if err != nil {
-		return
-	}
-
-	if len(scanResponse) > request.MaxUploads {
-		result.IsTruncated = true
-		var nextUpload meta.Multipart
-		nextUpload, err = meta.MultipartFromResponse(scanResponse[request.MaxUploads], bucketName)
-		if err != nil {
-			return
-		}
-		result.NextKeyMarker = nextUpload.ObjectName
-		result.NextUploadIdMarker, err = nextUpload.GetUploadId()
-		if err != nil {
-			return
-		}
-		scanResponse = scanResponse[:request.MaxUploads]
-	}
-
-	var currentLevel int
-	if request.Delimiter == "" {
-		currentLevel = 0
-	} else {
-		currentLevel = strings.Count(request.Prefix, request.Delimiter)
-	}
-
-	uploads := make([]datatype.Upload, 0, len(scanResponse))
-	prefixMap := make(map[string]int) // value is dummy, only need a set here
-	for _, row := range scanResponse {
-		var m meta.Multipart
-		m, err = meta.MultipartFromResponse(row, bucketName)
-		if err != nil {
-			return
-		}
-		upload := datatype.Upload{
-			StorageClass: "STANDARD",
-			Initiated:    m.InitialTime.UTC().Format(meta.CREATE_TIME_LAYOUT),
-		}
-		if request.Delimiter == "" {
-			upload.Key = m.ObjectName
-		} else {
-			level := strings.Count(m.ObjectName, request.Delimiter)
-			if level > currentLevel {
-				split := strings.Split(m.ObjectName, request.Delimiter)
-				split = split[:currentLevel+1]
-				prefix := strings.Join(split, request.Delimiter) + request.Delimiter
-				prefixMap[prefix] = 1
-				continue
-			} else {
-				upload.Key = m.ObjectName
-			}
-		}
-		//upload.Key = strings.TrimPrefix(upload.Key, request.Prefix)
-		if request.EncodingType != "" { // only support "url" encoding for now
-			upload.Key = url.QueryEscape(upload.Key)
-		}
-		upload.UploadId, err = m.GetUploadId()
-		if err != nil {
-			return
-		}
-
-		var user iam.Credential
-		user, err = iam.GetCredentialByUserId(m.Metadata.OwnerId)
-		if err != nil {
-			return
-		}
-		upload.Owner.ID = user.UserId
-		upload.Owner.DisplayName = user.DisplayName
-		user, err = iam.GetCredentialByUserId(m.Metadata.InitiatorId)
-		if err != nil {
-			return
-		}
-		upload.Initiator.ID = user.UserId
-		upload.Initiator.DisplayName = user.DisplayName
-
-		uploads = append(uploads, upload)
-	}
+	result.IsTruncated = isTruncated
 	result.Uploads = uploads
+	result.NextKeyMarker = nextKeyMarker
+	result.NextUploadIdMarker = nextUploadIdMarker
 
-	prefixes := helper.Keys(prefixMap)
 	sort.Strings(prefixes)
 	for _, prefix := range prefixes {
 		result.CommonPrefixes = append(result.CommonPrefixes, datatype.CommonPrefix{
@@ -253,7 +125,7 @@ func (yig *YigStorage) NewMultipartUpload(credential iam.Credential, bucketName,
 		multipartMetadata.EncryptionKey = nil
 	}
 
-	multipart := &meta.Multipart{
+	multipart := meta.Multipart{
 		BucketName:  bucketName,
 		ObjectName:  objectName,
 		InitialTime: time.Now().UTC(),
@@ -264,22 +136,7 @@ func (yig *YigStorage) NewMultipartUpload(credential iam.Credential, bucketName,
 	if err != nil {
 		return
 	}
-	multipartValues, err := multipart.GetValues()
-	if err != nil {
-		return
-	}
-	rowkey, err := multipart.GetRowkey()
-	if err != nil {
-		return
-	}
-	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
-	defer done()
-	newMultipartPut, err := hrpc.NewPutStr(ctx, meta.MULTIPART_TABLE,
-		rowkey, multipartValues)
-	if err != nil {
-		return
-	}
-	_, err = yig.MetaStorage.Hbase.Put(newMultipartPut)
+	err = yig.MetaStorage.Client.CreateMultipart(multipart)
 	return
 }
 
@@ -391,24 +248,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential i
 		LastModified:         time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT),
 		InitializationVector: initializationVector,
 	}
-	partValues, err := part.GetValues()
-	if err != nil {
-		RecycleQueue <- maybeObjectToRecycle
-		return
-	}
-	rowkey, err := multipart.GetRowkey()
-	if err != nil {
-		RecycleQueue <- maybeObjectToRecycle
-		return
-	}
-	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
-	defer done()
-	partMetaPut, err := hrpc.NewPutStr(ctx, meta.MULTIPART_TABLE, rowkey, partValues)
-	if err != nil {
-		RecycleQueue <- maybeObjectToRecycle
-		return
-	}
-	_, err = yig.MetaStorage.Hbase.Put(partMetaPut)
+	err = yig.MetaStorage.Client.PutObjectPart(multipart, part)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
@@ -538,24 +378,7 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	}
 	result.LastModified = now
 
-	partValues, err := part.GetValues()
-	if err != nil {
-		RecycleQueue <- maybeObjectToRecycle
-		return
-	}
-	rowkey, err := multipart.GetRowkey()
-	if err != nil {
-		RecycleQueue <- maybeObjectToRecycle
-		return
-	}
-	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
-	defer done()
-	partMetaPut, err := hrpc.NewPutStr(ctx, meta.MULTIPART_TABLE, rowkey, partValues)
-	if err != nil {
-		RecycleQueue <- maybeObjectToRecycle
-		return
-	}
-	_, err = yig.MetaStorage.Hbase.Put(partMetaPut)
+	err = yig.MetaStorage.Client.PutObjectPart(multipart, part)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
@@ -682,19 +505,7 @@ func (yig *YigStorage) AbortMultipartUpload(credential iam.Credential,
 		return err
 	}
 
-	values := multipart.GetValuesForDelete()
-	rowkey, err := multipart.GetRowkey()
-	if err != nil {
-		return err
-	}
-
-	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
-	defer done()
-	deleteRequest, err := hrpc.NewDelStr(ctx, meta.MULTIPART_TABLE, rowkey, values)
-	if err != nil {
-		return err
-	}
-	_, err = yig.MetaStorage.Hbase.Delete(deleteRequest)
+	err = yig.MetaStorage.Client.DeleteMultipart(multipart)
 	if err != nil {
 		return err
 	}
@@ -828,18 +639,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 	}
 
 	// Remove from multiparts table
-	deleteValues := multipart.GetValuesForDelete()
-	rowkey, err := multipart.GetRowkey()
-	if err != nil {
-		return
-	}
-	ctx, done := context.WithTimeout(RootContext, helper.CONFIG.HbaseTimeout)
-	defer done()
-	deleteRequest, err := hrpc.NewDelStr(ctx, meta.MULTIPART_TABLE, rowkey, deleteValues)
-	if err != nil {
-		return
-	}
-	_, err = yig.MetaStorage.Hbase.Delete(deleteRequest)
+	err = yig.MetaStorage.Client.DeleteMultipart(multipart)
 	if err != nil { // rollback objects table
 		yig.delTableEntryForRollback(object, objMap)
 		return result, err

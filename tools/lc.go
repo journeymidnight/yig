@@ -1,37 +1,38 @@
 package main
 
 import (
-	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/storage"
-	"github.com/journeymidnight/yig/meta"
-	"github.com/journeymidnight/yig/iam"
+	"fmt"
 	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/log"
+	"github.com/journeymidnight/yig/meta"
+	"github.com/journeymidnight/yig/meta/types"
+	"github.com/journeymidnight/yig/storage"
 	"os"
 	"os/signal"
-	"syscall"
-	"sync"
-	"time"
 	"strconv"
 	"strings"
-	"fmt"
+	"sync"
+	"syscall"
+	"time"
 )
 
 var (
-	logger *log.Logger
-	yig *storage.YigStorage
-	taskQ chan meta.LifeCycle
+	logger      *log.Logger
+	yig         *storage.YigStorage
+	taskQ       chan types.LifeCycle
 	signalQueue chan os.Signal
-	waitgroup sync.WaitGroup
-	empty bool
-	stop bool
+	waitgroup   sync.WaitGroup
+	empty       bool
+	stop        bool
 )
 
 const (
-	SCAN_HBASE_LIMIT   = 50
+	SCAN_HBASE_LIMIT = 50
 )
 
-func getLifeCycles () {
+func getLifeCycles() {
 	var marker string
 	logger.Println(5, 5, "all bucket lifecycle handle start")
 	waitgroup.Add(1)
@@ -83,9 +84,9 @@ func checkIfExpiration(updateTime time.Time, days int) bool {
 //  if defaultConfig == false
 //                 for each rule get objects by prefix
 //  iterator rules ----------------------------------> loop objects-------->delete object if expired
-func retrieveBucket(lc meta.LifeCycle) error {
+func retrieveBucket(lc types.LifeCycle) error {
 	defaultConfig := false
-	defaultDays   := 0
+	defaultDays := 0
 	bucket, err := yig.MetaStorage.GetBucket(lc.BucketName, false)
 	if err != nil {
 		return err
@@ -237,14 +238,14 @@ func main() {
 	logger = log.New(f, "[yig]", log.LstdFlags, helper.CONFIG.LogLevel)
 	helper.Logger = logger
 	yig = storage.New(logger, int(meta.NoCache), false, helper.CONFIG.CephConfigPattern)
-	taskQ = make(chan meta.LifeCycle, SCAN_HBASE_LIMIT)
+	taskQ = make(chan types.LifeCycle, SCAN_HBASE_LIMIT)
 	signal.Ignore()
 	signalQueue = make(chan os.Signal)
 
 	numOfWorkers := helper.CONFIG.LcThread
-	helper.Logger.Println(5, "start lc thread:",numOfWorkers)
+	helper.Logger.Println(5, "start lc thread:", numOfWorkers)
 	empty = false
-	for i := 0; i< numOfWorkers; i++ {
+	for i := 0; i < numOfWorkers; i++ {
 		go processLifecycle()
 	}
 	go getLifeCycles()
