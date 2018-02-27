@@ -1,0 +1,13 @@
+{
+	"comment": "",
+	"ignore": "",
+	"package": [
+		{
+			"checksumSHA1": "Z5e8iRObV1jU5e4eeVkJlOPjY68=",
+			"path": "github.com/go-sql-driver/mysql",
+			"revision": "9181e3a86a19bacd63e68d43ae8b7b36320d8092",
+			"revisionTime": "2017-12-04T00:43:26Z"
+		}
+	],
+	"rootPath": "github.com/journeymidnight/yig"
+}

@@ -2,6 +2,7 @@ package types
 
 const (
 	CREATE_TIME_LAYOUT           = "2006-01-02T15:04:05.000Z"
+	TIME_LAYOUT_TIDB             = "2006-01-02 15:04:05"
 	INITIALIZATION_VECTOR_LENGTH = 16 // 12 bytes is best performance for GCM, but for CTR
 	ObjectNameEnding             = ":"
 	ObjectNameSeparator          = "\n"

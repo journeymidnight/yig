@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/xxtea/xxtea-go/xxtea"
 	"strconv"
@@ -135,4 +136,9 @@ func valuesForParts(parts map[int]*Part) (values map[string][]byte, err error) {
 		values[strconv.Itoa(partNumber)] = marshaled
 	}
 	return
+}
+
+func (p *Part) GetCreateSql() string {
+	sql := fmt.Sprintf("insert into objectpart values(%d,%d,'%s',%d,'%s','%s','%s')", p.PartNumber, p.Size, p.ObjectId, p.Offset, p.Etag, p.LastModified, p.InitializationVector)
+	return sql
 }

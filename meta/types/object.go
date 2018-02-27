@@ -194,3 +194,16 @@ func (o *Object) GetVersionId() string {
 	o.VersionId = hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
 	return o.VersionId
 }
+
+//Tidb related function
+
+func (o *Object) GetCreateSql() string {
+	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
+	customAttributes, _ := json.Marshal(o.CustomAttributes)
+	acl, _ := json.Marshal(o.ACL)
+	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
+	sql := fmt.Sprintf("insert into objects values('%s','%s',%d,'%s','%s','%s','%d','%s','%s','%s','%s','%s','%s',%t,%t,'%s','%s','%s')", o.BucketName, o.Name, version, o.Location, o.Pool, o.OwnerId, o.Size, o.ObjectId, lastModifiedTime, o.Etag, o.ContentType, customAttributes, acl, o.NullVersion, o.DeleteMarker, o.SseType, o.EncryptionKey, o.InitializationVector)
+	fmt.Println(sql)
+	fmt.Println("exit getcreateslql")
+	return sql
+}

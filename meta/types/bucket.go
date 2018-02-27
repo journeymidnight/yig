@@ -65,3 +65,23 @@ func (b *Bucket) GetValues() (values map[string]map[string][]byte, err error) {
 	}
 	return
 }
+
+//Tidb related function
+func (b Bucket) GetUpdateSql() string {
+	acl, _ := json.Marshal(b.ACL)
+	cors, _ := json.Marshal(b.CORS)
+	lc, _ := json.Marshal(b.LC)
+	sql := fmt.Sprintf("update buckets set bucketname='%s',acl='%s',cors='%s',lc='%s',uid='%s',usages=%d,versioning='%s',createtime='%s' where bucketname='%s'", b.Name, acl, cors, lc, b.OwnerId, b.Usage, b.Versioning, b.CreateTime, b.Name)
+	fmt.Println("update:", sql)
+	return sql
+}
+
+func (b Bucket) GetCreateSql() string {
+	acl, _ := json.Marshal(b.ACL)
+	cors, _ := json.Marshal(b.CORS)
+	lc, _ := json.Marshal(b.LC)
+	createTime := b.CreateTime.Format(TIME_LAYOUT_TIDB)
+	sql := fmt.Sprintf("insert into buckets values('%s','%s','%s','%s','%s','%s',%d,'%s');", b.Name, acl, cors, lc, b.OwnerId, createTime, b.Usage, b.Versioning)
+	fmt.Println("create:", sql)
+	return sql
+}
