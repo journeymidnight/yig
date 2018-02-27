@@ -31,6 +31,14 @@ services:
       vpcbr:
         ipv4_address: "10.5.0.8"
 
+  mysql:
+    image: mysql
+    container_name: mysql
+    environment:
+      - MYSQL_ALLOW_EMPTY_PASSWORD=yes
+    networks:
+      vpcbr:
+        ipv4_address: "10.5.0.9"
 
 networks:
   vpcbr:
