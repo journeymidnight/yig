@@ -3,6 +3,7 @@ package tidbclient
 import (
 	"database/sql"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/journeymidnight/yig/helper"
 	"os"
 )
 
@@ -12,7 +13,7 @@ type TidbClient struct {
 
 func NewTidbClient() *TidbClient {
 	cli := &TidbClient{}
-	conn, err := sql.Open("mysql", "root:@tcp(10.5.0.9:3306)/yig")
+	conn, err := sql.Open("mysql", helper.CONFIG.TidbInfo)
 	if err != nil {
 		os.Exit(1)
 	}
