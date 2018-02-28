@@ -20,5 +20,7 @@
     "AdminKey": "secret",
     "MetaCacheType": 2,
     "EnableDataCache": true,
-    "CephConfigPattern": "/etc/ceph/*.conf"
+    "CephConfigPattern": "/etc/ceph/*.conf",
+    "MetaStore": "hbase",
+    "TidbInfo":"root:@tcp(10.5.0.9:3306)/yig"
 }

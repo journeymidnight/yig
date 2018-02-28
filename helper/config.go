@@ -38,6 +38,8 @@ type Config struct {
 	LogLevel                   int  //1-20
 	CephConfigPattern          string
 	ReservedOrigins            string // www.ccc.com,www.bbb.com,127.0.0.1
+	MetaStore                  string
+	TidbInfo                   string
 }
 
 type config struct {
@@ -72,6 +74,8 @@ type config struct {
 	LogLevel                   int  //1-20
 	CephConfigPattern          string
 	ReservedOrigins            string // www.ccc.com,www.bbb.com,127.0.0.1
+	MetaStore                  string
+	TidbInfo                   string
 }
 
 var CONFIG Config
@@ -129,4 +133,6 @@ func SetupConfig() {
 	CONFIG.LogLevel = Ternary(c.LogLevel == 0, 5, c.LogLevel).(int)
 	CONFIG.CephConfigPattern = c.CephConfigPattern
 	CONFIG.ReservedOrigins = c.ReservedOrigins
+	CONFIG.MetaStore = Ternary(c.MetaStore == "", "hbase", c.MetaStore).(string)
+	CONFIG.TidbInfo = c.TidbInfo
 }

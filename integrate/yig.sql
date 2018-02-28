@@ -36,6 +36,51 @@ CREATE TABLE `buckets` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `multipartpart`
+--
+
+DROP TABLE IF EXISTS `multipartpart`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `multipartpart` (
+  `partnumber` int(11) DEFAULT NULL,
+  `size` bigint(20) DEFAULT NULL,
+  `objectid` varchar(100) CHARACTER SET latin1 DEFAULT NULL,
+  `offset` bigint(20) DEFAULT NULL,
+  `etag` varchar(100) CHARACTER SET latin1 DEFAULT NULL,
+  `lastmodified` varchar(100) CHARACTER SET latin1 DEFAULT NULL,
+  `initializationvector` blob,
+  `bucketname` varchar(100) DEFAULT NULL,
+  `objectname` varchar(100) DEFAULT NULL,
+  `uploadtime` bigint(20) unsigned DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `multiparts`
+--
+
+DROP TABLE IF EXISTS `multiparts`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `multiparts` (
+  `bucketname` varchar(100) DEFAULT NULL,
+  `objectname` varchar(100) DEFAULT NULL,
+  `uploadtime` bigint(20) unsigned DEFAULT NULL,
+  `initiatorid` varchar(100) DEFAULT NULL,
+  `ownerid` varchar(100) DEFAULT NULL,
+  `contenttype` varchar(100) DEFAULT NULL,
+  `location` varchar(100) DEFAULT NULL,
+  `pool` varchar(50) DEFAULT NULL,
+  `acl` varchar(100) DEFAULT NULL,
+  `sserequest` varchar(100) DEFAULT NULL,
+  `encryption` blob,
+  `attrs` varchar(100) DEFAULT NULL,
+  KEY `multiparts` (`bucketname`,`objectname`,`uploadtime`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `objectpart`
 --
 
@@ -120,4 +165,4 @@ CREATE TABLE `users` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2018-02-27  7:25:07
+-- Dump completed on 2018-02-28  7:41:20

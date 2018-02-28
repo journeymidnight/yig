@@ -1,9 +1,10 @@
 package meta
 
 import (
+	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/meta/client"
-	//"github.com/journeymidnight/yig/meta/client/hbaseclient"
+	"github.com/journeymidnight/yig/meta/client/hbaseclient"
 	"github.com/journeymidnight/yig/meta/client/tidbclient"
 )
 
@@ -19,10 +20,15 @@ type Meta struct {
 
 func New(logger *log.Logger, myCacheType CacheType) *Meta {
 	meta := Meta{
-		//Client: hbaseclient.NewHbaseClient(),
-		Client: tidbclient.NewTidbClient(),
 		Logger: logger,
 		Cache:  newMetaCache(myCacheType),
+	}
+	if helper.CONFIG.MetaStore == "hbase" {
+		meta.Client = hbaseclient.NewHbaseClient()
+	} else if helper.CONFIG.MetaStore == "tidb" {
+		meta.Client = tidbclient.NewTidbClient()
+	} else {
+		panic("unsupport metastore")
 	}
 	return &meta
 }
