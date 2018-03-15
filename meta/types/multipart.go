@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/xxtea/xxtea-go/xxtea"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -117,6 +118,12 @@ func getMultipartUploadId(t time.Time) string {
 	return hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
 }
 
+func GetMultipartUploadIdForTidb(uploadtime uint64) string {
+	realUploadTime := math.MaxUint64 - uploadtime
+	timeData := []byte(strconv.FormatUint(realUploadTime, 10))
+	return hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
+}
+
 func (m *Multipart) GetValuesForDelete() map[string]map[string][]byte {
 	return map[string]map[string][]byte{
 		MULTIPART_COLUMN_FAMILY: map[string][]byte{},
@@ -138,7 +145,12 @@ func valuesForParts(parts map[int]*Part) (values map[string][]byte, err error) {
 	return
 }
 
-func (p *Part) GetCreateSql() string {
-	sql := fmt.Sprintf("insert into objectpart values(%d,%d,'%s',%d,'%s','%s','%s')", p.PartNumber, p.Size, p.ObjectId, p.Offset, p.Etag, p.LastModified, p.InitializationVector)
+func (p *Part) GetCreateSql(bucketname, objectname, version string) string {
+	sql := fmt.Sprintf("insert into objectpart values(%d,%d,'%s',%d,'%s','%s','%s','%s','%s','%s')", p.PartNumber, p.Size, p.ObjectId, p.Offset, p.Etag, p.LastModified, p.InitializationVector, bucketname, objectname, version)
+	return sql
+}
+
+func (p *Part) GetCreateGcSql(bucketname, objectname string, version uint64) string {
+	sql := fmt.Sprintf("insert into gcpart values(%d,%d,'%s',%d,'%s','%s','%s','%s','%s',%d)", p.PartNumber, p.Size, p.ObjectId, p.Offset, p.Etag, p.LastModified, p.InitializationVector, bucketname, objectname, version)
 	return sql
 }

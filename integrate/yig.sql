@@ -25,13 +25,69 @@ DROP TABLE IF EXISTS `buckets`;
 CREATE TABLE `buckets` (
   `bucketname` varchar(100) CHARACTER SET latin1 NOT NULL DEFAULT '',
   `acl` varchar(30) CHARACTER SET latin1 DEFAULT NULL,
-  `cors` varchar(100) CHARACTER SET latin1 DEFAULT NULL,
-  `lc` varchar(100) CHARACTER SET latin1 DEFAULT NULL,
+  `cors` varchar(255) DEFAULT NULL,
+  `lc` varchar(255) DEFAULT NULL,
   `uid` varchar(16) CHARACTER SET latin1 DEFAULT NULL,
   `createtime` datetime DEFAULT NULL,
   `usages` bigint(20) DEFAULT NULL,
   `versioning` varchar(20) CHARACTER SET latin1 DEFAULT NULL,
   PRIMARY KEY (`bucketname`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `cluster`
+--
+
+DROP TABLE IF EXISTS `cluster`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `cluster` (
+  `fsid` varchar(255) DEFAULT NULL,
+  `pool` varchar(255) DEFAULT NULL,
+  `weight` int(11) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `gc`
+--
+
+DROP TABLE IF EXISTS `gc`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `gc` (
+  `bucketname` varchar(255) DEFAULT NULL,
+  `objectname` varchar(255) DEFAULT NULL,
+  `version` bigint(20) unsigned DEFAULT NULL,
+  `location` varchar(255) DEFAULT NULL,
+  `pool` varchar(255) DEFAULT NULL,
+  `objectid` varchar(255) DEFAULT NULL,
+  `status` varchar(255) DEFAULT NULL,
+  `mtime` varchar(255) DEFAULT NULL,
+  `part` tinyint(1) DEFAULT NULL,
+  `triedtimes` int(11) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `gcpart`
+--
+
+DROP TABLE IF EXISTS `gcpart`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `gcpart` (
+  `partnumber` int(11) DEFAULT NULL,
+  `size` bigint(20) DEFAULT NULL,
+  `objectid` varchar(100) CHARACTER SET latin1 DEFAULT NULL,
+  `offset` bigint(20) DEFAULT NULL,
+  `etag` varchar(100) CHARACTER SET latin1 DEFAULT NULL,
+  `lastmodified` varchar(100) CHARACTER SET latin1 DEFAULT NULL,
+  `initializationvector` blob,
+  `bucketname` varchar(100) DEFAULT NULL,
+  `objectname` varchar(100) DEFAULT NULL,
+  `uploadtime` bigint(20) unsigned DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -73,7 +129,7 @@ CREATE TABLE `multiparts` (
   `location` varchar(100) DEFAULT NULL,
   `pool` varchar(50) DEFAULT NULL,
   `acl` varchar(100) DEFAULT NULL,
-  `sserequest` varchar(100) DEFAULT NULL,
+  `sserequest` varchar(255) DEFAULT NULL,
   `encryption` blob,
   `attrs` varchar(100) DEFAULT NULL,
   KEY `multiparts` (`bucketname`,`objectname`,`uploadtime`)
@@ -94,7 +150,10 @@ CREATE TABLE `objectpart` (
   `offset` bigint(20) DEFAULT NULL,
   `etag` varchar(100) CHARACTER SET latin1 DEFAULT NULL,
   `lastmodified` varchar(100) CHARACTER SET latin1 DEFAULT NULL,
-  `initializationvector` blob
+  `initializationvector` blob,
+  `bucketname` varchar(255) DEFAULT NULL,
+  `objectname` varchar(255) DEFAULT NULL,
+  `version` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -165,4 +224,4 @@ CREATE TABLE `users` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2018-02-28  7:41:20
+-- Dump completed on 2018-03-15  9:41:07

@@ -71,7 +71,8 @@ func (b Bucket) GetUpdateSql() string {
 	acl, _ := json.Marshal(b.ACL)
 	cors, _ := json.Marshal(b.CORS)
 	lc, _ := json.Marshal(b.LC)
-	sql := fmt.Sprintf("update buckets set bucketname='%s',acl='%s',cors='%s',lc='%s',uid='%s',usages=%d,versioning='%s',createtime='%s' where bucketname='%s'", b.Name, acl, cors, lc, b.OwnerId, b.Usage, b.Versioning, b.CreateTime, b.Name)
+	sql := fmt.Sprintf("update buckets set bucketname='%s',acl='%s',cors='%s',lc='%s',uid='%s',usages=%d,versioning='%s' where bucketname='%s'", b.Name, acl, cors, lc, b.OwnerId, b.Usage, b.Versioning, b.Name)
+
 	fmt.Println("update:", sql)
 	return sql
 }

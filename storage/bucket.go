@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"time"
 
+	"fmt"
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
@@ -60,6 +61,7 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 func (yig *YigStorage) SetBucketAcl(bucketName string, policy datatype.AccessControlPolicy, acl datatype.Acl,
 	credential iam.Credential) error {
 
+	fmt.Println("enter set acl")
 	if acl.CannedAcl == "" {
 		newCannedAcl, err := datatype.GetCannedAclFromPolicy(policy)
 		if err != nil {
@@ -69,7 +71,9 @@ func (yig *YigStorage) SetBucketAcl(bucketName string, policy datatype.AccessCon
 	}
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, false)
+	fmt.Println("enter set acl1")
 	if err != nil {
+		fmt.Println(err)
 		return err
 	}
 	if bucket.OwnerId != credential.UserId {
@@ -77,7 +81,9 @@ func (yig *YigStorage) SetBucketAcl(bucketName string, policy datatype.AccessCon
 	}
 	bucket.ACL = acl
 	err = yig.MetaStorage.Client.PutBucket(bucket)
+	fmt.Println("enter set acl2")
 	if err != nil {
+		fmt.Println(err)
 		return err
 	}
 	if err == nil {
@@ -156,19 +162,24 @@ func (yig *YigStorage) DelBucketLc(bucketName string, credential iam.Credential)
 
 func (yig *YigStorage) SetBucketCors(bucketName string, cors datatype.Cors,
 	credential iam.Credential) error {
+	fmt.Println("enter set cors")
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, false)
 	if err != nil {
+		fmt.Println(err)
 		return err
 	}
 	if bucket.OwnerId != credential.UserId {
 		return ErrBucketAccessForbidden
 	}
 	bucket.CORS = cors
+	fmt.Println("enter set cors1")
 	err = yig.MetaStorage.Client.PutBucket(bucket)
 	if err != nil {
+		fmt.Println(err)
 		return err
 	}
+	fmt.Println("enter set cors2")
 	if err == nil {
 		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
 	}

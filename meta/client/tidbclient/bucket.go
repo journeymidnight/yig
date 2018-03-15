@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
 	"strconv"
 	"strings"
@@ -24,14 +25,14 @@ func (t *TidbClient) GetBucket(bucketName string) (bucket Bucket, err error) {
 		&bucket.Usage,
 		&bucket.Versioning,
 	)
-	bucket.CreateTime, err = time.Parse(TIME_LAYOUT_TIDB, createTime)
-	if err != nil {
-		return
-	}
 	if err != nil && err == sql.ErrNoRows {
 		err = nil
 		return
 	} else if err != nil {
+		return
+	}
+	bucket.CreateTime, err = time.Parse(TIME_LAYOUT_TIDB, createTime)
+	if err != nil {
 		return
 	}
 	err = json.Unmarshal([]byte(acl), &bucket.ACL)
@@ -76,16 +77,26 @@ func (t *TidbClient) CheckAndPutBucket(bucket Bucket) (bool, error) {
 }
 
 func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimiter string, versioned bool, maxKeys int) (retObjects []*Object, prefixes []string, truncated bool, nextMarker, nextVerIdMarker string, err error) {
+	fmt.Println("enter list object")
 	if versioned {
 		return
 	}
 	var count int
 	var exit bool
 	objectMap := make(map[string]struct{})
+	objectNum := make(map[string]int)
 	commonPrefixes := make(map[string]struct{})
+	omarker := marker
 	for {
+		fmt.Println("enter big loop")
 		var loopcount int
-		sqltext := fmt.Sprintf("select bucketname,name,version,nullversion,deletemarker from objects where bucketName='%s' and name >='%s' order by bucketname,name,version limit %d", bucketName, marker, maxKeys)
+		var sqltext string
+		if marker == "" {
+			sqltext = fmt.Sprintf("select bucketname,name,version,nullversion,deletemarker from objects where bucketName='%s' order by bucketname,name,version limit %d", bucketName, maxKeys)
+		} else {
+			sqltext = fmt.Sprintf("select bucketname,name,version,nullversion,deletemarker from objects where bucketName='%s' and name >='%s' order by bucketname,name,version limit %d,%d", bucketName, marker, objectNum[marker], objectNum[marker]+maxKeys)
+		}
+		fmt.Println("sqltext is:", sqltext)
 		var rows *sql.Rows
 		rows, err = t.Client.Query(sqltext)
 		if err != nil && err == sql.ErrNoRows {
@@ -95,6 +106,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 			return
 		}
 		for rows.Next() {
+			fmt.Println("enter small loop")
 			loopcount += 1
 			//fetch related date
 			var bucketname, name string
@@ -108,25 +120,36 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 				&deletemarker,
 			)
 			if err != nil {
+				fmt.Println(err)
 				return
 			}
 			//prepare next marker
 			//TODU: be sure how tidb/mysql compare strings
-			marker = name + ObjectNameSmallestStr
+			if _, ok := objectNum[name]; !ok {
+				objectNum[name] = 0
+			}
+			objectNum[name] += 1
+			marker = name
 			//filte row
 			//filte by prefix
 			hasPrefix := strings.HasPrefix(name, prefix)
 			if !hasPrefix {
 				continue
 			}
+			fmt.Println("has prefix")
 			//filte by objectname
 			if _, ok := objectMap[name]; !ok {
 				objectMap[name] = struct{}{}
 			} else {
 				continue
 			}
+			fmt.Println("not same prefix")
 			//filte by deletemarker
 			if deletemarker {
+				continue
+			}
+			fmt.Println("not deleted", delimiter, name)
+			if name == omarker {
 				continue
 			}
 			//filte by delemiter
@@ -134,43 +157,63 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 				subStr := strings.TrimPrefix(name, prefix)
 				n := strings.Index(subStr, delimiter)
 				if n != -1 {
-					prefixKey := string([]byte(subStr)[0:(n + 1)])
+					prefixKey := prefix + string([]byte(subStr)[0:(n+1)])
+					if prefixKey == omarker {
+						continue
+					}
 					if _, ok := commonPrefixes[prefixKey]; !ok {
-						commonPrefixes[prefixKey] = struct{}{}
-						if count >= maxKeys {
+						if count == maxKeys {
 							truncated = true
 							exit = true
-							nextMarker = name
 							break
 						}
+						commonPrefixes[prefixKey] = struct{}{}
+						nextMarker = prefixKey
 						count += 1
 					}
 					continue
 				}
 			}
-			if count >= maxKeys {
-				truncated = true
-				exit = true
-				nextMarker = name
-				break
-			}
+			fmt.Println("not last", name)
 			var o *Object
 			Strver := strconv.FormatUint(version, 10)
 			o, err = t.GetObject(bucketname, name, Strver)
+			fmt.Println(o, err)
 			if err != nil {
 				return
 			}
-			retObjects = append(retObjects, o)
 			count += 1
+			if count == maxKeys {
+				nextMarker = name
+			}
+			if count == 0 {
+				continue
+			}
+			if count > maxKeys {
+				truncated = true
+				exit = true
+				break
+			}
+			retObjects = append(retObjects, o)
 		}
-		if loopcount < maxKeys {
+		if loopcount == 0 {
 			exit = true
 		}
 		if exit {
 			break
 		}
 	}
+	prefixes = helper.Keys(commonPrefixes)
 	return
+}
+
+func (t *TidbClient) DeleteBucket(bucket Bucket) error {
+	sqltext := fmt.Sprintf("delete from buckets where bucketname='%s'", bucket.Name)
+	_, err := t.Client.Exec(sqltext)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (t *TidbClient) UpdateUsage(bucketName string, size int64) {

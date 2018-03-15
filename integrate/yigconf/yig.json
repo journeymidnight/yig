@@ -21,6 +21,6 @@
     "MetaCacheType": 2,
     "EnableDataCache": true,
     "CephConfigPattern": "/etc/ceph/*.conf",
-    "MetaStore": "hbase",
+    "MetaStore": "tidb",
     "TidbInfo":"root:@tcp(10.5.0.9:3306)/yig"
 }
