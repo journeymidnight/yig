@@ -13,6 +13,12 @@ function prepare_mysql(){
 	mysql -h 10.5.0.9 yig<yig.sql
 }
 
+function prepare_tidb(){
+	mysql -P 4000 -h 10.5.0.17 -e "create database yig character set utf8;"
+        mysql -P 4000 -h 10.5.0.17 yig < yig.sql
+}
+
 prepare_ceph
 prepare_hbase
 prepare_mysql
+prepare_tidb

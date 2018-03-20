@@ -22,5 +22,5 @@
     "EnableDataCache": true,
     "CephConfigPattern": "/etc/ceph/*.conf",
     "MetaStore": "tidb",
-    "TidbInfo":"root:@tcp(10.5.0.9:3306)/yig"
+    "TidbInfo":"root:@tcp(10.5.0.17:4000)/yig"
 }

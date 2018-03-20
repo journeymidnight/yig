@@ -39,6 +39,146 @@ services:
     networks:
       vpcbr:
         ipv4_address: "10.5.0.9"
+  
+  #tidb-related docker instance
+  pd0:
+    image: pingcap/pd:latest
+    container_name: pd0
+    networks:
+      vpcbr:
+        ipv4_address: "10.5.0.11"
+    ports:
+      - "2379"
+    volumes:
+      - ./tidbconf/pd.toml:/pd.toml:ro
+    command:
+      - --name=pd0
+      - --client-urls=http://0.0.0.0:2379
+      - --peer-urls=http://0.0.0.0:2380
+      - --advertise-client-urls=http://pd0:2379
+      - --advertise-peer-urls=http://pd0:2380
+      - --initial-cluster=pd0=http://pd0:2380,pd1=http://pd1:2380,pd2=http://pd2:2380
+      - --data-dir=/data/pd0
+      - --config=/pd.toml
+
+  pd1:
+    image: pingcap/pd:latest
+    container_name: pd1
+    networks:
+      vpcbr:
+        ipv4_address: "10.5.0.12"
+    ports:
+      - "2379"
+    volumes:
+      - ./tidbconf/pd.toml:/pd.toml:ro
+    command:
+      - --name=pd1
+      - --client-urls=http://0.0.0.0:2379
+      - --peer-urls=http://0.0.0.0:2380
+      - --advertise-client-urls=http://pd1:2379
+      - --advertise-peer-urls=http://pd1:2380
+      - --initial-cluster=pd0=http://pd0:2380,pd1=http://pd1:2380,pd2=http://pd2:2380
+      - --data-dir=/data/pd1
+      - --config=/pd.toml
+
+  pd2:
+    image: pingcap/pd:latest
+    container_name: pd2
+    networks:
+      vpcbr:
+        ipv4_address: "10.5.0.13"
+    ports:
+      - "2379"
+    volumes:
+      - ./tidbconf/pd.toml:/pd.toml:ro
+    command:
+      - --name=pd2
+      - --client-urls=http://0.0.0.0:2379
+      - --peer-urls=http://0.0.0.0:2380
+      - --advertise-client-urls=http://pd2:2379
+      - --advertise-peer-urls=http://pd2:2380
+      - --initial-cluster=pd0=http://pd0:2380,pd1=http://pd1:2380,pd2=http://pd2:2380
+      - --data-dir=/data/pd2
+      - --config=/pd.toml
+
+  tikv0:
+    image: pingcap/tikv:latest
+    container_name: tikv0
+    networks:
+      vpcbr:
+        ipv4_address: "10.5.0.14"
+    volumes:
+      - ./tidbconf/tikv.toml:/tikv.toml:ro
+    command:
+      - --addr=0.0.0.0:20160
+      - --advertise-addr=tikv0:20160
+      - --data-dir=/data/tikv0
+      - --pd=pd0:2379,pd1:2379,pd2:2379
+      - --config=/tikv.toml
+    depends_on:
+      - "pd0"
+      - "pd1"
+      - "pd2"
+
+  tikv1:
+    image: pingcap/tikv:latest
+    container_name: tikv1
+    networks:
+      vpcbr:
+        ipv4_address: "10.5.0.15"
+    volumes:
+      - ./tidbconf/tikv.toml:/tikv.toml:ro
+    command:
+      - --addr=0.0.0.0:20160
+      - --advertise-addr=tikv1:20160
+      - --data-dir=/data/tikv1
+      - --pd=pd0:2379,pd1:2379,pd2:2379
+      - --config=/tikv.toml
+    depends_on:
+      - "pd0"
+      - "pd1"
+      - "pd2"
+
+  tikv2:
+    image: pingcap/tikv:latest
+    container_name: tikv2
+    networks:
+      vpcbr:
+        ipv4_address: "10.5.0.16"
+    volumes:
+      - ./tidbconf/tikv.toml:/tikv.toml:ro
+    command:
+      - --addr=0.0.0.0:20160
+      - --advertise-addr=tikv2:20160
+      - --data-dir=/data/tikv2
+      - --pd=pd0:2379,pd1:2379,pd2:2379
+      - --config=/tikv.toml
+    depends_on:
+      - "pd0"
+      - "pd1"
+      - "pd2"
+
+  tidb:
+    image: pingcap/tidb:latest
+    container_name: tidb
+    networks:
+      vpcbr:
+        ipv4_address: "10.5.0.17"
+    ports:
+      - "4000:4000"
+      - "10080:10080"
+    volumes:
+      - ./tidbconf/tidb.toml:/tidb.toml:ro
+    command:
+      - --store=tikv
+      - --path=pd0:2379,pd1:2379,pd2:2379
+      - --config=/tidb.toml
+      - -L=warn
+    depends_on:
+      - "tikv0"
+      - "tikv1"
+      - "tikv2"
+
 
 networks:
   vpcbr:
