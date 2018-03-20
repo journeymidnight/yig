@@ -36,15 +36,21 @@ func (t *TidbClient) PutObjectToGarbageCollection(object *Object) error {
 
 func (t *TidbClient) ScanGarbageCollection(limit int, startRowKey string) (gcs []GarbageCollection, err error) {
 	var count int
-	s := strings.Split(startRowKey, ObjectNameSeparator)
-	bucketname := s[0]
-	objectname := s[1]
-	version := s[2]
-	sqltext := fmt.Sprintf("select bucketname,objectname,version from gc where bucketname>='%s' order by bucketname,objectname,version", bucketname)
+	var sqltext string
+	if startRowKey == "" {
+		sqltext = fmt.Sprintf("select bucketname,objectname,version from gc  order by bucketname,objectname,version limit %d", limit)
+	} else {
+		s := strings.Split(startRowKey, ObjectNameSeparator)
+		bucketname := s[0]
+		objectname := s[1]
+		version := s[2]
+		sqltext = fmt.Sprintf("select bucketname,objectname,version from gc where bucketname>'%s' or (bucketname='%s' and objectname>'%s') or (bucketname='%s' and objectname='%s' and version >= %s) limit %d", bucketname, bucketname, objectname, bucketname, objectname, version, limit)
+	}
 	rows, err := t.Client.Query(sqltext)
 	if err != nil {
 		return
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var b, o, v string
 		err = rows.Scan(
@@ -52,10 +58,7 @@ func (t *TidbClient) ScanGarbageCollection(limit int, startRowKey string) (gcs [
 			&o,
 			&v,
 		)
-		if (b == bucketname && o < objectname) || (b == bucketname && o == objectname && v < version) {
-			continue
-		}
-		var gc GarbageCollection
+		var gc GarbageCollection = GarbageCollection{}
 		gc, err = t.GetGarbageCollection(b, o, v)
 		if err != nil {
 			return
@@ -71,13 +74,13 @@ func (t *TidbClient) ScanGarbageCollection(limit int, startRowKey string) (gcs [
 
 func (t *TidbClient) RemoveGarbageCollection(garbage GarbageCollection) error {
 	version := strings.Split(garbage.Rowkey, ObjectNameSeparator)[2]
-	sqltext := fmt.Sprintf("delete from gc where bucketname='%s' and objectname='%s' and version='%s'", garbage.BucketName, garbage.ObjectName, version)
+	sqltext := fmt.Sprintf("delete from gc where bucketname='%s' and objectname='%s' and version=%s", garbage.BucketName, garbage.ObjectName, version)
 	_, err := t.Client.Exec(sqltext)
 	if err != nil {
 		return err
 	}
 	if len(garbage.Parts) > 0 {
-		sqltext := fmt.Sprintf("delete from gcpart where bucketname='%s' and objectname='%s' and version='%s'", garbage.BucketName, garbage.ObjectName, version)
+		sqltext := fmt.Sprintf("delete from gcpart where bucketname='%s' and objectname='%s' and version=%s", garbage.BucketName, garbage.ObjectName, version)
 		_, err := t.Client.Exec(sqltext)
 		if err != nil {
 			return err
@@ -121,7 +124,8 @@ func (t *TidbClient) GetGarbageCollection(bucketName, objectName, version string
 }
 
 func getGcParts(bucketname, objectname, version string, cli *sql.DB) (parts map[int]*Part, err error) {
-	sqltext := fmt.Sprint("select partnumber,size,objectid,offset,etag,lastmodified,initializationvector from objectpart where bucketname='%s' and objectname='%s' and version='%s'", bucketname, objectname, version)
+	parts = make(map[int]*Part)
+	sqltext := fmt.Sprintf("select partnumber,size,objectid,offset,etag,lastmodified,initializationvector from gcpart where bucketname='%s' and objectname='%s' and version='%s'", bucketname, objectname, version)
 	rows, err := cli.Query(sqltext)
 	defer rows.Close()
 	if err != nil {

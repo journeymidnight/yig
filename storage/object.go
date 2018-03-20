@@ -4,7 +4,6 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"math/rand"
 	"time"
@@ -168,7 +167,6 @@ func generateTransPartObjectFunc(cephCluster *CephStorage, object *meta.Object, 
 
 func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 	length int64, writer io.Writer, sseRequest datatype.SseRequest) (err error) {
-	fmt.Println("enter getObject")
 	var encryptionKey []byte
 	if object.SseType == "S3" {
 		encryptionKey = object.EncryptionKey
@@ -180,7 +178,6 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 		}
 	}
 
-	fmt.Println("enter getObject2", len(object.Parts))
 	if len(object.Parts) == 0 { // this object has only one part
 		cephCluster, ok := yig.DataStorage[object.Location]
 		if !ok {
@@ -219,7 +216,6 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 	}
 
 	// multipart uploaded object
-	fmt.Println("enter getObject1")
 	var low int = object.PartsIndex.SearchLowerBound(startOffset)
 	if low == -1 {
 		low = 1

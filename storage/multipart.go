@@ -4,7 +4,6 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
-	"fmt"
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
@@ -528,7 +527,6 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 	objectName, uploadId string, uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult,
 	err error) {
 
-	fmt.Println("enter complete multipartupload")
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
 		return
@@ -589,7 +587,6 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 	// for how to calculate multipart Etag
 
 	// Add to objects table
-	fmt.Println("enter complete multipartupload1")
 	contentType := multipart.Metadata.ContentType
 	object := &meta.Object{
 		Name:             objectName,
@@ -623,7 +620,6 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 		nullVerNum = uint64(object.LastModifiedTime.UnixNano())
 	}
 
-	fmt.Println("enter complete multipartupload2")
 	err = yig.MetaStorage.PutObjectEntry(object)
 	if err != nil {
 		return
@@ -642,7 +638,6 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 		}
 	}
 
-	fmt.Println("enter complete multipartupload3")
 	// Remove from multiparts table
 	err = yig.MetaStorage.Client.DeleteMultipart(multipart)
 	if err != nil { // rollback objects table

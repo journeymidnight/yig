@@ -14,7 +14,6 @@ import (
 )
 
 func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *Object, err error) {
-	fmt.Println("enter meta getobject")
 	var ibucketname, iname, customattributes, acl, lastModifiedTime string
 	var iversion uint64
 	var sqltext string
@@ -67,7 +66,6 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 	}
 	object.Parts, err = getParts(object.BucketName, object.Name, iversion, t.Client)
 	//build simple index for multipart
-	fmt.Println("len is:", len(object.Parts))
 	if len(object.Parts) != 0 {
 		var sortedPartNum = make([]int64, len(object.Parts))
 		for k, v := range object.Parts {
@@ -89,6 +87,7 @@ func (t *TidbClient) GetAllObject(bucketName, objectName, version string) (objec
 	if err != nil {
 		return
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var sversion string
 		err = rows.Scan(&sversion)
@@ -127,18 +126,15 @@ func (t *TidbClient) PutObject(object *Object) error {
 }
 
 func (t *TidbClient) DeleteObject(object *Object) error {
-	fmt.Println("enter meta deleteobject")
 	v := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
 	version := strconv.FormatUint(v, 10)
 	sqltext := fmt.Sprintf("delete from objects where name='%s' and bucketname='%s' and version='%s'", object.Name, object.BucketName, version)
 	_, err := t.Client.Exec(sqltext)
-	fmt.Println(sqltext)
 	if err != nil {
 		return err
 	}
 	sqltext = fmt.Sprintf("delete from objectpart where objectname='%s' and bucketname='%s' and version='%s'", object.Name, object.BucketName, version)
 	_, err = t.Client.Exec(sqltext)
-	fmt.Println(sqltext)
 	if err != nil {
 		return err
 	}
@@ -159,7 +155,6 @@ func (t *TidbClient) DeleteObject(object *Object) error {
 func getParts(bucketName, objectName string, version uint64, cli *sql.DB) (parts map[int]*Part, err error) {
 	parts = make(map[int]*Part)
 	sqltext := fmt.Sprintf("select partnumber,size,objectid,offset,etag,lastmodified,initializationvector from objectpart where bucketname='%s' and objectname='%s' and version=%d", bucketName, objectName, version)
-	fmt.Println(sqltext)
 	rows, err := cli.Query(sqltext)
 	defer rows.Close()
 	if err != nil {

@@ -77,7 +77,6 @@ func (t *TidbClient) CheckAndPutBucket(bucket Bucket) (bool, error) {
 }
 
 func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimiter string, versioned bool, maxKeys int) (retObjects []*Object, prefixes []string, truncated bool, nextMarker, nextVerIdMarker string, err error) {
-	fmt.Println("enter list object")
 	if versioned {
 		return
 	}
@@ -88,7 +87,6 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 	commonPrefixes := make(map[string]struct{})
 	omarker := marker
 	for {
-		fmt.Println("enter big loop")
 		var loopcount int
 		var sqltext string
 		if marker == "" {
@@ -96,17 +94,13 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 		} else {
 			sqltext = fmt.Sprintf("select bucketname,name,version,nullversion,deletemarker from objects where bucketName='%s' and name >='%s' order by bucketname,name,version limit %d,%d", bucketName, marker, objectNum[marker], objectNum[marker]+maxKeys)
 		}
-		fmt.Println("sqltext is:", sqltext)
 		var rows *sql.Rows
 		rows, err = t.Client.Query(sqltext)
-		if err != nil && err == sql.ErrNoRows {
-			exit = true
-			break
-		} else if err != nil {
+		if err != nil {
 			return
 		}
+		defer rows.Close()
 		for rows.Next() {
-			fmt.Println("enter small loop")
 			loopcount += 1
 			//fetch related date
 			var bucketname, name string
@@ -120,7 +114,6 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 				&deletemarker,
 			)
 			if err != nil {
-				fmt.Println(err)
 				return
 			}
 			//prepare next marker
@@ -136,19 +129,16 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 			if !hasPrefix {
 				continue
 			}
-			fmt.Println("has prefix")
 			//filte by objectname
 			if _, ok := objectMap[name]; !ok {
 				objectMap[name] = struct{}{}
 			} else {
 				continue
 			}
-			fmt.Println("not same prefix")
 			//filte by deletemarker
 			if deletemarker {
 				continue
 			}
-			fmt.Println("not deleted", delimiter, name)
 			if name == omarker {
 				continue
 			}
@@ -174,11 +164,9 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 					continue
 				}
 			}
-			fmt.Println("not last", name)
 			var o *Object
 			Strver := strconv.FormatUint(version, 10)
 			o, err = t.GetObject(bucketname, name, Strver)
-			fmt.Println(o, err)
 			if err != nil {
 				return
 			}

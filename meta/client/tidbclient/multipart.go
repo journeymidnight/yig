@@ -70,10 +70,7 @@ func (t *TidbClient) GetMultipart(bucketName, objectName, uploadId string) (mult
 
 	sqltext = fmt.Sprintf("select partnumber,size,objectid,offset,etag,lastmodified,initializationvector from multipartpart where bucketname='%s' and objectname='%s' and uploadtime=%d ", bucketName, objectName, uploadTime)
 	rows, err := t.Client.Query(sqltext)
-	if err != nil && err == sql.ErrNoRows {
-		err = nil
-		return
-	} else if err != nil {
+	if err != nil {
 		return
 	}
 	defer rows.Close()
@@ -105,13 +102,11 @@ func (t *TidbClient) CreateMultipart(multipart Multipart) (err error) {
 	sqltext := fmt.Sprintf("insert into multiparts values('%s','%s',%d,'%s','%s','%s','%s','%s','%s','%s','%s','%s')", multipart.BucketName, multipart.ObjectName, uploadtime, m.InitiatorId, m.OwnerId, m.ContentType, m.Location, m.Pool, acl, sseRequest, m.EncryptionKey, attrs)
 	_, err = t.Client.Exec(sqltext)
 	if err != nil {
-		fmt.Println(sqltext)
 	}
 	return
 }
 
 func (t *TidbClient) PutObjectPart(multipart Multipart, part Part) (err error) {
-	fmt.Println("enter put objectpart")
 	uploadtime := math.MaxUint64 - uint64(multipart.InitialTime.UnixNano())
 	lastt, err := time.Parse(CREATE_TIME_LAYOUT, part.LastModified)
 	if err != nil {
@@ -121,7 +116,6 @@ func (t *TidbClient) PutObjectPart(multipart Multipart, part Part) (err error) {
 	sqltext := fmt.Sprintf("insert into multipartpart values(%d,%d,'%s',%d,'%s','%s','%s','%s','%s',%d)", part.PartNumber, part.Size, part.ObjectId, part.Offset, part.Etag, lastModified, part.InitializationVector, multipart.BucketName, multipart.ObjectName, uploadtime)
 	_, err = t.Client.Exec(sqltext)
 	if err != nil {
-		fmt.Println(sqltext)
 	}
 	return
 }
@@ -167,12 +161,12 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 		} else {
 			sqltext = fmt.Sprintf("select objectname,uploadtime,initiatorid,ownerid from multiparts where bucketName='%s' and objectname>='%s' order by bucketname,objectname,uploadtime limit %d,%d", bucketName, keyMarker, objnum[currentMarker], objnum[currentMarker]+maxUploads)
 		}
-		fmt.Println(sqltext)
 		var rows *sql.Rows
 		rows, err = t.Client.Query(sqltext)
 		if err != nil {
 			return
 		}
+		defer rows.Close()
 		for rows.Next() {
 			loopnum += 1
 			var name, initiatorid, ownerid string
@@ -217,7 +211,6 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 					continue
 				}
 			}
-			fmt.Println("after fileter ")
 			if count >= maxUploads {
 				isTruncated = true
 				exit = true
@@ -226,7 +219,6 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 				exit = true
 				break
 			}
-			fmt.Println("after initiator ")
 			upload.UploadId = GetMultipartUploadIdForTidb(uploadtime)
 			upload.Key = name
 			if encodingType != "" {
@@ -237,7 +229,6 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 			if err != nil {
 				return
 			}
-			fmt.Println("after initiator ")
 			upload.Owner.ID = user.UserId
 			upload.Owner.DisplayName = user.DisplayName
 			user, err = iam.GetCredentialByUserId(initiatorid)
@@ -246,16 +237,13 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 			}
 			upload.Initiator.ID = user.UserId
 			upload.Initiator.DisplayName = user.DisplayName
-			fmt.Println("after initiator ")
 			timestamp := int64(math.MaxUint64 - uploadtime)
 			s := timestamp / 1e9
 			ns := timestamp % 1e9
 			upload.Initiated = time.Unix(s, ns).Format(CREATE_TIME_LAYOUT)
-			fmt.Println(upload)
 			uploads = append(uploads, upload)
 			count += 1
 		}
-		fmt.Println(loopnum)
 		if loopnum == 0 {
 			exit = true
 		}
