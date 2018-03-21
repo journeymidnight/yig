@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	_ "github.com/go-sql-driver/mysql"
+	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
 	"strconv"
@@ -26,7 +27,7 @@ func (t *TidbClient) GetBucket(bucketName string) (bucket Bucket, err error) {
 		&bucket.Versioning,
 	)
 	if err != nil && err == sql.ErrNoRows {
-		err = nil
+		err = ErrNoSuchBucket
 		return
 	} else if err != nil {
 		return
@@ -62,12 +63,13 @@ func (t *TidbClient) PutBucket(bucket Bucket) error {
 
 func (t *TidbClient) CheckAndPutBucket(bucket Bucket) (bool, error) {
 	var processed bool
-	b, err := t.GetBucket(bucket.Name)
-	if err != nil {
+	_, err := t.GetBucket(bucket.Name)
+	if err == nil {
+		processed = false
 		return processed, err
-	}
-	if b.Name != "" {
-		return processed, nil
+	} else if err != nil && err != ErrNoSuchBucket {
+		processed = false
+		return processed, err
 	} else {
 		processed = true
 	}
