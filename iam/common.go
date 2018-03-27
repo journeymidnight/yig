@@ -1,13 +1,14 @@
 package iam
 
 import (
-	"fmt"
-	"io/ioutil"
-	"github.com/journeymidnight/yig/helper"
-	"strings"
-	"net/http"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"github.com/journeymidnight/yig/circuitbreak"
+	"github.com/journeymidnight/yig/helper"
+	"io/ioutil"
+	"net/http"
+	"strings"
 )
 
 // credential container for access and secret keys.
@@ -34,10 +35,10 @@ type AccessKeyItem struct {
 }
 
 type Query struct {
-	Action string `json:"action"`
+	Action     string   `json:"action"`
 	ProjectId  string   `json:"projectId,omitempty"`
 	AccessKeys []string `json:"accessKeys,omitempty"`
-	Offset int `json:"offset,omitempty"`
+	Offset     int      `json:"offset,omitempty"`
 	//	Limit      int      `json:"limit"`
 }
 
@@ -54,14 +55,14 @@ type QueryRespAll struct {
 	RetCode int       `json:"retCode"`
 }
 
-var iamClient *http.Client
+var iamClient *circuitbreak.CircuitClient
 
 func GetKeysByUid(uid string) (keyslist []AccessKeyItem, err error) {
 
 	var slog = helper.Logger
 	var query Query
 	if iamClient == nil {
-		iamClient = new(http.Client)
+		iamClient = circuitbreak.NewCircuitClient()
 	}
 	var offset int = 0
 	var total int = 0
@@ -77,8 +78,8 @@ func GetKeysByUid(uid string) (keyslist []AccessKeyItem, err error) {
 		request, _ := http.NewRequest("POST", helper.CONFIG.IamEndpoint, strings.NewReader(string(b)))
 		request.Header.Set("X-Le-Key", "key")
 		request.Header.Set("X-Le-Secret", "secret")
-		slog.Println(10, "replay request:",request,string(b))
-		response,err := iamClient.Do(request)
+		slog.Println(10, "replay request:", request, string(b))
+		response, err := iamClient.Do(request)
 		if err != nil {
 			slog.Println(5, "replay histroy send request failed", err)
 			return keyslist, err
@@ -108,7 +109,7 @@ func GetKeysByUid(uid string) (keyslist []AccessKeyItem, err error) {
 		}
 		total = queryRetAll.Data.Total
 		count := len(queryRetAll.Data.AccessKeySet)
-		if queryRetAll.Data.Offset + count < total {
+		if queryRetAll.Data.Offset+count < total {
 			offset = queryRetAll.Data.Offset + count
 		} else {
 			break

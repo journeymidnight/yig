@@ -2,13 +2,14 @@ package iam
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
+	"github.com/journeymidnight/yig/circuitbreak"
 	"github.com/journeymidnight/yig/helper"
 	"io/ioutil"
 	"net/http"
 	"regexp"
-	"context"
 	"time"
 )
 
@@ -39,7 +40,7 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 	var slog = helper.Logger
 	var query Query
 	if iamClient == nil {
-		iamClient = new(http.Client)
+		iamClient = circuitbreak.NewCircuitClient()
 	}
 	query.Action = "DescribeAccessKeys"
 	query.AccessKeys = append(query.AccessKeys, accessKey)
@@ -52,10 +53,10 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	go func () {
+	go func() {
 		select {
 		case <-time.After(10 * time.Second):
-			slog.Println(5,"send iam request timeout, over 10s")
+			slog.Println(5, "send iam request timeout, over 10s")
 		case <-ctx.Done():
 			slog.Println(20, ctx.Err()) // prints "context deadline exceeded"
 		}
@@ -96,7 +97,7 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 		return credential, errors.New("Query to IAM failed as RetCode != 0")
 	}
 
-	if queryRetAll.Data.Total > 0{
+	if queryRetAll.Data.Total > 0 {
 		credential.UserId = queryRetAll.Data.AccessKeySet[0].ProjectId
 		credential.DisplayName = queryRetAll.Data.AccessKeySet[0].Name
 		credential.AccessKeyID = queryRetAll.Data.AccessKeySet[0].AccessKey
@@ -119,4 +120,3 @@ func GetCredentialByUserId(userId string) (credential Credential, err error) {
 		SecretAccessKey: "hehehehe",
 	}, nil // For test now
 }
-
