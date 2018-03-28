@@ -40,6 +40,7 @@ type Config struct {
 	ReservedOrigins            string // www.ccc.com,www.bbb.com,127.0.0.1
 	MetaStore                  string
 	TidbInfo                   string
+	KeepAlive                  bool
 }
 
 type config struct {
@@ -76,6 +77,7 @@ type config struct {
 	ReservedOrigins            string // www.ccc.com,www.bbb.com,127.0.0.1
 	MetaStore                  string
 	TidbInfo                   string
+	KeepAlive                  bool
 }
 
 var CONFIG Config
@@ -135,4 +137,5 @@ func SetupConfig() {
 	CONFIG.ReservedOrigins = c.ReservedOrigins
 	CONFIG.MetaStore = Ternary(c.MetaStore == "", "hbase", c.MetaStore).(string)
 	CONFIG.TidbInfo = c.TidbInfo
+	CONFIG.KeepAlive = c.KeepAlive
 }

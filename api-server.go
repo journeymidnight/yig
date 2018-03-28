@@ -18,6 +18,11 @@ package main
 
 import (
 	"errors"
+	router "github.com/gorilla/mux"
+	"github.com/journeymidnight/yig/api"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/log"
+	"github.com/journeymidnight/yig/storage"
 	"net"
 	"net/http"
 	"os"
@@ -25,11 +30,6 @@ import (
 	"strings"
 	"syscall"
 	"time"
-	"github.com/journeymidnight/yig/log"
-	"github.com/journeymidnight/yig/api"
-	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/storage"
-	router "github.com/gorilla/mux"
 )
 
 type ServerConfig struct {
@@ -89,6 +89,7 @@ func configureServer(c *ServerConfig) *api.Server {
 			MaxHeaderBytes: 1 << 20,
 		},
 	}
+	apiServer.Server.SetKeepAlivesEnabled(helper.CONFIG.KeepAlive)
 
 	// Returns configured HTTP server.
 	return apiServer
