@@ -101,7 +101,8 @@ Main config file of Yig is located at ```/etc/yig/yig.json ``` by default
     "TidbInfo"
 }
 ```
-###meanings of options above:
+
+### Meanings of options above:
 
 ```
 S3Domain: your s3 service domain
