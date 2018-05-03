@@ -270,9 +270,9 @@ func ObjectFromResponse(response *hrpc.Result) (object *Object, err error) {
 	}
 
 	object.Rowkey = rowkey
-	// rowkey = BucketName + bigEndian(uint16(count("/", ObjectName)))
+	// rowkey = BucketName + ObjectNameSeparator
 	// + ObjectName
-	// + ObjectNameEnding
+	// + ObjectNameSeparator
 	// + bigEndian(uint64.max - unixNanoTimestamp)
 	object.Name = string(rowkey[len(object.BucketName)+1 : len(rowkey)-9])
 	reversedTimeBytes := rowkey[len(rowkey)-8:]

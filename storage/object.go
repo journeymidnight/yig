@@ -88,7 +88,7 @@ func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size 
 		clusterWeights[fsid] = cluster.Weight
 	}
 	if len(clusterWeights) == 0 || totalWeight == 0 {
-		helper.Logger.Println(5, "Error picking cluster from Hbase!")
+		helper.Logger.Println(5, "Error picking cluster from table cluster in Hbase! Use first cluster in config to write.")
 		for _, c := range yig.DataStorage {
 			cluster = c
 			break

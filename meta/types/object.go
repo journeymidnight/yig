@@ -74,9 +74,9 @@ func (o *Object) GetVersionNumber() (uint64, error) {
 
 // Rowkey format:
 // BucketName +
-// bigEndian(uint16(count("/", ObjectName))) +
+// ObjectNameSeparator +
 // ObjectName +
-// ObjectNameEnding +
+// ObjectNameSeparator +
 // bigEndian(uint64.max - unixNanoTimestamp)
 func (o *Object) GetRowkey() (string, error) {
 	if len(o.Rowkey) != 0 {
