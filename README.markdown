@@ -43,7 +43,7 @@ sh package/rpmbuild.sh
 
 Before running Yig, requirments below are needed:
 
- * Deploy at least a ceph cluster with two specify pools named 'tiger' and 'rabbit' are created. About how to deploy ceph, please refer [https://ceph.com](https://ceph.com) or our [[Sample]]()
+ * Deploy at least a ceph cluster with two specify pools named 'tiger' and 'rabbit' are created. About how to deploy ceph, please refer [https://ceph.com](https://ceph.com) or our [[Sample]](https://github.com/journeymidnight/yig/wiki/Minimal-Ceph-Deployment)
  * Deploy a Hbase/TiDB/Mysql, then create tables. [[Sample]](https://github.com/journeymidnight/yig/blob/master/doc/deploy.md)
 
  	* Tidb/Mysql: 
