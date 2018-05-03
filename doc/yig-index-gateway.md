@@ -11,7 +11,7 @@ Core Features:
   6. 多线程下载  
 
 # Overview  
-![](overview.png)    
+![](picture/overview.png)    
 主要分３层，  
 IAM层负责用户校验和用户私钥的管理   
 Metadata层负责   

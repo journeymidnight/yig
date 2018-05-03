@@ -3,15 +3,15 @@ LeStorage gateway implementation that fully compatible with Amazon S3, young, bu
 
 yig.pptx  
 
-![](yig.jpg)  
+![](picture/yig.jpg)  
 
 d.pdf  
 
-![](arch.png)  
+![](picture/arch.png)  
 
 
 
 其中针对大文件和小文件采用不同的ObjectStore:  
 ObjectStore的具体Road Map如图所示：  
 
-![](ceph_store.png)
+![](picture/ceph_store.png)

@@ -1,4 +1,4 @@
-![](yig-compiling.png)  
+![](picture/yig-compiling.png)  
 
 1. 如上图，普通的go get拿不到gopkg.in的包  
 2. 如上图，用http代理 http_proxy=127.0.0.1:12345 go get 又拿不到legit.letv.cn的包  
