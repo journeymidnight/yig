@@ -59,6 +59,16 @@ Before running Yig, requirments below are needed:
  	 sh ../yig/tools/create_table.sh
  	```
  		
+ * If you want to use one ceph cluster to store data, you dont need to put data to table 'cluster' in hbase. Once there are more than one ceph cluster, you need put every cluster's fsid and pool name and weight to table 'cluster' as follows. Pls replace fsid with real fsid in ceph config. You can use any actual number to replace weight_num. YIG can calculate proportion in total weights and assign a cluster to write according to it when you put data.
+ 
+ 	* Hbase
+
+ 	```
+   hbase shell
+   put 'cluster', "fsid\x0Atiger", 'c:weight', 'weight_num'
+   put 'cluster', "fsid\x0Arabbit", 'c:weight', 'weight_num'
+ 	```
+   
  * Deploy [yig-iam](https://github.com/journeymidnight/yig-iam) used for user management and authorize request. If Yig is running in Debug Mode, request will not sent to yig-iam. So this deployment is optional, but in real factory environment, you still need it.
 
  * Deploy a standalone Redis instance used as cache for better performance. This deployment is optional but strong recommend
