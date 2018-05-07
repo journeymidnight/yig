@@ -2,6 +2,7 @@ import botocore.session
 from botocore.client import Config
 from config import CONFIG
 import time
+import sys
 
 clients = {}
 session = botocore.session.get_session()
@@ -57,3 +58,4 @@ def run(tests):
     if fail_count != 0:
         print 'Failed test(s): '
         print failed_tests
+        sys.exit(1)

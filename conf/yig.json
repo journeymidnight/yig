@@ -11,14 +11,17 @@
     "BindAdminAddress": "0.0.0.0:9000",
     "SSLKeyPath": "",
     "SSLCertPath": "",
-    "ZookeeperAddress": "10.110.95.56:2181,10.110.95.62:2181",
+    "ZookeeperAddress": "hbase:2181",
     "EnableCache": true,
-    "RedisAddress": "localhost:6379",
+    "RedisAddress": "redis:6379",
     "RedisConnectionNumber": 10,
     "InMemoryCacheMaxEntryCount": 100000,
-    "DebugMode": false,
+    "DebugMode": true,
     "AdminKey": "secret",
     "MetaCacheType": 2,
     "EnableDataCache": true,
-    "CephConfigPattern": "conf/*.conf"
+    "CephConfigPattern": "/etc/ceph/*.conf",
+    "MetaStore": "tidb",
+    "TidbInfo":"root:@tcp(127.0.0.1:4000)/yig",
+    "KeepAlive":true
 }

@@ -1,0 +1,35 @@
+language: go
+sudo: required
+dist: trusty
+
+services:
+- docker
+
+before_install:
+  - sudo apt-get update 
+  - sudo -E apt-get -yq --no-install-suggests --no-install-recommends --force-yes install docker-ce
+  - docker version
+
+install:
+- sudo apt-get install dnsmasq python -y
+- sudo pip install botocore
+- sudo sed -i "$ a\address=/.s3.test.com/10.5.0.18" /etc/dnsmasq.conf
+- sudo service dnsmasq restart
+- sudo sed -i "1 i\nameserver 127.0.0.1" /etc/resolv.conf
+- sudo ufw disable
+
+script:
+- make integrate
+
+before_deploy:
+  - echo "prepare package"
+  - sudo make pkg
+deploy:
+  provider: releases
+  api_key: $GithubToken
+  file: $TRAVIS_BUILD_DIR/yig*.x86_64.rpm
+  file_glob: true 
+  skip_cleanup: true
+  on:
+    repo: journeymidnight/yig
+    tags: true

@@ -6,7 +6,7 @@ URL = github.com/journeymidnight
 REPO = yig
 URLPATH = $(PWD)/build/src/$(URL)
 
-all:
+build:
 	@[ -d $(URLPATH) ] || mkdir -p $(URLPATH)
 	@ln -nsf $(PWD) $(URLPATH)/$(REPO)
 	go install $(URL)/$(REPO)
@@ -18,3 +18,17 @@ all:
 	cp -f delete $(PWD)/build/bin
 	cp -f getrediskeys $(PWD)/build/bin
 	cp -f lc $(PWD)/build/bin
+pkg:
+	sudo docker run --rm -v ${PWD}:/work -w /work yig bash -c 'bash package/rpmbuild.sh'
+image:
+	sudo docker build -t  yig . -f integrate/yig.docker
+
+run: image
+	cd integrate && sudo bash runyig.sh && sudo bash rundelete.sh
+
+env:
+	cd integrate && sudo docker-compose stop && sudo docker-compose rm --force && sudo rm -rf cephconf && sudo docker-compose up -d && sleep 20 && sudo bash prepare_env.sh
+	
+
+integrate: env run 
+	sudo python test/sanity.py

@@ -1,2 +1,3 @@
 BASEDIR=$(dirname $(pwd))
-sudo docker run --rm -v ${BASEDIR}:/work -w /work thesues/docker-ceph-devel bash -c 'make'
+sudo docker run --rm -v ${BASEDIR}:/work -w /work thesues/docker-ceph-devel bash -c 'make build'
+sudo docker run --rm -v ${BASEDIR}:/work -w /work thesues/docker-ceph-devel bash -c 'make pkg'

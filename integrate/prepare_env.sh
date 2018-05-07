@@ -9,16 +9,21 @@ function prepare_hbase(){
 }
 
 function prepare_mysql(){
-	docker exec -i mysql mysql -e "create database yig character set utf8;"
-	mysql -h 10.5.0.9 yig<yig.sql
+	docker exec mysql mysql -e "create database yig character set utf8;"
+        docker exec mysql mysql -e "use yig;source /yig.sql;"
 }
 
 function prepare_tidb(){
-	mysql -P 4000 -h 10.5.0.17 -e "create database yig character set utf8;"
-        mysql -P 4000 -h 10.5.0.17 yig < yig.sql
+	docker exec mysql mysql -P 4000 -h 10.5.0.17 -e "create database yig character set utf8;"
+        docker exec mysql mysql -P 4000 -h 10.5.0.17 -e "use yig;source /yig.sql;"
 }
 
+echo "creating Ceph pool..."
 prepare_ceph
+echo "creating  HBase table..."
 prepare_hbase
+echo "creating  MySQL db..."
+docker cp yig.sql mysql:/yig.sql
 prepare_mysql
+echo "creating TiDB db..."
 prepare_tidb
