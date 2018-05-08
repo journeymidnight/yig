@@ -333,7 +333,7 @@ client.admin部分从/etc/ceph/ceph.client.admin.keyring复制
     "LogPath": "/var/log/yig/yig.log",
     "PanicLogPath":"/var/log/yig/panic.log",
     "PidFile": "/var/run/yig/yig.pid",
-    "BindApiAddress": "0.0.0.0:3000",
+    "BindApiAddress": "0.0.0.0:80",
     "BindAdminAddress": "0.0.0.0:9000",
     "SSLKeyPath": "",
     "SSLCertPath": "",

@@ -14,14 +14,14 @@ import (
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
-//	"net"
+	//	"net"
 	"strconv"
 )
 
 const (
 	SignV2Algorithm = "AWS"
 	SignV4Algorithm = "AWS4-HMAC-SHA256"
-	/*HOST_URL        = "s3.test.com:3000"  should be something like
+	/*HOST_URL        = "s3.test.com"  should be something like
 	s3.lecloud.com
 	for production servers
 	*/

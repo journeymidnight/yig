@@ -91,7 +91,7 @@ Main config file of Yig is located at ```/etc/yig/yig.json ``` by default
     "LogPath": "/var/log/yig/yig.log",
     "PanicLogPath":"/var/log/yig/panic.log",
     "PidFile": "/var/run/yig/yig.pid",
-    "BindApiAddress": "0.0.0.0:3000",
+    "BindApiAddress": "0.0.0.0:80",
     "BindAdminAddress": "0.0.0.0:9000",
     "SSLKeyPath": "",
     "SSLCertPath": "",
