@@ -1,4 +1,6 @@
 # YIG
+[![Build Status](https://travis-ci.org/journeymidnight/yig.svg?branch=master)](https://travis-ci.org/journeymidnight/yig)
+[![license](https://img.shields.io/github/license/journeymidnight/yig.svg)](https://github.com/journeymidnight/yig/blob/master/LICENSE)
 
 *Y*et *a*nother *I*ndex *G*ateway 
 
