@@ -4,7 +4,7 @@ PACKAGENAME=yig
 echo Building RPMs..
 GITROOT=`git rev-parse --show-toplevel`
 cd $GITROOT
-VER=0.9
+VER=1.1
 REL=`git rev-parse --short HEAD`git
 REL=`git log --oneline|wc -l`.$REL
 RPMTOPDIR=$GITROOT/rpm-build
