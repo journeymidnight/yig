@@ -1,7 +1,6 @@
 #!/bin/sh
 
 # Script to initialize HBase tables for YIG
-# Refer to http://wiki.letv.cn/display/pla/HBase+Table+Schema for more information
 
 exec hbase shell <<EOF
 create 'buckets',
