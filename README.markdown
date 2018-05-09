@@ -9,7 +9,7 @@
 
 ## A completely new designed object storage gateway framework that fully compatible with Amazon S3
 
-At its core, Yig extend minio backend storage to allow more than one ceph cluster work together and form a supper large storage resource pool, users could easily enlarge the pool`s capacity to EB level by adding a new ceph cluser to this pool. Benifits are avoiding data movement and IO drop down caused by adding new host or disks to old ceph cluster as usual way. To accomplish this goal, Yig need a distribute database to store meta infomation. Now already Support Tidb,MySql,Hbase.
+At its core, Yig extend minio backend storage to allow more than one ceph cluster work together and form a super large storage resource pool, users could easily enlarge the pool`s capacity to EB level by adding a new ceph cluser to this pool. Benifits are avoiding data movement and IO drop down caused by adding new host or disks to old ceph cluster as usual way. To accomplish this goal, Yig need a distribute database to store meta infomation. Now already Support Tidb,MySql,Hbase.
 
 
 # Getting Started
