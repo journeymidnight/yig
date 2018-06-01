@@ -12,7 +12,6 @@
     "SSLKeyPath": "",
     "SSLCertPath": "",
     "ZookeeperAddress": "hbase:2181",
-    "EnableCache": true,
     "RedisAddress": "redis:6379",
     "RedisConnectionNumber": 10,
     "InMemoryCacheMaxEntryCount": 100000,

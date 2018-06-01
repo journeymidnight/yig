@@ -11,6 +11,8 @@
 
 At its core, Yig extend minio backend storage to allow more than one ceph cluster work together and form a super large storage resource pool, users could easily enlarge the pool`s capacity to EB level by adding a new ceph cluser to this pool. Benifits are avoiding data movement and IO drop down caused by adding new host or disks to old ceph cluster as usual way. To accomplish this goal, Yig need a distribute database to store meta infomation. Now already Support Tidb,MySql,Hbase.
 
+![arch](https://github.com/journeymidnight/yig/raw/master/doc/images/yig.jpg)
+
 
 # Getting Started
 
@@ -98,7 +100,6 @@ Main config file of Yig is located at ```/etc/yig/yig.json ``` by default
     "SSLKeyPath": "",
     "SSLCertPath": "",
     "ZookeeperAddress": "10.110.95.56:2181,10.110.95.62:2181",
-    "EnableCache": true,
     "RedisAddress": "localhost:6379",
     "RedisConnectionNumber": 10,
     "InMemoryCacheMaxEntryCount": 100000,
@@ -129,7 +130,6 @@ BindAdminAddress: end point for tools/admin
 SSLKeyPath: SSL key location 
 SSLCertPath: SSL Cert location
 ZookeeperAddress: zookeeper address if you choose hbase
-EnableCache: switch of cache
 RedisAddress: Redis access address
 DebugMode: if this is set true, only requestes signed by [AK/SK:hehehehe/hehehehe] are valid
 AdminKey: used for tools/admin
@@ -184,7 +184,7 @@ systemctl start yig
  
 ## Documentation
 
-Please refer our wiki
- 
 
++ [why develop yig](https://github.com/journeymidnight/yig/blob/master/doc/yig.md)
 
+Please refer our wiki for other information
