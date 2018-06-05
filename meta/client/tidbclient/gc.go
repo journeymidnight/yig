@@ -18,7 +18,7 @@ func (t *TidbClient) PutObjectToGarbageCollection(object *Object) error {
 	}
 	mtime := o.MTime.Format(TIME_LAYOUT_TIDB)
 	version := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
-	sqltext := fmt.Sprintf("insert into gc values('%s','%s',%d,'%s','%s','%s','%s','%s',%t,%d)", o.BucketName, o.ObjectName, version, o.Location, o.Pool, o.ObjectId, o.Status, mtime, hasPart, o.TriedTimes)
+	sqltext := fmt.Sprintf("insert ignore into gc values('%s','%s',%d,'%s','%s','%s','%s','%s',%t,%d)", o.BucketName, o.ObjectName, version, o.Location, o.Pool, o.ObjectId, o.Status, mtime, hasPart, o.TriedTimes)
 	_, err := t.Client.Exec(sqltext)
 	if err != nil {
 		return err
