@@ -127,7 +127,7 @@ func IsReqAuthenticated(r *http.Request) (c iam.Credential, e error) {
 	}
 	// Populate back the payload.
 	r.Body = ioutil.NopCloser(bytes.NewReader(payload))
-	validateRegion := true // TODO: Validate region.
+	validateRegion := false // TODO: Validate region.
 	switch GetRequestAuthType(r) {
 	case AuthTypePresignedV4:
 		return DoesPresignedSignatureMatchV4(r, validateRegion)

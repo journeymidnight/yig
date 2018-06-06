@@ -25,12 +25,12 @@ import (
 	"net/url"
 	"strings"
 
+	mux "github.com/gorilla/mux"
 	. "github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/signature"
-	mux "github.com/gorilla/mux"
 	"strconv"
 )
 
@@ -362,14 +362,16 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// the location value in the request body should match the Region in serverConfig.
+	// TODO:the location value in the request body should match the Region in serverConfig.
 	// other values of location are not accepted.
 	// make bucket fails in such cases.
-	err = isValidLocationConstraint(r.Body)
-	if err != nil {
-		WriteErrorResponse(w, r, err)
-		return
-	}
+
+	//	err = isValidLocationConstraint(r.Body)
+	//	if err != nil {
+	//		WriteErrorResponse(w, r, err)
+	//		return
+	//	}
+
 	// Make bucket.
 	err = api.ObjectAPI.MakeBucket(bucketName, acl, credential)
 	if err != nil {
@@ -471,7 +473,6 @@ func (api ObjectAPIHandlers) DelBucketLifeCycleHandler(w http.ResponseWriter, r 
 		return
 	}
 	WriteSuccessNoContent(w)
-
 
 }
 
