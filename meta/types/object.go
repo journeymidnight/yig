@@ -205,3 +205,10 @@ func (o *Object) GetCreateSql() string {
 	sql := fmt.Sprintf("insert into objects values('%s','%s',%d,'%s','%s','%s','%d','%s','%s','%s','%s','%s','%s',%t,%t,'%s','%s','%s')", o.BucketName, o.Name, version, o.Location, o.Pool, o.OwnerId, o.Size, o.ObjectId, lastModifiedTime, o.Etag, o.ContentType, customAttributes, acl, o.NullVersion, o.DeleteMarker, o.SseType, o.EncryptionKey, o.InitializationVector)
 	return sql
 }
+
+func (o *Object) GetUpdateAclSql() string {
+	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
+	acl, _ := json.Marshal(o.ACL)
+	sql := fmt.Sprintf("update objects set acl='%s' where bucketname='%s' and name='%s' and version=%d", acl, o.BucketName, o.Name, version)
+	return sql
+}

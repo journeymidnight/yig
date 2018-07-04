@@ -9,7 +9,7 @@ func (t *TidbClient) GetUserBuckets(userId string) (buckets []string, err error)
 	sqltext := fmt.Sprintf("select bucketname from users where userid='%s'", userId)
 	rows, err := t.Client.Query(sqltext)
 	defer rows.Close()
-	if err != nil && err == sql.ErrNoRows {
+	if err == sql.ErrNoRows {
 		err = nil
 		return
 	} else if err != nil {
@@ -17,7 +17,10 @@ func (t *TidbClient) GetUserBuckets(userId string) (buckets []string, err error)
 	}
 	for rows.Next() {
 		var tmp string
-		rows.Scan(&tmp)
+		err = rows.Scan(&tmp)
+		if err != nil {
+			return
+		}
 		buckets = append(buckets, tmp)
 	}
 	return
