@@ -114,6 +114,10 @@ func (h *HbaseClient) GetAllObject(bucketName, objectName, version string) (obje
 
 }
 
+func (h *HbaseClient) UpdateObjectAcl(object *Object) error {
+	return h.PutObject(object)
+}
+
 func (h *HbaseClient) PutObject(object *Object) error {
 	rowkey, err := object.GetRowkey()
 	if err != nil {

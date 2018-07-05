@@ -43,7 +43,7 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 		&object.EncryptionKey,
 		&object.InitializationVector,
 	)
-	if err != nil && err == sql.ErrNoRows {
+	if err == sql.ErrNoRows {
 		err = ErrNoSuchKey
 		return
 	} else if err != nil {
@@ -107,16 +107,30 @@ func (t *TidbClient) GetAllObject(bucketName, objectName, version string) (objec
 	return
 }
 
+func (t *TidbClient) UpdateObjectAcl(object *Object) error {
+	sql := object.GetUpdateAclSql()
+	_, err := t.Client.Exec(sql)
+	return err
+}
+
 func (t *TidbClient) PutObject(object *Object) error {
-	var err error
+	tx, err := t.Client.Begin()
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		} else {
+			tx.Commit()
+		}
+	}()
+
 	sql := object.GetCreateSql()
-	_, err = t.Client.Exec(sql)
+	_, err = tx.Exec(sql)
 	if object.Parts != nil {
 		v := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
 		version := strconv.FormatUint(v, 10)
 		for _, p := range object.Parts {
 			psql := p.GetCreateSql(object.BucketName, object.Name, version)
-			_, err = t.Client.Exec(psql)
+			_, err = tx.Exec(psql)
 			if err != nil {
 				return err
 			}
@@ -126,15 +140,24 @@ func (t *TidbClient) PutObject(object *Object) error {
 }
 
 func (t *TidbClient) DeleteObject(object *Object) error {
+	tx, err := t.Client.Begin()
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		} else {
+			tx.Commit()
+		}
+	}()
+
 	v := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
 	version := strconv.FormatUint(v, 10)
 	sqltext := fmt.Sprintf("delete from objects where name='%s' and bucketname='%s' and version='%s'", object.Name, object.BucketName, version)
-	_, err := t.Client.Exec(sqltext)
+	_, err = tx.Exec(sqltext)
 	if err != nil {
 		return err
 	}
 	sqltext = fmt.Sprintf("delete from objectpart where objectname='%s' and bucketname='%s' and version='%s'", object.Name, object.BucketName, version)
-	_, err = t.Client.Exec(sqltext)
+	_, err = tx.Exec(sqltext)
 	if err != nil {
 		return err
 	}

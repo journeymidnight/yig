@@ -412,7 +412,7 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, versio
 		return err
 	}
 	object.ACL = acl
-	err = yig.MetaStorage.PutObjectEntry(object)
+	err = yig.MetaStorage.UpdateObjectAcl(object)
 	if err != nil {
 		return err
 	}

@@ -83,6 +83,11 @@ func (m *Meta) PutObjectEntry(object *Object) error {
 	return err
 }
 
+func (m *Meta) UpdateObjectAcl(object *Object) error {
+	err := m.Client.UpdateObjectAcl(object)
+	return err
+}
+
 func (m *Meta) PutObjMapEntry(objMap *ObjMap) error {
 	err := m.Client.PutObjectMap(objMap)
 	return err

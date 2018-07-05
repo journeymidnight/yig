@@ -121,14 +121,23 @@ func (t *TidbClient) PutObjectPart(multipart Multipart, part Part) (err error) {
 }
 
 func (t *TidbClient) DeleteMultipart(multipart Multipart) (err error) {
+	tx, err := t.Client.Begin()
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		} else {
+			tx.Commit()
+		}
+	}()
+
 	uploadtime := math.MaxUint64 - uint64(multipart.InitialTime.UnixNano())
 	sqltext := fmt.Sprintf("delete from multiparts where bucketname='%s' and objectname='%s' and uploadtime=%d", multipart.BucketName, multipart.ObjectName, uploadtime)
-	_, err = t.Client.Exec(sqltext)
+	_, err = tx.Exec(sqltext)
 	if err != nil {
 		return
 	}
 	sqltext = fmt.Sprintf("delete from multipartpart where bucketname='%s' and objectname='%s' and uploadtime=%d ", multipart.BucketName, multipart.ObjectName, uploadtime)
-	_, err = t.Client.Exec(sqltext)
+	_, err = tx.Exec(sqltext)
 	if err != nil {
 		return
 	}

@@ -19,13 +19,22 @@ func (t *TidbClient) PutObjectToGarbageCollection(object *Object) error {
 	mtime := o.MTime.Format(TIME_LAYOUT_TIDB)
 	version := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
 	sqltext := fmt.Sprintf("insert ignore into gc values('%s','%s',%d,'%s','%s','%s','%s','%s',%t,%d)", o.BucketName, o.ObjectName, version, o.Location, o.Pool, o.ObjectId, o.Status, mtime, hasPart, o.TriedTimes)
-	_, err := t.Client.Exec(sqltext)
+	tx, err := t.Client.Begin()
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		} else {
+			tx.Commit()
+		}
+	}()
+
+	_, err = tx.Exec(sqltext)
 	if err != nil {
 		return err
 	}
 	for _, p := range object.Parts {
 		psql := p.GetCreateGcSql(o.BucketName, o.ObjectName, version)
-		_, err = t.Client.Exec(psql)
+		_, err = tx.Exec(psql)
 		if err != nil {
 			return err
 		}
@@ -73,15 +82,24 @@ func (t *TidbClient) ScanGarbageCollection(limit int, startRowKey string) (gcs [
 }
 
 func (t *TidbClient) RemoveGarbageCollection(garbage GarbageCollection) error {
+	tx, err := t.Client.Begin()
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		} else {
+			tx.Commit()
+		}
+	}()
+
 	version := strings.Split(garbage.Rowkey, ObjectNameSeparator)[2]
 	sqltext := fmt.Sprintf("delete from gc where bucketname='%s' and objectname='%s' and version=%s", garbage.BucketName, garbage.ObjectName, version)
-	_, err := t.Client.Exec(sqltext)
+	_, err = tx.Exec(sqltext)
 	if err != nil {
 		return err
 	}
 	if len(garbage.Parts) > 0 {
 		sqltext := fmt.Sprintf("delete from gcpart where bucketname='%s' and objectname='%s' and version=%s", garbage.BucketName, garbage.ObjectName, version)
-		_, err := t.Client.Exec(sqltext)
+		_, err := tx.Exec(sqltext)
 		if err != nil {
 			return err
 		}
