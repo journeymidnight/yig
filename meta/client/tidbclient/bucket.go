@@ -207,7 +207,7 @@ func (t *TidbClient) DeleteBucket(bucket Bucket) error {
 }
 
 func (t *TidbClient) UpdateUsage(bucketName string, size int64) {
-	sql := fmt.Sprintf("update buckets set usages='%s' where bucketname='%s'", size, bucketName)
+	sql := fmt.Sprintf("update buckets set usages= usages + '%d' where bucketname='%s'", size, bucketName)
 	t.Client.Exec(sql)
 	return
 }
