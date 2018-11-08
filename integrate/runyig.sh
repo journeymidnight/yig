@@ -1,5 +1,5 @@
 BASEDIR=$(dirname $(pwd))
-sudo docker run -d  --name yig \
+sudo docker run --rm -d --name yig \
 			-p 80:80 \
 	                 -p 9000:9000 \
 			 -v ${BASEDIR}/integrate/cephconf:/etc/ceph/ \

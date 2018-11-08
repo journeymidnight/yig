@@ -1,26 +1,37 @@
 
 Use docker-compose to start a yig env
 
-# Prequire
-
+# Require
++ docker
 + docker-compose
-
-
 
 # Arch
 
 + ceph/demo //ceph is jewel on ubuntu
-+ hbase
++ TiDB
 + redis
 + yig
 
-
 # Usage
 
+## Setup docker && docker-compose
+
+```
+yum install docker -y
+pip install docker-compose --ignore-installed requests
+```
+
+## Build docker image of yig
+
+```
+cd ${YIGDIR}
+make image
+```
 
 ## Setup yig runtime env
 
 ```
+cd ${YIGDIR}/intergrate
 make env
 ```
 
