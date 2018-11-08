@@ -10,7 +10,7 @@ build:
 	@[ -d $(URLPATH) ] || mkdir -p $(URLPATH)
 	@[ -d $(GOBIN) ] || mkdir -p $(GOBIN)
 	@ln -nsf $(PWD) $(URLPATH)/$(REPO)
-	go build $(URLPATH)/$(REPO)
+	go build $(URL)/$(REPO)
 	go build $(URLPATH)/$(REPO)/tools/admin.go
 	go build $(URLPATH)/$(REPO)/tools/delete.go
 	go build $(URLPATH)/$(REPO)/tools/getrediskeys.go
