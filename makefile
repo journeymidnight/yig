@@ -8,16 +8,18 @@ URLPATH = $(PWD)/build/src/$(URL)
 
 build:
 	@[ -d $(URLPATH) ] || mkdir -p $(URLPATH)
+	@[ -d $(GOBIN) ] || mkdir -p $(GOBIN)
 	@ln -nsf $(PWD) $(URLPATH)/$(REPO)
-	go install $(URL)/$(REPO)
+	go build $(URLPATH)/$(REPO)
 	go build $(URLPATH)/$(REPO)/tools/admin.go
 	go build $(URLPATH)/$(REPO)/tools/delete.go
 	go build $(URLPATH)/$(REPO)/tools/getrediskeys.go
 	go build $(URLPATH)/$(REPO)/tools/lc.go
-	cp -f admin $(PWD)/build/bin
-	cp -f delete $(PWD)/build/bin
-	cp -f getrediskeys $(PWD)/build/bin
-	cp -f lc $(PWD)/build/bin
+	cp -f yig $(PWD)/build/bin/
+	cp -f admin $(PWD)/build/bin/
+	cp -f delete $(PWD)/build/bin/
+	cp -f getrediskeys $(PWD)/build/bin/
+	cp -f lc $(PWD)/build/bin/
 pkg:
 	sudo docker run --rm -v ${PWD}:/work -w /work yig bash -c 'bash package/rpmbuild.sh'
 image:
