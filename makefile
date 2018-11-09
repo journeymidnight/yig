@@ -1,3 +1,4 @@
+.PHONY: build
 GOPATH = $(PWD)/build
 export GOPATH
 GOBIN = $(PWD)/build/bin
