@@ -9,3 +9,5 @@ getrediskeys
 integrate/cephconf
 lc
 yig.log
+*.swp
+yig
