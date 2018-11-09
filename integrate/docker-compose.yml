@@ -13,7 +13,7 @@ services:
         ipv4_address: "10.5.0.5"
 
   ceph:
-    image: ceph/demo
+    image: journeymidnight/ceph
     container_name: ceph
     environment:
       - MON_IP=10.5.0.6
