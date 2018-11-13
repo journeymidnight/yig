@@ -21,6 +21,7 @@ import (
 	"encoding/base64"
 	"encoding/xml"
 	"errors"
+	"github.com/journeymidnight/yig/crypto"
 	"io"
 	"net/http"
 	"regexp"
@@ -133,4 +134,10 @@ func xmlFormat(data interface{}) ([]byte, error) {
 func setXmlHeader(w http.ResponseWriter, body []byte) {
 	w.Header().Set("Content-Type", "application/xml")
 	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
+}
+
+// hasServerSideEncryptionHeader returns true if the given HTTP header
+// contains server-side-encryption.
+func hasServerSideEncryptionHeader(header http.Header) bool {
+	return crypto.S3.IsRequested(header) || crypto.SSEC.IsRequested(header)
 }

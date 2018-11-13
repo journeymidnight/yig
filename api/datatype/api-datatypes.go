@@ -334,7 +334,7 @@ type CompleteMultipartResult struct {
 }
 
 type SseRequest struct {
-	// type of Server Side Encryption, could be "KMS", "S3", "C"(custom), or ""(none),
+	// type of Server Side Encryption, could be "SSE-KMS", "SSE-S3", "SSE-C"(custom), or ""(none),
 	// KMS is not implemented yet
 	Type string
 

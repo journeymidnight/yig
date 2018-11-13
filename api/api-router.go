@@ -111,6 +111,7 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 		bucket.Methods("GET").HandlerFunc(api.GetBucketPolicyHandler).Queries("policy", "")
 		// DeleteBucketPolicy
 		bucket.Methods("DELETE").HandlerFunc(api.DeleteBucketPolicyHandler).Queries("policy", "")
+
 		// HeadBucket
 		bucket.Methods("HEAD").HandlerFunc(api.HeadBucketHandler)
 		// PostPolicy
@@ -124,7 +125,6 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 		bucket.Methods("PUT").HandlerFunc(api.PutBucketHandler)
 		// ListObjects
 		bucket.Methods("GET").HandlerFunc(api.ListObjectsHandler)
-
 	}
 	/// Root operation
 
