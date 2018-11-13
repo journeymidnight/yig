@@ -18,6 +18,7 @@ package api
 
 import (
 	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/api/datatype/policy"
 	"github.com/journeymidnight/yig/iam"
 	meta "github.com/journeymidnight/yig/meta/types"
 	"io"
@@ -47,6 +48,11 @@ type ObjectLayer interface {
 		request datatype.ListObjectsRequest) (result meta.ListObjectsInfo, err error)
 	ListVersionedObjects(credential iam.Credential, bucket string,
 		request datatype.ListObjectsRequest) (result meta.VersionedListObjectsInfo, err error)
+
+	SetBucketPolicy(credential iam.Credential, bucket string, policy policy.Policy) error
+	// Policy operations
+	GetBucketPolicy(credential iam.Credential, bucket string) (policy.Policy, error)
+	DeleteBucketPolicy(credential iam.Credential, bucket string) error
 
 	// Object operations.
 	GetObject(object *meta.Object, startOffset int64, length int64, writer io.Writer,

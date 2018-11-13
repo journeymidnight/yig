@@ -88,7 +88,7 @@ func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size 
 		clusterWeights[fsid] = cluster.Weight
 	}
 	if len(clusterWeights) == 0 || totalWeight == 0 {
-		helper.Logger.Println(5, "Error picking cluster from table cluster in Hbase! Use first cluster in config to write.")
+		helper.Logger.Println(5, "Error picking cluster from table cluster in DB! Use first cluster in config to write.")
 		for _, c := range yig.DataStorage {
 			cluster = c
 			break
@@ -306,26 +306,28 @@ func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 		return
 	}
 
-	switch object.ACL.CannedAcl {
-	case "public-read", "public-read-write":
-		break
-	case "authenticated-read":
-		if credential.UserId == "" {
-			err = ErrAccessDenied
-			return
-		}
-	case "bucket-owner-read", "bucket-owner-full-control":
-		bucket, err := yig.GetBucket(bucketName)
-		if err != nil {
-			return object, ErrAccessDenied
-		}
-		if bucket.OwnerId != credential.UserId {
-			return object, ErrAccessDenied
-		}
-	default:
-		if object.OwnerId != credential.UserId {
-			err = ErrAccessDenied
-			return
+	if !credential.AllowOtherUserAccess {
+		switch object.ACL.CannedAcl {
+		case "public-read", "public-read-write":
+			break
+		case "authenticated-read":
+			if credential.UserId == "" {
+				err = ErrAccessDenied
+				return
+			}
+		case "bucket-owner-read", "bucket-owner-full-control":
+			bucket, err := yig.GetBucket(bucketName)
+			if err != nil {
+				return object, ErrAccessDenied
+			}
+			if bucket.OwnerId != credential.UserId {
+				return object, ErrAccessDenied
+			}
+		default:
+			if object.OwnerId != credential.UserId {
+				err = ErrAccessDenied
+				return
+			}
 		}
 	}
 
@@ -476,6 +478,9 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	}
 
 	cephCluster, poolName := yig.PickOneClusterAndPool(bucketName, objectName, size)
+	if cephCluster == nil {
+		return result, ErrInternalError
+	}
 
 	// Mapping a shorter name for the object
 	oid := cephCluster.GetUniqUploadName()

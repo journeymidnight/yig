@@ -22,17 +22,17 @@ const (
 )
 
 var (
-	RootContext = context.Background()
 	logger      *log.Logger
+	RootContext = context.Background()
 	yigs        []*storage.YigStorage
-	taskQ       chan types.GarbageCollection
-	waitgroup   sync.WaitGroup
-	stop        bool
+	gcTaskQ     chan types.GarbageCollection
+	gcWaitgroup sync.WaitGroup
+	gcStop      bool
 )
 
 func deleteFromCeph(index int) {
 	for {
-		if stop {
+		if gcStop {
 			helper.Logger.Print(5, ".")
 			return
 		}
@@ -40,8 +40,8 @@ func deleteFromCeph(index int) {
 			p   *types.Part
 			err error
 		)
-		garbage := <-taskQ
-		waitgroup.Add(1)
+		garbage := <-gcTaskQ
+		gcWaitgroup.Add(1)
 		if len(garbage.Parts) == 0 {
 			err = yigs[index].DataStorage[garbage.Location].
 				Remove(garbage.Pool, garbage.ObjectId)
@@ -71,7 +71,7 @@ func deleteFromCeph(index int) {
 		}
 	release:
 		yigs[index].MetaStorage.RemoveGarbageCollection(garbage)
-		waitgroup.Done()
+		gcWaitgroup.Done()
 	}
 }
 
@@ -81,17 +81,17 @@ func removeDeleted() {
 	var garbages []types.GarbageCollection
 	var err error
 	for {
-		if stop {
+		if gcStop {
 			helper.Logger.Print(5, ".")
 			return
 		}
 	wait:
-		if len(taskQ) >= WATER_LOW {
+		if len(gcTaskQ) >= WATER_LOW {
 			time.Sleep(time.Duration(1) * time.Millisecond)
 			goto wait
 		}
 
-		if len(taskQ) < WATER_LOW {
+		if len(gcTaskQ) < WATER_LOW {
 			garbages = garbages[:0]
 			garbages, err = yigs[0].MetaStorage.ScanGarbageCollection(SCAN_HBASE_LIMIT, startRowKey)
 			if err != nil {
@@ -105,7 +105,7 @@ func removeDeleted() {
 			continue
 		} else if len(garbages) == 1 {
 			for _, garbage := range garbages {
-				taskQ <- garbage
+				gcTaskQ <- garbage
 			}
 			startRowKey = ""
 			time.Sleep(time.Duration(5000) * time.Millisecond)
@@ -114,7 +114,7 @@ func removeDeleted() {
 			startRowKey = garbages[len(garbages)-1].Rowkey
 			garbages = garbages[:len(garbages)-1]
 			for _, garbage := range garbages {
-				taskQ <- garbage
+				gcTaskQ <- garbage
 			}
 		}
 	}
@@ -128,10 +128,10 @@ func main() {
 		panic("Failed to open log file in current dir")
 	}
 	defer f.Close()
-	stop = false
+	gcStop = false
 	logger = log.New(f, "[yig]", log.LstdFlags, helper.CONFIG.LogLevel)
 	helper.Logger = logger
-	taskQ = make(chan types.GarbageCollection, TASKQ_MAX_LENGTH)
+	gcTaskQ = make(chan types.GarbageCollection, TASKQ_MAX_LENGTH)
 	signal.Ignore()
 	signalQueue := make(chan os.Signal)
 
@@ -153,9 +153,9 @@ func main() {
 			// reload config file
 			helper.SetupConfig()
 		default:
-			// stop YIG server, order matters
-			stop = true
-			waitgroup.Wait()
+			// gcStop YIG server, order matters
+			gcStop = true
+			gcWaitgroup.Wait()
 			return
 		}
 	}

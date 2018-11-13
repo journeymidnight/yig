@@ -14,7 +14,7 @@ import (
 )
 
 func (t *TidbClient) GetBucket(bucketName string) (bucket Bucket, err error) {
-	var acl, cors, lc, createTime string
+	var acl, cors, lc, policy, createTime string
 	sqltext := fmt.Sprintf("select * from buckets where bucketname='%s';", bucketName)
 	err = t.Client.QueryRow(sqltext).Scan(
 		&bucket.Name,
@@ -22,6 +22,7 @@ func (t *TidbClient) GetBucket(bucketName string) (bucket Bucket, err error) {
 		&cors,
 		&lc,
 		&bucket.OwnerId,
+		&policy,
 		&createTime,
 		&bucket.Usage,
 		&bucket.Versioning,
@@ -45,6 +46,10 @@ func (t *TidbClient) GetBucket(bucketName string) (bucket Bucket, err error) {
 		return
 	}
 	err = json.Unmarshal([]byte(lc), &bucket.LC)
+	if err != nil {
+		return
+	}
+	err = json.Unmarshal([]byte(policy), &bucket.Policy)
 	if err != nil {
 		return
 	}

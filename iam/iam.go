@@ -19,6 +19,8 @@ var IsValidSecretKey = regexp.MustCompile(`^.{8,40}$`)
 // IsValidAccessKey - validate access key.
 var IsValidAccessKey = regexp.MustCompile(`^[a-zA-Z0-9\\-\\.\\_\\~]{5,20}$`)
 
+var ErrAccessKeyNotExist = errors.New("Access key does not exist")
+
 func GetCredential(accessKey string) (credential Credential, err error) {
 	if helper.CONFIG.DebugMode == true {
 		return Credential{
@@ -105,7 +107,7 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 		iamCache.set(accessKey, credential)
 		return credential, nil
 	} else {
-		return credential, errors.New("Access key does not exist")
+		return credential, ErrAccessKeyNotExist
 	}
 
 }

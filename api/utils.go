@@ -20,7 +20,9 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/xml"
+	"errors"
 	"io"
+	"regexp"
 	"strings"
 )
 
@@ -71,4 +73,46 @@ func contains(stringList []string, element string) bool {
 
 func requestIdFromContext(ctx context.Context) string {
 	return ctx.Value(RequestId).(string)
+}
+
+// We support '.' with bucket names but we fallback to using path
+// style requests instead for such buckets.
+var (
+	validBucketName       = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9\.\-\_\:]{1,61}[A-Za-z0-9]$`)
+	validBucketNameStrict = regexp.MustCompile(`^[a-z0-9][a-z0-9\.\-]{1,61}[a-z0-9]$`)
+	ipAddress             = regexp.MustCompile(`^(\d+\.){3}\d+$`)
+)
+
+// Common checker for both stricter and basic validation.
+func checkBucketNameCommon(bucketName string, strict bool) (err error) {
+	if strings.TrimSpace(bucketName) == "" {
+		return errors.New("Bucket name cannot be empty")
+	}
+	if len(bucketName) < 3 {
+		return errors.New("Bucket name cannot be smaller than 3 characters")
+	}
+	if len(bucketName) > 63 {
+		return errors.New("Bucket name cannot be greater than 63 characters")
+	}
+	if ipAddress.MatchString(bucketName) {
+		return errors.New("Bucket name cannot be an ip address")
+	}
+	if strings.Contains(bucketName, "..") {
+		return errors.New("Bucket name contains invalid characters")
+	}
+	if strict {
+		if !validBucketNameStrict.MatchString(bucketName) {
+			err = errors.New("Bucket name contains invalid characters")
+		}
+		return err
+	}
+	if !validBucketName.MatchString(bucketName) {
+		err = errors.New("Bucket name contains invalid characters")
+	}
+	return err
+}
+
+// CheckValidBucketName - checks if we have a valid input bucket name.
+func CheckValidBucketName(bucketName string) (err error) {
+	return checkBucketNameCommon(bucketName, false)
 }

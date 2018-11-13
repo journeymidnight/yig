@@ -27,8 +27,9 @@ import (
 	"strconv"
 	"strings"
 
-	mux "github.com/gorilla/mux"
+	"github.com/gorilla/mux"
 	. "github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/api/datatype/policy"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
@@ -104,20 +105,45 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 
 	var credential iam.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
-		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
+	if credential, err = checkRequestAuth(api, r, policy.GetObjectAction, bucketName, objectName); err != nil {
+		// As per "Permission" section in
+		// https://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGET.html
+		// If the object you request does not exist,
+		// the error Amazon S3 returns depends on
+		// whether you also have the s3:ListBucket
+		// permission.
+		// * If you have the s3:ListBucket permission
+		//   on the bucket, Amazon S3 will return an
+		//   HTTP status code 404 ("no such key")
+		//   error.
+		// * if you don’t have the s3:ListBucket
+		//   permission, Amazon S3 will return an HTTP
+		//   status code 403 ("access denied") error.`
+		if signature.GetRequestAuthType(r) == signature.AuthTypeAnonymous {
+			bucket, err := api.ObjectAPI.GetBucketInfo(bucketName, credential)
+			if err != nil && err != ErrBucketAccessForbidden {
+				WriteErrorResponse(w, r, err)
+				return
+			}
+			if err == ErrBucketAccessForbidden {
+				if bucket.Policy.IsAllowed(policy.Args{
+					Action:          policy.ListBucketAction,
+					BucketName:      bucketName,
+					ConditionValues: getConditionValues(r, ""),
+					IsOwner:         false,
+				}) {
+					WriteErrorResponse(w, r, ErrNoSuchKey)
+					return
+				}
+			} else {
+				WriteErrorResponse(w, r, ErrAccessDenied)
+				return
+			}
 		}
+		WriteErrorResponse(w, r, err)
+		return
 	}
+
 	version := r.URL.Query().Get("versionId")
 	// Fetch object stat info.
 	object, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName, version, credential)
@@ -253,19 +279,43 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 
 	var credential iam.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
-		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
+	if credential, err = checkRequestAuth(api, r, policy.GetObjectAction, bucketName, objectName); err != nil {
+		// As per "Permission" section in
+		// https://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGET.html
+		// If the object you request does not exist,
+		// the error Amazon S3 returns depends on
+		// whether you also have the s3:ListBucket
+		// permission.
+		// * If you have the s3:ListBucket permission
+		//   on the bucket, Amazon S3 will return an
+		//   HTTP status code 404 ("no such key")
+		//   error.
+		// * if you don’t have the s3:ListBucket
+		//   permission, Amazon S3 will return an HTTP
+		//   status code 403 ("access denied") error.`
+		if signature.GetRequestAuthType(r) == signature.AuthTypeAnonymous {
+			bucket, err := api.ObjectAPI.GetBucketInfo(bucketName, credential)
+			if err != nil && err != ErrBucketAccessForbidden {
+				WriteErrorResponse(w, r, err)
+				return
+			}
+			if err == ErrBucketAccessForbidden {
+				if bucket.Policy.IsAllowed(policy.Args{
+					Action:          policy.ListBucketAction,
+					BucketName:      bucketName,
+					ConditionValues: getConditionValues(r, ""),
+					IsOwner:         false,
+				}) {
+					WriteErrorResponse(w, r, ErrNoSuchKey)
+					return
+				}
+			} else {
+				WriteErrorResponse(w, r, ErrAccessDenied)
+				return
+			}
 		}
+		WriteErrorResponse(w, r, err)
+		return
 	}
 
 	version := r.URL.Query().Get("versionId")

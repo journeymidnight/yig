@@ -4,17 +4,24 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/journeymidnight/yig/api"
 	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/api/datatype/policy"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
 	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/meta/util"
 	"github.com/journeymidnight/yig/redis"
+	"strings"
 )
 
 func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 	credential iam.Credential) error {
+	// Input validation.
+	if err := api.CheckValidBucketName(bucketName); err != nil {
+		return err
+	}
 
 	now := time.Now().UTC()
 	bucket := meta.Bucket{
@@ -288,6 +295,78 @@ func (yig *YigStorage) GetBucketInfo(bucketName string,
 		}
 	}
 	return
+}
+
+func (yig *YigStorage) SetBucketPolicy(credential iam.Credential, bucketName string, bucketPolicy policy.Policy) (err error) {
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, false)
+	if err != nil {
+		return err
+	}
+	if bucket.OwnerId != credential.UserId {
+		return ErrBucketAccessForbidden
+	}
+	data, err := bucketPolicy.MarshalJSON()
+	if err != nil {
+		return
+	}
+	p := string(data)
+	// If policy is empty then delete the bucket policy.
+	if p == "" {
+		bucket.Policy = policy.Policy{}
+	} else {
+		bucket.Policy = bucketPolicy
+	}
+
+	err = yig.MetaStorage.Client.PutBucket(bucket)
+	if err != nil {
+		return err
+	}
+	if err == nil {
+		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
+	}
+	return nil
+}
+
+func (yig *YigStorage) GetBucketPolicy(credential iam.Credential, bucketName string) (bucketPolicy policy.Policy, err error) {
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
+	if err != nil {
+		return
+	}
+	if bucket.OwnerId != credential.UserId {
+		err = ErrBucketAccessForbidden
+		return
+	}
+
+	policyBuf, err := bucket.Policy.MarshalJSON()
+	if err != nil {
+		return
+	}
+	p, err := policy.ParseConfig(strings.NewReader(string(policyBuf)), bucketName)
+	if err != nil {
+		return bucketPolicy, ErrMalformedPolicy
+	}
+
+	bucketPolicy = *p
+	return
+}
+
+func (yig *YigStorage) DeleteBucketPolicy(credential iam.Credential, bucketName string) error {
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, false)
+	if err != nil {
+		return err
+	}
+	if bucket.OwnerId != credential.UserId {
+		return ErrBucketAccessForbidden
+	}
+	bucket.Policy = policy.Policy{}
+	err = yig.MetaStorage.Client.PutBucket(bucket)
+	if err != nil {
+		return err
+	}
+	if err == nil {
+		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
+	}
+	return nil
 }
 
 func (yig *YigStorage) ListBuckets(credential iam.Credential) (buckets []meta.Bucket, err error) {
