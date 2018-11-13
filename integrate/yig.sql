@@ -28,6 +28,7 @@ CREATE TABLE `buckets` (
   `cors` varchar(255) DEFAULT NULL,
   `lc` varchar(255) DEFAULT NULL,
   `uid` varchar(255) DEFAULT NULL,
+  `policy` varchar(255) DEFAULT NULL,
   `createtime` datetime DEFAULT NULL,
   `usages` bigint(20) DEFAULT NULL,
   `versioning` varchar(255) DEFAULT NULL,
@@ -90,7 +91,7 @@ CREATE TABLE `gcpart` (
   `bucketname` varchar(255) DEFAULT NULL,
   `objectname` varchar(255) DEFAULT NULL,
   `version` bigint(20) UNSIGNED DEFAULT NULL,
-   KEY `rowkey` (`bucketname`,`objectname`,`version`)
+   UNIQUE KEY `rowkey` (`bucketname`,`objectname`,`version`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -112,7 +113,7 @@ CREATE TABLE `multipartpart` (
   `bucketname` varchar(255) DEFAULT NULL,
   `objectname` varchar(255) DEFAULT NULL,
   `uploadtime` bigint(20) UNSIGNED DEFAULT NULL,
-   KEY `rowkey` (`bucketname`,`objectname`,`uploadtime`)
+   UNIQUE KEY `rowkey` (`bucketname`,`objectname`,`uploadtime`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -158,7 +159,7 @@ CREATE TABLE `objectpart` (
   `bucketname` varchar(255) DEFAULT NULL,
   `objectname` varchar(255) DEFAULT NULL,
   `version` varchar(255) DEFAULT NULL,
-   KEY `rowkey` (`bucketname`,`objectname`,`version`)
+  UNIQUE KEY `rowkey` (`bucketname`,`objectname`,`version`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -175,7 +176,7 @@ CREATE TABLE `objects` (
   `version` bigint(20) UNSIGNED DEFAULT NULL,
   `location` varchar(255) DEFAULT NULL,
   `pool` varchar(255) DEFAULT NULL,
-  `ownerId` varchar(255) DEFAULT NULL,
+  `ownerid` varchar(255) DEFAULT NULL,
   `size` bigint(20) DEFAULT NULL,
   `objectid` varchar(255) DEFAULT NULL,
   `lastmodifiedtime` datetime DEFAULT NULL,
