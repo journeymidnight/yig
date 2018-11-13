@@ -288,7 +288,7 @@ func (yig *YigStorage) GetBucketInfo(bucketName string,
 		}
 	}
 	return
-}
+}git
 
 func (yig *YigStorage) ListBuckets(credential iam.Credential) (buckets []meta.Bucket, err error) {
 	bucketNames, err := yig.MetaStorage.GetUserBuckets(credential.UserId, true)
