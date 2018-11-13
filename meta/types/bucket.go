@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/dustin/go-humanize"
 	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/api/datatype/policy"
 	"time"
 )
 
@@ -19,6 +20,7 @@ type Bucket struct {
 	CORS       datatype.Cors
 	ACL        datatype.Acl
 	LC         datatype.Lc
+	Policy     policy.Policy
 	Versioning string // actually enum: Disabled/Enabled/Suspended
 	Usage      int64
 }
@@ -30,6 +32,7 @@ func (b *Bucket) String() (s string) {
 	s += "CORS: " + fmt.Sprintf("%+v", b.CORS) + "\n"
 	s += "ACL: " + fmt.Sprintf("%+v", b.ACL) + "\n"
 	s += "LifeCycle: " + fmt.Sprintf("%+v", b.LC) + "\n"
+	s += "Policy: " + fmt.Sprintf("%+v", b.Policy) + "\n"
 	s += "Version: " + b.Versioning + "\n"
 	s += "Usage: " + humanize.Bytes(uint64(b.Usage)) + "\n"
 	return
@@ -71,7 +74,8 @@ func (b Bucket) GetUpdateSql() string {
 	acl, _ := json.Marshal(b.ACL)
 	cors, _ := json.Marshal(b.CORS)
 	lc, _ := json.Marshal(b.LC)
-	sql := fmt.Sprintf("update buckets set bucketname='%s',acl='%s',cors='%s',lc='%s',uid='%s',usages=%d,versioning='%s' where bucketname='%s'", b.Name, acl, cors, lc, b.OwnerId, b.Usage, b.Versioning, b.Name)
+	bucket_policy, _ := json.Marshal(b.Policy)
+	sql := fmt.Sprintf("update buckets set bucketname='%s',acl='%s',policy='%s',cors='%s',lc='%s',uid='%s',usages=%d,versioning='%s' where bucketname='%s'", b.Name, acl, bucket_policy, cors, lc, b.OwnerId, b.Usage, b.Versioning, b.Name)
 
 	return sql
 }
@@ -80,9 +84,11 @@ func (b Bucket) GetCreateSql() string {
 	acl, _ := json.Marshal(b.ACL)
 	cors, _ := json.Marshal(b.CORS)
 	lc, _ := json.Marshal(b.LC)
+	bucket_policy, _ := json.Marshal(b.Policy)
 	createTime := b.CreateTime.Format(TIME_LAYOUT_TIDB)
-	sql := fmt.Sprintf("insert into buckets(bucketname,acl,cors,lc,uid,createtime,usages,versioning) "+
-		"values('%s','%s','%s','%s','%s','%s',%d,'%s');",
-		b.Name, acl, cors, lc, b.OwnerId, createTime, b.Usage, b.Versioning)
+
+	sql := fmt.Sprintf("insert into buckets(bucketname,acl,cors,lc,uid,policy,createtime,usages,versioning) "+
+		"values('%s','%s','%s','%s','%s','%s','%s',%d,'%s');",
+		b.Name, acl, cors, lc, b.OwnerId, bucket_policy, createTime, b.Usage, b.Versioning)
 	return sql
 }

@@ -18,6 +18,10 @@ import (
 	"time"
 )
 
+const (
+	SCAN_HBASE_LIMIT = 50
+)
+
 var (
 	logger      *log.Logger
 	yig         *storage.YigStorage
@@ -26,10 +30,6 @@ var (
 	waitgroup   sync.WaitGroup
 	empty       bool
 	stop        bool
-)
-
-const (
-	SCAN_HBASE_LIMIT = 50
 )
 
 func getLifeCycles() {

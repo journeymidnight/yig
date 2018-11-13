@@ -8,6 +8,7 @@ delete
 getrediskeys
 yig
 integrate/cephconf
+yig
 lc
 yig.log
 *.swp

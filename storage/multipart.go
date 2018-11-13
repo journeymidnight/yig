@@ -16,11 +16,11 @@ import (
 	"sort"
 	"strconv"
 	"time"
+	"github.com/journeymidnight/yig/api"
 )
 
 const (
 	MAX_PART_SIZE   = 5 << 30   // 5GB
-	MIN_PART_SIZE   = 128 << 10 // 128KB
 	MAX_PART_NUMBER = 10000
 )
 
@@ -559,7 +559,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 			err = ErrInvalidPart
 			return
 		}
-		if part.Size < MIN_PART_SIZE && part.PartNumber != len(uploadedParts) {
+		if part.Size < api.MIN_PART_SIZE && part.PartNumber != len(uploadedParts) {
 			err = meta.PartTooSmall{
 				PartSize:   part.Size,
 				PartNumber: part.PartNumber,

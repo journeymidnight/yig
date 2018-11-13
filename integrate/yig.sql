@@ -28,6 +28,7 @@ CREATE TABLE `buckets` (
   `cors` varchar(255) DEFAULT NULL,
   `lc` varchar(255) DEFAULT NULL,
   `uid` varchar(255) DEFAULT NULL,
+  `policy` varchar(255) DEFAULT NULL,
   `createtime` datetime DEFAULT NULL,
   `usages` bigint(20) DEFAULT NULL,
   `versioning` varchar(255) DEFAULT NULL,
