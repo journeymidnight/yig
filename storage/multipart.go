@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
+	"github.com/journeymidnight/yig/api"
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
@@ -16,11 +17,10 @@ import (
 	"sort"
 	"strconv"
 	"time"
-	"github.com/journeymidnight/yig/api"
 )
 
 const (
-	MAX_PART_SIZE   = 5 << 30   // 5GB
+	MAX_PART_SIZE   = 5 << 30 // 5GB
 	MAX_PART_NUMBER = 10000
 )
 

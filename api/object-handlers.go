@@ -140,8 +140,6 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 				return
 			}
 		}
-		WriteErrorResponse(w, r, err)
-		return
 	}
 
 	version := r.URL.Query().Get("versionId")
