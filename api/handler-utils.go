@@ -20,6 +20,7 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	. "github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/crypto"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"io"
@@ -85,21 +86,27 @@ func extractMetadataFromHeader(header http.Header) map[string]string {
 }
 
 func parseSseHeader(header http.Header) (request SseRequest, err error) {
-	if sse := header.Get("X-Amz-Server-Side-Encryption"); sse != "" {
+	// sse three options are mutually exclusive
+	if crypto.S3.IsRequested(header) && crypto.SSEC.IsRequested(header) {
+		return request, ErrIncompatibleEncryptionMethod
+	}
+
+	if sse := header.Get(crypto.SSEHeader); sse != "" {
 		switch sse {
-		case "aws:kms":
+		case crypto.SSEAlgorithmKMS:
 			err = ErrNotImplemented
-			return
-		case "AES256":
-			request.Type = "S3"
+			return request, err
+		case crypto.SSEAlgorithmAES256:
+			request.Type = crypto.S3.String()
 		default:
 			err = ErrInvalidSseHeader
-			return
+			return request, err
 		}
 	}
-	if sse := header.Get("X-Amz-Server-Side-Encryption-Customer-Algorithm"); sse != "" {
-		if sse == "AES256" {
-			request.Type = "C"
+
+	if sse := header.Get(crypto.SSECAlgorithm); sse != "" {
+		if sse == crypto.SSEAlgorithmAES256 {
+			request.Type = crypto.SSEC.String()
 		} else {
 			err = ErrInvalidSseHeader
 			return
@@ -107,54 +114,31 @@ func parseSseHeader(header http.Header) (request SseRequest, err error) {
 	}
 
 	switch request.Type {
-	case "KMS":
-		break // Not implemented yet
-	case "S3":
-		request.SseContext = header.Get("X-Amz-Server-Side-Encryption-Context")
-	case "C":
-		request.SseCustomerAlgorithm = header.Get("X-Amz-Server-Side-Encryption-Customer-Algorithm")
-		if request.SseCustomerAlgorithm != "AES256" {
-			err = ErrInvalidSseHeader
-			return
-		}
-		// base64-encoded encryption key
-		key := header.Get("X-Amz-Server-Side-Encryption-Customer-Key")
-		if key == "" {
-			err = ErrInvalidSseHeader
-			return
-		}
-		request.SseCustomerKey = make([]byte, len(key))
-		var n int
-		n, err = base64.StdEncoding.Decode(request.SseCustomerKey, []byte(key))
+	case crypto.S3KMS.String():
+		// Not implemented yet
+		return request, ErrNotImplemented
+	case crypto.S3.String():
+		// encrypt key will retrieve from kms now
+		return request, nil
+	case crypto.SSEC.String():
+		// validate ssec header
+		key, err := crypto.SSEC.ParseHTTP(header)
 		if err != nil {
-			return
+			return request, err
 		}
-		if n != 32 { // Should be 32 bytes for AES-"256"
-			err = ErrInvalidSseHeader
-			return
-		}
-		request.SseCustomerKey = request.SseCustomerKey[:32]
-		// base64-encoded 128-bit MD5 digest of the encryption key
-		userMd5 := header.Get("X-Amz-Server-Side-Encryption-Customer-Key-Md5")
-		if userMd5 == "" {
-			err = ErrInvalidSseHeader
-			return
-		}
-		calculatedMd5 := md5.Sum(request.SseCustomerKey)
-		encodedMd5 := base64.StdEncoding.EncodeToString(calculatedMd5[:])
-		if userMd5 != encodedMd5 {
-			err = ErrInvalidSseHeader
-			return
-		}
+		request.SseCustomerAlgorithm = crypto.SSEAlgorithmAES256
+		request.SseCustomerKey = key[:]
+		return request, nil
 	}
 
-	if sse := header.Get("X-Amz-Copy-Source-Server-Side-Encryption-Customer-Algorithm"); sse != "" {
-		if sse != "AES256" {
+	// SSECCopy not support now.
+	if sse := header.Get(crypto.SSECopyAlgorithm); sse != "" {
+		if sse != crypto.SSEAlgorithmAES256 {
 			err = ErrInvalidSseHeader
 			return
 		}
 		request.CopySourceSseCustomerAlgorithm = sse
-		key := header.Get("X-Amz-Copy-Source-Server-Side-Encryption-Customer-Key")
+		key := header.Get(crypto.SSECopyKey)
 		if key == "" {
 			err = ErrInvalidSseHeader
 			return
@@ -170,7 +154,7 @@ func parseSseHeader(header http.Header) (request SseRequest, err error) {
 			return
 		}
 		request.CopySourceSseCustomerKey = request.CopySourceSseCustomerKey[:32]
-		userMd5 := header.Get("X-Amz-Copy-Source-Server-Side-Encryption-Customer-Key-Md5")
+		userMd5 := header.Get(crypto.SSECopyKeyMD5)
 		if userMd5 == "" {
 			err = ErrInvalidSseHeader
 			return
@@ -182,6 +166,12 @@ func parseSseHeader(header http.Header) (request SseRequest, err error) {
 			return
 		}
 	}
-
 	return
+}
+
+// Suffix matcher string matches suffix in a platform specific way.
+// For example on windows since its case insensitive we are supposed
+// to do case insensitive checks.
+func hasSuffix(s string, suffix string) bool {
+	return strings.HasSuffix(s, suffix)
 }

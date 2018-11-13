@@ -31,3 +31,11 @@ enable_data_cache = true
 
 # Ceph Config
 ceph_config_pattern = "/etc/ceph/*.conf"
+
+[kms]
+type = "vault"
+endpoint = "http://10.5.0.19:8200"
+kms_id = "your_id"
+kms_secret = "your_secret"
+version = 0
+keyname = "yig"

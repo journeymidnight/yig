@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"github.com/journeymidnight/yig/api"
 	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/crypto"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
@@ -116,8 +117,8 @@ func (yig *YigStorage) NewMultipartUpload(credential iam.Credential, bucketName,
 		SseRequest:  sseRequest,
 		Attrs:       attrs,
 	}
-	if sseRequest.Type == "S3" {
-		multipartMetadata.EncryptionKey, err = encryptionKeyFromSseRequest(sseRequest)
+	if sseRequest.Type == crypto.S3.String() {
+		multipartMetadata.EncryptionKey, multipartMetadata.CipherKey, err = yig.encryptionKeyFromSseRequest(sseRequest, bucketName, objectName)
 		if err != nil {
 			return
 		}
@@ -158,15 +159,15 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential i
 	switch multipart.Metadata.SseRequest.Type {
 	case "":
 		break
-	case "C":
-		if sseRequest.Type != "C" {
+	case crypto.SSEC.String():
+		if sseRequest.Type != crypto.SSEC.String() {
 			err = ErrInvalidSseHeader
 			return
 		}
 		encryptionKey = sseRequest.SseCustomerKey
-	case "S3":
+	case crypto.S3.String():
 		encryptionKey = multipart.Metadata.EncryptionKey
-	case "KMS":
+	case crypto.S3KMS.String():
 		err = ErrNotImplemented
 		return
 	}
@@ -293,15 +294,15 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	switch multipart.Metadata.SseRequest.Type {
 	case "":
 		break
-	case "C":
-		if sseRequest.Type != "C" {
+	case crypto.SSEC.String():
+		if sseRequest.Type != crypto.SSEC.String() {
 			err = ErrInvalidSseHeader
 			return
 		}
 		encryptionKey = sseRequest.SseCustomerKey
-	case "S3":
+	case crypto.S3.String():
 		encryptionKey = multipart.Metadata.EncryptionKey
-	case "KMS":
+	case crypto.S3KMS.String():
 		err = ErrNotImplemented
 		return
 	}
@@ -603,7 +604,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucket
 		NullVersion:      helper.Ternary(bucket.Versioning == "Enabled", false, true).(bool),
 		DeleteMarker:     false,
 		SseType:          multipart.Metadata.SseRequest.Type,
-		EncryptionKey:    multipart.Metadata.EncryptionKey,
+		EncryptionKey:    multipart.Metadata.CipherKey,
 		CustomAttributes: multipart.Metadata.Attrs,
 	}
 

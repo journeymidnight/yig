@@ -110,6 +110,24 @@ const (
 	ErrTooManyBuckets
 	// Add new error codes here.
 
+	// SSE-S3 related API errors
+	ErrInvalidEncryptionMethod
+
+	// Server-Side-Encryption (with Customer provided key) related API errors.
+	ErrInsecureSSECustomerRequest
+	ErrSSEMultipartEncrypted
+	ErrSSEEncryptedObject
+	ErrInvalidEncryptionParameters
+	ErrInvalidSSECustomerAlgorithm
+	ErrInvalidSSECustomerKey
+	ErrMissingSSECustomerKey
+	ErrMissingSSECustomerKeyMD5
+	ErrSSECustomerKeyMD5Mismatch
+	ErrInvalidSSECustomerParameters
+	ErrIncompatibleEncryptionMethod
+	ErrKMSNotConfigured
+	ErrKMSAuthFailure
+
 	// S3 extended errors.
 	ErrContentSHA256Mismatch
 	// Add new extended error codes here.
@@ -470,6 +488,79 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		HttpStatusCode: http.StatusBadRequest,
 	},
 
+	// SSE-S3 related API errors
+	ErrInvalidEncryptionMethod: {
+		AwsErrorCode:   "InvalidRequest",
+		Description:    "The encryption method specified is not supported",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+
+	// Server-Side-Encryption (with Customer provided key) related API errors.
+	ErrInsecureSSECustomerRequest: {
+		AwsErrorCode:   "InvalidRequest",
+		Description:    "Requests specifying Server Side Encryption with Customer provided keys must be made over a secure connection.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrSSEMultipartEncrypted: {
+		AwsErrorCode:   "InvalidRequest",
+		Description:    "The multipart upload initiate requested encryption. Subsequent part requests must include the appropriate encryption parameters.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrSSEEncryptedObject: {
+		AwsErrorCode:   "InvalidRequest",
+		Description:    "The object was stored using a form of Server Side Encryption. The correct parameters must be provided to retrieve the object.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidEncryptionParameters: {
+		AwsErrorCode:   "InvalidRequest",
+		Description:    "The encryption parameters are not applicable to this object.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidSSECustomerAlgorithm: {
+		AwsErrorCode:   "InvalidArgument",
+		Description:    "Requests specifying Server Side Encryption with Customer provided keys must provide a valid encryption algorithm.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidSSECustomerKey: {
+		AwsErrorCode:   "InvalidArgument",
+		Description:    "The secret key was invalid for the specified algorithm.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMissingSSECustomerKey: {
+		AwsErrorCode:   "InvalidArgument",
+		Description:    "Requests specifying Server Side Encryption with Customer provided keys must provide an appropriate secret key.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMissingSSECustomerKeyMD5: {
+		AwsErrorCode:   "InvalidArgument",
+		Description:    "Requests specifying Server Side Encryption with Customer provided keys must provide the client calculated MD5 of the secret key.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrSSECustomerKeyMD5Mismatch: {
+		AwsErrorCode:   "InvalidArgument",
+		Description:    "The calculated MD5 hash of the key did not match the hash that was provided.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidSSECustomerParameters: {
+		AwsErrorCode:   "InvalidArgument",
+		Description:    "The provided encryption parameters did not match the ones used originally.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrIncompatibleEncryptionMethod: {
+		AwsErrorCode:   "InvalidArgument",
+		Description:    "Server side encryption specified with both SSE-C and SSE-S3 headers",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrKMSNotConfigured: {
+		AwsErrorCode:   "InvalidArgument",
+		Description:    "Server side encryption specified but KMS is not configured",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrKMSAuthFailure: {
+		AwsErrorCode:   "InvalidArgument",
+		Description:    "Server side encryption specified but KMS authorization failed",
+		HttpStatusCode: http.StatusBadRequest,
+	},
 	/// S3 extensions.
 	ErrContentSHA256Mismatch: {
 		AwsErrorCode:   "XAmzContentSHA256Mismatch",
