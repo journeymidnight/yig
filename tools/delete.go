@@ -16,9 +16,9 @@ import (
 )
 
 const (
-	SCAN_HBASE_LIMIT = 50
 	WATER_LOW        = 120
 	TASKQ_MAX_LENGTH = 200
+	SCAN_HBASE_LIMIT = 50
 )
 
 var (
