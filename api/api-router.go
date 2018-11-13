@@ -17,8 +17,8 @@
 package api
 
 import (
-	"github.com/journeymidnight/yig/helper"
 	router "github.com/gorilla/mux"
+	"github.com/journeymidnight/yig/helper"
 )
 
 // objectAPIHandler implements and provides http handlers for S3 API.
@@ -118,7 +118,6 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 	// ListObjects
 	bucket_host.Methods("GET").HandlerFunc(api.ListObjectsHandler)
 
-
 	/// Object operations
 
 	// HeadObject
@@ -201,7 +200,6 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 	bucket.Methods("PUT").HandlerFunc(api.PutBucketHandler)
 	// ListObjects
 	bucket.Methods("GET").HandlerFunc(api.ListObjectsHandler)
-
 
 	/// Root operation
 

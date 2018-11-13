@@ -27,25 +27,25 @@ const (
 )
 
 const (
-	XMLNSXSI               = "http://www.w3.org/2001/XMLSchema-instance"
+	XMLNSXSI = "http://www.w3.org/2001/XMLSchema-instance"
 )
 
 const (
-	ACL_TYPE_CANON_USER    = "CanonicalUser"
-	ACL_TYPE_GROUP         = "Group"
+	ACL_TYPE_CANON_USER = "CanonicalUser"
+	ACL_TYPE_GROUP      = "Group"
 )
 
 const (
-	ACL_GROUP_TYPE_ALL_USERS              = "http://acs.amazonaws.com/groups/global/AllUsers"
-	ACL_GROUP_TYPE_AUTHENTICATED_USERS    = "http://acs.amazonaws.com/groups/global/AuthenticatedUsers"
+	ACL_GROUP_TYPE_ALL_USERS           = "http://acs.amazonaws.com/groups/global/AllUsers"
+	ACL_GROUP_TYPE_AUTHENTICATED_USERS = "http://acs.amazonaws.com/groups/global/AuthenticatedUsers"
 )
 
 const (
-        ACL_PERM_READ          = "READ"
-        ACL_PERM_WRITE         = "WRITE"
-	ACL_PERM_READ_ACP      = "READ_ACP"
-        ACL_PERM_WRITE_ACP     = "WRITE_ACP"
-        ACL_PERM_FULL_CONTROL  = "FULL_CONTROL"
+	ACL_PERM_READ         = "READ"
+	ACL_PERM_WRITE        = "WRITE"
+	ACL_PERM_READ_ACP     = "READ_ACP"
+	ACL_PERM_WRITE_ACP    = "WRITE_ACP"
+	ACL_PERM_FULL_CONTROL = "FULL_CONTROL"
 )
 
 type Acl struct {
@@ -54,26 +54,26 @@ type Acl struct {
 }
 
 type AccessControlPolicy struct {
-        XMLName                   xml.Name `xml:"AccessControlPolicy"`
-	Xmlns                     string   `xml:"xmlns,attr,omitempty"`
-        ID                        string   `xml:"Owner>ID"`
-        DisplayName               string   `xml:"Owner>DisplayName"`
-	AccessControlList         []Grant  `xml:"AccessControlList>Grant"`
+	XMLName           xml.Name `xml:"AccessControlPolicy"`
+	Xmlns             string   `xml:"xmlns,attr,omitempty"`
+	ID                string   `xml:"Owner>ID"`
+	DisplayName       string   `xml:"Owner>DisplayName"`
+	AccessControlList []Grant  `xml:"AccessControlList>Grant"`
 }
 
 type Grant struct {
-        XMLName                   xml.Name `xml:"Grant"`
-	Grantee                   Grantee  `xml:"Grantee"`
-	Permission                string   `xml:"Permission"`
+	XMLName    xml.Name `xml:"Grant"`
+	Grantee    Grantee  `xml:"Grantee"`
+	Permission string   `xml:"Permission"`
 }
 
 type Grantee struct {
-        XMLName                   xml.Name `xml:"Grantee"`
-	XmlnsXsi                  string   `xml:"xmlns xsi,attr"`
-        XsiType                   string   `xml:"http://www.w3.org/2001/XMLSchema-instance type,attr"`
-	URI                       string   `xml:"URI,omitempty"`
-	ID                        string   `xml:"ID,omitempty"`
-	DisplayName               string   `xml:"DisplayName,omitempty"`
+	XMLName     xml.Name `xml:"Grantee"`
+	XmlnsXsi    string   `xml:"xmlns xsi,attr"`
+	XsiType     string   `xml:"http://www.w3.org/2001/XMLSchema-instance type,attr"`
+	URI         string   `xml:"URI,omitempty"`
+	ID          string   `xml:"ID,omitempty"`
+	DisplayName string   `xml:"DisplayName,omitempty"`
 }
 
 func IsValidCannedAcl(acl Acl) (err error) {
@@ -83,6 +83,7 @@ func IsValidCannedAcl(acl Acl) (err error) {
 	}
 	return
 }
+
 // the function will be deleted, because we will use AccessControlPolicy instead canned acl stored in hbase
 func GetCannedAclFromPolicy(policy AccessControlPolicy) (acl Acl, err error) {
 	aclOwner := Owner{ID: policy.ID, DisplayName: policy.DisplayName}
@@ -130,7 +131,7 @@ func GetCannedAclFromPolicy(policy AccessControlPolicy) (acl Acl, err error) {
 	return acl, nil
 }
 
-func createGrant(xsiType string, owner Owner, perm string, groupType string) (grant Grant, err error){
+func createGrant(xsiType string, owner Owner, perm string, groupType string) (grant Grant, err error) {
 
 	if xsiType == ACL_TYPE_CANON_USER {
 		grant.Grantee.ID = owner.ID
@@ -147,7 +148,7 @@ func createGrant(xsiType string, owner Owner, perm string, groupType string) (gr
 }
 
 func CreatePolicyFromCanned(owner Owner, bucketOwner Owner, acl Acl) (
-        policy AccessControlPolicy, err error) {
+	policy AccessControlPolicy, err error) {
 
 	policy.ID = owner.ID
 	policy.DisplayName = owner.DisplayName

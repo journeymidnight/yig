@@ -122,8 +122,8 @@ const (
 	ErrInvalidAcl
 	ErrUnsupportedAcl
 	ErrNonUTF8Encode
-        ErrInvalidLc
-        ErrNoSuchBucketLc
+	ErrInvalidLc
+	ErrNoSuchBucketLc
 )
 
 // error code to APIError structure, these fields carry respective
@@ -522,16 +522,16 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		Description:    "URL Argument must be UTF8 encoded.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
-        ErrNoSuchBucketLc: {
-                AwsErrorCode:   "NoSuchBucketLc",
-                Description:    "The specified bucket does not have LifeCycle configured.",
-                HttpStatusCode: http.StatusNotFound,
-        },
-        ErrInvalidLc: {
-                AwsErrorCode:   "IllegalLcConfigurationException",
-                Description:    "The LC configuration specified in the request is invalid.",
-                HttpStatusCode: http.StatusBadRequest,
-        },
+	ErrNoSuchBucketLc: {
+		AwsErrorCode:   "NoSuchBucketLc",
+		Description:    "The specified bucket does not have LifeCycle configured.",
+		HttpStatusCode: http.StatusNotFound,
+	},
+	ErrInvalidLc: {
+		AwsErrorCode:   "IllegalLcConfigurationException",
+		Description:    "The LC configuration specified in the request is invalid.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
 }
 
 func (e ApiErrorCode) AwsErrorCode() string {

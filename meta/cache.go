@@ -5,9 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mediocregopher/radix.v2/pubsub"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/redis"
+	"github.com/mediocregopher/radix.v2/pubsub"
 )
 
 type CacheType int

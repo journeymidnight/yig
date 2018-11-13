@@ -3,9 +3,9 @@ package redis
 import (
 	"strconv"
 
+	"github.com/journeymidnight/yig/helper"
 	"github.com/mediocregopher/radix.v2/pool"
 	"github.com/mediocregopher/radix.v2/redis"
-	"github.com/journeymidnight/yig/helper"
 )
 
 const InvalidQueueName = "InvalidQueue"

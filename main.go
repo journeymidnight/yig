@@ -1,16 +1,16 @@
 package main
 
 import (
-	"math/rand"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
-	"runtime"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/storage"
+	"math/rand"
+	"os"
+	"os/signal"
+	"runtime"
+	"syscall"
+	"time"
 )
 
 var logger *log.Logger
@@ -18,7 +18,7 @@ var logger *log.Logger
 func DumpStacks() {
 	buf := make([]byte, 1<<16)
 	stacklen := runtime.Stack(buf, true)
-	helper.Logger.Printf(5,"=== received SIGQUIT ===\n*** goroutine dump...\n%s\n*** end\n", buf[:stacklen])
+	helper.Logger.Printf(5, "=== received SIGQUIT ===\n*** goroutine dump...\n%s\n*** end\n", buf[:stacklen])
 }
 
 func main() {

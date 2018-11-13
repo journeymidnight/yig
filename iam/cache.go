@@ -7,7 +7,7 @@ import (
 
 const (
 	CACHE_EXPIRE_TIME = 600 * time.Second
-	CACHE_CHECK_TIME = 60 * time.Second
+	CACHE_CHECK_TIME  = 60 * time.Second
 )
 
 type cacheEntry struct {

@@ -19,13 +19,13 @@ package helper
 import (
 	"bufio"
 	"bytes"
+	"github.com/dustin/go-humanize"
+	"github.com/journeymidnight/yig/log"
 	"os"
 	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
-	"github.com/journeymidnight/yig/log"
-	"github.com/dustin/go-humanize"
 )
 
 var Logger *log.Logger

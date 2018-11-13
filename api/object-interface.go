@@ -28,7 +28,7 @@ type ObjectLayer interface {
 	// Bucket operations.
 	MakeBucket(bucket string, acl datatype.Acl, credential iam.Credential) error
 	SetBucketLc(bucket string, config datatype.Lc,
-	credential iam.Credential) error
+		credential iam.Credential) error
 	GetBucketLc(bucket string, credential iam.Credential) (datatype.Lc, error)
 	DelBucketLc(bucket string, credential iam.Credential) error
 	SetBucketAcl(bucket string, policy datatype.AccessControlPolicy, acl datatype.Acl,
@@ -61,7 +61,7 @@ type ObjectLayer interface {
 	SetObjectAcl(bucket string, object string, version string, policy datatype.AccessControlPolicy,
 		acl datatype.Acl, credential iam.Credential) error
 	GetObjectAcl(bucket string, object string, version string, credential iam.Credential) (
-	        policy datatype.AccessControlPolicy, err error)
+		policy datatype.AccessControlPolicy, err error)
 	DeleteObject(bucket, object, version string, credential iam.Credential) (datatype.DeleteObjectResult,
 		error)
 

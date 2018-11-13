@@ -20,10 +20,10 @@ import (
 	"net/http"
 	"strings"
 
+	mux "github.com/gorilla/mux"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/signature"
-	mux "github.com/gorilla/mux"
 )
 
 // HandlerFunc - useful to chain different middleware http.Handler
@@ -119,7 +119,7 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == "OPTIONS" && InReservedOrigins(origin) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
-                w.Header().Set("Access-Control-Allow-Headers", "content-md5, content-type, x-amz-acl, x-amz-date, x-amz-user-agent, authorization, x-amz-content-sha256")
+		w.Header().Set("Access-Control-Allow-Headers", "content-md5, content-type, x-amz-acl, x-amz-date, x-amz-user-agent, authorization, x-amz-content-sha256")
 		w.Header().Set("Access-Control-Allow-Methods", "PUT, GET, DELETE, POST")
 		w.Header().Set("Access-Control-Expose-Headers", "x-amz-acl, Etag")
 		WriteSuccessResponse(w, nil)
@@ -181,7 +181,7 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if len(splits) == 1 {
 			objectName = splits[0]
 		}
-	}else {
+	} else {
 		if len(splits) == 1 {
 			bucketName = splits[0]
 		}

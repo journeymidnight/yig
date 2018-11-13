@@ -18,7 +18,7 @@ func CopiedBytes(source []byte) (destination []byte) {
 }
 
 func UnicodeIndex(str, substr string) int {
-	result := strings.Index(str,substr)
+	result := strings.Index(str, substr)
 	if result >= 0 {
 		prefix := []byte(str)[0:result]
 		rs := []rune(string(prefix))

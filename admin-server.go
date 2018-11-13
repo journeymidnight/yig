@@ -127,7 +127,7 @@ func getCacheHitRatio(w http.ResponseWriter, r *http.Request) {
 }
 
 var handlerFns = []handlerFunc{
-//	SetJwtMiddlewareHandler,
+	//	SetJwtMiddlewareHandler,
 }
 
 func RegisterHandlers(router *router.Router, handlerFns ...handlerFunc) http.Handler {

@@ -1,27 +1,26 @@
 package main
 
-
 import (
-	"github.com/journeymidnight/yig/helper"
-	"github.com/dgrijalva/jwt-go"
-	"net/http"
 	"context"
-	"strings"
 	"fmt"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/journeymidnight/yig/helper"
+	"net/http"
+	"strings"
 )
 
 type JwtMiddleware struct {
-	handler         http.Handler
+	handler http.Handler
 }
 
 func FromAuthHeader(r *http.Request) (string, error) {
 
 	authHeader, ok := r.Header["Authorization"]
-	helper.Logger.Println(5, "authHeader:",authHeader)
+	helper.Logger.Println(5, "authHeader:", authHeader)
 	if ok == false || authHeader[0] == "" {
 		return "", nil // No error, just no token
 	}
-	
+
 	authHeaderParts := strings.Split(authHeader[0], " ")
 	if len(authHeaderParts) != 2 || strings.ToLower(authHeaderParts[0]) != "bearer" {
 		return "", fmt.Errorf("Authorization header format must be Bearer {token}")
@@ -63,15 +62,14 @@ func (m *JwtMiddleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func SetJwtMiddlewareHandler(handler http.Handler) http.Handler {
 	jwtChecker := &JwtMiddleware{
-		handler:         handler,
+		handler: handler,
 	}
 	return jwtChecker
 }
 
 func SetJwtMiddlewareFunc(f func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
 	jwtChecker := &JwtMiddleware{
-		handler:         http.HandlerFunc(f),
+		handler: http.HandlerFunc(f),
 	}
 	return jwtChecker.ServeHTTP
 }
-

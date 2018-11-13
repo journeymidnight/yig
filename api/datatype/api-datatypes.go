@@ -41,7 +41,7 @@ type ListObjectsResponse struct {
 	EncodingType   string `xml:"Encoding-Type,omitempty"`
 	IsTruncated    bool
 	MaxKeys        int
-	KeyCount       int  `xml:",omitempty"`
+	KeyCount       int `xml:",omitempty"`
 	Prefix         string
 	BucketName     string `xml:"Name"`
 
@@ -54,7 +54,7 @@ type ListObjectsResponse struct {
 	NextContinuationToken string `xml:",omitempty"`
 	StartAfter            string `xml:",omitempty"`
 
-	Contents       []Object
+	Contents []Object
 }
 
 type VersionedListObjectsResponse struct {
@@ -165,7 +165,7 @@ type ListMultipartUploadsResponse struct {
 // ListBucketsResponse - format for list buckets response
 type ListBucketsResponse struct {
 	XMLName xml.Name `xml:"http://s3.amazonaws.com/doc/2006-03-01/ ListAllMyBucketsResult" json:"-"`
-	Owner Owner
+	Owner   Owner
 	// Container for one or more buckets.
 	Buckets struct {
 		Buckets []Bucket `xml:"Bucket"`

@@ -4,10 +4,10 @@ import (
 	"io"
 	"time"
 
+	"bytes"
 	"github.com/journeymidnight/yig/helper"
 	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
-	"bytes"
 )
 
 const (
