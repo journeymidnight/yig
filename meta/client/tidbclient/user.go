@@ -15,6 +15,7 @@ func (t *TidbClient) GetUserBuckets(userId string) (buckets []string, err error)
 		return
 	}
 	defer rows.Close()
+
 	for rows.Next() {
 		var tmp string
 		err = rows.Scan(&tmp)
@@ -27,7 +28,7 @@ func (t *TidbClient) GetUserBuckets(userId string) (buckets []string, err error)
 }
 
 func (t *TidbClient) AddBucketForUser(bucketName, userId string) (err error) {
-	sql := fmt.Sprintf("insert into users values('%s','%s')", userId, bucketName)
+	sql := fmt.Sprintf("insert into users(userid,bucketname) values('%s','%s')", userId, bucketName)
 	_, err = t.Client.Exec(sql)
 	return
 }

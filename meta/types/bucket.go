@@ -81,6 +81,8 @@ func (b Bucket) GetCreateSql() string {
 	cors, _ := json.Marshal(b.CORS)
 	lc, _ := json.Marshal(b.LC)
 	createTime := b.CreateTime.Format(TIME_LAYOUT_TIDB)
-	sql := fmt.Sprintf("insert into buckets values('%s','%s','%s','%s','%s','%s',%d,'%s');", b.Name, acl, cors, lc, b.OwnerId, createTime, b.Usage, b.Versioning)
+	sql := fmt.Sprintf("insert into buckets(bucketname,acl,cors,lc,uid,createtime,usages,versioning) "+
+		"values('%s','%s','%s','%s','%s','%s',%d,'%s');",
+		b.Name, acl, cors, lc, b.OwnerId, createTime, b.Usage, b.Versioning)
 	return sql
 }

@@ -99,7 +99,9 @@ func (t *TidbClient) CreateMultipart(multipart Multipart) (err error) {
 	acl, _ := json.Marshal(m.Acl)
 	sseRequest, _ := json.Marshal(m.SseRequest)
 	attrs, _ := json.Marshal(m.Attrs)
-	sqltext := fmt.Sprintf("insert into multiparts values('%s','%s',%d,'%s','%s','%s','%s','%s','%s','%s','%s','%s')", multipart.BucketName, multipart.ObjectName, uploadtime, m.InitiatorId, m.OwnerId, m.ContentType, m.Location, m.Pool, acl, sseRequest, m.EncryptionKey, attrs)
+	sqltext := fmt.Sprintf("insert into multiparts(bucketname,objectname,uploadtime,initiatorid,ownerid,contenttype,location,pool,acl,sserequest,encryption,attrs) "+
+		"values('%s','%s',%d,'%s','%s','%s','%s','%s','%s','%s','%s','%s')",
+		multipart.BucketName, multipart.ObjectName, uploadtime, m.InitiatorId, m.OwnerId, m.ContentType, m.Location, m.Pool, acl, sseRequest, m.EncryptionKey, attrs)
 	_, err = t.Client.Exec(sqltext)
 	if err != nil {
 	}
@@ -113,7 +115,9 @@ func (t *TidbClient) PutObjectPart(multipart Multipart, part Part) (err error) {
 		return
 	}
 	lastModified := lastt.Format(TIME_LAYOUT_TIDB)
-	sqltext := fmt.Sprintf("insert into multipartpart values(%d,%d,'%s',%d,'%s','%s','%s','%s','%s',%d)", part.PartNumber, part.Size, part.ObjectId, part.Offset, part.Etag, lastModified, part.InitializationVector, multipart.BucketName, multipart.ObjectName, uploadtime)
+	sqltext := fmt.Sprintf("insert into multipartpart(partnumber,size,objectid,offset,etag,lastmodified,initializationvector,bucketname,objectname,uploadtime) "+
+		"values(%d,%d,'%s',%d,'%s','%s','%s','%s','%s',%d)",
+		part.PartNumber, part.Size, part.ObjectId, part.Offset, part.Etag, lastModified, part.InitializationVector, multipart.BucketName, multipart.ObjectName, uploadtime)
 	_, err = t.Client.Exec(sqltext)
 	if err != nil {
 	}

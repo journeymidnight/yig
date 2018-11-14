@@ -23,7 +23,7 @@ func (t *TidbClient) GetObjectMap(bucketName, objectName string) (objMap *ObjMap
 }
 
 func (t *TidbClient) PutObjectMap(objMap *ObjMap) error {
-	sqltext := fmt.Sprintf("insert into objmap values('%s','%s',%d)", objMap.BucketName, objMap.Name, objMap.NullVerNum)
+	sqltext := fmt.Sprintf("insert into objmap(bucketname,objectname,nullvernum) values('%s','%s',%d)", objMap.BucketName, objMap.Name, objMap.NullVerNum)
 	_, err := t.Client.Exec(sqltext)
 	return err
 }
