@@ -25,7 +25,6 @@ before_deploy:
   - echo "prepare package"
   - sudo make pkg
 
-
 deploy:
   - provider: releases
     api_key: $GithubToken
@@ -36,7 +35,7 @@ deploy:
       repo: journeymidnight/yig
       tags: true
   - provider: script
-    script: echo "$DOCKER_PASSWORD"|docker login -u "$DOCKER_USERNAME" --password-stdin && make image && docker push journeymidnight/yig
+    script: echo "$DOCKER_PASSWORD"|docker login -u "$DOCKER_USERNAME" --password-stdin && make image && docker tag journeymidnight/yig journeymidnight/yig:$TRAVIS_TAG && docker push journeymidnight/yig:$TRAVIS_TAG
     on:
       repo: journeymidnight/yig
       tags: true
