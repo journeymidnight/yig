@@ -8,7 +8,7 @@ type Config struct {
 
 
 // Load the config file if possible, but if there is an error return the default configuration file
-func loadConfigFile(path string) (*Config, error) {
+func loadConfigFile() (*Config, error) {
 	config := &Config{
 		AccessKey: "hehehehe",
 		SecretKey: "hehehehe",

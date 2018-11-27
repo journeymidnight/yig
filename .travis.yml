@@ -8,6 +8,7 @@ services:
 before_install:
   - sudo apt-get update 
   - sudo -E apt-get -yq --no-install-suggests --no-install-recommends --force-yes install docker-ce
+  - sudo apt-get install golang -y
   - docker version
 
 install:
@@ -20,6 +21,9 @@ install:
 
 script:
 - make integrate
+- sudo python test/sanity.py
+- go get -u github.com/aws/aws-sdk-go
+- cd test/go && go test -v
 
 before_deploy:
   - echo "prepare package"

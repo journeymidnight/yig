@@ -23,7 +23,7 @@ func NewS3ByConf(c *Config) *S3Client {
 }
 
 func ReadConfig() (*Config, error) {
-	c, err := loadConfigFile("")
+	c, err := loadConfigFile()
 	if err != nil {
 		return nil, errors.New(err.Error())
 	}
