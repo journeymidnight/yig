@@ -3,7 +3,6 @@ package _go
 import (
 	"errors"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"os"
 )
 
 type S3Client struct {
@@ -24,14 +23,7 @@ func NewS3ByConf(c *Config) *S3Client {
 }
 
 func ReadConfig() (*Config, error) {
-	f, err := os.Open("/etc/yig/yig.json")
-	if err != nil {
-		return nil, errors.New("Cannot open /etc/yig/yig.json")
-	}
-	defer f.Close()
-
-	conf := GetDefaultConfigPath()
-	c, err := loadConfigFile(conf)
+	c, err := loadConfigFile("")
 	if err != nil {
 		return nil, errors.New(err.Error())
 	}

@@ -1,7 +1,7 @@
 package _go
 
 import (
-	"github.com/juju/errors"
+	"errors"
 	"io/ioutil"
 	"net/http"
 )
