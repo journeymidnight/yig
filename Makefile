@@ -25,7 +25,7 @@ build_internal:
 	cp -f getrediskeys $(PWD)/build/bin/
 	cp -f lc $(PWD)/build/bin/
 pkg:
-	sudo docker run --rm -v ${PWD}:/work -w /work journeymidnight/yig bash -c 'bash package/rpmbuild.sh'
+	sudo docker run --rm -v $(PWD):/work -w /work journeymidnight/yig bash -c 'bash package/rpmbuild.sh'
 image:
 	sudo docker build -t  journeymidnight/yig . -f integrate/yig.docker
 
@@ -40,7 +40,7 @@ env:
 	
 
 integrate: env build run 
-	sudo python test/sanity.py
+
 clean:
 	cd integrate && docker-compose stop && docker-compose rm --force &&rm -rf cephconf
 	rm -rf build
