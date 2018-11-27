@@ -27,7 +27,7 @@ Requires:       librados2
 #The go build still use source code in GOPATH/src/legitlab/yig/
 #keep git source tree clean, better ways to build?
 #I do not know
-make
+make build_internal
 
 %install
 rm -rf %{buildroot}

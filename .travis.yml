@@ -24,12 +24,26 @@ script:
 before_deploy:
   - echo "prepare package"
   - sudo make pkg
+  - sudo make image
+
 deploy:
-  provider: releases
-  api_key: $GithubToken
-  file: $TRAVIS_BUILD_DIR/yig*.x86_64.rpm
-  file_glob: true 
-  skip_cleanup: true
-  on:
-    repo: journeymidnight/yig
-    tags: true
+  - provider: releases
+    api_key: $GithubToken
+    file: $TRAVIS_BUILD_DIR/yig*.x86_64.rpm
+    file_glob: true 
+    skip_cleanup: true
+    on:
+      repo: journeymidnight/yig
+      tags: true
+
+  - provider: script
+    script: echo "$DOCKER_PASSWORD"|docker login -u "$DOCKER_USERNAME" --password-stdin  && docker tag journeymidnight/yig journeymidnight/yig:$TRAVIS_TAG && docker push journeymidnight/yig:$TRAVIS_TAG
+    on:
+      repo: journeymidnight/yig
+      tags: true
+
+  - provider: script
+    script: echo "$DOCKER_PASSWORD"|docker login -u "$DOCKER_USERNAME" --password-stdin  && docker push journeymidnight/yig
+    on:
+      repo: journeymidnight/yig
+      branch: master
