@@ -1,9 +1,9 @@
 package _go
 
 import (
+	"errors"
 	"io/ioutil"
 	"net/http"
-	"errors"
 )
 
 func HTTPRequestToGetObject(url string) (status int, val []byte, err error) {

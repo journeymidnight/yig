@@ -6,7 +6,6 @@ type Config struct {
 	EndPoint  string `ini:"host_base"`
 }
 
-
 // Load the config file if possible, but if there is an error return the default configuration file
 func loadConfigFile() (*Config, error) {
 	config := &Config{

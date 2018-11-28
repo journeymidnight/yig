@@ -1,0 +1,33 @@
+s3domain = "s3.test.com"
+region = "cn-bj-1"
+log_path = "/var/log/yig/yig.log"
+panic_log_path = "/var/log/yig/panic.log"
+log_level = 20
+pid_file = "/var/run/yig/yig.pid"
+api_listener = "0.0.0.0:80"
+admin_listener = "0.0.0.0:9000"
+admin_key = "secret"
+ssl_key_path = ""
+ssl_cert_path = ""
+
+# DebugMode
+debug_mode = true
+
+# IAM Config
+iam_endpoint = "http://10.11.144.11:9006"
+iam_key = "key"
+iam_secret = "secret"
+
+# Meta Config
+meta_cache_type = 2
+meta_store = "tidb"
+tidb_info = "root:@tcp(10.5.0.17:4000)/yig"
+keepalive = true
+zk_address = "hbase:2181"
+redis_address = "redis:6379"
+redis_connection_number = 10
+memory_cache_max_entry_count = 100000
+enable_data_cache = true
+
+# Ceph Config
+ceph_config_pattern = "/etc/ceph/*.conf"

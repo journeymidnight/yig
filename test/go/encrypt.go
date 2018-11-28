@@ -12,8 +12,7 @@ func (s3client *S3Client) PutEncryptObject(bucketName, key, value string) (err e
 		Key:                  aws.String(key),
 		Body:                 bytes.NewReader([]byte(value)),
 		SSECustomerAlgorithm: aws.String("AES256"),
-		SSECustomerKey: aws.String("hehehehe"),
-
+		SSECustomerKey:       aws.String("hehehehe"),
 	}
 	if _, err := s3client.Client.PutObject(params); err != nil {
 		return err

@@ -1,7 +1,7 @@
 BASEDIR=$(dirname $(pwd))
 echo ${BASEDIR}
 if [ -x "$BASEDIR/yig" ]; then 
-    sudo docker run --rm -d --name yig \
+    sudo docker run  -d --name yig \
 			 -p 80:80 \
 	                 -p 9000:9000 \
 			 -v ${BASEDIR}/integrate/cephconf:/etc/ceph/ \
@@ -13,7 +13,7 @@ if [ -x "$BASEDIR/yig" ]; then
 			 journeymidnight/yig /work/yig
     echo "started yig from local dir"
 else
-    sudo docker run --rm -d --name yig \
+    sudo docker run  -d --name yig \
 			 -p 80:80 \
 	                 -p 9000:9000 \
 			 -v ${BASEDIR}/integrate/cephconf:/etc/ceph/ \
