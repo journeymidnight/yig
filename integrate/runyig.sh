@@ -1,5 +1,6 @@
 BASEDIR=$(dirname $(pwd))
 echo ${BASEDIR}
+sudo docker rm --force yig
 if [ -x "$BASEDIR/yig" ]; then 
     sudo docker run  -d --name yig \
 			 -p 80:80 \
