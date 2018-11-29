@@ -10,10 +10,12 @@ import (
 	"sync"
 
 	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/crypto"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/meta"
+	"path"
 )
 
 const (
@@ -32,6 +34,7 @@ type YigStorage struct {
 	DataStorage map[string]*CephStorage
 	DataCache   DataCache
 	MetaStorage *meta.Meta
+	KMS         crypto.KMS
 	Logger      *log.Logger
 	Stopping    bool
 	WaitGroup   *sync.WaitGroup
@@ -39,10 +42,12 @@ type YigStorage struct {
 
 func New(logger *log.Logger, metaCacheType int, enableDataCache bool, CephConfigPattern string) *YigStorage {
 	metaStorage := meta.New(logger, meta.CacheType(metaCacheType))
+	kms := crypto.NewKMS()
 	yig := YigStorage{
 		DataStorage: make(map[string]*CephStorage),
 		DataCache:   newDataCache(enableDataCache),
 		MetaStorage: metaStorage,
+		KMS:         kms,
 		Logger:      logger,
 		Stopping:    false,
 		WaitGroup:   new(sync.WaitGroup),
@@ -75,27 +80,25 @@ func (y *YigStorage) Stop() {
 	helper.Logger.Println(5, "done")
 }
 
-func encryptionKeyFromSseRequest(sseRequest datatype.SseRequest) (encryptionKey []byte, err error) {
-
+func (yig *YigStorage) encryptionKeyFromSseRequest(sseRequest datatype.SseRequest, bucket, object string) (key []byte, encKey []byte, err error) {
 	switch sseRequest.Type {
 	case "": // no encryption
-		return nil, nil
-	case "KMS":
-		return nil, nil // not implemented yet
-	case "S3":
-		encryptionKey = make([]byte, ENCRYPTION_KEY_LENGTH)
-		_, err = io.ReadFull(rand.Reader, encryptionKey)
+		return nil, nil, nil
+	// not implemented yet
+	case crypto.S3KMS.String():
+		return nil, nil, ErrNotImplemented
+	case crypto.S3.String():
+		key, encKey, err := yig.KMS.GenerateKey(yig.KMS.GetKeyID(), crypto.Context{bucket: path.Join(bucket, object)})
 		if err != nil {
-			return
+			return nil, nil, err
 		}
-	case "C":
-		encryptionKey = sseRequest.SseCustomerKey
+		return key[:], encKey, nil
+	case crypto.SSEC.String():
+		return sseRequest.SseCustomerKey, nil, nil
 	default:
 		err = ErrInvalidSseHeader
 		return
 	}
-
-	return
 }
 
 func newInitializationVector() (initializationVector []byte, err error) {

@@ -98,7 +98,6 @@ func Test_BucketPolicySample_1(t *testing.T) {
 
 	//Anonymous to get
 	url := "http://" + *sc.Client.Config.Endpoint + string(os.PathSeparator) + TEST_BUCKET + string(os.PathSeparator) + TEST_KEY
-
 	statusCode, _, err := HTTPRequestToGetObject(url)
 	if err != nil {
 		t.Fatal("GetObject err:", err)

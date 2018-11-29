@@ -38,7 +38,7 @@ type Object struct {
 	NullVersion      bool   // if this entry has `null` version
 	DeleteMarker     bool   // if this entry is a delete marker
 	VersionId        string // version cache
-	// type of Server Side Encryption, could be "KMS", "S3", "C"(custom), or ""(none),
+	// type of Server Side Encryption, could be "SSE-KMS", "SSE-S3", "SSE-C"(custom), or ""(none),
 	// KMS is not implemented yet
 	SseType string
 	// encryption key for SSE-S3, the key itself is encrypted with SSE_S3_MASTER_KEY,

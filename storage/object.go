@@ -9,12 +9,14 @@ import (
 	"time"
 
 	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/crypto"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
 	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/signature"
+	"path"
 	"sync"
 )
 
@@ -168,8 +170,13 @@ func generateTransPartObjectFunc(cephCluster *CephStorage, object *meta.Object, 
 func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 	length int64, writer io.Writer, sseRequest datatype.SseRequest) (err error) {
 	var encryptionKey []byte
-	if object.SseType == "S3" {
-		encryptionKey = object.EncryptionKey
+	if object.SseType == crypto.S3.String() {
+		key, err := yig.KMS.UnsealKey(yig.KMS.GetKeyID(), object.EncryptionKey,
+			crypto.Context{object.BucketName: path.Join(object.BucketName, object.Name)})
+		if err != nil {
+			return err
+		}
+		encryptionKey = key[:]
 	} else { // SSE-C
 		if len(sseRequest.CopySourceSseCustomerKey) != 0 {
 			encryptionKey = sseRequest.CopySourceSseCustomerKey
@@ -453,8 +460,15 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	size int64, data io.Reader, metadata map[string]string, acl datatype.Acl,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
 
+	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, bucketName, objectName)
+	helper.Debugln("get encryptionKey:", encryptionKey, "cipherKey:", cipherKey, "err:", err)
+	if err != nil {
+		return
+	}
+
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
+		helper.Debugln("get bucket", bucket, "err:", err)
 		return
 	}
 
@@ -486,10 +500,6 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	oid := cephCluster.GetUniqUploadName()
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
 
-	encryptionKey, err := encryptionKeyFromSseRequest(sseRequest)
-	if err != nil {
-		return
-	}
 	var initializationVector []byte
 	if len(encryptionKey) != 0 {
 		initializationVector, err = newInitializationVector()
@@ -557,8 +567,8 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		NullVersion:      helper.Ternary(bucket.Versioning == "Enabled", false, true).(bool),
 		DeleteMarker:     false,
 		SseType:          sseRequest.Type,
-		EncryptionKey: helper.Ternary(sseRequest.Type == "S3",
-			encryptionKey, []byte("")).([]byte),
+		EncryptionKey: helper.Ternary(sseRequest.Type == crypto.S3.String(),
+			cipherKey, []byte("")).([]byte),
 		InitializationVector: initializationVector,
 		CustomAttributes:     attrs,
 	}
@@ -609,6 +619,14 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, credential iam.Credential,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
 
+	var oid string
+	var maybeObjectToRecycle objectToRecycle
+	var encryptionKey []byte
+	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, targetObject.BucketName, targetObject.Name)
+	if err != nil {
+		return
+	}
+
 	bucket, err := yig.MetaStorage.GetBucket(targetObject.BucketName, true)
 	if err != nil {
 		return
@@ -630,13 +648,6 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 	cephCluster, poolName := yig.PickOneClusterAndPool(targetObject.BucketName,
 		targetObject.Name, targetObject.Size)
 
-	var oid string
-	var maybeObjectToRecycle objectToRecycle
-	var encryptionKey []byte
-	encryptionKey, err = encryptionKeyFromSseRequest(sseRequest)
-	if err != nil {
-		return
-	}
 	if len(targetObject.Parts) != 0 {
 		var targetParts map[int]*meta.Part = make(map[int]*meta.Part, len(targetObject.Parts))
 		//		etaglist := make([]string, len(sourceObject.Parts))
@@ -748,8 +759,8 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 	targetObject.NullVersion = helper.Ternary(bucket.Versioning == "Enabled", false, true).(bool)
 	targetObject.DeleteMarker = false
 	targetObject.SseType = sseRequest.Type
-	targetObject.EncryptionKey = helper.Ternary(sseRequest.Type == "S3",
-		encryptionKey, []byte("")).([]byte)
+	targetObject.EncryptionKey = helper.Ternary(sseRequest.Type == crypto.S3.String(),
+		cipherKey, []byte("")).([]byte)
 
 	result.LastModified = targetObject.LastModifiedTime
 

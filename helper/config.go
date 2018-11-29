@@ -45,6 +45,17 @@ type Config struct {
 	MetaStore                  string `toml:"meta_store"`
 	TidbInfo                   string `toml:"tidb_info"`
 	KeepAlive                  bool   `toml:"keepalive"`
+
+	KMS KMSConfig `toml:"kms"`
+}
+
+type KMSConfig struct {
+	Type     string
+	Endpoint string
+	Id       string `toml:"kms_id"`
+	Secret   string `toml:"kms_secret"`
+	Version  int
+	Keyname  string
 }
 
 var CONFIG Config
@@ -108,5 +119,7 @@ func MarshalTOMLConfig() error {
 		1, c.LcThread).(int)
 	CONFIG.LogLevel = Ternary(c.LogLevel == 0, 5, c.LogLevel).(int)
 	CONFIG.MetaStore = Ternary(c.MetaStore == "", "tidb", c.MetaStore).(string)
+
+	CONFIG.KMS = c.KMS
 	return nil
 }

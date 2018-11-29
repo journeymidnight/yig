@@ -14,7 +14,6 @@ func NewS3() *S3Client {
 	if err != nil {
 		panic("New S3 err:" + err.Error())
 	}
-
 	return &S3Client{SessionNew(c)}
 }
 
