@@ -69,12 +69,13 @@ type Grant struct {
 }
 
 type Grantee struct {
-	XMLName     xml.Name `xml:"Grantee"`
-	XmlnsXsi    string   `xml:"xmlns:xsi,attr"`
-	XsiType     string   `xml:"xsi:type,attr"`
-	URI         string   `xml:"URI,omitempty"`
-	ID          string   `xml:"ID,omitempty"`
-	DisplayName string   `xml:"DisplayName,omitempty"`
+	XMLName      xml.Name `xml:"Grantee"`
+	XmlnsXsi     string   `xml:"xmlns xsi,attr"`
+	XsiType      string   `xml:"http://www.w3.org/2001/XMLSchema-instance type,attr"`
+	URI          string   `xml:"URI,omitempty"`
+	ID           string   `xml:"ID,omitempty"`
+	DisplayName  string   `xml:"DisplayName,omitempty"`
+	EmailAddress string   `xml:"EmailAddress,omitempty"`
 }
 
 func IsValidCannedAcl(acl Acl) (err error) {
@@ -91,6 +92,7 @@ func GetCannedAclFromPolicy(policy AccessControlPolicy) (acl Acl, err error) {
 	var canonUser bool
 	var group bool
 	for _, grant := range policy.AccessControlList {
+		helper.Debugln("GetCannedAclFromPolicy")
 		switch grant.Grantee.XsiType {
 		case ACL_TYPE_CANON_USER:
 			if grant.Grantee.ID != aclOwner.ID {
