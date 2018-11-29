@@ -28,6 +28,7 @@ const (
 
 const (
 	XMLNSXSI = "http://www.w3.org/2001/XMLSchema-instance"
+	XMLNS = "http://s3.amazonaws.com/doc/2006-03-01/"
 )
 
 const (
@@ -69,8 +70,8 @@ type Grant struct {
 
 type Grantee struct {
 	XMLName     xml.Name `xml:"Grantee"`
-	XmlnsXsi    string   `xml:"xmlns xsi,attr"`
-	XsiType     string   `xml:"http://www.w3.org/2001/XMLSchema-instance type,attr"`
+	XmlnsXsi    string   `xml:"xmlns:xsi,attr"`
+	XsiType     string   `xml:"xsi:type,attr"`
 	URI         string   `xml:"URI,omitempty"`
 	ID          string   `xml:"ID,omitempty"`
 	DisplayName string   `xml:"DisplayName,omitempty"`
@@ -152,6 +153,7 @@ func CreatePolicyFromCanned(owner Owner, bucketOwner Owner, acl Acl) (
 
 	policy.ID = owner.ID
 	policy.DisplayName = owner.DisplayName
+	policy.Xmlns = XMLNS
 	grant, err := createGrant(ACL_TYPE_CANON_USER, owner, ACL_PERM_FULL_CONTROL, "")
 	if err != nil {
 		return policy, err
