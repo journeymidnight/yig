@@ -13,3 +13,5 @@ lc
 yig.log
 *.swp
 yig
+*.rpm
+rpm-build/
