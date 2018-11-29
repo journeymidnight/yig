@@ -446,12 +446,14 @@ func (api ObjectAPIHandlers) GetBucketLifeCycleHandler(w http.ResponseWriter, r 
 		return
 	}
 
-	lcBuffer, err := xml.Marshal(lc)
+	lcBuffer, err := xmlFormat(lc)
 	if err != nil {
 		helper.ErrorIf(err, "Failed to marshal lc XML for bucket", bucketName)
 		WriteErrorResponse(w, r, ErrInternalError)
 		return
 	}
+
+	setXmlHeader(w, lcBuffer)
 	WriteSuccessResponse(w, lcBuffer)
 
 }
@@ -548,12 +550,14 @@ func (api ObjectAPIHandlers) GetBucketAclHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	aclBuffer, err := xml.Marshal(policy)
+	aclBuffer, err := xmlFormat(policy)
 	if err != nil {
 		helper.ErrorIf(err, "Failed to marshal acl XML for bucket", bucketName)
 		WriteErrorResponse(w, r, ErrInternalError)
 		return
 	}
+
+	setXmlHeader(w, aclBuffer)
 	WriteSuccessResponse(w, aclBuffer)
 }
 
@@ -637,12 +641,14 @@ func (api ObjectAPIHandlers) GetBucketCorsHandler(w http.ResponseWriter, r *http
 		return
 	}
 
-	corsBuffer, err := xml.Marshal(cors)
+	corsBuffer, err := xmlFormat(cors)
 	if err != nil {
 		helper.ErrorIf(err, "Failed to marshal CORS XML for bucket", bucketName)
 		WriteErrorResponse(w, r, ErrInternalError)
 		return
 	}
+
+	setXmlHeader(w, corsBuffer)
 	WriteSuccessResponse(w, corsBuffer)
 }
 
@@ -663,12 +669,14 @@ func (api ObjectAPIHandlers) GetBucketVersioningHandler(w http.ResponseWriter, r
 		return
 	}
 
-	versioningBuffer, err := xml.Marshal(versioning)
+	versioningBuffer, err := xmlFormat(versioning)
 	if err != nil {
 		helper.ErrorIf(err, "Failed to marshal versioning XML for bucket", bucketName)
 		WriteErrorResponse(w, r, ErrInternalError)
 		return
 	}
+
+	setXmlHeader(w, versioningBuffer)
 	WriteSuccessResponse(w, versioningBuffer)
 }
 

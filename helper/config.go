@@ -2,8 +2,8 @@ package helper
 
 import (
 	"github.com/BurntSushi/toml"
-	"time"
 	"io/ioutil"
+	"time"
 )
 
 const (
@@ -11,8 +11,8 @@ const (
 )
 
 type Config struct {
-	S3Domain                   string `toml:"s3domain"` // Domain name of YIG
-	Region                     string `toml:"region"` // Region name this instance belongs to, e.g cn-bj-1
+	S3Domain                   string `toml:"s3domain"`     // Domain name of YIG
+	Region                     string `toml:"region"`       // Region name this instance belongs to, e.g cn-bj-1
 	IamEndpoint                string `toml:"iam_endpoint"` // le IAM endpoint address
 	IamKey                     string `toml:"iam_key"`
 	IamSecret                  string `toml:"iam_secret"`
@@ -24,24 +24,24 @@ type Config struct {
 	SSLKeyPath                 string `toml:"ssl_key_path"`
 	SSLCertPath                string `toml:"ssl_cert_path"`
 	ZookeeperAddress           string `toml:"zk_address"`
-	RedisAddress               string `toml:"redis_address"` // redis connection string, e.g localhost:1234
+	RedisAddress               string `toml:"redis_address"`           // redis connection string, e.g localhost:1234
 	RedisConnectionNumber      int    `toml:"redis_connection_number"` // number of connections to redis(i.e max concurrent request number)
-	RedisPassword              string  // redis auth password
+	RedisPassword              string // redis auth password
 	InMemoryCacheMaxEntryCount int    `toml:"memory_cache_max_entry_count"`
-	InstanceId                 string  // if empty, generated one at server startup
+	InstanceId                 string // if empty, generated one at server startup
 	ConcurrentRequestLimit     int
-	HbaseZnodeParent           string  // won't change default("/hbase") if leave this option empty
-	HbaseTimeout               time.Duration     // in seconds
-	DebugMode                  bool   `toml:"debug_mode"`
-	AdminKey                   string `toml:"admin_key"` //used for tools/admin to communicate with yig
+	HbaseZnodeParent           string        // won't change default("/hbase") if leave this option empty
+	HbaseTimeout               time.Duration // in seconds
+	DebugMode                  bool          `toml:"debug_mode"`
+	AdminKey                   string        `toml:"admin_key"` //used for tools/admin to communicate with yig
 	GcThread                   int
 	MetaCacheType              int    `toml:"meta_cache_type"`
 	EnableDataCache            bool   `toml:"enable_data_cache"`
-	LcThread                   int     //used for tools/lc only, set worker numbers to do lc
-	LcDebug                    bool    //used for tools/lc only, if this was set true, will treat days as seconds
+	LcThread                   int    //used for tools/lc only, set worker numbers to do lc
+	LcDebug                    bool   //used for tools/lc only, if this was set true, will treat days as seconds
 	LogLevel                   int    `toml:"log_level"` //1-20
 	CephConfigPattern          string `toml:"ceph_config_pattern"`
-	ReservedOrigins            string  // www.ccc.com,www.bbb.com,127.0.0.1
+	ReservedOrigins            string // www.ccc.com,www.bbb.com,127.0.0.1
 	MetaStore                  string `toml:"meta_store"`
 	TidbInfo                   string `toml:"tidb_info"`
 	KeepAlive                  bool   `toml:"keepalive"`
@@ -91,21 +91,21 @@ func MarshalTOMLConfig() error {
 	CONFIG.TidbInfo = c.TidbInfo
 	CONFIG.KeepAlive = c.KeepAlive
 	CONFIG.RedisConnectionNumber = Ternary(c.RedisConnectionNumber == 0,
-			10, c.RedisConnectionNumber).(int)
+		10, c.RedisConnectionNumber).(int)
 	CONFIG.InMemoryCacheMaxEntryCount = Ternary(c.InMemoryCacheMaxEntryCount == 0,
-			100000, c.InMemoryCacheMaxEntryCount).(int)
+		100000, c.InMemoryCacheMaxEntryCount).(int)
 	CONFIG.InstanceId = Ternary(c.InstanceId == "",
-			string(GenerateRandomId()), c.InstanceId).(string)
+		string(GenerateRandomId()), c.InstanceId).(string)
 	CONFIG.ConcurrentRequestLimit = Ternary(c.ConcurrentRequestLimit == 0,
-	        10000, c.ConcurrentRequestLimit).(int)
+		10000, c.ConcurrentRequestLimit).(int)
 	CONFIG.HbaseZnodeParent = Ternary(c.HbaseZnodeParent == "",
-			"/hbase", c.HbaseZnodeParent).(string)
+		"/hbase", c.HbaseZnodeParent).(string)
 	CONFIG.HbaseTimeout = Ternary(c.HbaseTimeout == 0, 30*time.Second,
-	        c.HbaseTimeout).(time.Duration)
+		c.HbaseTimeout).(time.Duration)
 	CONFIG.GcThread = Ternary(c.GcThread == 0,
-			1, c.GcThread).(int)
+		1, c.GcThread).(int)
 	CONFIG.LcThread = Ternary(c.LcThread == 0,
-			1, c.LcThread).(int)
+		1, c.LcThread).(int)
 	CONFIG.LogLevel = Ternary(c.LogLevel == 0, 5, c.LogLevel).(int)
 	CONFIG.MetaStore = Ternary(c.MetaStore == "", "tidb", c.MetaStore).(string)
 	return nil

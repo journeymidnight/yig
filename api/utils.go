@@ -22,7 +22,9 @@ import (
 	"encoding/xml"
 	"errors"
 	"io"
+	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -115,4 +117,20 @@ func checkBucketNameCommon(bucketName string, strict bool) (err error) {
 // CheckValidBucketName - checks if we have a valid input bucket name.
 func CheckValidBucketName(bucketName string) (err error) {
 	return checkBucketNameCommon(bucketName, false)
+}
+
+func xmlFormat(data interface{}) ([]byte, error) {
+	buffer, err := xml.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+	// add XML header
+	headerBytes := []byte(xml.Header)
+	output := append(headerBytes, buffer...)
+	return output, nil
+}
+
+func setXmlHeader(w http.ResponseWriter, body []byte) {
+	w.Header().Set("Content-Type", "application/xml")
+	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 }
