@@ -753,7 +753,7 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	aclBuffer, err := xml.Marshal(policy)
+	aclBuffer, err := xmlFormat(policy)
 	if err != nil {
 		helper.ErrorIf(err, "Failed to marshal acl XML for object", objectName)
 		WriteErrorResponse(w, r, ErrInternalError)
@@ -763,6 +763,8 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 	if version != "" {
 		w.Header().Set("x-amz-version-id", version)
 	}
+
+	setXmlHeader(w, aclBuffer)
 	WriteSuccessResponse(w, aclBuffer)
 }
 
@@ -1247,12 +1249,13 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	location := GetLocation(r)
 	// Generate complete multipart response.
 	response := GenerateCompleteMultpartUploadResponse(bucketName, objectName, location, result.ETag)
-	encodedSuccessResponse, err := xml.Marshal(response)
+	encodedSuccessResponse, err := xmlFormat(response)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to parse CompleteMultipartUpload response")
 		WriteErrorResponseNoHeader(w, r, ErrInternalError, r.URL.Path)
 		return
 	}
+
 	if result.VersionId != "" {
 		w.Header().Set("x-amz-version-id", result.VersionId)
 	}
@@ -1270,6 +1273,8 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 		w.Header().Set("X-Amz-Server-Side-Encryption-Customer-Key-Md5",
 			result.SseCustomerKeyMd5Base64)
 	}
+
+	setXmlHeader(w, encodedSuccessResponse)
 	// write success response.
 	w.WriteHeader(http.StatusOK)
 	w.Write(encodedSuccessResponse)
