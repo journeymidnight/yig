@@ -136,6 +136,7 @@ func setXmlHeader(w http.ResponseWriter, body []byte) {
 	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 }
 
+
 // hasServerSideEncryptionHeader returns true if the given HTTP header
 // contains server-side-encryption.
 func hasServerSideEncryptionHeader(header http.Header) bool {
