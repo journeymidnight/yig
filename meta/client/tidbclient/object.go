@@ -108,8 +108,8 @@ func (t *TidbClient) GetAllObject(bucketName, objectName, version string) (objec
 }
 
 func (t *TidbClient) UpdateObjectAcl(object *Object) error {
-	sql := object.GetUpdateAclSql()
-	_, err := t.Client.Exec(sql)
+	sql, args := object.GetUpdateAclSql()
+	_, err := t.Client.Exec(sql, args...)
 	return err
 }
 
@@ -123,14 +123,14 @@ func (t *TidbClient) PutObject(object *Object) error {
 		}
 	}()
 
-	sql := object.GetCreateSql()
-	_, err = tx.Exec(sql)
+	sql, args := object.GetCreateSql()
+	_, err = tx.Exec(sql, args...)
 	if object.Parts != nil {
 		v := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
 		version := strconv.FormatUint(v, 10)
 		for _, p := range object.Parts {
-			psql := p.GetCreateSql(object.BucketName, object.Name, version)
-			_, err = tx.Exec(psql)
+			psql, args := p.GetCreateSql(object.BucketName, object.Name, version)
+			_, err = tx.Exec(psql, args...)
 			if err != nil {
 				return err
 			}

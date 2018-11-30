@@ -197,18 +197,20 @@ func (o *Object) GetVersionId() string {
 
 //Tidb related function
 
-func (o *Object) GetCreateSql() string {
+func (o *Object) GetCreateSql() (string, []interface{}) {
 	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
 	customAttributes, _ := json.Marshal(o.CustomAttributes)
 	acl, _ := json.Marshal(o.ACL)
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
-	sql := fmt.Sprintf("insert into objects values('%s','%s',%d,'%s','%s','%s','%d','%s','%s','%s','%s','%s','%s',%t,%t,'%s','%s','%s')", o.BucketName, o.Name, version, o.Location, o.Pool, o.OwnerId, o.Size, o.ObjectId, lastModifiedTime, o.Etag, o.ContentType, customAttributes, acl, o.NullVersion, o.DeleteMarker, o.SseType, o.EncryptionKey, o.InitializationVector)
-	return sql
+	sql := "insert into objects values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+	args := []interface{}{o.BucketName, o.Name, version, o.Location, o.Pool, o.OwnerId, o.Size, o.ObjectId, lastModifiedTime, o.Etag, o.ContentType, customAttributes, acl, o.NullVersion, o.DeleteMarker, o.SseType, o.EncryptionKey, o.InitializationVector}
+	return sql, args
 }
 
-func (o *Object) GetUpdateAclSql() string {
+func (o *Object) GetUpdateAclSql() (string, []interface{}) {
 	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
 	acl, _ := json.Marshal(o.ACL)
-	sql := fmt.Sprintf("update objects set acl='%s' where bucketname='%s' and name='%s' and version=%d", acl, o.BucketName, o.Name, version)
-	return sql
+	sql := "update objects set acl=? where bucketname=? and name=? and version=?"
+	args := []interface{}{acl, o.BucketName, o.Name, version}
+	return sql, args
 }

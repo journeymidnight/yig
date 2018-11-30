@@ -33,7 +33,7 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 	}
 	processed, err := yig.MetaStorage.Client.CheckAndPutBucket(bucket)
 	if err != nil {
-		yig.Logger.Println(5, "Error making hbase checkandput: ", err)
+		yig.Logger.Println(5, "Error making checkandput: ", err)
 		return err
 	}
 	if !processed { // bucket already exists, return accurate message

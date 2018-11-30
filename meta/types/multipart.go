@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/xxtea/xxtea-go/xxtea"
 	"math"
@@ -146,16 +145,16 @@ func valuesForParts(parts map[int]*Part) (values map[string][]byte, err error) {
 	return
 }
 
-func (p *Part) GetCreateSql(bucketname, objectname, version string) string {
-	sql := fmt.Sprintf("insert into objectpart(partnumber,size,objectid,offset,etag,lastmodified,initializationvector,bucketname,objectname,version) "+
-		"values(%d,%d,'%s',%d,'%s','%s','%s','%s','%s','%s')",
-		p.PartNumber, p.Size, p.ObjectId, p.Offset, p.Etag, p.LastModified, p.InitializationVector, bucketname, objectname, version)
-	return sql
+func (p *Part) GetCreateSql(bucketname, objectname, version string) (string, []interface{}) {
+	sql := "insert into objectpart(partnumber,size,objectid,offset,etag,lastmodified,initializationvector,bucketname,objectname,version) " +
+		"values(?,?,?,?,?,?,?,?,?,?)"
+	args := []interface{}{p.PartNumber, p.Size, p.ObjectId, p.Offset, p.Etag, p.LastModified, p.InitializationVector, bucketname, objectname, version}
+	return sql, args
 }
 
-func (p *Part) GetCreateGcSql(bucketname, objectname string, version uint64) string {
-	sql := fmt.Sprintf("insert into gcpart(partnumber,size,objectid,offset,etag,lastmodified,initializationvector,bucketname,objectname,version) "+
-		"values(%d,%d,'%s',%d,'%s','%s','%s','%s','%s',%d)",
-		p.PartNumber, p.Size, p.ObjectId, p.Offset, p.Etag, p.LastModified, p.InitializationVector, bucketname, objectname, version)
-	return sql
+func (p *Part) GetCreateGcSql(bucketname, objectname string, version uint64) (string, []interface{}) {
+	sql := "insert into gcpart(partnumber,size,objectid,offset,etag,lastmodified,initializationvector,bucketname,objectname,version) " +
+		"values(?,?,?,?,?,?,?,?,?,?)"
+	args := []interface{}{p.PartNumber, p.Size, p.ObjectId, p.Offset, p.Etag, p.LastModified, p.InitializationVector, bucketname, objectname, version}
+	return sql, args
 }

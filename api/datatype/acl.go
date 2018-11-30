@@ -28,7 +28,7 @@ const (
 
 const (
 	XMLNSXSI = "http://www.w3.org/2001/XMLSchema-instance"
-	XMLNS = "http://s3.amazonaws.com/doc/2006-03-01/"
+	XMLNS    = "http://s3.amazonaws.com/doc/2006-03-01/"
 )
 
 const (

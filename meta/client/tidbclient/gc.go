@@ -35,8 +35,8 @@ func (t *TidbClient) PutObjectToGarbageCollection(object *Object) error {
 		return err
 	}
 	for _, p := range object.Parts {
-		psql := p.GetCreateGcSql(o.BucketName, o.ObjectName, version)
-		_, err = tx.Exec(psql)
+		psql, args := p.GetCreateGcSql(o.BucketName, o.ObjectName, version)
+		_, err = tx.Exec(psql, args...)
 		if err != nil {
 			return err
 		}
