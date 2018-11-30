@@ -1,6 +1,7 @@
 package _go
 
 import (
+	. "github.com/journeymidnight/yig/test/go/lib"
 	"testing"
 )
 

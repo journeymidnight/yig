@@ -1,6 +1,9 @@
 package _go
 
-import "testing"
+import (
+	. "github.com/journeymidnight/yig/test/go/lib"
+	"testing"
+)
 
 func Test_Encrypt_Prepare(t *testing.T) {
 	sc := NewS3()

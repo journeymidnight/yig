@@ -1,4 +1,4 @@
-package _go
+package lib
 
 import (
 	"errors"
