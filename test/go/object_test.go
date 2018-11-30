@@ -1,14 +1,10 @@
 package _go
 
 import (
+	. "github.com/journeymidnight/yig/test/go/lib"
 	"net/http"
 	"testing"
 	"time"
-)
-
-const (
-	TEST_KEY   = "testput"
-	TEST_VALUE = "valueput"
 )
 
 func Test_Object_Prepare(t *testing.T) {

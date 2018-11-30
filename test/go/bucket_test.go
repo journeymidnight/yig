@@ -1,11 +1,8 @@
 package _go
 
 import (
+	. "github.com/journeymidnight/yig/test/go/lib"
 	"testing"
-)
-
-const (
-	TEST_BUCKET = "mybucket"
 )
 
 func Test_MakeBucket(t *testing.T) {
