@@ -58,8 +58,8 @@ func (t *TidbClient) GetBucket(bucketName string) (bucket Bucket, err error) {
 
 //Actually this method is used to update bucket
 func (t *TidbClient) PutBucket(bucket Bucket) error {
-	sql := bucket.GetUpdateSql()
-	_, err := t.Client.Exec(sql)
+	sql, args := bucket.GetUpdateSql()
+	_, err := t.Client.Exec(sql, args...)
 	if err != nil {
 		return err
 	}
@@ -78,8 +78,8 @@ func (t *TidbClient) CheckAndPutBucket(bucket Bucket) (bool, error) {
 	} else {
 		processed = true
 	}
-	sql := bucket.GetCreateSql()
-	_, err = t.Client.Exec(sql)
+	sql, args := bucket.GetCreateSql()
+	_, err = t.Client.Exec(sql, args...)
 	return processed, err
 }
 

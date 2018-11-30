@@ -70,25 +70,25 @@ func (b *Bucket) GetValues() (values map[string]map[string][]byte, err error) {
 }
 
 //Tidb related function
-func (b Bucket) GetUpdateSql() string {
+func (b Bucket) GetUpdateSql() (string, []interface{}) {
 	acl, _ := json.Marshal(b.ACL)
 	cors, _ := json.Marshal(b.CORS)
 	lc, _ := json.Marshal(b.LC)
 	bucket_policy, _ := json.Marshal(b.Policy)
-	sql := fmt.Sprintf("update buckets set bucketname='%s',acl='%s',policy='%s',cors='%s',lc='%s',uid='%s',usages=%d,versioning='%s' where bucketname='%s'", b.Name, acl, bucket_policy, cors, lc, b.OwnerId, b.Usage, b.Versioning, b.Name)
-
-	return sql
+	sql := "update buckets set bucketname=?,acl=?,policy=?,cors=?,lc=?,uid=?,usages=?,versioning=? where bucketname=?"
+	args := []interface{}{b.Name, acl, bucket_policy, cors, lc, b.OwnerId, b.Usage, b.Versioning, b.Name}
+	return sql, args
 }
 
-func (b Bucket) GetCreateSql() string {
+func (b Bucket) GetCreateSql() (string, []interface{}) {
 	acl, _ := json.Marshal(b.ACL)
 	cors, _ := json.Marshal(b.CORS)
 	lc, _ := json.Marshal(b.LC)
 	bucket_policy, _ := json.Marshal(b.Policy)
 	createTime := b.CreateTime.Format(TIME_LAYOUT_TIDB)
 
-	sql := fmt.Sprintf("insert into buckets(bucketname,acl,cors,lc,uid,policy,createtime,usages,versioning) "+
-		"values('%s','%s','%s','%s','%s','%s','%s',%d,'%s');",
-		b.Name, acl, cors, lc, b.OwnerId, bucket_policy, createTime, b.Usage, b.Versioning)
-	return sql
+	sql := "insert into buckets(bucketname,acl,cors,lc,uid,policy,createtime,usages,versioning) " +
+		"values(?,?,?,?,?,?,?,?,?);"
+	args := []interface{}{b.Name, acl, cors, lc, b.OwnerId, bucket_policy, createTime, b.Usage, b.Versioning}
+	return sql, args
 }
