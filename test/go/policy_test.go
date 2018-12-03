@@ -90,6 +90,8 @@ func Test_DeleteBucketPolicy(t *testing.T) {
 
 }
 
+// This test case is used to test whether the result of obtaining an Object by an external user is correct
+// before setting the bucket policy and setting the bucket policy.
 func Test_BucketPolicySample_1(t *testing.T) {
 	sc := NewS3()
 	err := sc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
