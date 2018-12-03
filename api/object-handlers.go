@@ -703,6 +703,7 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 		acl, err = getAclFromHeader(r.Header)
 	} else {
 		aclBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 1024))
+		helper.Debug("acl body:\n %s", string(aclBuffer))
 		if err != nil {
 			helper.ErrorIf(err, "Unable to read acls body")
 			WriteErrorResponse(w, r, ErrInvalidAcl)
