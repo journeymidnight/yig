@@ -13,6 +13,7 @@ import (
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
+	"github.com/journeymidnight/yig/iam/common"
 	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/signature"
@@ -297,7 +298,7 @@ func copyEncryptedPart(pool string, part *meta.Part, cephCluster *CephStorage, r
 }
 
 func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
-	version string, credential iam.Credential) (object *meta.Object, err error) {
+	version string, credential common.Credential) (object *meta.Object, err error) {
 
 	_, err = yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
@@ -342,7 +343,7 @@ func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 }
 
 func (yig *YigStorage) GetObjectAcl(bucketName string, objectName string,
-	version string, credential iam.Credential) (policy datatype.AccessControlPolicy, err error) {
+	version string, credential common.Credential) (policy datatype.AccessControlPolicy, err error) {
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
@@ -387,7 +388,7 @@ func (yig *YigStorage) GetObjectAcl(bucketName string, objectName string,
 }
 
 func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, version string,
-	policy datatype.AccessControlPolicy, acl datatype.Acl, credential iam.Credential) error {
+	policy datatype.AccessControlPolicy, acl datatype.Acl, credential common.Credential) error {
 
 	if acl.CannedAcl == "" {
 		newCannedAcl, err := datatype.GetCannedAclFromPolicy(policy)
@@ -456,7 +457,7 @@ func (yig *YigStorage) delTableEntryForRollback(object *meta.Object, objMap *met
 //
 // SHA256 is calculated only for v4 signed authentication
 // Encryptor is enabled when user set SSE headers
-func (yig *YigStorage) PutObject(bucketName string, objectName string, credential iam.Credential,
+func (yig *YigStorage) PutObject(bucketName string, objectName string, credential common.Credential,
 	size int64, data io.Reader, metadata map[string]string, acl datatype.Acl,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
 
@@ -616,7 +617,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	return result, nil
 }
 
-func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, credential iam.Credential,
+func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, credential common.Credential,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
 
 	var oid string
@@ -996,7 +997,7 @@ func (yig *YigStorage) addDeleteMarker(bucket meta.Bucket, objectName string,
 //
 // See http://docs.aws.amazon.com/AmazonS3/latest/dev/Versioning.html
 func (yig *YigStorage) DeleteObject(bucketName string, objectName string, version string,
-	credential iam.Credential) (result datatype.DeleteObjectResult, err error) {
+	credential common.Credential) (result datatype.DeleteObjectResult, err error) {
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {

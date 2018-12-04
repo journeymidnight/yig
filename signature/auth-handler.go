@@ -27,7 +27,7 @@ import (
 	"strings"
 
 	. "github.com/journeymidnight/yig/error"
-	"github.com/journeymidnight/yig/iam"
+	"github.com/journeymidnight/yig/iam/common"
 )
 
 // Verify if request has AWS Signature
@@ -114,7 +114,7 @@ func sumMD5(data []byte) []byte {
 }
 
 // A helper function to verify if request has valid AWS Signature
-func IsReqAuthenticated(r *http.Request) (c iam.Credential, e error) {
+func IsReqAuthenticated(r *http.Request) (c common.Credential, e error) {
 	payload, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		return c, ErrInternalError

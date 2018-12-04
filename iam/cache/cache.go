@@ -1,8 +1,9 @@
-package iam
+package cache
 
 import (
 	"sync"
 	"time"
+	"github.com/journeymidnight/yig/iam/common"
 )
 
 const (
@@ -12,7 +13,7 @@ const (
 
 type cacheEntry struct {
 	createTime time.Time
-	credential Credential
+	credential common.Credential
 }
 
 // maps access key to Credential object
@@ -21,41 +22,41 @@ type cache struct {
 	lock  *sync.RWMutex
 }
 
-var iamCache *cache
+var IamCache *cache
 
 func cacheInvalidator() {
-	if iamCache == nil {
+	if IamCache == nil {
 		panic("IAM cache not initialized yet")
 	}
 	for {
 		keysToExpire := make([]string, 0)
 		now := time.Now()
-		iamCache.lock.Lock()
-		for k, entry := range iamCache.cache {
+		IamCache.lock.Lock()
+		for k, entry := range IamCache.cache {
 			if entry.createTime.Add(CACHE_EXPIRE_TIME).Before(now) {
 				keysToExpire = append(keysToExpire, k)
 			}
 		}
 		for _, key := range keysToExpire {
-			delete(iamCache.cache, key)
+			delete(IamCache.cache, key)
 		}
-		iamCache.lock.Unlock()
+		IamCache.lock.Unlock()
 		time.Sleep(CACHE_CHECK_TIME)
 	}
 }
 
-func initializeIamCache() {
-	if iamCache != nil {
+func InitializeIamCache() {
+	if IamCache != nil {
 		return
 	}
-	iamCache = &cache{
+	IamCache = &cache{
 		cache: make(map[string]cacheEntry),
 		lock:  new(sync.RWMutex),
 	}
 	go cacheInvalidator()
 }
 
-func (c *cache) get(key string) (credential Credential, hit bool) {
+func (c *cache) Get(key string) (credential common.Credential, hit bool) {
 	c.lock.RLock()
 	entry, hit := c.cache[key]
 	c.lock.RUnlock()
@@ -65,7 +66,7 @@ func (c *cache) get(key string) (credential Credential, hit bool) {
 	return credential, hit
 }
 
-func (c *cache) set(key string, credential Credential) {
+func (c *cache) Set(key string, credential common.Credential) {
 	entry := cacheEntry{
 		createTime: time.Now(),
 		credential: credential,

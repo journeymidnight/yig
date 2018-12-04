@@ -14,6 +14,7 @@ import (
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
+	"github.com/journeymidnight/yig/iam/common"
 	//	"net"
 	"strconv"
 )
@@ -130,7 +131,7 @@ func dictate(secretKey string, stringToSign string, signature []byte) error {
 	return nil
 }
 
-func DoesSignatureMatchV2(r *http.Request) (credential iam.Credential, err error) {
+func DoesSignatureMatchV2(r *http.Request) (credential common.Credential, err error) {
 	authorizationHeader := r.Header.Get("Authorization")
 	splitHeader := strings.Split(authorizationHeader, " ")
 	// Authorization = "AWS" + " " + AWSAccessKeyId + ":" + Signature;
@@ -189,7 +190,7 @@ func DoesSignatureMatchV2(r *http.Request) (credential iam.Credential, err error
 	return credential, dictate(credential.SecretAccessKey, stringToSign, signature)
 }
 
-func DoesPresignedSignatureMatchV2(r *http.Request) (credential iam.Credential, err error) {
+func DoesPresignedSignatureMatchV2(r *http.Request) (credential common.Credential, err error) {
 	query := r.URL.Query()
 	accessKey := query.Get("AWSAccessKeyId")
 	expires := query.Get("Expires")
@@ -225,7 +226,7 @@ func DoesPresignedSignatureMatchV2(r *http.Request) (credential iam.Credential, 
 	return credential, dictate(credential.SecretAccessKey, stringToSign, signature)
 }
 
-func DoesPolicySignatureMatchV2(formValues map[string]string) (credential iam.Credential,
+func DoesPolicySignatureMatchV2(formValues map[string]string) (credential common.Credential,
 	err error) {
 
 	if accessKey, ok := formValues["Awsaccesskeyid"]; ok {

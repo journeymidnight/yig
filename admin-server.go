@@ -6,6 +6,7 @@ import (
 	router "github.com/gorilla/mux"
 	"github.com/journeymidnight/yig/api"
 	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/log"
 	meta "github.com/journeymidnight/yig/meta/types"
@@ -24,7 +25,7 @@ type adminServerConfig struct {
 
 type userJson struct {
 	Buckets []string
-	Keys    []iam.AccessKeyItem
+	Keys    []common.Credential
 }
 
 type bucketJson struct {
@@ -88,7 +89,7 @@ func getUserInfo(w http.ResponseWriter, r *http.Request) {
 	}
 	helper.Debugln("enter getUserInfo", uid, buckets)
 
-	var keys []iam.AccessKeyItem
+	var keys []common.Credential
 	if helper.CONFIG.DebugMode == false {
 		keys, err = iam.GetKeysByUid(uid)
 		if err != nil {

@@ -24,7 +24,7 @@ import (
 	"net/http"
 
 	. "github.com/journeymidnight/yig/error"
-	"github.com/journeymidnight/yig/iam"
+	"github.com/journeymidnight/yig/iam/common"
 )
 
 // SignVerifyReader represents an io.Reader compatible interface which
@@ -57,7 +57,7 @@ func newSignVerify(req *http.Request) *SignVerifyReader {
 }
 
 // Verify - verifies signature and returns error upon signature mismatch.
-func (v *SignVerifyReader) Verify() (iam.Credential, error) {
+func (v *SignVerifyReader) Verify() (common.Credential, error) {
 	var payloadSha256Hex string
 	if v.Sha256Writer != nil {
 		payloadSha256Hex = hex.EncodeToString(v.Sha256Writer.Sum(nil))
@@ -71,7 +71,7 @@ func (v *SignVerifyReader) Read(b []byte) (int, error) {
 	return v.Reader.Read(b)
 }
 
-func VerifyUpload(r *http.Request) (credential iam.Credential, dataReader io.Reader, err error) {
+func VerifyUpload(r *http.Request) (credential common.Credential, dataReader io.Reader, err error) {
 	dataReader = r.Body
 	switch GetRequestAuthType(r) {
 	default:

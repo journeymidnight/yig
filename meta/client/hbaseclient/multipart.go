@@ -11,6 +11,7 @@ import (
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
+	"github.com/journeymidnight/yig/iam/common"
 	. "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/meta/util"
 	"net/url"
@@ -212,7 +213,7 @@ func (h *HbaseClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker
 			return
 		}
 
-		var user iam.Credential
+		var user common.Credential
 		user, err = iam.GetCredentialByUserId(m.Metadata.OwnerId)
 		if err != nil {
 			return
