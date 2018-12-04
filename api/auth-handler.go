@@ -4,7 +4,7 @@ import (
 	"github.com/journeymidnight/yig/api/datatype/policy"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/iam"
+	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/signature"
 	"net"
 	"net/http"
@@ -17,7 +17,7 @@ import (
 // - validates the policy action if anonymous tests bucket policies if any,
 //   for authenticated requests validates IAM policies.
 // returns APIErrorCode if any to be replied to the client.
-func checkRequestAuth(api ObjectAPIHandlers, r *http.Request, action policy.Action, bucketName, objectName string) (c iam.Credential, err error) {
+func checkRequestAuth(api ObjectAPIHandlers, r *http.Request, action policy.Action, bucketName, objectName string) (c common.Credential, err error) {
 	// TODO:Location constraint
 	switch signature.GetRequestAuthType(r) {
 	case signature.AuthTypeUnknown:
@@ -40,7 +40,7 @@ func checkRequestAuth(api ObjectAPIHandlers, r *http.Request, action policy.Acti
 	return c, ErrAccessDenied
 }
 
-func IsBucketAllowed(c iam.Credential, api ObjectAPIHandlers, r *http.Request, action policy.Action, bucketName, objectName string) (iam.Credential, error) {
+func IsBucketAllowed(c common.Credential, api ObjectAPIHandlers, r *http.Request, action policy.Action, bucketName, objectName string) (common.Credential, error) {
 	bucket, err := api.ObjectAPI.GetBucket(bucketName)
 	if err != nil {
 		helper.Debugln("GetBucket:", err)

@@ -34,6 +34,7 @@ import (
 	. "github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/iam"
+	"github.com/journeymidnight/yig/iam/common"
 )
 
 // AWS Signature Version '4' constants.
@@ -115,7 +116,7 @@ func getSignature(signingKey []byte, stringToSign string) string {
 // doesPolicySignatureMatch - Verify query headers with post policy
 //     - http://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-HTTPPOSTConstructPolicy.html
 // returns true if matches, false otherwise. if error is not nil then it is always false
-func DoesPolicySignatureMatchV4(formValues map[string]string) (credential iam.Credential, err error) {
+func DoesPolicySignatureMatchV4(formValues map[string]string) (credential common.Credential, err error) {
 	// Parse credential tag.
 	credHeader, err := parseCredential(formValues["X-Amz-Credential"])
 	if err != nil {
@@ -155,7 +156,7 @@ func DoesPolicySignatureMatchV4(formValues map[string]string) (credential iam.Cr
 //     - http://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html
 // returns true if matches, false otherwise. if error is not nil then it is always false
 func DoesPresignedSignatureMatchV4(r *http.Request,
-	validateRegion bool) (credential iam.Credential, err error) {
+	validateRegion bool) (credential common.Credential, err error) {
 	// Parse request query string.
 	preSignValues, err := parsePreSignV4(r.URL.Query(), r.Header)
 	if err != nil {
@@ -212,7 +213,7 @@ func DoesPresignedSignatureMatchV4(r *http.Request,
 }
 
 // get credential but not verify it, used only for signed v4 auth
-func getCredentialUnverified(r *http.Request) (credential iam.Credential, err error) {
+func getCredentialUnverified(r *http.Request) (credential common.Credential, err error) {
 	v4Auth := r.Header.Get("Authorization")
 
 	signV4Values, err := parseSignV4(v4Auth, r.Header)
@@ -232,7 +233,7 @@ func getCredentialUnverified(r *http.Request) (credential iam.Credential, err er
 //     - http://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-authenticating-requests.html
 // returns true if matches, false otherwise. if error is not nil then it is always false
 func DoesSignatureMatchV4(hashedPayload string, r *http.Request,
-	validateRegion bool) (credential iam.Credential, err error) {
+	validateRegion bool) (credential common.Credential, err error) {
 	// Save authorization header.
 	v4Auth := r.Header.Get("Authorization")
 

@@ -33,7 +33,7 @@ import (
 	"github.com/journeymidnight/yig/crypto"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/iam"
+	"github.com/journeymidnight/yig/iam/common"
 	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/signature"
 )
@@ -62,7 +62,7 @@ func setGetRespHeaders(w http.ResponseWriter, reqParams url.Values) {
 //   HEAD Object: http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectHEAD.html
 //   GET Object: http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGET.html
 func (api ObjectAPIHandlers) errAllowableObjectNotFound(bucketName string,
-	credential iam.Credential) error {
+	credential common.Credential) error {
 
 	bucket, err := api.ObjectAPI.GetBucket(bucketName)
 	if err == ErrNoSuchBucket {
@@ -104,7 +104,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	bucketName = vars["bucket"]
 	objectName = vars["object"]
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(api, r, policy.GetObjectAction, bucketName, objectName); err != nil {
 		// As per "Permission" section in
@@ -276,7 +276,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 	bucketName = vars["bucket"]
 	objectName = vars["object"]
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(api, r, policy.GetObjectAction, bucketName, objectName); err != nil {
 		// As per "Permission" section in
@@ -402,7 +402,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	targetBucketName := vars["bucket"]
 	targetObjectName := vars["object"]
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
@@ -681,7 +681,7 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 	bucketName := vars["bucket"]
 	objectName := vars["object"]
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
@@ -735,7 +735,7 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 	bucketName := vars["bucket"]
 	objectName := vars["object"]
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
@@ -788,7 +788,7 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 		return
 	}
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
@@ -945,7 +945,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
@@ -1117,7 +1117,7 @@ func (api ObjectAPIHandlers) AbortMultipartUploadHandler(w http.ResponseWriter, 
 	bucketName := vars["bucket"]
 	objectName := vars["object"]
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
@@ -1151,7 +1151,7 @@ func (api ObjectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 	bucketName := vars["bucket"]
 	objectName := vars["object"]
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
@@ -1194,7 +1194,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	// Get upload id.
 	uploadId := r.URL.Query().Get("uploadId")
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
@@ -1298,7 +1298,7 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 	bucketName := vars["bucket"]
 	objectName := vars["object"]
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:

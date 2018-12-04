@@ -19,7 +19,7 @@ package api
 import (
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/policy"
-	"github.com/journeymidnight/yig/iam"
+	"github.com/journeymidnight/yig/iam/common"
 	meta "github.com/journeymidnight/yig/meta/types"
 	"io"
 )
@@ -27,65 +27,65 @@ import (
 // ObjectLayer implements primitives for object API layer.
 type ObjectLayer interface {
 	// Bucket operations.
-	MakeBucket(bucket string, acl datatype.Acl, credential iam.Credential) error
+	MakeBucket(bucket string, acl datatype.Acl, credential common.Credential) error
 	SetBucketLc(bucket string, config datatype.Lc,
-		credential iam.Credential) error
-	GetBucketLc(bucket string, credential iam.Credential) (datatype.Lc, error)
-	DelBucketLc(bucket string, credential iam.Credential) error
+		credential common.Credential) error
+	GetBucketLc(bucket string, credential common.Credential) (datatype.Lc, error)
+	DelBucketLc(bucket string, credential common.Credential) error
 	SetBucketAcl(bucket string, policy datatype.AccessControlPolicy, acl datatype.Acl,
-		credential iam.Credential) error
-	GetBucketAcl(bucket string, credential iam.Credential) (datatype.AccessControlPolicy, error)
-	SetBucketCors(bucket string, cors datatype.Cors, credential iam.Credential) error
-	SetBucketVersioning(bucket string, versioning datatype.Versioning, credential iam.Credential) error
-	DeleteBucketCors(bucket string, credential iam.Credential) error
-	GetBucketVersioning(bucket string, credential iam.Credential) (datatype.Versioning, error)
-	GetBucketCors(bucket string, credential iam.Credential) (datatype.Cors, error)
+		credential common.Credential) error
+	GetBucketAcl(bucket string, credential common.Credential) (datatype.AccessControlPolicy, error)
+	SetBucketCors(bucket string, cors datatype.Cors, credential common.Credential) error
+	SetBucketVersioning(bucket string, versioning datatype.Versioning, credential common.Credential) error
+	DeleteBucketCors(bucket string, credential common.Credential) error
+	GetBucketVersioning(bucket string, credential common.Credential) (datatype.Versioning, error)
+	GetBucketCors(bucket string, credential common.Credential) (datatype.Cors, error)
 	GetBucket(bucketName string) (bucket meta.Bucket, err error) // For INTERNAL USE ONLY
-	GetBucketInfo(bucket string, credential iam.Credential) (bucketInfo meta.Bucket, err error)
-	ListBuckets(credential iam.Credential) (buckets []meta.Bucket, err error)
-	DeleteBucket(bucket string, credential iam.Credential) error
-	ListObjects(credential iam.Credential, bucket string,
+	GetBucketInfo(bucket string, credential common.Credential) (bucketInfo meta.Bucket, err error)
+	ListBuckets(credential common.Credential) (buckets []meta.Bucket, err error)
+	DeleteBucket(bucket string, credential common.Credential) error
+	ListObjects(credential common.Credential, bucket string,
 		request datatype.ListObjectsRequest) (result meta.ListObjectsInfo, err error)
-	ListVersionedObjects(credential iam.Credential, bucket string,
+	ListVersionedObjects(credential common.Credential, bucket string,
 		request datatype.ListObjectsRequest) (result meta.VersionedListObjectsInfo, err error)
 
-	SetBucketPolicy(credential iam.Credential, bucket string, policy policy.Policy) error
+	SetBucketPolicy(credential common.Credential, bucket string, policy policy.Policy) error
 	// Policy operations
-	GetBucketPolicy(credential iam.Credential, bucket string) (policy.Policy, error)
-	DeleteBucketPolicy(credential iam.Credential, bucket string) error
+	GetBucketPolicy(credential common.Credential, bucket string) (policy.Policy, error)
+	DeleteBucketPolicy(credential common.Credential, bucket string) error
 
 	// Object operations.
 	GetObject(object *meta.Object, startOffset int64, length int64, writer io.Writer,
 		sse datatype.SseRequest) (err error)
-	GetObjectInfo(bucket, object, version string, credential iam.Credential) (objInfo *meta.Object,
+	GetObjectInfo(bucket, object, version string, credential common.Credential) (objInfo *meta.Object,
 		err error)
-	PutObject(bucket, object string, credential iam.Credential, size int64, data io.Reader,
+	PutObject(bucket, object string, credential common.Credential, size int64, data io.Reader,
 		metadata map[string]string, acl datatype.Acl,
 		sse datatype.SseRequest) (result datatype.PutObjectResult, err error)
-	CopyObject(targetObject *meta.Object, source io.Reader, credential iam.Credential,
+	CopyObject(targetObject *meta.Object, source io.Reader, credential common.Credential,
 		sse datatype.SseRequest) (result datatype.PutObjectResult, err error)
 	SetObjectAcl(bucket string, object string, version string, policy datatype.AccessControlPolicy,
-		acl datatype.Acl, credential iam.Credential) error
-	GetObjectAcl(bucket string, object string, version string, credential iam.Credential) (
+		acl datatype.Acl, credential common.Credential) error
+	GetObjectAcl(bucket string, object string, version string, credential common.Credential) (
 		policy datatype.AccessControlPolicy, err error)
-	DeleteObject(bucket, object, version string, credential iam.Credential) (datatype.DeleteObjectResult,
+	DeleteObject(bucket, object, version string, credential common.Credential) (datatype.DeleteObjectResult,
 		error)
 
 	// Multipart operations.
-	ListMultipartUploads(credential iam.Credential, bucket string,
+	ListMultipartUploads(credential common.Credential, bucket string,
 		request datatype.ListUploadsRequest) (result datatype.ListMultipartUploadsResponse, err error)
-	NewMultipartUpload(credential iam.Credential, bucket, object string,
+	NewMultipartUpload(credential common.Credential, bucket, object string,
 		metadata map[string]string, acl datatype.Acl,
 		sse datatype.SseRequest) (uploadID string, err error)
-	PutObjectPart(bucket, object string, credential iam.Credential, uploadID string, partID int,
+	PutObjectPart(bucket, object string, credential common.Credential, uploadID string, partID int,
 		size int64, data io.Reader, md5Hex string,
 		sse datatype.SseRequest) (result datatype.PutObjectPartResult, err error)
 	CopyObjectPart(bucketName, objectName, uploadId string, partId int, size int64, data io.Reader,
-		credential iam.Credential, sse datatype.SseRequest) (result datatype.PutObjectResult,
+		credential common.Credential, sse datatype.SseRequest) (result datatype.PutObjectResult,
 		err error)
-	ListObjectParts(credential iam.Credential, bucket, object string,
+	ListObjectParts(credential common.Credential, bucket, object string,
 		request datatype.ListPartsRequest) (result datatype.ListPartsResponse, err error)
-	AbortMultipartUpload(credential iam.Credential, bucket, object, uploadID string) error
-	CompleteMultipartUpload(credential iam.Credential, bucket, object, uploadID string,
+	AbortMultipartUpload(credential common.Credential, bucket, object, uploadID string) error
+	CompleteMultipartUpload(credential common.Credential, bucket, object, uploadID string,
 		uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult, err error)
 }

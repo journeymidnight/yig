@@ -29,7 +29,7 @@ import (
 	. "github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/iam"
+	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/signature"
 	"strconv"
 )
@@ -41,7 +41,7 @@ func (api ObjectAPIHandlers) GetBucketLocationHandler(w http.ResponseWriter, r *
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
@@ -83,7 +83,7 @@ func (api ObjectAPIHandlers) ListMultipartUploadsHandler(w http.ResponseWriter, 
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
@@ -127,7 +127,7 @@ func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
@@ -169,7 +169,7 @@ func (api ObjectAPIHandlers) ListVersionedObjectsHandler(w http.ResponseWriter, 
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
@@ -214,7 +214,7 @@ func (api ObjectAPIHandlers) ListVersionedObjectsHandler(w http.ResponseWriter, 
 // owned by the authenticated sender of the request.
 func (api ObjectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.Request) {
 	// List buckets does not support bucket policies.
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	if credential, err = signature.IsReqAuthenticated(r); err != nil {
 		WriteErrorResponse(w, r, err)
@@ -239,7 +239,7 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
@@ -343,7 +343,7 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 		WriteErrorResponse(w, r, ErrInvalidBucketName)
 		return
 	}
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	if credential, err = signature.IsReqAuthenticated(r); err != nil {
 		WriteErrorResponse(w, r, err)
@@ -388,7 +388,7 @@ func (api ObjectAPIHandlers) PutBucketLifeCycleHandler(w http.ResponseWriter, r 
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 	helper.Logger.Println(10, "enter PutBucketLCHandler")
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	if credential, err = signature.IsReqAuthenticated(r); err != nil {
 		WriteErrorResponse(w, r, err)
@@ -422,7 +422,7 @@ func (api ObjectAPIHandlers) GetBucketLifeCycleHandler(w http.ResponseWriter, r 
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
@@ -462,7 +462,7 @@ func (api ObjectAPIHandlers) DelBucketLifeCycleHandler(w http.ResponseWriter, r 
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	if credential, err = signature.IsReqAuthenticated(r); err != nil {
 		WriteErrorResponse(w, r, err)
@@ -482,7 +482,7 @@ func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	if credential, err = signature.IsReqAuthenticated(r); err != nil {
 		WriteErrorResponse(w, r, err)
@@ -526,7 +526,7 @@ func (api ObjectAPIHandlers) GetBucketAclHandler(w http.ResponseWriter, r *http.
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
@@ -565,7 +565,7 @@ func (api ObjectAPIHandlers) PutBucketCorsHandler(w http.ResponseWriter, r *http
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	if credential, err = signature.IsReqAuthenticated(r); err != nil {
 		WriteErrorResponse(w, r, err)
@@ -609,7 +609,7 @@ func (api ObjectAPIHandlers) DeleteBucketCorsHandler(w http.ResponseWriter, r *h
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	if credential, err = signature.IsReqAuthenticated(r); err != nil {
 		WriteErrorResponse(w, r, err)
@@ -628,7 +628,7 @@ func (api ObjectAPIHandlers) GetBucketCorsHandler(w http.ResponseWriter, r *http
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	if credential, err = signature.IsReqAuthenticated(r); err != nil {
 		WriteErrorResponse(w, r, err)
@@ -656,7 +656,7 @@ func (api ObjectAPIHandlers) GetBucketVersioningHandler(w http.ResponseWriter, r
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	if credential, err = signature.IsReqAuthenticated(r); err != nil {
 		WriteErrorResponse(w, r, err)
@@ -684,7 +684,7 @@ func (api ObjectAPIHandlers) PutBucketVersioningHandler(w http.ResponseWriter, r
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	if credential, err = signature.IsReqAuthenticated(r); err != nil {
 		WriteErrorResponse(w, r, err)
@@ -813,7 +813,7 @@ func (api ObjectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *h
 	helper.Debugln("formValues", formValues)
 	helper.Debugln("bucket", bucketName)
 
-	var credential iam.Credential
+	var credential common.Credential
 	postPolicyType := signature.GetPostPolicyType(formValues)
 	helper.Debugln("type", postPolicyType)
 	switch postPolicyType {
@@ -926,7 +926,7 @@ func (api ObjectAPIHandlers) HeadBucketHandler(w http.ResponseWriter, r *http.Re
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
@@ -956,7 +956,7 @@ func (api ObjectAPIHandlers) DeleteBucketHandler(w http.ResponseWriter, r *http.
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	if credential, err = signature.IsReqAuthenticated(r); err != nil {
 		WriteErrorResponse(w, r, err)

@@ -1,16 +1,12 @@
 package iam
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
-	"errors"
-	"github.com/journeymidnight/yig/circuitbreak"
+	"github.com/journeymidnight/yig/iam/common"
+	"github.com/journeymidnight/yig/iam/cache"
 	"github.com/journeymidnight/yig/helper"
-	"io/ioutil"
-	"net/http"
+	"github.com/journeymidnight/yig/iam/client/v1"
+	"github.com/journeymidnight/yig/iam/client/v2"
 	"regexp"
-	"time"
 )
 
 // IsValidSecretKey - validate secret key.
@@ -19,11 +15,30 @@ var IsValidSecretKey = regexp.MustCompile(`^.{8,40}$`)
 // IsValidAccessKey - validate access key.
 var IsValidAccessKey = regexp.MustCompile(`^[a-zA-Z0-9\\-\\.\\_\\~]{5,20}$`)
 
-var ErrAccessKeyNotExist = errors.New("Access key does not exist")
 
-func GetCredential(accessKey string) (credential Credential, err error) {
+
+type IamClient interface {
+	GetKeysByUid(string) ([]common.Credential , error)
+	GetCredential(string) (common.Credential, error)
+}
+
+var iamClient IamClient
+
+func initializeIamClient() {
+	switch helper.CONFIG.IamVersion {
+	case "v1":
+		iamClient = v1.Client{}
+	case "v2":
+		iamClient = v2.Client{}
+	default:
+		panic("Unsupport iam version")
+	}
+	return
+}
+
+func GetCredential(accessKey string) (credential common.Credential, err error) {
 	if helper.CONFIG.DebugMode == true {
-		return Credential{
+		return common.Credential{
 			UserId:          "hehehehe",
 			DisplayName:     "hehehehe",
 			AccessKeyID:     accessKey,
@@ -31,91 +46,42 @@ func GetCredential(accessKey string) (credential Credential, err error) {
 		}, nil // For test now
 	}
 
-	if iamCache == nil {
-		initializeIamCache()
+	if cache.IamCache == nil {
+		cache.InitializeIamCache()
 	}
-	credential, hit := iamCache.get(accessKey)
+	credential, hit := cache.IamCache.Get(accessKey)
 	if hit {
 		return credential, nil
 	}
 
-	var slog = helper.Logger
-	var query Query
 	if iamClient == nil {
-		iamClient = circuitbreak.NewCircuitClient()
+		initializeIamClient()
 	}
-	query.Action = "DescribeAccessKeys"
-	query.AccessKeys = append(query.AccessKeys, accessKey)
 
-	b, err := json.Marshal(query)
+	credential, err = iamClient.GetCredential(accessKey)
 	if err != nil {
 		return credential, err
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	go func() {
-		select {
-		case <-time.After(10 * time.Second):
-			slog.Println(5, "send iam request timeout, over 10s")
-		case <-ctx.Done():
-			slog.Println(20, ctx.Err()) // prints "context deadline exceeded"
-		}
-	}()
-
-	request, err := http.NewRequest("POST", helper.CONFIG.IamEndpoint, bytes.NewReader(b))
-	if err != nil {
-		return credential, err
-	}
-
-	request.Header.Set("X-Le-Key", helper.CONFIG.IamKey)
-	request.Header.Set("X-Le-Secret", helper.CONFIG.IamSecret)
-	request.Header.Set("content-type", "application/json")
-	request = request.WithContext(ctx)
-	response, err := iamClient.Do(request)
-	if err != nil {
-		return credential, err
-	}
-	if response.StatusCode != 200 {
-		return credential, errors.New("Query to IAM failed as status != 200")
-	}
-
-	body, err := ioutil.ReadAll(response.Body)
-	response.Body.Close()
-	if err != nil {
-		return credential, err
-	}
-	slog.Println(10, "iam:", helper.CONFIG.IamEndpoint)
-	slog.Println(10, "request:", string(b))
-	slog.Println(10, "response:", string(body))
-
-	var queryRetAll QueryRespAll
-	err = json.Unmarshal(body, &queryRetAll)
-	if err != nil {
-		return credential, errors.New("Decode QueryHistoryResp failed")
-	}
-	if queryRetAll.RetCode != 0 {
-		return credential, errors.New("Query to IAM failed as RetCode != 0")
-	}
-
-	if queryRetAll.Data.Total > 0 {
-		credential.UserId = queryRetAll.Data.AccessKeySet[0].ProjectId
-		credential.DisplayName = queryRetAll.Data.AccessKeySet[0].Name
-		credential.AccessKeyID = queryRetAll.Data.AccessKeySet[0].AccessKey
-		credential.SecretAccessKey = queryRetAll.Data.AccessKeySet[0].AccessSecret
-		iamCache.set(accessKey, credential)
-		return credential, nil
-	} else {
-		return credential, ErrAccessKeyNotExist
-	}
+	cache.IamCache.Set(accessKey, credential)
+	return credential, nil
 
 }
 
-func GetCredentialByUserId(userId string) (credential Credential, err error) {
+func GetKeysByUid(uid string) (credentials []common.Credential, err error) {
+	if helper.CONFIG.DebugMode == true {
+		return
+	}
+	if iamClient == nil {
+		initializeIamClient()
+	}
+	credentials, err = iamClient.GetKeysByUid(uid)
+	return
+}
+
+func GetCredentialByUserId(userId string) (credential common.Credential, err error) {
 	// should use a cache with timeout
 	// TODO
-	return Credential{
+	return common.Credential{
 		UserId:          userId,
 		DisplayName:     userId,
 		AccessKeyID:     "hehehehe",

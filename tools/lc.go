@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/iam"
+	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/meta"
 	"github.com/journeymidnight/yig/meta/types"
@@ -136,7 +136,7 @@ func retrieveBucket(lc types.LifeCycle) error {
 				helper.Debugln("inteval:", time.Since(object.LastModifiedTime).Seconds())
 				if checkIfExpiration(object.LastModifiedTime, days) {
 					helper.Debugln("come here")
-					_, err = yig.DeleteObject(object.BucketName, object.Name, object.VersionId, iam.Credential{})
+					_, err = yig.DeleteObject(object.BucketName, object.Name, object.VersionId, common.Credential{})
 					if err != nil {
 						helper.Logger.Println(5, "[FAILED]", object.BucketName, object.Name, object.VersionId, err)
 						fmt.Println("[FAILED]", object.BucketName, object.Name, object.VersionId, err)
@@ -171,7 +171,7 @@ func retrieveBucket(lc types.LifeCycle) error {
 				}
 				for _, object := range retObjects {
 					if checkIfExpiration(object.LastModifiedTime, days) {
-						_, err = yig.DeleteObject(object.BucketName, object.Name, object.VersionId, iam.Credential{})
+						_, err = yig.DeleteObject(object.BucketName, object.Name, object.VersionId, common.Credential{})
 						if err != nil {
 							logger.Println(5, "failed to delete object:", object.Name, object.BucketName)
 							helper.Logger.Println(5, "[FAILED]", object.BucketName, object.Name, object.VersionId, err)

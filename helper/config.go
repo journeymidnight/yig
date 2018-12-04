@@ -16,6 +16,7 @@ type Config struct {
 	IamEndpoint                string `toml:"iam_endpoint"` // le IAM endpoint address
 	IamKey                     string `toml:"iam_key"`
 	IamSecret                  string `toml:"iam_secret"`
+	IamVersion                 string `toml:"iam_version"`
 	LogPath                    string `toml:"log_path"`
 	PanicLogPath               string `toml:"panic_log_path"`
 	PidFile                    string `toml:"pid_file"`
@@ -41,7 +42,7 @@ type Config struct {
 	LcDebug                    bool   //used for tools/lc only, if this was set true, will treat days as seconds
 	LogLevel                   int    `toml:"log_level"` //1-20
 	CephConfigPattern          string `toml:"ceph_config_pattern"`
-	ReservedOrigins            string // www.ccc.com,www.bbb.com,127.0.0.1
+	ReservedOrigins            string `toml:"reserved_origins"`// www.ccc.com,www.bbb.com,127.0.0.1
 	MetaStore                  string `toml:"meta_store"`
 	TidbInfo                   string `toml:"tidb_info"`
 	KeepAlive                  bool   `toml:"keepalive"`
@@ -82,6 +83,8 @@ func MarshalTOMLConfig() error {
 	CONFIG.IamEndpoint = c.IamEndpoint
 	CONFIG.IamKey = c.IamKey
 	CONFIG.IamSecret = c.IamSecret
+	CONFIG.IamVersion = Ternary(c.IamVersion == "",
+		"v1", c.IamVersion).(string)
 	CONFIG.LogPath = c.LogPath
 	CONFIG.PanicLogPath = c.PanicLogPath
 	CONFIG.PidFile = c.PidFile

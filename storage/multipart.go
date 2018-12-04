@@ -10,6 +10,7 @@ import (
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
+	"github.com/journeymidnight/yig/iam/common"
 	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/signature"
@@ -25,7 +26,7 @@ const (
 	MAX_PART_NUMBER = 10000
 )
 
-func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketName string,
+func (yig *YigStorage) ListMultipartUploads(credential common.Credential, bucketName string,
 	request datatype.ListUploadsRequest) (result datatype.ListMultipartUploadsResponse, err error) {
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
@@ -80,7 +81,7 @@ func (yig *YigStorage) ListMultipartUploads(credential iam.Credential, bucketNam
 	return
 }
 
-func (yig *YigStorage) NewMultipartUpload(credential iam.Credential, bucketName, objectName string,
+func (yig *YigStorage) NewMultipartUpload(credential common.Credential, bucketName, objectName string,
 	metadata map[string]string, acl datatype.Acl,
 	sseRequest datatype.SseRequest) (uploadId string, err error) {
 
@@ -141,7 +142,7 @@ func (yig *YigStorage) NewMultipartUpload(credential iam.Credential, bucketName,
 	return
 }
 
-func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential iam.Credential,
+func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential common.Credential,
 	uploadId string, partId int, size int64, data io.Reader, md5Hex string,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectPartResult, err error) {
 
@@ -277,7 +278,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential i
 }
 
 func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, partId int,
-	size int64, data io.Reader, credential iam.Credential,
+	size int64, data io.Reader, credential common.Credential,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
 
 	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
@@ -401,7 +402,7 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	return result, nil
 }
 
-func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, objectName string,
+func (yig *YigStorage) ListObjectParts(credential common.Credential, bucketName, objectName string,
 	request datatype.ListPartsRequest) (result datatype.ListPartsResponse, err error) {
 
 	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, request.UploadId)
@@ -457,7 +458,7 @@ func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, ob
 		result.Parts = result.Parts[:request.MaxParts]
 	}
 
-	var user iam.Credential
+	var user common.Credential
 	user, err = iam.GetCredentialByUserId(ownerId)
 	if err != nil {
 		return
@@ -485,7 +486,7 @@ func (yig *YigStorage) ListObjectParts(credential iam.Credential, bucketName, ob
 	return
 }
 
-func (yig *YigStorage) AbortMultipartUpload(credential iam.Credential,
+func (yig *YigStorage) AbortMultipartUpload(credential common.Credential,
 	bucketName, objectName, uploadId string) error {
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
@@ -524,7 +525,7 @@ func (yig *YigStorage) AbortMultipartUpload(credential iam.Credential,
 	return nil
 }
 
-func (yig *YigStorage) CompleteMultipartUpload(credential iam.Credential, bucketName,
+func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, bucketName,
 	objectName, uploadId string, uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult,
 	err error) {
 

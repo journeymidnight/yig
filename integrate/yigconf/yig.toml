@@ -12,6 +12,7 @@ ssl_cert_path = ""
 
 # DebugMode
 debug_mode = true
+reserved_origins = "s3.test.com"
 
 # IAM Config
 iam_endpoint = "http://10.11.144.11:9006"

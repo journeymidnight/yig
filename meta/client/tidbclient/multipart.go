@@ -8,6 +8,7 @@ import (
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
+	"github.com/journeymidnight/yig/iam/common"
 	. "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/meta/util"
 	"math"
@@ -231,7 +232,7 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 			if encodingType != "" {
 				upload.Key = url.QueryEscape(upload.Key)
 			}
-			var user iam.Credential
+			var user common.Credential
 			user, err = iam.GetCredentialByUserId(ownerid)
 			if err != nil {
 				return

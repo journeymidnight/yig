@@ -26,7 +26,7 @@ import (
 	"github.com/journeymidnight/yig/api/datatype/policy"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/iam"
+	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/signature"
 )
 
@@ -46,7 +46,7 @@ func (api ObjectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *ht
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
@@ -101,7 +101,7 @@ func (api ObjectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *ht
 func (api ObjectAPIHandlers) DeleteBucketPolicyHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
@@ -132,7 +132,7 @@ func (api ObjectAPIHandlers) GetBucketPolicyHandler(w http.ResponseWriter, r *ht
 	helper.Debugln("GetBucketPolicyHandler", "enter")
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
-	var credential iam.Credential
+	var credential common.Credential
 	var err error
 	switch signature.GetRequestAuthType(r) {
 	default:
