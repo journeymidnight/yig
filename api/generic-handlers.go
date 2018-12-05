@@ -126,9 +126,7 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	urlSplit := strings.SplitN(r.URL.Path[1:], "/", 2) // "1:" to remove leading slash
-	bucketName := urlSplit[0]                          // assume bucketName is the first part of url path
-	helper.Debugln("bucket", bucketName)
+	bucketName, _ := GetBucketAndObjectInfoFromRequest(r)
 	bucket, err := h.objectLayer.GetBucket(bucketName)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
@@ -171,26 +169,7 @@ func SetIgnoreResourcesHandler(h http.Handler, _ ObjectLayer) http.Handler {
 // Resource handler ServeHTTP() wrapper
 func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Skip the first element which is usually '/' and split the rest.
-	var objectName string
-	var bucketName string
-	splits := strings.SplitN(r.URL.Path[1:], "/", 2)
-	v := strings.Split(r.Host, ":")
-	hostWithOutPort := v[0]
-	if strings.HasSuffix(hostWithOutPort, "."+helper.CONFIG.S3Domain) {
-		bucketName = strings.TrimSuffix(hostWithOutPort, "."+helper.CONFIG.S3Domain)
-		if len(splits) == 1 {
-			objectName = splits[0]
-		}
-	} else {
-		if len(splits) == 1 {
-			bucketName = splits[0]
-		}
-		if len(splits) == 2 {
-			bucketName = splits[0]
-			objectName = splits[1]
-		}
-	}
-
+	bucketName, objectName := GetBucketAndObjectInfoFromRequest(r)
 	helper.Logger.Println(5, "ServeHTTP", bucketName, objectName)
 	// If bucketName is present and not objectName check for bucket
 	// level resource queries.
@@ -275,4 +254,25 @@ var notimplementedBucketResourceNames = map[string]bool{
 // List of not implemented object queries
 var notimplementedObjectResourceNames = map[string]bool{
 	"torrent": true,
+}
+
+func GetBucketAndObjectInfoFromRequest(r *http.Request) (bucketName string, objectName string) {
+	splits := strings.SplitN(r.URL.Path[1:], "/", 2)
+	v := strings.Split(r.Host, ":")
+	hostWithOutPort := v[0]
+	if strings.HasSuffix(hostWithOutPort, "."+helper.CONFIG.S3Domain) {
+		bucketName = strings.TrimSuffix(hostWithOutPort, "."+helper.CONFIG.S3Domain)
+		if len(splits) == 1 {
+			objectName = splits[0]
+		}
+	} else {
+		if len(splits) == 1 {
+			bucketName = splits[0]
+		}
+		if len(splits) == 2 {
+			bucketName = splits[0]
+			objectName = splits[1]
+		}
+	}
+	return
 }
