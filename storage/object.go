@@ -343,7 +343,7 @@ func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 }
 
 func (yig *YigStorage) GetObjectAcl(bucketName string, objectName string,
-	version string, credential common.Credential) (policy datatype.AccessControlPolicy, err error) {
+	version string, credential common.Credential) (policy datatype.AccessControlPolicyResponse, err error) {
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
