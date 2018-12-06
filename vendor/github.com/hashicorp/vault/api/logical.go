@@ -133,6 +133,7 @@ func (c *Logical) Write(path string, data map[string]interface{}) (*Secret, erro
 	if err := r.SetJSONBody(data); err != nil {
 		return nil, err
 	}
+
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 	resp, err := c.c.RawRequestWithContext(ctx, r)

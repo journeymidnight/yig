@@ -26,6 +26,14 @@
 //
 //	p.Put(conn)
 //
+// Options
+//
+// Various options can be sent to NewCustom to modify the behavior of the pool.
+// Be default, the pool pings a connection every 10/size seconds, creates an
+// unlimited amount of new connections and does not buffer created connections
+// if the pool is full. Each of these can be modified by sending one or more
+// Opt functions to NewCustom.
+//
 // Shortcuts
 //
 // If you're doing multiple operations you may find it useful to defer the Put

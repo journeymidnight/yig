@@ -15,6 +15,11 @@
 
 package xxtea
 
+import (
+	"encoding/base64"
+	"strings"
+)
+
 const delta = 0x9E3779B9
 
 func toBytes(v []uint32, includeLength bool) []byte {
@@ -127,4 +132,54 @@ func Decrypt(data []byte, key []byte) []byte {
 		return data
 	}
 	return toBytes(decrypt(toUint32s(data, false), toUint32s(key, false)), true)
+}
+
+// Encrypt the data with key.
+// data is the string to be encrypted.
+// key is the string of encrypt key.
+func EncryptString(str, key string) string {
+	s := []byte(str)
+	k := []byte(key)
+	b64 := base64.StdEncoding
+	return b64.EncodeToString(Encrypt(s, k))
+}
+
+// Decrypt the data with key.
+// data is the string to be decrypted.
+// key is the decrypted key. It is the same as the encrypt key.
+func DecryptString(str, key string) (string, error) {
+	k := []byte(key)
+	b64 := base64.StdEncoding
+	decodeStr, err := b64.DecodeString(str)
+	if err != nil {
+		return "", err
+	}
+	result := Decrypt([]byte(decodeStr), k)
+	return string(result), nil
+}
+
+// Encrypt the string with key and convert the string to URL format
+func EncryptStdToURLString(str, key string) string {
+	return encryptBase64ToUrlFormat(EncryptString(str, key))
+}
+
+// Decrypt the URL string with key and convert the URL string to the origin string
+func DecryptURLToStdString(str, key string) (string, error) {
+	return DecryptString(decryptBase64ToStdFormat(str), key)
+}
+
+// Replace std character to URL character in base64 string
+func encryptBase64ToUrlFormat(str string) string {
+	str = strings.Replace(str, "+", "-", -1)
+	str = strings.Replace(str, "/", "_", -1)
+	str = strings.Replace(str, "=", "~", -1)
+	return str
+}
+
+// Replace URL character to origin character in base64 string
+func decryptBase64ToStdFormat(str string) string {
+	str = strings.Replace(str, "-", "+", -1)
+	str = strings.Replace(str, "_", "/", -1)
+	str = strings.Replace(str, "~", "=", -1)
+	return str
 }

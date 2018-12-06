@@ -56,6 +56,58 @@ func (t *TidbClient) GetBucket(bucketName string) (bucket Bucket, err error) {
 	return
 }
 
+func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
+	sqltext := fmt.Sprintf("select * from buckets")
+	rows, err := t.Client.Query(sqltext)
+	if err == sql.ErrNoRows {
+		err = nil
+		return
+	} else if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var tmp Bucket
+		var acl, cors, lc, policy, createTime string
+		err = rows.Scan(
+			&tmp.Name,
+			&acl,
+			&cors,
+			&lc,
+			&tmp.OwnerId,
+			&policy,
+			&createTime,
+			&tmp.Usage,
+			&tmp.Versioning)
+		if err != nil {
+			return
+		}
+		tmp.CreateTime, err = time.Parse(TIME_LAYOUT_TIDB, createTime)
+		if err != nil {
+			return
+		}
+		err = json.Unmarshal([]byte(acl), &tmp.ACL)
+		if err != nil {
+			return
+		}
+		err = json.Unmarshal([]byte(cors), &tmp.CORS)
+		if err != nil {
+			return
+		}
+		err = json.Unmarshal([]byte(lc), &tmp.LC)
+		if err != nil {
+			return
+		}
+		err = json.Unmarshal([]byte(policy), &tmp.Policy)
+		if err != nil {
+			return
+		}
+		buckets = append(buckets, tmp)
+	}
+	return
+}
+
 //Actually this method is used to update bucket
 func (t *TidbClient) PutBucket(bucket Bucket) error {
 	sql, args := bucket.GetUpdateSql()

@@ -32,6 +32,11 @@ func (m *Meta) GetBucket(bucketName string, willNeed bool) (bucket Bucket, err e
 	return bucket, nil
 }
 
+func (m *Meta) GetBuckets() (buckets []Bucket, err error) {
+	buckets, err = m.Client.GetBuckets()
+	return
+}
+
 func (m *Meta) UpdateUsage(bucketName string, size int64) {
 	m.Client.UpdateUsage(bucketName, size)
 }

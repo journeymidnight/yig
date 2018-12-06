@@ -11,6 +11,8 @@ import (
 	"github.com/journeymidnight/yig/log"
 	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/storage"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -140,6 +142,7 @@ func RegisterHandlers(router *router.Router, handlerFns ...handlerFunc) http.Han
 	return f
 }
 
+
 func configureAdminHandler() http.Handler {
 	mux := router.NewRouter()
 	apiRouter := mux.NewRoute().PathPrefix("/").Subrouter()
@@ -150,6 +153,11 @@ func configureAdminHandler() http.Handler {
 	admin.Methods("GET").Path("/object").HandlerFunc(SetJwtMiddlewareFunc(getObjectInfo))
 	admin.Methods("GET").Path("/cachehit").HandlerFunc(SetJwtMiddlewareFunc(getCacheHitRatio))
 
+	metrics := NewMetrics("yig")
+	registry := prometheus.NewRegistry()
+	registry.MustRegister(metrics)
+
+	apiRouter.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
 	apiRouter.Path("/debug/cmdline").HandlerFunc(pprof.Cmdline)
 	apiRouter.Path("/debug/profile").HandlerFunc(pprof.Profile)
 	apiRouter.Path("/debug/symbol").HandlerFunc(pprof.Symbol)

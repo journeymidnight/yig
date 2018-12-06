@@ -17,7 +17,6 @@ var ErrPipelineEmpty = errors.New("pipeline queue empty")
 type Client struct {
 	conn         net.Conn
 	respReader   *RespReader
-	timeout      time.Duration
 	pending      []request
 	writeScratch []byte
 	writeBuf     *bytes.Buffer
@@ -28,6 +27,13 @@ type Client struct {
 	// These will be whatever strings were passed into the Dial function when
 	// creating this connection
 	Network, Addr string
+
+	// These define the max time to spend blocking on read/write connections
+	// during commands. These should not be set to zero if they were ever not
+	// zero. These may be set after the Client is initialized, but not while any
+	// methods are being called. DialTimeout will set both of these to its
+	// passed in value.
+	ReadTimeout, WriteTimeout time.Duration
 
 	// The most recent network error which occurred when either reading
 	// or writing. A critical network error is basically any non-application
@@ -56,17 +62,33 @@ func DialTimeout(network, addr string, timeout time.Duration) (*Client, error) {
 		return nil, err
 	}
 
+	client, err := NewClient(conn)
+	if err != nil {
+		return nil, err
+	}
+	client.ReadTimeout = timeout
+	client.WriteTimeout = timeout
+	return client, nil
+}
+
+// NewClient initializes a Client instance with a preexisting net.Conn.
+//
+// For example, it can be used to open SSL connections to Redis servers:
+//
+//	conn, err := tls.Dial("tcp", addr, &tls.Config{})
+//	client, err := radix.NewClient(conn)
+func NewClient(conn net.Conn) (*Client, error) {
+	addr := conn.RemoteAddr()
 	completed := make([]*Resp, 0, 10)
 	return &Client{
 		conn:          conn,
 		respReader:    NewRespReader(conn),
-		timeout:       timeout,
 		writeScratch:  make([]byte, 0, 128),
 		writeBuf:      bytes.NewBuffer(make([]byte, 0, 128)),
 		completed:     completed,
 		completedHead: completed,
-		Network:       network,
-		Addr:          addr,
+		Network:       addr.Network(),
+		Addr:          addr.String(),
 	}, nil
 }
 
@@ -154,8 +176,8 @@ func (c *Client) ReadResp() *Resp {
 // strict indicates whether or not to consider timeouts as critical network
 // errors
 func (c *Client) readResp(strict bool) *Resp {
-	if c.timeout != 0 {
-		c.conn.SetReadDeadline(time.Now().Add(c.timeout))
+	if c.ReadTimeout != 0 {
+		c.conn.SetReadDeadline(time.Now().Add(c.ReadTimeout))
 	}
 	r := c.respReader.Read()
 	if r.IsType(IOErr) && (strict || !IsTimeout(r)) {
@@ -166,8 +188,8 @@ func (c *Client) readResp(strict bool) *Resp {
 }
 
 func (c *Client) writeRequest(requests ...request) error {
-	if c.timeout != 0 {
-		c.conn.SetWriteDeadline(time.Now().Add(c.timeout))
+	if c.WriteTimeout != 0 {
+		c.conn.SetWriteDeadline(time.Now().Add(c.WriteTimeout))
 	}
 	var err error
 outer:

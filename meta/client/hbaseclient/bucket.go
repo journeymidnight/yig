@@ -76,6 +76,12 @@ func (h *HbaseClient) GetBucket(bucketName string) (bucket Bucket, err error) {
 	return
 }
 
+func (h *HbaseClient) GetBuckets() (buckets []Bucket, err error) {
+	//TODO:NOT SUPPORT YET
+	return buckets, nil
+}
+
+
 func (h *HbaseClient) PutBucket(bucket Bucket) error {
 	values, err := bucket.GetValues()
 	if err != nil {
