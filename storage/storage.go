@@ -88,6 +88,9 @@ func (yig *YigStorage) encryptionKeyFromSseRequest(sseRequest datatype.SseReques
 	case crypto.S3KMS.String():
 		return nil, nil, ErrNotImplemented
 	case crypto.S3.String():
+		if yig.KMS == nil {
+			return nil, nil, ErrKMSNotConfigured
+		}
 		key, encKey, err := yig.KMS.GenerateKey(yig.KMS.GetKeyID(), crypto.Context{bucket: path.Join(bucket, object)})
 		if err != nil {
 			return nil, nil, err

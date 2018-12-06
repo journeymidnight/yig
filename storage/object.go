@@ -172,6 +172,9 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 	length int64, writer io.Writer, sseRequest datatype.SseRequest) (err error) {
 	var encryptionKey []byte
 	if object.SseType == crypto.S3.String() {
+		if yig.KMS == nil {
+			return ErrKMSNotConfigured
+		}
 		key, err := yig.KMS.UnsealKey(yig.KMS.GetKeyID(), object.EncryptionKey,
 			crypto.Context{object.BucketName: path.Join(object.BucketName, object.Name)})
 		if err != nil {
@@ -343,7 +346,7 @@ func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 }
 
 func (yig *YigStorage) GetObjectAcl(bucketName string, objectName string,
-	version string, credential common.Credential) (policy datatype.AccessControlPolicy, err error) {
+	version string, credential common.Credential) (policy datatype.AccessControlPolicyResponse, err error) {
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {

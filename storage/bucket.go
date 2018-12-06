@@ -254,7 +254,7 @@ func (yig *YigStorage) GetBucketVersioning(bucketName string, credential common.
 }
 
 func (yig *YigStorage) GetBucketAcl(bucketName string, credential common.Credential) (
-	policy datatype.AccessControlPolicy, err error) {
+	policy datatype.AccessControlPolicyResponse, err error) {
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, false)
 	if err != nil {

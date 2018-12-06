@@ -34,7 +34,7 @@ type ObjectLayer interface {
 	DelBucketLc(bucket string, credential common.Credential) error
 	SetBucketAcl(bucket string, policy datatype.AccessControlPolicy, acl datatype.Acl,
 		credential common.Credential) error
-	GetBucketAcl(bucket string, credential common.Credential) (datatype.AccessControlPolicy, error)
+	GetBucketAcl(bucket string, credential common.Credential) (datatype.AccessControlPolicyResponse, error)
 	SetBucketCors(bucket string, cors datatype.Cors, credential common.Credential) error
 	SetBucketVersioning(bucket string, versioning datatype.Versioning, credential common.Credential) error
 	DeleteBucketCors(bucket string, credential common.Credential) error
@@ -67,7 +67,7 @@ type ObjectLayer interface {
 	SetObjectAcl(bucket string, object string, version string, policy datatype.AccessControlPolicy,
 		acl datatype.Acl, credential common.Credential) error
 	GetObjectAcl(bucket string, object string, version string, credential common.Credential) (
-		policy datatype.AccessControlPolicy, err error)
+		policy datatype.AccessControlPolicyResponse, err error)
 	DeleteObject(bucket, object, version string, credential common.Credential) (datatype.DeleteObjectResult,
 		error)
 

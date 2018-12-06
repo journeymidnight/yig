@@ -70,8 +70,32 @@ type Grant struct {
 
 type Grantee struct {
 	XMLName      xml.Name `xml:"Grantee"`
-	XmlnsXsi     string   `xml:"xmlns xsi,attr"`
+	XmlnsXsi     string   `xml:"xmlns:xsi,attr"`
 	XsiType      string   `xml:"http://www.w3.org/2001/XMLSchema-instance type,attr"`
+	URI          string   `xml:"URI,omitempty"`
+	ID           string   `xml:"ID,omitempty"`
+	DisplayName  string   `xml:"DisplayName,omitempty"`
+	EmailAddress string   `xml:"EmailAddress,omitempty"`
+}
+
+type AccessControlPolicyResponse struct {
+	XMLName           xml.Name `xml:"AccessControlPolicy"`
+	Xmlns             string   `xml:"xmlns,attr,omitempty"`
+	ID                string   `xml:"Owner>ID"`
+	DisplayName       string   `xml:"Owner>DisplayName"`
+	AccessControlList []GrantResponse  `xml:"AccessControlList>Grant"`
+}
+
+type GrantResponse struct {
+	XMLName    xml.Name `xml:"Grant"`
+	Grantee    GranteeResponse  `xml:"Grantee"`
+	Permission string   `xml:"Permission"`
+}
+
+type GranteeResponse struct {
+	XMLName      xml.Name `xml:"Grantee"`
+	XmlnsXsi     string   `xml:"xmlns:xsi,attr"`
+	XsiType      string   `xml:"xsi:type,attr"`
 	URI          string   `xml:"URI,omitempty"`
 	ID           string   `xml:"ID,omitempty"`
 	DisplayName  string   `xml:"DisplayName,omitempty"`
@@ -134,7 +158,7 @@ func GetCannedAclFromPolicy(policy AccessControlPolicy) (acl Acl, err error) {
 	return acl, nil
 }
 
-func createGrant(xsiType string, owner Owner, perm string, groupType string) (grant Grant, err error) {
+func createGrant(xsiType string, owner Owner, perm string, groupType string) (grant GrantResponse, err error) {
 
 	if xsiType == ACL_TYPE_CANON_USER {
 		grant.Grantee.ID = owner.ID
@@ -151,7 +175,7 @@ func createGrant(xsiType string, owner Owner, perm string, groupType string) (gr
 }
 
 func CreatePolicyFromCanned(owner Owner, bucketOwner Owner, acl Acl) (
-	policy AccessControlPolicy, err error) {
+	policy AccessControlPolicyResponse, err error) {
 
 	policy.ID = owner.ID
 	policy.DisplayName = owner.DisplayName
