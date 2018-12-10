@@ -20,8 +20,16 @@ int try_break_lock(rados_ioctx_t io_ctx, rados_striper_t striper, char *oid){
         strcpy(firstObjOid, oid);
         strcat(firstObjOid, tail);
         ret = rados_list_lockers(io_ctx, firstObjOid, "striper.lock", &exclusive, tag, &tag_len, clients, &clients_len, cookies, &cookies_len, addresses, &addresses_len);
-        free(firstObjOid);
-        return ret;
+        if (ret < 0){
+		goto out;
+	}
+	ret = rados_break_lock(io_ctx, firstObjOid, "striper.lock", clients, cookies);
+	if (ret < 0){
+		goto out;
+	}
+out:
+	free(firstObjOid);
+	return ret;
 }
 
 

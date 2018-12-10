@@ -15,6 +15,7 @@ type Client interface {
 	UpdateObjectAcl(object *Object) error
 	//bucket
 	GetBucket(bucketName string) (bucket Bucket, err error)
+	GetBuckets() (buckets []Bucket, err error)
 	PutBucket(bucket Bucket) error
 	CheckAndPutBucket(bucket Bucket) (bool, error)
 	DeleteBucket(bucket Bucket) error
