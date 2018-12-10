@@ -3,11 +3,11 @@
 |   Column   	|   Type   	| NotNull 	| Remark 	|
 |:----------:	|:--------:	|:-------:	|:------:	|
 | bucketname 	|  string  	|    T    	|        	|
-|     acl    	|  string  	|    F    	|        	|
-|    cors    	|  string  	|    F    	|        	|
-|     lc     	|  string  	|    F    	|        	|
+|     acl    	|  string  	|    F    	|   JSON  	|
+|    cors    	|  string  	|    F    	|   JSON  	|
+|     lc     	|  string  	|    F    	|   JSON   	|
 |     uid    	|  string  	|    T    	|        	|
-|   policy   	|  string  	|    F    	|        	|
+|   policy   	|  string  	|    F    	|   JSON   	|
 | createtime 	| datetime 	|    F    	|        	|
 |   usages   	|  uint64  	|    T    	|        	|
 | versioning 	|  string  	|    F    	|        	|
@@ -39,7 +39,7 @@ UNIQUE KEY `rowkey` (`bucketname`,`objectname`,`version`)
 |    pool    	| string 	|    F    	|        	|
 |  objectid  	| string 	|    F    	|        	|
 |   status   	| string 	|    F    	|        	|
-|    mtime   	| string 	|    F    	|        	|
+|    mtime   	| datetime 	|    F    	|        	|
 |    part    	|  bool  	|    F    	|        	|
 | triedtimes 	|   int  	|    F    	|        	|
 
@@ -53,7 +53,7 @@ UNIQUE KEY `rowkey` (`bucketname`,`objectname`,`version`)
 |       objectid       	| string 	|    F    	|        	|
 |        offset        	|  int64 	|    F    	|        	|
 |         etag         	| string 	|    F    	|        	|
-|     lastmodified     	| string 	|    F    	|        	|
+|     lastmodified     	| datetime 	|    F    	|        	|
 | initializationvector 	|  blob  	|    F    	|        	|
 |      bucketname      	| string 	|    F    	|        	|
 |      objectname      	| string 	|    F    	|        	|
@@ -72,7 +72,7 @@ UNIQUE KEY `rowkey` (`bucketname`,`objectname`,`uploadtime`)
 | contenttype 	| string 	|    F    	|        	|
 |   location  	| string 	|    F    	|        	|
 |     pool    	| string 	|    F    	|        	|
-|     acl     	| string 	|    F    	|        	|
+|     acl     	| string 	|    F    	|   JSON   	|
 |  sserequest 	| string 	|    F    	|        	|
 |  encryption 	|  blob  	|    F    	|        	|
 |    attrs    	| string 	|    F    	|        	|
@@ -87,7 +87,7 @@ UNIQUE KEY `rowkey` (`bucketname`,`objectname`,`uploadtime`)
 |       objectid       	| string 	|    F    	|        	|
 |        offset        	|  int64 	|    F    	|        	|
 |         etag         	| string 	|    F    	|        	|
-|     lastmodified     	| string 	|    F    	|        	|
+|     lastmodified     	| datetime 	|    F    	|        	|
 | initializationvector 	|  blob  	|    F    	|        	|
 |      bucketname      	| string 	|    F    	|        	|
 |      objectname      	| string 	|    F    	|        	|
@@ -110,7 +110,7 @@ UNIQUE KEY `rowkey` (`bucketname`,`name`,`version`)
 |         etag         	|  string  	|    F    	|        	|
 |      contenttype     	|  string  	|    F    	|        	|
 |   customattributes   	|  string  	|    F    	|        	|
-|          acl         	|  string  	|    F    	|        	|
+|          acl         	|  string  	|    F    	|   JSON   	|
 |      nullversion     	|   bool   	|    F    	|        	|
 |     deletemarker     	|   bool   	|    F    	|        	|
 |        ssetype       	|  string  	|    F    	|        	|
@@ -127,7 +127,7 @@ UNIQUE KEY `rowkey` (`bucketname`,`objectname`,`version`)
 |       objectid       	| string 	|    F    	|        	|
 |        offset        	|  int64 	|    F    	|        	|
 |         etag         	| string 	|    F    	|        	|
-|     lastmodified     	| string 	|    F    	|        	|
+|     lastmodified     	| datetime 	|    F    	|        	|
 | initializationvector 	|  blob  	|    F    	|        	|
 |      bucketname      	| string 	|    F    	|        	|
 |      objectname      	| string 	|    F    	|        	|
