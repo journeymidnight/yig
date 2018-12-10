@@ -3,7 +3,6 @@ package tidbclient
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
@@ -29,10 +28,10 @@ func (t *TidbClient) GetMultipart(bucketName, objectName, uploadId string) (mult
 		return
 	}
 	uploadTime = math.MaxUint64 - uploadTime
-	sqltext := fmt.Sprintf("select * from multiparts where bucketname='%s' and objectname='%s' and uploadtime=%d ", bucketName, objectName, uploadTime)
+	sqltext := "select * from multiparts where bucketname=? and objectname=? and uploadtime=?;"
 	var initialTime uint64
 	var acl, sseRequest, attrs string
-	err = t.Client.QueryRow(sqltext).Scan(
+	err = t.Client.QueryRow(sqltext, bucketName, objectName, uploadTime).Scan(
 		&multipart.BucketName,
 		&multipart.ObjectName,
 		&initialTime,
@@ -69,8 +68,8 @@ func (t *TidbClient) GetMultipart(bucketName, objectName, uploadId string) (mult
 		return
 	}
 
-	sqltext = fmt.Sprintf("select partnumber,size,objectid,offset,etag,lastmodified,initializationvector from multipartpart where bucketname='%s' and objectname='%s' and uploadtime=%d ", bucketName, objectName, uploadTime)
-	rows, err := t.Client.Query(sqltext)
+	sqltext = "select partnumber,size,objectid,offset,etag,lastmodified,initializationvector from multipartpart where bucketname=? and objectname=? and uploadtime=?;"
+	rows, err := t.Client.Query(sqltext, bucketName, objectName, uploadTime)
 	if err != nil {
 		return
 	}
@@ -130,13 +129,13 @@ func (t *TidbClient) DeleteMultipart(multipart Multipart) (err error) {
 	}()
 
 	uploadtime := math.MaxUint64 - uint64(multipart.InitialTime.UnixNano())
-	sqltext := fmt.Sprintf("delete from multiparts where bucketname='%s' and objectname='%s' and uploadtime=%d", multipart.BucketName, multipart.ObjectName, uploadtime)
-	_, err = tx.Exec(sqltext)
+	sqltext := "delete from multiparts where bucketname=? and objectname=? and uploadtime=?;"
+	_, err = tx.Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime)
 	if err != nil {
 		return
 	}
-	sqltext = fmt.Sprintf("delete from multipartpart where bucketname='%s' and objectname='%s' and uploadtime=%d ", multipart.BucketName, multipart.ObjectName, uploadtime)
-	_, err = tx.Exec(sqltext)
+	sqltext = "delete from multipartpart where bucketname=? and objectname=? and uploadtime=?;"
+	_, err = tx.Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime)
 	if err != nil {
 		return
 	}
@@ -164,13 +163,14 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 			objnum[currentMarker] = 0
 		}
 		var sqltext string
-		if currentMarker == "" {
-			sqltext = fmt.Sprintf("select objectname,uploadtime,initiatorid,ownerid from multiparts where bucketName='%s' order by bucketname,objectname,uploadtime limit %d,%d", bucketName, objnum[currentMarker], objnum[currentMarker]+maxUploads)
-		} else {
-			sqltext = fmt.Sprintf("select objectname,uploadtime,initiatorid,ownerid from multiparts where bucketName='%s' and objectname>='%s' order by bucketname,objectname,uploadtime limit %d,%d", bucketName, keyMarker, objnum[currentMarker], objnum[currentMarker]+maxUploads)
-		}
 		var rows *sql.Rows
-		rows, err = t.Client.Query(sqltext)
+		if currentMarker == "" {
+			sqltext = "select objectname,uploadtime,initiatorid,ownerid from multiparts where bucketName=? order by bucketname,objectname,uploadtime limit ?,?;"
+			rows, err = t.Client.Query(sqltext, bucketName, objnum[currentMarker], objnum[currentMarker]+maxUploads)
+		} else {
+			sqltext = "select objectname,uploadtime,initiatorid,ownerid from multiparts where bucketName=? and objectname>=? order by bucketname,objectname,uploadtime limit ?,?;"
+			rows, err = t.Client.Query(sqltext, bucketName, keyMarker, objnum[currentMarker], objnum[currentMarker]+maxUploads)
+		}
 		if err != nil {
 			return
 		}

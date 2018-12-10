@@ -3,7 +3,6 @@ package tidbclient
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	_ "github.com/go-sql-driver/mysql"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
@@ -15,8 +14,8 @@ import (
 
 func (t *TidbClient) GetBucket(bucketName string) (bucket Bucket, err error) {
 	var acl, cors, lc, policy, createTime string
-	sqltext := fmt.Sprintf("select * from buckets where bucketname='%s';", bucketName)
-	err = t.Client.QueryRow(sqltext).Scan(
+	sqltext := "select * from buckets where bucketname=?;"
+	err = t.Client.QueryRow(sqltext, bucketName).Scan(
 		&bucket.Name,
 		&acl,
 		&cors,
@@ -57,7 +56,7 @@ func (t *TidbClient) GetBucket(bucketName string) (bucket Bucket, err error) {
 }
 
 func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
-	sqltext := fmt.Sprintf("select * from buckets")
+	sqltext := "select * from buckets;"
 	rows, err := t.Client.Query(sqltext)
 	if err == sql.ErrNoRows {
 		err = nil
@@ -148,13 +147,14 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 	for {
 		var loopcount int
 		var sqltext string
-		if marker == "" {
-			sqltext = fmt.Sprintf("select bucketname,name,version,nullversion,deletemarker from objects where bucketName='%s' order by bucketname,name,version limit %d", bucketName, maxKeys)
-		} else {
-			sqltext = fmt.Sprintf("select bucketname,name,version,nullversion,deletemarker from objects where bucketName='%s' and name >='%s' order by bucketname,name,version limit %d,%d", bucketName, marker, objectNum[marker], objectNum[marker]+maxKeys)
-		}
 		var rows *sql.Rows
-		rows, err = t.Client.Query(sqltext)
+		if marker == "" {
+			sqltext = "select bucketname,name,version,nullversion,deletemarker from objects where bucketName=? order by bucketname,name,version limit ?;"
+			rows, err = t.Client.Query(sqltext, bucketName, maxKeys)
+		} else {
+			sqltext = "select bucketname,name,version,nullversion,deletemarker from objects where bucketName=? and name >=? order by bucketname,name,version limit ?,?;"
+			rows, err = t.Client.Query(sqltext, bucketName, marker, objectNum[marker], objectNum[marker]+maxKeys)
+		}
 		if err != nil {
 			return
 		}
@@ -255,8 +255,8 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 }
 
 func (t *TidbClient) DeleteBucket(bucket Bucket) error {
-	sqltext := fmt.Sprintf("delete from buckets where bucketname='%s'", bucket.Name)
-	_, err := t.Client.Exec(sqltext)
+	sqltext := "delete from buckets where bucketname=?;"
+	_, err := t.Client.Exec(sqltext, bucket.Name)
 	if err != nil {
 		return err
 	}
@@ -264,7 +264,7 @@ func (t *TidbClient) DeleteBucket(bucket Bucket) error {
 }
 
 func (t *TidbClient) UpdateUsage(bucketName string, size int64) {
-	sql := fmt.Sprintf("update buckets set usages= usages + '%d' where bucketname='%s'", size, bucketName)
-	t.Client.Exec(sql)
+	sql := "update buckets set usages= usages + ? where bucketname=?;"
+	t.Client.Exec(sql, size, bucketName)
 	return
 }
