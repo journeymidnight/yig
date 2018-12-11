@@ -17,7 +17,7 @@ func newGlobalMetric(namespace string, metricName string, docString string, labe
 func NewMetrics(namespace string) *Metrics {
 	return &Metrics{
 		metrics: map[string]*prometheus.Desc{
-			"bucket_usage_byte_metric": newGlobalMetric(namespace, "bucket_usage_byte_metric","The description of bucket_usage_byte_metric", []string{"bucket"}),
+			"bucket_usage_byte_metric": newGlobalMetric(namespace, "bucket_usage_byte_metric","The description of bucket_usage_byte_metric", []string{"bucket_name"}),
 		},
 	}
 }
