@@ -2,12 +2,11 @@ package tidbclient
 
 import (
 	"database/sql"
-	"fmt"
 )
 
 func (t *TidbClient) GetUserBuckets(userId string) (buckets []string, err error) {
-	sqltext := fmt.Sprintf("select bucketname from users where userid='%s'", userId)
-	rows, err := t.Client.Query(sqltext)
+	sqltext := "select bucketname from users where userid=?;"
+	rows, err := t.Client.Query(sqltext, userId)
 	if err == sql.ErrNoRows {
 		err = nil
 		return
@@ -28,13 +27,13 @@ func (t *TidbClient) GetUserBuckets(userId string) (buckets []string, err error)
 }
 
 func (t *TidbClient) AddBucketForUser(bucketName, userId string) (err error) {
-	sql := fmt.Sprintf("insert into users(userid,bucketname) values('%s','%s')", userId, bucketName)
-	_, err = t.Client.Exec(sql)
+	sql := "insert into users(userid,bucketname) values(?,?)"
+	_, err = t.Client.Exec(sql, userId, bucketName)
 	return
 }
 
 func (t *TidbClient) RemoveBucketForUser(bucketName string, userId string) (err error) {
-	sql := fmt.Sprintf("delete from users where userid='%s' and bucketname='%s'", userId, bucketName)
-	_, err = t.Client.Exec(sql)
+	sql := "delete from users where userid=? and bucketname=?;"
+	_, err = t.Client.Exec(sql, userId, bucketName)
 	return
 }
