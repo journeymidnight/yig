@@ -46,6 +46,7 @@ func (a Client) GetKeysByUid (uid string) (credentials []common.Credential, err 
 	q.Add("project-id", uid)
 	q.Add("page", "0")
 	q.Add("size", "50")
+	request.URL.RawQuery = q.Encode()
 	response, err := a.httpClient.Do(request)
 	if err != nil {
 		slog.Println(5, "GetKeysByUid send request failed", err)

@@ -701,6 +701,10 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 	var policy AccessControlPolicy
 	if _, ok := r.Header["X-Amz-Acl"]; ok {
 		acl, err = getAclFromHeader(r.Header)
+		if err != nil {
+			WriteErrorResponse(w, r, ErrInvalidAcl)
+			return
+		}
 	} else {
 		aclBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 1024))
 		helper.Debug("acl body:\n %s", string(aclBuffer))

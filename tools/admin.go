@@ -134,9 +134,13 @@ func getUserInfo(uid string) {
 	url := config.RequestUrl + "/admin/user"
 	request, _ := http.NewRequest("GET", url, nil)
 	request.Header.Set("Authorization", "Bearer "+tokenString)
-	response, _ := client.Do(request)
+	response, err := client.Do(request)
+	if err != nil {
+		fmt.Println("getUserInfo failed error:", err.Error())
+		return
+	}
 	if response.StatusCode != 200 {
-		fmt.Println("getBucketInfo failed as status != 200", response.StatusCode)
+		fmt.Println("getUserInfo failed as status != 200", response.StatusCode)
 		return
 	}
 
