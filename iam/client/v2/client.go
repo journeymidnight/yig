@@ -44,6 +44,8 @@ func (a Client) GetKeysByUid (uid string) (credentials []common.Credential, err 
 	request.Header.Set("apikey", helper.CONFIG.IamKey)
 	q := request.URL.Query()
 	q.Add("project-id", uid)
+	q.Add("page", "0")
+	q.Add("size", "50")
 	response, err := a.httpClient.Do(request)
 	if err != nil {
 		slog.Println(5, "GetKeysByUid send request failed", err)
