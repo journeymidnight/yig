@@ -250,7 +250,10 @@ func parseSignV4(v4Auth string, headers http.Header) (signValues, error) {
 	}
 
 	// Save signed headers.
-	signV4Values.SignedHeaders, err = parseSignedHeaders(authFields[1], headers, true)
+	// Usually we should have content-type in SignedHeaders, But in offical Amazon's S3
+	// PHP SDK, it does not sign content-type since 3.*. So we do not verify content-type
+	// in SignedHeaders
+	signV4Values.SignedHeaders, err = parseSignedHeaders(authFields[1], headers, false)
 	if err != nil {
 		return signValues{}, err
 	}
