@@ -9,6 +9,10 @@ type Metrics struct {
 	metrics map[string]*prometheus.Desc
 	mutex   sync.Mutex
 }
+type UsageData struct {
+	value int64
+	owner string
+}
 
 func newGlobalMetric(namespace string, metricName string, docString string, labels []string) *prometheus.Desc {
 	return prometheus.NewDesc(namespace+"_"+metricName, docString, labels, nil)
@@ -17,7 +21,7 @@ func newGlobalMetric(namespace string, metricName string, docString string, labe
 func NewMetrics(namespace string) *Metrics {
 	return &Metrics{
 		metrics: map[string]*prometheus.Desc{
-			"bucket_usage_byte_metric": newGlobalMetric(namespace, "bucket_usage_byte_metric","The description of bucket_usage_byte_metric", []string{"bucket_name"}),
+			"bucket_usage_byte_metric": newGlobalMetric(namespace, "bucket_usage_byte_metric","The description of bucket_usage_byte_metric", []string{"bucket_name", "owner"}),
 		},
 	}
 }
@@ -33,20 +37,20 @@ func (c *Metrics) Collect(ch chan<- prometheus.Metric) {
 	defer c.mutex.Unlock()
 
 	GaugeMetricData := c.GenerateUsageData()
-	for bucket, currentValue := range GaugeMetricData {
-		ch <-prometheus.MustNewConstMetric(c.metrics["bucket_usage_byte_metric"], prometheus.GaugeValue, float64(currentValue), bucket)
+	for bucket, data := range GaugeMetricData {
+		ch <-prometheus.MustNewConstMetric(c.metrics["bucket_usage_byte_metric"], prometheus.GaugeValue, float64(data.value), bucket, data.owner)
 	}
 }
 
-func (c *Metrics) GenerateUsageData() (GaugeMetricData map[string]int64) {
+func (c *Metrics) GenerateUsageData() (GaugeMetricData map[string]UsageData) {
 	buckets, err := adminServer.Yig.MetaStorage.GetBuckets()
 	if err != nil {
 		adminServer.Yig.Logger.Println(5,"get usage data for prometheus failed:", err.Error())
 		return
 	}
-	GaugeMetricData = make(map[string]int64)
+	GaugeMetricData = make(map[string]UsageData)
 	for _, bucket := range buckets {
-		GaugeMetricData[bucket.Name] = bucket.Usage
+		GaugeMetricData[bucket.Name] = UsageData{bucket.Usage, bucket.OwnerId}
 	}
 	return
 }
