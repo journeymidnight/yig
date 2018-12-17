@@ -3,6 +3,7 @@ package tidbclient
 import (
 	. "github.com/journeymidnight/yig/meta/types"
 	"strconv"
+	"database/sql"
 )
 
 //objmap
@@ -21,14 +22,40 @@ func (t *TidbClient) GetObjectMap(bucketName, objectName string) (objMap *ObjMap
 	return
 }
 
-func (t *TidbClient) PutObjectMap(objMap *ObjMap) error {
+func (t *TidbClient) PutObjectMap(objMap *ObjMap, tx interface{}) (err error) {
+	var sqlTx *sql.Tx
+	if tx == nil {
+		tx, err = t.Client.Begin()
+		defer func() {
+			if err != nil {
+				sqlTx.Rollback()
+			} else {
+				sqlTx.Commit()
+			}
+		}()
+	} else {
+		sqlTx, _ = tx.(*sql.Tx)
+	}
 	sqltext := "insert into objmap(bucketname,objectname,nullvernum) values(?,?,?);"
-	_, err := t.Client.Exec(sqltext, objMap.BucketName, objMap.Name, objMap.NullVerNum)
+	_, err = sqlTx.Exec(sqltext, objMap.BucketName, objMap.Name, objMap.NullVerNum)
 	return err
 }
 
-func (t *TidbClient) DeleteObjectMap(objMap *ObjMap) error {
+func (t *TidbClient) DeleteObjectMap(objMap *ObjMap, tx interface{}) (err error) {
+	var sqlTx *sql.Tx
+	if tx == nil {
+		tx, err = t.Client.Begin()
+		defer func() {
+			if err != nil {
+				sqlTx.Rollback()
+			} else {
+				sqlTx.Commit()
+			}
+		}()
+	} else {
+		sqlTx, _ = tx.(*sql.Tx)
+	}
 	sqltext := "delete from objmap where bucketname=? and objectname=?;"
-	_, err := t.Client.Exec(sqltext, objMap.BucketName, objMap.Name)
+	_, err = sqlTx.Exec(sqltext, objMap.BucketName, objMap.Name)
 	return err
 }

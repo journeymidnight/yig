@@ -4,7 +4,6 @@ import (
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/meta/client"
-	"github.com/journeymidnight/yig/meta/client/hbaseclient"
 	"github.com/journeymidnight/yig/meta/client/tidbclient"
 )
 
@@ -23,9 +22,7 @@ func New(logger *log.Logger, myCacheType CacheType) *Meta {
 		Logger: logger,
 		Cache:  newMetaCache(myCacheType),
 	}
-	if helper.CONFIG.MetaStore == "hbase" {
-		meta.Client = hbaseclient.NewHbaseClient()
-	} else if helper.CONFIG.MetaStore == "tidb" {
+	if helper.CONFIG.MetaStore == "tidb" {
 		meta.Client = tidbclient.NewTidbClient()
 	} else {
 		panic("unsupport metastore")

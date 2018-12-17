@@ -436,18 +436,18 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, versio
 	return nil
 }
 
-func (yig *YigStorage) delTableEntryForRollback(object *meta.Object, objMap *meta.ObjMap) error {
-	if object != nil {
-		err := yig.MetaStorage.Client.DeleteObject(object)
-		return err
-	}
-
-	if objMap != nil {
-		err := yig.MetaStorage.Client.DeleteObjectMap(objMap)
-		return err
-	}
-	return nil
-}
+//func (yig *YigStorage) delTableEntryForRollback(object *meta.Object, objMap *meta.ObjMap) error {
+//	if object != nil {
+//		err := yig.MetaStorage.Client.DeleteObject(object)
+//		return err
+//	}
+//
+//	if objMap != nil {
+//		err := yig.MetaStorage.Client.DeleteObjectMap(objMap)
+//		return err
+//	}
+//	return nil
+//}
 
 // Write path:
 //                                           +-----------+
@@ -592,28 +592,22 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		nullVerNum = uint64(object.LastModifiedTime.UnixNano())
 	}
 
-	err = yig.MetaStorage.PutObjectEntry(object)
+	if nullVerNum != 0 {
+		objMap := &meta.ObjMap{
+			Name:       objectName,
+			BucketName: bucketName,
+		}
+		err = yig.MetaStorage.PutObject(object, nil, objMap, true)
+	} else {
+		err = yig.MetaStorage.PutObject(object, nil,nil, true)
+	}
+
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
-	objMap := &meta.ObjMap{
-		Name:       objectName,
-		BucketName: bucketName,
-	}
-	if nullVerNum != 0 {
-		objMap.NullVerNum = nullVerNum
-		err = yig.MetaStorage.PutObjMapEntry(objMap)
-		if err != nil {
-			yig.delTableEntryForRollback(object, nil)
-			RecycleQueue <- maybeObjectToRecycle
-			return
-		}
-	}
 
 	if err == nil {
-		yig.MetaStorage.UpdateUsage(object.BucketName, object.Size)
-
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
 	}
@@ -782,60 +776,35 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		nullVerNum = uint64(targetObject.LastModifiedTime.UnixNano())
 	}
 
-	err = yig.MetaStorage.PutObjectEntry(targetObject)
-	if err != nil {
-		RecycleQueue <- maybeObjectToRecycle
-		return
-	}
 	objMap := &meta.ObjMap{
 		Name:       targetObject.Name,
 		BucketName: targetObject.BucketName,
 	}
+
 	if nullVerNum != 0 {
 		objMap.NullVerNum = nullVerNum
-		err = yig.MetaStorage.PutObjMapEntry(objMap)
-		if err != nil {
-			yig.delTableEntryForRollback(targetObject, nil)
-			RecycleQueue <- maybeObjectToRecycle
-			return
-		}
+		err = yig.MetaStorage.PutObject(targetObject, nil, objMap, true)
+	} else {
+		err = yig.MetaStorage.PutObject(targetObject, nil, nil, true)
 	}
 
-	if err == nil {
-		yig.MetaStorage.UpdateUsage(targetObject.BucketName, targetObject.Size)
-
-		yig.MetaStorage.Cache.Remove(redis.ObjectTable,
-			targetObject.BucketName+":"+targetObject.Name+":")
-		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
+	if err != nil {
+		RecycleQueue <- maybeObjectToRecycle
+		return
 	}
+
+	yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
+	yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
+
 	return result, nil
 }
 
-func (yig *YigStorage) removeByObject(object *meta.Object) (err error) {
+func (yig *YigStorage) removeByObject(object *meta.Object, objMap *meta.ObjMap) (err error) {
 
-	err = yig.MetaStorage.DeleteObjectEntry(object)
+	err = yig.MetaStorage.DeleteObject(object, object.DeleteMarker, objMap)
 	if err != nil {
 		return
 	}
-
-	if object.DeleteMarker {
-		return
-	}
-
-	err = yig.MetaStorage.PutObjectToGarbageCollection(object)
-	if err != nil { // try to rollback `objects` table
-		yig.Logger.Println(5, "Error PutObjectToGarbageCollection: ", err)
-		err = yig.MetaStorage.PutObjectEntry(object)
-		if err != nil {
-			yig.Logger.Println(5, "Error insertObjectEntry: ", err)
-			yig.Logger.Println(5, "Inconsistent data: object should be removed:",
-				object)
-			return
-		}
-		return ErrInternalError
-	}
-
-	yig.MetaStorage.UpdateUsage(object.BucketName, -object.Size)
 	return nil
 }
 
@@ -861,7 +830,7 @@ func (yig *YigStorage) removeAllObjectsEntryByName(bucketName, objectName string
 		return err
 	}
 	for _, obj := range objs {
-		err = yig.removeByObject(obj)
+		err = yig.removeByObject(obj, nil)
 		if err != nil {
 			return err
 		}
@@ -926,8 +895,12 @@ func (yig *YigStorage) checkOldObject(bucketName, objectName, versioning string)
 				return
 			}
 		} else {
+			helper.Debugln("object.NullVersion:", object.NullVersion)
 			if objectExist && object.NullVersion {
-				err = yig.removeByObject(object)
+				err = yig.MetaStorage.DeleteObject(object, object.DeleteMarker, nil)
+				if err != nil {
+					return
+				}
 			}
 		}
 		return
@@ -944,17 +917,16 @@ func (yig *YigStorage) removeObjectVersion(bucketName, objectName, version strin
 	if err != nil {
 		return err
 	}
-	err = yig.removeByObject(object)
-	if err != nil {
-		return err
-	}
+
 	if version == "null" {
 		objMap := &meta.ObjMap{
 			Name:       objectName,
 			BucketName: bucketName,
 		}
-		err := yig.MetaStorage.DeleteObjMapEntry(objMap)
-		return err
+		err = yig.removeByObject(object, objMap)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -970,20 +942,17 @@ func (yig *YigStorage) addDeleteMarker(bucket meta.Bucket, objectName string,
 		NullVersion:      nullVersion,
 		DeleteMarker:     true,
 	}
+
 	versionId = deleteMarker.GetVersionId()
-	err = yig.MetaStorage.PutObjectEntry(deleteMarker)
+	objMap := &meta.ObjMap{
+		Name:       objectName,
+		BucketName: bucket.Name,
+	}
 
 	if nullVersion {
-		objMap := &meta.ObjMap{
-			Name:       objectName,
-			BucketName: bucket.Name,
-		}
-		objMap.NullVerNum = uint64(deleteMarker.LastModifiedTime.UnixNano())
-		err = yig.MetaStorage.PutObjMapEntry(objMap)
-		if err != nil {
-			yig.delTableEntryForRollback(deleteMarker, nil)
-			return
-		}
+		err = yig.MetaStorage.PutObject(deleteMarker, nil, objMap, false)
+	} else {
+		err = yig.MetaStorage.PutObject(deleteMarker, nil,nil, false)
 	}
 
 	return

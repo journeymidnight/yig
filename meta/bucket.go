@@ -38,7 +38,7 @@ func (m *Meta) GetBuckets() (buckets []Bucket, err error) {
 }
 
 func (m *Meta) UpdateUsage(bucketName string, size int64) {
-	m.Client.UpdateUsage(bucketName, size)
+	m.Client.UpdateUsage(bucketName, size, nil)
 }
 
 func (m *Meta) GetUsage(bucketName string) (int64, error) {

@@ -115,24 +115,29 @@ func (t *TidbClient) UpdateObjectAcl(object *Object) error {
 	return err
 }
 
-func (t *TidbClient) PutObject(object *Object) error {
-	tx, err := t.Client.Begin()
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		} else {
-			tx.Commit()
-		}
-	}()
+func (t *TidbClient) PutObject(object *Object, tx interface{}) (err error) {
+	var sqlTx *sql.Tx
+	if tx == nil {
+		tx, err = t.Client.Begin()
+		defer func() {
+			if err != nil {
+				sqlTx.Rollback()
+			} else {
+				sqlTx.Commit()
+			}
+		}()
+	} else {
+		sqlTx, _ = tx.(*sql.Tx)
+	}
 
 	sql, args := object.GetCreateSql()
-	_, err = tx.Exec(sql, args...)
+	_, err = sqlTx.Exec(sql, args...)
 	if object.Parts != nil {
 		v := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
 		version := strconv.FormatUint(v, 10)
 		for _, p := range object.Parts {
 			psql, args := p.GetCreateSql(object.BucketName, object.Name, version)
-			_, err = tx.Exec(psql, args...)
+			_, err = sqlTx.Exec(psql, args...)
 			if err != nil {
 				return err
 			}
@@ -141,25 +146,30 @@ func (t *TidbClient) PutObject(object *Object) error {
 	return err
 }
 
-func (t *TidbClient) DeleteObject(object *Object) error {
-	tx, err := t.Client.Begin()
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		} else {
-			tx.Commit()
-		}
-	}()
+func (t *TidbClient) DeleteObject(object *Object, tx interface{}) (err error) {
+	var sqlTx *sql.Tx
+	if tx == nil {
+		tx, err = t.Client.Begin()
+		defer func() {
+			if err != nil {
+				sqlTx.Rollback()
+			} else {
+				sqlTx.Commit()
+			}
+		}()
+	} else {
+		sqlTx, _ = tx.(*sql.Tx)
+	}
 
 	v := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
 	version := strconv.FormatUint(v, 10)
 	sqltext := "delete from objects where name=? and bucketname=? and version=?;"
-	_, err = tx.Exec(sqltext, object.Name, object.BucketName, version)
+	_, err = sqlTx.Exec(sqltext, object.Name, object.BucketName, version)
 	if err != nil {
 		return err
 	}
 	sqltext = "delete from objectpart where objectname=? and bucketname=? and version=?;"
-	_, err = tx.Exec(sqltext, object.Name, object.BucketName, version)
+	_, err = sqlTx.Exec(sqltext, object.Name, object.BucketName, version)
 	if err != nil {
 		return err
 	}
