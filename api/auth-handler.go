@@ -19,18 +19,19 @@ import (
 // returns APIErrorCode if any to be replied to the client.
 func checkRequestAuth(api ObjectAPIHandlers, r *http.Request, action policy.Action, bucketName, objectName string) (c common.Credential, err error) {
 	// TODO:Location constraint
-	switch signature.GetRequestAuthType(r) {
+	authType := signature.GetRequestAuthType(r)
+	switch authType {
 	case signature.AuthTypeUnknown:
-		helper.Debugln("ErrAccessDenied: AuthTypeUnknown")
+		helper.Logger.Println(5, "ErrAccessDenied: AuthTypeUnknown")
 		return c, ErrAccessDenied
 	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		helper.Debugln("AuthTypeSigned")
+		helper.Logger.Println(5, "AuthTypeSigned:", authType)
 		if c, err := signature.IsReqAuthenticated(r); err != nil {
-			helper.Debugln("ErrAccessDenied: IsReqAuthenticated return false:", err)
+			helper.Logger.Println(5, "ErrAccessDenied: IsReqAuthenticated return false:", err)
 			return c, err
 		} else {
-			helper.Debugln("Credential:", c)
+			helper.Logger.Println(5, "Credential:", c)
 			// check bucket policy
 			return IsBucketAllowed(c, api, r, action, bucketName, objectName)
 		}
@@ -43,12 +44,13 @@ func checkRequestAuth(api ObjectAPIHandlers, r *http.Request, action policy.Acti
 func IsBucketAllowed(c common.Credential, api ObjectAPIHandlers, r *http.Request, action policy.Action, bucketName, objectName string) (common.Credential, error) {
 	bucket, err := api.ObjectAPI.GetBucket(bucketName)
 	if err != nil {
-		helper.Debugln("GetBucket:", err)
+		helper.Logger.Println(5, "GetBucket", bucketName, "err:", err)
 		return c, err
 	}
 	if bucket.OwnerId == c.UserId {
 		return c, nil
 	}
+	helper.Logger.Println(5, "bucket.OwnerId:", bucket.OwnerId, "not equals c.UserId:", c.UserId)
 	helper.Debugln("GetBucketPolicy:", bucket.Policy)
 	if bucket.Policy.IsAllowed(policy.Args{
 		AccountName:     "",

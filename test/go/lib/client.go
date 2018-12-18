@@ -25,7 +25,7 @@ func NewS3() *S3Client {
 		&aws.Config{
 			Credentials: creds,
 			DisableSSL:  aws.Bool(true),
-			Endpoint:    aws.String("s3.test.com"),
+			Endpoint:    aws.String("s3.test.com:8080"),
 			Region:      aws.String("r"),
 		},
 	),
