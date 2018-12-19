@@ -115,7 +115,7 @@ func (yig *YigStorage) SetBucketLc(bucketName string, lc datatype.Lc,
 
 	err = yig.MetaStorage.PutBucketToLifeCycle(bucket)
 	if err != nil {
-		yig.Logger.Println(5, "Error Put bucket to LC table hbase: ", err)
+		yig.Logger.Println(5, "Error Put bucket to LC table: ", err)
 		return err
 	}
 	return nil
