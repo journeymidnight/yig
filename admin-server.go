@@ -6,8 +6,8 @@ import (
 	router "github.com/gorilla/mux"
 	"github.com/journeymidnight/yig/api"
 	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/iam"
+	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/log"
 	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/storage"
@@ -141,7 +141,6 @@ func RegisterHandlers(router *router.Router, handlerFns ...handlerFunc) http.Han
 	}
 	return f
 }
-
 
 func configureAdminHandler() http.Handler {
 	mux := router.NewRouter()

@@ -11,9 +11,10 @@ const (
 )
 
 type Config struct {
-	S3Domain                   string `toml:"s3domain"`     // Domain name of YIG
-	Region                     string `toml:"region"`       // Region name this instance belongs to, e.g cn-bj-1
-	IamEndpoint                string `toml:"iam_endpoint"` // le IAM endpoint address
+	S3Domain                   string `toml:"s3domain"`          // Domain name of YIG
+	S3DomainInternal           string `toml:"s3domain_internal"` // Internal Domain name of YIG
+	Region                     string `toml:"region"`            // Region name this instance belongs to, e.g cn-bj-1
+	IamEndpoint                string `toml:"iam_endpoint"`      // le IAM endpoint address
 	IamKey                     string `toml:"iam_key"`
 	IamSecret                  string `toml:"iam_secret"`
 	IamVersion                 string `toml:"iam_version"`
@@ -42,7 +43,7 @@ type Config struct {
 	LcDebug                    bool   //used for tools/lc only, if this was set true, will treat days as seconds
 	LogLevel                   int    `toml:"log_level"` //1-20
 	CephConfigPattern          string `toml:"ceph_config_pattern"`
-	ReservedOrigins            string `toml:"reserved_origins"`// www.ccc.com,www.bbb.com,127.0.0.1
+	ReservedOrigins            string `toml:"reserved_origins"` // www.ccc.com,www.bbb.com,127.0.0.1
 	MetaStore                  string `toml:"meta_store"`
 	TidbInfo                   string `toml:"tidb_info"`
 	KeepAlive                  bool   `toml:"keepalive"`
@@ -79,6 +80,7 @@ func MarshalTOMLConfig() error {
 	}
 	// setup CONFIG with defaults
 	CONFIG.S3Domain = c.S3Domain
+	CONFIG.S3DomainInternal = c.S3DomainInternal
 	CONFIG.Region = c.Region
 	CONFIG.IamEndpoint = c.IamEndpoint
 	CONFIG.IamKey = c.IamKey

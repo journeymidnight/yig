@@ -1,11 +1,11 @@
 package iam
 
 import (
-	"github.com/journeymidnight/yig/iam/common"
-	"github.com/journeymidnight/yig/iam/cache"
 	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/iam/cache"
 	"github.com/journeymidnight/yig/iam/client/v1"
 	"github.com/journeymidnight/yig/iam/client/v2"
+	"github.com/journeymidnight/yig/iam/common"
 	"regexp"
 )
 
@@ -15,10 +15,8 @@ var IsValidSecretKey = regexp.MustCompile(`^.{8,40}$`)
 // IsValidAccessKey - validate access key.
 var IsValidAccessKey = regexp.MustCompile(`^[a-zA-Z0-9\\-\\.\\_\\~]{5,20}$`)
 
-
-
 type IamClient interface {
-	GetKeysByUid(string) ([]common.Credential , error)
+	GetKeysByUid(string) ([]common.Credential, error)
 	GetCredential(string) (common.Credential, error)
 }
 

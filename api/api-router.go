@@ -19,6 +19,7 @@ package api
 import (
 	router "github.com/gorilla/mux"
 	"github.com/journeymidnight/yig/helper"
+	"errors"
 )
 
 // objectAPIHandler implements and provides http handlers for S3 API.
@@ -32,11 +33,28 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 	apiRouter := mux.NewRoute().PathPrefix("/").Subrouter()
 
 	var routers []*router.Router
-	// Bucket router, matches domain.name/bucket_name/object_name
-	bucket := apiRouter.Host(helper.CONFIG.S3Domain).PathPrefix("/{bucket}").Subrouter()
-	// Host router, matches bucket_name.domain.name/object_name
-	bucket_host := apiRouter.Host("{bucket:.+}." + helper.CONFIG.S3Domain).Subrouter()
-	routers = append(routers, bucket, bucket_host)
+
+	if helper.CONFIG.S3Domain != "" {
+		routers = append(routers,
+			// Bucket router, matches domain.name/bucket_name/object_name
+			apiRouter.Host(helper.CONFIG.S3Domain).PathPrefix("/{bucket}").Subrouter(),
+			// Host router, matches bucket_name.domain.name/object_name
+			apiRouter.Host("{bucket:.+}."+helper.CONFIG.S3Domain).Subrouter(),
+		)
+	}
+
+	if helper.CONFIG.S3DomainInternal != "" {
+		routers = append(routers,
+			// Bucket router, matches domain.name/bucket_name/object_name
+			apiRouter.Host(helper.CONFIG.S3DomainInternal).PathPrefix("/{bucket}").Subrouter(),
+			// Host router, matches bucket_name.domain.name/object_name
+			apiRouter.Host("{bucket:.+}."+helper.CONFIG.S3DomainInternal).Subrouter(),
+		)
+	}
+
+	if len(routers) == 0 {
+		panic(errors.New("S3 domain is empty. No host to listen."))
+	}
 
 	for _, bucket := range routers {
 		/// Object operations

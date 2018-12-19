@@ -1,20 +1,20 @@
 package v2
 
 import (
-	"github.com/journeymidnight/yig/iam/common"
-	"github.com/journeymidnight/yig/circuitbreak"
-	"github.com/journeymidnight/yig/helper"
-	"fmt"
-	"net/http"
-	"io/ioutil"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"github.com/journeymidnight/yig/circuitbreak"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/iam/common"
+	"io/ioutil"
+	"net/http"
 )
 
 type AccessKeyItemList struct {
-	Page int `json:"page"`
-	Size int `json:"size"`
-	Total int `json:"total_count"`
+	Page    int             `json:"page"`
+	Size    int             `json:"size"`
+	Total   int             `json:"total_count"`
 	Content []AccessKeyItem `json:"content"`
 }
 
@@ -29,12 +29,11 @@ type AccessKeyItem struct {
 	Enabled      int    `json:"enabled"`
 }
 
-
 type Client struct {
 	httpClient *circuitbreak.CircuitClient
 }
 
-func (a Client) GetKeysByUid (uid string) (credentials []common.Credential, err error) {
+func (a Client) GetKeysByUid(uid string) (credentials []common.Credential, err error) {
 	if a.httpClient == nil {
 		a.httpClient = circuitbreak.NewCircuitClient()
 	}
@@ -81,7 +80,7 @@ func (a Client) GetKeysByUid (uid string) (credentials []common.Credential, err 
 	return
 }
 
-func (a Client) GetCredential (accessKey string) (credential common.Credential, err error) {
+func (a Client) GetCredential(accessKey string) (credential common.Credential, err error) {
 	if a.httpClient == nil {
 		a.httpClient = circuitbreak.NewCircuitClient()
 	}
