@@ -4,7 +4,7 @@ import . "github.com/journeymidnight/yig/meta/types"
 
 // Insert object to `garbageCollection` table
 func (m *Meta) PutObjectToGarbageCollection(object *Object) error {
-	return m.Client.PutObjectToGarbageCollection(object)
+	return m.Client.PutObjectToGarbageCollection(object, nil)
 }
 
 func (m *Meta) ScanGarbageCollection(limit int, startRowKey string) ([]GarbageCollection, error) {

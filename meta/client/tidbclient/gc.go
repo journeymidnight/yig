@@ -9,7 +9,20 @@ import (
 )
 
 //gc
-func (t *TidbClient) PutObjectToGarbageCollection(object *Object) error {
+func (t *TidbClient) PutObjectToGarbageCollection(object *Object,  tx interface{}) (err error) {
+	var sqlTx *sql.Tx
+	if tx == nil {
+		tx, err = t.Client.Begin()
+		defer func() {
+			if err != nil {
+				sqlTx.Rollback()
+			} else {
+				sqlTx.Commit()
+			}
+		}()
+	} else {
+		sqlTx, _ = tx.(*sql.Tx)
+	}
 	o := GarbageCollectionFromObject(object)
 	var hasPart bool
 	if len(o.Parts) > 0 {
@@ -18,22 +31,13 @@ func (t *TidbClient) PutObjectToGarbageCollection(object *Object) error {
 	mtime := o.MTime.Format(TIME_LAYOUT_TIDB)
 	version := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
 	sqltext := "insert ignore into gc(bucketname,objectname,version,location,pool,objectid,status,mtime,part,triedtimes) values(?,?,?,?,?,?,?,?,?,?);"
-	tx, err := t.Client.Begin()
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		} else {
-			tx.Commit()
-		}
-	}()
-
-	_, err = tx.Exec(sqltext, o.BucketName, o.ObjectName, version, o.Location, o.Pool, o.ObjectId, o.Status, mtime, hasPart, o.TriedTimes)
+	_, err = sqlTx.Exec(sqltext, o.BucketName, o.ObjectName, version, o.Location, o.Pool, o.ObjectId, o.Status, mtime, hasPart, o.TriedTimes)
 	if err != nil {
 		return err
 	}
 	for _, p := range object.Parts {
 		psql, args := p.GetCreateGcSql(o.BucketName, o.ObjectName, version)
-		_, err = tx.Exec(psql, args...)
+		_, err = sqlTx.Exec(psql, args...)
 		if err != nil {
 			return err
 		}

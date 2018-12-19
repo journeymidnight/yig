@@ -145,7 +145,6 @@ func (yig *YigStorage) NewMultipartUpload(credential common.Credential, bucketNa
 func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential common.Credential,
 	uploadId string, partId int, size int64, data io.Reader, md5Hex string,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectPartResult, err error) {
-
 	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
 	if err != nil {
 		return
@@ -250,24 +249,19 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 		LastModified:         time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT),
 		InitializationVector: initializationVector,
 	}
-	err = yig.MetaStorage.Client.PutObjectPart(multipart, part)
+	err = yig.MetaStorage.PutObjectPart(multipart, part)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
-
 	// remove possible old object in Ceph
-	var removedSize int64 = 0
 	if part, ok := multipart.Parts[partId]; ok {
 		RecycleQueue <- objectToRecycle{
 			location: multipart.Metadata.Location,
 			pool:     multipart.Metadata.Pool,
 			objectId: part.ObjectId,
 		}
-		removedSize += part.Size
 	}
-
-	yig.MetaStorage.UpdateUsage(bucketName, part.Size-removedSize)
 
 	result.ETag = calculatedMd5
 	result.SseType = sseRequest.Type
@@ -380,24 +374,20 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	}
 	result.LastModified = now
 
-	err = yig.MetaStorage.Client.PutObjectPart(multipart, part)
+	err = yig.MetaStorage.PutObjectPart(multipart, part)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
 
 	// remove possible old object in Ceph
-	var removedSize int64 = 0
 	if part, ok := multipart.Parts[partId]; ok {
 		RecycleQueue <- objectToRecycle{
 			location: multipart.Metadata.Location,
 			pool:     multipart.Metadata.Pool,
 			objectId: part.ObjectId,
 		}
-		removedSize += part.Size
 	}
-
-	yig.MetaStorage.UpdateUsage(bucketName, part.Size-removedSize)
 
 	return result, nil
 }
@@ -507,7 +497,7 @@ func (yig *YigStorage) AbortMultipartUpload(credential common.Credential,
 		return err
 	}
 
-	err = yig.MetaStorage.Client.DeleteMultipart(multipart)
+	err = yig.MetaStorage.DeleteMultipart(multipart)
 	if err != nil {
 		return err
 	}
@@ -521,7 +511,7 @@ func (yig *YigStorage) AbortMultipartUpload(credential common.Credential,
 		}
 		removedSize += p.Size
 	}
-	yig.MetaStorage.UpdateUsage(bucketName, -removedSize)
+
 	return nil
 }
 
@@ -622,30 +612,23 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 		nullVerNum = uint64(object.LastModifiedTime.UnixNano())
 	}
 
-	err = yig.MetaStorage.PutObjectEntry(object)
-	if err != nil {
-		return
-	}
-
 	objMap := &meta.ObjMap{
 		Name:       objectName,
 		BucketName: bucketName,
 	}
+
 	if nullVerNum != 0 {
-		objMap.NullVerNum = nullVerNum
-		err = yig.MetaStorage.PutObjMapEntry(objMap)
-		if err != nil {
-			yig.delTableEntryForRollback(object, nil)
-			return
-		}
+		err = yig.MetaStorage.PutObject(object, &multipart, objMap, false)
+	} else {
+		err = yig.MetaStorage.PutObject(object, &multipart, nil, false)
 	}
 
-	// Remove from multiparts table
-	err = yig.MetaStorage.Client.DeleteMultipart(multipart)
-	if err != nil { // rollback objects table
-		yig.delTableEntryForRollback(object, objMap)
-		return result, err
-	}
+	//// Remove from multiparts table
+	//err = yig.MetaStorage.Client.DeleteMultipart(multipart)
+	//if err != nil { // rollback objects table
+	//	yig.delTableEntryForRollback(object, objMap)
+	//	return result, err
+	//}
 
 	sseRequest := multipart.Metadata.SseRequest
 	result.SseType = sseRequest.Type

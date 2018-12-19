@@ -214,3 +214,15 @@ func (o *Object) GetUpdateAclSql() (string, []interface{}) {
 	args := []interface{}{acl, o.BucketName, o.Name, version}
 	return sql, args
 }
+
+func (o *Object) GetAddUsageSql() (string, []interface{}) {
+	sql := "update buckets set usages= usages + ? where bucketname=?"
+	args := []interface{}{o.Size, o.BucketName}
+	return sql, args
+}
+
+func (o *Object) GetSubUsageSql() (string, []interface{}) {
+	sql := "update buckets set usages= usages + ? where bucketname=?"
+	args := []interface{}{-o.Size, o.BucketName}
+	return sql, args
+}

@@ -78,8 +78,46 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed
 	return object, nil
 }
 
+func (m *Meta) PutObject(object *Object, multipart *Multipart, objMap *ObjMap, updateUsage bool) error {
+	tx, err := m.Client.NewTrans()
+	defer func() {
+		if err != nil {
+			m.Client.AbortTrans(tx)
+		} else {
+			m.Client.CommitTrans(tx)
+		}
+	}()
+
+	err = m.Client.PutObject(object, tx)
+	if err != nil {
+		return err
+	}
+
+	if objMap != nil {
+		err = m.Client.PutObjectMap(objMap, tx)
+		if err != nil {
+			return err
+		}
+	}
+
+	if multipart != nil {
+		err = m.Client.DeleteMultipart(multipart, tx)
+		if err != nil {
+			return err
+		}
+	}
+
+	if updateUsage {
+		err = m.Client.UpdateUsage(object.BucketName, object.Size, tx)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (m *Meta) PutObjectEntry(object *Object) error {
-	err := m.Client.PutObject(object)
+	err := m.Client.PutObject(object, nil)
 	return err
 }
 
@@ -89,16 +127,55 @@ func (m *Meta) UpdateObjectAcl(object *Object) error {
 }
 
 func (m *Meta) PutObjMapEntry(objMap *ObjMap) error {
-	err := m.Client.PutObjectMap(objMap)
+	err := m.Client.PutObjectMap(objMap, nil)
 	return err
 }
 
-func (m *Meta) DeleteObjectEntry(object *Object) error {
-	err := m.Client.DeleteObject(object)
+func (m *Meta) DeleteObject(object *Object, DeleteMarker bool, objMap *ObjMap) error {
+	tx, err := m.Client.NewTrans()
+	defer func() {
+		if err != nil {
+			m.Client.AbortTrans(tx)
+		} else {
+			m.Client.CommitTrans(tx)
+		}
+	}()
+
+	err = m.Client.DeleteObject(object, tx)
+	if err != nil {
+		return err
+	}
+
+	if objMap != nil {
+		err = m.Client.DeleteObjectMap(objMap, tx)
+		if err != nil {
+			return err
+		}
+	}
+
+	if DeleteMarker {
+		return nil
+	}
+
+	err = m.Client.PutObjectToGarbageCollection(object, tx)
+	if err != nil {
+		return err
+	}
+
+	err = m.Client.UpdateUsage(object.BucketName, -object.Size, tx)
+	if err != nil {
+		return err
+	}
+
 	return err
 }
 
-func (m *Meta) DeleteObjMapEntry(objMap *ObjMap) error {
-	err := m.Client.DeleteObjectMap(objMap)
-	return err
-}
+//func (m *Meta) DeleteObjectEntry(object *Object) error {
+//	err := m.Client.DeleteObject(object, nil)
+//	return err
+//}
+
+//func (m *Meta) DeleteObjMapEntry(objMap *ObjMap) error {
+//	err := m.Client.DeleteObjectMap(objMap, nil)
+//	return err
+//}
