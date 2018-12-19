@@ -3,7 +3,7 @@ echo ${BASEDIR}
 sudo docker rm --force yig
 if [ -x "$BASEDIR/yig" ]; then 
     sudo docker run -d --name yig \
-			 -p 80:80 \
+			 -p 8080:8080 \
 	                 -p 9000:9000 \
 			 -v ${BASEDIR}/integrate/cephconf:/etc/ceph/ \
 			 -v ${BASEDIR}/integrate/yigconf:/etc/yig/ \
@@ -15,7 +15,7 @@ if [ -x "$BASEDIR/yig" ]; then
     echo "started yig from local dir"
 else
     sudo docker run -d --name yig \
-			 -p 80:80 \
+			 -p 8080:8080 \
 	                 -p 9000:9000 \
 			 -v ${BASEDIR}/integrate/cephconf:/etc/ceph/ \
 			 -v ${BASEDIR}/integrate/yigconf:/etc/yig/ \

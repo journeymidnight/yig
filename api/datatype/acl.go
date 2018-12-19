@@ -120,34 +120,43 @@ func GetCannedAclFromPolicy(policy AccessControlPolicy) (acl Acl, err error) {
 		switch grant.Grantee.XsiType {
 		case ACL_TYPE_CANON_USER:
 			if grant.Grantee.ID != aclOwner.ID {
+				helper.Logger.Println(1, "grant.Grantee.ID:", grant.Grantee.ID, "not equals aclOwner.ID:", aclOwner.ID)
 				return acl, ErrUnsupportedAcl
 			}
 			if grant.Permission != ACL_PERM_FULL_CONTROL {
+				helper.Logger.Println(1, "grant.Permission:", grant.Permission, "not equals", ACL_PERM_FULL_CONTROL)
 				return acl, ErrUnsupportedAcl
 			}
 			canonUser = true
 		case ACL_TYPE_GROUP:
 			if grant.Grantee.URI == ACL_GROUP_TYPE_ALL_USERS {
+				helper.Logger.Println(5, "grant.Grantee.URI is", ACL_GROUP_TYPE_ALL_USERS)
 				if grant.Permission != ACL_PERM_READ {
+					helper.Logger.Println(1, "grant.Permission:", grant.Permission, "not equals", ACL_PERM_READ)
 					return acl, ErrUnsupportedAcl
 				}
 				acl = Acl{CannedAcl: ValidCannedAcl[CANNEDACL_PUBLIC_READ]}
 				group = true
 			} else if grant.Grantee.URI == ACL_GROUP_TYPE_AUTHENTICATED_USERS {
+				helper.Logger.Println(5, "grant.Grantee.URI is", ACL_GROUP_TYPE_AUTHENTICATED_USERS)
 				if grant.Permission != ACL_PERM_READ {
+					helper.Logger.Println(1, "grant.Permission:", grant.Permission, "not equals", ACL_PERM_FULL_CONTROL)
 					return acl, ErrUnsupportedAcl
 				}
 				acl = Acl{CannedAcl: ValidCannedAcl[CANNEDACL_AUTHENTICATED_READ]}
 				group = true
 			} else {
+				helper.Logger.Println(1, "grant.Grantee.URI is invalid:", grant.Grantee.URI)
 				return acl, ErrUnsupportedAcl
 			}
 		default:
+			helper.Logger.Println(1, "grant.Grantee.XsiType is invalid:", grant.Grantee.XsiType)
 			return acl, ErrUnsupportedAcl
 		}
 	}
 
 	if !canonUser {
+		helper.Logger.Println(1, "canonUser is invalid:", canonUser)
 		return acl, ErrUnsupportedAcl
 	}
 

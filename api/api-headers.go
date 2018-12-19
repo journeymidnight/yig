@@ -55,7 +55,7 @@ func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *
 		w.Header().Set(key, val)
 	}
 	if !existCacheControl {
-		w.Header().Set("Cache-Control", "public, max-age=30672000")
+		w.Header().Set("Cache-Control", "no-store")
 	}
 
 	w.Header().Set("Content-Length", strconv.FormatInt(object.Size, 10))
