@@ -75,8 +75,8 @@ func (b Bucket) GetUpdateSql() (string, []interface{}) {
 	cors, _ := json.Marshal(b.CORS)
 	lc, _ := json.Marshal(b.LC)
 	bucket_policy, _ := json.Marshal(b.Policy)
-	sql := "update buckets set bucketname=?,acl=?,policy=?,cors=?,lc=?,uid=?,usages=?,versioning=? where bucketname=?"
-	args := []interface{}{b.Name, acl, bucket_policy, cors, lc, b.OwnerId, b.Usage, b.Versioning, b.Name}
+	sql := "update buckets set bucketname=?,acl=?,policy=?,cors=?,lc=?,uid=?,versioning=? where bucketname=?"
+	args := []interface{}{b.Name, acl, bucket_policy, cors, lc, b.OwnerId, b.Versioning, b.Name}
 	return sql, args
 }
 
