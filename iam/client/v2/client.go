@@ -36,7 +36,7 @@ type Client struct {
 
 func (a Client) GetKeysByUid (uid string) (credentials []common.Credential, err error) {
 	if a.httpClient == nil {
-		a.httpClient = circuitbreak.NewCircuitClient()
+		a.httpClient = circuitbreak.NewCircuitClientWithInsecureSSL()
 	}
 	var slog = helper.Logger
 	url := helper.CONFIG.IamEndpoint + "/v1/access/"
@@ -83,7 +83,7 @@ func (a Client) GetKeysByUid (uid string) (credentials []common.Credential, err 
 
 func (a Client) GetCredential (accessKey string) (credential common.Credential, err error) {
 	if a.httpClient == nil {
-		a.httpClient = circuitbreak.NewCircuitClient()
+		a.httpClient = circuitbreak.NewCircuitClientWithInsecureSSL()
 	}
 	var slog = helper.Logger
 	url := helper.CONFIG.IamEndpoint + "/v1/access/" + accessKey
