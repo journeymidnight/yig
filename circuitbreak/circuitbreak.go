@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"sync"
 	"time"
+	"crypto/tls"
 )
 
 /*
@@ -48,6 +49,18 @@ type UrlItem struct {
 
 func NewCircuitClient() *CircuitClient {
 	c := &CircuitClient{UrlMap: make(map[string]*UrlItem, 0)}
+	return c
+}
+
+func NewCircuitClientWithInsecureSSL() *CircuitClient {
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := http.Client{Transport: tr}
+	c := &CircuitClient{
+		HttpClient: client,
+		UrlMap:     make(map[string]*UrlItem, 0),
+	}
 	return c
 }
 
