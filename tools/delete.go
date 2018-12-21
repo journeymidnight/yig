@@ -47,10 +47,10 @@ func deleteFromCeph(index int) {
 				Remove(garbage.Pool, garbage.ObjectId)
 			if err != nil {
 				if strings.Contains(err.Error(), "ret=-2") {
+					helper.Logger.Println(5, "failed delete", garbage.BucketName, ":", garbage.ObjectName, ":",
+						garbage.Location, ":", garbage.Pool, ":", garbage.ObjectId, " error:", err)
 					goto release
 				}
-				helper.Logger.Println(5, "failed delete", garbage.BucketName, ":", garbage.ObjectName, ":",
-					garbage.Location, ":", garbage.Pool, ":", garbage.ObjectId, " error:", err)
 			} else {
 				helper.Logger.Println(5, "success delete", garbage.BucketName, ":", garbage.ObjectName, ":",
 					garbage.Location, ":", garbage.Pool, ":", garbage.ObjectId)
@@ -61,9 +61,9 @@ func deleteFromCeph(index int) {
 					Remove(garbage.Pool, p.ObjectId)
 				if err != nil {
 					if strings.Contains(err.Error(), "ret=-2") {
+						helper.Logger.Println(5, "failed delete part", garbage.Location, ":", garbage.Pool, ":", p.ObjectId, " error:", err)
 						goto release
 					}
-					helper.Logger.Println(5, "failed delete part", garbage.Location, ":", garbage.Pool, ":", p.ObjectId, " error:", err)
 				} else {
 					helper.Logger.Println(5, "success delete part", garbage.Location, ":", garbage.Pool, ":", p.ObjectId)
 				}
