@@ -5,6 +5,8 @@ echo Building RPMs..
 GITROOT=`git rev-parse --show-toplevel`
 cd $GITROOT
 VER=1.1
+echo "Git get full depth..."
+git fetch --unshallow
 REL=`git rev-parse --short HEAD`git
 REL=`git log --oneline|wc -l`.$REL
 RPMTOPDIR=$GITROOT/rpm-build
