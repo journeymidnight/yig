@@ -47,14 +47,11 @@ func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *
 		w.Header()["ETag"] = []string{"\"" + object.Etag + "\""}
 	}
 
-	var existCacheControl bool
 	for key, val := range object.CustomAttributes {
-		if key == "Cache-Control" {
-			existCacheControl = true
-		}
 		w.Header().Set(key, val)
 	}
-	if !existCacheControl {
+	//default cache-control is no-store
+	if _, ok := object.CustomAttributes["Cache-Control"]; !ok {
 		w.Header().Set("Cache-Control", "no-store")
 	}
 

@@ -59,10 +59,13 @@ func isValidLocationConstraint(reqBody io.Reader) (err error) {
 
 // Supported headers that needs to be extracted.
 var supportedHeaders = []string{
-	"Content-Type",
 	"Cache-Control",
-	"Content-Encoding",
 	"Content-Disposition",
+	"Content-Encoding",
+	"Content-Language",
+	"Content-Type",
+	"Expires",
+	"Website-Redirect-Location",
 	// Add more supported headers here, in "canonical" form
 }
 
