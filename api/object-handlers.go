@@ -464,9 +464,18 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	var isOnlyUpdateMetadata bool = false
+
 	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName {
-		WriteErrorResponse(w, r, ErrInvalidCopyDest)
-		return
+		if r.Header.Get("X-Amz-Metadata-Directive") == "COPY" {
+			WriteErrorResponse(w, r, ErrInvalidCopyDest)
+			return
+		} else if r.Header.Get("X-Amz-Metadata-Directive") == "REPLACE" {
+			isOnlyUpdateMetadata = true
+		} else {
+			WriteErrorResponse(w, r, ErrInvalidRequestBody)
+			return
+		}
 	}
 
 	helper.Debugln("sourceBucketName", sourceBucketName, "sourceObjectName", sourceObjectName,
@@ -492,6 +501,53 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	//if source == dest and X-Amz-Metadata-Directive == REPLACE, only update the meta;
+	if isOnlyUpdateMetadata {
+		targetObject := sourceObject
+
+		//update custome attrs from headers
+		newMetadata := extractMetadataFromHeader(r.Header)
+		if c, ok := newMetadata["Content-Type"]; ok {
+			targetObject.ContentType = c
+		} else {
+			targetObject.ContentType = sourceObject.ContentType
+		}
+		targetObject.CustomAttributes = newMetadata
+
+		result, err := api.ObjectAPI.UpdateObjectAttrs(targetObject, credential)
+		if err != nil {
+			helper.ErrorIf(err, "Unable to update object meta for "+targetObject.ObjectId)
+			WriteErrorResponse(w, r, err)
+			return
+		}
+		response := GenerateCopyObjectResponse(result.Md5, result.LastModified)
+		encodedSuccessResponse := EncodeResponse(response)
+		// write headers
+		if result.Md5 != "" {
+			w.Header()["ETag"] = []string{"\"" + result.Md5 + "\""}
+		}
+		if sourceVersion != "" {
+			w.Header().Set("x-amz-copy-source-version-id", sourceVersion)
+		}
+		if result.VersionId != "" {
+			w.Header().Set("x-amz-version-id", result.VersionId)
+		}
+		// Set SSE related headers
+		for _, headerName := range []string{
+			"X-Amz-Server-Side-Encryption",
+			"X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id",
+			"X-Amz-Server-Side-Encryption-Customer-Algorithm",
+			"X-Amz-Server-Side-Encryption-Customer-Key-Md5",
+		} {
+			if header := r.Header.Get(headerName); header != "" {
+				w.Header().Set(headerName, header)
+			}
+		}
+		// write success response.
+		WriteSuccessResponse(w, encodedSuccessResponse)
+		return
+	}
+
 	/// maximum Upload size for object in a single CopyObject operation.
 	if isMaxObjectSize(sourceObject.Size) {
 		WriteErrorResponseWithResource(w, r, ErrEntityTooLarge, copySource)
@@ -512,7 +568,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		pipeWriter.Close()
 	}()
 
-	targetAcl, err := getAclFromHeader(r.Header)
+	targetACL, err := getAclFromHeader(r.Header)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -520,7 +576,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 
 	// Note that sourceObject and targetObject are pointers
 	targetObject := &meta.Object{}
-	targetObject.ACL = targetAcl
+	targetObject.ACL = targetACL
 	targetObject.BucketName = targetBucketName
 	targetObject.Name = targetObjectName
 	targetObject.Size = sourceObject.Size

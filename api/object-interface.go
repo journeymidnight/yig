@@ -64,6 +64,7 @@ type ObjectLayer interface {
 		sse datatype.SseRequest) (result datatype.PutObjectResult, err error)
 	CopyObject(targetObject *meta.Object, source io.Reader, credential common.Credential,
 		sse datatype.SseRequest) (result datatype.PutObjectResult, err error)
+	UpdateObjectAttrs(targetObject *meta.Object, credential common.Credential) (result datatype.PutObjectResult, err error)
 	SetObjectAcl(bucket string, object string, version string, policy datatype.AccessControlPolicy,
 		acl datatype.Acl, credential common.Credential) error
 	GetObjectAcl(bucket string, object string, version string, credential common.Credential) (
