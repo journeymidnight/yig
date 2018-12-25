@@ -73,9 +73,9 @@ UNIQUE KEY `rowkey` (`bucketname`,`objectname`,`uploadtime`)
 |   location  	| string 	|    F    	|        	|
 |     pool    	| string 	|    F    	|        	|
 |     acl     	| string 	|    F    	|   JSON   	|
-|  sserequest 	| string 	|    F    	|        	|
+|  sserequest 	| string 	|    F    	|   JSON   	|
 |  encryption 	|  blob  	|    F    	|        	|
-|    attrs    	| string 	|    F    	|        	|
+|    attrs    	| string 	|    F    	|   JSON	|
 
 ## multipartpart
 UNIQUE KEY `rowkey` (`bucketname`,`objectname`,`uploadtime`)
@@ -109,7 +109,7 @@ UNIQUE KEY `rowkey` (`bucketname`,`name`,`version`)
 |   lastmodifiedtime   	| datetime 	|    F    	|        	|
 |         etag         	|  string  	|    F    	|        	|
 |      contenttype     	|  string  	|    F    	|        	|
-|   customattributes   	|  string  	|    F    	|        	|
+|   customattributes   	|  string  	|    F    	|   JSON 	|
 |          acl         	|  string  	|    F    	|   JSON   	|
 |      nullversion     	|   bool   	|    F    	|        	|
 |     deletemarker     	|   bool   	|    F    	|        	|

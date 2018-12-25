@@ -7,7 +7,7 @@
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
-/*!40101 SET NAMES utf8 */;
+/*!40101 SET NAMES utf8mb4 */;
 /*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
 /*!40103 SET TIME_ZONE='+00:00' */;
 /*!40014 SET @OLD_UNIQUE_CHECKS=@@UNIQUE_CHECKS, UNIQUE_CHECKS=0 */;
@@ -21,7 +21,7 @@
 
 DROP TABLE IF EXISTS `buckets`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `buckets` (
   `bucketname` varchar(255) NOT NULL DEFAULT '',
   `acl` JSON DEFAULT NULL,
@@ -33,7 +33,7 @@ CREATE TABLE `buckets` (
   `usages` bigint(20) DEFAULT NULL,
   `versioning` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`bucketname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -42,13 +42,13 @@ CREATE TABLE `buckets` (
 
 DROP TABLE IF EXISTS `cluster`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `cluster` (
   `fsid` varchar(255) DEFAULT NULL,
   `pool` varchar(255) DEFAULT NULL,
   `weight` int(11) DEFAULT NULL,
    UNIQUE KEY `rowkey` (`fsid`,`pool`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -57,7 +57,7 @@ CREATE TABLE `cluster` (
 
 DROP TABLE IF EXISTS `gc`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `gc` (
   `bucketname` varchar(255) DEFAULT NULL,
   `objectname` varchar(255) DEFAULT NULL,
@@ -70,7 +70,7 @@ CREATE TABLE `gc` (
   `part` tinyint(1) DEFAULT NULL,
   `triedtimes` int(11) DEFAULT NULL,
    UNIQUE KEY `rowkey` (`bucketname`,`objectname`,`version`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -79,7 +79,7 @@ CREATE TABLE `gc` (
 
 DROP TABLE IF EXISTS `gcpart`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `gcpart` (
   `partnumber` int(11) DEFAULT NULL,
   `size` bigint(20) DEFAULT NULL,
@@ -92,7 +92,7 @@ CREATE TABLE `gcpart` (
   `objectname` varchar(255) DEFAULT NULL,
   `version` bigint(20) UNSIGNED DEFAULT NULL,
    KEY `rowkey` (`bucketname`,`objectname`,`version`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -101,7 +101,7 @@ CREATE TABLE `gcpart` (
 
 DROP TABLE IF EXISTS `multipartpart`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `multipartpart` (
   `partnumber` int(11) DEFAULT NULL,
   `size` bigint(20) DEFAULT NULL,
@@ -114,7 +114,7 @@ CREATE TABLE `multipartpart` (
   `objectname` varchar(255) DEFAULT NULL,
   `uploadtime` bigint(20) UNSIGNED DEFAULT NULL,
    KEY `rowkey` (`bucketname`,`objectname`,`uploadtime`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -123,7 +123,7 @@ CREATE TABLE `multipartpart` (
 
 DROP TABLE IF EXISTS `multiparts`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `multiparts` (
   `bucketname` varchar(255) DEFAULT NULL,
   `objectname` varchar(255) DEFAULT NULL,
@@ -134,11 +134,11 @@ CREATE TABLE `multiparts` (
   `location` varchar(255) DEFAULT NULL,
   `pool` varchar(255) DEFAULT NULL,
   `acl` JSON DEFAULT NULL,
-  `sserequest` varchar(255) DEFAULT NULL,
+  `sserequest` JSON DEFAULT NULL,
   `encryption` blob DEFAULT NULL,
-  `attrs` varchar(255) DEFAULT NULL,
+  `attrs` JSON DEFAULT NULL,
   UNIQUE KEY `rowkey` (`bucketname`,`objectname`,`uploadtime`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -147,7 +147,7 @@ CREATE TABLE `multiparts` (
 
 DROP TABLE IF EXISTS `objectpart`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `objectpart` (
   `partnumber` int(11) DEFAULT NULL,
   `size` bigint(20) DEFAULT NULL,
@@ -161,7 +161,7 @@ CREATE TABLE `objectpart` (
   `version` varchar(255) DEFAULT NULL,
    KEY `rowkey` (`bucketname`,`objectname`,`version`)
 
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -170,7 +170,7 @@ CREATE TABLE `objectpart` (
 
 DROP TABLE IF EXISTS `objects`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `objects` (
   `bucketname` varchar(255) DEFAULT NULL,
   `name` varchar(255) DEFAULT NULL,
@@ -183,7 +183,7 @@ CREATE TABLE `objects` (
   `lastmodifiedtime` datetime DEFAULT NULL,
   `etag` varchar(255) DEFAULT NULL,
   `contenttype` varchar(255) DEFAULT NULL,
-  `customattributes` varchar(255) DEFAULT NULL,
+  `customattributes` JSON DEFAULT NULL,
   `acl` JSON DEFAULT NULL,
   `nullversion` tinyint(1) DEFAULT NULL,
   `deletemarker` tinyint(1) DEFAULT NULL,
@@ -191,7 +191,7 @@ CREATE TABLE `objects` (
   `encryptionkey` blob DEFAULT NULL,
   `initializationvector` blob DEFAULT NULL,
    UNIQUE KEY `rowkey` (`bucketname`,`name`,`version`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -200,13 +200,13 @@ CREATE TABLE `objects` (
 
 DROP TABLE IF EXISTS `objmap`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `objmap` (
   `bucketname` varchar(255) DEFAULT NULL,
   `objectname` varchar(255) DEFAULT NULL,
   `nullvernum` bigint(20) DEFAULT NULL,
   UNIQUE KEY `objmap` (`bucketname`,`objectname`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -215,11 +215,11 @@ CREATE TABLE `objmap` (
 
 DROP TABLE IF EXISTS `users`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
+/*!40101 SET character_set_client = utf8mb4 */;
 CREATE TABLE `users` (
   `userid` varchar(255) DEFAULT NULL,
   `bucketname` varchar(255) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
