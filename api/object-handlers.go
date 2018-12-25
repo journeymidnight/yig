@@ -1305,7 +1305,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	result, err = api.ObjectAPI.CompleteMultipartUpload(credential, bucketName,
 		objectName, uploadId, completeParts)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to complete multipart upload. err: %s")
+		helper.ErrorIf(err, "Unable to complete multipart upload.")
 		switch oErr := err.(type) {
 		case meta.PartTooSmall:
 			// Write part too small error.
