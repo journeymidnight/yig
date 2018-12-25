@@ -8,13 +8,14 @@ import (
 //DB Client Interface
 type Client interface {
 	//Transaction
-	NewTrans()(tx interface{}, err error)
+	NewTrans() (tx interface{}, err error)
 	AbortTrans(tx interface{}) error
 	CommitTrans(tx interface{}) error
 	//object
 	GetObject(bucketName, objectName, version string) (object *Object, err error)
 	GetAllObject(bucketName, objectName, version string) (object []*Object, err error)
 	PutObject(object *Object, tx interface{}) error
+	UpdateObjectAttrs(object *Object) error
 	DeleteObject(object *Object, tx interface{}) error
 	UpdateObjectAcl(object *Object) error
 	//bucket

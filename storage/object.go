@@ -8,6 +8,9 @@ import (
 	"math/rand"
 	"time"
 
+	"path"
+	"sync"
+
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/crypto"
 	. "github.com/journeymidnight/yig/error"
@@ -17,33 +20,10 @@ import (
 	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/signature"
-	"path"
-	"sync"
 )
-
-// Supported headers that needs to be extracted.
-var customedAttrs = []string{
-	"Cache-Control",
-	// Add more supported headers here, in "canonical" form
-}
 
 var latestQueryTime [2]time.Time // 0 is for SMALL_FILE_POOLNAME, 1 is for BIG_FILE_POOLNAME
 const CLUSTER_MAX_USED_SPACE_PERCENT = 85
-
-func getCustomedAttrs(metaData map[string]string) (map[string]string, error) {
-	if metaData == nil {
-		return nil, nil
-	}
-	attrs := make(map[string]string)
-	for _, v := range customedAttrs {
-		attr, ok := metaData[v]
-		if !ok {
-			continue
-		}
-		attrs[v] = attr
-	}
-	return attrs, nil
-}
 
 func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size int64) (cluster *CephStorage,
 	poolName string) {
@@ -548,14 +528,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 			return
 		}
 	}
-	attrs, err := getCustomedAttrs(metadata)
-	if err != nil {
-		RecycleQueue <- maybeObjectToRecycle
-		return
-	}
-
 	// TODO validate bucket policy and fancy ACL
-
 	object := &meta.Object{
 		Name:             objectName,
 		BucketName:       bucketName,
@@ -574,7 +547,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		EncryptionKey: helper.Ternary(sseRequest.Type == crypto.S3.String(),
 			cipherKey, []byte("")).([]byte),
 		InitializationVector: initializationVector,
-		CustomAttributes:     attrs,
+		CustomAttributes:     metadata,
 	}
 
 	result.LastModified = object.LastModifiedTime
@@ -599,7 +572,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		}
 		err = yig.MetaStorage.PutObject(object, nil, objMap, true)
 	} else {
-		err = yig.MetaStorage.PutObject(object, nil,nil, true)
+		err = yig.MetaStorage.PutObject(object, nil, nil, true)
 	}
 
 	if err != nil {
@@ -611,6 +584,36 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
 	}
+	return result, nil
+}
+
+func (yig *YigStorage) UpdateObjectAttrs(targetObject *meta.Object, credential common.Credential) (result datatype.PutObjectResult, err error) {
+
+	bucket, err := yig.MetaStorage.GetBucket(targetObject.BucketName, true)
+	if err != nil {
+		return
+	}
+	switch bucket.ACL.CannedAcl {
+	case "public-read-write":
+		break
+	default:
+		if bucket.OwnerId != credential.UserId {
+			return result, ErrBucketAccessForbidden
+		}
+	}
+
+	err = yig.MetaStorage.UpdateObjectAttrs(targetObject)
+	if err != nil {
+		yig.Logger.Println(5, "Update Object Attrs, sql fails")
+		return result, ErrInternalError
+	}
+	result.LastModified = targetObject.LastModifiedTime
+	result.Md5 = targetObject.Etag
+	result.VersionId = targetObject.GetVersionId()
+
+	yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
+	yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
+
 	return result, nil
 }
 
@@ -952,7 +955,7 @@ func (yig *YigStorage) addDeleteMarker(bucket meta.Bucket, objectName string,
 	if nullVersion {
 		err = yig.MetaStorage.PutObject(deleteMarker, nil, objMap, false)
 	} else {
-		err = yig.MetaStorage.PutObject(deleteMarker, nil,nil, false)
+		err = yig.MetaStorage.PutObject(deleteMarker, nil, nil, false)
 	}
 
 	return
