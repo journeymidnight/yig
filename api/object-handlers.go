@@ -36,6 +36,7 @@ import (
 	"github.com/journeymidnight/yig/iam/common"
 	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/signature"
+	"errors"
 )
 
 // supportedGetReqParams - supported request parameters for GET presigned request.
@@ -1272,21 +1273,23 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	}
 	completeMultipartBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to complete multipart upload.")
+		helper.ErrorIf(err, "Unable to complete multipart upload when read request body.",)
 		WriteErrorResponse(w, r, ErrInternalError)
 		return
 	}
 	complMultipartUpload := &meta.CompleteMultipartUpload{}
 	if err = xml.Unmarshal(completeMultipartBytes, complMultipartUpload); err != nil {
-		helper.ErrorIf(err, "Unable to parse complete multipart upload XML.")
+		helper.ErrorIf(err, "Unable to parse complete multipart upload XML. data: %s", string(completeMultipartBytes))
 		WriteErrorResponse(w, r, ErrMalformedXML)
 		return
 	}
 	if len(complMultipartUpload.Parts) == 0 {
+		helper.ErrorIf(errors.New("len(complMultipartUpload.Parts) == 0"), "Unable to complete multipart upload.")
 		WriteErrorResponse(w, r, ErrMalformedXML)
 		return
 	}
 	if !sort.IsSorted(meta.CompletedParts(complMultipartUpload.Parts)) {
+		helper.ErrorIf(errors.New("part not sorted."), "Unable to complete multipart upload. data: %+v", complMultipartUpload.Parts)
 		WriteErrorResponse(w, r, ErrInvalidPartOrder)
 		return
 	}
