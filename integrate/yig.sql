@@ -134,9 +134,9 @@ CREATE TABLE `multiparts` (
   `location` varchar(255) DEFAULT NULL,
   `pool` varchar(255) DEFAULT NULL,
   `acl` JSON DEFAULT NULL,
-  `sserequest` varchar(255) DEFAULT NULL,
+  `sserequest` JSON DEFAULT NULL,
   `encryption` blob DEFAULT NULL,
-  `attrs` varchar(255) DEFAULT NULL,
+  `attrs` JSON DEFAULT NULL,
   UNIQUE KEY `rowkey` (`bucketname`,`objectname`,`uploadtime`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -183,7 +183,7 @@ CREATE TABLE `objects` (
   `lastmodifiedtime` datetime DEFAULT NULL,
   `etag` varchar(255) DEFAULT NULL,
   `contenttype` varchar(255) DEFAULT NULL,
-  `customattributes` varchar(255) DEFAULT NULL,
+  `customattributes` JSON DEFAULT NULL,
   `acl` JSON DEFAULT NULL,
   `nullversion` tinyint(1) DEFAULT NULL,
   `deletemarker` tinyint(1) DEFAULT NULL,
