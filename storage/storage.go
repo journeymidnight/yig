@@ -15,7 +15,10 @@ import (
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/meta"
+	"github.com/journeymidnight/yig/redis"
 	"path"
+	"time"
+	"github.com/journeymidnight/yig/circuitbreak"
 )
 
 const (
@@ -41,12 +44,11 @@ type YigStorage struct {
 }
 
 func New(logger *log.Logger, metaCacheType int, enableDataCache bool, CephConfigPattern string) *YigStorage {
-	metaStorage := meta.New(logger, meta.CacheType(metaCacheType))
 	kms := crypto.NewKMS()
 	yig := YigStorage{
 		DataStorage: make(map[string]*CephStorage),
 		DataCache:   newDataCache(enableDataCache),
-		MetaStorage: metaStorage,
+		MetaStorage: meta.New(logger, meta.CacheType(metaCacheType)),
 		KMS:         kms,
 		Logger:      logger,
 		Stopping:    false,
@@ -78,6 +80,34 @@ func (y *YigStorage) Stop() {
 	helper.Logger.Print(5, "Stopping storage...")
 	y.WaitGroup.Wait()
 	helper.Logger.Println(5, "done")
+}
+
+// check cache health per one second if enable cache
+func (y *YigStorage) PingCache(interval time.Duration) {
+	tick := time.NewTicker(interval)
+	for {
+		select {
+		case <-tick.C:
+			redis.CacheCircuit.Execute(
+				context.Background(),
+				func(ctx context.Context) (err error) {
+					c, err := redis.GetClient(ctx)
+					if err != nil {
+						return err
+					}
+					defer c.Close()
+					// Use table.String() + key as Redis key
+					_, err = c.Do("PING")
+					helper.ErrorIf(err, "Cmd: %s.", "PING")
+					return err
+				},
+				nil,
+			)
+			if redis.CacheCircuit.IsOpen() {
+				helper.Logger.Println(10, circuitbreak.CacheCircuitIsOpenErr)
+			}
+		}
+	}
 }
 
 func (yig *YigStorage) encryptionKeyFromSseRequest(sseRequest datatype.SseRequest, bucket, object string) (key []byte, encKey []byte, err error) {
