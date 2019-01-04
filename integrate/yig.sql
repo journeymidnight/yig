@@ -232,3 +232,10 @@ CREATE TABLE `users` (
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
 -- Dump completed on 2018-03-20 18:26:36
+
+
+DROP TABLE IF EXISTS `lifecycle`;
+CREATE TABLE `lifecycle` (
+                       `bucketname` varchar(255) DEFAULT NULL,
+                       `status` varchar(255) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;

@@ -6,8 +6,8 @@ import (
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/log"
-	"github.com/journeymidnight/yig/meta"
 	"github.com/journeymidnight/yig/meta/types"
+	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/storage"
 	"os"
 	"os/signal"
@@ -102,7 +102,7 @@ func retrieveBucket(lc types.LifeCycle) error {
 		}
 	}
 	var request datatype.ListObjectsRequest
-	request.Versioned = true
+	request.Versioned = false
 	request.MaxKeys = 1000
 	if defaultConfig == true {
 		for {
@@ -136,6 +136,9 @@ func retrieveBucket(lc types.LifeCycle) error {
 				helper.Debugln("inteval:", time.Since(object.LastModifiedTime).Seconds())
 				if checkIfExpiration(object.LastModifiedTime, days) {
 					helper.Debugln("come here")
+					if object.NullVersion {
+						object.VersionId = ""
+					}
 					_, err = yig.DeleteObject(object.BucketName, object.Name, object.VersionId, common.Credential{})
 					if err != nil {
 						helper.Logger.Println(5, "[FAILED]", object.BucketName, object.Name, object.VersionId, err)
@@ -237,7 +240,11 @@ func main() {
 	stop = false
 	logger = log.New(f, "[yig]", log.LstdFlags, helper.CONFIG.LogLevel)
 	helper.Logger = logger
-	yig = storage.New(logger, int(meta.NoCache), false, helper.CONFIG.CephConfigPattern)
+	if helper.CONFIG.MetaCacheType > 0 || helper.CONFIG.EnableDataCache {
+		redis.Initialize()
+		defer redis.Close()
+	}
+	yig = storage.New(logger, helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache, helper.CONFIG.CephConfigPattern)
 	taskQ = make(chan types.LifeCycle, SCAN_HBASE_LIMIT)
 	signal.Ignore()
 	signalQueue = make(chan os.Signal)

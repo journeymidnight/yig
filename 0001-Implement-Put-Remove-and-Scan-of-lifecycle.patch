@@ -1,0 +1,323 @@
+From c2c41c68f1b2c8bcafd739670f2c8e0e40682cff Mon Sep 17 00:00:00 2001
+From: sunfengyun <sunfengyun@cnu.edu.cn>
+Date: Fri, 4 Jan 2019 12:55:23 +0800
+Subject: [PATCH] Implement Put, Remove and Scan of lifecycle.
+
+---
+ integrate/runlc.sh                     |  13 ++++
+ integrate/yig.sql                      |   7 ++
+ integrate/yigconf/yig.toml             |   1 +
+ meta/client/tidbclient/lc.go           |  60 ++++++++++++++++
+ meta/client/tidbclient/notimplement.go |  19 -----
+ test/go/lifecycle_test.go              | 128 +++++++++++++++++++++++++++++++++
+ tools/lc.go                            |   5 +-
+ 7 files changed, 213 insertions(+), 20 deletions(-)
+ create mode 100644 integrate/runlc.sh
+ mode change 100644 => 100755 integrate/yigconf/yig.toml
+ create mode 100755 meta/client/tidbclient/lc.go
+ delete mode 100644 meta/client/tidbclient/notimplement.go
+ create mode 100755 test/go/lifecycle_test.go
+ mode change 100644 => 100755 tools/lc.go
+
+diff --git a/integrate/runlc.sh b/integrate/runlc.sh
+new file mode 100644
+index 0000000..a7fe60a
+--- /dev/null
++++ b/integrate/runlc.sh
+@@ -0,0 +1,13 @@
++BASEDIR=$(dirname $(pwd))
++echo ${BASEDIR}
++sudo docker rm --force lc
++if [ -x "$BASEDIR/lc" ]; then 
++    sudo docker run -d --name lc \
++			 -v ${BASEDIR}/integrate/cephconf:/etc/ceph/ \
++			 -v ${BASEDIR}/integrate/yigconf:/etc/yig/ \
++			 -v ${BASEDIR}:/work \
++                         --net=integrate_vpcbr \
++                         --ip 10.5.0.20 \
++			 journeymidnight/yig /work/lc
++    echo "started lc from local dir"
++fi
+diff --git a/integrate/yig.sql b/integrate/yig.sql
+index 539a4a8..dfed7da 100644
+--- a/integrate/yig.sql
++++ b/integrate/yig.sql
+@@ -232,3 +232,10 @@ CREATE TABLE `users` (
+ /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
+ 
+ -- Dump completed on 2018-03-20 18:26:36
++
++
++DROP TABLE IF EXISTS `lifecycle`;
++CREATE TABLE `lifecycle` (
++                       `bucketname` varchar(255) DEFAULT NULL,
++                       `status` varchar(255) DEFAULT NULL
++) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+\ No newline at end of file
+diff --git a/integrate/yigconf/yig.toml b/integrate/yigconf/yig.toml
+old mode 100644
+new mode 100755
+index 74d2bc8..6bd40df
+--- a/integrate/yigconf/yig.toml
++++ b/integrate/yigconf/yig.toml
+@@ -11,6 +11,7 @@ ssl_key_path = ""
+ ssl_cert_path = ""
+ 
+ # DebugMode
++lcdebug = true
+ debug_mode = true
+ reserved_origins = "s3.test.com"
+ 
+diff --git a/meta/client/tidbclient/lc.go b/meta/client/tidbclient/lc.go
+new file mode 100755
+index 0000000..a41f122
+--- /dev/null
++++ b/meta/client/tidbclient/lc.go
+@@ -0,0 +1,60 @@
++package tidbclient
++
++import (
++	"database/sql"
++	"fmt"
++	. "github.com/journeymidnight/yig/meta/types"
++	"github.com/journeymidnight/yig/helper"
++)
++
++func (t *TidbClient) PutBucketToLifeCycle(lifeCycle LifeCycle) error {
++	sqltext := fmt.Sprintf("insert into lifecycle(bucketname,status) values (?,?);")
++	_, err := t.Client.Exec(sqltext, lifeCycle.BucketName, lifeCycle.Status)
++	if err != nil {
++		helper.Logger.Printf(0, "Failed in PutBucketToLifeCycle: %s\n", sqltext)
++		return nil
++	}
++	return nil
++}
++
++
++func (t *TidbClient) RemoveBucketFromLifeCycle(bucket Bucket) error {
++	sqltext := fmt.Sprintf("delete from lifecycle where bucketname=?;" )
++	_, err := t.Client.Exec(sqltext, bucket.Name)
++	if err != nil {
++		helper.Logger.Printf(0, "Failed in RemoveBucketFromLifeCycle: %s\n", sqltext)
++		return nil
++	}
++	return nil
++}
++
++func (t *TidbClient) ScanLifeCycle(limit int, marker string) (result ScanLifeCycleResult, err error) {
++	result.Truncated = false
++	sqltext := fmt.Sprintf("select * from lifecycle where bucketname > ? limit ?;")
++	rows, err := t.Client.Query(sqltext, marker, limit)
++	if err == sql.ErrNoRows {
++		helper.Logger.Printf(0, "Failed in sql.ErrNoRows: %s\n", sqltext)
++		err = nil
++		return
++	} else if err != nil {
++		return
++	}
++	defer rows.Close()
++	result.Lcs = make([]LifeCycle, 0, limit)
++	var lc LifeCycle
++	for rows.Next() {
++		err = rows.Scan(
++			&lc.BucketName,
++			&lc.Status)
++		if err != nil {
++			helper.Logger.Printf(0, "Failed in ScanLifeCycle: %s ... %s\n", result.Lcs,result.NextMarker)
++			return
++		}
++		result.Lcs = append(result.Lcs, lc)
++	}
++	result.NextMarker = lc.BucketName
++	if len(result.Lcs) == limit{
++		result.Truncated = true
++	}
++	return result,nil
++}
+diff --git a/meta/client/tidbclient/notimplement.go b/meta/client/tidbclient/notimplement.go
+deleted file mode 100644
+index 0a484e4..0000000
+--- a/meta/client/tidbclient/notimplement.go
++++ /dev/null
+@@ -1,19 +0,0 @@
+-package tidbclient
+-
+-import (
+-	. "github.com/journeymidnight/yig/error"
+-	. "github.com/journeymidnight/yig/meta/types"
+-)
+-
+-//lc
+-func (t *TidbClient) PutBucketToLifeCycle(lifeCycle LifeCycle) error {
+-	return ErrNotImplemented
+-}
+-
+-func (t *TidbClient) RemoveBucketFromLifeCycle(bucket Bucket) error {
+-	return ErrNotImplemented
+-}
+-
+-func (t *TidbClient) ScanLifeCycle(limit int, marker string) (result ScanLifeCycleResult, err error) {
+-	return
+-}
+diff --git a/test/go/lifecycle_test.go b/test/go/lifecycle_test.go
+new file mode 100755
+index 0000000..10a5fe4
+--- /dev/null
++++ b/test/go/lifecycle_test.go
+@@ -0,0 +1,128 @@
++package _go
++
++import (
++	"github.com/aws/aws-sdk-go/aws"
++	"github.com/aws/aws-sdk-go/service/s3"
++	. "github.com/journeymidnight/yig/test/go/lib"
++	"io/ioutil"
++	"os"
++	"os/exec"
++	"strings"
++	"testing"
++	"time"
++)
++
++func Test_LifeCycle(t *testing.T) {
++	sc := NewS3()
++
++	//Create bucket.
++	err := sc.MakeBucket(TEST_BUCKET)
++	if err != nil {
++		t.Fatal("MakeBucket err:", err)
++	}
++	t.Log("CreateBucket Success!")
++
++	//Put object.
++	err = sc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
++	if err != nil {
++		t.Fatal("PutObject err:", err)
++	}
++	t.Log("PutObject Success!")
++
++    //PutBucketLifecycle:Sets lifecycle configuration for your bucket. If a lifecycle configuration exists, it replaces it.
++	putPut := &s3.PutBucketLifecycleConfigurationInput{
++		Bucket: aws.String(TEST_BUCKET),
++		LifecycleConfiguration: &s3.BucketLifecycleConfiguration{
++			Rules: []*s3.LifecycleRule{
++				{
++					Expiration: &s3.LifecycleExpiration{
++						Days: aws.Int64(1),
++					},
++					Filter: &s3.LifecycleRuleFilter{
++						Prefix: aws.String(""),
++					},
++					ID:     aws.String("test"),
++					Status: aws.String("Enabled"),
++				},
++			},
++		},
++	}
++	_, err = sc.Client.PutBucketLifecycleConfiguration(putPut)
++	if err != nil {
++		t.Fatal("PutBucketLifecycle err:", err)
++	}
++	t.Log("PutBucketLifecycle Success!")
++
++	//GetBucketLifecycle:Returns the lifecycle configuration information set on the bucket.
++	getPut := &s3.GetBucketLifecycleConfigurationInput{
++		Bucket: aws.String(TEST_BUCKET),
++	}
++	_, err = sc.Client.GetBucketLifecycleConfiguration(getPut)
++	if err != nil {
++		t.Fatal("GetBucketLifecycle err:", err)
++	}
++	t.Log("GetBucketLifecycle Success!")
++
++    //Get object before lc.
++	v, err := sc.GetObject(TEST_BUCKET, TEST_KEY)
++	if err != nil {
++		t.Fatal("GetObject before lc err:", err)
++	}
++	if v != TEST_VALUE {
++		t.Fatal("GetObject before lc err: value is:", v, ", but should be:", TEST_VALUE)
++	}
++	t.Log("GetObject before lc Success value:", v)
++
++	//Test "lc.go".
++	err = os.Chdir("../../integrate")
++	if err != nil {
++                t.Fatal("change dir in lc_test err:", err)
++        }
++	cmd := exec.Command("bash", "runlc.sh")
++	err = cmd.Run()
++	if err != nil {
++		t.Fatal("lc err:", err)
++	}
++	time.Sleep(time.Duration(15))
++	t.Log("lc Success!")
++    os.Chdir("../test/go")
++
++	f, e := os.Open("../../lifecycle.log")
++	if e == nil {
++		var buf []byte
++		buf, _ = ioutil.ReadAll(f)
++		t.Log("lifecycle.log:", string(buf))
++	}
++
++	//Get object after lc.
++	v, err = sc.GetObject(TEST_BUCKET, TEST_KEY)
++	if err != nil {
++		str := err.Error()
++		if strings.Contains(str, "NoSuchKey: The specified key does not exist") {
++			t.Log("GetObject after lc test Success:", err)
++		} else {
++			t.Fatal("GetObject after lc test Fail!", err)
++		}
++	}else{
++		t.Fatal("GetObject after lc test Fail!", err)
++	}
++
++	//DeleteBucketLifecycle:Deletes the lifecycle configuration from the bucket.
++	deletePut := &s3.DeleteBucketLifecycleInput{
++		Bucket: aws.String(TEST_BUCKET),
++	}
++    _, err = sc.Client.DeleteBucketLifecycle(deletePut)
++	if err != nil {
++		t.Fatal("DeleteBucketLifecycle err:", err)
++	}
++	t.Log("DeleteBucketLifecycle Success!")
++
++    //Delete bucket.
++	err = sc.DeleteBucket(TEST_BUCKET)
++	if err != nil {
++		t.Fatal("DeleteBucket err:", err)
++	}
++	t.Log("DeleteBucket Success.")
++}
++
++
+diff --git a/tools/lc.go b/tools/lc.go
+old mode 100644
+new mode 100755
+index 7bb0a31..e798b1d
+--- a/tools/lc.go
++++ b/tools/lc.go
+@@ -102,7 +102,7 @@ func retrieveBucket(lc types.LifeCycle) error {
+ 		}
+ 	}
+ 	var request datatype.ListObjectsRequest
+-	request.Versioned = true
++	request.Versioned = false
+ 	request.MaxKeys = 1000
+ 	if defaultConfig == true {
+ 		for {
+@@ -136,6 +136,9 @@ func retrieveBucket(lc types.LifeCycle) error {
+ 				helper.Debugln("inteval:", time.Since(object.LastModifiedTime).Seconds())
+ 				if checkIfExpiration(object.LastModifiedTime, days) {
+ 					helper.Debugln("come here")
++					if object.NullVersion {
++						object.VersionId = ""
++					}
+ 					_, err = yig.DeleteObject(object.BucketName, object.Name, object.VersionId, common.Credential{})
+ 					if err != nil {
+ 						helper.Logger.Println(5, "[FAILED]", object.BucketName, object.Name, object.VersionId, err)
+-- 
+1.8.3.1
+

@@ -1,0 +1,8 @@
+[yig]2019/01/23 11:22:00 Setting Up Metadata Cache: SimpleCache
+[yig]2019/01/23 11:22:00 Get vault token: myroot leaseDuration 2592000
+[yig]2019/01/23 11:22:00 Reading Ceph conf files from [/etc/ceph/ceph.conf]
+[yig]2019/01/23 11:22:00 Loading Ceph file /etc/ceph/ceph.conf
+[yig]2019/01/23 11:22:00 Ceph Cluster 68b62c0d-7367-46c9-91b5-895fa3a527c4 is ready, InstanceId is 4121
+[yig]2019/01/23 11:22:00 start lc thread: 1
+[yig]2019/01/23 11:22:00 5 all bucket lifecycle handle start
+[yig]2019/01/23 11:22:01 all bucket lifecycle handle complete. QUIT
