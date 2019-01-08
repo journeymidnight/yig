@@ -54,9 +54,15 @@ type Config struct {
 	RedisKeepAlive                 int    `toml:"redis_keepalive"`
 	RedisPoolMaxIdle               int    `toml:"redis_pool_max_idle"`
 	RedisPoolIdleTimeout           int    `toml:"redis_pool_idle_timeout"`
+
+	// If the value is not 0, the cached ping detection will be turned on, and the interval is the number of seconds.
 	CacheCircuitCheckInterval      int    `toml:"cache_circuit_check_interval"`
+	// This property sets the amount of seconds, after tripping the circuit,
+	// to reject requests before allowing attempts again to determine if the circuit should again be closed.
 	CacheCircuitCloseSleepWindow   int    `toml:"cache_circuit_close_sleep_window"`
+	// This value is how may consecutive passing requests are required before the circuit is closed
 	CacheCircuitCloseRequiredCount int    `toml:"cache_circuit_close_required_count"`
+	// This property sets the minimum number of requests in a rolling window that will trip the circuit.
 	CacheCircuitOpenThreshold      int    `toml:"cache_circuit_open_threshold"`
 
 	KMS KMSConfig `toml:"kms"`
