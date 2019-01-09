@@ -28,6 +28,16 @@ redis_address = "redis:6379"
 redis_connection_number = 10
 memory_cache_max_entry_count = 100000
 enable_data_cache = true
+redis_connect_timeout = 1
+redis_read_timeout = 1
+redis_write_timeout = 1
+redis_keepalive = 60
+redis_pool_max_idle = 3
+redis_pool_idle_timeout = 30
+cache_circuit_check_interval = 3
+cache_circuit_close_sleep_window = 1
+cache_circuit_close_required_count = 3
+cache_circuit_open_threshold = 1
 
 # Ceph Config
 ceph_config_pattern = "/etc/ceph/*.conf"
