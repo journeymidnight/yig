@@ -3,14 +3,12 @@ package main
 import (
 	"os"
 	"strconv"
-
 	"fmt"
-
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/meta/types"
 	yigredis "github.com/journeymidnight/yig/redis"
-	"github.com/mediocregopher/radix.v2/pool"
-	"github.com/mediocregopher/radix.v2/redis"
+	redigo "github.com/gomodule/redigo/redis"
+	"time"
 )
 
 func main() {
@@ -22,31 +20,35 @@ func main() {
 
 	var err error
 	//initialize
-	df := func(network, addr string) (*redis.Client, error) {
-		client, err := redis.Dial(network, addr)
-		if err != nil {
-			return nil, err
-		}
-		if helper.CONFIG.RedisPassword != "" {
-			if err = client.Cmd("AUTH", helper.CONFIG.RedisPassword).Err; err != nil {
-				client.Close()
+	timeout := 1 * time.Second
+	options := []redigo.DialOption{
+		redigo.DialReadTimeout(timeout),
+		redigo.DialConnectTimeout(timeout),
+		redigo.DialWriteTimeout(timeout),
+	}
+
+	redisConnectionPool := &redigo.Pool{
+		MaxIdle:     5,
+		IdleTimeout: 30 * time.Second,
+
+		// Other pool configuration not shown in this example.
+		Dial: func() (redigo.Conn, error) {
+			c, err := redigo.Dial("tcp", os.Args[1], options...)
+			if err != nil {
 				return nil, err
 			}
-		}
-		return client, nil
+			if helper.CONFIG.RedisPassword != "" {
+				if _, err := c.Do("AUTH", helper.CONFIG.RedisPassword); err != nil {
+					c.Close()
+					return nil, err
+				}
+			}
+			return c, nil
+		},
 	}
 
-	redisConnectionPool, err := pool.NewCustom("tcp", os.Args[1], 1, df)
-	if err != nil {
-		panic("Failed to connect to Redis server: " + err.Error())
-	}
-	defer redisConnectionPool.Empty()
-
-	client, err := redisConnectionPool.Get()
-	if err != nil {
-		panic("Failed to get a redis client")
-	}
-	defer redisConnectionPool.Put(client)
+	client := redisConnectionPool.Get()
+	client.Close()
 
 	key := os.Args[2]
 	//parse table name
@@ -57,7 +59,7 @@ func main() {
 		panic("Failed Get A table type, key value should start with a number")
 	}
 
-	encodeValue, err := client.Cmd("GET", key).Bytes()
+	encodeValue, err := redigo.Bytes(client.Do("GET", key))
 
 	if err != nil {
 		fmt.Println(err)

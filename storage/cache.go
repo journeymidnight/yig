@@ -2,7 +2,6 @@ package storage
 
 import (
 	"io"
-	"time"
 
 	"bytes"
 	"github.com/journeymidnight/yig/helper"
@@ -26,33 +25,17 @@ type DataCache interface {
 }
 
 type enabledDataCache struct {
-	failedCacheInvalidOperation chan string
+
 }
 
 type disabledDataCache struct{}
 
 func newDataCache(cacheEnabled bool) (d DataCache) {
 	if cacheEnabled {
-		d := &enabledDataCache{
-			failedCacheInvalidOperation: make(chan string, helper.CONFIG.RedisConnectionNumber),
-		}
-		go invalidRedisCache(d)
-		return d
+		return &enabledDataCache{}
 	}
 
 	return &disabledDataCache{}
-}
-
-// redo failed invalid operation in enabledDataCache.failedCacheInvalidOperation channel
-func invalidRedisCache(d *enabledDataCache) {
-	for {
-		key := <-d.failedCacheInvalidOperation
-		err := redis.Remove(redis.FileTable, key)
-		if err != nil {
-			d.failedCacheInvalidOperation <- key
-			time.Sleep(1 * time.Second)
-		}
-	}
 }
 
 // `writeThrough` performs normal workflow without cache
@@ -68,12 +51,12 @@ func (d *enabledDataCache) WriteFromCache(object *meta.Object, startOffset int64
 
 	file, err := redis.GetBytes(cacheKey, startOffset, startOffset+length-1)
 	if err == nil && file != nil && int64(len(file)) == length {
-		helper.Debugln("File cache HIT")
+		helper.Debugln("File cache HIT. key:", cacheKey, "range:", startOffset, startOffset+length-1)
 		_, err := out.Write(file)
 		return err
 	}
 
-	helper.Debugln("File cache MISS")
+	helper.Debugln("File cache MISS. key:", cacheKey , "range:", startOffset, startOffset+length-1)
 
 	var buffer bytes.Buffer
 	onCacheMiss(&buffer)
@@ -132,10 +115,7 @@ func (d *disabledDataCache) GetAlignedReader(object *meta.Object, startOffset in
 }
 
 func (d *enabledDataCache) Remove(key string) {
-	err := redis.Remove(redis.FileTable, key)
-	if err != nil {
-		d.failedCacheInvalidOperation <- key
-	}
+	redis.Remove(redis.FileTable, key)
 }
 
 func (d *disabledDataCache) Remove(key string) {

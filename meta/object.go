@@ -10,6 +10,7 @@ import (
 func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (object *Object, err error) {
 	getObject := func() (o interface{}, err error) {
 		object, err := m.Client.GetObject(bucketName, objectName, "")
+		helper.Logger.Println(10, "GetObject CacheMiss. bucket:", bucketName, "object:", objectName)
 		if err != nil {
 			return
 		}

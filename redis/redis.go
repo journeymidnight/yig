@@ -3,9 +3,17 @@ package redis
 import (
 	"strconv"
 
+	"context"
+	redigo "github.com/gomodule/redigo/redis"
+	"github.com/journeymidnight/yig/circuitbreak"
 	"github.com/journeymidnight/yig/helper"
-	"github.com/mediocregopher/radix.v2/pool"
-	"github.com/mediocregopher/radix.v2/redis"
+	"time"
+	"github.com/cep21/circuit"
+)
+
+var (
+	redisPool *redigo.Pool
+	CacheCircuit *circuit.Circuit
 )
 
 const InvalidQueueName = "InvalidQueue"
@@ -21,100 +29,135 @@ func (r RedisDatabase) InvalidQueue() string {
 }
 
 const (
-	UserTable RedisDatabase = iota
-	BucketTable
-	ObjectTable
-	FileTable
-	ClusterTable
+	UserTable    RedisDatabase = iota
+	BucketTable  
+	ObjectTable  
+	FileTable    
+	ClusterTable 
 )
-
-func TableFromChannelName(name string) (r RedisDatabase, err error) {
-	tableString := name[len(InvalidQueueName):]
-	tableNumber, err := strconv.Atoi(tableString)
-	if err != nil {
-		return
-	}
-	r = RedisDatabase(tableNumber)
-	return
-}
 
 var MetadataTables = []RedisDatabase{UserTable, BucketTable, ObjectTable, ClusterTable}
 var DataTables = []RedisDatabase{FileTable}
 
-var redisConnectionPool *pool.Pool
-
 func Initialize() {
-	var err error
-	df := func(network, addr string) (*redis.Client, error) {
-		client, err := redis.Dial(network, addr)
+
+	options := []redigo.DialOption{
+		redigo.DialReadTimeout(time.Duration(helper.CONFIG.RedisReadTimeout) * time.Second),
+		redigo.DialConnectTimeout(time.Duration(helper.CONFIG.RedisConnectTimeout) * time.Second),
+		redigo.DialWriteTimeout(time.Duration(helper.CONFIG.RedisWriteTimeout) * time.Second),
+		redigo.DialKeepAlive(time.Duration(helper.CONFIG.RedisKeepAlive) * time.Second),
+	}
+
+	if helper.CONFIG.RedisPassword != "" {
+		options = append(options, redigo.DialPassword(helper.CONFIG.RedisPassword))
+	}
+
+	df := func() (redigo.Conn, error) {
+		c, err := redigo.Dial("tcp", helper.CONFIG.RedisAddress, options...)
 		if err != nil {
 			return nil, err
 		}
-		if helper.CONFIG.RedisPassword != "" {
-			if err = client.Cmd("AUTH", helper.CONFIG.RedisPassword).Err; err != nil {
-				client.Close()
-				return nil, err
-			}
-		}
-		return client, nil
+		return c, nil
 	}
-	redisConnectionPool, err = pool.NewCustom("tcp", helper.CONFIG.RedisAddress, helper.CONFIG.RedisConnectionNumber, df)
-	if err != nil {
-		panic("Failed to connect to Redis server: " + err.Error())
+
+	CacheCircuit = circuitbreak.NewCacheCircuit()
+	redisPool = &redigo.Pool{
+			MaxIdle:     helper.CONFIG.RedisPoolMaxIdle,
+			IdleTimeout: time.Duration(helper.CONFIG.RedisPoolIdleTimeout) * time.Second,
+			// Other pool configuration not shown in this example.
+			Dial: df,
 	}
+}
+
+func Pool() *redigo.Pool {
+	return redisPool
 }
 
 func Close() {
-	redisConnectionPool.Empty()
+	err := redisPool.Close()
+	if err != nil {
+		helper.ErrorIf(err, "Cannot close redis pool.")
+	}
 }
 
-func GetClient() (*redis.Client, error) {
-	return redisConnectionPool.Get()
-}
-
-func PutClient(c *redis.Client) {
-	redisConnectionPool.Put(c)
+func GetClient(ctx context.Context) (redigo.Conn, error) {
+	return redisPool.GetContext(ctx)
 }
 
 func Remove(table RedisDatabase, key string) (err error) {
-	c, err := GetClient()
-	if err != nil {
-		return err
-	}
-	defer PutClient(c)
-
-	// Use table.String() + key as Redis key
-	return c.Cmd("del", table.String()+key).Err
+	return CacheCircuit.Execute(
+		context.Background(),
+		func(ctx context.Context) (err error) {
+			c, err := GetClient(ctx)
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			// Use table.String() + key as Redis key
+			_, err = c.Do("DEL", table.String()+key)
+			if err == redigo.ErrNil {
+				return nil
+			}
+			helper.ErrorIf(err, "Cmd: %s. Key: %s.", "DEL", table.String()+key)
+			return err
+		},
+		nil,
+	)
 }
 
 func Set(table RedisDatabase, key string, value interface{}) (err error) {
-	c, err := GetClient()
-	if err != nil {
-		return err
-	}
-	defer PutClient(c)
+	return CacheCircuit.Execute(
+		context.Background(),
+		func(ctx context.Context) (err error) {
+			c, err := GetClient(ctx)
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			encodedValue, err := helper.MsgPackMarshal(value)
+			if err != nil {
+				return err
+			}
+			// Use table.String() + key as Redis key. Set expire time to 30s.
+			r, err := redigo.String(c.Do("SET", table.String()+key, string(encodedValue), "EX", 30))
+			if err == redigo.ErrNil {
+				return nil
+			}
+			helper.ErrorIf(err, "Cmd: %s. Key: %s. Value: %s. Reply: %s.", "SET", table.String()+key, string(encodedValue), r)
+			return err
+		},
+		nil,
+	)
 
-	encodedValue, err := helper.MsgPackMarshal(value)
-	if err != nil {
-		return err
-	}
-	// Use table.String() + key as Redis key
-	return c.Cmd("set", table.String()+key, string(encodedValue)).Err
 }
 
 func Get(table RedisDatabase, key string,
 	unmarshal func([]byte) (interface{}, error)) (value interface{}, err error) {
-
-	c, err := GetClient()
+	var encodedValue []byte
+	err = CacheCircuit.Execute(
+		context.Background(),
+		func(ctx context.Context) (err error) {
+			c, err := GetClient(ctx)
+			if err != nil {
+				return err
+			}
+			// Use table.String() + key as Redis key
+			encodedValue, err = redigo.Bytes(c.Do("GET", table.String()+key))
+			if err != nil {
+				if err == redigo.ErrNil {
+					return nil
+				}
+				return err
+			}
+			return nil
+		},
+		nil,
+	)
 	if err != nil {
-		return
+		return nil, err
 	}
-	defer PutClient(c)
-
-	// Use table.String() + key as Redis key
-	encodedValue, err := c.Cmd("get", table.String()+key).Bytes()
-	if err != nil {
-		return
+	if len(encodedValue) == 0 {
+		return nil, nil
 	}
 	return unmarshal(encodedValue)
 }
@@ -123,35 +166,71 @@ func Get(table RedisDatabase, key string,
 // `start` and `end` are inclusive
 // FIXME: this API causes an extra memory copy, need to patch radix to fix it
 func GetBytes(key string, start int64, end int64) ([]byte, error) {
-	c, err := GetClient()
+	var value []byte
+	err := CacheCircuit.Execute(
+		context.Background(),
+		func(ctx context.Context) (err error) {
+			c, err := GetClient(ctx)
+			if err != nil {
+				return err
+			}
+			// Use table.String() + key as Redis key
+			value, err = redigo.Bytes(c.Do("GETRANGE", FileTable.String()+key, start, end))
+			if err != nil {
+				if err == redigo.ErrNil {
+					return nil
+				}
+				return err
+			}
+			return nil
+		},
+		nil,
+	)
 	if err != nil {
 		return nil, err
 	}
-	defer PutClient(c)
-
-	// Note Redis returns "" for nonexist key for GETRANGE
-	return c.Cmd("getrange", FileTable.String()+key, start, end).Bytes()
+	return value, nil
 }
 
 // Set file bytes
 func SetBytes(key string, value []byte) (err error) {
-	c, err := GetClient()
-	if err != nil {
-		return err
-	}
-	defer PutClient(c)
-
-	// Use table.String() + key as Redis key
-	return c.Cmd("set", FileTable.String()+key, value).Err
+	return CacheCircuit.Execute(
+		context.Background(),
+		func(ctx context.Context) (err error) {
+			c, err := GetClient(ctx)
+			if err != nil {
+				return err
+			}
+			// Use table.String() + key as Redis key
+			r, err := redigo.String(c.Do("SET", FileTable.String()+key, value))
+			if err == redigo.ErrNil {
+				return nil
+			}
+			helper.ErrorIf(err, "Cmd: %s. Key: %s. Value: %s. Reply: %s.", "SET", FileTable.String()+key, string(value), r)
+			return err
+		},
+		nil,
+	)
 }
 
 // Publish the invalid message to other YIG instances through Redis
 func Invalid(table RedisDatabase, key string) (err error) {
-	c, err := GetClient()
-	if err != nil {
-		return err
-	}
-	defer PutClient(c)
+	return CacheCircuit.Execute(
+		context.Background(),
+		func(ctx context.Context) (err error) {
+			c, err := GetClient(ctx)
+			if err != nil {
+				return err
+			}
+			// Use table.String() + key as Redis key
+			r, err := redigo.String(c.Do("PUBLISH", table.InvalidQueue(), key))
+			if err == redigo.ErrNil {
+				return nil
+			}
+			helper.ErrorIf(err, "Cmd: %s. Queue: %s. Key: %s. Reply: %s.", "PUBLISH", table.InvalidQueue(), FileTable.String()+key, r)
+			return err
+		},
+		nil,
+	)
 
-	return c.Cmd("publish", table.InvalidQueue(), key).Err
 }

@@ -261,6 +261,30 @@
 			"revisionTime": "2017-03-02T08:00:57Z"
 		},
 		{
+			"checksumSHA1": "RFpeuzLhTEoAEmrlhmOEi35njic=",
+			"path": "github.com/cep21/circuit",
+			"revision": "e893c027dc2184661a6db3cc4186bf2ad018866e",
+			"revisionTime": "2018-10-30T18:09:45Z"
+		},
+		{
+			"checksumSHA1": "kAJwby/oFF1yYb00tn6P4K7NoZ0=",
+			"path": "github.com/cep21/circuit/closers/hystrix",
+			"revision": "e893c027dc2184661a6db3cc4186bf2ad018866e",
+			"revisionTime": "2018-10-30T18:09:45Z"
+		},
+		{
+			"checksumSHA1": "Ge5XEIWR+ddCkpyDf+mfANJ18ng=",
+			"path": "github.com/cep21/circuit/faststats",
+			"revision": "e893c027dc2184661a6db3cc4186bf2ad018866e",
+			"revisionTime": "2018-10-30T18:09:45Z"
+		},
+		{
+			"checksumSHA1": "M8x0Tj3vncMzOYunsjMSIqknNTw=",
+			"path": "github.com/cep21/circuit/internal/evar",
+			"revision": "e893c027dc2184661a6db3cc4186bf2ad018866e",
+			"revisionTime": "2018-10-30T18:09:45Z"
+		},
+		{
 			"checksumSHA1": "blOHP3HPYU+IeV6yWCalQuuM+zE=",
 			"path": "github.com/dgrijalva/jwt-go",
 			"revision": "3af4c746e1c248ee8491a3e0c6f7a9cd831e95f8",
@@ -290,6 +314,12 @@
 			"path": "github.com/golang/snappy",
 			"revision": "af78f40cf86f8ea6d4e97d96e01228e6af32e849",
 			"revisionTime": "2018-12-05T18:25:16Z"
+		},
+		{
+			"checksumSHA1": "73htiRJAyEYC5HJaFtkhmosWlbE=",
+			"path": "github.com/gomodule/redigo/redis",
+			"revision": "02dc2736dbc3a4a56907b0d5a9fead2f71b499db",
+			"revisionTime": "2018-12-13T21:05:01Z"
 		},
 		{
 			"checksumSHA1": "5NQxGXStdEEDvT6IPRtJk7Qg+GQ=",
@@ -462,24 +492,6 @@
 			"path": "github.com/matttproud/golang_protobuf_extensions/pbutil",
 			"revision": "c12348ce28de40eed0136aa2b644d0ee0650e56c",
 			"revisionTime": "2016-04-24T11:30:07Z"
-		},
-		{
-			"checksumSHA1": "Mp9fBK3+7fAg2tQgeS0zZCoWb88=",
-			"path": "github.com/mediocregopher/radix.v2/pool",
-			"revision": "b67df6e626f993b64b3ca9f4b8630900e61002e3",
-			"revisionTime": "2018-11-15T01:30:41Z"
-		},
-		{
-			"checksumSHA1": "U1tuJltYsftDTEdsPyen1/rjCvk=",
-			"path": "github.com/mediocregopher/radix.v2/pubsub",
-			"revision": "b67df6e626f993b64b3ca9f4b8630900e61002e3",
-			"revisionTime": "2018-11-15T01:30:41Z"
-		},
-		{
-			"checksumSHA1": "sRXINynmf6aakEe8RAqyggQEG/0=",
-			"path": "github.com/mediocregopher/radix.v2/redis",
-			"revision": "b67df6e626f993b64b3ca9f4b8630900e61002e3",
-			"revisionTime": "2018-11-15T01:30:41Z"
 		},
 		{
 			"checksumSHA1": "a58zUNtDH/gEd6F6KI3FqT2iEo0=",

@@ -36,12 +36,12 @@ func main() {
 
 	logger = log.New(f, "[yig]", log.LstdFlags, helper.CONFIG.LogLevel)
 	helper.Logger = logger
-
+	logger.Printf(20, "YIG conf: %+v \n", helper.CONFIG)
 	logger.Println(5, "YIG instance ID:", helper.CONFIG.InstanceId)
 
 	if helper.CONFIG.MetaCacheType > 0 || helper.CONFIG.EnableDataCache {
-		defer redis.Close()
 		redis.Initialize()
+		defer redis.Close()
 	}
 
 	yig := storage.New(logger, helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache, helper.CONFIG.CephConfigPattern)
@@ -50,6 +50,10 @@ func main() {
 		Logger:  logger,
 		Yig:     yig,
 	}
+	if redis.Pool() != nil && helper.CONFIG.CacheCircuitCheckInterval != 0{
+		go yig.PingCache(time.Duration(helper.CONFIG.CacheCircuitCheckInterval) * time.Second)
+	}
+
 	startAdminServer(adminServerConfig)
 
 	apiServerConfig := &ServerConfig{
