@@ -25,6 +25,7 @@ tidb_info = "root:@tcp(10.5.0.17:4000)/yig"
 keepalive = true
 zk_address = "hbase:2181"
 redis_address = "redis:6379"
+redis_password = "hehehehe"
 redis_connection_number = 10
 memory_cache_max_entry_count = 100000
 enable_data_cache = true
