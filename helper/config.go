@@ -45,7 +45,7 @@ type Config struct {
 	//About cache
 	RedisAddress                   string `toml:"redis_address"`           // redis connection string, e.g localhost:1234
 	RedisConnectionNumber          int    `toml:"redis_connection_number"` // number of connections to redis(i.e max concurrent request number)
-	RedisPassword                  string                                  // redis auth password
+	RedisPassword                  string `toml:"redis_password"`	                             // redis auth password
 	MetaCacheType                  int    `toml:"meta_cache_type"`
 	EnableDataCache                bool   `toml:"enable_data_cache"`
 	RedisConnectTimeout            int    `toml:"redis_connect_timeout"`
