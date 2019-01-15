@@ -85,6 +85,11 @@ func (t *TidbClient) GetMultipart(bucketName, objectName, uploadId string) (mult
 			&p.LastModified,
 			&p.InitializationVector,
 		)
+		ts, e := time.Parse(TIME_LAYOUT_TIDB, p.LastModified)
+		if e != nil {
+			return
+		}
+		p.LastModified = ts.Format(CREATE_TIME_LAYOUT)
 		multipart.Parts[p.PartNumber] = p
 		if err != nil {
 			return
