@@ -227,6 +227,7 @@ func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (si
 
 	var slice_offset = 0
 	var slow_count = 0
+	// slice is the buffer size of reader, the size is equal to remain size of pending_data
 	var slice = pending_data[0:current_upload_window]
 
 	var offset uint64 = 0
@@ -241,19 +242,8 @@ func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (si
 		if count == 0 {
 			break
 		}
-
-		/* if upload speed is larger than 1M/s and used the larger window and twice */
+		// it's used to calculate next upload window
 		elapsed_time := time.Since(start)
-		expected_time := count * 1000 * 1000 * 1000 / (1 << 20)  /* 1000 * 1000 * 1000 means use Nanoseconds */
-		if current_upload_window > MIN_CHUNK_SIZE && elapsed_time.Nanoseconds() > int64(expected_time) {
-			if slow_count > 2 {
-				current_upload_window = MIN_CHUNK_SIZE
-				slow_count = 0
-			}
-			slow_count += 1
-		} else {
-			slow_count = 0
-		}
 
 		slice_offset += count
 		slice = pending_data[slice_offset:]
@@ -286,13 +276,28 @@ func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (si
 				drain_pending(pending)
 				return 0, errors.New("Error wait_pending_front")
 			}
-			/* if we are waiting for rados to finish, enlarge the current_upload_window a bit */
+		}
+		offset += uint64(len(pending_data))
+
+		/* Resize current upload window */
+		expected_time := count * 1000 * 1000 * 1000 / current_upload_window  /* 1000 * 1000 * 1000 means use Nanoseconds */
+
+		// If the upload speed is less than half of the current upload window, reduce the upload window by half.
+		// If upload speed is larger than current window size per second, used the larger window and twice
+		if  (elapsed_time.Nanoseconds() / int64(expected_time)) > 2 {
+			if slow_count > 2 && current_upload_window > MIN_CHUNK_SIZE {
+				current_upload_window = current_upload_window >> 1
+				slow_count = 0
+			}
+			slow_count += 1
+		} else if int64(expected_time) > elapsed_time.Nanoseconds() {
+			/* if upload speed is fast enough, enlarge the current_upload_window a bit */
 			current_upload_window = current_upload_window << 1
 			if current_upload_window > MAX_CHUNK_SIZE {
 				current_upload_window = MAX_CHUNK_SIZE
 			}
+			slow_count = 0
 		}
-		offset += uint64(len(pending_data))
 		/* allocate a new pending data */
 		pending_data = make([]byte, current_upload_window)
 		slice_offset = 0
