@@ -71,6 +71,10 @@ func New(logger *log.Logger, metaCacheType int, enableDataCache bool, CephConfig
 		}
 	}
 
+	if len(yig.DataStorage) == 0 {
+		helper.Logger.Panic(0, "PANIC: No data storage can be used!")
+	}
+
 	initializeRecycler(&yig)
 	return &yig
 }
