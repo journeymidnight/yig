@@ -192,7 +192,7 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 			rows, err = t.Client.Query(sqltext, bucketName, objnum[currentMarker], objnum[currentMarker]+maxUploads)
 		} else {
 			sqltext = "select objectname,uploadtime,initiatorid,ownerid from multiparts where bucketName=? and objectname>=? order by bucketname,objectname,uploadtime limit ?,?;"
-			rows, err = t.Client.Query(sqltext, bucketName, keyMarker, objnum[currentMarker], objnum[currentMarker]+maxUploads)
+			rows, err = t.Client.Query(sqltext, bucketName, currentMarker, objnum[currentMarker], objnum[currentMarker]+maxUploads)
 		}
 		if err != nil {
 			return
