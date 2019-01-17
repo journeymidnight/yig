@@ -3,7 +3,6 @@ package storage
 import (
 	"container/list"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"sync"
@@ -11,17 +10,19 @@ import (
 	"github.com/journeymidnight/radoshttpd/rados"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
+	"time"
+	"fmt"
 )
 
 const (
 	MON_TIMEOUT         = "10"
 	OSD_TIMEOUT         = "10"
 	STRIPE_UNIT         = 512 << 10 /* 512K */
-	STRIPE_COUNT        = 1
-	OBJECT_SIZE         = 4 << 20         /* 4M */
+	STRIPE_COUNT        = 2
+	OBJECT_SIZE         = 8 << 20         /* 8M */
 	BUFFER_SIZE         = 1 << 20         /* 1M */
 	MIN_CHUNK_SIZE      = 512 << 10       /* 512K */
-	MAX_CHUNK_SIZE      = 4 * BUFFER_SIZE /* 4M */
+	MAX_CHUNK_SIZE      = 8 * BUFFER_SIZE /* 8M */
 	SMALL_FILE_POOLNAME = "rabbit"
 	BIG_FILE_POOLNAME   = "tiger"
 	BIG_FILE_THRESHOLD  = 128 << 10 /* 128K */
@@ -198,7 +199,6 @@ func (rd *RadosSmallDownloader) Close() error {
 }
 
 func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (size int64, err error) {
-
 	if poolname == SMALL_FILE_POOLNAME {
 		return cluster.doSmallPut(poolname, oid, data)
 	}
@@ -226,23 +226,27 @@ func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (si
 	var pending_data = make([]byte, current_upload_window)
 
 	var slice_offset = 0
+	var slow_count = 0
+	// slice is the buffer size of reader, the size is equal to remain size of pending_data
 	var slice = pending_data[0:current_upload_window]
 
 	var offset uint64 = 0
 
 	for {
-
+		start := time.Now()
 		count, err := data.Read(slice)
-		if count == 0 {
-			break
-		}
-
-		slice_offset += count
-		slice = pending_data[slice_offset:current_upload_window]
 		if err != nil && err != io.EOF {
 			drain_pending(pending)
 			return 0, errors.New("Read from client failed")
 		}
+		if count == 0 {
+			break
+		}
+		// it's used to calculate next upload window
+		elapsed_time := time.Since(start)
+
+		slice_offset += count
+		slice = pending_data[slice_offset:]
 
 		//is pending_data full?
 		if slice_offset < len(pending_data) {
@@ -250,16 +254,9 @@ func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (si
 		}
 
 		/* pending data is full now */
-		var bl []byte = pending_data[:]
-
-		/* allocate a new pending data */
-		pending_data = make([]byte, current_upload_window)
-		slice_offset = 0
-		slice = pending_data[0:current_upload_window]
-
 		c = new(rados.AioCompletion)
 		c.Create()
-		_, err = striper.WriteAIO(c, oid, bl, offset)
+		_, err = striper.WriteAIO(c, oid, pending_data, offset)
 		if err != nil {
 			c.Release()
 			drain_pending(pending)
@@ -280,7 +277,31 @@ func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (si
 				return 0, errors.New("Error wait_pending_front")
 			}
 		}
-		offset += uint64(len(bl))
+		offset += uint64(len(pending_data))
+
+		/* Resize current upload window */
+		expected_time := count * 1000 * 1000 * 1000 / current_upload_window  /* 1000 * 1000 * 1000 means use Nanoseconds */
+
+		// If the upload speed is less than half of the current upload window, reduce the upload window by half.
+		// If upload speed is larger than current window size per second, used the larger window and twice
+		if  elapsed_time.Nanoseconds() > 2 * int64(expected_time) {
+			if slow_count > 2 && current_upload_window > MIN_CHUNK_SIZE {
+				current_upload_window = current_upload_window >> 1
+				slow_count = 0
+			}
+			slow_count += 1
+		} else if int64(expected_time) > elapsed_time.Nanoseconds() {
+			/* if upload speed is fast enough, enlarge the current_upload_window a bit */
+			current_upload_window = current_upload_window << 1
+			if current_upload_window > MAX_CHUNK_SIZE {
+				current_upload_window = MAX_CHUNK_SIZE
+			}
+			slow_count = 0
+		}
+		/* allocate a new pending data */
+		pending_data = make([]byte, current_upload_window)
+		slice_offset = 0
+		slice = pending_data[0:current_upload_window]
 	}
 
 	size = int64(uint64(slice_offset) + offset)
