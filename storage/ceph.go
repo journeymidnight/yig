@@ -284,7 +284,7 @@ func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (si
 
 		// If the upload speed is less than half of the current upload window, reduce the upload window by half.
 		// If upload speed is larger than current window size per second, used the larger window and twice
-		if  (elapsed_time.Nanoseconds() / int64(expected_time)) > 2 {
+		if  elapsed_time.Nanoseconds() > 2 * int64(expected_time) {
 			if slow_count > 2 && current_upload_window > MIN_CHUNK_SIZE {
 				current_upload_window = current_upload_window >> 1
 				slow_count = 0
