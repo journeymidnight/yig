@@ -108,6 +108,9 @@ const (
 	ErrInvalidCannedAcl
 	ErrInvalidSseHeader
 	ErrTooManyBuckets
+	ErrInvalidPosition
+	ErrObjectNotAppendable
+	ErrPositionNotEqualToLength
 	// Add new error codes here.
 
 	// SSE-S3 related API errors
@@ -622,6 +625,21 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "IllegalLcConfigurationException",
 		Description:    "The LC configuration specified in the request is invalid.",
 		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidPosition: {
+		AwsErrorCode:   "InvalidPosition",
+		Description:    "The argument position specified in the request must be non-negative integer.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrObjectNotAppendable: {
+		AwsErrorCode:   "ObjectNotAppendable",
+		Description:    "Cannot perform an AppendObject operation on a non-Appendable Object.",
+		HttpStatusCode: http.StatusConflict,
+	},
+	ErrPositionNotEqualToLength: {
+		AwsErrorCode:   "PositionNotEqualToLength",
+		Description:    "The value of position does not match the length of the current Object.",
+		HttpStatusCode: http.StatusConflict,
 	},
 }
 

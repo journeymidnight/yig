@@ -311,6 +311,11 @@ type PutObjectResult struct {
 	LastModified time.Time
 }
 
+type AppendObjectResult struct {
+	PutObjectResult
+	NextPosition int64
+}
+
 type DeleteObjectResult struct {
 	DeleteMarker bool
 	VersionId    string

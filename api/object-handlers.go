@@ -733,6 +733,155 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	WriteSuccessResponse(w, nil)
 }
 
+// AppendObjectHandler - Append Object
+// ----------
+// This implementation of the POST operation append an object in a bucket.
+func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.Request) {
+	helper.Debugln("AppendObjectHandler", "enter")
+
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+	objectName := vars["object"]
+
+	if !isValidObjectName(objectName) {
+		WriteErrorResponse(w, r, ErrInvalidObjectName)
+		return
+	}
+
+	pos := r.URL.Query().Get("position")
+	// Parse SSE related headers
+	// Suport SSE-S3 and SSE-C now
+	var sseRequest SseRequest
+	var position uint64
+	var err error
+	var acl Acl
+
+	if position, err = checkPosition(pos); err != nil {
+		WriteErrorResponse(w, r, ErrInvalidPosition)
+		return
+	}
+
+	// if Content-Length is unknown/missing, deny the request
+	size := r.ContentLength
+	if _, ok := r.Header["Content-Length"]; !ok {
+		size = -1
+	}
+	if size == -1 && !contains(r.TransferEncoding, "chunked") {
+		WriteErrorResponse(w, r, ErrMissingContentLength)
+		return
+	}
+	// maximum Upload size for objects in a single operation
+	if isMaxObjectSize(size) {
+		WriteErrorResponse(w, r, ErrEntityTooLarge)
+		return
+	}
+
+	// Save metadata.
+	metadata := extractMetadataFromHeader(r.Header)
+	// Get Content-Md5 sent by client and verify if valid
+	if _, ok := r.Header["Content-Md5"]; !ok {
+		metadata["md5Sum"] = ""
+	} else {
+		if len(r.Header.Get("Content-Md5")) == 0 {
+			helper.Debugln("Content Md5 is null!")
+			WriteErrorResponse(w, r, ErrInvalidDigest)
+			return
+		}
+		md5Bytes, err := checkValidMD5(r.Header.Get("Content-Md5"))
+		if err != nil {
+			helper.Debugln("Content Md5 is invalid!")
+			WriteErrorResponse(w, r, ErrInvalidDigest)
+			return
+		} else {
+			metadata["md5Sum"] = hex.EncodeToString(md5Bytes)
+		}
+	}
+
+	// Verify auth
+	credential, dataReader, err := signature.VerifyUpload(r)
+	if err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+
+	// Check whether the object is exist or not
+	// Check whether the bucket is owned by the specified user
+	objInfo, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName, "", credential)
+	if err != nil && err != ErrNoSuchKey {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+
+	if objInfo != nil && objInfo.Type != meta.ObjectTypeAppendable {
+		WriteErrorResponse(w, r, ErrObjectNotAppendable)
+		return
+	}
+
+	if objInfo != nil && objInfo.Size != int64(position) {
+		WriteErrorResponse(w, r, ErrPositionNotEqualToLength)
+		return
+	}
+
+	if err == ErrNoSuchKey  {
+		if isFirstAppend(position) {
+			acl, err = getAclFromHeader(r.Header)
+			if err != nil {
+				WriteErrorResponse(w, r, err)
+				return
+			}
+		} else {
+			WriteErrorResponse(w, r, ErrPositionNotEqualToLength)
+			return
+		}
+	} else {
+		acl = objInfo.ACL
+	}
+
+	if hasServerSideEncryptionHeader(r.Header) && !hasSuffix(objectName, "/") { // handle SSE requests
+		sseRequest, err = parseSseHeader(r.Header)
+		if err != nil {
+			WriteErrorResponse(w, r, err)
+			return
+		}
+		if sseRequest.Type == crypto.SSEC.String() {
+			WriteErrorResponse(w, r, ErrNotImplemented)
+			return
+		}
+	}
+
+	var result AppendObjectResult
+	result, err = api.ObjectAPI.AppendObject(bucketName, objectName, credential, position, size, dataReader,
+		metadata, acl, sseRequest, objInfo)
+	if err != nil {
+		helper.ErrorIf(err, "Unable to append object "+objectName)
+		WriteErrorResponse(w, r, err)
+		return
+	}
+
+	if result.Md5 != "" {
+		w.Header()["ETag"] = []string{"\"" + result.Md5 + "\""}
+	}
+	if result.VersionId != "" {
+		w.Header().Set("x-amz-version-id", result.VersionId)
+	}
+
+	// Set SSE related headers
+	for _, headerName := range []string{
+		"X-Amz-Server-Side-Encryption",
+		//"X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id",
+		//"X-Amz-Server-Side-Encryption-Customer-Algorithm",
+		//"X-Amz-Server-Side-Encryption-Customer-Key-Md5",
+	}{
+		if header := r.Header.Get(headerName); header != "" {
+			w.Header().Set(headerName, header)
+		}
+	}
+
+	// Set next position
+	w.Header().Set("X-Amz-Next-Append-Position", strconv.FormatInt(result.NextPosition, 10))
+	WriteSuccessResponse(w, nil)
+}
+
 func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]

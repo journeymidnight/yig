@@ -62,6 +62,10 @@ type ObjectLayer interface {
 	PutObject(bucket, object string, credential common.Credential, size int64, data io.Reader,
 		metadata map[string]string, acl datatype.Acl,
 		sse datatype.SseRequest) (result datatype.PutObjectResult, err error)
+	AppendObject(bucket, object string, credential common.Credential, offset uint64, size int64, data io.Reader,
+		metadata map[string]string, acl datatype.Acl,
+		sse datatype.SseRequest, objInfo *meta.Object) (result datatype.AppendObjectResult, err error)
+
 	CopyObject(targetObject *meta.Object, source io.Reader, credential common.Credential,
 		sse datatype.SseRequest) (result datatype.PutObjectResult, err error)
 	UpdateObjectAttrs(targetObject *meta.Object, credential common.Credential) (result datatype.PutObjectResult, err error)

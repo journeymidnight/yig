@@ -25,11 +25,14 @@ import (
 var latestQueryTime [2]time.Time // 0 is for SMALL_FILE_POOLNAME, 1 is for BIG_FILE_POOLNAME
 const CLUSTER_MAX_USED_SPACE_PERCENT = 85
 
-func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size int64) (cluster *CephStorage,
+func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size int64, isAppend bool) (cluster *CephStorage,
 	poolName string) {
 
 	var idx int
-	if size < 0 { // request.ContentLength is -1 if length is unknown
+	if isAppend {
+		poolName = BIG_FILE_POOLNAME
+		idx = 1
+	} else if size < 0 { // request.ContentLength is -1 if length is unknown
 		poolName = BIG_FILE_POOLNAME
 		idx = 1
 	} else if size < BIG_FILE_THRESHOLD {
@@ -283,11 +286,6 @@ func copyEncryptedPart(pool string, part *meta.Part, cephCluster *CephStorage, r
 func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 	version string, credential common.Credential) (object *meta.Object, err error) {
 
-	_, err = yig.MetaStorage.GetBucket(bucketName, true)
-	if err != nil {
-		return
-	}
-
 	if version == "" {
 		object, err = yig.MetaStorage.GetObject(bucketName, objectName, true)
 	} else {
@@ -475,7 +473,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		limitedDataReader = data
 	}
 
-	cephCluster, poolName := yig.PickOneClusterAndPool(bucketName, objectName, size)
+	cephCluster, poolName := yig.PickOneClusterAndPool(bucketName, objectName, size, false)
 	if cephCluster == nil {
 		return result, ErrInternalError
 	}
@@ -491,6 +489,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 			return
 		}
 	}
+	// Not support now
 	storageReader, err := wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
 	if err != nil {
 		return
@@ -548,6 +547,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 			cipherKey, []byte("")).([]byte),
 		InitializationVector: initializationVector,
 		CustomAttributes:     metadata,
+		Type:                 meta.ObjectTypeNormal,
 	}
 
 	result.LastModified = object.LastModifiedTime
@@ -577,6 +577,129 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
+		return
+	}
+
+	if err == nil {
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
+		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
+	}
+	return result, nil
+}
+
+//TODO: Append Support Encryption
+func (yig *YigStorage) AppendObject(bucketName string, objectName string, credential common.Credential,
+	offset uint64, size int64, data io.Reader, metadata map[string]string, acl datatype.Acl,
+	sseRequest datatype.SseRequest, objInfo *meta.Object) (result datatype.AppendObjectResult, err error) {
+
+	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, bucketName, objectName)
+	helper.Logger.Println(10, "get encryptionKey:", encryptionKey, "cipherKey:", cipherKey, "err:", err)
+	if err != nil {
+		return
+	}
+
+	//TODO: Append Support Encryption
+	encryptionKey = nil
+
+	md5Writer := md5.New()
+
+	// Limit the reader to its provided size if specified.
+	var limitedDataReader io.Reader
+	if size > 0 { // request.ContentLength is -1 if length is unknown
+		limitedDataReader = io.LimitReader(data, size)
+	} else {
+		limitedDataReader = data
+	}
+
+	var cephCluster *CephStorage
+	var poolName, oid string
+	var initializationVector []byte
+	var objSize int64
+	if objInfo != nil {
+		cephCluster, err = yig.GetClusterByFsName(objInfo.Location)
+		if err != nil {
+			return
+		}
+		// Every appendable file must be treated as a big file
+		poolName = BIG_FILE_POOLNAME
+		oid = objInfo.ObjectId
+		if len(encryptionKey) != 0 {
+			initializationVector, err = newInitializationVector()
+			if err != nil {
+				return
+			}
+		}
+		objSize = objInfo.Size
+	} else {
+		// New appendable object
+		cephCluster, poolName = yig.PickOneClusterAndPool(bucketName, objectName, size, true)
+		if cephCluster == nil || poolName != BIG_FILE_POOLNAME {
+			return result, ErrInternalError
+		}
+		// Mapping a shorter name for the object
+		oid = cephCluster.GetUniqUploadName()
+		initializationVector = objInfo.InitializationVector
+	}
+
+	dataReader := io.TeeReader(limitedDataReader, md5Writer)
+
+	storageReader, err := wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
+	if err != nil {
+		return
+	}
+
+	bytesWritten, err := cephCluster.Append(poolName, oid, storageReader, offset)
+	if err != nil {
+		return
+	}
+
+	if bytesWritten < size {
+		return result, ErrIncompleteBody
+	}
+
+	calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
+	if userMd5, ok := metadata["md5Sum"]; ok {
+		if userMd5 != "" && userMd5 != calculatedMd5 {
+			return result, ErrBadDigest
+		}
+	}
+
+	result.Md5 = calculatedMd5
+
+	if signVerifyReader, ok := data.(*signature.SignVerifyReader); ok {
+		credential, err = signVerifyReader.Verify()
+		if err != nil {
+			return
+		}
+	}
+
+	// TODO validate bucket policy and fancy ACL
+	object := &meta.Object{
+		Name:                 objectName,
+		BucketName:           bucketName,
+		Location:             cephCluster.Name,
+		Pool:                 poolName,
+		OwnerId:              credential.UserId,
+		Size:                 objSize + bytesWritten,
+		ObjectId:             oid,
+		LastModifiedTime:     time.Now().UTC(),
+		Etag:                 calculatedMd5,
+		ContentType:          metadata["Content-Type"],
+		ACL:                  acl,
+		NullVersion:          true,
+		DeleteMarker:         false,
+		SseType:              sseRequest.Type,
+		EncryptionKey:        []byte(""),
+		InitializationVector: initializationVector,
+		CustomAttributes:     metadata,
+		Type:                 meta.ObjectTypeAppendable,
+	}
+
+	result.LastModified = object.LastModifiedTime
+	result.NextPosition = object.Size
+
+	err = yig.MetaStorage.AppendObject(object)
+	if err != nil {
 		return
 	}
 
@@ -647,7 +770,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 	limitedDataReader = io.LimitReader(source, targetObject.Size)
 
 	cephCluster, poolName := yig.PickOneClusterAndPool(targetObject.BucketName,
-		targetObject.Name, targetObject.Size)
+		targetObject.Name, targetObject.Size, false)
 
 	if len(targetObject.Parts) != 0 {
 		var targetParts map[int]*meta.Part = make(map[int]*meta.Part, len(targetObject.Parts))

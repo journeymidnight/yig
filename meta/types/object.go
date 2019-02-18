@@ -45,7 +45,17 @@ type Object struct {
 	// in AES256-GCM
 	EncryptionKey        []byte
 	InitializationVector []byte
+	// ObjectType include `Normal`, `Appendable`, 'Multipart'
+	Type string
 }
+
+type ObjectType string
+
+const (
+	ObjectTypeNormal     = "Normal"
+	ObjectTypeAppendable = "Appendable"
+	ObjectTypeMultipart  = "Multipart"
+)
 
 func (o *Object) String() (s string) {
 	s += "Name: " + o.Name + "\n"
@@ -54,6 +64,7 @@ func (o *Object) String() (s string) {
 	s += "Object ID: " + o.ObjectId + "\n"
 	s += "Last Modified Time: " + o.LastModifiedTime.Format(CREATE_TIME_LAYOUT) + "\n"
 	s += "Version: " + o.VersionId + "\n"
+	s += "Type: " + o.Type + "\n"
 	for n, part := range o.Parts {
 		s += fmt.Sprintln("Part", n, "Object ID:", part.ObjectId)
 	}
@@ -135,6 +146,7 @@ func (o *Object) GetValues() (values map[string]map[string][]byte, err error) {
 			"sseType":       []byte(o.SseType),
 			"encryptionKey": o.EncryptionKey,
 			"IV":            o.InitializationVector,
+			"type":          []byte(o.Type),
 		},
 	}
 	if len(o.Parts) != 0 {
@@ -202,8 +214,17 @@ func (o *Object) GetCreateSql() (string, []interface{}) {
 	customAttributes, _ := json.Marshal(o.CustomAttributes)
 	acl, _ := json.Marshal(o.ACL)
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
-	sql := "insert into objects values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-	args := []interface{}{o.BucketName, o.Name, version, o.Location, o.Pool, o.OwnerId, o.Size, o.ObjectId, lastModifiedTime, o.Etag, o.ContentType, customAttributes, acl, o.NullVersion, o.DeleteMarker, o.SseType, o.EncryptionKey, o.InitializationVector}
+	sql := "insert into objects values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+	args := []interface{}{o.BucketName, o.Name, version, o.Location, o.Pool, o.OwnerId, o.Size, o.ObjectId,
+		lastModifiedTime, o.Etag, o.ContentType, customAttributes, acl, o.NullVersion, o.DeleteMarker,
+		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type}
+	return sql, args
+}
+
+func (o *Object) GetAppendSql() (string, []interface{}) {
+	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
+	sql := "update objects set lastmodified=? and size=? where bucketname=? and name=? and version=?"
+	args := []interface{}{o.LastModifiedTime, o.Size, o.BucketName, o.Name, version}
 	return sql, args
 }
 
