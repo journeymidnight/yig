@@ -55,7 +55,11 @@ func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *
 		w.Header().Set("Cache-Control", "no-store")
 	}
 
+	w.Header().Set("X-Amz-Object-Type", object.Type)
 	w.Header().Set("Content-Length", strconv.FormatInt(object.Size, 10))
+	if object.Type == meta.ObjectTypeAppendable {
+		w.Header().Set("X-Amz-Next-Append-Position", strconv.FormatInt(object.Size, 10))
+	}
 
 	// for providing ranged content
 	if contentRange != nil && contentRange.OffsetBegin > -1 {

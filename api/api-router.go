@@ -70,6 +70,9 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 		// GetObjectAcl
 		bucket.Methods("GET").Path("/{object:.+}").HandlerFunc(api.GetObjectAclHandler).
 			Queries("acl", "")
+
+		// AppendObject
+		bucket.Methods("POST").Path("/{object:.+}").HandlerFunc(api.AppendObjectHandler).Queries("append","")
 		// PutObject
 		bucket.Methods("PUT").Path("/{object:.+}").HandlerFunc(api.PutObjectHandler)
 		// GetObject

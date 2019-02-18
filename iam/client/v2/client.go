@@ -89,6 +89,7 @@ func (a Client) GetCredential (accessKey string) (credential common.Credential, 
 	url := helper.CONFIG.IamEndpoint + "/v1/access/" + accessKey
 	request, _ := http.NewRequest("GET", url, nil)
 	request.Header.Set("apikey", helper.CONFIG.IamKey)
+	helper.Logger.Println(5, "GetCredential. AK:", accessKey, "IK:", helper.CONFIG.IamKey)
 	response, err := a.httpClient.Do(request)
 	if err != nil {
 		slog.Println(5, "GetCredential send request failed", err)

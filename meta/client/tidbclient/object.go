@@ -44,6 +44,7 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 		&object.SseType,
 		&object.EncryptionKey,
 		&object.InitializationVector,
+		&object.Type,
 	)
 	if err == sql.ErrNoRows {
 		err = ErrNoSuchKey
@@ -121,6 +122,12 @@ func (t *TidbClient) UpdateObjectAttrs(object *Object) error {
 	return err
 }
 
+func (t *TidbClient) UpdateAppendObject(object *Object) (err error) {
+	sql, args := object.GetAppendSql()
+	_, err = t.Client.Exec(sql, args...)
+	return err
+}
+
 func (t *TidbClient) PutObject(object *Object, tx interface{}) (err error) {
 	var sqlTx *sql.Tx
 	if tx == nil {
@@ -182,16 +189,6 @@ func (t *TidbClient) DeleteObject(object *Object, tx interface{}) (err error) {
 	return nil
 }
 
-/*
-func (t *TidbClient) DeleteObject(object *Object) error {
-	sql, err := object.GetDeleteSql()
-	if err != nil {
-		return err
-	}
-	_, err = t.Client.Exec(sql)
-	return err
-}
-*/
 //util function
 func getParts(bucketName, objectName string, version uint64, cli *sql.DB) (parts map[int]*Part, err error) {
 	parts = make(map[int]*Part)

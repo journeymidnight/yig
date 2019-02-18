@@ -190,6 +190,7 @@ CREATE TABLE `objects` (
   `ssetype` varchar(255) DEFAULT NULL,
   `encryptionkey` blob DEFAULT NULL,
   `initializationvector` blob DEFAULT NULL,
+  `type` varchar(255) DEFAULT NULL,
    UNIQUE KEY `rowkey` (`bucketname`,`name`,`version`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;

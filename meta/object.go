@@ -176,6 +176,12 @@ func (m *Meta) DeleteObject(object *Object, DeleteMarker bool, objMap *ObjMap) e
 	return err
 }
 
+func (m *Meta) AppendObject(object *Object) error {
+	err := m.Client.UpdateAppendObject(object)
+	return err
+}
+
+
 //func (m *Meta) DeleteObjectEntry(object *Object) error {
 //	err := m.Client.DeleteObject(object, nil)
 //	return err
