@@ -9,8 +9,8 @@ import (
 
 func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (object *Object, err error) {
 	getObject := func() (o interface{}, err error) {
-		object, err := m.Client.GetObject(bucketName, objectName, "")
 		helper.Logger.Println(10, "GetObject CacheMiss. bucket:", bucketName, "object:", objectName)
+		object, err := m.Client.GetObject(bucketName, objectName, "")
 		if err != nil {
 			return
 		}
@@ -176,9 +176,11 @@ func (m *Meta) DeleteObject(object *Object, DeleteMarker bool, objMap *ObjMap) e
 	return err
 }
 
-func (m *Meta) AppendObject(object *Object) error {
-	err := m.Client.UpdateAppendObject(object)
-	return err
+func (m *Meta) AppendObject(object *Object, isExist bool) error {
+	if !isExist {
+		return m.Client.PutObject(object, nil)
+	}
+	return m.Client.UpdateAppendObject(object)
 }
 
 

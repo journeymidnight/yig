@@ -11,6 +11,7 @@ ssl_key_path = ""
 ssl_cert_path = ""
 
 # DebugMode
+lcdebug = true
 debug_mode = true
 reserved_origins = "s3.test.com"
 

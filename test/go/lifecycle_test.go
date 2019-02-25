@@ -1,8 +1,8 @@
 package _go
 
 import (
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/journeymidnight/aws-sdk-go/aws"
+	"github.com/journeymidnight/aws-sdk-go/service/s3"
 	. "github.com/journeymidnight/yig/test/go/lib"
 	"os"
 	"os/exec"
@@ -109,12 +109,19 @@ func Test_LifeCycle(t *testing.T) {
 	}
 	t.Log("DeleteBucketLifecycle Success!")
 
-    //Delete bucket.
+}
+
+func Test_LC_End(t *testing.T) {
+	sc := NewS3()
+	err := sc.DeleteObject(TEST_BUCKET, TEST_KEY)
+	if err != nil {
+		t.Log("DeleteObject err:", err)
+	}
 	err = sc.DeleteBucket(TEST_BUCKET)
 	if err != nil {
 		t.Fatal("DeleteBucket err:", err)
+		panic(err)
 	}
-	t.Log("DeleteBucket Success.")
-}
 
+}
 

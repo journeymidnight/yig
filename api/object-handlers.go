@@ -818,6 +818,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	}
 
 	if objInfo != nil && objInfo.Size != int64(position) {
+		helper.Debugln("Current Size:", objInfo.Size, "Position:", position)
 		WriteErrorResponse(w, r, ErrPositionNotEqualToLength)
 		return
 	}

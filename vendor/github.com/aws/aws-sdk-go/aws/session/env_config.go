@@ -4,7 +4,6 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/defaults"
 )
@@ -102,12 +101,6 @@ type envConfig struct {
 	CSMEnabled  bool
 	CSMPort     string
 	CSMClientID string
-
-	enableEndpointDiscovery string
-	// Enables endpoint discovery via environment variables.
-	//
-	//	AWS_ENABLE_ENDPOINT_DISCOVERY=true
-	EnableEndpointDiscovery *bool
 }
 
 var (
@@ -130,10 +123,6 @@ var (
 	}
 	credSessionEnvKey = []string{
 		"AWS_SESSION_TOKEN",
-	}
-
-	enableEndpointDiscoveryEnvKey = []string{
-		"AWS_ENABLE_ENDPOINT_DISCOVERY",
 	}
 
 	regionEnvKeys = []string{
@@ -204,12 +193,6 @@ func envConfigLoad(enableSharedConfig bool) envConfig {
 
 	setFromEnvVal(&cfg.Region, regionKeys)
 	setFromEnvVal(&cfg.Profile, profileKeys)
-
-	// endpoint discovery is in reference to it being enabled.
-	setFromEnvVal(&cfg.enableEndpointDiscovery, enableEndpointDiscoveryEnvKey)
-	if len(cfg.enableEndpointDiscovery) > 0 {
-		cfg.EnableEndpointDiscovery = aws.Bool(cfg.enableEndpointDiscovery != "false")
-	}
 
 	setFromEnvVal(&cfg.SharedCredentialsFile, sharedCredsFileEnvKey)
 	setFromEnvVal(&cfg.SharedConfigFile, sharedConfigFileEnvKey)

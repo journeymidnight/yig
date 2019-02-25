@@ -10,7 +10,7 @@ yig
 integrate/cephconf
 yig
 lc
-yig.log
+*.log
 *.swp
 yig
 *.rpm

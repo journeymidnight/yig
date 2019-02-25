@@ -3,6 +3,7 @@ package meta
 import (
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/redis"
+	"database/sql"
 )
 
 type CacheType int
@@ -70,7 +71,9 @@ func (m *enabledSimpleMetaCache) Get(table redis.RedisDatabase, key string,
 	helper.Logger.Println(10, "enabledSimpleMetaCache Get. table:", table, "key:", key)
 
 	value, err = redis.Get(table, key, unmarshaller)
-	helper.Logger.Println(5, "enabledSimpleMetaCache Get err:", err)
+	if err != nil {
+		helper.Logger.Println(5, "enabledSimpleMetaCache Get err:", err, "table:", table, "key:", key)
+	}
 	if err == nil && value != nil {
 		m.Hit = m.Hit + 1
 		return value, nil
@@ -79,8 +82,10 @@ func (m *enabledSimpleMetaCache) Get(table redis.RedisDatabase, key string,
 	//if redis doesn't have the entry
 	if onCacheMiss != nil {
 		value, err = onCacheMiss()
-		if err != nil {
-			helper.ErrorIf(err, "exec onCacheMiss() err.")
+		if err != nil{
+			if  err != sql.ErrNoRows {
+				helper.ErrorIf(err, "exec onCacheMiss() err.")
+			}
 			return
 		}
 

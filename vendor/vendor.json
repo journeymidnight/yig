@@ -111,12 +111,6 @@
 			"revisionTime": "2018-12-05T22:25:37Z"
 		},
 		{
-			"checksumSHA1": "rfEGeim4zz2FVqTxFvf6HUuqOZc=",
-			"path": "github.com/aws/aws-sdk-go/aws/session",
-			"revision": "61f730438a4c41f77075cc03ba66ff2b7867c686",
-			"revisionTime": "2018-12-05T22:25:37Z"
-		},
-		{
 			"checksumSHA1": "NI5Qu/tfh4S4st2RsI7W8Fces9Q=",
 			"path": "github.com/aws/aws-sdk-go/aws/signer/v4",
 			"revision": "61f730438a4c41f77075cc03ba66ff2b7867c686",
@@ -131,12 +125,6 @@
 		{
 			"checksumSHA1": "QvKGojx+wCHTDfXQ1aoOYzH3Y88=",
 			"path": "github.com/aws/aws-sdk-go/internal/s3err",
-			"revision": "61f730438a4c41f77075cc03ba66ff2b7867c686",
-			"revisionTime": "2018-12-05T22:25:37Z"
-		},
-		{
-			"checksumSHA1": "wjxQlU1PYxrDRFoL1Vek8Wch7jk=",
-			"path": "github.com/aws/aws-sdk-go/internal/sdkio",
 			"revision": "61f730438a4c41f77075cc03ba66ff2b7867c686",
 			"revisionTime": "2018-12-05T22:25:37Z"
 		},
@@ -203,12 +191,6 @@
 		{
 			"checksumSHA1": "B8unEuOlpQfnig4cMyZtXLZVVOs=",
 			"path": "github.com/aws/aws-sdk-go/private/protocol/xml/xmlutil",
-			"revision": "61f730438a4c41f77075cc03ba66ff2b7867c686",
-			"revisionTime": "2018-12-05T22:25:37Z"
-		},
-		{
-			"checksumSHA1": "Yf7QqY/SEIZGYk9aiXLBqNYFl40=",
-			"path": "github.com/aws/aws-sdk-go/service/s3",
 			"revision": "61f730438a4c41f77075cc03ba66ff2b7867c686",
 			"revisionTime": "2018-12-05T22:25:37Z"
 		},
@@ -480,6 +462,36 @@
 			"path": "github.com/jmespath/go-jmespath",
 			"revision": "61f730438a4c41f77075cc03ba66ff2b7867c686",
 			"revisionTime": "2018-12-05T22:25:37Z"
+		},
+		{
+			"checksumSHA1": "GFpYmf0VaEXUN89dhwMxvOzHEWs=",
+			"path": "github.com/journeymidnight/aws-sdk-go",
+			"revision": "18b7d5a3de3f9c002a8304858445923c4ee9e509",
+			"revisionTime": "2019-02-25T13:20:37Z"
+		},
+		{
+			"checksumSHA1": "PeoNskXV2qCPvwxtnFlF877PSmM=",
+			"path": "github.com/journeymidnight/aws-sdk-go/aws",
+			"revision": "18b7d5a3de3f9c002a8304858445923c4ee9e509",
+			"revisionTime": "2019-02-25T13:20:37Z"
+		},
+		{
+			"checksumSHA1": "xQgV0KwtiAnsUy4bmD4zDDtK1Ts=",
+			"path": "github.com/journeymidnight/aws-sdk-go/aws/credentials",
+			"revision": "18b7d5a3de3f9c002a8304858445923c4ee9e509",
+			"revisionTime": "2019-02-25T13:20:37Z"
+		},
+		{
+			"checksumSHA1": "QKjhuYHpZMduWTOEHdERNe8ORMg=",
+			"path": "github.com/journeymidnight/aws-sdk-go/aws/session",
+			"revision": "18b7d5a3de3f9c002a8304858445923c4ee9e509",
+			"revisionTime": "2019-02-25T13:20:37Z"
+		},
+		{
+			"checksumSHA1": "mYCUV/dMYo0iZ34W+R2XMTUos7o=",
+			"path": "github.com/journeymidnight/aws-sdk-go/service/s3",
+			"revision": "18b7d5a3de3f9c002a8304858445923c4ee9e509",
+			"revisionTime": "2019-02-25T13:20:37Z"
 		},
 		{
 			"checksumSHA1": "9XnQ+D6TT0pUTw2jAMJSOlnnjhA=",

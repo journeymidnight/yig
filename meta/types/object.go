@@ -215,6 +215,9 @@ func (o *Object) GetCreateSql() (string, []interface{}) {
 	acl, _ := json.Marshal(o.ACL)
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
 	sql := "insert into objects values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+	helper.Debugln(o.BucketName, o.Name, version, o.Location, o.Pool, o.OwnerId, o.Size, o.ObjectId,
+		lastModifiedTime, o.Etag, o.ContentType, customAttributes, acl, o.NullVersion, o.DeleteMarker,
+		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type)
 	args := []interface{}{o.BucketName, o.Name, version, o.Location, o.Pool, o.OwnerId, o.Size, o.ObjectId,
 		lastModifiedTime, o.Etag, o.ContentType, customAttributes, acl, o.NullVersion, o.DeleteMarker,
 		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type}
@@ -223,8 +226,10 @@ func (o *Object) GetCreateSql() (string, []interface{}) {
 
 func (o *Object) GetAppendSql() (string, []interface{}) {
 	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
-	sql := "update objects set lastmodified=? and size=? where bucketname=? and name=? and version=?"
-	args := []interface{}{o.LastModifiedTime, o.Size, o.BucketName, o.Name, version}
+	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
+	helper.Debugln("#### Update append meta:",lastModifiedTime, o.Size, o.BucketName, o.Name)
+	sql := "update objects set lastmodifiedtime=?, size=?, version=? where bucketname=? and name=?"
+	args := []interface{}{lastModifiedTime, o.Size, version, o.BucketName, o.Name}
 	return sql, args
 }
 

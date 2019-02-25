@@ -1,6 +1,5 @@
 BASEDIR=$(dirname $(pwd))
 echo ${BASEDIR}
-sed -i '/DebugMode/a lcdebug = true' $(pwd)/yigconf/yig.toml
 sudo docker rm --force lc
 if [ -x "$BASEDIR/lc" ]; then 
     sudo docker run -d --name lc \
