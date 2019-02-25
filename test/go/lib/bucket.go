@@ -1,8 +1,8 @@
 package lib
 
 import (
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/journeymidnight/aws-sdk-go/aws"
+	"github.com/journeymidnight/aws-sdk-go/service/s3"
 )
 
 func (s3client *S3Client) MakeBucket(bucketName string) (err error) {

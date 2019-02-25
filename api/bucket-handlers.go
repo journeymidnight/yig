@@ -409,6 +409,7 @@ func (api ObjectAPIHandlers) PutBucketLifeCycleHandler(w http.ResponseWriter, r 
 		return
 	}
 
+	helper.Debugln("Set LC:", lc)
 	err = api.ObjectAPI.SetBucketLc(bucket, lc, credential)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to set LC for bucket.")

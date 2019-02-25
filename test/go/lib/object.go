@@ -2,8 +2,8 @@ package lib
 
 import (
 	"bytes"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/journeymidnight/aws-sdk-go/aws"
+	"github.com/journeymidnight/aws-sdk-go/service/s3"
 	"io/ioutil"
 	"time"
 )
@@ -83,4 +83,19 @@ func (s3client *S3Client) DeleteObject(bucketName, key string) (err error) {
 		return err
 	}
 	return
+}
+
+func (s3client *S3Client) AppendObject(bucketName, key, value string, position int64) (nextPos int64, err error) {
+	var out  *s3.AppendObjectOutput
+	params := &s3.AppendObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(key),
+		Body:   bytes.NewReader([]byte(value)),
+		Position: aws.Int64(position),
+	}
+	if out, err = s3client.Client.AppendObject(params); err != nil {
+		return 0, err
+	}
+
+	return *out.NextPosition, nil
 }

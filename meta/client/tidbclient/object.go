@@ -122,8 +122,8 @@ func (t *TidbClient) UpdateObjectAttrs(object *Object) error {
 	return err
 }
 
-func (t *TidbClient) UpdateAppendObject(object *Object) (err error) {
-	sql, args := object.GetAppendSql()
+func (t *TidbClient) UpdateAppendObject(o *Object) (err error) {
+	sql, args := o.GetAppendSql()
 	_, err = t.Client.Exec(sql, args...)
 	return err
 }
@@ -139,10 +139,8 @@ func (t *TidbClient) PutObject(object *Object, tx interface{}) (err error) {
 				sqlTx.Commit()
 			}
 		}()
-	} else {
-		sqlTx, _ = tx.(*sql.Tx)
 	}
-
+	sqlTx, _ = tx.(*sql.Tx)
 	sql, args := object.GetCreateSql()
 	_, err = sqlTx.Exec(sql, args...)
 	if object.Parts != nil {

@@ -615,7 +615,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 	var poolName, oid string
 	var initializationVector []byte
 	var objSize int64
-	if objInfo != nil {
+	if isObjectExist(objInfo) {
 		cephCluster, err = yig.GetClusterByFsName(objInfo.Location)
 		if err != nil {
 			return
@@ -623,22 +623,25 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 		// Every appendable file must be treated as a big file
 		poolName = BIG_FILE_POOLNAME
 		oid = objInfo.ObjectId
+		initializationVector = objInfo.InitializationVector
+		objSize = objInfo.Size
+		helper.Debugln("#### REQUEST APPEND", oid, initializationVector, objSize)
+	} else {
+		// New appendable object
+		cephCluster, poolName = yig.PickOneClusterAndPool(bucketName, objectName, size, true)
+		if cephCluster == nil || poolName != BIG_FILE_POOLNAME {
+			helper.Debugln("PickOneClusterAndPool error")
+			return result, ErrInternalError
+		}
+		// Mapping a shorter name for the object
+		oid = cephCluster.GetUniqUploadName()
 		if len(encryptionKey) != 0 {
 			initializationVector, err = newInitializationVector()
 			if err != nil {
 				return
 			}
 		}
-		objSize = objInfo.Size
-	} else {
-		// New appendable object
-		cephCluster, poolName = yig.PickOneClusterAndPool(bucketName, objectName, size, true)
-		if cephCluster == nil || poolName != BIG_FILE_POOLNAME {
-			return result, ErrInternalError
-		}
-		// Mapping a shorter name for the object
-		oid = cephCluster.GetUniqUploadName()
-		initializationVector = objInfo.InitializationVector
+		helper.Debugln("#### REQUEST FIRST APPEND", oid, initializationVector, objSize, poolName)
 	}
 
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
@@ -647,9 +650,9 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 	if err != nil {
 		return
 	}
-
-	bytesWritten, err := cephCluster.Append(poolName, oid, storageReader, offset)
+	bytesWritten, err := cephCluster.Append(poolName, oid, storageReader, offset, isObjectExist(objInfo))
 	if err != nil {
+		helper.Debugln("cephCluster.Append err:", err, poolName, oid, offset)
 		return
 	}
 
@@ -697,9 +700,10 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 
 	result.LastModified = object.LastModifiedTime
 	result.NextPosition = object.Size
-
-	err = yig.MetaStorage.AppendObject(object)
+	helper.Debugln("#### Origin Size:", object.Size, "BytesWritten", bytesWritten)
+	err = yig.MetaStorage.AppendObject(object, isObjectExist(objInfo))
 	if err != nil {
+		helper.Debugln("#### yig.MetaStorage.AppendObject(object, isObjectExist(objInfo)):",err)
 		return
 	}
 
@@ -1167,4 +1171,8 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 		}
 	}
 	return result, nil
+}
+
+func isObjectExist(obj *meta.Object) bool {
+	return obj != nil
 }

@@ -320,7 +320,7 @@ func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (si
 	return size, nil
 }
 
-func (cluster *CephStorage) Append(poolname string, oid string, data io.Reader, offset uint64) (size int64, err error) {
+func (cluster *CephStorage) Append(poolname string, oid string, data io.Reader, offset uint64, isExist bool) (size int64, err error) {
 	if poolname != BIG_FILE_POOLNAME {
 		return 0, errors.New("specified pool must be used for storing big file.")
 	}
@@ -339,29 +339,18 @@ func (cluster *CephStorage) Append(poolname string, oid string, data io.Reader, 
 
 	setStripeLayout(&striper)
 
-	err = striper.Truncate(oid, offset)
-	if err != nil {
-		return 0, fmt.Errorf("Bad truncate of pool:%s oid:%s ", poolname, oid)
-	}
-
 	var current_upload_window = MIN_CHUNK_SIZE /* initial window size as MIN_CHUNK_SIZE, max size is MAX_CHUNK_SIZE */
 	var pending_data = make([]byte, current_upload_window)
 
-	var c *rados.AioCompletion
-	pending := list.New()
 	var origin_offset = offset
 	var slice_offset = 0
 	var slow_count = 0
 	// slice is the buffer size of reader, the size is equal to remain size of pending_data
 	var slice = pending_data[0:current_upload_window]
-
 	for {
 		start := time.Now()
 		count, err := data.Read(slice)
-		if err != nil && err != io.EOF {
-			drain_pending(pending)
-			return 0, fmt.Errorf("Read from client failed. pool:%s oid:%s", poolname, oid)
-		}
+
 		if count == 0 {
 			break
 		}
@@ -377,29 +366,12 @@ func (cluster *CephStorage) Append(poolname string, oid string, data io.Reader, 
 		}
 
 		/* pending data is full now */
-		c = new(rados.AioCompletion)
-		c.Create()
-		_, err = striper.WriteAIO(c, oid, pending_data, offset)
+		helper.Debugln("#### WRITE OFFSET:", offset, "oid:", oid)
+		_, err = striper.Write(oid, pending_data, offset)
 		if err != nil {
-			c.Release()
-			drain_pending(pending)
 			return 0, fmt.Errorf("Bad io. pool:%s oid:%s", poolname, oid)
 		}
-		pending.PushBack(c)
 
-		for pending_has_completed(pending) {
-			if ret := wait_pending_front(pending); ret < 0 {
-				drain_pending(pending)
-				return 0, fmt.Errorf("Error drain_pending in pending_has_completed. pool:%s oid:%s", poolname, oid)
-			}
-		}
-
-		if pending.Len() > AIO_CONCURRENT {
-			if ret := wait_pending_front(pending); ret < 0 {
-				drain_pending(pending)
-				return 0, fmt.Errorf("Error wait_pending_front. pool:%s oid:%s", poolname, oid)
-			}
-		}
 		offset += uint64(len(pending_data))
 
 		/* Resize current upload window */
@@ -430,15 +402,11 @@ func (cluster *CephStorage) Append(poolname string, oid string, data io.Reader, 
 	size = int64(uint64(slice_offset) + offset - origin_offset)
 	//write all remaining data
 	if slice_offset > 0 {
-		c = new(rados.AioCompletion)
-		c.Create()
-		striper.WriteAIO(c, oid, pending_data[:slice_offset], offset)
-		pending.PushBack(c)
-	}
-
-	//drain_pending
-	if ret := drain_pending(pending); ret < 0 {
-		return 0, fmt.Errorf("Error wait_pending_front. pool:%s oid:%s", poolname, oid)
+		helper.Debugln("#### WRITE OFFSET Final:", offset, "oid:", oid, "data:", string(pending_data[:slice_offset]))
+		_, err = striper.Write(oid, pending_data, offset)
+		if err != nil {
+			return 0, fmt.Errorf("Bad io. pool:%s oid:%s", poolname, oid)
+		}
 	}
 
 	return size, nil
