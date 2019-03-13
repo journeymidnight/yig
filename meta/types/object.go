@@ -10,13 +10,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/journeymidnight/yig/api/datatype"
-	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/meta/util"
 	"github.com/xxtea/xxtea-go/xxtea"
 	"io"
 	"math"
 	"strconv"
 	"time"
+	"github.com/journeymidnight/yig/helper"
 )
 
 type Object struct {
@@ -46,16 +46,29 @@ type Object struct {
 	EncryptionKey        []byte
 	InitializationVector []byte
 	// ObjectType include `Normal`, `Appendable`, 'Multipart'
-	Type string
+	Type int
 }
 
 type ObjectType string
 
 const (
-	ObjectTypeNormal     = "Normal"
-	ObjectTypeAppendable = "Appendable"
-	ObjectTypeMultipart  = "Multipart"
+	ObjectTypeNormal = iota
+	ObjectTypeAppendable
+	ObjectTypeMultipart
 )
+
+func (o *Object) ObjectTypeToString() string {
+	switch o.Type {
+	case ObjectTypeNormal:
+		return "Normal"
+	case ObjectTypeAppendable:
+		return "Appendable"
+	case ObjectTypeMultipart:
+		return "Multipart"
+	default:
+		return "Unknown"
+	}
+}
 
 func (o *Object) String() (s string) {
 	s += "Name: " + o.Name + "\n"
@@ -64,7 +77,7 @@ func (o *Object) String() (s string) {
 	s += "Object ID: " + o.ObjectId + "\n"
 	s += "Last Modified Time: " + o.LastModifiedTime.Format(CREATE_TIME_LAYOUT) + "\n"
 	s += "Version: " + o.VersionId + "\n"
-	s += "Type: " + o.Type + "\n"
+	s += "Type: " + o.ObjectTypeToString() + "\n"
 	for n, part := range o.Parts {
 		s += fmt.Sprintln("Part", n, "Object ID:", part.ObjectId)
 	}
@@ -146,7 +159,7 @@ func (o *Object) GetValues() (values map[string]map[string][]byte, err error) {
 			"sseType":       []byte(o.SseType),
 			"encryptionKey": o.EncryptionKey,
 			"IV":            o.InitializationVector,
-			"type":          []byte(o.Type),
+			"type":          []byte(o.ObjectTypeToString()),
 		},
 	}
 	if len(o.Parts) != 0 {
@@ -215,9 +228,6 @@ func (o *Object) GetCreateSql() (string, []interface{}) {
 	acl, _ := json.Marshal(o.ACL)
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
 	sql := "insert into objects values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-	helper.Debugln(o.BucketName, o.Name, version, o.Location, o.Pool, o.OwnerId, o.Size, o.ObjectId,
-		lastModifiedTime, o.Etag, o.ContentType, customAttributes, acl, o.NullVersion, o.DeleteMarker,
-		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type)
 	args := []interface{}{o.BucketName, o.Name, version, o.Location, o.Pool, o.OwnerId, o.Size, o.ObjectId,
 		lastModifiedTime, o.Etag, o.ContentType, customAttributes, acl, o.NullVersion, o.DeleteMarker,
 		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type}
@@ -227,7 +237,6 @@ func (o *Object) GetCreateSql() (string, []interface{}) {
 func (o *Object) GetAppendSql() (string, []interface{}) {
 	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
-	helper.Debugln("#### Update append meta:",lastModifiedTime, o.Size, o.BucketName, o.Name)
 	sql := "update objects set lastmodifiedtime=?, size=?, version=? where bucketname=? and name=?"
 	args := []interface{}{lastModifiedTime, o.Size, version, o.BucketName, o.Name}
 	return sql, args
