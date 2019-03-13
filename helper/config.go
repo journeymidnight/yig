@@ -32,7 +32,7 @@ type Config struct {
 	HbaseTimeout               time.Duration // in seconds
 	DebugMode                  bool          `toml:"debug_mode"`
 	AdminKey                   string        `toml:"admin_key"` //used for tools/admin to communicate with yig
-	GcThread                   int
+	GcThread                   int    `toml:"gc_thread"`
 	LcThread                   int    //used for tools/lc only, set worker numbers to do lc
 	LcDebug                    bool   //used for tools/lc only, if this was set true, will treat days as seconds
 	LogLevel                   int    `toml:"log_level"` //1-20
