@@ -625,7 +625,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 		oid = objInfo.ObjectId
 		initializationVector = objInfo.InitializationVector
 		objSize = objInfo.Size
-		helper.Debugln("#### REQUEST APPEND", oid, initializationVector, objSize)
+		helper.Logger.Println(20, "request append oid:", oid, "iv:", initializationVector, "size:", objSize)
 	} else {
 		// New appendable object
 		cephCluster, poolName = yig.PickOneClusterAndPool(bucketName, objectName, size, true)
@@ -641,7 +641,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 				return
 			}
 		}
-		helper.Debugln("#### REQUEST FIRST APPEND", oid, initializationVector, objSize, poolName)
+		helper.Logger.Println(20, "request first append oid:", oid, "iv:", initializationVector, "size:", objSize)
 	}
 
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
@@ -700,10 +700,10 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 
 	result.LastModified = object.LastModifiedTime
 	result.NextPosition = object.Size
-	helper.Debugln("#### Origin Size:", object.Size, "BytesWritten", bytesWritten)
+	helper.Logger.Println(20, "Append info.", "bucket:", bucketName, "objName:", objectName, "oid:", oid,
+		"objSize:", object.Size, "bytesWritten:", bytesWritten)
 	err = yig.MetaStorage.AppendObject(object, isObjectExist(objInfo))
 	if err != nil {
-		helper.Debugln("#### yig.MetaStorage.AppendObject(object, isObjectExist(objInfo)):",err)
 		return
 	}
 

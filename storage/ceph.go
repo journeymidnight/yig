@@ -8,10 +8,10 @@ import (
 	"sync"
 
 	"github.com/journeymidnight/radoshttpd/rados"
-	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
 	"time"
 	"fmt"
+	"github.com/journeymidnight/yig/helper"
 )
 
 const (
@@ -366,7 +366,6 @@ func (cluster *CephStorage) Append(poolname string, oid string, data io.Reader, 
 		}
 
 		/* pending data is full now */
-		helper.Debugln("#### WRITE OFFSET:", offset, "oid:", oid)
 		_, err = striper.Write(oid, pending_data, offset)
 		if err != nil {
 			return 0, fmt.Errorf("Bad io. pool:%s oid:%s", poolname, oid)
@@ -402,7 +401,6 @@ func (cluster *CephStorage) Append(poolname string, oid string, data io.Reader, 
 	size = int64(uint64(slice_offset) + offset - origin_offset)
 	//write all remaining data
 	if slice_offset > 0 {
-		helper.Debugln("#### WRITE OFFSET Final:", offset, "oid:", oid, "data:", string(pending_data[:slice_offset]))
 		_, err = striper.Write(oid, pending_data, offset)
 		if err != nil {
 			return 0, fmt.Errorf("Bad io. pool:%s oid:%s", poolname, oid)
