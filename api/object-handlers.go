@@ -819,6 +819,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 
 	if objInfo != nil && objInfo.Size != int64(position) {
 		helper.Debugln("Current Size:", objInfo.Size, "Position:", position)
+		w.Header().Set("X-Amz-Next-Append-Position", strconv.FormatInt(objInfo.Size, 10))
 		WriteErrorResponse(w, r, ErrPositionNotEqualToLength)
 		return
 	}
@@ -831,6 +832,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 				return
 			}
 		} else {
+			w.Header().Set("X-Amz-Next-Append-Position", "0")
 			WriteErrorResponse(w, r, ErrPositionNotEqualToLength)
 			return
 		}
