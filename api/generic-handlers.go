@@ -20,7 +20,7 @@ import (
 	"net/http"
 	"strings"
 
-	mux "github.com/gorilla/mux"
+	"github.com/gorilla/mux"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/signature"
@@ -105,9 +105,9 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if origin != "" && InReservedOrigins(origin) {
-			w.Header().Set("Access-Control-Allow-Origin", "*")
-			w.Header().Set("Access-Control-Allow-Headers", "*")
-			w.Header().Set("Access-Control-Allow-Methods", "*")
+			w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
+			w.Header().Set("Access-Control-Allow-Headers", r.Header.Get("Access-Control-Request-Headers"))
+			w.Header().Set("Access-Control-Allow-Methods", r.Header.Get("Access-Control-Request-Method"))
 			w.Header().Set("Access-Control-Expose-Headers", "*")
 			h.handler.ServeHTTP(w, r)
 			return
@@ -121,9 +121,9 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == "OPTIONS" && InReservedOrigins(origin) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Headers", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "*")
+		w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
+		w.Header().Set("Access-Control-Allow-Headers", r.Header.Get("Access-Control-Request-Headers"))
+		w.Header().Set("Access-Control-Allow-Methods", r.Header.Get("Access-Control-Request-Method"))
 		w.Header().Set("Access-Control-Expose-Headers", "*")
 		WriteSuccessResponse(w, nil)
 		return
