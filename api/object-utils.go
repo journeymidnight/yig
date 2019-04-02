@@ -17,11 +17,11 @@
 package api
 
 import (
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 	"unicode/utf8"
-	"fmt"
 )
 
 // validBucket regexp.
@@ -65,18 +65,15 @@ func isValidBucketName(bucketName string) bool {
 // As in YIG, we PROHIBIT ALL the characters listed above
 // See http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMetadata.html
 func isValidObjectName(objectName string) bool {
-	if len(objectName) <= 0 || len(objectName) > 1024 {
+	if len(objectName) <= 0 || len(objectName) > 255 {
 		return false
 	}
 	if !utf8.ValidString(objectName) {
 		return false
 	}
 	for _, n := range objectName {
-		if (n >= 0 && n <= 31) || (n >= 127 && n <= 255) {
-			return false
-		}
 		c := string(n)
-		if strings.ContainsAny(c, "&$=;:+ ,?\\^`><{}][#%\"'~|") {
+		if strings.ContainsAny(c, "\\/") {
 			return false
 		}
 	}
@@ -98,3 +95,4 @@ func checkPosition(position string) (uint64, error) {
 func isFirstAppend(position uint64) bool {
 	return position == 0
 }
+
