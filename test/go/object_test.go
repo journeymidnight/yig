@@ -27,6 +27,15 @@ func Test_PutObject(t *testing.T) {
 	t.Log("PutObject Success!")
 }
 
+func Test_PutObjectSpecialCharacter(t *testing.T) {
+	sc := NewS3()
+	err := sc.PutObject(TEST_BUCKET, TEST_KEY_SpecialCharacter, TEST_VALUE)
+	if err != nil {
+		t.Fatal("PutObject err:", err)
+	}
+	t.Log("PutObject Success!")
+}
+
 func Test_HeadObject(t *testing.T) {
 	sc := NewS3()
 	err := sc.HeadObject(TEST_BUCKET, TEST_KEY)

@@ -76,7 +76,7 @@ func isValidObjectName(objectName string) bool {
 			return false
 		}
 		c := string(n)
-		if strings.ContainsAny(c, "&$=;:+ ,?\\^`><{}][#%\"'~|") {
+		if strings.ContainsAny(c, "\\/") {
 			return false
 		}
 	}
