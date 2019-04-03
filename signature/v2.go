@@ -76,9 +76,9 @@ func buildCanonicalizedResource(req *http.Request) string {
 	ans := ""
 	v := strings.Split(req.Host, ":")
 	hostWithOutPort := v[0]
-	if strings.HasSuffix(hostWithOutPort, "."+helper.CONFIG.S3Domain) {
-		bucket := strings.TrimSuffix(hostWithOutPort, "."+helper.CONFIG.S3Domain)
-		ans += "/" + bucket
+	ok, bucketName := helper.HasBucketInDomain(hostWithOutPort, ".", helper.CONFIG.S3Domain)
+	if ok {
+		ans += "/" + bucketName
 	}
 	ans += req.URL.EscapedPath()
 	helper.Debugln("HOST:", req.Host, hostWithOutPort, ans)

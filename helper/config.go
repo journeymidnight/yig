@@ -11,7 +11,7 @@ const (
 )
 
 type Config struct {
-	S3Domain                   string `toml:"s3domain"`     // Domain name of YIG
+	S3Domain                   []string `toml:"s3domain"`     // Domain name of YIG
 	Region                     string `toml:"region"`       // Region name this instance belongs to, e.g cn-bj-1
 	IamEndpoint                string `toml:"iam_endpoint"` // le IAM endpoint address
 	IamKey                     string `toml:"iam_key"`
