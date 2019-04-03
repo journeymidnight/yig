@@ -1,10 +1,16 @@
 package meta
 
 import (
+	"encoding/hex"
+	"fmt"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
+	"github.com/minio/highwayhash"
+	_ "github.com/minio/highwayhash"
+	"io"
+	"strings"
 )
 
 func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (object *Object, err error) {
@@ -27,7 +33,7 @@ func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (o
 		return &object, err
 	}
 
-	o, err := m.Cache.Get(redis.ObjectTable, bucketName+"\\"+objectName,
+	o, err := m.Cache.Get(redis.ObjectTable, bucketName+":"+HashSum(objectName),
 		getObject, unmarshaller, willNeed)
 	if err != nil {
 		return
@@ -66,7 +72,7 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed
 		err := helper.MsgPackUnMarshal(in, &object)
 		return &object, err
 	}
-	o, err := m.Cache.Get(redis.ObjectTable, bucketName+"\\"+objectName+"\\"+version,
+	o, err := m.Cache.Get(redis.ObjectTable, bucketName+":"+HashSum(objectName)+":"+version,
 		getObjectVersion, unmarshaller, willNeed)
 	if err != nil {
 		return
@@ -183,6 +189,31 @@ func (m *Meta) AppendObject(object *Object, isExist bool) error {
 	return m.Client.UpdateAppendObject(object)
 }
 
+//Use HighwayHash-256 to compute fingerprints of ObjectName.
+func HashSum(ObjectName string) string {
+	key, err := hex.DecodeString("000102030405060708090A0B0C0D0E0FF0E0D0C0B0A090807060504030201000") // use your own key here
+	if err != nil {
+		fmt.Printf("Cannot decode hex key: %v", err) // add error handling
+		return "Cannot decode hex key"
+	}
+
+	file := strings.NewReader(ObjectName)
+
+	hash, err := highwayhash.New(key)
+	if err != nil {
+		fmt.Printf("Failed to create HighwayHash instance: %v", err) // add error handling
+		return "Failed to create HighwayHash instance"
+	}
+
+	if _, err = io.Copy(hash, file); err != nil {
+		fmt.Printf("Failed to read from file: %v", err) // add error handling
+		return "Failed to read from file"
+	}
+
+	sumresult := hex.EncodeToString(hash.Sum(nil))
+
+	return sumresult
+}
 
 //func (m *Meta) DeleteObjectEntry(object *Object) error {
 //	err := m.Client.DeleteObject(object, nil)
