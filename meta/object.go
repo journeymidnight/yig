@@ -33,7 +33,7 @@ func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (o
 		return &object, err
 	}
 
-	o, err := m.Cache.Get(redis.ObjectTable, bucketName+":"+HashSum(objectName),
+	o, err := m.Cache.Get(redis.ObjectTable, bucketName+":"+HashSum(objectName)+":",
 		getObject, unmarshaller, willNeed)
 	if err != nil {
 		return
