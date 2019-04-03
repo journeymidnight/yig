@@ -1,4 +1,4 @@
-s3domain = "s3.test.com"
+s3domain = ["s3.test.com","s3-internal.test.com"]
 region = "cn-bj-1"
 log_path = "/var/log/yig/yig.log"
 panic_log_path = "/var/log/yig/panic.log"
@@ -13,7 +13,7 @@ ssl_cert_path = ""
 # DebugMode
 lcdebug = true
 debug_mode = true
-reserved_origins = "s3.test.com"
+reserved_origins = "s3.test.com,s3-internal.test.com"
 
 # IAM Config
 iam_endpoint = "http://10.11.144.11:9006"

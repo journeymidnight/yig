@@ -32,11 +32,13 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 	apiRouter := mux.NewRoute().PathPrefix("/").Subrouter()
 
 	var routers []*router.Router
-	// Bucket router, matches domain.name/bucket_name/object_name
-	bucket := apiRouter.Host(helper.CONFIG.S3Domain).PathPrefix("/{bucket}").Subrouter()
-	// Host router, matches bucket_name.domain.name/object_name
-	bucket_host := apiRouter.Host("{bucket:.+}." + helper.CONFIG.S3Domain).Subrouter()
-	routers = append(routers, bucket, bucket_host)
+	for _, domain := range helper.CONFIG.S3Domain {
+		// Bucket router, matches domain.name/bucket_name/object_name
+		bucket := apiRouter.Host(domain).PathPrefix("/{bucket}").Subrouter()
+		// Host router, matches bucket_name.domain.name/object_name
+		bucket_host := apiRouter.Host("{bucket:.+}." + domain).Subrouter()
+		routers = append(routers, bucket, bucket_host)
+	}
 
 	for _, bucket := range routers {
 		/// Object operations

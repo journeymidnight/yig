@@ -2,6 +2,15 @@ package helper
 
 import "strings"
 
+func HasBucketInDomain(host string, prefix string, domains []string) (ok bool, bucket string)  {
+	for _, d := range domains {
+		if strings.HasSuffix(host, prefix+d) {
+			return true, strings.TrimSuffix(host, prefix+d)
+		}
+	}
+	return false, ""
+}
+
 func StringInSlice(s string, ss []string) bool {
 	for _, x := range ss {
 		if s == x {

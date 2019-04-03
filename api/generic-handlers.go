@@ -191,6 +191,7 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	// A put method on path "/" doesn't make sense, ignore it.
 	if r.Method == "PUT" && r.URL.Path == "/" && bucketName == "" {
+		helper.Debugln("Host:", r.Host, "Path:", r.URL.Path, "Bucket:", bucketName)
 		WriteErrorResponse(w, r, ErrMethodNotAllowed)
 		return
 	}
@@ -263,8 +264,8 @@ func GetBucketAndObjectInfoFromRequest(r *http.Request) (bucketName string, obje
 	splits := strings.SplitN(r.URL.Path[1:], "/", 2)
 	v := strings.Split(r.Host, ":")
 	hostWithOutPort := v[0]
-	if strings.HasSuffix(hostWithOutPort, "."+helper.CONFIG.S3Domain) {
-		bucketName = strings.TrimSuffix(hostWithOutPort, "."+helper.CONFIG.S3Domain)
+	ok, bucketName := helper.HasBucketInDomain(hostWithOutPort, ".", helper.CONFIG.S3Domain)
+	if ok {
 		if len(splits) == 1 {
 			objectName = splits[0]
 		}
