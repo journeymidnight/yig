@@ -14,7 +14,6 @@ type S3Client struct {
 const (
 	TEST_BUCKET = "mybucket"
 	TEST_KEY    = "testput"
-	TEST_KEY_SpecialCharacter    = "test!@#$%^&*()_+}{':?><*-"
 	TEST_VALUE  = "valueput"
 )
 
