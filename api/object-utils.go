@@ -72,6 +72,9 @@ func isValidObjectName(objectName string) bool {
 		return false
 	}
 	for _, n := range objectName {
+		if (n >= 0 && n <= 31) || (n >= 127 && n <= 255) {	
+			return false	
+		}
 		c := string(n)
 		if strings.ContainsAny(c, "\\") {
 			return false
