@@ -12,9 +12,10 @@ type S3Client struct {
 }
 
 const (
-	TEST_BUCKET = "mybucket"
-	TEST_KEY    = "testput"
-	TEST_VALUE  = "valueput"
+	TEST_BUCKET      = "mybucket"
+	TEST_KEY         = "testput"
+	TEST_VALUE       = "valueput"
+
 )
 
 func NewS3() *S3Client {

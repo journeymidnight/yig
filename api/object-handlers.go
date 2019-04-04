@@ -644,6 +644,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+
 	// if Content-Length is unknown/missing, deny the request
 	size := r.ContentLength
 	if _, ok := r.Header["Content-Length"]; !ok {
@@ -1157,6 +1158,8 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 		WriteErrorResponse(w, r, ErrInvalidObjectName)
 		return
 	}
+
+
 
 	var credential common.Credential
 	var err error
