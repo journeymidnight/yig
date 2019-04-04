@@ -1,7 +1,11 @@
 package redis
 
 import (
+	"encoding/hex"
+	"github.com/minio/highwayhash"
+	"io"
 	"strconv"
+	"strings"
 
 	"context"
 	redigo "github.com/gomodule/redigo/redis"
@@ -85,6 +89,7 @@ func GetClient(ctx context.Context) (redigo.Conn, error) {
 }
 
 func Remove(table RedisDatabase, key string) (err error) {
+	var hashkey  = HashSum(key)
 	return CacheCircuit.Execute(
 		context.Background(),
 		func(ctx context.Context) (err error) {
@@ -94,11 +99,11 @@ func Remove(table RedisDatabase, key string) (err error) {
 			}
 			defer c.Close()
 			// Use table.String() + key as Redis key
-			_, err = c.Do("DEL", table.String()+key)
+			_, err = c.Do("DEL", table.String()+hashkey)
 			if err == redigo.ErrNil {
 				return nil
 			}
-			helper.ErrorIf(err, "Cmd: %s. Key: %s.", "DEL", table.String()+key)
+			helper.ErrorIf(err, "Cmd: %s. Key: %s.", "DEL", table.String()+hashkey)
 			return err
 		},
 		nil,
@@ -106,6 +111,7 @@ func Remove(table RedisDatabase, key string) (err error) {
 }
 
 func Set(table RedisDatabase, key string, value interface{}) (err error) {
+	var hashkey  = HashSum(key)
 	return CacheCircuit.Execute(
 		context.Background(),
 		func(ctx context.Context) (err error) {
@@ -119,11 +125,11 @@ func Set(table RedisDatabase, key string, value interface{}) (err error) {
 				return err
 			}
 			// Use table.String() + key as Redis key. Set expire time to 30s.
-			r, err := redigo.String(c.Do("SET", table.String()+key, string(encodedValue), "EX", 30))
+			r, err := redigo.String(c.Do("SET", table.String()+hashkey, string(encodedValue), "EX", 30))
 			if err == redigo.ErrNil {
 				return nil
 			}
-			helper.ErrorIf(err, "Cmd: %s. Key: %s. Value: %s. Reply: %s.", "SET", table.String()+key, string(encodedValue), r)
+			helper.ErrorIf(err, "Cmd: %s. Key: %s. Value: %s. Reply: %s.", "SET", table.String()+hashkey, string(encodedValue), r)
 			return err
 		},
 		nil,
@@ -134,6 +140,7 @@ func Set(table RedisDatabase, key string, value interface{}) (err error) {
 func Get(table RedisDatabase, key string,
 	unmarshal func([]byte) (interface{}, error)) (value interface{}, err error) {
 	var encodedValue []byte
+	var hashkey  = HashSum(key)
 	err = CacheCircuit.Execute(
 		context.Background(),
 		func(ctx context.Context) (err error) {
@@ -142,7 +149,7 @@ func Get(table RedisDatabase, key string,
 				return err
 			}
 			// Use table.String() + key as Redis key
-			encodedValue, err = redigo.Bytes(c.Do("GET", table.String()+key))
+			encodedValue, err = redigo.Bytes(c.Do("GET", table.String()+hashkey))
 			if err != nil {
 				if err == redigo.ErrNil {
 					return nil
@@ -167,6 +174,7 @@ func Get(table RedisDatabase, key string,
 // FIXME: this API causes an extra memory copy, need to patch radix to fix it
 func GetBytes(key string, start int64, end int64) ([]byte, error) {
 	var value []byte
+	var hashkey  = HashSum(key)
 	err := CacheCircuit.Execute(
 		context.Background(),
 		func(ctx context.Context) (err error) {
@@ -175,7 +183,7 @@ func GetBytes(key string, start int64, end int64) ([]byte, error) {
 				return err
 			}
 			// Use table.String() + key as Redis key
-			value, err = redigo.Bytes(c.Do("GETRANGE", FileTable.String()+key, start, end))
+			value, err = redigo.Bytes(c.Do("GETRANGE", FileTable.String()+hashkey, start, end))
 			if err != nil {
 				if err == redigo.ErrNil {
 					return nil
@@ -194,6 +202,7 @@ func GetBytes(key string, start int64, end int64) ([]byte, error) {
 
 // Set file bytes
 func SetBytes(key string, value []byte) (err error) {
+	var hashkey  = HashSum(key)
 	return CacheCircuit.Execute(
 		context.Background(),
 		func(ctx context.Context) (err error) {
@@ -202,11 +211,11 @@ func SetBytes(key string, value []byte) (err error) {
 				return err
 			}
 			// Use table.String() + key as Redis key
-			r, err := redigo.String(c.Do("SET", FileTable.String()+key, value))
+			r, err := redigo.String(c.Do("SET", FileTable.String()+hashkey, value))
 			if err == redigo.ErrNil {
 				return nil
 			}
-			helper.ErrorIf(err, "Cmd: %s. Key: %s. Value: %s. Reply: %s.", "SET", FileTable.String()+key, string(value), r)
+			helper.ErrorIf(err, "Cmd: %s. Key: %s. Value: %s. Reply: %s.", "SET", FileTable.String()+hashkey, string(value), r)
 			return err
 		},
 		nil,
@@ -215,6 +224,7 @@ func SetBytes(key string, value []byte) (err error) {
 
 // Publish the invalid message to other YIG instances through Redis
 func Invalid(table RedisDatabase, key string) (err error) {
+	var hashkey  = HashSum(key)
 	return CacheCircuit.Execute(
 		context.Background(),
 		func(ctx context.Context) (err error) {
@@ -223,14 +233,36 @@ func Invalid(table RedisDatabase, key string) (err error) {
 				return err
 			}
 			// Use table.String() + key as Redis key
-			r, err := redigo.String(c.Do("PUBLISH", table.InvalidQueue(), key))
+			r, err := redigo.String(c.Do("PUBLISH", table.InvalidQueue(), hashkey))
 			if err == redigo.ErrNil {
 				return nil
 			}
-			helper.ErrorIf(err, "Cmd: %s. Queue: %s. Key: %s. Reply: %s.", "PUBLISH", table.InvalidQueue(), FileTable.String()+key, r)
+			helper.ErrorIf(err, "Cmd: %s. Queue: %s. Key: %s. Reply: %s.", "PUBLISH", table.InvalidQueue(), FileTable.String()+hashkey, r)
 			return err
 		},
 		nil,
 	)
 
+}
+
+func HashSum(ObjectName string) string {
+	key, err := hex.DecodeString("000102030405060708090A0B0C0D0E0FF0E0D0C0B0A090807060504030201000") // use your own key here
+	if err != nil {
+		return "Cannot decode hex key"
+	}
+
+	file := strings.NewReader(ObjectName)
+
+	hash, err := highwayhash.New(key)
+	if err != nil {
+		return "Failed to create HighwayHash instance"
+	}
+
+	if _, err = io.Copy(hash, file); err != nil {
+		return "Failed to read from file"
+	}
+
+	sumresult := hex.EncodeToString(hash.Sum(nil))
+
+	return sumresult
 }
