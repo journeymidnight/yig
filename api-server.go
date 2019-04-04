@@ -71,6 +71,8 @@ func configureServerHandler(c *ServerConfig) http.Handler {
 		// Add new handlers here.
 
 		api.SetLogHandler,
+
+		api.NewAccessLogHandler,
 	}
 
 	// Register rest of the handlers.
