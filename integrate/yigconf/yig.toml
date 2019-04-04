@@ -1,6 +1,8 @@
 s3domain = ["s3.test.com","s3-internal.test.com"]
 region = "cn-bj-1"
 log_path = "/var/log/yig/yig.log"
+access_log_path = "/var/log/yig/access.log"
+access_log_format = "{combined}"
 panic_log_path = "/var/log/yig/panic.log"
 log_level = 20
 pid_file = "/var/run/yig/yig.pid"

@@ -206,6 +206,10 @@ func WriteSuccessResponse(w http.ResponseWriter, response []byte) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
+	//ResponseRecorder
+	w.(*ResponseRecorder).status = http.StatusOK
+	w.(*ResponseRecorder).size = len(response)
+
 	w.Header().Set("Content-Length", strconv.Itoa(len(response)))
 	w.WriteHeader(http.StatusOK)
 	w.Write(response)
@@ -237,6 +241,10 @@ func WriteErrorResponseHeaders(w http.ResponseWriter, err error) {
 		status = http.StatusInternalServerError
 	}
 	helper.Logger.Println(5, "Response status code:", status, "err:", err)
+
+	//ResponseRecorder
+	w.(*ResponseRecorder).status = status
+
 	w.WriteHeader(status)
 }
 
@@ -261,6 +269,10 @@ func WriteErrorResponseNoHeader(w http.ResponseWriter, req *http.Request, err er
 	errorResponse.HostId = helper.CONFIG.InstanceId
 
 	encodedErrorResponse := EncodeResponse(errorResponse)
+
+	//ResponseRecorder
+	w.(*ResponseRecorder).size = len(encodedErrorResponse)
+
 	w.Write(encodedErrorResponse)
 	w.(http.Flusher).Flush()
 }

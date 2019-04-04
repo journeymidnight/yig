@@ -18,6 +18,8 @@ type Config struct {
 	IamSecret                  string `toml:"iam_secret"`
 	IamVersion                 string `toml:"iam_version"`
 	LogPath                    string `toml:"log_path"`
+	AccessLogPath              string `toml:"access_log_path"`
+	AccessLogFormat            string `toml:"access_log_format"`
 	PanicLogPath               string `toml:"panic_log_path"`
 	PidFile                    string `toml:"pid_file"`
 	BindApiAddress             string `toml:"api_listener"`
@@ -104,6 +106,8 @@ func MarshalTOMLConfig() error {
 	CONFIG.IamVersion = Ternary(c.IamVersion == "",
 		"v1", c.IamVersion).(string)
 	CONFIG.LogPath = c.LogPath
+	CONFIG.AccessLogPath = c.AccessLogPath
+	CONFIG.AccessLogFormat = c.AccessLogFormat
 	CONFIG.PanicLogPath = c.PanicLogPath
 	CONFIG.PidFile = c.PidFile
 	CONFIG.BindApiAddress = c.BindApiAddress

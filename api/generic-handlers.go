@@ -44,31 +44,13 @@ type commonHeaderHandler struct {
 	handler http.Handler
 }
 
-func SetCommonHeaderHandler(h http.Handler, _ ObjectLayer) http.Handler {
-	return commonHeaderHandler{h}
-}
-
-// guessIsBrowserReq - returns true if the request is browser.
-// This implementation just validates user-agent and
-// looks for "Mozilla" string. This is no way certifiable
-// way to know if the request really came from a browser
-// since User-Agent's can be arbitrary. But this is just
-// a best effort function.
-func guessIsBrowserReq(req *http.Request) bool {
-	if req == nil {
-		return false
-	}
-	return true
-	//return strings.Contains(req.Header.Get("User-Agent"), "Mozilla")
-}
-
 func (h commonHeaderHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Accept-Ranges", "bytes")
 	h.handler.ServeHTTP(w, r)
 }
 
-type resourceHandler struct {
-	handler http.Handler
+func SetCommonHeaderHandler(h http.Handler, _ ObjectLayer) http.Handler {
+	return commonHeaderHandler{h}
 }
 
 type corsHandler struct {
@@ -76,26 +58,6 @@ type corsHandler struct {
 	objectLayer ObjectLayer
 }
 
-// setCorsHandler handler for CORS (Cross Origin Resource Sharing)
-func SetCorsHandler(h http.Handler, objectLayer ObjectLayer) http.Handler {
-	return corsHandler{
-		handler:     h,
-		objectLayer: objectLayer,
-	}
-}
-
-func InReservedOrigins(origin string) bool {
-	if len(helper.CONFIG.ReservedOrigins) == 0 {
-		return false
-	}
-	OriginsSplit := strings.Split(helper.CONFIG.ReservedOrigins, ",")
-	for _, r := range OriginsSplit {
-		if strings.Contains(origin, r) {
-			return true
-		}
-	}
-	return false
-}
 func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Vary", "Origin")
 	origin := r.Header.Get("Origin")
@@ -161,12 +123,16 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	WriteErrorResponse(w, r, ErrAccessDenied)
 }
 
-// setIgnoreResourcesHandler -
-// Ignore resources handler is wrapper handler used for API request resource validation
-// Since we do not support all the S3 queries, it is necessary for us to throw back a
-// valid error message indicating that requested feature is not implemented.
-func SetIgnoreResourcesHandler(h http.Handler, _ ObjectLayer) http.Handler {
-	return resourceHandler{h}
+// setCorsHandler handler for CORS (Cross Origin Resource Sharing)
+func SetCorsHandler(h http.Handler, o ObjectLayer) http.Handler {
+	return corsHandler{
+		handler:     h,
+		objectLayer: o,
+	}
+}
+
+type resourceHandler struct {
+	handler http.Handler
 }
 
 // Resource handler ServeHTTP() wrapper
@@ -198,15 +164,18 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.handler.ServeHTTP(w, r)
 }
 
+// setIgnoreResourcesHandler -
+// Ignore resources handler is wrapper handler used for API request resource validation
+// Since we do not support all the S3 queries, it is necessary for us to throw back a
+// valid error message indicating that requested feature is not implemented.
+func SetIgnoreResourcesHandler(h http.Handler, _ ObjectLayer) http.Handler {
+	return resourceHandler{h}
+}
+
 // authHandler - handles all the incoming authorization headers and
 // validates them if possible.
 type AuthHandler struct {
 	handler http.Handler
-}
-
-// setAuthHandler to validate authorization header for the incoming request.
-func SetAuthHandler(h http.Handler, _ ObjectLayer) http.Handler {
-	return AuthHandler{h}
 }
 
 // handler for validating incoming authorization headers.
@@ -221,6 +190,38 @@ func (a AuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		a.handler.ServeHTTP(w, r)
 		return
 	}
+}
+
+// setAuthHandler to validate authorization header for the incoming request.
+func SetAuthHandler(h http.Handler, _ ObjectLayer) http.Handler {
+	return AuthHandler{h}
+}
+
+func InReservedOrigins(origin string) bool {
+	if len(helper.CONFIG.ReservedOrigins) == 0 {
+		return false
+	}
+	OriginsSplit := strings.Split(helper.CONFIG.ReservedOrigins, ",")
+	for _, r := range OriginsSplit {
+		if strings.Contains(origin, r) {
+			return true
+		}
+	}
+	return false
+}
+
+// guessIsBrowserReq - returns true if the request is browser.
+// This implementation just validates user-agent and
+// looks for "Mozilla" string. This is no way certifiable
+// way to know if the request really came from a browser
+// since User-Agent's can be arbitrary. But this is just
+// a best effort function.
+func guessIsBrowserReq(req *http.Request) bool {
+	if req == nil {
+		return false
+	}
+	return true
+	//return strings.Contains(req.Header.Get("User-Agent"), "Mozilla")
 }
 
 //// helpers

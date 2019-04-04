@@ -28,6 +28,7 @@ func main() {
 
 	helper.SetupConfig()
 
+	//yig log
 	f, err := os.OpenFile(helper.CONFIG.LogPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		panic("Failed to open log file " + helper.CONFIG.LogPath)
@@ -38,6 +39,15 @@ func main() {
 	helper.Logger = logger
 	logger.Printf(20, "YIG conf: %+v \n", helper.CONFIG)
 	logger.Println(5, "YIG instance ID:", helper.CONFIG.InstanceId)
+
+	//access log
+	a, err := os.OpenFile(helper.CONFIG.AccessLogPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
+	if err != nil {
+		panic("Failed to open access log file " + helper.CONFIG.AccessLogPath)
+	}
+	defer a.Close()
+	accessLogger := log.New(a, "", 0, helper.CONFIG.LogLevel)
+	helper.AccessLogger = accessLogger
 
 	if helper.CONFIG.MetaCacheType > 0 || helper.CONFIG.EnableDataCache {
 		redis.Initialize()
@@ -50,7 +60,7 @@ func main() {
 		Logger:  logger,
 		Yig:     yig,
 	}
-	if redis.Pool() != nil && helper.CONFIG.CacheCircuitCheckInterval != 0{
+	if redis.Pool() != nil && helper.CONFIG.CacheCircuitCheckInterval != 0 {
 		go yig.PingCache(time.Duration(helper.CONFIG.CacheCircuitCheckInterval) * time.Second)
 	}
 
