@@ -170,7 +170,7 @@ func Test_UpdateObject(t *testing.T) {
 	if err != nil {
 		t.Fatal("Head object failed")
 	}
-
+	
 	if *headResult.ContentType != "image/jpeg" {
 		t.Fatal("failed to set content type")
 	}
