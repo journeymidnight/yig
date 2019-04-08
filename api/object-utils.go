@@ -65,7 +65,7 @@ func isValidBucketName(bucketName string) bool {
 // As in YIG, we PROHIBIT ALL the characters listed above
 // See http://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMetadata.html
 func isValidObjectName(objectName string) bool {
-	if len(objectName) <= 0 || len(objectName) > 1024 {
+	if len(objectName) <= 0 || len(objectName) > 255 {
 		return false
 	}
 	if !utf8.ValidString(objectName) {
