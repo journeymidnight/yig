@@ -506,6 +506,12 @@
 			"revisionTime": "2016-04-24T11:30:07Z"
 		},
 		{
+			"checksumSHA1": "0+Vn+7Ai6FrzFV5Vz1UpMX7HV7U=",
+			"path": "github.com/minio/highwayhash",
+			"revision": "02ca4b43caa3297fbb615700d8800acc7933be98",
+			"revisionTime": "2019-01-31T02:10:15Z"
+		},
+		{
 			"checksumSHA1": "a58zUNtDH/gEd6F6KI3FqT2iEo0=",
 			"origin": "github.com/hashicorp/vault/vendor/github.com/mitchellh/go-homedir",
 			"path": "github.com/mitchellh/go-homedir",
