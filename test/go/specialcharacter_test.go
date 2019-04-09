@@ -1,8 +1,6 @@
 package _go
 
 import (
-	"encoding/xml"
-	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/test/go/lib"
 	"net/http"
 	"testing"
@@ -38,106 +36,27 @@ func Test_GetSpecialCharacterObject(t *testing.T) {
 	t.Log("GetSpecialCharacterObject Success value:", v)
 }
 
-// This test case is used to test whether the result of obtaining an Object by an external user is correct
-// before setting the public-read ACL and setting the public-read ACL.
-func Test_PutSpecialCharaterObjectPublicAclWithXml(t *testing.T) {
+func Test_PutSpecialCharacterObjectAcl(t *testing.T) {
+	sc := NewS3()
+	err := sc.PutObjectAcl(TEST_BUCKET, TEST_KEY_SPECIAL, BucketCannedACLPublicRead)
+	if err != nil {
+		t.Fatal("PutObjectAcl err:", err)
+	}
+	t.Log("PutObjectAcl Success!")
+}
+
+func Test_GetSpecialCharaterObjectPublicAcl(t *testing.T) {
 	sc := NewS3()
 	url := GenTestSpecialCharaterObjectUrl(sc)
-
-	// before set public-read ACL.
 	statusCode, _, err := HTTPRequestToGetObject(url)
 	if err != nil {
 		t.Fatal("GetObject err:", err)
 	}
 	//StatusCode should be AccessDenied
-	if statusCode != http.StatusForbidden {
-		t.Fatal("StatusCode should be AccessDenied(403), but the code is:", statusCode)
-	}
-	t.Log("GetObject Without public-read ACL test Success.")
-
-	// set public-read ACL.
-	var policy = &datatype.AccessControlPolicy{}
-	err = xml.Unmarshal([]byte(AclPublicXml), policy)
-	if err != nil {
-		t.Fatal("PutObjectPublicAclWithXml err:", err)
-	}
-	acl := TransferToS3AccessControlPolicy(policy)
-	if acl == nil {
-		t.Fatal("PutObjectPublicAclWithXml err:", "empty acl!")
-	}
-	err = sc.PutObjectAclWithXml(TEST_BUCKET, TEST_KEY_SPECIAL, acl)
-	if err != nil {
-		t.Fatal("PutObjectAclWithXml err:", err)
-	}
-	t.Log("PutObjectAclWithXml Success!")
-
-	out, err := sc.GetObjectAcl(TEST_BUCKET, TEST_KEY_SPECIAL)
-	if err != nil {
-		t.Fatal("GetObjectAcl err:", err)
-	}
-	t.Log("GetObjectAcl Success! out:", out)
-
-	// After set public-read ACL.
-	statusCode, data, err := HTTPRequestToGetObject(url)
-	if err != nil {
-		t.Fatal("GetObject err:", err)
-	}
-	//StatusCode should be STATUS_OK
 	if statusCode != http.StatusOK {
 		t.Fatal("StatusCode should be STATUS_OK(200), but the code is:", statusCode)
 	}
-	t.Log("Get object value:", string(data))
-}
-
-// This test case is used to test whether the result of obtaining an Object by an external user is correct
-// before setting the private ACL and setting the private ACL.
-func Test_PutSpecialCharaterObjectPrivateAclWithXml(t *testing.T) {
-	sc := NewS3()
-	url := GenTestSpecialCharaterObjectUrl(sc)
-
-	// before set private ACL.
-	statusCode, data, err := HTTPRequestToGetObject(url)
-	if err != nil {
-		t.Fatal("GetObject err:", err)
-	}
-	//StatusCode should be STATUS_OK
-	if statusCode != http.StatusOK {
-		t.Fatal("StatusCode should be STATUS_OK(200), but the code is:", statusCode)
-	}
-	t.Log("Get object value:", string(data))
-
-	//set private ACL.
-	var policy = &datatype.AccessControlPolicy{}
-	err = xml.Unmarshal([]byte(AclPrivateXml), policy)
-	if err != nil {
-		t.Fatal("PutObjectPrivateAclWithXml err:", err)
-	}
-	acl := TransferToS3AccessControlPolicy(policy)
-	if acl == nil {
-		t.Fatal("PutObjectPrivateAclWithXml err:", "empty acl!")
-	}
-	err = sc.PutObjectAclWithXml(TEST_BUCKET, TEST_KEY_SPECIAL, acl)
-	if err != nil {
-		t.Fatal("PutObjectAclWithXml err:", err)
-	}
-	t.Log("PutObjectAclWithXml Success!")
-
-	out, err := sc.GetObjectAcl(TEST_BUCKET, TEST_KEY_SPECIAL)
-	if err != nil {
-		t.Fatal("GetObjectAcl err:", err)
-	}
-	t.Log("GetObjectAcl Success! out:", out)
-
-	// After set private ACL.
-	statusCode, _, err = HTTPRequestToGetObject(url)
-	if err != nil {
-		t.Fatal("GetObject err:", err)
-	}
-	//StatusCode should be AccessDenied
-	if statusCode != http.StatusForbidden {
-		t.Fatal("StatusCode should be AccessDenied(403), but the code is:", statusCode)
-	}
-	t.Log("GetObject With private ACL test Success.")
+	t.Log("GetSpecialCharacterObject With public-read ACL test Success.")
 }
 
 func Test_SpecialCharaterObject_End(t *testing.T) {
