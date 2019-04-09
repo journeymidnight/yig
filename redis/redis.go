@@ -1,7 +1,11 @@
 package redis
 
 import (
+	"encoding/hex"
+	"github.com/minio/highwayhash"
+	"io"
 	"strconv"
+	"strings"
 
 	"context"
 	redigo "github.com/gomodule/redigo/redis"
@@ -17,6 +21,8 @@ var (
 )
 
 const InvalidQueueName = "InvalidQueue"
+
+const keyvalue = "000102030405060708090A0B0C0D0E0FF0E0D0C0B0A090807060504030201000" // This is the key for hash sum !
 
 type RedisDatabase int
 
@@ -93,8 +99,12 @@ func Remove(table RedisDatabase, key string) (err error) {
 				return err
 			}
 			defer c.Close()
-			// Use table.String() + key as Redis key
-			_, err = c.Do("DEL", table.String()+key)
+			hashkey,err := HashSum(key)
+			if err != nil {
+				return err
+			}
+			// Use table.String() + hashkey as Redis key
+			_, err = c.Do("DEL", table.String()+hashkey)
 			if err == redigo.ErrNil {
 				return nil
 			}
@@ -118,8 +128,12 @@ func Set(table RedisDatabase, key string, value interface{}) (err error) {
 			if err != nil {
 				return err
 			}
-			// Use table.String() + key as Redis key. Set expire time to 30s.
-			r, err := redigo.String(c.Do("SET", table.String()+key, string(encodedValue), "EX", 30))
+			hashkey,err := HashSum(key)
+			if err != nil {
+				return err
+			}
+			// Use table.String() + hashkey as Redis key. Set expire time to 30s.
+			r, err := redigo.String(c.Do("SET", table.String()+hashkey, string(encodedValue), "EX", 30))
 			if err == redigo.ErrNil {
 				return nil
 			}
@@ -141,8 +155,12 @@ func Get(table RedisDatabase, key string,
 			if err != nil {
 				return err
 			}
-			// Use table.String() + key as Redis key
-			encodedValue, err = redigo.Bytes(c.Do("GET", table.String()+key))
+			hashkey,err := HashSum(key)
+			if err != nil {
+				return err
+			}
+			// Use table.String() + hashkey as Redis key
+			encodedValue, err = redigo.Bytes(c.Do("GET", table.String()+hashkey))
 			if err != nil {
 				if err == redigo.ErrNil {
 					return nil
@@ -174,8 +192,12 @@ func GetBytes(key string, start int64, end int64) ([]byte, error) {
 			if err != nil {
 				return err
 			}
-			// Use table.String() + key as Redis key
-			value, err = redigo.Bytes(c.Do("GETRANGE", FileTable.String()+key, start, end))
+			hashkey,err := HashSum(key)
+			if err != nil {
+				return err
+			}
+			// Use table.String() + hashkey as Redis key
+			value, err = redigo.Bytes(c.Do("GETRANGE", FileTable.String()+hashkey, start, end))
 			if err != nil {
 				if err == redigo.ErrNil {
 					return nil
@@ -201,8 +223,12 @@ func SetBytes(key string, value []byte) (err error) {
 			if err != nil {
 				return err
 			}
-			// Use table.String() + key as Redis key
-			r, err := redigo.String(c.Do("SET", FileTable.String()+key, value))
+			hashkey,err := HashSum(key)
+			if err != nil {
+				return err
+			}
+			// Use table.String() + hashkey as Redis key
+			r, err := redigo.String(c.Do("SET", FileTable.String()+hashkey, value))
 			if err == redigo.ErrNil {
 				return nil
 			}
@@ -222,8 +248,12 @@ func Invalid(table RedisDatabase, key string) (err error) {
 			if err != nil {
 				return err
 			}
-			// Use table.String() + key as Redis key
-			r, err := redigo.String(c.Do("PUBLISH", table.InvalidQueue(), key))
+			hashkey,err := HashSum(key)
+			if err != nil {
+				return err
+			}
+			// Use table.String() + hashkey as Redis key
+			r, err := redigo.String(c.Do("PUBLISH", table.InvalidQueue(), hashkey))
 			if err == redigo.ErrNil {
 				return nil
 			}
@@ -233,4 +263,27 @@ func Invalid(table RedisDatabase, key string) (err error) {
 		nil,
 	)
 
+}
+
+// Get Object to HighWayHash for redis
+func HashSum(ObjectName string) (string,error) {
+	key, err := hex.DecodeString(keyvalue)
+	if err != nil {
+		return "",err
+	}
+
+	ObjectNameString := strings.NewReader(ObjectName)
+
+	hash, err := highwayhash.New(key)
+	if err != nil {
+		return "",err
+	}
+
+	if _, err = io.Copy(hash, ObjectNameString); err != nil {
+		return "",err
+	}
+
+	sumresult := hex.EncodeToString(hash.Sum(nil))
+
+	return sumresult,nil
 }
