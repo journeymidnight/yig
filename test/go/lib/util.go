@@ -4,11 +4,19 @@ import (
 	"github.com/journeymidnight/aws-sdk-go/aws"
 	"github.com/journeymidnight/aws-sdk-go/service/s3"
 	"github.com/journeymidnight/yig/api/datatype"
+	"net/url"
 	"os"
+	"strings"
 )
 
 func GenTestObjectUrl(sc *S3Client) string {
 	return "http://" + *sc.Client.Config.Endpoint + string(os.PathSeparator) + TEST_BUCKET + string(os.PathSeparator) + TEST_KEY
+}
+
+func GenTestSpecialCharaterObjectUrl(sc *S3Client) string {
+	urlchange := url.QueryEscape(TEST_KEY_SPECIAL)
+	urlchange = strings.Replace(urlchange, "+", "%20", -1)
+	return "http://" + *sc.Client.Config.Endpoint + string(os.PathSeparator) + TEST_BUCKET + string(os.PathSeparator) + urlchange
 }
 
 func TransferToS3AccessControlPolicy(policy *datatype.AccessControlPolicy) (s3policy *s3.AccessControlPolicy) {
