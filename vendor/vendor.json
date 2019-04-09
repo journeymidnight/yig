@@ -9,10 +9,10 @@
 			"revisionTime": "2018-08-15T10:47:33Z"
 		},
 		{
-			"checksumSHA1": "HkZUgiSWtqvkR1SAIesyTtXmxUo=",
+			"checksumSHA1": "9cl7+wv0GvxpQV+HOtV93F9pbmE=",
 			"path": "github.com/Sirupsen/logrus",
-			"revision": "29d7eb25e8ffa54207ff5a9a5c3d63e95be2cc39",
-			"revisionTime": "2018-11-22T06:14:47Z"
+			"revision": "89742aefa4b206dcf400792f3bd35b542998eb3b",
+			"revisionTime": "2017-08-22T13:27:46Z"
 		},
 		{
 			"checksumSHA1": "ny8BQ9pDIEM2bHsPcMBVukWDACo=",
@@ -127,6 +127,12 @@
 			"path": "github.com/aws/aws-sdk-go/internal/s3err",
 			"revision": "61f730438a4c41f77075cc03ba66ff2b7867c686",
 			"revisionTime": "2018-12-05T22:25:37Z"
+		},
+		{
+			"checksumSHA1": "wjxQlU1PYxrDRFoL1Vek8Wch7jk=",
+			"path": "github.com/aws/aws-sdk-go/internal/sdkio",
+			"revision": "dd97388fa17776e82d6cd2777cc8e07932e436b0",
+			"revisionTime": "2018-11-14T22:48:07Z"
 		},
 		{
 			"checksumSHA1": "MYLldFRnsZh21TfCkgkXCT3maPU=",
