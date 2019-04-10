@@ -29,13 +29,12 @@ replace (
 require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/Sirupsen/logrus v0.0.0-20170822132746-89742aefa4b2
-	github.com/aws/aws-sdk-go v0.0.0-20181205222537-61f730438a4c
 	github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973
 	github.com/cannium/gohbase v0.0.0-20170302080057-636e2cfdbc29
 	github.com/cep21/circuit v0.0.0-20181030180945-e893c027dc21
 	github.com/dgrijalva/jwt-go v0.0.0-20180921172315-3af4c746e1c2
 	github.com/dustin/go-humanize v1.0.0
-	github.com/go-sql-driver/mysql v0.0.0-20181202171036-60d456a40278
+	github.com/go-sql-driver/mysql v1.4.1
 	github.com/gogo/protobuf v1.2.0 // indirect
 	github.com/golang/protobuf v1.2.0
 	github.com/golang/snappy v0.0.1 // indirect
@@ -47,6 +46,7 @@ require (
 	github.com/hashicorp/go-sockaddr v1.0.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hashicorp/vault v0.0.0-20181205182516-af78f40cf86f
+	github.com/journeymidnight/aws-sdk-go v1.17.5 // indirect
 	github.com/journeymidnight/radoshttpd v0.0.0-20180423094851-048fda5702ec
 	github.com/matttproud/golang_protobuf_extensions v1.0.1
 	github.com/minio/highwayhash v1.0.0
