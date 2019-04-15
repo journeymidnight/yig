@@ -19,6 +19,7 @@ const (
 	WATER_LOW        = 120
 	TASKQ_MAX_LENGTH = 200
 	SCAN_HBASE_LIMIT = 50
+	DEFAULT_DELETE_LOG_PATH = "/var/log/yig/delete.log"
 )
 
 var (
@@ -123,7 +124,7 @@ func removeDeleted() {
 func main() {
 	helper.SetupConfig()
 
-	f, err := os.OpenFile("delete.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	f, err := os.OpenFile(DEFAULT_DELETE_LOG_PATH, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		panic("Failed to open log file in current dir")
 	}
