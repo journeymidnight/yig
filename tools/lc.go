@@ -20,6 +20,7 @@ import (
 
 const (
 	SCAN_HBASE_LIMIT = 50
+	DEFAULT_LC_LOG_PATH = "/var/log/yig/lc.log"
 )
 
 var (
@@ -232,7 +233,7 @@ func processLifecycle() {
 func main() {
 	helper.SetupConfig()
 
-	f, err := os.OpenFile("lifecycle.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	f, err := os.OpenFile(DEFAULT_LC_LOG_PATH, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		panic("Failed to open log file in current dir")
 	}
