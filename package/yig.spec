@@ -37,7 +37,11 @@ install -D -m 755 getrediskeys %{buildroot}%{_bindir}/yig_getrediskeys
 install -D -m 755 lc     %{buildroot}%{_bindir}/yig_lifecyle_daemon
 install -D -m 755 %{_builddir}/yig-%{version}-%{rel}/build/bin/yig %{buildroot}%{_bindir}/yig
 install -D -m 644 package/yig.logrotate %{buildroot}/etc/logrotate.d/yig.logrotate
+install -D -m 644 package/yig_delete.logrotate %{buildroot}/etc/logrotate.d/yig_delete.logrotate
+install -D -m 644 package/yig_lc.logrotate %{buildroot}/etc/logrotate.d/yig_lc.logrotate
 install -D -m 644 package/yig.service   %{buildroot}/usr/lib/systemd/system/yig.service
+install -D -m 644 package/yig_delete.service   %{buildroot}/usr/lib/systemd/system/yig_delete.service
+install -D -m 644 package/yig_lc.service   %{buildroot}/usr/lib/systemd/system/yig_lc.service
 install -D -m 644 conf/yig.toml %{buildroot}%{_sysconfdir}/yig/yig.toml
 install -d %{buildroot}/var/log/yig/
 
@@ -45,6 +49,8 @@ install -d %{buildroot}/var/log/yig/
 
 %post
 systemctl enable yig
+systemctl enable yig_delete
+systemctl enable yig_lc
 
 
 %preun
@@ -61,8 +67,12 @@ rm -rf %{buildroot}
 /usr/bin/yig_getrediskeys
 /usr/bin/yig_lifecyle_daemon
 /etc/logrotate.d/yig.logrotate
+/etc/logrotate.d/yig_delete.logrotate
+/etc/logrotate.d/yig_lc.logrotate
 %dir /var/log/yig/
 /usr/lib/systemd/system/yig.service
+/usr/lib/systemd/system/yig_delete.service
+/usr/lib/systemd/system/yig_lc.service
 
 
 %changelog
