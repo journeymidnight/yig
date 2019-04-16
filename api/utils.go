@@ -25,7 +25,6 @@ import (
 	"io"
 	"net/http"
 	"regexp"
-	"strconv"
 	"strings"
 )
 
@@ -133,7 +132,6 @@ func xmlFormat(data interface{}) ([]byte, error) {
 
 func setXmlHeader(w http.ResponseWriter, body []byte) {
 	w.Header().Set("Content-Type", "application/xml")
-	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 }
 
 // hasServerSideEncryptionHeader returns true if the given HTTP header
