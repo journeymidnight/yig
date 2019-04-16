@@ -1501,8 +1501,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 
 	setXmlHeader(w, encodedSuccessResponse)
 	// write success response.
-	w.WriteHeader(http.StatusOK)
-	w.Write(encodedSuccessResponse)
+	WriteSuccessResponse(w, encodedSuccessResponse)
 }
 
 /// Delete objectAPIHandlers

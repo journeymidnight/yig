@@ -28,6 +28,7 @@ import (
 	"github.com/journeymidnight/yig/iam/common"
 	meta "github.com/journeymidnight/yig/meta/types"
 	"net/url"
+	"strconv"
 )
 
 const (
@@ -205,6 +206,8 @@ func WriteSuccessResponse(w http.ResponseWriter, response []byte) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
+	w.WriteHeader(http.StatusOK)
+	w.Header().Set("Content-Length", strconv.Itoa(len(response)))
 	w.Write(response)
 	w.(http.Flusher).Flush()
 }
