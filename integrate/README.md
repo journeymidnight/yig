@@ -53,27 +53,9 @@ sudo cp /usr/local/opt/dnsmasq/dnsmasq.conf.example /usr/local/etc/dnsmasq.conf
 sudo vim /usr/local/etc/dnsmasq.conf
 ```
 
-Add configs to conf file:
-```
-#严格按照resolv-file文件中的顺序从上到下进行DNS解析，直到第一个解析成功为止
-strict-order
-
-#定义dnsmasq监听的地址，默认是监控本机的所有网卡上。局域网内主机若要使用dnsmasq服务时，指定本机的IP地址
-listen-address=127.0.0.1
-
-#忽略/etc/hosts
-no-hosts
-```
-
 **Warning**:
 
-- If Linux, add config in file:
-```
-address=/.s3.test.com/10.5.0.18
-```
-**PS: 10.5.0.18 is the IP addresses for the yig container**
-
-- If Mac OS, add config in file:
+- Add config in file:
 ```
 address=/.s3.test.com/127.0.0.1
 ```
@@ -118,20 +100,35 @@ This would create tidb table and create ceph pools
 
 ## Build yig
 ```
-sh buildyig.sh
+cd ${YIGDIR}
+make build
 ```
 
 
 ## Run yig
 ```
-sh runyig.sh
+cd ${YIGDIR}
+make run
+```
+# Test yig
+## Install s3cmd
+Reference: [https://github.com/s3tools/s3cmd/blob/master/INSTALL](https://github.com/s3tools/s3cmd/blob/master/INSTALL)
+
+## Add file ~/.s3cfg 
+```
+[default]
+access_key = hehehehe
+secret_key = hehehehe
+default_mime_type = binary/octet-stream
+enable_multipart = True
+encoding = UTF-8
+encrypt = False
+use_https = False
+host_base = s3.test.com:8080
+host_bucket = %(bucket)s.s3.test.com:8080
+multipart_chunk_size_mb = 128
 ```
 
-## Stop yig
-```
-sh stopyig.sh
-```
-
-
+## Run s3cmd
 
 
