@@ -206,8 +206,8 @@ func WriteSuccessResponse(w http.ResponseWriter, response []byte) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
 	w.Header().Set("Content-Length", strconv.Itoa(len(response)))
+	w.WriteHeader(http.StatusOK)
 	w.Write(response)
 	w.(http.Flusher).Flush()
 }
