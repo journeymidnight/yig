@@ -134,7 +134,7 @@ func xmlFormat(data interface{}) ([]byte, error) {
 	return output, nil
 }
 
-func setXmlHeader(w http.ResponseWriter, body []byte) {
+func setXmlHeader(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/xml")
 }
 
