@@ -14,7 +14,7 @@ import (
 )
 
 func (t *TidbClient) GetBucket(bucketName string) (bucket *Bucket, err error) {
-	var acl, cors, lc, policy, createTime string
+	var acl, cors, lc, policy, website, createTime string
 	sqltext := "select * from buckets where bucketname=?;"
 	bucket = new(Bucket)
 	err = t.Client.QueryRow(sqltext, bucketName).Scan(
@@ -24,6 +24,7 @@ func (t *TidbClient) GetBucket(bucketName string) (bucket *Bucket, err error) {
 		&lc,
 		&bucket.OwnerId,
 		&policy,
+		&website,
 		&createTime,
 		&bucket.Usage,
 		&bucket.Versioning,
@@ -54,6 +55,10 @@ func (t *TidbClient) GetBucket(bucketName string) (bucket *Bucket, err error) {
 	if err != nil {
 		return
 	}
+	err = json.Unmarshal([]byte(website), &bucket.Website)
+	if err != nil {
+		return
+	}
 	return
 }
 
@@ -70,7 +75,7 @@ func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
 
 	for rows.Next() {
 		var tmp Bucket
-		var acl, cors, lc, policy, createTime string
+		var acl, cors, lc, policy, website, createTime string
 		err = rows.Scan(
 			&tmp.Name,
 			&acl,
@@ -78,6 +83,7 @@ func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
 			&lc,
 			&tmp.OwnerId,
 			&policy,
+			&website,
 			&createTime,
 			&tmp.Usage,
 			&tmp.Versioning)
@@ -101,6 +107,10 @@ func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
 			return
 		}
 		err = json.Unmarshal([]byte(policy), &tmp.Policy)
+		if err != nil {
+			return
+		}
+		err = json.Unmarshal([]byte(website), &tmp.Website)
 		if err != nil {
 			return
 		}
@@ -269,6 +279,7 @@ func (t *TidbClient) UpdateUsage(bucketName string, size int64, tx interface{}) 
 	if !helper.CONFIG.PiggybackUpdateUsage {
 		return nil
 	}
+
 	var sqlTx *sql.Tx
 	if tx == nil {
 		tx, err = t.Client.Begin()
