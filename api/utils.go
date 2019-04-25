@@ -76,9 +76,8 @@ func contains(stringList []string, element string) bool {
 func requestIdFromContext(ctx context.Context) string {
 	if result, ok := ctx.Value(RequestId).(string);ok{
 		return result
-	}else{
-		return ""
 	}
+	return ""
 }
 
 // We support '.' with bucket names but we fallback to using path
