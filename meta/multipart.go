@@ -13,8 +13,6 @@ func (m *Meta) DeleteMultipart(multipart Multipart) (err error) {
 	defer func() {
 		if err != nil {
 			m.Client.AbortTrans(tx)
-		} else {
-			m.Client.CommitTrans(tx)
 		}
 	}()
 	err = m.Client.DeleteMultipart(&multipart, tx)
@@ -26,6 +24,10 @@ func (m *Meta) DeleteMultipart(multipart Multipart) (err error) {
 		removedSize += p.Size
 	}
 	err = m.Client.UpdateUsage(multipart.BucketName, -removedSize, tx)
+	if err != nil {
+		return
+	}
+	err = m.Client.CommitTrans(tx)
 	return
 }
 
@@ -34,8 +36,6 @@ func (m *Meta) PutObjectPart(multipart Multipart, part Part) (err error) {
 	defer func() {
 		if err != nil {
 			m.Client.AbortTrans(tx)
-		} else {
-			m.Client.CommitTrans(tx)
 		}
 	}()
 	err = m.Client.PutObjectPart(&multipart, &part, tx)
@@ -47,5 +47,9 @@ func (m *Meta) PutObjectPart(multipart Multipart, part Part) (err error) {
 		removedSize += part.Size
 	}
 	err = m.Client.UpdateUsage(multipart.BucketName, part.Size-removedSize, tx)
+	if err != nil {
+		return
+	}
+	err = m.Client.CommitTrans(tx)
 	return
 }

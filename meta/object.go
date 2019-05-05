@@ -84,8 +84,6 @@ func (m *Meta) PutObject(object *Object, multipart *Multipart, objMap *ObjMap, u
 	defer func() {
 		if err != nil {
 			m.Client.AbortTrans(tx)
-		} else {
-			m.Client.CommitTrans(tx)
 		}
 	}()
 
@@ -114,6 +112,7 @@ func (m *Meta) PutObject(object *Object, multipart *Multipart, objMap *ObjMap, u
 			return err
 		}
 	}
+	err = m.Client.CommitTrans(tx)
 	return nil
 }
 
@@ -142,8 +141,6 @@ func (m *Meta) DeleteObject(object *Object, DeleteMarker bool, objMap *ObjMap) e
 	defer func() {
 		if err != nil {
 			m.Client.AbortTrans(tx)
-		} else {
-			m.Client.CommitTrans(tx)
 		}
 	}()
 
@@ -172,6 +169,7 @@ func (m *Meta) DeleteObject(object *Object, DeleteMarker bool, objMap *ObjMap) e
 	if err != nil {
 		return err
 	}
+	err = m.Client.CommitTrans(tx)
 
 	return err
 }
@@ -182,7 +180,6 @@ func (m *Meta) AppendObject(object *Object, isExist bool) error {
 	}
 	return m.Client.UpdateAppendObject(object)
 }
-
 
 //func (m *Meta) DeleteObjectEntry(object *Object) error {
 //	err := m.Client.DeleteObject(object, nil)

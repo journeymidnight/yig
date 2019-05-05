@@ -263,20 +263,22 @@ func (t *TidbClient) DeleteBucket(bucket Bucket) error {
 	return nil
 }
 
-func (t *TidbClient) UpdateUsage(bucketName string, size int64, tx interface{}) (err error){
+func (t *TidbClient) UpdateUsage(bucketName string, size int64, tx interface{}) (err error) {
 	var sqlTx *sql.Tx
 	if tx == nil {
 		tx, err = t.Client.Begin()
+
 		defer func() {
+			if err == nil {
+				err = sqlTx.Commit()
+			}
 			if err != nil {
 				sqlTx.Rollback()
-			} else {
-				sqlTx.Commit()
 			}
 		}()
-	} else {
-		sqlTx, _ = tx.(*sql.Tx)
 	}
+	sqlTx, _ = tx.(*sql.Tx)
+
 	sql := "update buckets set usages= usages + ? where bucketname=?;"
 	_, err = sqlTx.Exec(sql, size, bucketName)
 	return
