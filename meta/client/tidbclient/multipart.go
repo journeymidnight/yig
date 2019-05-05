@@ -3,8 +3,8 @@ package tidbclient
 import (
 	"database/sql"
 	"encoding/json"
-	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/api/datatype"
+	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/iam/common"
@@ -115,15 +115,16 @@ func (t *TidbClient) PutObjectPart(multipart *Multipart, part *Part, tx interfac
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		defer func() {
+			if err == nil {
+				err = sqlTx.Commit()
+			}
 			if err != nil {
 				sqlTx.Rollback()
-			} else {
-				sqlTx.Commit()
 			}
 		}()
-	} else {
-		sqlTx, _ = tx.(*sql.Tx)
 	}
+	sqlTx, _ = tx.(*sql.Tx)
+
 	uploadtime := math.MaxUint64 - uint64(multipart.InitialTime.UnixNano())
 	lastt, err := time.Parse(CREATE_TIME_LAYOUT, part.LastModified)
 	if err != nil {
@@ -141,15 +142,15 @@ func (t *TidbClient) DeleteMultipart(multipart *Multipart, tx interface{}) (err 
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		defer func() {
+			if err == nil {
+				err = sqlTx.Commit()
+			}
 			if err != nil {
 				sqlTx.Rollback()
-			} else {
-				sqlTx.Commit()
 			}
 		}()
-	} else {
-		sqlTx, _ = tx.(*sql.Tx)
 	}
+	sqlTx, _ = tx.(*sql.Tx)
 
 	uploadtime := math.MaxUint64 - uint64(multipart.InitialTime.UnixNano())
 	sqltext := "delete from multiparts where bucketname=? and objectname=? and uploadtime=?;"

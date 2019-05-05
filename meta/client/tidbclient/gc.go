@@ -9,20 +9,21 @@ import (
 )
 
 //gc
-func (t *TidbClient) PutObjectToGarbageCollection(object *Object,  tx interface{}) (err error) {
+func (t *TidbClient) PutObjectToGarbageCollection(object *Object, tx interface{}) (err error) {
 	var sqlTx *sql.Tx
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		defer func() {
+			if err == nil {
+				err = sqlTx.Commit()
+			}
 			if err != nil {
 				sqlTx.Rollback()
-			} else {
-				sqlTx.Commit()
 			}
 		}()
-	} else {
-		sqlTx, _ = tx.(*sql.Tx)
 	}
+	sqlTx, _ = tx.(*sql.Tx)
+
 	o := GarbageCollectionFromObject(object)
 	var hasPart bool
 	if len(o.Parts) > 0 {
@@ -89,10 +90,11 @@ func (t *TidbClient) ScanGarbageCollection(limit int, startRowKey string) (gcs [
 func (t *TidbClient) RemoveGarbageCollection(garbage GarbageCollection) error {
 	tx, err := t.Client.Begin()
 	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		}
 		if err != nil {
 			tx.Rollback()
-		} else {
-			tx.Commit()
 		}
 	}()
 

@@ -133,10 +133,11 @@ func (t *TidbClient) PutObject(object *Object, tx interface{}) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		defer func() {
+			if err == nil {
+				err = sqlTx.Commit()
+			}
 			if err != nil {
 				sqlTx.Rollback()
-			} else {
-				sqlTx.Commit()
 			}
 		}()
 	}
@@ -162,15 +163,15 @@ func (t *TidbClient) DeleteObject(object *Object, tx interface{}) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		defer func() {
+			if err == nil {
+				err = sqlTx.Commit()
+			}
 			if err != nil {
 				sqlTx.Rollback()
-			} else {
-				sqlTx.Commit()
 			}
 		}()
-	} else {
-		sqlTx, _ = tx.(*sql.Tx)
 	}
+	sqlTx, _ = tx.(*sql.Tx)
 
 	v := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
 	version := strconv.FormatUint(v, 10)
