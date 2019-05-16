@@ -14,7 +14,8 @@ import (
 
 func (t *TidbClient) GetBucket(bucketName string) (bucket Bucket, err error) {
 	var acl, cors, lc, policy, createTime string
-	sqltext := "select * from buckets where bucketname=?;"
+	var lastUsageUpdateTime sql.NullString
+	sqltext := "select bucketname,acl,cors,lc,uid,policy,createtime,usages,versioning,file_counts,last_usage_update_time from buckets where bucketname=?;"
 	err = t.Client.QueryRow(sqltext, bucketName).Scan(
 		&bucket.Name,
 		&acl,
@@ -25,6 +26,8 @@ func (t *TidbClient) GetBucket(bucketName string) (bucket Bucket, err error) {
 		&createTime,
 		&bucket.Usage,
 		&bucket.Versioning,
+		&bucket.FileCounts,
+		&lastUsageUpdateTime,
 	)
 	if err != nil && err == sql.ErrNoRows {
 		err = ErrNoSuchBucket
@@ -52,11 +55,17 @@ func (t *TidbClient) GetBucket(bucketName string) (bucket Bucket, err error) {
 	if err != nil {
 		return
 	}
+	if lastUsageUpdateTime.Valid {
+		bucket.LastUsageUpdateTime, err = time.Parse(TIME_LAYOUT_TIDB, lastUsageUpdateTime.String)
+		if err != nil {
+			return
+		}
+	}
 	return
 }
 
 func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
-	sqltext := "select * from buckets;"
+	sqltext := "select bucketname,acl,cors,lc,uid,policy,createtime,usages,versioning,file_counts,last_usage_update_time from buckets;"
 	rows, err := t.Client.Query(sqltext)
 	if err == sql.ErrNoRows {
 		err = nil
@@ -69,6 +78,7 @@ func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
 	for rows.Next() {
 		var tmp Bucket
 		var acl, cors, lc, policy, createTime string
+		var lastUsageUpdateTime sql.NullString
 		err = rows.Scan(
 			&tmp.Name,
 			&acl,
@@ -78,7 +88,9 @@ func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
 			&policy,
 			&createTime,
 			&tmp.Usage,
-			&tmp.Versioning)
+			&tmp.Versioning,
+			&tmp.FileCounts,
+			&lastUsageUpdateTime)
 		if err != nil {
 			return
 		}
@@ -101,6 +113,12 @@ func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
 		err = json.Unmarshal([]byte(policy), &tmp.Policy)
 		if err != nil {
 			return
+		}
+		if lastUsageUpdateTime.Valid {
+			tmp.LastUsageUpdateTime, err = time.Parse(TIME_LAYOUT_TIDB, lastUsageUpdateTime.String)
+			if err != nil {
+				return
+			}
 		}
 		buckets = append(buckets, tmp)
 	}
