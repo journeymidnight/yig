@@ -242,3 +242,17 @@ CREATE TABLE `lifecycle` (
                        `bucketname` varchar(255) DEFAULT NULL,
                        `status` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
+ALTER TABLE buckets
+ADD COLUMN file_counts bigint(20) DEFAULT 0;
+ALTER TABLE buckets
+ADD COLUMN last_usage_update_time datetime DEFAULT CURRENT_TIMESTAMP;
+
+DROP TABLE IF EXISTS `bucket_usage_log`;
+CREATE TABLE `bucket_usage_log` (
+	  `bucketname` varchar(255) NOT NULL DEFAULT '',
+	  `usage_in_bytes` bigint(20) DEFAULT 0,
+	  `file_count` bigint(20) DEFAULT 0,
+	  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+	  PRIMARY KEY (`bucketname`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
