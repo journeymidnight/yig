@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/circuitbreak"
 	"github.com/journeymidnight/yig/crypto"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
@@ -18,7 +19,6 @@ import (
 	"github.com/journeymidnight/yig/redis"
 	"path"
 	"time"
-	"github.com/journeymidnight/yig/circuitbreak"
 )
 
 const (
@@ -84,6 +84,10 @@ func (y *YigStorage) Stop() {
 	helper.Logger.Print(5, "Stopping storage...")
 	y.WaitGroup.Wait()
 	helper.Logger.Println(5, "done")
+	helper.Logger.Print(5, "Stoping cache...")
+	if redis.redisClient != nil {
+		redis.Close()
+	}
 }
 
 // check cache health per one second if enable cache
