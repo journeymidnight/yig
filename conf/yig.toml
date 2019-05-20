@@ -33,12 +33,20 @@ redis_password = "hehehehe"
 redis_connection_number = 10
 memory_cache_max_entry_count = 100000
 enable_data_cache = true
+
+# the redis mode we use: 0 for normal client, 1 for cluster, 2 for sentinel.
+redis_mode = 0
+# for cluster nodes or sentinel nodes.
+redis_nodes = "192.168.1.1:6379, 192.168.1.2:6379"
+# the master name of the sentinel.
+redis_sentinel_master_name = "master"
 redis_connect_timeout = 1
 redis_read_timeout = 1
 redis_write_timeout = 1
 redis_keepalive = 60
 redis_pool_max_idle = 3
 redis_pool_idle_timeout = 30
+
 cache_circuit_check_interval = 3
 cache_circuit_close_sleep_window = 1
 cache_circuit_close_required_count = 3
