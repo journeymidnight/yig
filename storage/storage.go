@@ -85,8 +85,9 @@ func (y *YigStorage) Stop() {
 	y.WaitGroup.Wait()
 	helper.Logger.Println(5, "done")
 	helper.Logger.Print(5, "Stoping cache...")
-	if redis.redisClient != nil {
-		redis.Close()
+	redisClient, _ := redis.GetClient(RootContext)
+	if redisClient != nil {
+		redisClient.Close()
 	}
 }
 
