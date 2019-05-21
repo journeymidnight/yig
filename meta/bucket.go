@@ -15,12 +15,8 @@ func (m *Meta) GetBucket(bucketName string, willNeed bool) (bucket Bucket, err e
 		helper.Logger.Println(10, "GetBucket CacheMiss. bucket:", bucketName)
 		return b, err
 	}
-	unmarshaller := func(in []byte) (interface{}, error) {
-		var bucket Bucket
-		err := helper.MsgPackUnMarshal(in, &bucket)
-		return bucket, err
-	}
-	b, err := m.Cache.Get(redis.BucketTable, bucketName, getBucket, unmarshaller, willNeed)
+
+	b, err := m.Cache.Get(redis.BucketTable, bucketName, getBucket, willNeed)
 	if err != nil {
 		return
 	}

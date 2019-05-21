@@ -1,15 +1,15 @@
 package meta
 
 import (
+	"database/sql"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/redis"
-	"database/sql"
 )
 
 type CacheType int
 
 const (
-	NoCache     CacheType = iota
+	NoCache CacheType = iota
 	EnableCache
 	SimpleCache
 )
@@ -19,7 +19,7 @@ var cacheNames = [...]string{"NOCACHE", "EnableCache", "SimpleCache"}
 type MetaCache interface {
 	Get(table redis.RedisDatabase, key string,
 		onCacheMiss func() (interface{}, error),
-		unmarshaller func([]byte) (interface{}, error), willNeed bool) (value interface{}, err error)
+		willNeed bool) (value interface{}, err error)
 	Remove(table redis.RedisDatabase, key string)
 	GetCacheHitRatio() float64
 }
@@ -46,7 +46,7 @@ func newMetaCache(myType CacheType) (m MetaCache) {
 
 func (m *disabledMetaCache) Get(table redis.RedisDatabase, key string,
 	onCacheMiss func() (interface{}, error),
-	unmarshaller func([]byte) (interface{}, error), willNeed bool) (value interface{}, err error) {
+	willNeed bool) (value interface{}, err error) {
 
 	return onCacheMiss()
 }
@@ -65,12 +65,11 @@ type enabledSimpleMetaCache struct {
 }
 
 func (m *enabledSimpleMetaCache) Get(table redis.RedisDatabase, key string,
-	onCacheMiss func() (interface{}, error),
-	unmarshaller func([]byte) (interface{}, error), willNeed bool) (value interface{}, err error) {
+	onCacheMiss func() (interface{}, error), willNeed bool) (value interface{}, err error) {
 
 	helper.Logger.Println(10, "enabledSimpleMetaCache Get. table:", table, "key:", key)
 
-	value, err = redis.Get(table, key, unmarshaller)
+	value, err = redis.Get(table, key)
 	if err != nil {
 		helper.Logger.Println(5, "enabledSimpleMetaCache Get err:", err, "table:", table, "key:", key)
 	}
@@ -82,8 +81,8 @@ func (m *enabledSimpleMetaCache) Get(table redis.RedisDatabase, key string,
 	//if redis doesn't have the entry
 	if onCacheMiss != nil {
 		value, err = onCacheMiss()
-		if err != nil{
-			if  err != sql.ErrNoRows {
+		if err != nil {
+			if err != sql.ErrNoRows {
 				helper.ErrorIf(err, "exec onCacheMiss() err.")
 			}
 			return

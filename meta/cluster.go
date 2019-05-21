@@ -13,12 +13,7 @@ func (m *Meta) GetCluster(fsid string, pool string) (cluster Cluster, err error)
 		helper.Logger.Println(10, "GetCluster CacheMiss. fsid:", fsid)
 		return m.Client.GetCluster(fsid, pool)
 	}
-	unmarshaller := func(in []byte) (interface{}, error) {
-		var cluster Cluster
-		err := helper.MsgPackUnMarshal(in, &cluster)
-		return cluster, err
-	}
-	c, err := m.Cache.Get(redis.ClusterTable, rowKey, getCluster, unmarshaller, true)
+	c, err := m.Cache.Get(redis.ClusterTable, rowKey, getCluster, true)
 	if err != nil {
 		return
 	}

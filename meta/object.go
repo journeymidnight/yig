@@ -21,14 +21,8 @@ func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (o
 		}
 		return object, nil
 	}
-	unmarshaller := func(in []byte) (interface{}, error) {
-		var object Object
-		err := helper.MsgPackUnMarshal(in, &object)
-		return &object, err
-	}
-
 	o, err := m.Cache.Get(redis.ObjectTable, bucketName+":"+objectName+":",
-		getObject, unmarshaller, willNeed)
+		getObject, willNeed)
 	if err != nil {
 		return
 	}
@@ -61,13 +55,8 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed
 		}
 		return object, nil
 	}
-	unmarshaller := func(in []byte) (interface{}, error) {
-		var object Object
-		err := helper.MsgPackUnMarshal(in, &object)
-		return &object, err
-	}
 	o, err := m.Cache.Get(redis.ObjectTable, bucketName+":"+objectName+":"+version,
-		getObjectVersion, unmarshaller, willNeed)
+		getObjectVersion, willNeed)
 	if err != nil {
 		return
 	}

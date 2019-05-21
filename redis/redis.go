@@ -109,7 +109,7 @@ func Set(table RedisDatabase, key string, value interface{}) (err error) {
 				return err
 			}
 			// Use table.String() + hashkey as Redis key. Set expire time to 30s.
-			r, err := c.Set(table.String()+hashkey, string(encodedValue), 30000)
+			r, err := c.Set(table.String()+hashkey, encodedValue, 30000)
 			if err == nil {
 				return nil
 			}
@@ -121,8 +121,7 @@ func Set(table RedisDatabase, key string, value interface{}) (err error) {
 
 }
 
-func Get(table RedisDatabase, key string,
-	unmarshal func([]byte) (interface{}, error)) (value interface{}, err error) {
+func Get(table RedisDatabase, key string) (value interface{}, err error) {
 	var encodedValue []byte
 	err = CacheCircuit.Execute(
 		context.Background(),
@@ -150,7 +149,8 @@ func Get(table RedisDatabase, key string,
 	if len(encodedValue) == 0 {
 		return nil, nil
 	}
-	return unmarshal(encodedValue)
+	err = helper.MsgPackUnMarshal(encodedValue, value)
+	return value, err
 }
 
 // Get file bytes
