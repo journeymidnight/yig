@@ -39,6 +39,9 @@ func (cli *RedisCli) Init() {
 			WriteTimeout: time.Duration(helper.CONFIG.RedisWriteTimeout) * time.Second,
 			IdleTimeout:  time.Duration(helper.CONFIG.RedisKeepAlive) * time.Second,
 		}
+		if helper.CONFIG.RedisConnectionNumber > 0 {
+			options.PoolSize = helper.CONFIG.RedisConnectionNumber
+		}
 		if helper.CONFIG.RedisPassword != "" {
 			options.Password = helper.CONFIG.RedisPassword
 		}
@@ -53,6 +56,9 @@ func (cli *RedisCli) Init() {
 			WriteTimeout:  time.Duration(helper.CONFIG.RedisWriteTimeout) * time.Second,
 			IdleTimeout:   time.Duration(helper.CONFIG.RedisKeepAlive) * time.Second,
 		}
+		if helper.CONFIG.RedisConnectionNumber > 0 {
+			options.PoolSize = helper.CONFIG.RedisConnectionNumber
+		}
 		if helper.CONFIG.RedisPassword != "" {
 			options.Password = helper.CONFIG.RedisPassword
 		}
@@ -64,6 +70,10 @@ func (cli *RedisCli) Init() {
 			DialTimeout:  time.Duration(helper.CONFIG.RedisConnectTimeout) * time.Second,
 			WriteTimeout: time.Duration(helper.CONFIG.RedisWriteTimeout) * time.Second,
 			IdleTimeout:  time.Duration(helper.CONFIG.RedisKeepAlive) * time.Second,
+		}
+
+		if helper.CONFIG.RedisConnectionNumber > 0 {
+			options.PoolSize = helper.CONFIG.RedisConnectionNumber
 		}
 
 		if helper.CONFIG.RedisPassword != "" {
