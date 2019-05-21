@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	REDIS_CLIENT_UNKNOWN = iota
+	REDIS_UNKNOWN_CLIENT = iota
 	REDIS_NORMAL_CLIENT
 	REDIS_CLUSTER_CLIENT
 	REDIS_SENTINEL_CLIENT
@@ -25,7 +25,7 @@ type RedisCli struct {
 
 func NewRedisCli() *RedisCli {
 	return &RedisCli{
-		clientType: REDIS_CLIENT_UNKNOWN,
+		clientType: REDIS_UNKNOWN_CLIENT,
 	}
 }
 
