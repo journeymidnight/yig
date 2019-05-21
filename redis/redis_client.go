@@ -145,3 +145,14 @@ func (cli *RedisCli) Publish(channel string, message interface{}) (int64, error)
 		return 0, errors.New(ERR_NOT_INIT_MSG)
 	}
 }
+
+func (cli *RedisCli) Ping() (string, error) {
+	switch cli.clientType {
+	case REDIS_NORMAL_CLIENT, REDIS_SENTINEL_CLIENT:
+		return cli.redisClient.Ping().Result()
+	case REDIS_CLUSTER_CLIENT:
+		return cli.redisClusterClient.Ping().Result()
+	default:
+		return "", errors.New(ERR_NOT_INIT_MSG)
+	}
+}

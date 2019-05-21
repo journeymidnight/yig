@@ -103,9 +103,8 @@ func (y *YigStorage) PingCache(interval time.Duration) {
 					if err != nil {
 						return err
 					}
-					defer c.Close()
 					// Use table.String() + key as Redis key
-					_, err = c.Do("PING")
+					_, err = c.Ping()
 					helper.ErrorIf(err, "Cmd: %s.", "PING")
 					return err
 				},
