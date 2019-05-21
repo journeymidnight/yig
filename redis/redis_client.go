@@ -33,6 +33,7 @@ func (cli *RedisCli) Init() {
 	switch helper.CONFIG.RedisMode {
 	case 1:
 		options := &redis.ClusterOptions{
+			Addrs:        helper.CONFIG.RedisNodes,
 			ReadTimeout:  time.Duration(helper.CONFIG.RedisReadTimeout) * time.Second,
 			DialTimeout:  time.Duration(helper.CONFIG.RedisConnectTimeout) * time.Second,
 			WriteTimeout: time.Duration(helper.CONFIG.RedisWriteTimeout) * time.Second,
