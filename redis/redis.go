@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"io"
 	"strconv"
 	"strings"
@@ -58,6 +59,13 @@ func Close() {
 
 func GetClient(ctx context.Context) (*RedisCli, error) {
 	return redisClient, nil
+}
+
+func HasRedisClient() error {
+	if redisClient != nil && redisClient.IsValid() {
+		return nil
+	}
+	return errors.New("there is no valid redis client yet.")
 }
 
 func Remove(table RedisDatabase, key string) (err error) {

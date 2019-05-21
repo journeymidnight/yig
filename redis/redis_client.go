@@ -74,6 +74,10 @@ func (cli *RedisCli) Init() {
 	}
 }
 
+func (cli *RedisCli) IsValid() bool {
+	return cli.clientType != REDIS_UNKNOWN_CLIENT
+}
+
 func (cli *RedisCli) Close() error {
 	switch cli.clientType {
 	case REDIS_CLUSTER_CLIENT:

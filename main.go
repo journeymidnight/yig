@@ -60,7 +60,7 @@ func main() {
 		Logger:  logger,
 		Yig:     yig,
 	}
-	if redis.Pool() != nil && helper.CONFIG.CacheCircuitCheckInterval != 0 {
+	if redis.HasRedisClient() == nil && helper.CONFIG.CacheCircuitCheckInterval != 0 {
 		go yig.PingCache(time.Duration(helper.CONFIG.CacheCircuitCheckInterval) * time.Second)
 	}
 
