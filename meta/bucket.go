@@ -106,20 +106,22 @@ func (m *Meta) InitBucketUsageCache() error {
 		return err
 	}
 
-	// query all usages from cache.
-	usages, err := m.Cache.MGet(redis.BucketTable, bucketsInCache)
-	if err != nil {
-		helper.Logger.Println(2, "failed to get usages for existing buckets, err: ", err)
-		return err
-	}
+	if len(bucketsInCache) > 0 {
+		// query all usages from cache.
+		usages, err := m.Cache.MGet(redis.BucketTable, bucketsInCache)
+		if err != nil {
+			helper.Logger.Println(2, "failed to get usages for existing buckets, err: ", err)
+			return err
+		}
 
-	for i, bc := range bucketsInCache {
-		_, ok := bucketUsageMap[bc]
-		// if the key already exists in cache, then delete it from map
-		if ok {
-			// add the to be synced usage.
-			bucketUsageCacheMap[bc] = usages[i].(int64)
-			delete(bucketUsageMap, bc)
+		for i, bc := range bucketsInCache {
+			_, ok := bucketUsageMap[bc]
+			// if the key already exists in cache, then delete it from map
+			if ok {
+				// add the to be synced usage.
+				bucketUsageCacheMap[bc] = usages[i].(int64)
+				delete(bucketUsageMap, bc)
+			}
 		}
 	}
 
