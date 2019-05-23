@@ -153,6 +153,121 @@ func Get(table RedisDatabase, key string) (value interface{}, err error) {
 	return value, err
 }
 
+func Keys(table RedisDatabase, pattern string) ([]string, error) {
+	var keys []string
+	query := table.String() + pattern
+	err := CacheCircuit.Execute(
+		context.Background(),
+		func(ctx context.Context) (err error) {
+			c, err := GetClient(ctx)
+			if err != nil {
+				return err
+			}
+
+			keys, err = c.Keys(query)
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+		nil,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return keys, nil
+
+}
+
+func MGet(table RedisDatabase, keys []string) ([]interface{}, error) {
+	var results []interface{}
+	var queryKeys []string
+	for _, key := range keys {
+		queryKeys = append(queryKeys, table.String()+key)
+	}
+	err := CacheCircuit.Execute(
+		context.Background(),
+		func(ctx context.Context) (err error) {
+			c, err := GetClient(ctx)
+			if err != nil {
+				return err
+			}
+
+			results, err = c.MGet(queryKeys)
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+		nil,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return results, nil
+}
+
+func MSet(table RedisDatabase, pairs map[string]interface{}) (string, error) {
+	var result string
+	tmpPairs := make(map[interface{}]interface{})
+	for k, v := range pairs {
+		tmpPairs[table.String()+k] = v
+	}
+
+	err := CacheCircuit.Execute(
+		context.Background(),
+		func(ctx context.Context) (err error) {
+			c, err := GetClient(ctx)
+			if err != nil {
+				return err
+			}
+
+			result, err = c.MSet(tmpPairs)
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+		nil,
+	)
+
+	if err != nil {
+		return "", err
+	}
+
+	return result, nil
+
+}
+
+func IncrBy(table RedisDatabase, key string, value int64) (int64, error) {
+	var result int64
+	err := CacheCircuit.Execute(
+		context.Background(),
+		func(ctx context.Context) (err error) {
+			c, err := GetClient(ctx)
+			if err != nil {
+				return err
+			}
+
+			result, err = c.IncrBy(key, value)
+			if err != nil {
+				return err
+			}
+			return nil
+		},
+		nil,
+	)
+	if err != nil {
+		helper.Logger.Println(2, "failed to call IncrBy with key: ", key, ", value: ", value)
+		return 0, err
+	}
+	return result, err
+}
+
 // Get file bytes
 // `start` and `end` are inclusive
 // FIXME: this API causes an extra memory copy, need to patch radix to fix it

@@ -2,6 +2,8 @@ package meta
 
 import (
 	"database/sql"
+	"errors"
+
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/redis"
 )
@@ -14,14 +16,23 @@ const (
 	SimpleCache
 )
 
+const (
+	MSG_NOT_IMPL = "not implemented."
+)
+
 var cacheNames = [...]string{"NOCACHE", "EnableCache", "SimpleCache"}
 
 type MetaCache interface {
+	Close()
 	Get(table redis.RedisDatabase, key string,
 		onCacheMiss func() (interface{}, error),
 		willNeed bool) (value interface{}, err error)
 	Remove(table redis.RedisDatabase, key string)
 	GetCacheHitRatio() float64
+	Keys(table redis.RedisDatabase, pattern string) ([]string, error)
+	MGet(table redis.RedisDatabase, keys []string) ([]interface{}, error)
+	MSet(table redis.RedisDatabase, pairs map[string]interface{}) (string, error)
+	IncrBy(table redis.RedisDatabase, key string, value int64) (int64, error)
 }
 
 type disabledMetaCache struct{}
@@ -57,6 +68,25 @@ func (m *disabledMetaCache) Remove(table redis.RedisDatabase, key string) {
 
 func (m *disabledMetaCache) GetCacheHitRatio() float64 {
 	return -1
+}
+
+func (m *disabledMetaCache) Keys(table redis.RedisDatabase, pattern string) ([]string, error) {
+	return nil, errors.New(MSG_NOT_IMPL)
+}
+
+func (m *disabledMetaCache) MGet(table redis.RedisDatabase, keys []string) ([]interface{}, error) {
+	return nil, errors.New(MSG_NOT_IMPL)
+}
+
+func (m *disabledMetaCache) MSet(table redis.RedisDatabase, pairs map[string]interface{}) (string, error) {
+	return "", errors.New(MSG_NOT_IMPL)
+}
+
+func (m *disabledMetaCache) IncrBy(table redis.RedisDatabase, key string, value int64) (int64, error) {
+	return 0, errors.New(MSG_NOT_IMPL)
+}
+
+func (m *disabledMetaCache) Close() {
 }
 
 type enabledSimpleMetaCache struct {
@@ -107,4 +137,24 @@ func (m *enabledSimpleMetaCache) Remove(table redis.RedisDatabase, key string) {
 
 func (m *enabledSimpleMetaCache) GetCacheHitRatio() float64 {
 	return float64(m.Hit) / float64(m.Hit+m.Miss)
+}
+
+func (m *enabledSimpleMetaCache) Keys(table redis.RedisDatabase, pattern string) ([]string, error) {
+	return redis.Keys(table, pattern)
+}
+
+func (m *enabledSimpleMetaCache) MGet(table redis.RedisDatabase, keys []string) ([]interface{}, error) {
+	return redis.MGet(table, keys)
+}
+
+func (m *enabledSimpleMetaCache) MSet(table redis.RedisDatabase, pairs map[string]interface{}) (string, error) {
+	return redis.MSet(table, pairs)
+}
+
+func (m *enabledSimpleMetaCache) IncrBy(table redis.RedisDatabase, key string, value int64) (int64, error) {
+	return redis.IncrBy(table, key, value)
+}
+
+func (m *enabledSimpleMetaCache) Close() {
+	redis.Close()
 }

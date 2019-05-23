@@ -96,7 +96,8 @@ func (m *Meta) PutObject(object *Object, multipart *Multipart, objMap *ObjMap, u
 	}
 
 	if updateUsage {
-		err = m.Client.UpdateUsage(object.BucketName, object.Size, tx)
+		//err = m.Client.UpdateUsage(object.BucketName, object.Size, tx)
+		err = m.UpdateUsage(object.BucketName, object.Size)
 		if err != nil {
 			return err
 		}
@@ -154,7 +155,8 @@ func (m *Meta) DeleteObject(object *Object, DeleteMarker bool, objMap *ObjMap) e
 		return err
 	}
 
-	err = m.Client.UpdateUsage(object.BucketName, -object.Size, tx)
+	//err = m.Client.UpdateUsage(object.BucketName, -object.Size, tx)
+	err = m.UpdateUsage(object.BucketName, -object.Size)
 	if err != nil {
 		return err
 	}
