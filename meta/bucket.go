@@ -126,16 +126,20 @@ func (m *Meta) InitBucketUsageCache() error {
 	}
 
 	// init the bucket usage in cache.
-	result, err := m.Cache.MSet(redis.BucketTable, bucketUsageMap)
-	if err != nil {
-		helper.Logger.Println(2, "failed to call mset for bucket usage map, result: ", result, ", err: ", err)
-		return err
+	if len(bucketUsageMap) > 0 {
+		result, err := m.Cache.MSet(redis.BucketTable, bucketUsageMap)
+		if err != nil {
+			helper.Logger.Println(2, "failed to call mset for bucket usage map, result: ", result, ", err: ", err)
+			return err
+		}
 	}
 	// sync the buckets usage in cache into database.
-	err = m.Client.UpdateUsages(bucketUsageCacheMap, nil)
-	if err != nil {
-		helper.Logger.Println(2, "failed to sync usages to database, err: ", err)
-		return err
+	if len(bucketUsageCacheMap) > 0 {
+		err = m.Client.UpdateUsages(bucketUsageCacheMap, nil)
+		if err != nil {
+			helper.Logger.Println(2, "failed to sync usages to database, err: ", err)
+			return err
+		}
 	}
 	return nil
 }
