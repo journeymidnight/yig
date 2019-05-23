@@ -352,6 +352,7 @@ func Invalid(table RedisDatabase, key string) (err error) {
 
 // Get Object to HighWayHash for redis
 func HashSum(ObjectName string) (string, error) {
+	return ObjectName, nil
 	key, err := hex.DecodeString(keyvalue)
 	if err != nil {
 		return "", err
