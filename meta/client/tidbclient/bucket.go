@@ -298,7 +298,39 @@ func (t *TidbClient) UpdateUsage(bucketName string, size int64, tx interface{}) 
 	}
 	sqlTx, _ = tx.(*sql.Tx)
 
-	sql := "update buckets set usages= usages + ? where bucketname=?;"
+	sql := "update buckets set usages=? where bucketname=?;"
 	_, err = sqlTx.Exec(sql, size, bucketName)
 	return
+}
+
+func (t *TidbClient) UpdateUsages(usages map[string]int64, tx interface{}) error {
+	var sqlTx *sql.Tx
+	var err error
+	if nil == tx {
+		tx, err = t.Client.Begin()
+		defer func() {
+			if nil == err {
+				err = sqlTx.Commit()
+			} else {
+				sqlTx.Rollback()
+			}
+		}()
+	}
+	sqlTx, _ = tx.(*sql.Tx)
+	sqlStr := "update buckets set usages = ? where bucketname = ?;"
+	st, err := sqlTx.Prepare(sqlStr)
+	if err != nil {
+		helper.Logger.Println(2, "failed to prepare statment with sql: ", sqlStr, ", err: ", err)
+		return err
+	}
+	defer st.Close()
+
+	for bucket, usage := range usages {
+		_, err = st.Exec(usage, bucket)
+		if err != nil {
+			helper.Logger.Println(2, "failed to update usage for bucket: ", bucket, " with usage: ", usage, ", err: ", err)
+			return err
+		}
+	}
+	return nil
 }

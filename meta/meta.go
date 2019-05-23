@@ -1,6 +1,8 @@
 package meta
 
 import (
+	"errors"
+
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/meta/client"
@@ -17,6 +19,21 @@ type Meta struct {
 	Cache  MetaCache
 }
 
+func (m *Meta) Stop() {
+	if m.Cache != nil {
+		m.Cache.Close()
+	}
+}
+
+func (m *Meta) Sync(event SyncEvent) error {
+	switch event.Type {
+	case SYNC_EVENT_TYPE_BUCKET_USAGE:
+		return m.bucketUsageSync(event.Data.(string))
+	default:
+		return errors.New("got unknown sync event.")
+	}
+}
+
 func New(logger *log.Logger, myCacheType CacheType) *Meta {
 	meta := Meta{
 		Logger: logger,
@@ -26,6 +43,10 @@ func New(logger *log.Logger, myCacheType CacheType) *Meta {
 		meta.Client = tidbclient.NewTidbClient()
 	} else {
 		panic("unsupport metastore")
+	}
+	err := meta.InitBucketUsageCache()
+	if err != nil {
+		panic("failed to init bucket usage cache")
 	}
 	return &meta
 }

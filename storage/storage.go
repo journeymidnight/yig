@@ -76,6 +76,7 @@ func New(logger *log.Logger, metaCacheType int, enableDataCache bool, CephConfig
 	}
 
 	initializeRecycler(&yig)
+	initializeSyncWorker(&yig)
 	return &yig
 }
 
@@ -84,11 +85,8 @@ func (y *YigStorage) Stop() {
 	helper.Logger.Print(5, "Stopping storage...")
 	y.WaitGroup.Wait()
 	helper.Logger.Println(5, "done")
-	helper.Logger.Print(5, "Stoping cache...")
-	redisClient, _ := redis.GetClient(RootContext)
-	if redisClient != nil {
-		redisClient.Close()
-	}
+	helper.Logger.Print(5, "Stopping MetaStorage...")
+	MetaStorage.Close()
 }
 
 // check cache health per one second if enable cache

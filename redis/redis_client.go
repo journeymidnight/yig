@@ -171,3 +171,53 @@ func (cli *RedisCli) Ping() (string, error) {
 		return "", errors.New(ERR_NOT_INIT_MSG)
 	}
 }
+
+func (cli *RedisCli) Keys(pattern string) ([]string, error) {
+	switch cli.clientType {
+	case REDIS_NORMAL_CLIENT, REDIS_SENTINEL_CLIENT:
+		return cli.redisClient.Keys(pattern).Result()
+	case REDIS_CLUSTER_CLIENT:
+		return cli.redisClusterClient.Keys(pattern).Result()
+	default:
+		return nil, errors.New(ERR_NOT_INIT_MSG)
+	}
+}
+
+func (cli *RedisCli) MGet(keys []string) ([]interface{}, error) {
+	switch cli.clientType {
+	case REDIS_NORMAL_CLIENT, REDIS_SENTINEL_CLIENT:
+		return cli.redisClient.MGet(keys...).Result()
+	case REDIS_CLUSTER_CLIENT:
+		return cli.redisClusterClient.MGet(keys...).Result()
+	default:
+		return nil, errors.New(ERR_NOT_INIT_MSG)
+	}
+}
+
+func (cli *RedisCli) MSet(pairs map[interface{}]interface{}) (string, error) {
+	var pairList []interface{}
+
+	for k, v := range pairs {
+		pairList = append(pairList, k, v)
+	}
+
+	switch cli.clientType {
+	case REDIS_NORMAL_CLIENT, REDIS_SENTINEL_CLIENT:
+		return cli.redisClient.MSet(pairList...).Result()
+	case REDIS_CLUSTER_CLIENT:
+		return cli.redisClusterClient.MSet(pairList...).Result()
+	default:
+		return "", errors.New(ERR_NOT_INIT_MSG)
+	}
+}
+
+func (cli *RedisCli) IncrBy(key string, value int64) (int64, error) {
+	switch cli.clientType {
+	case REDIS_NORMAL_CLIENT, REDIS_SENTINEL_CLIENT:
+		return cli.redisClient.IncrBy(key, value).Result()
+	case REDIS_CLUSTER_CLIENT:
+		return cli.redisClusterClient.IncrBy(key, value).Result()
+	default:
+		return 0, errors.New(ERR_NOT_INIT_MSG)
+	}
+}
