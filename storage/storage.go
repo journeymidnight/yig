@@ -86,7 +86,7 @@ func (y *YigStorage) Stop() {
 	y.WaitGroup.Wait()
 	helper.Logger.Println(5, "done")
 	helper.Logger.Print(5, "Stopping MetaStorage...")
-	y.MetaStorage.Close()
+	y.MetaStorage.Stop()
 }
 
 // check cache health per one second if enable cache
