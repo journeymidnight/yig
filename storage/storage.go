@@ -6,8 +6,10 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"io"
+	"path"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/circuitbreak"
@@ -17,8 +19,6 @@ import (
 	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/meta"
 	"github.com/journeymidnight/yig/redis"
-	"path"
-	"time"
 )
 
 const (
@@ -76,7 +76,7 @@ func New(logger *log.Logger, metaCacheType int, enableDataCache bool, CephConfig
 	}
 
 	initializeRecycler(&yig)
-	initializeSyncWorker(&yig)
+	initializeMetaSyncWorker(&yig)
 	return &yig
 }
 
@@ -86,7 +86,7 @@ func (y *YigStorage) Stop() {
 	y.WaitGroup.Wait()
 	helper.Logger.Println(5, "done")
 	helper.Logger.Print(5, "Stopping MetaStorage...")
-	MetaStorage.Close()
+	y.MetaStorage.Close()
 }
 
 // check cache health per one second if enable cache
