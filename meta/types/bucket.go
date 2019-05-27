@@ -55,26 +55,25 @@ func (b *Bucket) Deserialize(fields map[string]string) (interface{}, error) {
 	if !ok {
 		return nil, errors.New(fmt.Sprintf("no field %s found", FIELD_NAME_BODY))
 	}
-	var val interface{}
-	err := helper.MsgPackUnMarshal([]byte(body), val)
+
+	err := helper.MsgPackUnMarshal([]byte(body), b)
 	if err != nil {
 		return nil, err
 	}
-	bt := val.(*Bucket)
 	if usageStr, ok := fields[FIELD_NAME_USAGE]; ok {
-		bt.Usage, err = strconv.ParseInt(usageStr, 10, 64)
+		b.Usage, err = strconv.ParseInt(usageStr, 10, 64)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	if fileCountStr, ok := fields[FIELD_NAME_FILECOUNTS]; ok {
-		bt.FileCounts, err = strconv.ParseInt(fileCountStr, 10, 64)
+		b.FileCounts, err = strconv.ParseInt(fileCountStr, 10, 64)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return bt, nil
+	return b, nil
 }
 
 func (b *Bucket) String() (s string) {
