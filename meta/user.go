@@ -20,7 +20,7 @@ type BucketNameList struct {
 
 func (bnl *BucketNameList) Serialize() (map[string]interface{}, error) {
 	fields := make(map[string]interface{})
-	body, err := helper.MsgPackMarshal(bnl.BucketNames)
+	body, err := helper.MsgPackMarshal(bnl)
 	if err != nil {
 		return nil, err
 	}

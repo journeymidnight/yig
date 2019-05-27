@@ -108,7 +108,7 @@ func (m *enabledSimpleMetaCache) Get(
 	if err != nil {
 		helper.Logger.Println(5, "enabledSimpleMetaCache Get err:", err, "table:", table, "key:", key)
 	}
-	if err == nil && fields != nil {
+	if err == nil && fields != nil && len(fields) > 0 {
 		value, err = onDeserialize(fields)
 		m.Hit = m.Hit + 1
 		return value, err

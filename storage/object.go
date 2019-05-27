@@ -452,7 +452,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
-		helper.Debugln("get bucket", bucket, "err:", err)
+		helper.Debugln("get bucket failed with err:", err)
 		return
 	}
 
