@@ -64,4 +64,5 @@ require (
 	golang.org/x/sync v0.0.0-20190227155943-e225da77a7e6 // indirect
 	golang.org/x/text v0.3.1-0.20180807135948-17ff2d5776d2 // indirect
 	golang.org/x/time v0.0.0-00010101000000-000000000000 // indirect
+	gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405
 )
