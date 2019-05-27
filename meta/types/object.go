@@ -75,12 +75,12 @@ func (o *Object) Deserialize(fields map[string]string) (interface{}, error) {
 	if !ok {
 		return nil, errors.New(fmt.Sprintf("no field %s", FIELD_NAME_BODY))
 	}
-	var val interface{}
-	err := helper.MsgPackUnMarshal([]byte(body), val)
+
+	err := helper.MsgPackUnMarshal([]byte(body), o)
 	if err != nil {
 		return nil, err
 	}
-	return val, nil
+	return o, nil
 }
 
 func (o *Object) ObjectTypeToString() string {

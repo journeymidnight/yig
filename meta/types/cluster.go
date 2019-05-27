@@ -29,12 +29,12 @@ func (c *Cluster) Deserialize(fields map[string]string) (interface{}, error) {
 	if !ok {
 		return nil, errors.New(fmt.Sprintf("no field %s found", FIELD_NAME_BODY))
 	}
-	var val interface{}
-	err := helper.MsgPackUnMarshal([]byte(body), val)
+
+	err := helper.MsgPackUnMarshal([]byte(body), c)
 	if err != nil {
 		return nil, err
 	}
-	return val, nil
+	return c, nil
 }
 
 func (c *Cluster) GetValues() (values map[string]map[string][]byte, err error) {

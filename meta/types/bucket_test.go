@@ -5,6 +5,11 @@ import (
 	. "gopkg.in/check.v1"
 )
 
+type TestData struct {
+	Usage int64
+	Name  string
+}
+
 func (ts *TypesSuite) TestBucketSerialize(c *C) {
 	b := &Bucket{
 		Name:       "test_bucket",
@@ -20,14 +25,12 @@ func (ts *TypesSuite) TestBucketSerialize(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(body, Not(Equals), nil)
 
-	var b2 interface{}
+	b2 := &Bucket{}
 	str, ok := body.(string)
 	c.Assert(ok, Equals, true)
 	c.Assert(str != "", Equals, true)
+	c.Logf("str: %s", str)
 	err = helper.MsgPackUnMarshal([]byte(str), b2)
 	c.Assert(err, Equals, nil)
 	c.Assert(b2, Not(Equals), nil)
-	bucket, ok := b2.(*Bucket)
-	c.Assert(ok, Equals, true)
-	c.Assert(bucket, Not(Equals), nil)
 }
