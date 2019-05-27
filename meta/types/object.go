@@ -8,15 +8,17 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"github.com/journeymidnight/yig/api/datatype"
-	"github.com/journeymidnight/yig/meta/util"
-	"github.com/xxtea/xxtea-go/xxtea"
 	"io"
 	"math"
 	"strconv"
 	"time"
+
+	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/meta/util"
+	"github.com/xxtea/xxtea-go/xxtea"
 )
 
 type Object struct {
@@ -56,6 +58,29 @@ const (
 	ObjectTypeAppendable
 	ObjectTypeMultipart
 )
+
+func (o *Object) Serialize() (map[string]interface{}, error) {
+	fields := make(map[string]interface{})
+	body, err := helper.MsgPackMarshal(o)
+	if err != nil {
+		return nil, err
+	}
+	fields[FIELD_NAME_BODY] = string(body)
+	return fields, nil
+}
+
+func (o *Object) Deserialize(fields map[string]string) (interface{}, error) {
+	body, ok := fields[FIELD_NAME_BODY]
+	if !ok {
+		return nil, errors.New(fmt.Sprintf("no field %s", FIELD_NAME_BODY))
+	}
+	var val interface{}
+	err := helper.MsgPackUnMarshal([]byte(body), val)
+	if err != nil {
+		return nil, err
+	}
+	return val, nil
+}
 
 func (o *Object) ObjectTypeToString() string {
 	switch o.Type {

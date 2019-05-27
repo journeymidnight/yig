@@ -4,11 +4,21 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strconv"
+	"time"
+
 	"github.com/dustin/go-humanize"
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/policy"
-	"time"
+	"github.com/journeymidnight/yig/helper"
+)
+
+const (
+	FIELD_NAME_BODY       = "body"
+	FIELD_NAME_USAGE      = "usage"
+	FIELD_NAME_FILECOUNTS = "file_counts"
 )
 
 type Bucket struct {
@@ -25,6 +35,46 @@ type Bucket struct {
 	Usage      int64
 	FileCounts int64
 	UpdateTime time.Time
+}
+
+// implements the Serializable interface
+func (b *Bucket) Serialize() (map[string]interface{}, error) {
+	fields := make(map[string]interface{})
+	bytes, err := helper.MsgPackMarshal(b)
+	if err != nil {
+		return nil, err
+	}
+	fields[FIELD_NAME_BODY] = string(bytes)
+	fields[FIELD_NAME_USAGE] = b.Usage
+	fields[FIELD_NAME_FILECOUNTS] = b.FileCounts
+	return fields, nil
+}
+
+func (b *Bucket) Deserialize(fields map[string]string) (interface{}, error) {
+	body, ok := fields[FIELD_NAME_BODY]
+	if !ok {
+		return nil, errors.New(fmt.Sprintf("no field %s found", FIELD_NAME_BODY))
+	}
+	var val interface{}
+	err := helper.MsgPackUnMarshal([]byte(body), val)
+	if err != nil {
+		return nil, err
+	}
+	bt := val.(*Bucket)
+	if usageStr, ok := fields[FIELD_NAME_USAGE]; ok {
+		bt.Usage, err = strconv.ParseInt(usageStr, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if fileCountStr, ok := fields[FIELD_NAME_FILECOUNTS]; ok {
+		bt.FileCounts, err = strconv.ParseInt(fileCountStr, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return bt, nil
 }
 
 func (b *Bucket) String() (s string) {

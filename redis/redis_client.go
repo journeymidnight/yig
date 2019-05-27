@@ -221,3 +221,112 @@ func (cli *RedisCli) IncrBy(key string, value int64) (int64, error) {
 		return 0, errors.New(ERR_NOT_INIT_MSG)
 	}
 }
+
+func (cli *RedisCli) Expire(key string, expire int64) (bool, error) {
+	switch cli.clientType {
+	case REDIS_NORMAL_CLIENT, REDIS_SENTINEL_CLIENT:
+		return cli.redisClient.Expire(key, time.Duration(expire)*time.Millisecond).Result()
+	case REDIS_CLUSTER_CLIENT:
+		return cli.redisClusterClient.Expire(key, time.Duration(expire)*time.Millisecond).Result()
+	default:
+		return false, errors.New(ERR_NOT_INIT_MSG)
+	}
+}
+
+/***************** below are hashes commands *************************/
+
+func (cli *RedisCli) HSet(key, field string, value interface{}) (bool, error) {
+	switch cli.clientType {
+	case REDIS_NORMAL_CLIENT, REDIS_SENTINEL_CLIENT:
+		return cli.redisClient.HSet(key, field, value).Result()
+	case REDIS_CLUSTER_CLIENT:
+		return cli.redisClusterClient.HSet(key, field, value).Result()
+	default:
+		return false, errors.New(ERR_NOT_INIT_MSG)
+	}
+}
+
+func (cli *RedisCli) HGet(key, field string) (string, error) {
+	switch cli.clientType {
+	case REDIS_NORMAL_CLIENT, REDIS_SENTINEL_CLIENT:
+		return cli.redisClient.HGet(key, field).Result()
+	case REDIS_CLUSTER_CLIENT:
+		return cli.redisClusterClient.HGet(key, field).Result()
+	default:
+		return "", errors.New(ERR_NOT_INIT_MSG)
+	}
+}
+
+func (cli *RedisCli) HGetInt64(key, field string) (int64, error) {
+	switch cli.clientType {
+	case REDIS_NORMAL_CLIENT, REDIS_SENTINEL_CLIENT:
+		return cli.redisClient.HGet(key, field).Int64()
+	case REDIS_CLUSTER_CLIENT:
+		return cli.redisClusterClient.HGet(key, field).Int64()
+	default:
+		return 0, errors.New(ERR_NOT_INIT_MSG)
+	}
+}
+
+func (cli *RedisCli) HGetAll(key string) (map[string]string, error) {
+	switch cli.clientType {
+	case REDIS_NORMAL_CLIENT, REDIS_SENTINEL_CLIENT:
+		return cli.redisClient.HGetAll(key).Result()
+	case REDIS_CLUSTER_CLIENT:
+		return cli.redisClusterClient.HGetAll(key).Result()
+	default:
+		return nil, errors.New(ERR_NOT_INIT_MSG)
+	}
+}
+
+func (cli *RedisCli) HIncrBy(key, field string, incr int64) (int64, error) {
+	switch cli.clientType {
+	case REDIS_NORMAL_CLIENT, REDIS_SENTINEL_CLIENT:
+		return cli.redisClient.HIncrBy(key, field, incr).Result()
+	case REDIS_CLUSTER_CLIENT:
+		return cli.redisClusterClient.HIncrBy(key, field, incr).Result()
+	default:
+		return 0, errors.New(ERR_NOT_INIT_MSG)
+	}
+}
+
+func (cli *RedisCli) HMSet(key string, fields map[string]interface{}) (string, error) {
+	switch cli.clientType {
+	case REDIS_NORMAL_CLIENT, REDIS_SENTINEL_CLIENT:
+		return cli.redisClient.HMSet(key, fields).Result()
+	case REDIS_CLUSTER_CLIENT:
+		return cli.redisClusterClient.HMSet(key, fields).Result()
+	default:
+		return "", errors.New(ERR_NOT_INIT_MSG)
+	}
+}
+
+func (cli *RedisCli) HMGet(key string, fields []string) (map[string]interface{}, error) {
+	results := make(map[string]interface{})
+	var values []interface{}
+	var err error
+
+	switch cli.clientType {
+	case REDIS_NORMAL_CLIENT, REDIS_SENTINEL_CLIENT:
+		values, err = cli.redisClient.HMGet(key, fields...).Result()
+	case REDIS_CLUSTER_CLIENT:
+		values, err = cli.redisClusterClient.HMGet(key, fields...).Result()
+	default:
+		return nil, errors.New(ERR_NOT_INIT_MSG)
+	}
+	if err != nil {
+		helper.Logger.Println(2, "failed to HMGet for key ", key, " with err: ", err)
+		return nil, err
+	}
+
+	if len(fields) != len(values) {
+		helper.Logger.Println(2, "panic HMGet, input fields number: ", len(fields), " got values number: ",
+			len(values))
+		return nil, errors.New("HMGet fields number is not equal to values number.")
+	}
+
+	for i, key := range fields {
+		results[key] = values[i]
+	}
+	return results, nil
+}
