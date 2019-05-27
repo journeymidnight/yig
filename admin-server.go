@@ -75,7 +75,7 @@ func getBucketInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	b, err := json.Marshal(bucketJson{Bucket: bucket})
+	b, err := json.Marshal(bucketJson{Bucket: *bucket})
 	w.Write(b)
 	return
 }
