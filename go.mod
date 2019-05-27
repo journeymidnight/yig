@@ -34,6 +34,7 @@ require (
 	github.com/cep21/circuit v0.0.0-20181030180945-e893c027dc21
 	github.com/dgrijalva/jwt-go v0.0.0-20180921172315-3af4c746e1c2
 	github.com/dustin/go-humanize v1.0.0
+	github.com/go-redis/redis v6.15.2+incompatible
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/gogo/protobuf v1.2.0 // indirect
 	github.com/golang/protobuf v1.2.0
