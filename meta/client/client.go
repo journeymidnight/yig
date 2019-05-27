@@ -20,11 +20,11 @@ type Client interface {
 	DeleteObject(object *Object, tx interface{}) error
 	UpdateObjectAcl(object *Object) error
 	//bucket
-	GetBucket(bucketName string) (bucket Bucket, err error)
-	GetBuckets() (buckets []Bucket, err error)
-	PutBucket(bucket Bucket) error
-	CheckAndPutBucket(bucket Bucket) (bool, error)
-	DeleteBucket(bucket Bucket) error
+	GetBucket(bucketName string) (bucket *Bucket, err error)
+	GetBuckets() (buckets []*Bucket, err error)
+	PutBucket(bucket *Bucket) error
+	CheckAndPutBucket(bucket *Bucket) (bool, error)
+	DeleteBucket(bucket *Bucket) error
 	ListObjects(bucketName, marker, verIdMarker, prefix, delimiter string, versioned bool, maxKeys int) (retObjects []*Object, prefixes []string, truncated bool, nextMarker, nextVerIdMarker string, err error)
 	UpdateUsage(bucketName string, size int64, tx interface{}) error
 	UpdateUsages(usages map[string]int64, tx interface{}) error
