@@ -118,7 +118,7 @@ func (m *Meta) InitBucketUsageCache() error {
 			usage, err := m.Cache.HGetInt64(redis.BucketTable, BUCKET_CACHE_PREFIX, bic, FIELD_NAME_USAGE)
 			if err != nil {
 				helper.Logger.Println(2, "failed to get usage for bucket: ", bic, " with err: ", err)
-				return err
+				continue
 			}
 			usages[bic] = usage
 		}
@@ -128,8 +128,9 @@ func (m *Meta) InitBucketUsageCache() error {
 			// if the key already exists in cache, then delete it from map
 			if ok {
 				// add the to be synced usage.
-				bucketUsageCacheMap[bc], _ = usages[bc]
-				delete(bucketUsageMap, bc)
+				if bucketUsageCacheMap[bc], ok = usages[bc]; ok {
+					delete(bucketUsageMap, bc)
+				}
 			}
 		}
 	}
