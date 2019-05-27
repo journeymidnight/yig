@@ -17,11 +17,10 @@ const (
 // Note the usage info got from this method is possibly not accurate because we don't
 // invalid cache when updating usage. For accurate usage info, use `GetUsage()`
 func (m *Meta) GetBucket(bucketName string, willNeed bool) (bucket *Bucket, err error) {
-	getBucket := func() (b interface{}, err error) {
-		b, err = m.Client.GetBucket(bucketName)
+	getBucket := func() (b helper.Serializable, err error) {
+		bt, err := m.Client.GetBucket(bucketName)
 		helper.Logger.Println(10, "GetBucket CacheMiss. bucket:", bucketName)
-		b = &bt
-		return b, err
+		return bt, err
 	}
 	toBucket := func(fields map[string]string) (interface{}, error) {
 		b := &Bucket{}
@@ -41,7 +40,7 @@ func (m *Meta) GetBucket(bucketName string, willNeed bool) (bucket *Bucket, err 
 	return bucket, nil
 }
 
-func (m *Meta) GetBuckets() (buckets []Bucket, err error) {
+func (m *Meta) GetBuckets() (buckets []*Bucket, err error) {
 	buckets, err = m.Client.GetBuckets()
 	return
 }
@@ -65,7 +64,7 @@ func (m *Meta) GetUsage(bucketName string) (int64, error) {
 }
 
 func (m *Meta) GetBucketInfo(bucketName string) (*Bucket, error) {
-	m.Cache.Remove(redis.BucketTable, bucketName)
+	m.Cache.Remove(redis.BucketTable, BUCKET_CACHE_PREFIX, bucketName)
 	bucket, err := m.GetBucket(bucketName, true)
 	if err != nil {
 		return bucket, err
@@ -88,7 +87,7 @@ func (m *Meta) GetUserInfo(uid string) ([]string, error) {
  */
 func (m *Meta) InitBucketUsageCache() error {
 	// the map contains the bucket usage which are not in cache.
-	bucketUsageMap := make(map[string]Bucket)
+	bucketUsageMap := make(map[string]*Bucket)
 	// the map contains the bucket usage which are in cache and will be synced into database.
 	bucketUsageCacheMap := make(map[string]int64)
 	// the usage in buckets table is accurate now.
