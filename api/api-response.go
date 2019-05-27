@@ -60,7 +60,7 @@ func GetObjectLocation(bucketName string, key string) string {
 // Takes an array of Bucket metadata information for serialization
 // input: array of bucket metadata
 // output: populated struct that can be serialized to match xml and json api spec output
-func GenerateListBucketsResponse(buckets []meta.Bucket, credential common.Credential) ListBucketsResponse {
+func GenerateListBucketsResponse(buckets []*meta.Bucket, credential common.Credential) ListBucketsResponse {
 	var listBuckets []Bucket
 	var data = ListBucketsResponse{}
 	var owner = Owner{}

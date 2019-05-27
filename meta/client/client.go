@@ -43,7 +43,7 @@ type Client interface {
 	GetCluster(fsid, pool string) (cluster Cluster, err error)
 	//lc
 	PutBucketToLifeCycle(lifeCycle LifeCycle) error
-	RemoveBucketFromLifeCycle(bucket Bucket) error
+	RemoveBucketFromLifeCycle(bucket *Bucket) error
 	ScanLifeCycle(limit int, marker string) (result ScanLifeCycleResult, err error)
 	//user
 	GetUserBuckets(userId string) (buckets []string, err error)

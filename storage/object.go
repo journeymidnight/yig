@@ -1068,7 +1068,7 @@ func (yig *YigStorage) removeObjectVersion(bucketName, objectName, version strin
 	return nil
 }
 
-func (yig *YigStorage) addDeleteMarker(bucket meta.Bucket, objectName string,
+func (yig *YigStorage) addDeleteMarker(bucket *meta.Bucket, objectName string,
 	nullVersion bool) (versionId string, err error) {
 
 	deleteMarker := &meta.Object{

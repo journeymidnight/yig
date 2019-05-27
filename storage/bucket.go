@@ -26,7 +26,7 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 	}
 
 	now := time.Now().UTC()
-	bucket := types.Bucket{
+	bucket := &types.Bucket{
 		Name:       bucketName,
 		CreateTime: now,
 		OwnerId:    credential.UserId,
@@ -276,12 +276,12 @@ func (yig *YigStorage) GetBucketAcl(bucketName string, credential common.Credent
 }
 
 // For INTERNAL USE ONLY
-func (yig *YigStorage) GetBucket(bucketName string) (types.Bucket, error) {
+func (yig *YigStorage) GetBucket(bucketName string) (*types.Bucket, error) {
 	return yig.MetaStorage.GetBucket(bucketName, true)
 }
 
 func (yig *YigStorage) GetBucketInfo(bucketName string,
-	credential common.Credential) (bucket types.Bucket, err error) {
+	credential common.Credential) (bucket *types.Bucket, err error) {
 	bucket, err = yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
 		return
@@ -374,7 +374,7 @@ func (yig *YigStorage) DeleteBucketPolicy(credential common.Credential, bucketNa
 	return nil
 }
 
-func (yig *YigStorage) ListBuckets(credential common.Credential) (buckets []types.Bucket, err error) {
+func (yig *YigStorage) ListBuckets(credential common.Credential) (buckets []*types.Bucket, err error) {
 	bucketNames, err := yig.MetaStorage.GetUserBuckets(credential.UserId, true)
 	if err != nil {
 		return
