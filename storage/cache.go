@@ -115,7 +115,7 @@ func (d *disabledDataCache) GetAlignedReader(object *meta.Object, startOffset in
 }
 
 func (d *enabledDataCache) Remove(key string) {
-	redis.Remove(redis.FileTable, key)
+	redis.Remove(redis.FileTable, "", key)
 }
 
 func (d *disabledDataCache) Remove(key string) {
