@@ -24,15 +24,16 @@ var cacheNames = [...]string{"NOCACHE", "EnableCache", "SimpleCache"}
 
 type MetaCache interface {
 	Close()
-	Get(table redis.RedisDatabase, key string,
-		onCacheMiss func() (interface{}, error),
+	Get(table redis.RedisDatabase, prefix, key string,
+		onCacheMiss func() (helper.Serializable, error),
+		onDeserialize func(map[string]string) (interface{}, error),
 		willNeed bool) (value interface{}, err error)
-	Remove(table redis.RedisDatabase, key string)
+	Remove(table redis.RedisDatabase, prefix, key string)
 	GetCacheHitRatio() float64
 	Keys(table redis.RedisDatabase, pattern string) ([]string, error)
-	MGet(table redis.RedisDatabase, keys []string) ([]interface{}, error)
-	MSet(table redis.RedisDatabase, pairs map[string]interface{}) (string, error)
-	IncrBy(table redis.RedisDatabase, key string, value int64) (int64, error)
+	HGetInt64(table redis.RedisDatabase, prefix, key, field string) (int64, error)
+	HMSet(table redis.RedisDatabase, prefix, key string, fields map[string]interface{}) (string, error)
+	HIncrBy(table redis.RedisDatabase, prefix, key, field string, value int64) (int64, error)
 }
 
 type disabledMetaCache struct{}
@@ -55,14 +56,14 @@ func newMetaCache(myType CacheType) (m MetaCache) {
 	return &disabledMetaCache{}
 }
 
-func (m *disabledMetaCache) Get(table redis.RedisDatabase, key string,
-	onCacheMiss func() (interface{}, error),
+func (m *disabledMetaCache) Get(table redis.RedisDatabase, prefix, key string,
+	onCacheMiss func() (helper.Serializable, error),
+	onDeserialize func(map[string]string) (interface{}, error),
 	willNeed bool) (value interface{}, err error) {
-
 	return onCacheMiss()
 }
 
-func (m *disabledMetaCache) Remove(table redis.RedisDatabase, key string) {
+func (m *disabledMetaCache) Remove(table redis.RedisDatabase, prefix, key string) {
 	return
 }
 
@@ -74,15 +75,15 @@ func (m *disabledMetaCache) Keys(table redis.RedisDatabase, pattern string) ([]s
 	return nil, errors.New(MSG_NOT_IMPL)
 }
 
-func (m *disabledMetaCache) MGet(table redis.RedisDatabase, keys []string) ([]interface{}, error) {
-	return nil, errors.New(MSG_NOT_IMPL)
+func (m *disabledMetaCache) HGetInt64(table redis.RedisDatabase, prefix, key, field string) (int64, error) {
+	return 0, errors.New(MSG_NOT_IMPL)
 }
 
-func (m *disabledMetaCache) MSet(table redis.RedisDatabase, pairs map[string]interface{}) (string, error) {
+func (m *disabledMetaCache) HMSet(table redis.RedisDatabase, prefix, key string, fields map[string]interface{}) (string, error) {
 	return "", errors.New(MSG_NOT_IMPL)
 }
 
-func (m *disabledMetaCache) IncrBy(table redis.RedisDatabase, key string, value int64) (int64, error) {
+func (m *disabledMetaCache) HIncrBy(table redis.RedisDatabase, prefix, key, field string, value int64) (int64, error) {
 	return 0, errors.New(MSG_NOT_IMPL)
 }
 
@@ -94,45 +95,55 @@ type enabledSimpleMetaCache struct {
 	Miss int64
 }
 
-func (m *enabledSimpleMetaCache) Get(table redis.RedisDatabase, key string,
-	onCacheMiss func() (interface{}, error), willNeed bool) (value interface{}, err error) {
+func (m *enabledSimpleMetaCache) Get(
+	table redis.RedisDatabase,
+	prefix, key string,
+	onCacheMiss func() (helper.Serializable, error),
+	onDeserialize func(map[string]string) (interface{}, error),
+	willNeed bool) (value interface{}, err error) {
 
 	helper.Logger.Println(10, "enabledSimpleMetaCache Get. table:", table, "key:", key)
 
-	value, err = redis.Get(table, key)
+	fields, err := redis.HGetAll(table, prefix, key)
 	if err != nil {
 		helper.Logger.Println(5, "enabledSimpleMetaCache Get err:", err, "table:", table, "key:", key)
 	}
-	if err == nil && value != nil {
+	if err == nil && fields != nil {
+		value, err = onDeserialize(fields)
 		m.Hit = m.Hit + 1
-		return value, nil
+		return value, err
 	}
 
 	//if redis doesn't have the entry
 	if onCacheMiss != nil {
-		value, err = onCacheMiss()
+		obj, err := onCacheMiss()
 		if err != nil {
 			if err != sql.ErrNoRows {
 				helper.ErrorIf(err, "exec onCacheMiss() err.")
 			}
-			return
+			return nil, err
 		}
 
 		if willNeed == true {
-			err = redis.Set(table, key, value)
+			values, err := obj.Serialize()
 			if err != nil {
-				helper.Logger.Println(5, "WARNING: redis is down!")
+				helper.Logger.Println(2, "failed to serialize from %v", obj, " with err: ", err)
+				return nil, err
+			}
+			_, err = redis.HMSet(table, prefix, key, values)
+			if err != nil {
+				helper.Logger.Println(5, "failed to set key: ", key, " with err: ", err)
 				//do nothing, even if redis is down.
 			}
 		}
 		m.Miss = m.Miss + 1
-		return value, nil
+		return obj, nil
 	}
 	return nil, nil
 }
 
-func (m *enabledSimpleMetaCache) Remove(table redis.RedisDatabase, key string) {
-	redis.Remove(table, key)
+func (m *enabledSimpleMetaCache) Remove(table redis.RedisDatabase, prefix, key string) {
+	redis.Remove(table, prefix, key)
 }
 
 func (m *enabledSimpleMetaCache) GetCacheHitRatio() float64 {
@@ -143,16 +154,16 @@ func (m *enabledSimpleMetaCache) Keys(table redis.RedisDatabase, pattern string)
 	return redis.Keys(table, pattern)
 }
 
-func (m *enabledSimpleMetaCache) MGet(table redis.RedisDatabase, keys []string) ([]interface{}, error) {
-	return redis.MGet(table, keys)
+func (m *enabledSimpleMetaCache) HGetInt64(table redis.RedisDatabase, prefix, key, field string) (int64, error) {
+	return redis.HGetInt64(table, prefix, key, field)
 }
 
-func (m *enabledSimpleMetaCache) MSet(table redis.RedisDatabase, pairs map[string]interface{}) (string, error) {
-	return redis.MSet(table, pairs)
+func (m *enabledSimpleMetaCache) HMSet(table redis.RedisDatabase, prefix, key string, fields map[string]interface{}) (string, error) {
+	return redis.HMSet(table, prefix, key, fields)
 }
 
-func (m *enabledSimpleMetaCache) IncrBy(table redis.RedisDatabase, key string, value int64) (int64, error) {
-	return redis.IncrBy(table, key, value)
+func (m *enabledSimpleMetaCache) HIncrBy(table redis.RedisDatabase, prefix, key, field string, value int64) (int64, error) {
+	return redis.HIncrBy(table, prefix, key, field, value)
 }
 
 func (m *enabledSimpleMetaCache) Close() {

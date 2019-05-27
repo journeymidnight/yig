@@ -7,13 +7,25 @@ import (
 	"github.com/journeymidnight/yig/redis"
 )
 
+const (
+	CLUSTER_CACHE_PREFIX = "cluster:"
+)
+
 func (m *Meta) GetCluster(fsid string, pool string) (cluster Cluster, err error) {
 	rowKey := fsid + ObjectNameSeparator + pool
-	getCluster := func() (c interface{}, err error) {
+	getCluster := func() (c helper.Serializable, err error) {
 		helper.Logger.Println(10, "GetCluster CacheMiss. fsid:", fsid)
-		return m.Client.GetCluster(fsid, pool)
+		cl, err := m.Client.GetCluster(fsid, pool)
+		c = &cl
+		return c, err
 	}
-	c, err := m.Cache.Get(redis.ClusterTable, rowKey, getCluster, true)
+
+	toCluster := func(fields map[string]string) (interface{}, error) {
+		c := &Cluster{}
+		return c.Deserialize(fields)
+	}
+
+	c, err := m.Cache.Get(redis.ClusterTable, CLUSTER_CACHE_PREFIX, rowKey, getCluster, toCluster, true)
 	if err != nil {
 		return
 	}
