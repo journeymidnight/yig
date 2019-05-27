@@ -644,7 +644,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 	result.SseCustomerKeyMd5Base64 = base64.StdEncoding.EncodeToString(sseRequest.SseCustomerKey)
 
 	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable, "", bucketName+":"+objectName+":")
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
 	}
 

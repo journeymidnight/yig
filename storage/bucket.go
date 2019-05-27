@@ -61,7 +61,7 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 		}
 	}
 	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.UserTable, credential.UserId)
+		yig.MetaStorage.Cache.Remove(redis.UserTable, meta.BUCKET_CACHE_PREFIX, credential.UserId)
 	}
 	return err
 }
@@ -90,7 +90,7 @@ func (yig *YigStorage) SetBucketAcl(bucketName string, policy datatype.AccessCon
 		return err
 	}
 	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
+		yig.MetaStorage.Cache.Remove(redis.BucketTable, meta.BUCKET_CACHE_PREFIX, bucketName)
 	}
 	return nil
 }
@@ -111,7 +111,7 @@ func (yig *YigStorage) SetBucketLc(bucketName string, lc datatype.Lc,
 		return err
 	}
 	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
+		yig.MetaStorage.Cache.Remove(redis.BucketTable, meta.BUCKET_CACHE_PREFIX, bucketName)
 	}
 
 	err = yig.MetaStorage.PutBucketToLifeCycle(*bucket)
@@ -153,7 +153,7 @@ func (yig *YigStorage) DelBucketLc(bucketName string, credential common.Credenti
 		return err
 	}
 	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
+		yig.MetaStorage.Cache.Remove(redis.BucketTable, meta.BUCKET_CACHE_PREFIX, bucketName)
 	}
 	err = yig.MetaStorage.RemoveBucketFromLifeCycle(*bucket)
 	if err != nil {
@@ -179,7 +179,7 @@ func (yig *YigStorage) SetBucketCors(bucketName string, cors datatype.Cors,
 		return err
 	}
 	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
+		yig.MetaStorage.Cache.Remove(redis.BucketTable, meta.BUCKET_CACHE_PREFIX, bucketName)
 	}
 	return nil
 }
@@ -198,7 +198,7 @@ func (yig *YigStorage) DeleteBucketCors(bucketName string, credential common.Cre
 		return err
 	}
 	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
+		yig.MetaStorage.Cache.Remove(redis.BucketTable, meta.BUCKET_CACHE_PREFIX, bucketName)
 	}
 	return nil
 }
@@ -237,7 +237,7 @@ func (yig *YigStorage) SetBucketVersioning(bucketName string, versioning datatyp
 		return err
 	}
 	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
+		yig.MetaStorage.Cache.Remove(redis.BucketTable, meta.BUCKET_CACHE_PREFIX, bucketName)
 	}
 	return nil
 }
@@ -327,7 +327,7 @@ func (yig *YigStorage) SetBucketPolicy(credential common.Credential, bucketName 
 		return err
 	}
 	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
+		yig.MetaStorage.Cache.Remove(redis.BucketTable, meta.BUCKET_CACHE_PREFIX, bucketName)
 	}
 	return nil
 }
@@ -369,7 +369,7 @@ func (yig *YigStorage) DeleteBucketPolicy(credential common.Credential, bucketNa
 		return err
 	}
 	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
+		yig.MetaStorage.Cache.Remove(redis.BucketTable, meta.BUCKET_CACHE_PREFIX, bucketName)
 	}
 	return nil
 }
@@ -421,9 +421,8 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential common.Credent
 	}
 
 	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.UserTable, credential.UserId)
-		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
-		yig.MetaStorage.Cache.Remove(redis.BucketTable, meta.BUCKET_USAGE_CACHE_PREFIX+bucketName)
+		yig.MetaStorage.Cache.Remove(redis.UserTable, meta.USER_CACHE_PREFIX, credential.UserId)
+		yig.MetaStorage.Cache.Remove(redis.BucketTable, meta.BUCKET_CACHE_PREFIX, bucketName)
 	}
 
 	if bucket.LC.Rule != nil {
