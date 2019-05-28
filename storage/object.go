@@ -17,6 +17,7 @@ import (
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/iam/common"
+	obj "github.com/journeymidnight/yig/meta"
 	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/signature"
@@ -414,7 +415,7 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, versio
 	}
 	if err == nil {
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable,
-			"", bucketName+":"+objectName+":"+version)
+			obj.OBJECT_CACHE_PREFIX, bucketName+":"+objectName+":"+version)
 	}
 	return nil
 }
@@ -586,7 +587,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	}
 
 	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.ObjectTable, "", bucketName+":"+objectName+":")
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable, obj.OBJECT_CACHE_PREFIX, bucketName+":"+objectName+":")
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
 	}
 	return result, nil
@@ -713,7 +714,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 	}
 
 	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.ObjectTable, "", bucketName+":"+objectName+":")
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable, obj.OBJECT_CACHE_PREFIX, bucketName+":"+objectName+":")
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
 	}
 	return result, nil
@@ -743,7 +744,7 @@ func (yig *YigStorage) UpdateObjectAttrs(targetObject *meta.Object, credential c
 	result.Md5 = targetObject.Etag
 	result.VersionId = targetObject.GetVersionId()
 
-	yig.MetaStorage.Cache.Remove(redis.ObjectTable, "", targetObject.BucketName+":"+targetObject.Name+":")
+	yig.MetaStorage.Cache.Remove(redis.ObjectTable, obj.OBJECT_CACHE_PREFIX, targetObject.BucketName+":"+targetObject.Name+":")
 	yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
 
 	return result, nil
@@ -928,7 +929,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		return
 	}
 
-	yig.MetaStorage.Cache.Remove(redis.ObjectTable, "", targetObject.BucketName+":"+targetObject.Name+":")
+	yig.MetaStorage.Cache.Remove(redis.ObjectTable, obj.OBJECT_CACHE_PREFIX, targetObject.BucketName+":"+targetObject.Name+":")
 	yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
 
 	return result, nil
@@ -1166,12 +1167,12 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 	}
 
 	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.ObjectTable, "", bucketName+":"+objectName+":")
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable, obj.OBJECT_CACHE_PREFIX, bucketName+":"+objectName+":")
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":")
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + "null")
 		if version != "" {
 			yig.MetaStorage.Cache.Remove(redis.ObjectTable,
-				"", bucketName+":"+objectName+":"+version)
+				obj.OBJECT_CACHE_PREFIX, bucketName+":"+objectName+":"+version)
 			yig.DataCache.Remove(bucketName + ":" + objectName + ":" + version)
 		}
 	}
