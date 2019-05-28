@@ -81,6 +81,7 @@ func (cli *RedisCli) Init() {
 			options.Password = helper.CONFIG.RedisPassword
 		}
 
+		helper.Logger.Println(2, "create redis for options: ", options)
 		cli.redisClient = redis.NewClient(options)
 		cli.clientType = REDIS_NORMAL_CLIENT
 	}
@@ -102,14 +103,20 @@ func (cli *RedisCli) Close() error {
 }
 
 func (cli *RedisCli) Del(key string) (int64, error) {
+	var err error
+	var val int64
 	switch cli.clientType {
 	case REDIS_NORMAL_CLIENT, REDIS_SENTINEL_CLIENT:
-		return cli.redisClient.Del(key).Result()
+		val, err = cli.redisClient.Del(key).Result()
 	case REDIS_CLUSTER_CLIENT:
-		return cli.redisClusterClient.Del(key).Result()
+		val, err = cli.redisClusterClient.Del(key).Result()
 	default:
 		return 0, errors.New(ERR_NOT_INIT_MSG)
 	}
+	if err == redis.Nil {
+		return val, nil
+	}
+	return val, err
 }
 
 /*
@@ -129,26 +136,36 @@ func (cli *RedisCli) Set(key string, value interface{}, expire int64) (string, e
 	}
 }
 
-func (cli *RedisCli) Get(key string) ([]byte, error) {
+func (cli *RedisCli) Get(key string) (val []byte, err error) {
 	switch cli.clientType {
 	case REDIS_NORMAL_CLIENT:
-		return cli.redisClient.Get(key).Bytes()
+		val, err = cli.redisClient.Get(key).Bytes()
 	case REDIS_CLUSTER_CLIENT:
-		return cli.redisClusterClient.Get(key).Bytes()
+		val, err = cli.redisClusterClient.Get(key).Bytes()
 	default:
 		return nil, errors.New(ERR_NOT_INIT_MSG)
 	}
+
+	if err == redis.Nil {
+		return val, nil
+	}
+	return val, err
 }
 
-func (cli *RedisCli) GetRange(key string, start, end int64) ([]byte, error) {
+func (cli *RedisCli) GetRange(key string, start, end int64) (val []byte, err error) {
 	switch cli.clientType {
 	case REDIS_NORMAL_CLIENT, REDIS_SENTINEL_CLIENT:
-		return cli.redisClient.GetRange(key, start, end).Bytes()
+		val, err = cli.redisClient.GetRange(key, start, end).Bytes()
 	case REDIS_CLUSTER_CLIENT:
-		return cli.redisClusterClient.GetRange(key, start, end).Bytes()
+		val, err = cli.redisClusterClient.GetRange(key, start, end).Bytes()
 	default:
 		return nil, errors.New(ERR_NOT_INIT_MSG)
 	}
+
+	if err == redis.Nil {
+		return val, nil
+	}
+	return val, err
 }
 
 func (cli *RedisCli) Publish(channel string, message interface{}) (int64, error) {
@@ -247,37 +264,52 @@ func (cli *RedisCli) HSet(key, field string, value interface{}) (bool, error) {
 	}
 }
 
-func (cli *RedisCli) HGet(key, field string) (string, error) {
+func (cli *RedisCli) HGet(key, field string) (val string, err error) {
 	switch cli.clientType {
 	case REDIS_NORMAL_CLIENT, REDIS_SENTINEL_CLIENT:
-		return cli.redisClient.HGet(key, field).Result()
+		val, err = cli.redisClient.HGet(key, field).Result()
 	case REDIS_CLUSTER_CLIENT:
-		return cli.redisClusterClient.HGet(key, field).Result()
+		val, err = cli.redisClusterClient.HGet(key, field).Result()
 	default:
 		return "", errors.New(ERR_NOT_INIT_MSG)
 	}
+
+	if err == redis.Nil {
+		return val, nil
+	}
+	return val, err
 }
 
-func (cli *RedisCli) HGetInt64(key, field string) (int64, error) {
+func (cli *RedisCli) HGetInt64(key, field string) (val int64, err error) {
 	switch cli.clientType {
 	case REDIS_NORMAL_CLIENT, REDIS_SENTINEL_CLIENT:
-		return cli.redisClient.HGet(key, field).Int64()
+		val, err = cli.redisClient.HGet(key, field).Int64()
 	case REDIS_CLUSTER_CLIENT:
-		return cli.redisClusterClient.HGet(key, field).Int64()
+		val, err = cli.redisClusterClient.HGet(key, field).Int64()
 	default:
 		return 0, errors.New(ERR_NOT_INIT_MSG)
 	}
+
+	if err == redis.Nil {
+		return val, nil
+	}
+	return val, err
 }
 
-func (cli *RedisCli) HGetAll(key string) (map[string]string, error) {
+func (cli *RedisCli) HGetAll(key string) (val map[string]string, err error) {
 	switch cli.clientType {
 	case REDIS_NORMAL_CLIENT, REDIS_SENTINEL_CLIENT:
-		return cli.redisClient.HGetAll(key).Result()
+		val, err = cli.redisClient.HGetAll(key).Result()
 	case REDIS_CLUSTER_CLIENT:
-		return cli.redisClusterClient.HGetAll(key).Result()
+		val, err = cli.redisClusterClient.HGetAll(key).Result()
 	default:
 		return nil, errors.New(ERR_NOT_INIT_MSG)
 	}
+
+	if err == redis.Nil {
+		return val, nil
+	}
+	return val, err
 }
 
 func (cli *RedisCli) HIncrBy(key, field string, incr int64) (int64, error) {
@@ -315,6 +347,11 @@ func (cli *RedisCli) HMGet(key string, fields []string) (map[string]interface{},
 	default:
 		return nil, errors.New(ERR_NOT_INIT_MSG)
 	}
+
+	if err == redis.Nil {
+		return nil, nil
+	}
+
 	if err != nil {
 		helper.Logger.Println(2, "failed to HMGet for key ", key, " with err: ", err)
 		return nil, err

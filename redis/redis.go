@@ -368,11 +368,12 @@ func HGetInt64(table RedisDatabase, prefix, key, field string) (int64, error) {
 				return err
 			}
 
-			r, err = c.HGetInt64(table.String()+prefix+helper.EscapeColon(key), field)
+			theKey := table.String() + prefix + helper.EscapeColon(key)
+			r, err = c.HGetInt64(theKey, field)
 			if err == nil {
 				return nil
 			}
-			helper.ErrorIf(err, "Cmd: %s, key: %s, field: %s", "HGetInt64", table.String()+helper.EscapeColon(key), field)
+			helper.ErrorIf(err, "Cmd: %s, key: %s, field: %s", "HGetInt64", theKey, field)
 			return err
 		},
 		nil,
