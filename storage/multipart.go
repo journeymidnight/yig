@@ -17,6 +17,7 @@ import (
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/iam/common"
+	obj "github.com/journeymidnight/yig/meta"
 	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/signature"
@@ -644,7 +645,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 	result.SseCustomerKeyMd5Base64 = base64.StdEncoding.EncodeToString(sseRequest.SseCustomerKey)
 
 	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.ObjectTable, "", bucketName+":"+objectName+":")
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable, obj.OBJECT_CACHE_PREFIX, bucketName+":"+objectName+":")
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
 	}
 
