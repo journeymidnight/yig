@@ -33,7 +33,7 @@ func metaSync(yig *YigStorage) {
 			err := yig.MetaStorage.Sync(event)
 			if err != nil {
 				event.RetryTimes += 1
-				if event.RetryTimes > MAX_TRY_TIMES {
+				if event.RetryTimes > META_SYNC_MAX_TRY_TIMES {
 					helper.Logger.Println(5, "Failed to sync meta event: ",
 						event, " with error", err)
 					continue

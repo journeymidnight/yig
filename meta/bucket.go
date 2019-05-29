@@ -48,8 +48,12 @@ func (m *Meta) GetBuckets() (buckets []*Bucket, err error) {
 func (m *Meta) UpdateUsage(bucketName string, size int64) error {
 	usage, err := m.Cache.HIncrBy(redis.BucketTable, BUCKET_CACHE_PREFIX, bucketName, FIELD_NAME_USAGE, size)
 	if err != nil {
+		helper.Logger.Println(2, fmt.Sprintf("failed to update bucket[%s] usage by %d, err: %v",
+			bucketName, size, err))
 		return err
 	}
+
+	AddBucketUsageSyncEvent(bucketName)
 	helper.Logger.Println(15, "incr usage for bucket: ", bucketName, ", updated to ", usage)
 	return nil
 }
@@ -112,26 +116,20 @@ func (m *Meta) InitBucketUsageCache() error {
 
 	if len(bucketsInCache) > 0 {
 		// query all usages from cache.
-		usages := make(map[string]int64)
 		for _, bic := range bucketsInCache {
 			usage, err := m.Cache.HGetInt64(redis.BucketTable, BUCKET_CACHE_PREFIX, bic, FIELD_NAME_USAGE)
 			if err != nil {
 				helper.Logger.Println(2, "failed to get usage for bucket: ", bic, " with err: ", err)
 				continue
 			}
-			usages[bic] = usage
-		}
-
-		for _, bc := range bucketsInCache {
-			_, ok := bucketUsageMap[bc]
-			// if the key already exists in cache, then delete it from map
-			if ok {
-				// add the to be synced usage.
-				if bucketUsageCacheMap[bc], ok = usages[bc]; ok {
-					delete(bucketUsageMap, bc)
-				}
+			// add the to be synced usage.
+			bucketUsageCacheMap[bic] = usage
+			if _, ok := bucketUsageMap[bic]; ok {
+				// if the key already exists in cache, then delete it from map
+				delete(bucketUsageMap, bic)
 			}
 		}
+
 	}
 
 	// init the bucket usage in cache.
