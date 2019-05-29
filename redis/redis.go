@@ -46,9 +46,11 @@ func Initialize() {
 }
 
 func Close() {
-	err := redisClient.Close()
-	if err != nil {
-		helper.ErrorIf(err, "Cannot close redis pool.")
+	if redisClient != nil && redisClient.IsValid() {
+		err := redisClient.Close()
+		if err != nil {
+			helper.ErrorIf(err, "Cannot close redis pool.")
+		}
 	}
 }
 
