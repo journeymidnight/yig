@@ -23,7 +23,6 @@ func (m *Meta) DeleteMultipart(multipart Multipart) (err error) {
 	for _, p := range multipart.Parts {
 		removedSize += p.Size
 	}
-	//err = m.Client.UpdateUsage(multipart.BucketName, -removedSize, tx)
 	err = m.UpdateUsage(multipart.BucketName, -removedSize)
 	if err != nil {
 		return
@@ -47,7 +46,6 @@ func (m *Meta) PutObjectPart(multipart Multipart, part Part) (err error) {
 	if part, ok := multipart.Parts[part.PartNumber]; ok {
 		removedSize += part.Size
 	}
-	//err = m.Client.UpdateUsage(multipart.BucketName, part.Size-removedSize, tx)
 	err = m.UpdateUsage(multipart.BucketName, part.Size-removedSize)
 	if err != nil {
 		return

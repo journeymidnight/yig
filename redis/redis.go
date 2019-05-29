@@ -2,7 +2,6 @@ package redis
 
 import (
 	"context"
-	"errors"
 	"strconv"
 
 	"github.com/cep21/circuit"
@@ -57,11 +56,12 @@ func GetClient(ctx context.Context) (*RedisCli, error) {
 	return redisClient, nil
 }
 
-func HasRedisClient() error {
+func HasRedisClient() bool {
 	if redisClient != nil && redisClient.IsValid() {
-		return nil
+		return true
 	}
-	return errors.New("there is no valid redis client yet.")
+
+	return false
 }
 
 func Remove(table RedisDatabase, prefix, key string) (err error) {
