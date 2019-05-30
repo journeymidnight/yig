@@ -28,6 +28,7 @@ script:
 - export GO111MODULE=on
 - sudo python test/sanity.py
 - pushd test/go && go test -v && popd
+- pushd test/ci && go test -check.vv && popd
 
 before_deploy:
   - echo "prepare package"
