@@ -20,6 +20,7 @@ build_internal:
 	go build $(URLPATH)/$(REPO)/tools/delete.go
 	go build $(URLPATH)/$(REPO)/tools/getrediskeys.go
 	go build $(URLPATH)/$(REPO)/tools/lc.go
+	cd $(URLPATH)/$(REPO)/test/ci && go test -c -o yigci
 	cp -f yig $(PWD)/build/bin/
 	cp -f $(PWD)/plugins/*.so $(PWD)/integrate/yigconf/plugins/
 	cp -f admin $(PWD)/build/bin/
