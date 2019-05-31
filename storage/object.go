@@ -4,12 +4,12 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io"
 	"math/rand"
-	"time"
-
 	"path"
 	"sync"
+	"time"
 
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/crypto"
@@ -712,13 +712,18 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 		"objSize:", object.Size, "bytesWritten:", bytesWritten, "storageClass:", storageClass)
 	err = yig.MetaStorage.AppendObject(object, isObjectExist(objInfo))
 	if err != nil {
+		helper.Logger.Println(2, fmt.Sprintf("failed to append object %v, err: %v", object, err))
 		return
 	}
 
-	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.ObjectTable, obj.OBJECT_CACHE_PREFIX, bucketName+":"+objectName+":")
-		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
+	// update bucket usage.
+	err = yig.MetaStorage.UpdateUsage(bucketName, bytesWritten)
+	if err != nil {
+		helper.Logger.Println(2, fmt.Sprintf("failed to update bucket usage for bucket: %s with append object: %v, err: %v", bucketName, object, err))
+		return result, err
 	}
+	yig.MetaStorage.Cache.Remove(redis.ObjectTable, obj.OBJECT_CACHE_PREFIX, bucketName+":"+objectName+":")
+	yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
 	return result, nil
 }
 
