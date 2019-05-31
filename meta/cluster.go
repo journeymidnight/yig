@@ -1,6 +1,8 @@
 package meta
 
 import (
+	"fmt"
+
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
@@ -27,6 +29,7 @@ func (m *Meta) GetCluster(fsid string, pool string) (cluster Cluster, err error)
 
 	c, err := m.Cache.Get(redis.ClusterTable, CLUSTER_CACHE_PREFIX, rowKey, getCluster, toCluster, true)
 	if err != nil {
+		helper.Logger.Println(2, fmt.Sprintf("failed to get cluster for fsid: %s, err: %v", fsid, err))
 		return
 	}
 	cluster, ok := c.(Cluster)
