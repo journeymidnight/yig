@@ -106,3 +106,102 @@ func (cs *CISuite) TestBucketUsageForAppendObject(c *C) {
 	c.Assert(b, Not(Equals), nil)
 	c.Assert(b.Usage, Equals, totalSize)
 }
+
+func (cs *CISuite) TestBucketUsageForMultiPartAbort(c *C) {
+	bn := "buckettest"
+	key := "objtappend"
+	totalSize := int64(0)
+	sc := NewS3()
+	err := sc.MakeBucket(bn)
+	c.Assert(err, Equals, nil)
+	b, err := cs.storage.GetBucket(bn)
+	c.Assert(err, Equals, nil)
+	defer sc.DeleteBucket(bn)
+	c.Assert(b, Not(Equals), nil)
+	c.Assert(b.Usage, Equals, int64(0))
+	uploadId, err := sc.CreateMultipartUpload(bn, key)
+	c.Assert(err, Equals, nil)
+	c.Assert(uploadId, Not(Equals), "")
+	defer sc.DeleteObject(bn, key)
+	ru := &RandUtil{}
+	size := (128 << 10)
+	for i := 0; i < 5; i++ {
+		input := &UploadPartInput{
+			BucketName: bn,
+			Key:        key,
+			PartNum:    int64(i + 1),
+			Body:       ru.RandBytes(size),
+			UploadId:   uploadId,
+		}
+
+		etag, err := sc.UploadPart(input)
+		c.Assert(err, Equals, nil)
+		c.Assert(etag, Not(Equals), "")
+		totalSize = totalSize + int64(size)
+		b, err = cs.storage.GetBucket(bn)
+		c.Assert(err, Equals, nil)
+		c.Assert(b, Not(Equals), nil)
+		c.Assert(b.Usage, Equals, totalSize)
+	}
+
+	// abort the multipart.
+	err = sc.AbortMultipart(bn, key, uploadId)
+	c.Assert(err, Equals, nil)
+	b, err = cs.storage.GetBucket(bn)
+	c.Assert(err, Equals, nil)
+	c.Assert(b, Not(Equals), nil)
+	c.Assert(b.Usage, Equals, int64(0))
+}
+
+func (cs *CISuite) TestBucketUsageForMultiPartComplete(c *C) {
+	bn := "buckettest"
+	key := "objtappend"
+	totalSize := int64(0)
+	sc := NewS3()
+	err := sc.MakeBucket(bn)
+	c.Assert(err, Equals, nil)
+	b, err := cs.storage.GetBucket(bn)
+	c.Assert(err, Equals, nil)
+	defer sc.DeleteBucket(bn)
+	c.Assert(b, Not(Equals), nil)
+	c.Assert(b.Usage, Equals, int64(0))
+	uploadId, err := sc.CreateMultipartUpload(bn, key)
+	c.Assert(err, Equals, nil)
+	c.Assert(uploadId, Not(Equals), "")
+	defer sc.DeleteObject(bn, key)
+	ru := &RandUtil{}
+	size := (128 << 10)
+	var parts []PartInfo
+	for i := 0; i < 5; i++ {
+		input := &UploadPartInput{
+			BucketName: bn,
+			Key:        key,
+			PartNum:    int64(i + 1),
+			Body:       ru.RandBytes(size),
+			UploadId:   uploadId,
+		}
+
+		etag, err := sc.UploadPart(input)
+		c.Assert(err, Equals, nil)
+		c.Assert(etag, Not(Equals), "")
+		totalSize = totalSize + int64(size)
+		b, err = cs.storage.GetBucket(bn)
+		c.Assert(err, Equals, nil)
+		c.Assert(b, Not(Equals), nil)
+		c.Assert(b.Usage, Equals, totalSize)
+		partInfo := PartInfo{
+			PartNumber: &input.PartNum,
+			ETag:       &etag,
+		}
+		parts = append(parts, partInfo)
+	}
+
+	// abort the multipart.
+	newEtag, err := sc.CompleteMultipart(bn, key, uploadId, parts)
+	c.Assert(err, Equals, nil)
+	c.Assert(newEtag, Not(Equals), "")
+	b, err = cs.storage.GetBucket(bn)
+	c.Assert(err, Equals, nil)
+	c.Assert(b, Not(Equals), nil)
+	c.Assert(b.Usage, Equals, totalSize)
+}
