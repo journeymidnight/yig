@@ -170,6 +170,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.RedisPassword = c.RedisPassword
 	CONFIG.RedisMode = c.RedisMode
 	CONFIG.RedisNodes = c.RedisNodes
+	CONFIG.RedisSentinelMasterName = c.RedisSentinelMasterName
 	CONFIG.RedisConnectionNumber = Ternary(c.RedisConnectionNumber == 0,
 		10, c.RedisConnectionNumber).(int)
 	CONFIG.EnableDataCache = c.EnableDataCache
