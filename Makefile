@@ -25,9 +25,9 @@ build_internal:
 	cp -f getrediskeys $(PWD)/build/bin/
 	cp -f lc $(PWD)/build/bin/
 pkg:
-	sudo docker run --rm -v $(PWD):/work -w /work journeymidnight/yig bash -c 'bash package/rpmbuild.sh'
+	docker run --rm -v $(PWD):/work -w /work journeymidnight/yig bash -c 'bash package/rpmbuild.sh'
 image:
-	sudo docker build -t  journeymidnight/yig . -f integrate/yig.docker
+	docker build -t  journeymidnight/yig . -f integrate/yig.docker
 
 run: 
 	cd integrate && sudo bash runyig.sh
@@ -36,7 +36,7 @@ rundelete:
 	cd integrate && sudo bash rundelete.sh
 
 env:
-	cd integrate && sudo docker-compose stop && sudo docker-compose rm --force && sudo rm -rf cephconf && sudo docker-compose up -d && sleep 20 && sudo bash prepare_env.sh
+	cd integrate && docker-compose stop && docker-compose rm --force && sudo rm -rf cephconf && docker-compose up -d && sleep 20 && bash prepare_env.sh
 	
 
 integrate: env build run 
