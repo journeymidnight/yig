@@ -1,9 +1,13 @@
-FROM centos:7.2.1511
+FROM centos:7.6.1810
 WORKDIR /work
-COPY . /work
-RUN yum install -y epel-release && \
+ADD . /work
+ADD ./integrate/resources/confluent.repo /etc/yum.repos.d/confluent.repo
+RUN rpm --import https://mirror.go-repo.io/centos/RPM-GPG-KEY-GO-REPO && \
+curl -s https://mirror.go-repo.io/centos/go-repo.repo | tee /etc/yum.repos.d/go-repo.repo && \
+rpm --import https://packages.confluent.io/rpm/5.2/archive.key && yum makecache && \
+yum install -y epel-release && \
 rpm -ivh https://download.ceph.com/rpm-luminous/el7/noarch/ceph-release-1-1.el7.noarch.rpm && \
-yum --enablerepo=epel-testing install -y lttng-ust make gcc libradosstriper-devel librados2-devel golang git rpm-build && \
+yum --enablerepo=epel-testing install -y lttng-ust make gcc libradosstriper-devel librados2-devel golang git rpm-build net-tools librdkafka-devel && \
 make build_internal && \
 yum clean all && \
 rm -rf /var/cache/yum
