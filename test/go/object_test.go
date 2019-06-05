@@ -239,3 +239,147 @@ func Test_Object_End(t *testing.T) {
 	}
 
 }
+
+var (
+	GetObjectAllowPolicy = `{
+			"Version": "2012-10-17",
+			"Statement": [{
+			"Effect": "Allow",
+			"Principal": {"AWS":["*"]},
+			"Action": ["s3:GetObject"],
+			"Resource": [
+				"arn:aws:s3:::` + TEST_BUCKET + `/*"
+			]
+			}]
+		}`
+
+	GetObjectDenyPolicy = `{
+			"Version": "2012-10-17",
+			"Statement": [{
+			"Effect": "Deny",
+			"Principal": {"AWS":["*"]},
+			"Action": ["s3:GetObject"],
+			"Resource": [
+				"arn:aws:s3:::` + TEST_BUCKET + `/*"
+			]
+			}]
+		}`
+
+	EmptyPolicy	= `{"Version": "2012-10-17"}`
+)
+
+// Test different situation with access policy when anonymous access;
+// 1. BucketPolicy Allow;	BucketACL PublicRead;	ObjectACL PublicRead;	GetObject should be OK;
+// 2. BucketPolicy Allow;	BucketACL PublicRead;	ObjectACL Private;		GetObject should be OK;
+// 3. BucketPolicy Allow;	BucketACL Private;	ObjectACL Private;	GetObject should be OK;
+// 4. BucketPolicy Allow;	BucketACL Private;	ObjectACL PublicRead; 	GetObject should be OK;
+// 5. BucketPolicy Deny;	BucketACL PublicRead;	ObjectACL PublicRead; 	GetObject should be Failed;
+// 6. BucketPolicy Deny;	BucketACL PublicRead;	ObjectACL Private; 		GetObject should be Failed;
+// 7. BucketPolicy Deny;	BucketACL Private;	ObjectACL Private;	GetObject should be Failed;
+// 8. BucketPolicy Deny;	BucketACL Private;	ObjectACL PublicRead; 	GetObject should be Failed;
+// 9. BucketPolicy Pass;	BucketACL PublicRead;	ObjectACL PublicRead; 	GetObject should be OK;
+// 10.BucketPolicy Pass;	BucketACL PublicRead;	ObjectACL Private; 		GetObject should be Failed;
+// 11.BucketPolicy Pass;	BucketACL Private;	ObjectACL Private;	GetObject should be Failed;
+// 12.BucketPolicy Pass;	BucketACL Private;	ObjectACL PublicRead;	GetObject should be OK;
+func Test_GetObjectWithDifferentAccessPolicy(t *testing.T) {
+	sc := NewS3()
+	sc.CleanEnv()
+	err := sc.MakeBucket(TEST_BUCKET)
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+		panic(err)
+	}
+
+	err = sc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	if err != nil {
+		t.Fatal("PutObject err:", err)
+		panic(err)
+	}
+
+	// Situation 1:BucketPolicy Allow;	BucketACL PublicRead;	ObjectACL PublicRead;	GetObject should be OK;
+	err = sc.TestAnonymousAccessResult(GetObjectAllowPolicy, BucketCannedACLPublicRead, ObjectCannedACLPublicRead, http.StatusOK)
+	if err != nil {
+		t.Log("Situation 1 Failed.")
+		t.Fatal(err)
+	}
+
+	// Situation 2. BucketPolicy Allow;	BucketACL PublicRead;	ObjectACL Private;		GetObject should be OK;
+	err = sc.TestAnonymousAccessResult(GetObjectAllowPolicy, BucketCannedACLPublicRead, ObjectCannedACLPrivate, http.StatusOK)
+	if err != nil {
+		t.Log("Situation 2 Failed.")
+		t.Fatal(err)
+	}
+
+	// Situation 3. BucketPolicy Allow;	BucketACL Private;		ObjectACL Private; 		GetObject should be OK;
+	err = sc.TestAnonymousAccessResult(GetObjectAllowPolicy, BucketCannedACLPrivate, ObjectCannedACLPrivate, http.StatusOK)
+	if err != nil {
+		t.Log("Situation 3 Failed.")
+		t.Fatal(err)
+	}
+
+	// Situation 4. BucketPolicy Allow;	BucketACL Private;		ObjectACL PublicRead; 	GetObject should be OK;
+	err = sc.TestAnonymousAccessResult(GetObjectAllowPolicy, BucketCannedACLPrivate, ObjectCannedACLPublicRead, http.StatusOK)
+	if err != nil {
+		t.Log("Situation 4 Failed.")
+		t.Fatal(err)
+	}
+
+	// Situation 5. BucketPolicy Deny;	BucketACL PublicRead;	ObjectACL PublicRead; 	GetObject should be Failed;
+	err = sc.TestAnonymousAccessResult(GetObjectDenyPolicy, BucketCannedACLPublicRead, ObjectCannedACLPrivate, http.StatusForbidden)
+	if err != nil {
+		t.Log("Situation 5 Failed.")
+		t.Fatal(err)
+	}
+
+	// 6. BucketPolicy Deny;	BucketACL PublicRead;	ObjectACL Private; 		GetObject should be Failed;
+	err = sc.TestAnonymousAccessResult(GetObjectDenyPolicy, BucketCannedACLPublicRead, ObjectCannedACLPrivate, http.StatusForbidden)
+	if err != nil {
+		t.Log("Situation 6 Failed.")
+		t.Fatal(err)
+	}
+
+	// 7. BucketPolicy Deny;	BucketACL Private;		ObjectACL Private; 		GetObject should be Failed;
+	err = sc.TestAnonymousAccessResult(GetObjectDenyPolicy, BucketCannedACLPrivate, ObjectCannedACLPrivate, http.StatusForbidden)
+	if err != nil {
+		t.Log("Situation 7 Failed.")
+		t.Fatal(err)
+	}
+
+	// 8. BucketPolicy Deny;	BucketACL Private;		ObjectACL PublicRead; 	GetObject should be Failed;
+	err = sc.TestAnonymousAccessResult(GetObjectDenyPolicy, BucketCannedACLPrivate, ObjectCannedACLPublicRead, http.StatusForbidden)
+	if err != nil {
+		t.Log("Situation 8 Failed.")
+		t.Fatal(err)
+	}
+
+	// 9. BucketPolicy Pass;	BucketACL PublicRead;	ObjectACL PublicRead; 	GetObject should be OK;
+	err = sc.TestAnonymousAccessResult(EmptyPolicy, BucketCannedACLPublicRead, ObjectCannedACLPublicRead, http.StatusOK)
+	if err != nil {
+		t.Log("Situation 9 Failed.")
+		t.Fatal(err)
+	}
+
+	// 10.BucketPolicy Pass;	BucketACL PublicRead;	ObjectACL Private; 		GetObject should be Failed;
+	err = sc.TestAnonymousAccessResult(EmptyPolicy, BucketCannedACLPublicRead, ObjectCannedACLPrivate, http.StatusForbidden)
+	if err != nil {
+		t.Log("Situation 10 Failed.")
+		t.Fatal(err)
+	}
+
+	// 11.BucketPolicy Pass;	BucketACL Private;		ObjectACL Private; 		GetObject should be Failed;
+	err = sc.TestAnonymousAccessResult(EmptyPolicy, BucketCannedACLPrivate, ObjectCannedACLPrivate, http.StatusForbidden)
+	if err != nil {
+		t.Log("Situation 11 Failed.")
+		t.Fatal(err)
+	}
+
+	// 12.BucketPolicy Pass;	BucketACL Private;		ObjectACL PublicRead; 	GetObject should be OK;
+	err = sc.TestAnonymousAccessResult(EmptyPolicy, BucketCannedACLPrivate, ObjectCannedACLPublicRead, http.StatusOK)
+	if err != nil {
+		t.Log("Situation 12 Failed.")
+		t.Fatal(err)
+	}
+
+	sc.CleanEnv()
+
+}

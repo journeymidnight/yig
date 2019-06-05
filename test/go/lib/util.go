@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"errors"
+	"fmt"
 )
 
 func GenTestObjectUrl(sc *S3Client) string {
@@ -37,4 +39,33 @@ func TransferToS3AccessControlPolicy(policy *datatype.AccessControlPolicy) (s3po
 		s3policy.Grants = append(s3policy.Grants, grant)
 	}
 	return
+}
+
+func (sc *S3Client) CleanEnv() {
+	sc.DeleteObject(TEST_BUCKET, TEST_KEY)
+	sc.DeleteBucket(TEST_BUCKET)
+}
+
+func (sc *S3Client) TestAnonymousAccessResult(bucketPolicy, bucketACL, objectACL string, resultCode int) (err error) {
+	err = sc.PutBucketPolicy(TEST_BUCKET, bucketPolicy)
+	if err != nil {
+		return
+	}
+
+	err = sc.PutBucketAcl(TEST_BUCKET, bucketACL)
+	if err != nil {
+		return
+	}
+
+	err = sc.PutObjectAcl(TEST_BUCKET, TEST_KEY, objectACL)
+	if err != nil {
+		return
+	}
+
+	status, val, err := HTTPRequestToGetObject(GenTestObjectUrl(sc))
+	if status != resultCode {
+		return  errors.New(fmt.Sprint("Situation:", 1, "HTTPRequestToGetObject err:", err, "status:", status, "val:", val))
+	}
+
+	return  nil
 }
