@@ -286,7 +286,7 @@ func copyEncryptedPart(pool string, part *meta.Part, cephCluster *CephStorage, r
 func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 	version string, credential common.Credential) (object *meta.Object, err error) {
 
-	_, err = yig.MetaStorage.GetBucket(bucketName, true)
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
 		return
 	}
@@ -310,12 +310,9 @@ func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 				return
 			}
 		case "bucket-owner-read", "bucket-owner-full-control":
-			bucket, err := yig.GetBucket(bucketName)
-			if err != nil {
-				return object, ErrAccessDenied
-			}
 			if bucket.OwnerId != credential.UserId {
-				return object, ErrAccessDenied
+				err = ErrAccessDenied
+				return
 			}
 		default:
 			if object.OwnerId != credential.UserId {
