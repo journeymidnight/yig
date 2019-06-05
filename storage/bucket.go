@@ -286,15 +286,19 @@ func (yig *YigStorage) GetBucketInfo(bucketName string,
 	if err != nil {
 		return
 	}
-	if bucket.OwnerId != credential.UserId {
-		switch bucket.ACL.CannedAcl {
-		case "public-read", "public-read-write", "authenticated-read":
-			break
-		default:
-			err = ErrBucketAccessForbidden
-			return
+
+	if !credential.AllowOtherUserAccess {
+		if bucket.OwnerId != credential.UserId {
+			switch bucket.ACL.CannedAcl {
+			case "public-read", "public-read-write", "authenticated-read":
+				break
+			default:
+				err = ErrBucketAccessForbidden
+				return
+			}
 		}
 	}
+
 	return
 }
 
