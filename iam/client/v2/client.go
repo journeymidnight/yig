@@ -52,7 +52,7 @@ func (a Client) GetKeysByUid (uid string) (credentials []common.Credential, err 
 		slog.Println(5, "GetKeysByUid send request failed", err)
 		return credentials, err
 	}
-
+	defer response.Body.Close()
 	if response.StatusCode != 200 {
 		slog.Println(5, "GetKeysByUid to IAM failed return code = ", response.StatusCode)
 		return credentials, fmt.Errorf("GetKeysByUid to IAM failed retcode = %d", response.StatusCode)
@@ -95,7 +95,7 @@ func (a Client) GetCredential (accessKey string) (credential common.Credential, 
 		slog.Println(5, "GetCredential send request failed", err)
 		return credential, err
 	}
-
+	defer response.Body.Close()
 	if response.StatusCode != 200 {
 		slog.Println(5, "GetCredential to IAM failed return code = ", response.StatusCode)
 		return credential, fmt.Errorf("GetCredential to IAM failed retcode = %d", response.StatusCode)
