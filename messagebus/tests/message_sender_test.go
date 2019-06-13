@@ -81,3 +81,20 @@ func (mbs *MessageBusTestSuite) TestMessageSendMsgConcurrent(c *C) {
 		c.Assert(err, Equals, nil)
 	}
 }
+
+func (mbs *MessageBusTestSuite) BenchmarkSendOneMsg(c *C) {
+	helper.CONFIG.MsgBus.Type = 1
+	helper.CONFIG.MsgBus.Server[types.KAFKA_CFG_BROKER_LIST] = "kafka:29092"
+	sender, err := bus.GetMessageSender()
+	c.Assert(err, Equals, nil)
+	c.Assert(sender, Not(Equals), nil)
+	defer sender.Close()
+	for i := 0; i < c.N; i++ {
+		msg := types.NewMsg("testTopic2", "", []byte("benchmark test message."))
+		defer close(msg.ErrChan)
+		err = sender.AsyncSend(msg)
+		c.Assert(err, Equals, nil)
+		err = <-msg.ErrChan
+		c.Assert(err, Equals, nil)
+	}
+}

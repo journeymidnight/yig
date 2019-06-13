@@ -84,7 +84,7 @@ services:
       ZOOKEEPER_TICK_TIME: 2000
     networks:
       vpcbr:
-        ipv4_address: "10.5.0.20"
+        ipv4_address: "10.5.0.22"
 
   kafka:
     # "`-._,-'"`-._,-'"`-._,-'"`-._,-'"`-._,-'"`-._,-'"`-._,-'"`-._,-'"`-._,-
