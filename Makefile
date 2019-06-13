@@ -30,7 +30,7 @@ image:
 	docker build -t  journeymidnight/yig . -f integrate/yig.docker
 
 run: 
-	cd integrate && sudo bash runyig.sh
+	cd integrate && bash runyig.sh
 
 rundelete:
 	cd integrate && sudo bash rundelete.sh
