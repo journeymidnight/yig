@@ -75,7 +75,7 @@ func (a Client) GetKeysByUid (uid string) (credentials []common.Credential, err 
 			slog.Println(5, "replay histroy send request failed", err)
 			return credentials, err
 		}
-
+		defer response.Body.Close()
 		if response.StatusCode != 200 {
 			slog.Println(5, "QueryHistory to IAM failed as status != 200")
 			return credentials, fmt.Errorf("QueryHistory to IAM failed as status != 200")
@@ -154,12 +154,12 @@ func (a Client) GetCredential (accessKey string) (credential common.Credential, 
 	if err != nil {
 		return credential, err
 	}
+	defer response.Body.Close()
 	if response.StatusCode != 200 {
 		return credential, errors.New("Query to IAM failed as status != 200")
 	}
 
 	body, err := ioutil.ReadAll(response.Body)
-	response.Body.Close()
 	if err != nil {
 		return credential, err
 	}
