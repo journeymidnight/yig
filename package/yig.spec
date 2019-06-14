@@ -8,8 +8,8 @@ Release:        %{rel}%{?dist}
 Summary:	Yet Index Gateway is a S3-compatible API server whose backend storage is multiple ceph clusters
 
 Group:		SDS
-License:	GPL
-URL:		http://github.com/journeymidnight
+License:        Apache-2.0
+URL:		http://github.com/journeymidnight/yig
 Source0:	%{name}-%{version}-%{rel}.tar.gz
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 #BuildRequires:  
