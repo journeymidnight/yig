@@ -34,6 +34,9 @@ func (mbs *MessageBusTestSuite) TearDownSuite(c *C) {
 
 func (mbs *MessageBusTestSuite) SetUpTest(c *C) {
 	helper.CONFIG.MsgBus.Type = 0
+	helper.CONFIG.MsgBus.RequestTimeoutMs = 3000
+	helper.CONFIG.MsgBus.MessageTimeoutMs = 5000
+	helper.CONFIG.MsgBus.SendMaxRetries = 2
 	helper.CONFIG.MsgBus.Server = make(map[string]interface{})
 	bus.ClearInit()
 }

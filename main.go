@@ -1,16 +1,19 @@
 package main
 
 import (
-	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/log"
-	"github.com/journeymidnight/yig/redis"
-	"github.com/journeymidnight/yig/storage"
 	"math/rand"
 	"os"
 	"os/signal"
 	"runtime"
 	"syscall"
 	"time"
+
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/log"
+	bus "github.com/journeymidnight/yig/messagebus"
+	_ "github.com/journeymidnight/yig/messagebus/kafka"
+	"github.com/journeymidnight/yig/redis"
+	"github.com/journeymidnight/yig/storage"
 )
 
 var logger *log.Logger
@@ -62,6 +65,21 @@ func main() {
 	}
 	if redis.Pool() != nil && helper.CONFIG.CacheCircuitCheckInterval != 0 {
 		go yig.PingCache(time.Duration(helper.CONFIG.CacheCircuitCheckInterval) * time.Second)
+	}
+
+	// try to create message bus sender if message bus is enabled.
+	// message bus sender is singleton so create it beforehand.
+	if 1 == helper.CONFIG.MsgBus.Enabled {
+		messageBusSender, err := bus.GetMessageSender()
+		if err != nil {
+			helper.Logger.Printf(2, "failed to create message bus sender, err: %v", err)
+			panic("failed to create message bus sender")
+		}
+		if nil == messageBusSender {
+			helper.Logger.Printf(2, "failed to create message bus sender, sender is nil.")
+			panic("failed to create message bus sender, sender is nil.")
+		}
+		helper.Logger.Printf(20, "succeed to create message bus sender.")
 	}
 
 	startAdminServer(adminServerConfig)

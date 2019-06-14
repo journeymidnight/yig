@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	RedisInAddress = "localhost:6379"
+	RedisInAddress = "redis:6379"
 	RedisPassword = "hehehehe"
 )
 

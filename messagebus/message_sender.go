@@ -36,7 +36,7 @@ func GetMessageSender() (MessageSender, error) {
 		if !ok {
 			return nil, errors.New("msg_bus config is invalidate.")
 		}
-		MsgSender, err = builder.Create(helper.CONFIG.MsgBus.Server)
+		MsgSender, err = builder.Create(helper.CONFIG.MsgBus)
 		if err != nil || nil == MsgSender {
 			return nil, errors.New(fmt.Sprintf("failed to create message_sender with err: %v", err))
 		}
