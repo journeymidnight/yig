@@ -1,20 +1,19 @@
 package v2
 
 import (
-	"github.com/journeymidnight/yig/iam/common"
-	"github.com/journeymidnight/yig/circuitbreak"
-	"github.com/journeymidnight/yig/helper"
+	"errors"
 	"fmt"
 	"net/http"
-	"io/ioutil"
-	"encoding/json"
-	"errors"
+
+	"github.com/journeymidnight/yig/circuitbreak"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/iam/common"
 )
 
 type AccessKeyItemList struct {
-	Page int `json:"page"`
-	Size int `json:"size"`
-	Total int `json:"total_count"`
+	Page    int             `json:"page"`
+	Size    int             `json:"size"`
+	Total   int             `json:"total_count"`
 	Content []AccessKeyItem `json:"content"`
 }
 
@@ -29,12 +28,11 @@ type AccessKeyItem struct {
 	Enabled      int    `json:"enabled"`
 }
 
-
 type Client struct {
 	httpClient *circuitbreak.CircuitClient
 }
 
-func (a Client) GetKeysByUid (uid string) (credentials []common.Credential, err error) {
+func (a Client) GetKeysByUid(uid string) (credentials []common.Credential, err error) {
 	if a.httpClient == nil {
 		a.httpClient = circuitbreak.NewCircuitClientWithInsecureSSL()
 	}
@@ -52,22 +50,14 @@ func (a Client) GetKeysByUid (uid string) (credentials []common.Credential, err 
 		slog.Println(5, "GetKeysByUid send request failed", err)
 		return credentials, err
 	}
-	defer response.Body.Close()
+	var resp AccessKeyItemList
+	err = helper.ReadJsonBody(response.Body, &resp)
+	if err != nil {
+		return credentials, errors.New("failed to read from IAM: " + err.Error())
+	}
 	if response.StatusCode != 200 {
 		slog.Println(5, "GetKeysByUid to IAM failed return code = ", response.StatusCode)
 		return credentials, fmt.Errorf("GetKeysByUid to IAM failed retcode = %d", response.StatusCode)
-	}
-
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		slog.Println(5, "GetKeysByUid ioutil.ReadAll failed")
-		return credentials, fmt.Errorf("GetKeysByUid ioutil.ReadAll failed")
-	}
-
-	var resp AccessKeyItemList
-	err = json.Unmarshal(body, &resp)
-	if err != nil {
-		return credentials, errors.New("Decode QueryResp failed")
 	}
 	for _, value := range resp.Content {
 		credential := common.Credential{}
@@ -81,7 +71,7 @@ func (a Client) GetKeysByUid (uid string) (credentials []common.Credential, err 
 	return
 }
 
-func (a Client) GetCredential (accessKey string) (credential common.Credential, err error) {
+func (a Client) GetCredential(accessKey string) (credential common.Credential, err error) {
 	if a.httpClient == nil {
 		a.httpClient = circuitbreak.NewCircuitClientWithInsecureSSL()
 	}
@@ -95,22 +85,14 @@ func (a Client) GetCredential (accessKey string) (credential common.Credential, 
 		slog.Println(5, "GetCredential send request failed", err)
 		return credential, err
 	}
-	defer response.Body.Close()
+	var resp AccessKeyItem
+	err = helper.ReadJsonBody(response.Body, &resp)
+	if err != nil {
+		return credential, errors.New("failed to read from IAM: " + err.Error())
+	}
 	if response.StatusCode != 200 {
 		slog.Println(5, "GetCredential to IAM failed return code = ", response.StatusCode)
 		return credential, fmt.Errorf("GetCredential to IAM failed retcode = %d", response.StatusCode)
-	}
-
-	body, err := ioutil.ReadAll(response.Body)
-	if err != nil {
-		slog.Println(5, "GetCredential ioutil.ReadAll failed")
-		return credential, fmt.Errorf("GetCredential ioutil.ReadAll failed")
-	}
-
-	var resp AccessKeyItem
-	err = json.Unmarshal(body, &resp)
-	if err != nil {
-		return credential, errors.New("Decode QueryResp failed")
 	}
 	credential.UserId = resp.ProjectId
 	credential.DisplayName = resp.ProjectName
