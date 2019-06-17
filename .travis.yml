@@ -27,6 +27,7 @@ script:
 - make integrate
 - export GO111MODULE=on
 - sudo python test/sanity.py
+- sudo chmod 644 go.mod go.sum
 - pushd test/go
 - go test -v
 - popd
