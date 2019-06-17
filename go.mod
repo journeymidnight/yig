@@ -40,7 +40,7 @@ require (
 	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/mux v1.6.2
 	github.com/journeymidnight/aws-sdk-go v1.17.5
-	github.com/journeymidnight/radoshttpd v0.0.0-20180423094851-048fda5702ec
+	github.com/journeymidnight/radoshttpd v0.0.0-20190617133011-609666b51136 // indirect
 	github.com/minio/highwayhash v1.0.0
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
 	github.com/samuel/go-zookeeper v0.0.0-20180130194729-c4fab1ac1bec // indirect
