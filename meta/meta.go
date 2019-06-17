@@ -28,7 +28,7 @@ func (m *Meta) Stop() {
 func (m *Meta) Sync(event SyncEvent) error {
 	switch event.Type {
 	case SYNC_EVENT_TYPE_BUCKET_USAGE:
-		return m.bucketUsageSync(event.Data.(string))
+		return m.bucketUsageSync(event)
 	default:
 		return errors.New("got unknown sync event.")
 	}
