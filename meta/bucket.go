@@ -53,7 +53,7 @@ func (m *Meta) UpdateUsage(bucketName string, size int64) error {
 		return err
 	}
 
-	AddBucketUsageSyncEvent(bucketName)
+	AddBucketUsageSyncEvent(bucketName, usage)
 	helper.Logger.Println(15, "incr usage for bucket: ", bucketName, ", updated to ", usage)
 	return nil
 }
@@ -159,20 +159,41 @@ func (m *Meta) InitBucketUsageCache() error {
 	return nil
 }
 
-func (m *Meta) bucketUsageSync(bucketName string) error {
-	usage, err := m.Cache.HGetInt64(redis.BucketTable, BUCKET_CACHE_PREFIX, bucketName, FIELD_NAME_USAGE)
+func (m *Meta) bucketUsageSync(event SyncEvent) error {
+	bu := &BucketUsageEvent{}
+	err := helper.MsgPackUnMarshal(event.Data.([]byte), bu)
 	if err != nil {
-		helper.Logger.Println(2, "failed to query bucket usage for ", bucketName, " from cache, err: ", err)
+		helper.Logger.Println(2, "failed to unpack from event data to BucketUsageEvent, err: %v", err)
 		return err
 	}
 
-	err = m.Client.UpdateUsage(bucketName, usage, nil)
+	err = m.Client.UpdateUsage(bu.BucketName, bu.Usage, nil)
 	if err != nil {
-		helper.Logger.Println(2, "failed to update bucket usage ", usage, " to bucket: ", bucketName,
+		helper.Logger.Println(2, "failed to update bucket usage ", bu.Usage, " to bucket: ", bu.BucketName,
 			" err: ", err)
 		return err
 	}
 
-	helper.Logger.Println(15, "succeed to update bucket usage ", usage, " for bucket: ", bucketName)
+	helper.Logger.Println(15, "succeed to update bucket usage ", bu.Usage, " for bucket: ", bu.BucketName)
 	return nil
+}
+
+func AddBucketUsageSyncEvent(bucketName string, usage int64) {
+	bu := &BucketUsageEvent{
+		Usage:      usage,
+		BucketName: bucketName,
+	}
+	data, err := helper.MsgPackMarshal(bu)
+	if err != nil {
+		helper.Logger.Printf(2, "failed to package bucket usage event for bucket %s with usage %d, err: %v",
+			bucketName, usage, err)
+		return
+	}
+	if MetaSyncQueue != nil {
+		event := SyncEvent{
+			Type: SYNC_EVENT_TYPE_BUCKET_USAGE,
+			Data: data,
+		}
+		MetaSyncQueue <- event
+	}
 }

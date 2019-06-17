@@ -16,13 +16,3 @@ type SyncWorker interface {
 }
 
 var MetaSyncQueue chan SyncEvent
-
-func AddBucketUsageSyncEvent(bucketName string) {
-	if MetaSyncQueue != nil {
-		event := SyncEvent{
-			Type: SYNC_EVENT_TYPE_BUCKET_USAGE,
-			Data: bucketName,
-		}
-		MetaSyncQueue <- event
-	}
-}
