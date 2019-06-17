@@ -71,6 +71,9 @@ type Config struct {
 	CacheCircuitOpenThreshold int `toml:"cache_circuit_open_threshold"`
 
 	KMS KMSConfig `toml:"kms"`
+
+	// Message Bus
+	MsgBus MsgBusConfig `toml:"msg_bus"`
 }
 
 type KMSConfig struct {
@@ -80,6 +83,11 @@ type KMSConfig struct {
 	Secret   string `toml:"kms_secret"`
 	Version  int
 	Keyname  string
+}
+
+type MsgBusConfig struct {
+	Type   int                    `toml:"msg_bus_type"`
+	Server map[string]interface{} `toml:"msg_bus_server"`
 }
 
 var CONFIG Config
@@ -162,6 +170,8 @@ func MarshalTOMLConfig() error {
 	CONFIG.CacheCircuitOpenThreshold = Ternary(c.CacheCircuitOpenThreshold < 0, 0, c.CacheCircuitOpenThreshold).(int)
 
 	CONFIG.KMS = c.KMS
+
+	CONFIG.MsgBus = c.MsgBus
 
 	return nil
 }

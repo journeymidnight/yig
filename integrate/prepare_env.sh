@@ -1,6 +1,6 @@
 function prepare_ceph(){
-	sudo docker exec ceph ceph osd pool create tiger 32
-	sudo docker exec ceph ceph osd pool create rabbit 32
+	docker exec ceph ceph osd pool create tiger 32
+	docker exec ceph ceph osd pool create rabbit 32
 }
 
 function prepare_hbase(){
@@ -19,8 +19,8 @@ function prepare_tidb(){
 
 function prepare_vault(){
     echo "start init vault transit..."
-    sudo docker exec vault vault secrets enable transit
-    sudo docker exec vault vault write -f transit/keys/yig
+    docker exec vault vault secrets enable transit
+    docker exec vault vault write -f transit/keys/yig
 }
 
 echo "creating Ceph pool..."
