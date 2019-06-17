@@ -83,7 +83,7 @@ type KMSConfig struct {
 }
 
 type MsgBusConfig struct {
-	Enabled          int                    `toml:"msg_bus_enable"`
+	Enabled          bool                   `toml:"msg_bus_enable"`
 	Type             int                    `toml:"msg_bus_type"`
 	Topic            string                 `toml:"msg_bus_topic"`
 	RequestTimeoutMs int                    `toml:"msg_bus_request_timeout_ms"`

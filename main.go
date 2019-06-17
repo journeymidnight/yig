@@ -69,7 +69,7 @@ func main() {
 
 	// try to create message bus sender if message bus is enabled.
 	// message bus sender is singleton so create it beforehand.
-	if 1 == helper.CONFIG.MsgBus.Enabled {
+	if helper.CONFIG.MsgBus.Enabled {
 		messageBusSender, err := bus.GetMessageSender()
 		if err != nil {
 			helper.Logger.Printf(2, "failed to create message bus sender, err: %v", err)

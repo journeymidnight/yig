@@ -57,7 +57,7 @@ version = 0
 keyname = "yig"
 
 [msg_bus]
-msg_bus_enable = 1
+msg_bus_enable = true
 msg_bus_type = 1
 msg_bus_topic = "testTopic2"
 [msg_bus.msg_bus_server]

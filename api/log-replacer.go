@@ -34,7 +34,7 @@ import (
 type Replacer interface {
 	Replace(string) string
 	Set(key, value string)
-	Get() map[string]string
+	GetReplacedValues() map[string]string
 }
 
 // replacer implements Replacer. customReplacements
@@ -142,7 +142,7 @@ Placeholders: // process each placeholder in sequence
 	return result + unescapeBraces(s)
 }
 
-func (r *replacer) Get() map[string]string {
+func (r *replacer) GetReplacedValues() map[string]string {
 	return r.replacedValues
 }
 

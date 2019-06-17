@@ -53,12 +53,12 @@ func (a AccessLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	helper.AccessLogger.Println(5, response)
 	// send the entrys in access logger to message bus.
-	elems := newReplacer.Get()
+	elems := newReplacer.GetReplacedValues()
 	a.notify(elems)
 }
 
 func (a AccessLogHandler) notify(elems map[string]string) {
-	if 0 == helper.CONFIG.MsgBus.Enabled {
+	if !helper.CONFIG.MsgBus.Enabled {
 		return
 	}
 	if len(elems) == 0 {
