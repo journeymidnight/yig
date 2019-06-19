@@ -110,8 +110,6 @@ services:
       - zookeeper
     ports:
       - 9092:9092
-    volumes:
-      - /Users/zouyu/work/testdata:/var/lib/kafka/data
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
