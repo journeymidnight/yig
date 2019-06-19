@@ -62,29 +62,51 @@ func setGetRespHeaders(w http.ResponseWriter, reqParams url.Values) {
 // this is in keeping with the permissions sections of the docs of both:
 //   HEAD Object: http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectHEAD.html
 //   GET Object: http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGET.html
-func (api ObjectAPIHandlers) errAllowableObjectNotFound(bucketName string,
+func (api ObjectAPIHandlers) errAllowableObjectNotFound(request *http.Request, bucketName string,
 	credential common.Credential) error {
 
+	// As per "Permission" section in
+	// https://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGET.html
+	// If the object you request does not exist,
+	// the error Amazon S3 returns depends on
+	// whether you also have the s3:ListBucket
+	// permission.
+	// * If you have the s3:ListBucket permission
+	//   on the bucket, Amazon S3 will return an
+	//   HTTP status code 404 ("no such key")
+	//   error.
+	// * if you don’t have the s3:ListBucket
+	//   permission, Amazon S3 will return an HTTP
+	//   status code 403 ("access denied") error.`
+
 	bucket, err := api.ObjectAPI.GetBucket(bucketName)
-	if err == ErrNoSuchBucket {
-		return ErrNoSuchKey
-	} else if err != nil {
-		return ErrAccessDenied
+	if err != nil {
+		return err
 	}
-	switch bucket.ACL.CannedAcl {
-	case "public-read", "public-read-write":
+
+	if bucket.Policy.IsAllowed(policy.Args{
+		Action:          policy.ListBucketAction,
+		BucketName:      bucketName,
+		ConditionValues: getConditionValues(request, ""),
+		IsOwner:         false,
+		}) == policy.PolicyAllow {
 		return ErrNoSuchKey
-	case "authenticated-read":
-		if credential.AccessKeyID != "" {
+	} else {
+		switch bucket.ACL.CannedAcl {
+		case "public-read", "public-read-write":
 			return ErrNoSuchKey
-		} else {
+		case "authenticated-read":
+			if credential.AccessKeyID != "" {
+				return ErrNoSuchKey
+			} else {
+				return ErrAccessDenied
+			}
+		default:
+			if bucket.OwnerId == credential.UserId {
+				return ErrNoSuchKey
+			}
 			return ErrAccessDenied
 		}
-	default:
-		if bucket.OwnerId == credential.UserId {
-			return ErrNoSuchKey
-		}
-		return ErrAccessDenied
 	}
 }
 
@@ -108,40 +130,8 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(api, r, policy.GetObjectAction, bucketName, objectName); err != nil {
-		// As per "Permission" section in
-		// https://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGET.html
-		// If the object you request does not exist,
-		// the error Amazon S3 returns depends on
-		// whether you also have the s3:ListBucket
-		// permission.
-		// * If you have the s3:ListBucket permission
-		//   on the bucket, Amazon S3 will return an
-		//   HTTP status code 404 ("no such key")
-		//   error.
-		// * if you don’t have the s3:ListBucket
-		//   permission, Amazon S3 will return an HTTP
-		//   status code 403 ("access denied") error.`
-		if signature.GetRequestAuthType(r) == signature.AuthTypeAnonymous {
-			bucket, err := api.ObjectAPI.GetBucketInfo(bucketName, credential)
-			if err != nil && err != ErrBucketAccessForbidden {
-				WriteErrorResponse(w, r, err)
-				return
-			}
-			if err == ErrBucketAccessForbidden {
-				if bucket.Policy.IsAllowed(policy.Args{
-					Action:          policy.ListBucketAction,
-					BucketName:      bucketName,
-					ConditionValues: getConditionValues(r, ""),
-					IsOwner:         false,
-				}) {
-					WriteErrorResponse(w, r, ErrNoSuchKey)
-					return
-				}
-			} else {
-				WriteErrorResponse(w, r, ErrAccessDenied)
-				return
-			}
-		}
+		WriteErrorResponse(w, r, err)
+		return
 	}
 
 	version := r.URL.Query().Get("versionId")
@@ -150,7 +140,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
 		if err == ErrNoSuchKey {
-			err = api.errAllowableObjectNotFound(bucketName, credential)
+			err = api.errAllowableObjectNotFound(r, bucketName, credential)
 		}
 		WriteErrorResponse(w, r, err)
 		return
@@ -280,40 +270,6 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(api, r, policy.GetObjectAction, bucketName, objectName); err != nil {
-		// As per "Permission" section in
-		// https://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGET.html
-		// If the object you request does not exist,
-		// the error Amazon S3 returns depends on
-		// whether you also have the s3:ListBucket
-		// permission.
-		// * If you have the s3:ListBucket permission
-		//   on the bucket, Amazon S3 will return an
-		//   HTTP status code 404 ("no such key")
-		//   error.
-		// * if you don’t have the s3:ListBucket
-		//   permission, Amazon S3 will return an HTTP
-		//   status code 403 ("access denied") error.`
-		if signature.GetRequestAuthType(r) == signature.AuthTypeAnonymous {
-			bucket, err := api.ObjectAPI.GetBucketInfo(bucketName, credential)
-			if err != nil && err != ErrBucketAccessForbidden {
-				WriteErrorResponse(w, r, err)
-				return
-			}
-			if err == ErrBucketAccessForbidden {
-				if bucket.Policy.IsAllowed(policy.Args{
-					Action:          policy.ListBucketAction,
-					BucketName:      bucketName,
-					ConditionValues: getConditionValues(r, ""),
-					IsOwner:         false,
-				}) {
-					WriteErrorResponse(w, r, ErrNoSuchKey)
-					return
-				}
-			} else {
-				WriteErrorResponse(w, r, ErrAccessDenied)
-				return
-			}
-		}
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -323,7 +279,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
 		if err == ErrNoSuchKey {
-			err = api.errAllowableObjectNotFound(bucketName, credential)
+			err = api.errAllowableObjectNotFound(r, bucketName, credential)
 		}
 		WriteErrorResponse(w, r, err)
 		return
@@ -590,7 +546,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	result, err := api.ObjectAPI.CopyObject(targetObject, pipeReader, credential, sseRequest)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to copy object from "+
-			sourceObjectName+" to "+targetObjectName)
+			sourceObjectName+ " to "+ targetObjectName)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -824,7 +780,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if err == ErrNoSuchKey  {
+	if err == ErrNoSuchKey {
 		if isFirstAppend(position) {
 			acl, err = getAclFromHeader(r.Header)
 			if err != nil {
@@ -874,7 +830,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 		//"X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id",
 		//"X-Amz-Server-Side-Encryption-Customer-Algorithm",
 		//"X-Amz-Server-Side-Encryption-Customer-Key-Md5",
-	}{
+	} {
 		if header := r.Header.Get(headerName); header != "" {
 			w.Header().Set(headerName, header)
 		}
@@ -1294,8 +1250,8 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 	result, err := api.ObjectAPI.CopyObjectPart(targetBucketName, targetObjectName, targetUploadId,
 		targetPartId, readLength, pipeReader, credential, sseRequest)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to copy object part from "+sourceObjectName+
-			" to "+targetObjectName)
+		helper.ErrorIf(err, "Unable to copy object part from " + sourceObjectName+
+			" to "+ targetObjectName)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -1425,7 +1381,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	}
 	completeMultipartBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to complete multipart upload when read request body.",)
+		helper.ErrorIf(err, "Unable to complete multipart upload when read request body.")
 		WriteErrorResponse(w, r, ErrInternalError)
 		return
 	}

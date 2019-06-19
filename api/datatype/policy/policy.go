@@ -42,32 +42,41 @@ type Policy struct {
 	Statements []Statement `json:"Statement"`
 }
 
+type IsPolicyAllowedResult int
+
+const (
+	_ IsPolicyAllowedResult = iota
+	PolicyAllow
+	PolicyDeny
+	NoPolicy
+)
+
 // IsAllowed - checks given policy args is allowed to continue the Rest API.
-func (policy Policy) IsAllowed(args Args) bool {
+func (policy Policy) IsAllowed(args Args) IsPolicyAllowedResult {
 	// Check all deny statements. If any one statement denies, return false.
 	for _, statement := range policy.Statements {
 		if statement.Effect == Deny {
 			if !statement.IsAllowed(args) {
-				return false
+				return PolicyDeny
 			}
 		}
 	}
 
 	// For owner, its allowed by default.
 	if args.IsOwner {
-		return true
+		return PolicyAllow
 	}
 
 	// Check all allow statements. If any one statement allows, return true.
 	for _, statement := range policy.Statements {
 		if statement.Effect == Allow {
 			if statement.IsAllowed(args) {
-				return true
+				return PolicyAllow
 			}
 		}
 	}
 
-	return false
+	return NoPolicy
 }
 
 // IsEmpty - returns whether policy is empty or not.

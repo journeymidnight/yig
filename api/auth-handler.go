@@ -33,15 +33,15 @@ func checkRequestAuth(api ObjectAPIHandlers, r *http.Request, action policy.Acti
 		} else {
 			helper.Logger.Println(5, "Credential:", c)
 			// check bucket policy
-			return IsBucketAllowed(c, api, r, action, bucketName, objectName)
+			return IsBucketPolicyAllowed(c, api, r, action, bucketName, objectName)
 		}
 	case signature.AuthTypeAnonymous:
-		return IsBucketAllowed(c, api, r, action, bucketName, objectName)
+		return IsBucketPolicyAllowed(c, api, r, action, bucketName, objectName)
 	}
 	return c, ErrAccessDenied
 }
 
-func IsBucketAllowed(c common.Credential, api ObjectAPIHandlers, r *http.Request, action policy.Action, bucketName, objectName string) (common.Credential, error) {
+func IsBucketPolicyAllowed(c common.Credential, api ObjectAPIHandlers, r *http.Request, action policy.Action, bucketName, objectName string) (common.Credential, error) {
 	bucket, err := api.ObjectAPI.GetBucket(bucketName)
 	if err != nil {
 		helper.Logger.Println(5, "GetBucket", bucketName, "err:", err)
@@ -52,20 +52,25 @@ func IsBucketAllowed(c common.Credential, api ObjectAPIHandlers, r *http.Request
 	}
 	helper.Logger.Println(5, "bucket.OwnerId:", bucket.OwnerId, "not equals c.UserId:", c.UserId)
 	helper.Debugln("GetBucketPolicy:", bucket.Policy)
-	if bucket.Policy.IsAllowed(policy.Args{
-		AccountName:     "",
+	policyResult := bucket.Policy.IsAllowed(policy.Args{
+		AccountName:     c.UserId,
 		Action:          action,
 		BucketName:      bucketName,
 		ConditionValues: getConditionValues(r, ""),
 		IsOwner:         false,
 		ObjectName:      objectName,
-	}) {
+	})
+	if policyResult == policy.PolicyAllow {
 		c.AllowOtherUserAccess = true
 		helper.Debugln("Allow", c.UserId, "access", bucketName, "with", action, objectName)
 		return c, nil
+	} else if policyResult == policy.PolicyDeny{
+		helper.Debugln("ErrAccessDenied: NotAllow", c.UserId, "access", bucketName, "with", action, objectName)
+		return c, ErrAccessDenied
+	} else {
+		return c, nil
 	}
-	helper.Debugln("ErrAccessDenied: NotAllow", c.UserId, "access", bucketName, "with", action, objectName)
-	return c, ErrAccessDenied
+
 }
 
 func getConditionValues(request *http.Request, locationConstraint string) map[string][]string {
