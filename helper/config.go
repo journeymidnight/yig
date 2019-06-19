@@ -83,13 +83,22 @@ type KMSConfig struct {
 }
 
 type MsgBusConfig struct {
-	Enabled          bool                   `toml:"msg_bus_enable"`
-	Type             int                    `toml:"msg_bus_type"`
-	Topic            string                 `toml:"msg_bus_topic"`
-	RequestTimeoutMs int                    `toml:"msg_bus_request_timeout_ms"`
-	MessageTimeoutMs int                    `toml:"msg_bus_message_timeout_ms"`
-	SendMaxRetries   int                    `toml:"msg_bus_send_max_retries"`
-	Server           map[string]interface{} `toml:"msg_bus_server"`
+	// Controls whether to enable message bus when receive the request.
+	Enabled bool `toml:"msg_bus_enable"`
+	// Controls the under implementation of message bus: 1 for kafka.
+	Type int `toml:"msg_bus_type"`
+	// Controls the message topic used by message bus.
+	Topic string `toml:"msg_bus_topic"`
+	// Controls the request timeout for sending a req through message bus.
+	RequestTimeoutMs int `toml:"msg_bus_request_timeout_ms"`
+	// Controls the total timeout for sending a req through message bus.
+	// It will timeout if min(MessageTimeoutMs, SendMaxRetries * RequestTimeoutMs) meets.
+	MessageTimeoutMs int `toml:"msg_bus_message_timeout_ms"`
+	// Controls the retry time used by message bus if it fails to send a req.
+	SendMaxRetries int `toml:"msg_bus_send_max_retries"`
+	// Controls the settings for the implementation of message bus.
+	// For kafka, the 'broker_list' must be set, like 'broker_list = "kafka:29092"'
+	Server map[string]interface{} `toml:"msg_bus_server"`
 }
 
 var CONFIG Config
