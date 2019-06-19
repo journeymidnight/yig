@@ -83,8 +83,13 @@ type KMSConfig struct {
 }
 
 type MsgBusConfig struct {
-	Type   int                    `toml:"msg_bus_type"`
-	Server map[string]interface{} `toml:"msg_bus_server"`
+	Enabled          bool                   `toml:"msg_bus_enable"`
+	Type             int                    `toml:"msg_bus_type"`
+	Topic            string                 `toml:"msg_bus_topic"`
+	RequestTimeoutMs int                    `toml:"msg_bus_request_timeout_ms"`
+	MessageTimeoutMs int                    `toml:"msg_bus_message_timeout_ms"`
+	SendMaxRetries   int                    `toml:"msg_bus_send_max_retries"`
+	Server           map[string]interface{} `toml:"msg_bus_server"`
 }
 
 var CONFIG Config
@@ -166,6 +171,9 @@ func MarshalTOMLConfig() error {
 	CONFIG.KMS = c.KMS
 
 	CONFIG.MsgBus = c.MsgBus
+	CONFIG.MsgBus.RequestTimeoutMs = Ternary(c.MsgBus.RequestTimeoutMs == 0, 3000, c.MsgBus.RequestTimeoutMs).(int)
+	CONFIG.MsgBus.MessageTimeoutMs = Ternary(c.MsgBus.MessageTimeoutMs == 0, 5000, c.MsgBus.MessageTimeoutMs).(int)
+	CONFIG.MsgBus.SendMaxRetries = Ternary(c.MsgBus.SendMaxRetries == 0, 2, c.MsgBus.SendMaxRetries).(int)
 
 	return nil
 }

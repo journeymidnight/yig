@@ -34,6 +34,7 @@ import (
 type Replacer interface {
 	Replace(string) string
 	Set(key, value string)
+	GetReplacedValues() map[string]string
 }
 
 // replacer implements Replacer. customReplacements
@@ -46,6 +47,7 @@ type replacer struct {
 	emptyValue         string
 	responseRecorder   *ResponseRecorder
 	request            *http.Request
+	replacedValues     map[string]string
 }
 
 // NewReplacer makes a new replacer based on r and rr which
@@ -60,6 +62,7 @@ func NewReplacer(r *http.Request, rr *ResponseRecorder, emptyValue string) Repla
 		request:          r,
 		responseRecorder: rr,
 		emptyValue:       emptyValue,
+		replacedValues:   make(map[string]string),
 	}
 
 	return rep
@@ -126,6 +129,8 @@ Placeholders: // process each placeholder in sequence
 		placeholder := unescapeBraces(s[idxStart : idxEnd+1])
 		replacement := r.getSubstitution(placeholder)
 
+		r.setReplacedValue(placeholder, replacement)
+
 		// append unescaped prefix + replacement
 		result += strings.TrimPrefix(unescapeBraces(s[:idxStart]), "\\") + replacement
 
@@ -135,6 +140,16 @@ Placeholders: // process each placeholder in sequence
 
 	// append unscanned parts
 	return result + unescapeBraces(s)
+}
+
+func (r *replacer) GetReplacedValues() map[string]string {
+	return r.replacedValues
+}
+
+func (r *replacer) setReplacedValue(key, value string) {
+	name := strings.Replace(key, "{", "", -1)
+	name = strings.Replace(name, "}", "", -1)
+	r.replacedValues[name] = value
 }
 
 // getSubstitution retrieves value from corresponding key

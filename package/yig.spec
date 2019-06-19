@@ -15,6 +15,7 @@ BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 #BuildRequires:  
 Requires:       libradosstriper1
 Requires:       librados2
+Requires:       librdkafka1
 
 %description
 

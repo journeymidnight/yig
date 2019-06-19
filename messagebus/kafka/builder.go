@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"github.com/journeymidnight/yig/helper"
 	bus "github.com/journeymidnight/yig/messagebus"
 	"github.com/journeymidnight/yig/messagebus/types"
 )
@@ -11,10 +12,11 @@ import (
 type KafkaBuilder struct {
 }
 
-func (kb *KafkaBuilder) Create(params map[string]interface{}) (bus.MessageSender, error) {
+func (kb *KafkaBuilder) Create(config helper.MsgBusConfig) (bus.MessageSender, error) {
 	brokerList := ""
 	autoOffsetStore := false
 
+	params := config.Server
 	if nil == params || len(params) == 0 {
 		return nil, errors.New("input kafka params is invalid")
 	}
@@ -34,7 +36,9 @@ func (kb *KafkaBuilder) Create(params map[string]interface{}) (bus.MessageSender
 	p, err := kafka.NewProducer(&kafka.ConfigMap{
 		"bootstrap.servers":        brokerList,
 		"enable.auto.offset.store": autoOffsetStore,
-		"message.timeout.ms":       5000,
+		"request.timeout.ms":       config.RequestTimeoutMs,
+		"message.timeout.ms":       config.MessageTimeoutMs,
+		"message.send.max.retries": config.SendMaxRetries,
 	})
 	if err != nil {
 		return nil, err

@@ -1,7 +1,11 @@
 package messagebus
 
+import (
+	"github.com/journeymidnight/yig/helper"
+)
+
 type MessageSenderBuilder interface {
-	Create(params map[string]interface{}) (MessageSender, error)
+	Create(config helper.MsgBusConfig) (MessageSender, error)
 }
 
 var MsgBuilders = make(map[int]MessageSenderBuilder)
