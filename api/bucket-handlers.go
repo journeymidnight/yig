@@ -22,16 +22,14 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
-	"net/url"
 	"strings"
 
-	mux "github.com/gorilla/mux"
+	"github.com/gorilla/mux"
 	. "github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/signature"
-	"strconv"
 )
 
 // GetBucketLocationHandler - GET Bucket location.
@@ -771,150 +769,6 @@ func extractHTTPFormValues(reader *multipart.Reader) (filePartReader io.Reader,
 		err = ErrEmptyEntity
 	}
 	return
-}
-
-// PostPolicyBucketHandler - POST policy upload
-// ----------
-// This implementation of the POST operation handles object creation with a specified
-// signature policy in multipart/form-data
-
-var ValidSuccessActionStatus = []string{"200", "201", "204"}
-
-func (api ObjectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *http.Request) {
-	var err error
-	// Here the parameter is the size of the form data that should
-	// be loaded in memory, the remaining being put in temporary files.
-	reader, err := r.MultipartReader()
-	if err != nil {
-		helper.ErrorIf(err, "Unable to initialize multipart reader.")
-		WriteErrorResponse(w, r, ErrMalformedPOSTRequest)
-		return
-	}
-
-	fileBody, formValues, err := extractHTTPFormValues(reader)
-	if err != nil {
-		helper.ErrorIf(err, "Unable to parse form values.")
-		WriteErrorResponse(w, r, ErrMalformedPOSTRequest)
-		return
-	}
-	objectName := formValues["Key"]
-	if !isValidObjectName(objectName) {
-		WriteErrorResponse(w, r, ErrInvalidObjectName)
-		return
-	}
-
-	bucketName := mux.Vars(r)["bucket"]
-	formValues["Bucket"] = bucketName
-	bucket, err := api.ObjectAPI.GetBucket(bucketName)
-	if err != nil {
-		WriteErrorResponse(w, r, err)
-		return
-	}
-
-	helper.Debugln("formValues", formValues)
-	helper.Debugln("bucket", bucketName)
-
-	var credential common.Credential
-	postPolicyType := signature.GetPostPolicyType(formValues)
-	helper.Debugln("type", postPolicyType)
-	switch postPolicyType {
-	case signature.PostPolicyV2:
-		credential, err = signature.DoesPolicySignatureMatchV2(formValues)
-	case signature.PostPolicyV4:
-		credential, err = signature.DoesPolicySignatureMatchV4(formValues)
-	case signature.PostPolicyAnonymous:
-		if bucket.ACL.CannedAcl != "public-read-write" {
-			WriteErrorResponse(w, r, ErrAccessDenied)
-			return
-		}
-	default:
-		WriteErrorResponse(w, r, ErrMalformedPOSTRequest)
-		return
-	}
-	if err != nil {
-		WriteErrorResponse(w, r, err)
-		return
-	}
-
-	if err = signature.CheckPostPolicy(formValues, postPolicyType); err != nil {
-		WriteErrorResponse(w, r, err)
-		return
-	}
-
-	// Convert form values to header type so those values could be handled as in
-	// normal requests
-	headerfiedFormValues := make(http.Header)
-	for key := range formValues {
-		headerfiedFormValues.Add(key, formValues[key])
-	}
-
-	metadata := extractMetadataFromHeader(headerfiedFormValues)
-
-	var acl Acl
-	acl.CannedAcl = headerfiedFormValues.Get("acl")
-	if acl.CannedAcl == "" {
-		acl.CannedAcl = "private"
-	}
-	err = IsValidCannedAcl(acl)
-	if err != nil {
-		WriteErrorResponse(w, r, ErrInvalidCannedAcl)
-		return
-	}
-
-	sseRequest, err := parseSseHeader(headerfiedFormValues)
-	if err != nil {
-		WriteErrorResponse(w, r, err)
-		return
-	}
-
-	result, err := api.ObjectAPI.PutObject(bucketName, objectName, credential, -1, fileBody,
-		metadata, acl, sseRequest)
-	if err != nil {
-		helper.ErrorIf(err, "Unable to create object "+objectName)
-		WriteErrorResponse(w, r, err)
-		return
-	}
-	if result.Md5 != "" {
-		w.Header().Set("ETag", "\""+result.Md5+"\"")
-	}
-
-	var redirect string
-	redirect, _ = formValues["Success_action_redirect"]
-	if redirect == "" {
-		redirect, _ = formValues["redirect"]
-	}
-	if redirect != "" {
-		redirectUrl, err := url.Parse(redirect)
-		if err == nil {
-			redirectUrl.Query().Set("bucket", bucketName)
-			redirectUrl.Query().Set("key", objectName)
-			redirectUrl.Query().Set("etag", result.Md5)
-			http.Redirect(w, r, redirectUrl.String(), http.StatusSeeOther)
-			return
-		}
-		// If URL is Invalid, ignore the redirect field
-	}
-
-	var status string
-	status, _ = formValues["Success_action_status"]
-	if !helper.StringInSlice(status, ValidSuccessActionStatus) {
-		status = "204"
-	}
-
-	statusCode, _ := strconv.Atoi(status)
-	switch statusCode {
-	case 200, 204:
-		w.WriteHeader(statusCode)
-	case 201:
-		encodedSuccessResponse := EncodeResponse(PostResponse{
-			Location: GetObjectLocation(bucketName, objectName), // TODO Full URL is preferred
-			Bucket:   bucketName,
-			Key:      objectName,
-			ETag:     result.Md5,
-		})
-		w.WriteHeader(201)
-		w.Write(encodedSuccessResponse)
-	}
 }
 
 // HeadBucketHandler - HEAD Bucket
