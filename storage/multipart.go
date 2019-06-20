@@ -83,7 +83,7 @@ func (yig *YigStorage) ListMultipartUploads(credential common.Credential, bucket
 
 func (yig *YigStorage) NewMultipartUpload(credential common.Credential, bucketName, objectName string,
 	metadata map[string]string, acl datatype.Acl,
-	sseRequest datatype.SseRequest) (uploadId string, err error) {
+	sseRequest datatype.SseRequest, storageClass meta.StorageClass) (uploadId string, err error) {
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
@@ -106,14 +106,15 @@ func (yig *YigStorage) NewMultipartUpload(credential common.Credential, bucketNa
 
 	cephCluster, pool := yig.PickOneClusterAndPool(bucketName, objectName, -1, false)
 	multipartMetadata := meta.MultipartMetadata{
-		InitiatorId: credential.UserId,
-		OwnerId:     bucket.OwnerId,
-		ContentType: contentType,
-		Location:    cephCluster.Name,
-		Pool:        pool,
-		Acl:         acl,
-		SseRequest:  sseRequest,
-		Attrs:       metadata,
+		InitiatorId:  credential.UserId,
+		OwnerId:      bucket.OwnerId,
+		ContentType:  contentType,
+		Location:     cephCluster.Name,
+		Pool:         pool,
+		Acl:          acl,
+		SseRequest:   sseRequest,
+		Attrs:        metadata,
+		StorageClass: storageClass,
 	}
 	if sseRequest.Type == crypto.S3.String() {
 		multipartMetadata.EncryptionKey, multipartMetadata.CipherKey, err = yig.encryptionKeyFromSseRequest(sseRequest, bucketName, objectName)
@@ -513,7 +514,7 @@ func (yig *YigStorage) AbortMultipartUpload(credential common.Credential,
 }
 
 func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, bucketName,
-	objectName, uploadId string, uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult,
+objectName, uploadId string, uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult,
 	err error) {
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
@@ -538,13 +539,16 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 
 	md5Writer := md5.New()
 	var totalSize int64 = 0
+	helper.Logger.Println(20, "Upload parts:", uploadedParts, "uploadId:", uploadId)
 	for i := 0; i < len(uploadedParts); i++ {
 		if uploadedParts[i].PartNumber != i+1 {
+			helper.Logger.Println(20, "uploadedParts[i].PartNumber != i+1; i:",i, "uploadId:", uploadId)
 			err = ErrInvalidPart
 			return
 		}
 		part, ok := multipart.Parts[i+1]
 		if !ok {
+			helper.Logger.Println(20, "multipart.Parts[i+1] is not exist; i:",i, "uploadId:", uploadId)
 			err = ErrInvalidPart
 			return
 		}
@@ -557,12 +561,15 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 			return
 		}
 		if part.Etag != uploadedParts[i].ETag {
+			helper.Logger.Println(20, "part.Etag != uploadedParts[i].ETag;",
+				"i:",i, "Etag:", part.Etag, "reqEtag:", uploadedParts[i].ETag, "uploadId:", uploadId)
 			err = ErrInvalidPart
 			return
 		}
 		var etagBytes []byte
 		etagBytes, err = hex.DecodeString(part.Etag)
 		if err != nil {
+			helper.Logger.Println(20, "hex.DecodeString(part.Etag) err;", "uploadId:", uploadId)
 			err = ErrInvalidPart
 			return
 		}
@@ -595,6 +602,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 		EncryptionKey:    multipart.Metadata.CipherKey,
 		CustomAttributes: multipart.Metadata.Attrs,
 		Type:             meta.ObjectTypeMultipart,
+		StorageClass:     multipart.Metadata.StorageClass,
 	}
 
 	var nullVerNum uint64
