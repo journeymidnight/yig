@@ -15,10 +15,10 @@ before_install:
   - docker version
   - wget -qO - https://packages.confluent.io/deb/5.2/archive.key | sudo apt-key add -
   - sudo add-apt-repository "deb [arch=amd64] https://packages.confluent.io/deb/5.2 stable main"
-  - sudo apt-get update && sudo apt-get install librdkafka1 -y
+  - sudo apt-get update
 
 install:
-- sudo apt-get install dnsmasq python -y
+- sudo apt-get install dnsmasq python librdkafka-dev -y
 - sudo pip install botocore
 - sudo sed -i "$ a\address=/.s3.test.com/10.5.0.18" /etc/dnsmasq.conf
 - sudo sed -i "$ a\address=/.s3-internal.test.com/10.5.0.18" /etc/dnsmasq.conf
