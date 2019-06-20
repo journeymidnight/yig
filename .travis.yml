@@ -13,9 +13,12 @@ before_install:
   - sudo -E apt-get -yq --no-install-suggests --no-install-recommends --force-yes install docker-ce
   - sudo apt-get install golang -y
   - docker version
+  - curl -s https://packages.confluent.io/deb/5.2/archive.key | sudo apt-key add -
+  - sudo add-apt-repository "deb [arch=amd64] https://packages.confluent.io/deb/5.2 stable main"
+  - sudo apt-get update
 
 install:
-- sudo apt-get install dnsmasq python -y
+- sudo apt-get install dnsmasq python librdkafka-dev -y
 - sudo pip install botocore
 - sudo sed -i "$ a\address=/.s3.test.com/10.5.0.18" /etc/dnsmasq.conf
 - sudo sed -i "$ a\address=/.s3-internal.test.com/10.5.0.18" /etc/dnsmasq.conf
@@ -34,6 +37,9 @@ script:
 - go test -v
 - popd
 - cat lc.log
+- pushd messagebus/tests
+- go test -check.vv
+- popd
 
 before_deploy:
   - echo "prepare package"

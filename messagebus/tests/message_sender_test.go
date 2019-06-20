@@ -16,13 +16,13 @@ func (mbs *MessageBusTestSuite) TestMessageSenderGet(c *C) {
 	c.Assert(err, Not(Equals), nil)
 	c.Assert(sender, Equals, nil)
 	helper.CONFIG.MsgBus.Type = 0
-	helper.CONFIG.MsgBus.Server[types.KAFKA_CFG_BROKER_LIST] = "kafka:29092"
+	helper.CONFIG.MsgBus.Server[types.KAFKA_CFG_BROKER_LIST] = "localhost:9092"
 	sender, err = bus.GetMessageSender()
 	c.Assert(err, Not(Equals), nil)
 	c.Assert(sender, Equals, nil)
 
 	helper.CONFIG.MsgBus.Type = 1
-	helper.CONFIG.MsgBus.Server[types.KAFKA_CFG_BROKER_LIST] = "kafka:29092"
+	helper.CONFIG.MsgBus.Server[types.KAFKA_CFG_BROKER_LIST] = "localhost:9092"
 	sender, err = bus.GetMessageSender()
 	c.Assert(err, Equals, nil)
 	c.Assert(sender, Not(Equals), nil)
@@ -45,7 +45,7 @@ func (mbs *MessageBusTestSuite) TestMessageSendMsgWithInvalidBroker(c *C) {
 
 func (mbs *MessageBusTestSuite) TestMessageSendMsgSuccess(c *C) {
 	helper.CONFIG.MsgBus.Type = 1
-	helper.CONFIG.MsgBus.Server[types.KAFKA_CFG_BROKER_LIST] = "kafka:29092"
+	helper.CONFIG.MsgBus.Server[types.KAFKA_CFG_BROKER_LIST] = "localhost:9092"
 	sender, err := bus.GetMessageSender()
 	c.Assert(err, Equals, nil)
 	c.Assert(sender, Not(Equals), nil)
@@ -59,7 +59,7 @@ func (mbs *MessageBusTestSuite) TestMessageSendMsgSuccess(c *C) {
 
 func (mbs *MessageBusTestSuite) TestMessageSendMsgConcurrent(c *C) {
 	helper.CONFIG.MsgBus.Type = 1
-	helper.CONFIG.MsgBus.Server[types.KAFKA_CFG_BROKER_LIST] = "kafka:29092"
+	helper.CONFIG.MsgBus.Server[types.KAFKA_CFG_BROKER_LIST] = "localhost:9092"
 	count := 100
 	msgs := make(chan *types.Message, count)
 	sender, err := bus.GetMessageSender()
@@ -84,7 +84,7 @@ func (mbs *MessageBusTestSuite) TestMessageSendMsgConcurrent(c *C) {
 
 func (mbs *MessageBusTestSuite) BenchmarkSendOneMsg(c *C) {
 	helper.CONFIG.MsgBus.Type = 1
-	helper.CONFIG.MsgBus.Server[types.KAFKA_CFG_BROKER_LIST] = "kafka:29092"
+	helper.CONFIG.MsgBus.Server[types.KAFKA_CFG_BROKER_LIST] = "localhost:9092"
 	sender, err := bus.GetMessageSender()
 	c.Assert(err, Equals, nil)
 	c.Assert(sender, Not(Equals), nil)
