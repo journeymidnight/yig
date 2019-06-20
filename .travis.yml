@@ -11,8 +11,11 @@ services:
 before_install:
   - sudo apt-get update 
   - sudo -E apt-get -yq --no-install-suggests --no-install-recommends --force-yes install docker-ce
-  - sudo apt-get install golang -y
+  - sudo apt-get install golang wget -y
   - docker version
+  - wget -qO - https://packages.confluent.io/deb/5.2/archive.key | sudo apt-key add -
+  - sudo add-apt-repository "deb [arch=amd64] https://packages.confluent.io/deb/5.2 stable main"
+  - sudo apt-get update && sudo apt-get install librdkafka1 -y
 
 install:
 - sudo apt-get install dnsmasq python -y
@@ -34,6 +37,9 @@ script:
 - go test -v
 - popd
 - cat lc.log
+- pushd messagebus/tests
+- go test -check.vv
+- popd
 
 before_deploy:
   - echo "prepare package"
