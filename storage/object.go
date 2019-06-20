@@ -442,7 +442,7 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, versio
 // Encryptor is enabled when user set SSE headers
 func (yig *YigStorage) PutObject(bucketName string, objectName string, credential common.Credential,
 	size int64, data io.Reader, metadata map[string]string, acl datatype.Acl,
-	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
+	sseRequest datatype.SseRequest, storageClass meta.StorageClass) (result datatype.PutObjectResult, err error) {
 
 	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, bucketName, objectName)
 	helper.Debugln("get encryptionKey:", encryptionKey, "cipherKey:", cipherKey, "err:", err)
@@ -550,6 +550,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		InitializationVector: initializationVector,
 		CustomAttributes:     metadata,
 		Type:                 meta.ObjectTypeNormal,
+		StorageClass:         storageClass,
 	}
 
 	result.LastModified = object.LastModifiedTime
@@ -592,7 +593,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 //TODO: Append Support Encryption
 func (yig *YigStorage) AppendObject(bucketName string, objectName string, credential common.Credential,
 	offset uint64, size int64, data io.Reader, metadata map[string]string, acl datatype.Acl,
-	sseRequest datatype.SseRequest, objInfo *meta.Object) (result datatype.AppendObjectResult, err error) {
+	sseRequest datatype.SseRequest, storageClass meta.StorageClass, objInfo *meta.Object) (result datatype.AppendObjectResult, err error) {
 
 	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, bucketName, objectName)
 	helper.Logger.Println(10, "get encryptionKey:", encryptionKey, "cipherKey:", cipherKey, "err:", err)
@@ -627,6 +628,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 		oid = objInfo.ObjectId
 		initializationVector = objInfo.InitializationVector
 		objSize = objInfo.Size
+		storageClass = objInfo.StorageClass
 		helper.Logger.Println(20, "request append oid:", oid, "iv:", initializationVector, "size:", objSize)
 	} else {
 		// New appendable object
@@ -698,12 +700,13 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 		InitializationVector: initializationVector,
 		CustomAttributes:     metadata,
 		Type:                 meta.ObjectTypeAppendable,
+		StorageClass:         storageClass,
 	}
 
 	result.LastModified = object.LastModifiedTime
 	result.NextPosition = object.Size
 	helper.Logger.Println(20, "Append info.", "bucket:", bucketName, "objName:", objectName, "oid:", oid,
-		"objSize:", object.Size, "bytesWritten:", bytesWritten)
+		"objSize:", object.Size, "bytesWritten:", bytesWritten, "storageClass:", storageClass)
 	err = yig.MetaStorage.AppendObject(object, isObjectExist(objInfo))
 	if err != nil {
 		return

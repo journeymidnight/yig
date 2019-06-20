@@ -46,13 +46,14 @@ type Object struct {
 	EncryptionKey        []byte
 	InitializationVector []byte
 	// ObjectType include `Normal`, `Appendable`, 'Multipart'
-	Type int
+	Type         int
+	StorageClass StorageClass
 }
 
 type ObjectType string
 
 const (
-	ObjectTypeNormal = iota
+	ObjectTypeNormal     = iota
 	ObjectTypeAppendable
 	ObjectTypeMultipart
 )
@@ -78,6 +79,7 @@ func (o *Object) String() (s string) {
 	s += "Last Modified Time: " + o.LastModifiedTime.Format(CREATE_TIME_LAYOUT) + "\n"
 	s += "Version: " + o.VersionId + "\n"
 	s += "Type: " + o.ObjectTypeToString() + "\n"
+	s += "StorageClass: " + o.StorageClass.ToString() + "\n"
 	for n, part := range o.Parts {
 		s += fmt.Sprintln("Part", n, "Object ID:", part.ObjectId)
 	}
@@ -227,10 +229,10 @@ func (o *Object) GetCreateSql() (string, []interface{}) {
 	customAttributes, _ := json.Marshal(o.CustomAttributes)
 	acl, _ := json.Marshal(o.ACL)
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
-	sql := "insert into objects values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+	sql := "insert into objects values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
 	args := []interface{}{o.BucketName, o.Name, version, o.Location, o.Pool, o.OwnerId, o.Size, o.ObjectId,
 		lastModifiedTime, o.Etag, o.ContentType, customAttributes, acl, o.NullVersion, o.DeleteMarker,
-		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type}
+		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass}
 	return sql, args
 }
 

@@ -58,6 +58,7 @@ const (
 	ErrInvalidPartNumberMarker
 	ErrInvalidRequestBody
 	ErrInvalidCopySource
+	ErrInvalidCopySourceStorageClass
 	ErrInvalidCopyDest
 	ErrInvalidPrecondition
 	ErrInvalidPolicyDocument
@@ -158,6 +159,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidCopySource: {
 		AwsErrorCode:   "InvalidArgument",
 		Description:    "Copy Source must mention the source bucket and key: sourcebucket/sourcekey.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidCopySourceStorageClass: {
+		AwsErrorCode:   "InvalidCopySourceStorageClass",
+		Description:    "Storage class of copy source cannot be GLACIER or DEEP_ARCHIVE.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidPrecondition: {

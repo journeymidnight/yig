@@ -44,6 +44,7 @@ func (t *TidbClient) GetMultipart(bucketName, objectName, uploadId string) (mult
 		&sseRequest,
 		&multipart.Metadata.EncryptionKey,
 		&attrs,
+		&multipart.Metadata.StorageClass,
 	)
 	if err != nil && err == sql.ErrNoRows {
 		err = ErrNoSuchUpload
@@ -104,9 +105,9 @@ func (t *TidbClient) CreateMultipart(multipart Multipart) (err error) {
 	acl, _ := json.Marshal(m.Acl)
 	sseRequest, _ := json.Marshal(m.SseRequest)
 	attrs, _ := json.Marshal(m.Attrs)
-	sqltext := "insert into multiparts(bucketname,objectname,uploadtime,initiatorid,ownerid,contenttype,location,pool,acl,sserequest,encryption,attrs) " +
-		"values(?,?,?,?,?,?,?,?,?,?,?,?)"
-	_, err = t.Client.Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime, m.InitiatorId, m.OwnerId, m.ContentType, m.Location, m.Pool, acl, sseRequest, m.EncryptionKey, attrs)
+	sqltext := "insert into multiparts(bucketname,objectname,uploadtime,initiatorid,ownerid,contenttype,location,pool,acl,sserequest,encryption,attrs,storageclass) " +
+		"values(?,?,?,?,?,?,?,?,?,?,?,?,?)"
+	_, err = t.Client.Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime, m.InitiatorId, m.OwnerId, m.ContentType, m.Location, m.Pool, acl, sseRequest, m.EncryptionKey, attrs, m.StorageClass)
 	return
 }
 
