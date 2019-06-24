@@ -16,13 +16,14 @@ package api
 
 import (
 	"bytes"
-	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/signature"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/signature"
 )
 
 // Replacer is a type which can replace placeholder
@@ -168,35 +169,31 @@ func (r *replacer) getSubstitution(key string) string {
 	case "{remote_addr}":
 		return r.request.RemoteAddr
 	case "{http_x_real_ip}":
-		return r.request.Header.Get("X-Real-Ip")
+		if realIP := r.request.Header.Get("X-Real-Ip"); realIP != "" {
+			return realIP
+		}
+		return "-"
 	case "{request_length}":
 		requestLength := r.request.ContentLength
 		result := strconv.FormatInt(requestLength, 10)
 		return result
 	case "{http_user_agent}":
-		return "\"" + r.request.Header.Get("User-Agent") + "\""
+		if agent := r.request.Header.Get("User-Agent"); agent != "" {
+			return "\"" + agent + "\""
+		}
+		return "\"-\""
 	case "{retain}":
 		return "-"
 	case "{http_referer}":
-		forwarded := r.request.Header.Get("X-Forwarded-For")
-		http_referers := strings.SplitN(forwarded, ",", -1)
-		http_referer := http_referers[0]
-		return http_referer
+		//see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Referer
+		if referer := r.request.Header.Get("Referer"); referer != "" {
+			return "\"" + referer + "\""
+		}
+		return "\"-\""
 	case "{bucket_name}":
-		bucketName := "-"
-		s3Endpoint := helper.CONFIG.S3Domain[0]
-		splits := strings.SplitN(r.request.URL.Path[1:], "/", 2)
-		v := strings.Split(r.request.Host, ":")
-		hostWithOutPort := v[0]
-		if strings.HasSuffix(hostWithOutPort, "."+s3Endpoint) {
-			bucketName = strings.TrimSuffix(hostWithOutPort, "."+s3Endpoint)
-		} else {
-			if len(splits) == 1 {
-				bucketName = splits[0]
-			}
-			if len(splits) == 2 {
-				bucketName = splits[0]
-			}
+		bucketName, _ := GetBucketAndObjectInfoFromRequest(r.request)
+		if bucketName == "" {
+			return "-"
 		}
 		return bucketName
 	case "{project_id}":
@@ -221,30 +218,12 @@ func (r *replacer) getSubstitution(key string) string {
 		result := strconv.FormatInt(temp, 10)
 		return result
 	case "{is_private_subnet}":
-		remoteAddr := r.request.RemoteAddr
-		remoteAddrIP := strings.SplitN(remoteAddr, ":", -1)[0]
-		isPrivateSubnet := isPrivateSubnet(net.ParseIP(remoteAddrIP))
-		result := strconv.FormatBool(isPrivateSubnet)
-		return result
+		return strconv.FormatBool(strings.Contains(r.request.Host, "internal"))
 	case "{region_id}":
-		regionId := helper.CONFIG.Region
-		return regionId
+		return helper.CONFIG.Region
 	default:
-		// {labelN}
-		if strings.HasPrefix(key, "{label") {
-			nStr := key[6 : len(key)-1] // get the integer N in "{labelN}"
-			n, err := strconv.Atoi(nStr)
-			if err != nil || n < 1 {
-				return r.emptyValue
-			}
-			labels := strings.Split(r.request.Host, ".")
-			if n > len(labels) {
-				return r.emptyValue
-			}
-			return labels[n-1]
-		}
+		return "-"
 	}
-
 	return r.emptyValue
 }
 
