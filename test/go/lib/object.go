@@ -6,6 +6,7 @@ import (
 	"github.com/journeymidnight/aws-sdk-go/service/s3"
 	"io/ioutil"
 	"time"
+	"github.com/journeymidnight/yig/meta/types"
 )
 
 func (s3client *S3Client) PutObject(bucketName, key, value string) (err error) {
@@ -120,6 +121,7 @@ func (s3client *S3Client) PutObjectWithStorageClass(bucketName, key, value strin
 	}
 	return
 }
+
 
 func (s3client *S3Client) ChangeObjectStorageClass(bucketName, key string, storageClass string) (err error) {
 	params := &s3.CopyObjectInput{
