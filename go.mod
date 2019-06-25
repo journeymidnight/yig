@@ -35,19 +35,16 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dustin/go-humanize v1.0.0
 	github.com/go-sql-driver/mysql v1.4.1
-	github.com/golang/protobuf v1.3.1 // indirect
 	github.com/gomodule/redigo v1.7.0
-	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/mux v1.6.2
+	github.com/hashicorp/vault/api v1.0.2
 	github.com/journeymidnight/aws-sdk-go v1.17.5
-	github.com/journeymidnight/radoshttpd v0.0.0-20190617133011-609666b51136 // indirect
+	github.com/journeymidnight/radoshttpd v0.0.0-20190617133011-609666b51136
 	github.com/minio/highwayhash v1.0.0
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
 	github.com/samuel/go-zookeeper v0.0.0-20180130194729-c4fab1ac1bec // indirect
 	github.com/ugorji/go v1.1.4
 	github.com/xxtea/xxtea-go v0.0.0-20170828040851-35c4b17eecf6
 	golang.org/x/crypto v0.0.0-20190325154230-a5d413f7728c // indirect
-	golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3 // indirect
-	golang.org/x/text v0.3.1-0.20181227161524-e6919f6577db // indirect
-	google.golang.org/appengine v1.4.0 // indirect
+	golang.org/x/tools v0.0.0-20190624222133-a101b041ded4 // indirect
 )

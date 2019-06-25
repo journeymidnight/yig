@@ -137,6 +137,7 @@ CREATE TABLE `multiparts` (
   `sserequest` JSON DEFAULT NULL,
   `encryption` blob DEFAULT NULL,
   `attrs` JSON DEFAULT NULL,
+  `storageclass` tinyint(1) DEFAULT 0,
   UNIQUE KEY `rowkey` (`bucketname`,`objectname`,`uploadtime`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -191,6 +192,7 @@ CREATE TABLE `objects` (
   `encryptionkey` blob DEFAULT NULL,
   `initializationvector` blob DEFAULT NULL,
   `type` tinyint(1) DEFAULT 0,
+  `storageclass` tinyint(1) DEFAULT 0,
    UNIQUE KEY `rowkey` (`bucketname`,`name`,`version`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;

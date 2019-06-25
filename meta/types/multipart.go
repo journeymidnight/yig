@@ -6,12 +6,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"github.com/journeymidnight/yig/api/datatype"
-	"github.com/xxtea/xxtea-go/xxtea"
 	"math"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/xxtea/xxtea-go/xxtea"
 )
 
 type Part struct {
@@ -52,6 +53,7 @@ type MultipartMetadata struct {
 	EncryptionKey []byte
 	CipherKey     []byte
 	Attrs         map[string]string
+	StorageClass  StorageClass
 }
 
 type Multipart struct {
