@@ -48,8 +48,8 @@ func (sc *S3Client) CleanEnv() {
 
 type AccessPolicyGroup struct {
 	BucketPolicy string
-	BucketACL string
-	ObjectACL string
+	BucketACL    string
+	ObjectACL    string
 }
 
 func (sc *S3Client) TestAnonymousAccessResult(policyGroup AccessPolicyGroup, resultCode int) (err error) {
@@ -70,8 +70,13 @@ func (sc *S3Client) TestAnonymousAccessResult(policyGroup AccessPolicyGroup, res
 
 	status, val, err := HTTPRequestToGetObject(GenTestObjectUrl(sc))
 	if status != resultCode {
-		return  errors.New(fmt.Sprint("Situation:", 1, "HTTPRequestToGetObject err:", err, "status:", status, "val:", val))
+		return errors.New(fmt.Sprint("Situation:", 1, "HTTPRequestToGetObject err:", err, "status:", status, "val:", val))
 	}
 
-	return  nil
+	return nil
+}
+
+// Generate 128KiB part data
+func GenMinimalPart() []byte {
+	return make([]byte, 128<<10)
 }

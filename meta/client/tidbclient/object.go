@@ -45,6 +45,7 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 		&object.EncryptionKey,
 		&object.InitializationVector,
 		&object.Type,
+		&object.StorageClass,
 	)
 	if err == sql.ErrNoRows {
 		err = ErrNoSuchKey

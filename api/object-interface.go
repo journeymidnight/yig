@@ -17,11 +17,12 @@
 package api
 
 import (
+	"io"
+
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/policy"
 	"github.com/journeymidnight/yig/iam/common"
 	meta "github.com/journeymidnight/yig/meta/types"
-	"io"
 )
 
 // ObjectLayer implements primitives for object API layer.
@@ -61,10 +62,10 @@ type ObjectLayer interface {
 		err error)
 	PutObject(bucket, object string, credential common.Credential, size int64, data io.Reader,
 		metadata map[string]string, acl datatype.Acl,
-		sse datatype.SseRequest) (result datatype.PutObjectResult, err error)
+		sse datatype.SseRequest, storageClass meta.StorageClass) (result datatype.PutObjectResult, err error)
 	AppendObject(bucket, object string, credential common.Credential, offset uint64, size int64, data io.Reader,
 		metadata map[string]string, acl datatype.Acl,
-		sse datatype.SseRequest, objInfo *meta.Object) (result datatype.AppendObjectResult, err error)
+		sse datatype.SseRequest, storageClass meta.StorageClass, objInfo *meta.Object) (result datatype.AppendObjectResult, err error)
 
 	CopyObject(targetObject *meta.Object, source io.Reader, credential common.Credential,
 		sse datatype.SseRequest) (result datatype.PutObjectResult, err error)
@@ -81,7 +82,7 @@ type ObjectLayer interface {
 		request datatype.ListUploadsRequest) (result datatype.ListMultipartUploadsResponse, err error)
 	NewMultipartUpload(credential common.Credential, bucket, object string,
 		metadata map[string]string, acl datatype.Acl,
-		sse datatype.SseRequest) (uploadID string, err error)
+		sse datatype.SseRequest, storageClass meta.StorageClass) (uploadID string, err error)
 	PutObjectPart(bucket, object string, credential common.Credential, uploadID string, partID int,
 		size int64, data io.Reader, md5Hex string,
 		sse datatype.SseRequest) (result datatype.PutObjectPartResult, err error)

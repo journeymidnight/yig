@@ -64,6 +64,14 @@ func (s3client *S3Client) GetObject(bucketName, key string) (value string, err e
 	return string(data), err
 }
 
+func (s3client *S3Client) GetObjectOutPut(bucketName, key string) (out *s3.GetObjectOutput, err error) {
+	params := &s3.GetObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(key),
+	}
+	return s3client.Client.GetObject(params)
+}
+
 func (s3client *S3Client) GetObjectPreSigned(bucketName, key string, expire time.Duration) (url string, err error) {
 	params := &s3.GetObjectInput{
 		Bucket: aws.String(bucketName),
@@ -86,11 +94,11 @@ func (s3client *S3Client) DeleteObject(bucketName, key string) (err error) {
 }
 
 func (s3client *S3Client) AppendObject(bucketName, key, value string, position int64) (nextPos int64, err error) {
-	var out  *s3.AppendObjectOutput
+	var out *s3.AppendObjectOutput
 	params := &s3.AppendObjectInput{
-		Bucket: aws.String(bucketName),
-		Key:    aws.String(key),
-		Body:   bytes.NewReader([]byte(value)),
+		Bucket:   aws.String(bucketName),
+		Key:      aws.String(key),
+		Body:     bytes.NewReader([]byte(value)),
 		Position: aws.Int64(position),
 	}
 	if out, err = s3client.Client.AppendObject(params); err != nil {
@@ -98,4 +106,31 @@ func (s3client *S3Client) AppendObject(bucketName, key, value string, position i
 	}
 
 	return *out.NextPosition, nil
+}
+
+func (s3client *S3Client) PutObjectWithStorageClass(bucketName, key, value string, storageClass string) (err error) {
+	params := &s3.PutObjectInput{
+		Bucket:       aws.String(bucketName),
+		Key:          aws.String(key),
+		Body:         bytes.NewReader([]byte(value)),
+		StorageClass: aws.String(storageClass),
+	}
+	if _, err = s3client.Client.PutObject(params); err != nil {
+		return err
+	}
+	return
+}
+
+func (s3client *S3Client) ChangeObjectStorageClass(bucketName, key string, storageClass string) (err error) {
+	params := &s3.CopyObjectInput{
+		Bucket:            aws.String(bucketName),
+		Key:               aws.String(key),
+		CopySource:        aws.String("/" + bucketName + "/" + key),
+		MetadataDirective: aws.String("REPLACE"),
+		StorageClass:      aws.String(storageClass),
+	}
+	if _, err = s3client.Client.CopyObject(params); err != nil {
+		return err
+	}
+	return
 }

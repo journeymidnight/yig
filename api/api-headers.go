@@ -56,6 +56,7 @@ func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *
 	}
 
 	w.Header().Set("X-Amz-Object-Type", object.ObjectTypeToString())
+	w.Header().Set("X-Amz-Storage-Class", object.StorageClass.ToString())
 	w.Header().Set("Content-Length", strconv.FormatInt(object.Size, 10))
 	if object.Type == meta.ObjectTypeAppendable {
 		w.Header().Set("X-Amz-Next-Append-Position", strconv.FormatInt(object.Size, 10))
