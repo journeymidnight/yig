@@ -18,11 +18,6 @@ package main
 
 import (
 	"errors"
-	router "github.com/gorilla/mux"
-	"github.com/journeymidnight/yig/api"
-	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/log"
-	"github.com/journeymidnight/yig/storage"
 	"net"
 	"net/http"
 	"os"
@@ -30,6 +25,12 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	router "github.com/gorilla/mux"
+	"github.com/journeymidnight/yig/api"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/log"
+	"github.com/journeymidnight/yig/storage"
 )
 
 type ServerConfig struct {
@@ -73,10 +74,13 @@ func configureServerHandler(c *ServerConfig) http.Handler {
 		api.SetLogHandler,
 
 		api.NewAccessLogHandler,
+
+		// This handler must be last one.
+		api.SetGenerateContextHandler,
 	}
 
 	// Register rest of the handlers.
-	return api.RegisterHandlers(mux, c.ObjectLayer, handlerFns...)
+	return api.RegisterHandlers(mux, c.ObjectLayer.MetaStorage, handlerFns...)
 }
 
 // configureServer configure a new server instance

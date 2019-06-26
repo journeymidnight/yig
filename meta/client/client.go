@@ -15,12 +15,12 @@ type Client interface {
 	GetObject(bucketName, objectName, version string) (object *Object, err error)
 	GetAllObject(bucketName, objectName, version string) (object []*Object, err error)
 	PutObject(object *Object, tx interface{}) error
-	UpdateAppendObject (object *Object) error
+	UpdateAppendObject(object *Object) error
 	UpdateObjectAttrs(object *Object) error
 	DeleteObject(object *Object, tx interface{}) error
 	UpdateObjectAcl(object *Object) error
 	//bucket
-	GetBucket(bucketName string) (bucket Bucket, err error)
+	GetBucket(bucketName string) (bucket *Bucket, err error)
 	GetBuckets() (buckets []Bucket, err error)
 	PutBucket(bucket Bucket) error
 	CheckAndPutBucket(bucket Bucket) (bool, error)

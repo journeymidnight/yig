@@ -22,13 +22,14 @@ import (
 	"path"
 	"time"
 
+	"net/url"
+	"strconv"
+
 	. "github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
 	meta "github.com/journeymidnight/yig/meta/types"
-	"net/url"
-	"strconv"
 )
 
 const (
@@ -208,7 +209,7 @@ func WriteSuccessResponse(w http.ResponseWriter, response []byte) {
 	}
 	//ResponseRecorder
 	w.(*ResponseRecorder).status = http.StatusOK
-	w.(*ResponseRecorder).size = len(response)
+	w.(*ResponseRecorder).size = int64(len(response))
 
 	w.Header().Set("Content-Length", strconv.Itoa(len(response)))
 	w.WriteHeader(http.StatusOK)
@@ -271,7 +272,7 @@ func WriteErrorResponseNoHeader(w http.ResponseWriter, req *http.Request, err er
 	encodedErrorResponse := EncodeResponse(errorResponse)
 
 	//ResponseRecorder
-	w.(*ResponseRecorder).size = len(encodedErrorResponse)
+	w.(*ResponseRecorder).size = int64(len(encodedErrorResponse))
 
 	w.Write(encodedErrorResponse)
 	w.(http.Flusher).Flush()

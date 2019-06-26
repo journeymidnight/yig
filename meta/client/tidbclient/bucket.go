@@ -3,18 +3,20 @@ package tidbclient
 import (
 	"database/sql"
 	"encoding/json"
+	"strconv"
+	"strings"
+	"time"
+
 	_ "github.com/go-sql-driver/mysql"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
-	"strconv"
-	"strings"
-	"time"
 )
 
-func (t *TidbClient) GetBucket(bucketName string) (bucket Bucket, err error) {
+func (t *TidbClient) GetBucket(bucketName string) (bucket *Bucket, err error) {
 	var acl, cors, lc, policy, createTime string
 	sqltext := "select * from buckets where bucketname=?;"
+	bucket = new(Bucket)
 	err = t.Client.QueryRow(sqltext, bucketName).Scan(
 		&bucket.Name,
 		&acl,

@@ -28,7 +28,6 @@ import (
 	"strconv"
 	"strings"
 
-
 	"github.com/gorilla/mux"
 	. "github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/policy"

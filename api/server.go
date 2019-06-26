@@ -1,15 +1,19 @@
 package api
 
 import (
-	"github.com/journeymidnight/yig/helper"
 	"net/http"
+
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/meta/types"
 )
 
-type ContextKey int
+const RequestContextKey = "RequestContext"
 
-const (
-	RequestId ContextKey = iota
-)
+type RequestContext struct {
+	RequestId  string
+	BucketInfo *types.Bucket
+	ObjectInfo *types.Object
+}
 
 type Server struct {
 	Server *http.Server

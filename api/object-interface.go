@@ -41,8 +41,8 @@ type ObjectLayer interface {
 	DeleteBucketCors(bucket string, credential common.Credential) error
 	GetBucketVersioning(bucket string, credential common.Credential) (datatype.Versioning, error)
 	GetBucketCors(bucket string, credential common.Credential) (datatype.Cors, error)
-	GetBucket(bucketName string) (bucket meta.Bucket, err error) // For INTERNAL USE ONLY
-	GetBucketInfo(bucket string, credential common.Credential) (bucketInfo meta.Bucket, err error)
+	GetBucket(bucketName string) (bucket *meta.Bucket, err error) // For INTERNAL USE ONLY
+	GetBucketInfo(bucket string, credential common.Credential) (bucketInfo *meta.Bucket, err error)
 	ListBuckets(credential common.Credential) (buckets []meta.Bucket, err error)
 	DeleteBucket(bucket string, credential common.Credential) error
 	ListObjects(credential common.Credential, bucket string,

@@ -9,7 +9,7 @@ import (
 
 // Note the usage info got from this method is possibly not accurate because we don't
 // invalid cache when updating usage. For accurate usage info, use `GetUsage()`
-func (m *Meta) GetBucket(bucketName string, willNeed bool) (bucket Bucket, err error) {
+func (m *Meta) GetBucket(bucketName string, willNeed bool) (bucket *Bucket, err error) {
 	getBucket := func() (b interface{}, err error) {
 		b, err = m.Client.GetBucket(bucketName)
 		helper.Logger.Println(10, "GetBucket CacheMiss. bucket:", bucketName)
@@ -18,13 +18,13 @@ func (m *Meta) GetBucket(bucketName string, willNeed bool) (bucket Bucket, err e
 	unmarshaller := func(in []byte) (interface{}, error) {
 		var bucket Bucket
 		err := helper.MsgPackUnMarshal(in, &bucket)
-		return bucket, err
+		return &bucket, err
 	}
 	b, err := m.Cache.Get(redis.BucketTable, bucketName, getBucket, unmarshaller, willNeed)
 	if err != nil {
 		return
 	}
-	bucket, ok := b.(Bucket)
+	bucket, ok := b.(*Bucket)
 	if !ok {
 		helper.Debugln("Cast b failed:", b)
 		err = ErrInternalError
@@ -51,7 +51,7 @@ func (m *Meta) GetUsage(bucketName string) (int64, error) {
 	return bucket.Usage, nil
 }
 
-func (m *Meta) GetBucketInfo(bucketName string) (Bucket, error) {
+func (m *Meta) GetBucketInfo(bucketName string) (*Bucket, error) {
 	m.Cache.Remove(redis.BucketTable, bucketName)
 	bucket, err := m.GetBucket(bucketName, true)
 	if err != nil {

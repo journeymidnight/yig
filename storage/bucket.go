@@ -2,6 +2,7 @@ package storage
 
 import (
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/journeymidnight/yig/api"
@@ -14,7 +15,6 @@ import (
 	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/meta/util"
 	"github.com/journeymidnight/yig/redis"
-	"strings"
 )
 
 func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
@@ -84,7 +84,7 @@ func (yig *YigStorage) SetBucketAcl(bucketName string, policy datatype.AccessCon
 		return ErrBucketAccessForbidden
 	}
 	bucket.ACL = acl
-	err = yig.MetaStorage.Client.PutBucket(bucket)
+	err = yig.MetaStorage.Client.PutBucket(*bucket)
 	if err != nil {
 		return err
 	}
@@ -105,7 +105,7 @@ func (yig *YigStorage) SetBucketLc(bucketName string, lc datatype.Lc,
 		return ErrBucketAccessForbidden
 	}
 	bucket.LC = lc
-	err = yig.MetaStorage.Client.PutBucket(bucket)
+	err = yig.MetaStorage.Client.PutBucket(*bucket)
 	if err != nil {
 		return err
 	}
@@ -113,7 +113,7 @@ func (yig *YigStorage) SetBucketLc(bucketName string, lc datatype.Lc,
 		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
 	}
 
-	err = yig.MetaStorage.PutBucketToLifeCycle(bucket)
+	err = yig.MetaStorage.PutBucketToLifeCycle(*bucket)
 	if err != nil {
 		yig.Logger.Println(5, "Error Put bucket to LC table: ", err)
 		return err
@@ -147,14 +147,14 @@ func (yig *YigStorage) DelBucketLc(bucketName string, credential common.Credenti
 		return ErrBucketAccessForbidden
 	}
 	bucket.LC = datatype.Lc{}
-	err = yig.MetaStorage.Client.PutBucket(bucket)
+	err = yig.MetaStorage.Client.PutBucket(*bucket)
 	if err != nil {
 		return err
 	}
 	if err == nil {
 		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
 	}
-	err = yig.MetaStorage.RemoveBucketFromLifeCycle(bucket)
+	err = yig.MetaStorage.RemoveBucketFromLifeCycle(*bucket)
 	if err != nil {
 		yig.Logger.Println(5, "Error Remove bucket From LC table hbase: ", err)
 		return err
@@ -173,7 +173,7 @@ func (yig *YigStorage) SetBucketCors(bucketName string, cors datatype.Cors,
 		return ErrBucketAccessForbidden
 	}
 	bucket.CORS = cors
-	err = yig.MetaStorage.Client.PutBucket(bucket)
+	err = yig.MetaStorage.Client.PutBucket(*bucket)
 	if err != nil {
 		return err
 	}
@@ -192,7 +192,7 @@ func (yig *YigStorage) DeleteBucketCors(bucketName string, credential common.Cre
 		return ErrBucketAccessForbidden
 	}
 	bucket.CORS = datatype.Cors{}
-	err = yig.MetaStorage.Client.PutBucket(bucket)
+	err = yig.MetaStorage.Client.PutBucket(*bucket)
 	if err != nil {
 		return err
 	}
@@ -231,7 +231,7 @@ func (yig *YigStorage) SetBucketVersioning(bucketName string, versioning datatyp
 		return ErrBucketAccessForbidden
 	}
 	bucket.Versioning = versioning.Status
-	err = yig.MetaStorage.Client.PutBucket(bucket)
+	err = yig.MetaStorage.Client.PutBucket(*bucket)
 	if err != nil {
 		return err
 	}
@@ -275,12 +275,12 @@ func (yig *YigStorage) GetBucketAcl(bucketName string, credential common.Credent
 }
 
 // For INTERNAL USE ONLY
-func (yig *YigStorage) GetBucket(bucketName string) (meta.Bucket, error) {
+func (yig *YigStorage) GetBucket(bucketName string) (*meta.Bucket, error) {
 	return yig.MetaStorage.GetBucket(bucketName, true)
 }
 
 func (yig *YigStorage) GetBucketInfo(bucketName string,
-	credential common.Credential) (bucket meta.Bucket, err error) {
+	credential common.Credential) (bucket *meta.Bucket, err error) {
 
 	bucket, err = yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
@@ -322,7 +322,7 @@ func (yig *YigStorage) SetBucketPolicy(credential common.Credential, bucketName 
 		bucket.Policy = bucketPolicy
 	}
 
-	err = yig.MetaStorage.Client.PutBucket(bucket)
+	err = yig.MetaStorage.Client.PutBucket(*bucket)
 	if err != nil {
 		return err
 	}
@@ -364,7 +364,7 @@ func (yig *YigStorage) DeleteBucketPolicy(credential common.Credential, bucketNa
 		return ErrBucketAccessForbidden
 	}
 	bucket.Policy = policy.Policy{}
-	err = yig.MetaStorage.Client.PutBucket(bucket)
+	err = yig.MetaStorage.Client.PutBucket(*bucket)
 	if err != nil {
 		return err
 	}
@@ -384,7 +384,7 @@ func (yig *YigStorage) ListBuckets(credential common.Credential) (buckets []meta
 		if err != nil {
 			return buckets, err
 		}
-		buckets = append(buckets, bucket)
+		buckets = append(buckets, *bucket)
 	}
 	return
 }
@@ -407,7 +407,7 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential common.Credent
 	if len(objs) != 0 {
 		return ErrBucketNotEmpty
 	}
-	err = yig.MetaStorage.Client.DeleteBucket(bucket)
+	err = yig.MetaStorage.Client.DeleteBucket(*bucket)
 	if err != nil {
 		return err
 	}
@@ -426,7 +426,7 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential common.Credent
 	}
 
 	if bucket.LC.Rule != nil {
-		err = yig.MetaStorage.RemoveBucketFromLifeCycle(bucket)
+		err = yig.MetaStorage.RemoveBucketFromLifeCycle(*bucket)
 		if err != nil {
 			yig.Logger.Println(5, "Error remove bucket from lifeCycle: ", err)
 		}
