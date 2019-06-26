@@ -1,6 +1,6 @@
 package types
 
-import "errors"
+import . "github.com/journeymidnight/yig/error"
 
 type StorageClass uint8
 
@@ -58,6 +58,6 @@ func MatchStorageClassIndex(storageClass string) (StorageClass, error) {
 	if index, ok := StorageClassStringMap[storageClass]; ok {
 		return index, nil
 	} else {
-		return 0, errors.New("Invalid storage class: " + storageClass)
+		return 0, ErrInvalidStorageClass
 	}
 }
