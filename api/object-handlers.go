@@ -28,7 +28,6 @@ import (
 	"strconv"
 	"strings"
 
-
 	"github.com/gorilla/mux"
 	. "github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/policy"
@@ -61,8 +60,8 @@ func setGetRespHeaders(w http.ResponseWriter, reqParams url.Values) {
 
 func getStorageClassFromHeader(r *http.Request) (meta.StorageClass, error) {
 	storageClassStr := r.Header.Get("X-Amz-Storage-Class")
-	helper.Logger.Println(20, "Get storage class header:", storageClassStr)
 	if storageClassStr != "" {
+		helper.Logger.Println(20, "Get storage class header:", storageClassStr)
 		return meta.MatchStorageClassIndex(storageClassStr)
 	} else {
 		// If you don't specify this header, Amazon S3 uses STANDARD
@@ -486,7 +485,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	if isOnlyUpdateMetadata {
 		targetObject := sourceObject
 
-		//update custome attrs from headers
+		//update custom attrs from headers
 		newMetadata := extractMetadataFromHeader(r.Header)
 		if c, ok := newMetadata["Content-Type"]; ok {
 			targetObject.ContentType = c
@@ -566,8 +565,10 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	targetObject.ContentType = sourceObject.ContentType
 	targetObject.CustomAttributes = sourceObject.CustomAttributes
 	targetObject.Parts = sourceObject.Parts
-	if storageClassFromHeader != sourceObject.StorageClass {
+	if r.Header.Get("X-Amz-Storage-Class") != "" {
 		targetObject.StorageClass = storageClassFromHeader
+	} else {
+		targetObject.StorageClass = sourceObject.StorageClass
 	}
 
 	// Create the object.
