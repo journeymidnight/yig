@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/log"
 	bus "github.com/journeymidnight/yig/messagebus"
 	_ "github.com/journeymidnight/yig/messagebus/kafka"
@@ -81,6 +82,9 @@ func main() {
 		}
 		helper.Logger.Printf(20, "succeed to create message bus sender.")
 	}
+
+	// Load iam plug-in
+	iam.InitializeIamClient()
 
 	startAdminServer(adminServerConfig)
 

@@ -18,9 +18,7 @@ debug_mode = true
 reserved_origins = "s3.test.com,s3-internal.test.com"
 
 # IAM Config
-iam_endpoint = "http://10.11.144.11:9006"
-iam_key = "key"
-iam_secret = "secret"
+iam_plugin_path = "/etc/yig/iam.so"
 
 # Meta Config
 meta_cache_type = 2

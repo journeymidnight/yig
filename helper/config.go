@@ -1,9 +1,10 @@
 package helper
 
 import (
-	"github.com/BurntSushi/toml"
 	"io/ioutil"
 	"time"
+
+	"github.com/BurntSushi/toml"
 )
 
 const (
@@ -11,12 +12,9 @@ const (
 )
 
 type Config struct {
-	S3Domain         []string `toml:"s3domain"`     // Domain name of YIG
-	Region           string   `toml:"region"`       // Region name this instance belongs to, e.g cn-bj-1
-	IamEndpoint      string   `toml:"iam_endpoint"` // le IAM endpoint address
-	IamKey           string   `toml:"iam_key"`
-	IamSecret        string   `toml:"iam_secret"`
-	IamVersion       string   `toml:"iam_version"`
+	S3Domain         []string `toml:"s3domain"` // Domain name of YIG
+	Region           string   `toml:"region"`   // Region name this instance belongs to, e.g cn-bj-1
+	IamPluginPath    string   `toml:"iam_plugin_path"`
 	LogPath          string   `toml:"log_path"`
 	AccessLogPath    string   `toml:"access_log_path"`
 	AccessLogFormat  string   `toml:"access_log_format"`
@@ -122,11 +120,7 @@ func MarshalTOMLConfig() error {
 	// setup CONFIG with defaults
 	CONFIG.S3Domain = c.S3Domain
 	CONFIG.Region = c.Region
-	CONFIG.IamEndpoint = c.IamEndpoint
-	CONFIG.IamKey = c.IamKey
-	CONFIG.IamSecret = c.IamSecret
-	CONFIG.IamVersion = Ternary(c.IamVersion == "",
-		"v1", c.IamVersion).(string)
+	CONFIG.IamPluginPath = c.IamPluginPath
 	CONFIG.LogPath = c.LogPath
 	CONFIG.AccessLogPath = c.AccessLogPath
 	CONFIG.AccessLogFormat = c.AccessLogFormat

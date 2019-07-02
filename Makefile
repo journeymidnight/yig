@@ -15,11 +15,13 @@ build_internal:
 	@[ -d $(GOBIN) ] || mkdir -p $(GOBIN)
 	@ln -nsf $(PWD) $(URLPATH)/$(REPO)
 	go build $(URL)/$(REPO)
+	go build -buildmode=plugin -o iam.so $(URLPATH)/$(REPO)/iam_plugin.go
 	go build $(URLPATH)/$(REPO)/tools/admin.go
 	go build $(URLPATH)/$(REPO)/tools/delete.go
 	go build $(URLPATH)/$(REPO)/tools/getrediskeys.go
 	go build $(URLPATH)/$(REPO)/tools/lc.go
 	cp -f yig $(PWD)/build/bin/
+	cp -f iam.so $(PWD)/integrate/yigconf/
 	cp -f admin $(PWD)/build/bin/
 	cp -f delete $(PWD)/build/bin/
 	cp -f getrediskeys $(PWD)/build/bin/

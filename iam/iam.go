@@ -1,12 +1,12 @@
 package iam
 
 import (
-	"github.com/journeymidnight/yig/iam/common"
-	"github.com/journeymidnight/yig/iam/cache"
-	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/iam/client/v1"
-	"github.com/journeymidnight/yig/iam/client/v2"
+	"plugin"
 	"regexp"
+
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/iam/cache"
+	"github.com/journeymidnight/yig/iam/common"
 )
 
 // IsValidSecretKey - validate secret key.
@@ -15,25 +15,30 @@ var IsValidSecretKey = regexp.MustCompile(`^.{8,40}$`)
 // IsValidAccessKey - validate access key.
 var IsValidAccessKey = regexp.MustCompile(`^[a-zA-Z0-9\\-\\.\\_\\~]{5,20}$`)
 
-
-
 type IamClient interface {
-	GetKeysByUid(string) ([]common.Credential , error)
+	GetKeysByUid(string) ([]common.Credential, error)
 	GetCredential(string) (common.Credential, error)
 }
 
 var iamClient IamClient
 
-func initializeIamClient() {
-	switch helper.CONFIG.IamVersion {
-	case "v1":
-		iamClient = v1.Client{}
-	case "v2":
-		iamClient = v2.Client{}
-	default:
-		panic("Unsupport iam version")
+func InitializeIamClient() {
+	plug, err := plugin.Open(helper.CONFIG.IamPluginPath)
+	if err != nil {
+		helper.Logger.Println(20, "Invalid iam plug-in path. err:", err)
+		panic("Invalid iam plug-in path")
 	}
-	return
+	iamPlug, err := plug.Lookup("GetIamClient")
+	if err != nil {
+		helper.Logger.Println(20, "Cannot find exported func 'GetIamClient' from iam plug-in. err:", err)
+		panic("Cannot find exported func 'GetIamClient' from iam plug-in. err:" + err.Error())
+	}
+	c, err := iamPlug.(func() (IamClient, error))()
+	if err != nil {
+		helper.Logger.Println(20, "GetIamClient err:", err)
+		panic("GetIamClient err:" + err.Error())
+	}
+	iamClient = c
 }
 
 func GetCredential(accessKey string) (credential common.Credential, err error) {
@@ -55,7 +60,7 @@ func GetCredential(accessKey string) (credential common.Credential, err error) {
 	}
 
 	if iamClient == nil {
-		initializeIamClient()
+		InitializeIamClient()
 	}
 
 	credential, err = iamClient.GetCredential(accessKey)
@@ -72,7 +77,7 @@ func GetKeysByUid(uid string) (credentials []common.Credential, err error) {
 		return
 	}
 	if iamClient == nil {
-		initializeIamClient()
+		InitializeIamClient()
 	}
 	credentials, err = iamClient.GetKeysByUid(uid)
 	return

@@ -1,18 +1,19 @@
 package v1
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
-	"github.com/journeymidnight/yig/iam/common"
+	"errors"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"strings"
+	"time"
+
 	"github.com/journeymidnight/yig/circuitbreak"
 	"github.com/journeymidnight/yig/helper"
-	"time"
-	"bytes"
-	"errors"
-	"context"
-	"net/http"
-	"io/ioutil"
-	"fmt"
-	"strings"
+	"github.com/journeymidnight/yig/iam/common"
 )
 
 type AccessKeyItem struct {
@@ -49,7 +50,7 @@ type Client struct {
 	httpClient *circuitbreak.CircuitClient
 }
 
-func (a Client) GetKeysByUid (uid string) (credentials []common.Credential, err error) {
+func (a Client) GetKeysByUid(uid string) (credentials []common.Credential, err error) {
 	if a.httpClient == nil {
 		a.httpClient = circuitbreak.NewCircuitClient()
 	}
@@ -115,7 +116,7 @@ func (a Client) GetKeysByUid (uid string) (credentials []common.Credential, err 
 	return
 }
 
-func (a Client) GetCredential (accessKey string) (credential common.Credential, err error) {
+func (a Client) GetCredential(accessKey string) (credential common.Credential, err error) {
 	if a.httpClient == nil {
 		a.httpClient = circuitbreak.NewCircuitClient()
 	}
