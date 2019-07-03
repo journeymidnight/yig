@@ -74,9 +74,12 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 			Queries("acl", "")
 
 		// AppendObject
-		bucket.Methods("POST").Path("/{object:.+}").HandlerFunc(api.AppendObjectHandler).Queries("append","")
+		bucket.Methods("POST").Path("/{object:.+}").HandlerFunc(api.AppendObjectHandler).Queries("append", "")
 		// PutObject
 		bucket.Methods("PUT").Path("/{object:.+}").HandlerFunc(api.PutObjectHandler)
+		// PostObject
+		bucket.Methods("POST").HeadersRegexp("Content-Type", "multipart/form-data*").
+			HandlerFunc(api.PostObjectHandler)
 		// GetObject
 		bucket.Methods("GET").Path("/{object:.+}").HandlerFunc(api.GetObjectHandler)
 		// DeleteObject
@@ -119,9 +122,6 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 
 		// HeadBucket
 		bucket.Methods("HEAD").HandlerFunc(api.HeadBucketHandler)
-		// PostPolicy
-		bucket.Methods("POST").HeadersRegexp("Content-Type", "multipart/form-data*").
-			HandlerFunc(api.PostPolicyBucketHandler)
 		// DeleteMultipleObjects
 		bucket.Methods("POST").HandlerFunc(api.DeleteMultipleObjectsHandler)
 		// DeleteBucket

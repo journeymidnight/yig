@@ -509,6 +509,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	}
 	if bytesWritten < size {
 		RecycleQueue <- maybeObjectToRecycle
+		helper.Logger.Printf(2, "failed to write objects, already written(%d), total size(%d)", bytesWritten, size)
 		return result, ErrIncompleteBody
 	}
 
