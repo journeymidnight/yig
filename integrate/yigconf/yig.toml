@@ -17,11 +17,6 @@ lcdebug = true
 debug_mode = true
 reserved_origins = "s3.test.com,s3-internal.test.com"
 
-# IAM Config
-iam_endpoint = "http://10.11.144.11:9006"
-iam_key = "key"
-iam_secret = "secret"
-
 # Meta Config
 meta_cache_type = 2
 meta_store = "tidb"
@@ -62,3 +57,10 @@ msg_bus_type = 1
 msg_bus_topic = "testTopic2"
 [msg_bus.msg_bus_server]
 broker_list = "kafka:29092"
+
+# Plugin Config
+[plugins]
+    [plugins.iam]
+    path = "/etc/yig/plugins/iam_plugin.so"
+        [plugins.iam.data]
+        url = "s3.iam.com"
