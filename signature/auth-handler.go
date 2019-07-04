@@ -71,6 +71,12 @@ func isRequestPostPolicySignature(r *http.Request) bool {
 	return false
 }
 
+// Verify if the request has AWS Streaming Signature Version '4'. This is only valid for 'PUT' operation.
+func isRequestSignStreamingV4(r *http.Request) bool {
+	return r.Header.Get("X-Amz-Content-Sha256") == streamingContentSHA256 &&
+		r.Method == http.MethodPut
+}
+
 // Authorization type.
 type AuthType int
 
@@ -80,14 +86,17 @@ const (
 	AuthTypeAnonymous
 	AuthTypePresignedV4
 	AuthTypePresignedV2
-	AuthTypePostPolicy // including v2 and v4, handled specially in API endpoint
+	AuthTypePostPolicy
+	AuthTypeStreamingSigned
 	AuthTypeSignedV4
 	AuthTypeSignedV2
 )
 
 // Get request authentication type.
 func GetRequestAuthType(r *http.Request) AuthType {
-	if isSignature, version := isRequestSignature(r); isSignature {
+	if isRequestSignStreamingV4(r) {
+		return AuthTypeStreamingSigned
+	} else if isSignature, version := isRequestSignature(r); isSignature {
 		return version
 	} else if isPresigned, version := isRequestPresigned(r); isPresigned {
 		return version
@@ -137,6 +146,9 @@ func IsReqAuthenticated(r *http.Request) (c common.Credential, e error) {
 		return DoesPresignedSignatureMatchV2(r)
 	case AuthTypeSignedV2:
 		return DoesSignatureMatchV2(r)
+	case AuthTypeStreamingSigned:
+		credential, _, _, _, err := CalculateSeedSignature(r)
+		return credential, err
 	}
 	return c, ErrAccessDenied
 }

@@ -89,6 +89,12 @@ func VerifyUpload(r *http.Request) (credential common.Credential, dataReader io.
 		credential, err = DoesPresignedSignatureMatchV2(r)
 	case AuthTypePresignedV4:
 		credential, err = DoesPresignedSignatureMatchV4(r, true)
+	case AuthTypeStreamingSigned:
+		chunkReader, err := newSignV4ChunkedReader(r)
+		if err != nil {
+			return credential, nil, err
+		}
+		return chunkReader.(*s3ChunkedReader).cred, chunkReader, err
 	}
 	return
 }
