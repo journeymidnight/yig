@@ -1,15 +1,16 @@
 package api
 
 import (
+	"net"
+	"net/http"
+	"regexp"
+	"strings"
+
 	"github.com/journeymidnight/yig/api/datatype/policy"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/signature"
-	"net"
-	"net/http"
-	"regexp"
-	"strings"
 )
 
 // Check request auth type verifies the incoming http request
@@ -17,28 +18,30 @@ import (
 // - validates the policy action if anonymous tests bucket policies if any,
 //   for authenticated requests validates IAM policies.
 // returns APIErrorCode if any to be replied to the client.
-func checkRequestAuth(api ObjectAPIHandlers, r *http.Request, action policy.Action, bucketName, objectName string) (c common.Credential, err error) {
+func checkRequestAuth(api ObjectAPIHandlers, r *http.Request, action policy.Action, bucketName, objectName string) (authType signature.AuthType, c common.Credential, err error) {
 	// TODO:Location constraint
-	authType := signature.GetRequestAuthType(r)
+	authType = signature.GetRequestAuthType(r)
 	switch authType {
 	case signature.AuthTypeUnknown:
 		helper.Logger.Println(5, "ErrAccessDenied: AuthTypeUnknown")
-		return c, ErrAccessDenied
+		return authType, c, ErrAccessDenied
 	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		helper.Logger.Println(5, "AuthTypeSigned:", authType)
 		if c, err := signature.IsReqAuthenticated(r); err != nil {
 			helper.Logger.Println(5, "ErrAccessDenied: IsReqAuthenticated return false:", err)
-			return c, err
+			return authType, c, err
 		} else {
 			helper.Logger.Println(5, "Credential:", c)
 			// check bucket policy
-			return IsBucketPolicyAllowed(c, api, r, action, bucketName, objectName)
+			c, err = IsBucketPolicyAllowed(c, api, r, action, bucketName, objectName)
+			return authType, c, err
 		}
 	case signature.AuthTypeAnonymous:
-		return IsBucketPolicyAllowed(c, api, r, action, bucketName, objectName)
+		c, err = IsBucketPolicyAllowed(c, api, r, action, bucketName, objectName)
+		return authType, c, err
 	}
-	return c, ErrAccessDenied
+	return authType, c, ErrAccessDenied
 }
 
 func IsBucketPolicyAllowed(c common.Credential, api ObjectAPIHandlers, r *http.Request, action policy.Action, bucketName, objectName string) (common.Credential, error) {
@@ -64,7 +67,7 @@ func IsBucketPolicyAllowed(c common.Credential, api ObjectAPIHandlers, r *http.R
 		c.AllowOtherUserAccess = true
 		helper.Debugln("Allow", c.UserId, "access", bucketName, "with", action, objectName)
 		return c, nil
-	} else if policyResult == policy.PolicyDeny{
+	} else if policyResult == policy.PolicyDeny {
 		helper.Debugln("ErrAccessDenied: NotAllow", c.UserId, "access", bucketName, "with", action, objectName)
 		return c, ErrAccessDenied
 	} else {

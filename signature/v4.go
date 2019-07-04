@@ -25,6 +25,8 @@
 package signature
 
 import (
+	"bytes"
+	"crypto/subtle"
 	"encoding/hex"
 	"net/http"
 	"sort"
@@ -49,7 +51,6 @@ func getSignedHeaders(signedHeaders http.Header) string {
 	for k := range signedHeaders {
 		headers = append(headers, strings.ToLower(k))
 	}
-	headers = append(headers, "host")
 	sort.Strings(headers)
 	return strings.Join(headers, ";")
 }
@@ -64,19 +65,44 @@ func getSignedHeaders(signedHeaders http.Header) string {
 //  <SignedHeaders>\n
 //  <HashedPayload>
 //
-func getCanonicalRequest(canonicalHeaderString string, payload, queryStr,
-	urlPath, method string, signedHeaders []string) string {
+func getCanonicalRequest(extractedSignedHeaders http.Header, payload, queryStr,
+	urlPath, method string) string {
 	rawQuery := strings.Replace(queryStr, "+", "%20", -1)
 	encodedPath := getURLEncodedName(urlPath)
 	canonicalRequest := strings.Join([]string{
 		method,
 		encodedPath,
 		rawQuery,
-		canonicalHeaderString,
-		strings.Join(signedHeaders, ";"),
+		getCanonicalHeaders(extractedSignedHeaders),
+		getSignedHeaders(extractedSignedHeaders),
 		payload,
 	}, "\n")
 	return canonicalRequest
+}
+
+// getCanonicalHeaders generate a list of request headers with their values
+func getCanonicalHeaders(signedHeaders http.Header) string {
+	var headers []string
+	vals := make(http.Header)
+	for k, vv := range signedHeaders {
+		headers = append(headers, strings.ToLower(k))
+		vals[strings.ToLower(k)] = vv
+	}
+	sort.Strings(headers)
+
+	var buf bytes.Buffer
+	for _, k := range headers {
+		buf.WriteString(k)
+		buf.WriteByte(':')
+		for idx, v := range vals[k] {
+			if idx > 0 {
+				buf.WriteByte(',')
+			}
+			buf.WriteString(signV4TrimAll(v))
+		}
+		buf.WriteByte('\n')
+	}
+	return buf.String()
 }
 
 // getScope generate a string of a specific date, an AWS region, and a service.
@@ -163,6 +189,11 @@ func DoesPresignedSignatureMatchV4(r *http.Request,
 		return credential, err
 	}
 
+	credential, e := iam.GetCredential(preSignValues.Credential.accessKey)
+	if e != nil {
+		return credential, ErrInvalidAccessKeyID
+	}
+
 	if preSignValues.Expires > PresignedUrlExpireLimit {
 		return credential, ErrMalformedExpires
 	}
@@ -179,7 +210,7 @@ func DoesPresignedSignatureMatchV4(r *http.Request,
 	}
 
 	// Extract all the signed headers along with its values.
-	canonicalHeaderString, err := getCanonicalHeaders(preSignValues.SignedHeaders, r)
+	extractedSignedHeaders, err := extractSignedHeaders(preSignValues.SignedHeaders, r)
 	if err != nil {
 		return
 	}
@@ -189,16 +220,12 @@ func DoesPresignedSignatureMatchV4(r *http.Request,
 	// Get canonical request.
 	query := r.URL.Query()
 	query.Del("X-Amz-Signature")
-	presignedCanonicalReq := getCanonicalRequest(canonicalHeaderString, UnsignedPayload,
-		query.Encode(), r.URL.Path, r.Method, preSignValues.SignedHeaders)
+	presignedCanonicalReq := getCanonicalRequest(extractedSignedHeaders, UnsignedPayload,
+		query.Encode(), r.URL.Path, r.Method)
 
 	// Get string to sign from canonical request.
 	presignedStringToSign := getStringToSign(presignedCanonicalReq, preSignValues.Date, region)
 
-	credential, e := iam.GetCredential(preSignValues.Credential.accessKey)
-	if e != nil {
-		return credential, ErrInvalidAccessKeyID
-	}
 	// Get hmac presigned signing key.
 	presignedSigningKey := getSigningKey(credential.SecretAccessKey, preSignValues.Date, region)
 
@@ -253,7 +280,7 @@ func DoesSignatureMatchV4(hashedPayload string, r *http.Request,
 	}
 
 	// Extract all the signed headers along with its values.
-	canonicalHeaderString, err := getCanonicalHeaders(signV4Values.SignedHeaders, r)
+	extractedSignedHeaders, err := extractSignedHeaders(signV4Values.SignedHeaders, r)
 	if err != nil {
 		return credential, err
 	}
@@ -287,8 +314,8 @@ func DoesSignatureMatchV4(hashedPayload string, r *http.Request,
 	queryStr := r.URL.Query().Encode()
 
 	// Get canonical request.
-	canonicalRequest := getCanonicalRequest(canonicalHeaderString, hashedPayload, queryStr,
-		r.URL.Path, r.Method, signV4Values.SignedHeaders)
+	canonicalRequest := getCanonicalRequest(extractedSignedHeaders, hashedPayload, queryStr,
+		r.URL.Path, r.Method)
 
 	// Get string to sign from canonical request.
 	stringToSign := getStringToSign(canonicalRequest, t, region)
@@ -308,4 +335,13 @@ func DoesSignatureMatchV4(hashedPayload string, r *http.Request,
 		return credential, ErrSignatureDoesNotMatch
 	}
 	return credential, nil
+}
+
+// compareSignatureV4 returns true if and only if both signatures
+// are equal. The signatures are expected to be HEX encoded strings
+// according to the AWS S3 signature V4 spec.
+func compareSignatureV4(sig1, sig2 string) bool {
+	// The CTC using []byte(str) works because the hex encoding
+	// is unique for a sequence of bytes. See also compareSignatureV2.
+	return subtle.ConstantTimeCompare([]byte(sig1), []byte(sig2)) == 1
 }

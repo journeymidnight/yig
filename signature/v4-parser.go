@@ -21,11 +21,12 @@ import (
 	"strings"
 	"time"
 
+	"net/http"
+	"sort"
+
 	. "github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/iam"
-	"net/http"
-	"sort"
 )
 
 // credentialHeader data type represents structured form of Credential
@@ -38,6 +39,16 @@ type credentialHeader struct {
 		service string
 		request string
 	}
+}
+
+// Return scope string.
+func (c credentialHeader) getScope() string {
+	return strings.Join([]string{
+		c.scope.date.Format(YYYYMMDD),
+		c.scope.region,
+		c.scope.service,
+		c.scope.request,
+	}, "/")
 }
 
 func parseCredential(credentialValue string) (credentialHeader, error) {

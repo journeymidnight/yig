@@ -273,3 +273,7 @@ func (s3client *S3Client) newPostFormBody(params map[string]string, fieldName, f
 	}
 	return body, writer.FormDataContentType(), nil
 }
+
+func (s3client *S3Client) ChunkUpload(bucketName, key, value string) {
+
+}

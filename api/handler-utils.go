@@ -60,13 +60,13 @@ func isValidLocationConstraint(reqBody io.Reader) (err error) {
 
 // Supported headers that needs to be extracted.
 var supportedHeaders = []string{
-	"Cache-Control",
-	"Content-Disposition",
-	"Content-Encoding",
-	"Content-Language",
-	"Content-Type",
-	"Expires",
-	"Website-Redirect-Location",
+	"cache-control",
+	"content-disposition",
+	"content-encoding",
+	"content-language",
+	"content-type",
+	"expires",
+	"website-redirect-location",
 	// Add more supported headers here, in "canonical" form
 }
 
@@ -75,13 +75,13 @@ func extractMetadataFromHeader(header http.Header) map[string]string {
 	metadata := make(map[string]string)
 	// Save standard supported headers.
 	for _, supportedHeader := range supportedHeaders {
-		if h := header.Get(supportedHeader); h != "" {
+		if h := header.Get(http.CanonicalHeaderKey(supportedHeader)); h != "" {
 			metadata[supportedHeader] = h
 		}
 	}
 	// Go through all other headers for any additional headers that needs to be saved.
 	for key := range header {
-		if strings.HasPrefix(key, "X-Amz-Meta-") {
+		if strings.HasPrefix(strings.ToLower(key), "x-amz-meta-") {
 			metadata[key] = header.Get(key)
 		}
 	}

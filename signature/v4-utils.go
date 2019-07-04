@@ -20,11 +20,14 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
-	. "github.com/journeymidnight/yig/error"
 	"net/http"
+	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	. "github.com/journeymidnight/yig/error"
 )
 
 // http Header "x-amz-content-sha256" == "UNSIGNED-PAYLOAD" indicates that the
@@ -94,10 +97,16 @@ func getURLEncodedName(name string) string {
 // Lowercase(<HeaderNameN>)+":"+Trim(<value>)+"\n"
 //
 // Return ErrMissingRequiredSignedHeader if a header is missing in http header but exists in signedHeaders
-func getCanonicalHeaders(signedHeaders []string, req *http.Request) (string, error) {
+func getCanonicalHeaders1(signedHeaders []string, req *http.Request) (string, error) {
+	reqQueries := req.URL.Query()
 	canonicalHeaders := ""
 	for _, header := range signedHeaders {
 		values, ok := req.Header[http.CanonicalHeaderKey(header)]
+		if !ok {
+			// try to set headers from Query String
+			values, ok = reqQueries[header]
+		}
+
 		// Golang http server strips off 'Expect' header, if the
 		// client sent this as part of signed headers we need to
 		// handle otherwise we would see a signature mismatch.
@@ -137,4 +146,87 @@ func getCanonicalHeaders(signedHeaders []string, req *http.Request) (string, err
 		canonicalHeaders += "\n"
 	}
 	return canonicalHeaders, nil
+}
+
+// extractSignedHeaders extract signed headers from Authorization header
+func extractSignedHeaders(signedHeaders []string, r *http.Request) (http.Header, error) {
+	reqHeaders := r.Header
+	reqQueries := r.URL.Query()
+	// find whether "host" is part of list of signed headers.
+	// if not return ErrUnsignedHeaders. "host" is mandatory.
+	if !contains(signedHeaders, "host") {
+		return nil, ErrMissingRequiredSignedHeader
+	}
+	extractedSignedHeaders := make(http.Header)
+	for _, header := range signedHeaders {
+		// `host` will not be found in the headers, can be found in r.Host.
+		// but its alway necessary that the list of signed headers containing host in it.
+		val, ok := reqHeaders[http.CanonicalHeaderKey(header)]
+		if !ok {
+			// try to set headers from Query String
+			val, ok = reqQueries[header]
+		}
+		if ok {
+			for _, enc := range val {
+				extractedSignedHeaders.Add(header, enc)
+			}
+			continue
+		}
+		switch header {
+		case "expect":
+			// Golang http server strips off 'Expect' header, if the
+			// client sent this as part of signed headers we need to
+			// handle otherwise we would see a signature mismatch.
+			// `aws-cli` sets this as part of signed headers.
+			//
+			// According to
+			// http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.20
+			// Expect header is always of form:
+			//
+			//   Expect       =  "Expect" ":" 1#expectation
+			//   expectation  =  "100-continue" | expectation-extension
+			//
+			// So it safe to assume that '100-continue' is what would
+			// be sent, for the time being keep this work around.
+			// Adding a *TODO* to remove this later when Golang server
+			// doesn't filter out the 'Expect' header.
+			extractedSignedHeaders.Set(header, "100-continue")
+		case "host":
+			// Go http server removes "host" from Request.Header
+			extractedSignedHeaders.Set(header, r.Host)
+		case "transfer-encoding":
+			// Go http server removes "host" from Request.Header
+			for _, enc := range r.TransferEncoding {
+				extractedSignedHeaders.Add(header, enc)
+			}
+		case "content-length":
+			// Signature-V4 spec excludes Content-Length from signed headers list for signature calculation.
+			// But some clients deviate from this rule. Hence we consider Content-Length for signature
+			// calculation to be compatible with such clients.
+			extractedSignedHeaders.Set(header, strconv.FormatInt(r.ContentLength, 10))
+		default:
+			return nil, ErrMissingRequiredSignedHeader
+		}
+	}
+	return extractedSignedHeaders, nil
+}
+
+func contains(slice interface{}, elem interface{}) bool {
+	v := reflect.ValueOf(slice)
+	if v.Kind() == reflect.Slice {
+		for i := 0; i < v.Len(); i++ {
+			if v.Index(i).Interface() == elem {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// Trim leading and trailing spaces and replace sequential spaces with one space, following Trimall()
+// in http://docs.aws.amazon.com/general/latest/gr/sigv4-create-canonical-request.html
+func signV4TrimAll(input string) string {
+	// Compress adjacent spaces (a space is determined by
+	// unicode.IsSpace() internally here) to one space and return
+	return strings.Join(strings.Fields(input), " ")
 }

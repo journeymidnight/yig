@@ -140,7 +140,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 
 	var credential common.Credential
 	var err error
-	if credential, err = checkRequestAuth(api, r, policy.GetObjectAction, bucketName, objectName); err != nil {
+	if _, credential, err = checkRequestAuth(api, r, policy.GetObjectAction, bucketName, objectName); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -280,7 +280,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 
 	var credential common.Credential
 	var err error
-	if credential, err = checkRequestAuth(api, r, policy.GetObjectAction, bucketName, objectName); err != nil {
+	if _, credential, err = checkRequestAuth(api, r, policy.GetObjectAction, bucketName, objectName); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -373,19 +373,9 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if _, credential, err = checkRequestAuth(api, r, policy.PutObjectAction, targetBucketName, targetObjectName); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	// TODO: Reject requests where body/payload is present, for now we don't even read it.
@@ -624,6 +614,8 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	bucketName := vars["bucket"]
 	objectName := vars["object"]
 
+	var authType = signature.GetRequestAuthType(r)
+	var err error
 	if !isValidObjectName(objectName) {
 		WriteErrorResponse(w, r, ErrInvalidObjectName)
 		return
@@ -631,16 +623,34 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 
 	// if Content-Length is unknown/missing, deny the request
 	size := r.ContentLength
-	if _, ok := r.Header["Content-Length"]; !ok {
-		size = -1
+	if authType == signature.AuthTypeStreamingSigned {
+		if sizeStr, ok := r.Header["X-Amz-Decoded-Content-Length"]; ok {
+			if sizeStr[0] == "" {
+				WriteErrorResponse(w, r, ErrMissingContentLength)
+				return
+			}
+			size, err = strconv.ParseInt(sizeStr[0], 10, 64)
+			if err != nil {
+				WriteErrorResponse(w, r, err)
+				return
+			}
+		}
 	}
-	if size == -1 && !contains(r.TransferEncoding, "chunked") {
+
+	if size == -1 {
 		WriteErrorResponse(w, r, ErrMissingContentLength)
 		return
 	}
+
 	// maximum Upload size for objects in a single operation
 	if isMaxObjectSize(size) {
 		WriteErrorResponse(w, r, ErrEntityTooLarge)
+		return
+	}
+
+	storageClass, err := getStorageClassFromHeader(r)
+	if err != nil {
+		WriteErrorResponse(w, r, err)
 		return
 	}
 
@@ -665,10 +675,30 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		}
 	}
 
+	if authType == signature.AuthTypeStreamingSigned {
+		if contentEncoding, ok := metadata["content-encoding"]; ok {
+			contentEncoding = signature.TrimAwsChunkedContentEncoding(contentEncoding)
+			if contentEncoding != "" {
+				// Make sure to trim and save the content-encoding
+				// parameter for a streaming signature which is set
+				// to a custom value for example: "aws-chunked,gzip".
+				metadata["content-encoding"] = contentEncoding
+			} else {
+				// Trimmed content encoding is empty when the header
+				// value is set to "aws-chunked" only.
+
+				// Make sure to delete the content-encoding parameter
+				// for a streaming signature which is set to value
+				// for example: "aws-chunked"
+				delete(metadata, "content-encoding")
+			}
+		}
+	}
+
 	// Parse SSE related headers
 	// Suport SSE-S3 and SSE-C now
 	var sseRequest SseRequest
-	var err error
+
 	if hasServerSideEncryptionHeader(r.Header) && !hasSuffix(objectName, "/") { // handle SSE requests
 		sseRequest, err = parseSseHeader(r.Header)
 		if err != nil {
@@ -684,12 +714,6 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	credential, dataReader, err := signature.VerifyUpload(r)
-	if err != nil {
-		WriteErrorResponse(w, r, err)
-		return
-	}
-
-	storageClass, err := getStorageClassFromHeader(r)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -734,6 +758,9 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	bucketName := vars["bucket"]
 	objectName := vars["object"]
 
+	var authType = signature.GetRequestAuthType(r)
+	var err error
+
 	if !isValidObjectName(objectName) {
 		WriteErrorResponse(w, r, ErrInvalidObjectName)
 		return
@@ -744,7 +771,6 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	// Suport SSE-S3 and SSE-C now
 	var sseRequest SseRequest
 	var position uint64
-	var err error
 	var acl Acl
 
 	if position, err = checkPosition(pos); err != nil {
@@ -753,17 +779,35 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	}
 
 	// if Content-Length is unknown/missing, deny the request
+	// if Content-Length is unknown/missing, deny the request
 	size := r.ContentLength
-	if _, ok := r.Header["Content-Length"]; !ok {
-		size = -1
+	if authType == signature.AuthTypeStreamingSigned {
+		if sizeStr, ok := r.Header["X-Amz-Decoded-Content-Length"]; ok {
+			if sizeStr[0] == "" {
+				WriteErrorResponse(w, r, ErrMissingContentLength)
+				return
+			}
+			size, err = strconv.ParseInt(sizeStr[0], 10, 64)
+			if err != nil {
+				WriteErrorResponse(w, r, err)
+				return
+			}
+		}
 	}
-	if size == -1 && !contains(r.TransferEncoding, "chunked") {
+	if size == -1 {
 		WriteErrorResponse(w, r, ErrMissingContentLength)
 		return
 	}
+
 	// maximum Upload size for objects in a single operation
 	if isMaxObjectSize(size) {
 		WriteErrorResponse(w, r, ErrEntityTooLarge)
+		return
+	}
+
+	storageClass, err := getStorageClassFromHeader(r)
+	if err != nil {
+		WriteErrorResponse(w, r, err)
 		return
 	}
 
@@ -785,6 +829,26 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 			return
 		} else {
 			metadata["md5Sum"] = hex.EncodeToString(md5Bytes)
+		}
+	}
+
+	if authType == signature.AuthTypeStreamingSigned {
+		if contentEncoding, ok := metadata["content-encoding"]; ok {
+			contentEncoding = signature.TrimAwsChunkedContentEncoding(contentEncoding)
+			if contentEncoding != "" {
+				// Make sure to trim and save the content-encoding
+				// parameter for a streaming signature which is set
+				// to a custom value for example: "aws-chunked,gzip".
+				metadata["content-encoding"] = contentEncoding
+			} else {
+				// Trimmed content encoding is empty when the header
+				// value is set to "aws-chunked" only.
+
+				// Make sure to delete the content-encoding parameter
+				// for a streaming signature which is set to value
+				// for example: "aws-chunked"
+				delete(metadata, "content-encoding")
+			}
 		}
 	}
 
@@ -841,12 +905,6 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 			WriteErrorResponse(w, r, ErrNotImplemented)
 			return
 		}
-	}
-
-	storageClass, err := getStorageClassFromHeader(r)
-	if err != nil {
-		WriteErrorResponse(w, r, err)
-		return
 	}
 
 	var result AppendObjectResult
@@ -1070,6 +1128,8 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 	bucketName := vars["bucket"]
 	objectName := vars["object"]
 
+	authType := signature.GetRequestAuthType(r)
+
 	var incomingMd5 string
 	// get Content-Md5 sent by client and verify if valid
 	md5Bytes, err := checkValidMD5(r.Header.Get("Content-Md5"))
@@ -1079,8 +1139,21 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 		incomingMd5 = hex.EncodeToString(md5Bytes)
 	}
 
-	/// if Content-Length is unknown/missing, throw away
 	size := r.ContentLength
+	if authType == signature.AuthTypeStreamingSigned {
+		if sizeStr, ok := r.Header["X-Amz-Decoded-Content-Length"]; ok {
+			if sizeStr[0] == "" {
+				WriteErrorResponse(w, r, ErrMissingContentLength)
+				return
+			}
+			size, err = strconv.ParseInt(sizeStr[0], 10, 64)
+			if err != nil {
+				WriteErrorResponse(w, r, err)
+				return
+			}
+		}
+	}
+
 	if size == -1 {
 		WriteErrorResponse(w, r, ErrMissingContentLength)
 		return
