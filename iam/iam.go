@@ -49,15 +49,6 @@ func InitializeIamClient() {
 }
 
 func GetCredential(accessKey string) (credential common.Credential, err error) {
-	if helper.CONFIG.DebugMode == true {
-		return common.Credential{
-			UserId:          "hehehehe",
-			DisplayName:     "hehehehe",
-			AccessKeyID:     accessKey,
-			SecretAccessKey: "hehehehe",
-		}, nil // For test now
-	}
-
 	if cache.IamCache == nil {
 		cache.InitializeIamCache()
 	}
