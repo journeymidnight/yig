@@ -215,6 +215,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 	// Indicates if any data was written to the http.ResponseWriter
 	dataWritten := false
+
 	// io.Writer type which keeps track if any data was written.
 	writer := funcToWriter(func(p []byte) (int, error) {
 		if !dataWritten {
@@ -228,10 +229,17 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			if version != "" {
 				w.Header().Set("x-amz-version-id", version)
 			}
-
 			dataWritten = true
 		}
-		return w.Write(p)
+		n, err := w.Write(p)
+		if n > 0 {
+			/*
+				If the whole write or only part of write is successfull,
+				n should be positive, so record this
+			*/
+			w.(*ResponseRecorder).size += int64(n)
+		}
+		return n, err
 	})
 
 	switch object.SseType {
