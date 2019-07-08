@@ -19,7 +19,6 @@ type ResponseRecorder struct {
 	requestTime   time.Duration
 	errorCode     string
 
-	isInternal         bool
 	storageClass       string
 	targetStorageClass string
 	bucketLogging      bool

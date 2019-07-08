@@ -163,5 +163,5 @@ func (api ObjectAPIHandlers) GetBucketPolicyHandler(w http.ResponseWriter, r *ht
 	}
 
 	// Write to client.
-	w.Write(policyData)
+	WriteSuccessResponse(w, policyData)
 }

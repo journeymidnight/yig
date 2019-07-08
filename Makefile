@@ -31,6 +31,9 @@ image:
 
 run: 
 	cd integrate && bash runyig.sh
+stop: 
+	cd integrate && bash stopyig.sh
+
 
 rundelete:
 	cd integrate && sudo bash rundelete.sh

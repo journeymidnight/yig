@@ -172,8 +172,7 @@ func (r *replacer) getSubstitution(key string) string {
 		timeLocal := time.Now().Format("2006-01-02 15:04:05")
 		return "[" + timeLocal + "]"
 	case "{request_uri}":
-		request := r.request.Method + " " + r.request.URL.String() + " " + r.request.Proto
-		return "\"" + request + "\""
+		return r.request.Method + " " + r.request.URL.String() + " " + r.request.Proto
 	case "{request_id}":
 		return r.request.Context().Value(RequestContextKey).(RequestContext).RequestId
 	case "{operation_name}":
@@ -251,7 +250,7 @@ func (r *replacer) getSubstitution(key string) string {
 		if agent := r.request.Header.Get("User-Agent"); agent != "" {
 			return "\"" + agent + "\""
 		}
-		return "\"-\""
+		return `"-"`
 	case "{retain}":
 		return "-"
 	case "{http_referer}":
@@ -259,7 +258,7 @@ func (r *replacer) getSubstitution(key string) string {
 		if referer := r.request.Header.Get("Referer"); referer != "" {
 			return "\"" + referer + "\""
 		}
-		return "\"-\""
+		return `"-"`
 	case "{is_private_subnet}":
 		// Currently, the intranet domain name is formed by adding the "-internal" on the second-level domain name of the public network.
 		return strconv.FormatBool(strings.Contains(r.request.Host, "internal"))
