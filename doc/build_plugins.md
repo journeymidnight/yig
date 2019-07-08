@@ -11,7 +11,7 @@ Please write your plugin code in `${YIG_DIR}/plugins/`
 Note that the package must be `main` !
 
 For example to write plugin of IAM :
-```
+```go
 // package must be `main`
 package main
 

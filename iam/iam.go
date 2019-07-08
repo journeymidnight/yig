@@ -52,13 +52,10 @@ func GetCredential(accessKey string) (credential common.Credential, err error) {
 	if cache.IamCache == nil {
 		cache.InitializeIamCache()
 	}
+
 	credential, hit := cache.IamCache.Get(accessKey)
 	if hit {
 		return credential, nil
-	}
-
-	if iamClient == nil {
-		InitializeIamClient()
 	}
 
 	credential, err = iamClient.GetCredential(accessKey)
@@ -74,9 +71,7 @@ func GetKeysByUid(uid string) (credentials []common.Credential, err error) {
 	if helper.CONFIG.DebugMode == true {
 		return
 	}
-	if iamClient == nil {
-		InitializeIamClient()
-	}
+
 	credentials, err = iamClient.GetKeysByUid(uid)
 	return
 }
