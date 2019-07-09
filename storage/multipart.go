@@ -549,7 +549,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 		}
 		part, ok := multipart.Parts[i+1]
 		if !ok {
-			helper.Logger.Println(20, "multipart.Parts[i+1] is not exist; i:", i, "uploadId:", uploadId)
+			helper.Logger.Println(20, "multipart.Parts[i+1] does not exist; i:", i, "uploadId:", uploadId)
 			err = ErrInvalidPart
 			return
 		}

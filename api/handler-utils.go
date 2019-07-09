@@ -19,13 +19,14 @@ package api
 import (
 	"crypto/md5"
 	"encoding/base64"
+	"io"
+	"net/http"
+	"strings"
+
 	. "github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/crypto"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
-	"io"
-	"net/http"
-	"strings"
 )
 
 // validates location constraint from the request body.

@@ -60,8 +60,10 @@ func setGetRespHeaders(w http.ResponseWriter, reqParams url.Values) {
 
 func getStorageClassFromHeader(r *http.Request) (meta.StorageClass, error) {
 	storageClassStr := r.Header.Get("X-Amz-Storage-Class")
-	helper.Logger.Println(20, "Get storage class header:", storageClassStr)
+
+
 	if storageClassStr != "" {
+		helper.Logger.Println(20, "Get storage class header:", storageClassStr)
 		return meta.MatchStorageClassIndex(storageClassStr)
 	} else {
 		// If you don't specify this header, Amazon S3 uses STANDARD
@@ -493,7 +495,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	if isOnlyUpdateMetadata {
 		targetObject := sourceObject
 
-		//update custome attrs from headers
+		//update custom attrs from headers
 		newMetadata := extractMetadataFromHeader(r.Header)
 		if c, ok := newMetadata["Content-Type"]; ok {
 			targetObject.ContentType = c
@@ -573,8 +575,11 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	targetObject.ContentType = sourceObject.ContentType
 	targetObject.CustomAttributes = sourceObject.CustomAttributes
 	targetObject.Parts = sourceObject.Parts
-	if storageClassFromHeader != sourceObject.StorageClass {
+
+	if r.Header.Get("X-Amz-Storage-Class") != "" {
 		targetObject.StorageClass = storageClassFromHeader
+	} else {
+		targetObject.StorageClass = sourceObject.StorageClass
 	}
 
 	// Create the object.
@@ -1564,7 +1569,8 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 
 var ValidSuccessActionStatus = []string{"200", "201", "204"}
 
-func (api ObjectAPIHandlers) PostPolicyBucketHandler(w http.ResponseWriter, r *http.Request) {
+
+func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Request) {
 	var err error
 	// Here the parameter is the size of the form data that should
 	// be loaded in memory, the remaining being put in temporary files.

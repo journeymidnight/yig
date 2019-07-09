@@ -146,6 +146,7 @@ const (
 	ErrNonUTF8Encode
 	ErrInvalidLc
 	ErrNoSuchBucketLc
+	ErrInvalidStorageClass
 )
 
 // error code to APIError structure, these fields carry respective
@@ -646,6 +647,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "PositionNotEqualToLength",
 		Description:    "The value of position does not match the length of the current Object.",
 		HttpStatusCode: http.StatusConflict,
+	},
+	ErrInvalidStorageClass: {
+		AwsErrorCode:   "InvalidStorageClass",
+		Description:    "The storage class you specified in header is invalid.",
+		HttpStatusCode: http.StatusBadRequest,
 	},
 }
 
