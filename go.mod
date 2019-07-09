@@ -41,16 +41,10 @@ require (
 	github.com/hashicorp/vault/api v1.0.2
 	github.com/journeymidnight/aws-sdk-go v1.17.5
 	github.com/journeymidnight/radoshttpd v0.0.0-20190617133011-609666b51136
-	github.com/minio/highwayhash v1.0.0
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
 	github.com/samuel/go-zookeeper v0.0.0-20180130194729-c4fab1ac1bec // indirect
 	github.com/ugorji/go v1.1.4
 	github.com/xxtea/xxtea-go v0.0.0-20170828040851-35c4b17eecf6
 	golang.org/x/crypto v0.0.0-20190325154230-a5d413f7728c // indirect
-	golang.org/x/tools v0.0.0-20190624222133-a101b041ded4 // indirect
-	golang.org/x/net v0.0.0-20190311183353-d8887717615a // indirect
-	golang.org/x/sync v0.0.0-20190227155943-e225da77a7e6 // indirect
-	golang.org/x/text v0.3.1-0.20180807135948-17ff2d5776d2 // indirect
-	golang.org/x/time v0.0.0-00010101000000-000000000000 // indirect
 	gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405
 )
