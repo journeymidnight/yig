@@ -12,19 +12,19 @@ const (
 )
 
 type Config struct {
-	S3Domain         []string           `toml:"s3domain"` // Domain name of YIG
-	Region           string             `toml:"region"`   // Region name this instance belongs to, e.g cn-bj-1
-	Plugins          map[string]Plugins `toml:"plugins"`
-	LogPath          string             `toml:"log_path"`
-	AccessLogPath    string             `toml:"access_log_path"`
-	AccessLogFormat  string             `toml:"access_log_format"`
-	PanicLogPath     string             `toml:"panic_log_path"`
-	PidFile          string             `toml:"pid_file"`
-	BindApiAddress   string             `toml:"api_listener"`
-	BindAdminAddress string             `toml:"admin_listener"`
-	SSLKeyPath       string             `toml:"ssl_key_path"`
-	SSLCertPath      string             `toml:"ssl_cert_path"`
-	ZookeeperAddress string             `toml:"zk_address"`
+	S3Domain         []string                `toml:"s3domain"` // Domain name of YIG
+	Region           string                  `toml:"region"`   // Region name this instance belongs to, e.g cn-bj-1
+	Plugins          map[string]PluginConfig          `toml:"plugins"`
+	LogPath          string                  `toml:"log_path"`
+	AccessLogPath    string                  `toml:"access_log_path"`
+	AccessLogFormat  string                  `toml:"access_log_format"`
+	PanicLogPath     string                  `toml:"panic_log_path"`
+	PidFile          string                  `toml:"pid_file"`
+	BindApiAddress   string                  `toml:"api_listener"`
+	BindAdminAddress string                  `toml:"admin_listener"`
+	SSLKeyPath       string                  `toml:"ssl_key_path"`
+	SSLCertPath      string                  `toml:"ssl_cert_path"`
+	ZookeeperAddress string                  `toml:"zk_address"`
 
 	InstanceId             string // if empty, generated one at server startup
 	ConcurrentRequestLimit int
@@ -71,9 +71,10 @@ type Config struct {
 	MsgBus MsgBusConfig `toml:"msg_bus"`
 }
 
-type Plugins struct {
-	Path string `toml:"path"`
-	Data map[string]interface{}
+type PluginConfig struct {
+        Path string  `toml:"path"`
+        Enable bool  `toml:"enable"`
+        Args  map[string]interface{} `toml:"args"`
 }
 
 type KMSConfig struct {

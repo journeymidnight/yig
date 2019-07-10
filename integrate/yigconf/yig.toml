@@ -58,9 +58,13 @@ msg_bus_topic = "testTopic2"
 [msg_bus.msg_bus_server]
 broker_list = "kafka:29092"
 
-# Plugin Config
-[plugins]
-    [plugins.iam]
-    path = "/etc/yig/plugins/iam_plugin.so"
-        [plugins.iam.data]
-        url = "s3.iam.com"
+# Plugin Config list
+[plugins.dummy_iam]
+path = "/etc/yig/plugins/dummy_iam_plugin.so"
+enable = true
+[plugins.dummy_iam.args]
+url="s3.test.com"
+
+[plugins.not_exist]
+path = "not_exist_so"
+enable = false

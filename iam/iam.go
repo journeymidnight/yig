@@ -1,12 +1,12 @@
 package iam
 
 import (
-	"plugin"
 	"regexp"
 
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/cache"
 	"github.com/journeymidnight/yig/iam/common"
+	"github.com/journeymidnight/yig/mods"
 )
 
 // IsValidSecretKey - validate secret key.
@@ -22,30 +22,22 @@ type IamClient interface {
 
 var iamClient IamClient
 
-const IamPluginName = "iam"
-
-func InitializeIamClient() {
-	p, ok := helper.CONFIG.Plugins[IamPluginName]
-	if !ok {
-		helper.Logger.Println(20, "No iam plug-in settings in yig config.")
-		panic("No iam plug-in settings in yig config.")
+func InitializeIamClient(plugins map[string]*mods.YigPlugin) {
+	//Search for iam plugins, if we have many iam plugins, always use the first
+	for name, p := range plugins {
+		if p.PluginType == mods.IAM_PLUGIN {
+			c, err := p.Create(helper.CONFIG.Plugins[name].Args)
+			if err != nil {
+				helper.Logger.Fatalf(0, "failed to initial iam plugin %s: err: %v\n", name, err)
+				return
+			}
+			helper.Logger.Printf(5, "Chosen IAM plugin %s..\n", name)
+			iamClient = c.(IamClient)
+			return
+		}
 	}
-	plug, err := plugin.Open(p.Path)
-	if err != nil {
-		helper.Logger.Println(20, "Invalid iam plug-in path. err:", err)
-		panic("Invalid iam plug-in path")
-	}
-	iamPlug, err := plug.Lookup("GetIamClient")
-	if err != nil {
-		helper.Logger.Println(20, "Cannot find exported func 'GetIamClient' from iam plug-in. err:", err)
-		panic("Cannot find exported func 'GetIamClient' from iam plug-in. err:" + err.Error())
-	}
-	c, err := iamPlug.(func() (IamClient, error))()
-	if err != nil {
-		helper.Logger.Println(20, "GetIamClient err:", err)
-		panic("GetIamClient err:" + err.Error())
-	}
-	iamClient = c
+	helper.Logger.Fatalf(0, "failed to initial any iam plugin, quiting...\n")
+	return
 }
 
 func GetCredential(accessKey string) (credential common.Credential, err error) {
@@ -68,10 +60,6 @@ func GetCredential(accessKey string) (credential common.Credential, err error) {
 }
 
 func GetKeysByUid(uid string) (credentials []common.Credential, err error) {
-	if helper.CONFIG.DebugMode == true {
-		return
-	}
-
 	credentials, err = iamClient.GetKeysByUid(uid)
 	return
 }

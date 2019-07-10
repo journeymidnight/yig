@@ -2,9 +2,32 @@ package main
 
 import (
 	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/iam/common"
+	"github.com/journeymidnight/yig/mods"
 )
+
+
+const pluginName = "dummy_iam"
+
+//The variable MUST be named as Exported.
+//the code in yig-plugin will lookup this symbol
+var Exported = mods.YigPlugin{
+	Name:       pluginName,
+	PluginType: mods.IAM_PLUGIN,
+	Create:  GetIamClient,
+}
+
+
+func GetIamClient(config map[string]interface{}) (interface{}, error) {
+
+	helper.Logger.Printf(10, "Get plugin config: %v\n", config)
+
+	c := DebugIamClient{
+		IamUrl: config["url"].(string),
+	}
+
+	return interface{}(c), nil
+}
 
 type DebugIamClient struct {
 	IamUrl string
@@ -23,12 +46,3 @@ func (d DebugIamClient) GetCredential(accessKey string) (c common.Credential, er
 	}, nil // For test now
 }
 
-func GetIamClient() (c iam.IamClient, err error) {
-	// Get config data
-	data := helper.CONFIG.Plugins[iam.IamPluginName].Data
-	helper.Logger.Println(20, "Get plugin data:", data)
-	c = DebugIamClient{
-		IamUrl: data["url"].(string),
-	}
-	return
-}
