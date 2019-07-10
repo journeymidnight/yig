@@ -64,3 +64,7 @@ broker_list = "kafka:29092"
     path = "/etc/yig/plugins/iam_plugin.so"
         [plugins.iam.data]
         url = "s3.iam.com"
+        iamPath = "IamBlackUser/access"
+        AccessKey = "ItvWwUyji3H6tRyv"
+        SercetAccessKey = "YA77gaiu2wItZqnwtBAcKQl12JARSe"
+        iamParam = ["test1=a*b","test2=a b"]
