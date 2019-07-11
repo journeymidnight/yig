@@ -32,20 +32,20 @@ func matchOrigin(urlStr string, allowedOrigin string) bool {
 	if err != nil {
 		return false
 	}
-	url, err := url.Parse(urlStr)
+	u, err := url.Parse(urlStr)
 	if err != nil {
 		return false
 	}
-	if allowedUrl.Scheme == url.Scheme ||
-		(allowedUrl.Scheme == "" && url.Scheme == "http") {
+	if allowedUrl.Scheme == u.Scheme ||
+		(allowedUrl.Scheme == "" && u.Scheme == "http") {
 		split := strings.Split(allowedUrl.Host, "*")
 		if len(split) == 1 { // no "*" in allowed origin
-			if url.Host == allowedUrl.Host {
+			if u.Host == allowedUrl.Host {
 				return true
 			}
 		} else if len(split) == 2 { // one "*" in allowed origin
-			if strings.HasPrefix(url.Host, split[0]) &&
-				strings.HasSuffix(url.Host, split[1]) {
+			if strings.HasPrefix(u.Host, split[0]) &&
+				strings.HasSuffix(u.Host, split[1]) {
 				return true
 			}
 		}
@@ -53,24 +53,9 @@ func matchOrigin(urlStr string, allowedOrigin string) bool {
 	return false
 }
 
-func (rule CorsRule) MatchSimple(r *http.Request) (matched bool) {
-	if !helper.StringInSlice(r.Method, rule.AllowedMethods) {
-		return false
-	}
-	for _, origin := range rule.AllowedOrigins {
-		if matchOrigin(r.Header.Get("Origin"), origin) {
-			return true
-		}
-	}
-	return false
-}
-
-func (rule CorsRule) MatchPreflight(r *http.Request) (matched bool) {
-	if !helper.StringInSlice(r.Header.Get("Access-Control-Request-Method"), rule.AllowedMethods) {
-		return false
-	}
-	for _, origin := range rule.AllowedOrigins {
-		if matchOrigin(r.Header.Get("Origin"), origin) {
+func (rule CorsRule) OriginMatched(origin string) bool {
+	for _, o := range rule.AllowedOrigins {
+		if matchOrigin(origin, o) {
 			return true
 		}
 	}

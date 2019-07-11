@@ -63,62 +63,36 @@ type corsHandler struct {
 func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Vary", "Origin")
 	origin := r.Header.Get("Origin")
-	if r.Method != "OPTIONS" {
-		if origin == "" {
-			h.handler.ServeHTTP(w, r)
-			return
-		}
-		if origin != "" && InReservedOrigins(origin) {
-			w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
-			w.Header().Set("Access-Control-Allow-Headers", r.Header.Get("Access-Control-Request-Headers"))
-			w.Header().Set("Access-Control-Allow-Methods", r.Header.Get("Access-Control-Request-Method"))
-			w.Header().Set("Access-Control-Expose-Headers", "*")
-			h.handler.ServeHTTP(w, r)
-			return
-		}
-	} else {
-		// an OPTIONS request without "Origin" and "Access-Control-Request-Method" set properly
-		if r.Header.Get("Origin") == "" || r.Header.Get("Access-Control-Request-Method") == "" {
-			WriteErrorResponse(w, r, ErrInvalidHeader)
-			return
-		}
-	}
-
-	if r.Method == "OPTIONS" && InReservedOrigins(origin) {
-		w.Header().Set("Access-Control-Allow-Origin", r.Header.Get("Origin"))
-		w.Header().Set("Access-Control-Allow-Headers", r.Header.Get("Access-Control-Request-Headers"))
-		w.Header().Set("Access-Control-Allow-Methods", r.Header.Get("Access-Control-Request-Method"))
-		w.Header().Set("Access-Control-Expose-Headers", "*")
-		WriteSuccessResponse(w, nil)
-		return
-	}
 
 	ctx := r.Context().Value(RequestContextKey).(RequestContext)
 	bucket := ctx.BucketInfo
 
-	if r.Method != "OPTIONS" {
+	if bucket != nil {
 		for _, rule := range bucket.CORS.CorsRules {
-			if matched := rule.MatchSimple(r); matched {
-				rule.SetResponseHeaders(w, r, r.Header.Get("Origin"))
+			if rule.OriginMatched(origin) {
+				rule.SetResponseHeaders(w, r, origin)
 				break
 			}
 		}
-		h.handler.ServeHTTP(w, r)
+	}
+
+	if r.Method == "OPTIONS" {
+		if origin == "" || r.Header.Get("Access-Control-Request-Method") == "" {
+			WriteErrorResponse(w, r, ErrInvalidHeader)
+			return
+		}
+		if InReservedOrigins(origin) {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Access-Control-Allow-Headers", r.Header.Get("Access-Control-Request-Headers"))
+			w.Header().Set("Access-Control-Allow-Methods", r.Header.Get("Access-Control-Request-Method"))
+			w.Header().Set("Access-Control-Expose-Headers", strings.Join(CommonS3ResposeHeaders, ","))
+		}
+		WriteSuccessResponse(w, nil)
 		return
 	}
 
-	// r.Method == "OPTIONS", i.e CORS preflight
-	w.Header().Add("Vary", "Access-Control-Request-Method")
-	w.Header().Add("Vary", "Access-Control-Request-Headers")
-	for _, rule := range bucket.CORS.CorsRules {
-		if matched := rule.MatchPreflight(r); matched {
-			rule.SetResponseHeaders(w, r, r.Header.Get("Origin"))
-			WriteSuccessResponse(w, nil)
-			return
-		}
-	}
-
-	WriteErrorResponse(w, r, ErrAccessDenied)
+	h.handler.ServeHTTP(w, r)
+	return
 }
 
 // setCorsHandler handler for CORS (Cross Origin Resource Sharing)
