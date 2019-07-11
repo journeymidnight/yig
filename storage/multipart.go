@@ -411,7 +411,7 @@ func (yig *YigStorage) ListObjectParts(credential common.Credential, bucketName,
 			return
 		}
 	case "bucket-owner-read", "bucket-owner-full-controll":
-		var bucket meta.Bucket
+		var bucket *meta.Bucket
 		bucket, err = yig.MetaStorage.GetBucket(bucketName, true)
 		if err != nil {
 			return

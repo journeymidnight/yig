@@ -21,11 +21,12 @@ import (
 	"encoding/base64"
 	"encoding/xml"
 	"errors"
-	"github.com/journeymidnight/yig/crypto"
 	"io"
 	"net/http"
 	"regexp"
 	"strings"
+
+	"github.com/journeymidnight/yig/crypto"
 )
 
 // xmlDecoder provide decoded value in xml.
@@ -74,8 +75,8 @@ func contains(stringList []string, element string) bool {
 }
 
 func requestIdFromContext(ctx context.Context) string {
-	if result, ok := ctx.Value(RequestId).(string);ok{
-		return result
+	if result, ok := ctx.Value(RequestContextKey).(RequestContext); ok {
+		return result.RequestId
 	}
 	return ""
 }

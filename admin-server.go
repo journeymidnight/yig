@@ -2,21 +2,22 @@ package main
 
 import (
 	"encoding/json"
+	"net"
+	"net/http"
+	"net/http/pprof"
+	"time"
+
 	"github.com/dgrijalva/jwt-go"
 	router "github.com/gorilla/mux"
 	"github.com/journeymidnight/yig/api"
 	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/iam"
+	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/log"
 	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/storage"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"net"
-	"net/http"
-	"net/http/pprof"
-	"time"
 )
 
 type adminServerConfig struct {
@@ -75,7 +76,7 @@ func getBucketInfo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	b, err := json.Marshal(bucketJson{Bucket: bucket})
+	b, err := json.Marshal(bucketJson{Bucket: *bucket})
 	w.Write(b)
 	return
 }
@@ -141,7 +142,6 @@ func RegisterHandlers(router *router.Router, handlerFns ...handlerFunc) http.Han
 	}
 	return f
 }
-
 
 func configureAdminHandler() http.Handler {
 	mux := router.NewRouter()

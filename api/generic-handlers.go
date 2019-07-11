@@ -17,23 +17,26 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"strings"
 
 	"github.com/gorilla/mux"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/meta"
+	"github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/signature"
 )
 
 // HandlerFunc - useful to chain different middleware http.Handler
-type HandlerFunc func(http.Handler, ObjectLayer) http.Handler
+type HandlerFunc func(http.Handler, *meta.Meta) http.Handler
 
-func RegisterHandlers(router *mux.Router, objectLayer ObjectLayer, handlerFns ...HandlerFunc) http.Handler {
+func RegisterHandlers(router *mux.Router, metadata *meta.Meta, handlerFns ...HandlerFunc) http.Handler {
 	var f http.Handler
 	f = router
 	for _, hFn := range handlerFns {
-		f = hFn(f, objectLayer)
+		f = hFn(f, metadata)
 	}
 	return f
 }
@@ -49,13 +52,12 @@ func (h commonHeaderHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.handler.ServeHTTP(w, r)
 }
 
-func SetCommonHeaderHandler(h http.Handler, _ ObjectLayer) http.Handler {
+func SetCommonHeaderHandler(h http.Handler, _ *meta.Meta) http.Handler {
 	return commonHeaderHandler{h}
 }
 
 type corsHandler struct {
-	handler     http.Handler
-	objectLayer ObjectLayer
+	handler http.Handler
 }
 
 func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -91,12 +93,8 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bucketName, _ := GetBucketAndObjectInfoFromRequest(r)
-	bucket, err := h.objectLayer.GetBucket(bucketName)
-	if err != nil {
-		WriteErrorResponse(w, r, err)
-		return
-	}
+	ctx := r.Context().Value(RequestContextKey).(RequestContext)
+	bucket := ctx.BucketInfo
 
 	if r.Method != "OPTIONS" {
 		for _, rule := range bucket.CORS.CorsRules {
@@ -124,11 +122,8 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // setCorsHandler handler for CORS (Cross Origin Resource Sharing)
-func SetCorsHandler(h http.Handler, o ObjectLayer) http.Handler {
-	return corsHandler{
-		handler:     h,
-		objectLayer: o,
-	}
+func SetCorsHandler(h http.Handler, _ *meta.Meta) http.Handler {
+	return corsHandler{h}
 }
 
 type resourceHandler struct {
@@ -168,7 +163,7 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // Ignore resources handler is wrapper handler used for API request resource validation
 // Since we do not support all the S3 queries, it is necessary for us to throw back a
 // valid error message indicating that requested feature is not implemented.
-func SetIgnoreResourcesHandler(h http.Handler, _ ObjectLayer) http.Handler {
+func SetIgnoreResourcesHandler(h http.Handler, _ *meta.Meta) http.Handler {
 	return resourceHandler{h}
 }
 
@@ -193,8 +188,49 @@ func (a AuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // setAuthHandler to validate authorization header for the incoming request.
-func SetAuthHandler(h http.Handler, _ ObjectLayer) http.Handler {
+func SetAuthHandler(h http.Handler, _ *meta.Meta) http.Handler {
 	return AuthHandler{h}
+}
+
+// authHandler - handles all the incoming authorization headers and
+// validates them if possible.
+type GenerateContextHandler struct {
+	handler http.Handler
+	meta    *meta.Meta
+}
+
+// handler for validating incoming authorization headers.
+func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var bucketInfo *types.Bucket
+	var objectInfo *types.Object
+	var err error
+	requestId := string(helper.GenerateRandomId())
+	bucketName, objectName := GetBucketAndObjectInfoFromRequest(r)
+	helper.Logger.Println(20, "GenerateContextHandler. RequestId:", requestId, "BucketName:", bucketName, "ObjectName:", objectName)
+
+	if bucketName != "" {
+		bucketInfo, err = h.meta.GetBucket(bucketName, true)
+		if err != nil && err != ErrNoSuchBucket {
+			WriteErrorResponse(w, r, err)
+			return
+		}
+		if bucketInfo != nil && objectName != "" {
+			objectInfo, err = h.meta.GetObject(bucketInfo.Name, objectName, true)
+			if err != nil && err != ErrNoSuchKey {
+				WriteErrorResponse(w, r, err)
+				return
+			}
+		}
+	}
+
+	ctx := context.WithValue(r.Context(), RequestContextKey, RequestContext{requestId, bucketInfo, objectInfo})
+	h.handler.ServeHTTP(w, r.WithContext(ctx))
+
+}
+
+// setAuthHandler to validate authorization header for the incoming request.
+func SetGenerateContextHandler(h http.Handler, meta *meta.Meta) http.Handler {
+	return GenerateContextHandler{h, meta}
 }
 
 func InReservedOrigins(origin string) bool {

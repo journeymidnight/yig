@@ -1,0 +1,41 @@
+hidden text internal
+counter yig_http_request_total by bucket_name, bucket_owner, method, is_private_subnet as "nginx_http_response_count_total"
+counter yig_http_request_total_bytes by bucket_name, bucket_owner, method, is_private_subnet as "nginx_http_response_size_bytes"
+
+
+#{time_local} {request_uri} {request_id} {operation} {host_name} {bucket_name} {object_name} " +
+#		"{object_size} {requester_id} {project_id} {remote_addr} {http_x_real_ip} {request_length} {server_cost} " +
+#		"{request_time} {http_status} {error_code} {body_bytes_sent} {http_referer} {http_user_agent}
+
+#[2019-07-08 03:32:20] GET /bucket/main.go?acl HTTP/1.1 EEHLQRNX8S49XX4C - s3.test.com:8080 bucket main.go 
+#   3360 hehehehe hehehehe 10.5.0.1:57524 - 0 16 
+#    16 200 - 438 "-" "-"
+
+/(?P<time_local>\[\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\]) / +
+/(?P<request_method>[A-Z]+) (?P<request_url>\S+) (?P<http_version>HTTP\/[0-9\.]+) / +
+/(?P<request_id>\S+) / +
+/(?P<operation>\S+) / +
+/(?P<host_name>\S+) / +
+/(?P<bucket_name>\S+) / +
+/(?P<object_name>\S+) / +
+/(?P<object_size>\S+) / +
+/(?P<requester_id>\S+) / +
+/(?P<project_id>\S+) / +
+/(?P<remote_addr>[0-9A-Za-z\.\-:]+) / +
+/(?P<http_x_real_ip>\S+) / +
+/(?P<request_length>\d+) / +
+/(?P<server_cost>\S+) / +
+/(?P<request_time>\d+) / +
+/(?P<http_status>\d{3}) / +
+/(?P<error_code>\S+) / +
+/(?P<body_bytes_sent>\d+) / +
+/"(?P<http_referer>\S+)" / +
+/"(?P<http_user_agent>[[:print:]]+)"/ {
+  $host_name =~ /internal/ {
+    internal = "y"
+  } else {
+    internal = "n"
+  }
+  yig_http_request_total[$bucket_name][$project_id][$request_method][internal]++
+  yig_http_request_total_bytes[$bucket_name][$project_id][$request_method][internal]+=$body_bytes_sent + $request_length
+}

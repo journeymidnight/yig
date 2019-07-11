@@ -60,6 +60,8 @@ func setGetRespHeaders(w http.ResponseWriter, reqParams url.Values) {
 
 func getStorageClassFromHeader(r *http.Request) (meta.StorageClass, error) {
 	storageClassStr := r.Header.Get("X-Amz-Storage-Class")
+
+
 	if storageClassStr != "" {
 		helper.Logger.Println(20, "Get storage class header:", storageClassStr)
 		return meta.MatchStorageClassIndex(storageClassStr)
@@ -215,6 +217,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 	// Indicates if any data was written to the http.ResponseWriter
 	dataWritten := false
+
 	// io.Writer type which keeps track if any data was written.
 	writer := funcToWriter(func(p []byte) (int, error) {
 		if !dataWritten {
@@ -228,10 +231,17 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			if version != "" {
 				w.Header().Set("x-amz-version-id", version)
 			}
-
 			dataWritten = true
 		}
-		return w.Write(p)
+		n, err := w.Write(p)
+		if n > 0 {
+			/*
+				If the whole write or only part of write is successfull,
+				n should be positive, so record this
+			*/
+			w.(*ResponseRecorder).size += int64(n)
+		}
+		return n, err
 	})
 
 	switch object.SseType {
@@ -565,6 +575,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	targetObject.ContentType = sourceObject.ContentType
 	targetObject.CustomAttributes = sourceObject.CustomAttributes
 	targetObject.Parts = sourceObject.Parts
+
 	if r.Header.Get("X-Amz-Storage-Class") != "" {
 		targetObject.StorageClass = storageClassFromHeader
 	} else {
@@ -1557,6 +1568,7 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 // signature policy in multipart/form-data
 
 var ValidSuccessActionStatus = []string{"200", "201", "204"}
+
 
 func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Request) {
 	var err error

@@ -7,13 +7,22 @@ import (
 	"github.com/journeymidnight/yig/helper"
 	bus "github.com/journeymidnight/yig/messagebus"
 	"github.com/journeymidnight/yig/messagebus/types"
+	"github.com/journeymidnight/yig/meta"
 )
 
 type ResponseRecorder struct {
 	http.ResponseWriter
-	status      int
-	size        int
-	requestTime time.Duration
+	status        int
+	size          int64
+	operationName string
+	serverCost    time.Duration
+	requestTime   time.Duration
+	errorCode     string
+
+	storageClass       string
+	targetStorageClass string
+	bucketLogging      bool
+	cdn_request        bool
 }
 
 func NewResponseRecorder(w http.ResponseWriter) *ResponseRecorder {
@@ -31,13 +40,6 @@ type AccessLogHandler struct {
 	handler          http.Handler
 	responseRecorder *ResponseRecorder
 	format           string
-}
-
-func (a AccessLogHandler) SetHandler(handler http.Handler, _ ObjectLayer) http.Handler {
-	return AccessLogHandler{
-		handler: handler,
-		format:  CombinedLogFormat,
-	}
 }
 
 func (a AccessLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -93,6 +95,9 @@ func (a AccessLogHandler) notify(elems map[string]string) {
 	helper.Logger.Printf(20, "succeed to send message [%v] to message bus.", elems)
 }
 
-func NewAccessLogHandler(handler http.Handler, objectLayer ObjectLayer) http.Handler {
-	return AccessLogHandler.SetHandler(AccessLogHandler{}, handler, objectLayer)
+func NewAccessLogHandler(handler http.Handler, _ *meta.Meta) http.Handler {
+	return AccessLogHandler{
+		handler: handler,
+		format:  CombinedLogFormat,
+	}
 }

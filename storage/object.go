@@ -1131,7 +1131,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 		}
 	case "Enabled":
 		if version == "" {
-			result.VersionId, err = yig.addDeleteMarker(bucket, objectName, false)
+			result.VersionId, err = yig.addDeleteMarker(*bucket, objectName, false)
 			if err != nil {
 				return
 			}
@@ -1149,7 +1149,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 			if err != nil {
 				return
 			}
-			result.VersionId, err = yig.addDeleteMarker(bucket, objectName, true)
+			result.VersionId, err = yig.addDeleteMarker(*bucket, objectName, true)
 			if err != nil {
 				return
 			}

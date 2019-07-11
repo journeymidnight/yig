@@ -47,5 +47,4 @@ require (
 	github.com/xxtea/xxtea-go v0.0.0-20170828040851-35c4b17eecf6
 	golang.org/x/crypto v0.0.0-20190325154230-a5d413f7728c // indirect
 	golang.org/x/tools v0.0.0-20190624222133-a101b041ded4 // indirect
-	gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405
 )

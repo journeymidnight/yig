@@ -16,13 +16,22 @@ package api
 
 import (
 	"bytes"
-	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/signature"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/signature"
+)
+
+const (
+	CombinedLogFormat = "{time_local} {request_uri} {request_id} {operation} {host_name} {bucket_name} {object_name} " +
+		"{object_size} {requester_id} {project_id} {remote_addr} {http_x_real_ip} {request_length} {server_cost} " +
+		"{request_time} {http_status} {error_code} {body_bytes_sent} {http_referer} {http_user_agent}"
+
+	BillingLogFormat = "{is_internal} {storage_class} {target_storage_class} {bucket_logging} {cdn_request}"
 )
 
 // Replacer is a type which can replace placeholder
@@ -128,7 +137,9 @@ Placeholders: // process each placeholder in sequence
 		// get a replacement for the unescaped placeholder
 		placeholder := unescapeBraces(s[idxStart : idxEnd+1])
 		replacement := r.getSubstitution(placeholder)
-
+		if replacement == "" {
+			replacement = "-"
+		}
 		r.setReplacedValue(placeholder, replacement)
 
 		// append unescaped prefix + replacement
@@ -160,91 +171,124 @@ func (r *replacer) getSubstitution(key string) string {
 	case "{time_local}":
 		timeLocal := time.Now().Format("2006-01-02 15:04:05")
 		return "[" + timeLocal + "]"
-	case "{request}":
-		request := r.request.Method + " " + r.request.URL.String() + " " + r.request.Proto
-		return request
-	case "{host}":
+	case "{request_uri}":
+		return r.request.Method + " " + r.request.URL.String() + " " + r.request.Proto
+	case "{request_id}":
+		return r.request.Context().Value(RequestContextKey).(RequestContext).RequestId
+	case "{operation_name}":
+		return r.responseRecorder.operationName
+	case "{host_name}":
 		return r.request.Host
+	case "{region_id}":
+		return helper.CONFIG.Region
+	case "{bucket_name}":
+		bucketName, _ := GetBucketAndObjectInfoFromRequest(r.request)
+		if bucketName == "" {
+			return "-"
+		}
+		return bucketName
+	case "{object_name}":
+		_, objectName := GetBucketAndObjectInfoFromRequest(r.request)
+		if objectName == "" {
+			return "-"
+		}
+		return objectName
+	case "{object_size}":
+		var objectSize int64
+		objectInfo := r.request.Context().Value(RequestContextKey).(RequestContext).ObjectInfo
+		if objectInfo != nil {
+			objectSize = objectInfo.Size
+		}
+		return strconv.FormatInt(objectSize, 10)
+	case "{requester_id}":
+		requester_id := "-"
+		credential, err := signature.IsReqAuthenticated(r.request)
+		if err == nil {
+			requester_id = credential.UserId
+		}
+		return requester_id
+	case "{project_id}":
+		bucketInfo := r.request.Context().Value(RequestContextKey).(RequestContext).BucketInfo
+		if bucketInfo == nil {
+			return "-"
+		}
+		return bucketInfo.OwnerId
 	case "{remote_addr}":
 		return r.request.RemoteAddr
 	case "{http_x_real_ip}":
-		return r.request.Header.Get("X-Real-Ip")
+		if realIP := r.request.Header.Get("X-Real-Ip"); realIP != "" {
+			return realIP
+		}
+		return "-"
 	case "{request_length}":
 		requestLength := r.request.ContentLength
 		result := strconv.FormatInt(requestLength, 10)
 		return result
-	case "{http_user_agent}":
-		return "\"" + r.request.Header.Get("User-Agent") + "\""
-	case "{retain}":
-		return "-"
-	case "{http_referer}":
-		forwarded := r.request.Header.Get("X-Forwarded-For")
-		http_referers := strings.SplitN(forwarded, ",", -1)
-		http_referer := http_referers[0]
-		return http_referer
-	case "{bucket_name}":
-		bucketName := "-"
-		s3Endpoint := helper.CONFIG.S3Domain[0]
-		splits := strings.SplitN(r.request.URL.Path[1:], "/", 2)
-		v := strings.Split(r.request.Host, ":")
-		hostWithOutPort := v[0]
-		if strings.HasSuffix(hostWithOutPort, "."+s3Endpoint) {
-			bucketName = strings.TrimSuffix(hostWithOutPort, "."+s3Endpoint)
-		} else {
-			if len(splits) == 1 {
-				bucketName = splits[0]
-			}
-			if len(splits) == 2 {
-				bucketName = splits[0]
-			}
-		}
-		return bucketName
-	case "{project_id}":
-		projectId := "-"
-		credential, err := signature.IsReqAuthenticated(r.request)
-		if err == nil {
-			projectId = credential.UserId
-		}
-		return projectId
-	case "{body_bytes_sent}":
-		bodyBytesSent := r.responseRecorder.size
-		result := strconv.Itoa(bodyBytesSent)
-		return result
-	case "{status}":
-		status := r.responseRecorder.status
-		result := strconv.Itoa(status)
-		return result
+	case "{server_cost}":
+		// TODO
+		fallthrough
 	case "{request_time}":
 		requestTime := r.responseRecorder.requestTime
 		//Duration convert to Millisecond
 		temp := requestTime.Nanoseconds() / 1e6
 		result := strconv.FormatInt(temp, 10)
 		return result
-	case "{is_private_subnet}":
-		remoteAddr := r.request.RemoteAddr
-		remoteAddrIP := strings.SplitN(remoteAddr, ":", -1)[0]
-		isPrivateSubnet := isPrivateSubnet(net.ParseIP(remoteAddrIP))
-		result := strconv.FormatBool(isPrivateSubnet)
+	case "{http_status}":
+		status := r.responseRecorder.status
+		result := strconv.Itoa(status)
 		return result
-	case "{region_id}":
-		regionId := helper.CONFIG.Region
-		return regionId
-	default:
-		// {labelN}
-		if strings.HasPrefix(key, "{label") {
-			nStr := key[6 : len(key)-1] // get the integer N in "{labelN}"
-			n, err := strconv.Atoi(nStr)
-			if err != nil || n < 1 {
-				return r.emptyValue
-			}
-			labels := strings.Split(r.request.Host, ".")
-			if n > len(labels) {
-				return r.emptyValue
-			}
-			return labels[n-1]
+	case "{error_code}":
+		if r.responseRecorder.errorCode == "" {
+			return "-"
 		}
-	}
+		return r.responseRecorder.errorCode
+	case "{body_bytes_sent}":
+		bodyBytesSent := r.responseRecorder.size
+		result := strconv.FormatInt(bodyBytesSent, 10)
+		return result
+	case "{http_user_agent}":
+		if agent := r.request.Header.Get("User-Agent"); agent != "" {
+			return "\"" + agent + "\""
+		}
+		return `"-"`
+	case "{retain}":
+		return "-"
+	case "{http_referer}":
+		//see https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Referer
+		if referer := r.request.Header.Get("Referer"); referer != "" {
+			return "\"" + referer + "\""
+		}
+		return `"-"`
+	case "{is_private_subnet}":
+		// Currently, the intranet domain name is formed by adding the "-internal" on the second-level domain name of the public network.
+		return strconv.FormatBool(strings.Contains(r.request.Host, "internal"))
+	case "{storage_class}":
+		objectInfo := r.request.Context().Value(RequestContextKey).(RequestContext).ObjectInfo
+		if objectInfo == nil {
+			return "-"
+		}
+		return objectInfo.StorageClass.ToString()
+	case "{target_storage_class}":
+		if r.request.Header.Get("X-Amz-Copy-Source") != "" && r.request.Header.Get("X-Amz-Metadata-Directive") != "" {
+			storageClassFromHeader, err := getStorageClassFromHeader(r.request)
+			if err != nil {
+				return "-"
+			}
+			return storageClassFromHeader.ToString()
+		}
+		return "-"
 
+	case "{bucket_logging}":
+		// TODO: Add bucket logging
+		return strconv.FormatBool(false)
+	case "{cdn_request}":
+		// If you have another judgment method, implement and replace the judgeFunc
+		var judgeFunc JudgeCdnRequest
+		judgeFunc = judgeCdnRequestFromQuery
+		return strconv.FormatBool(judgeFunc(r.request))
+	default:
+		return "-"
+	}
 	return r.emptyValue
 }
 
@@ -314,7 +358,12 @@ func inRange(r ipRange, ipAddress net.IP) bool {
 	return false
 }
 
-const (
-	CombinedLogFormat = "{time_local} {request} {host} {bucket_name} {remote_addr} {http_x_real_ip} {project_id} {request_length} " +
-		"{retain} {retain} {request_time} {status} {body_bytes_sent} {http_referer} {http_user_agent} {is_private_subnet} {region_id}"
-)
+type JudgeCdnRequest func(r *http.Request) bool
+
+func judgeCdnRequestFromQuery(r *http.Request) bool {
+	cdnFlag := r.URL.Query()["X-Amz-Referer"][0]
+	if cdnFlag == "cdn" {
+		return true
+	}
+	return false
+}
