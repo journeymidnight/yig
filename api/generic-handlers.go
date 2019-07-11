@@ -70,7 +70,7 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if bucket != nil {
 		for _, rule := range bucket.CORS.CorsRules {
 			if rule.OriginMatched(origin) {
-				rule.SetResponseHeaders(w, r, origin)
+				rule.SetResponseHeaders(w, r)
 				break
 			}
 		}
@@ -85,7 +85,11 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Headers", r.Header.Get("Access-Control-Request-Headers"))
 			w.Header().Set("Access-Control-Allow-Methods", r.Header.Get("Access-Control-Request-Method"))
-			w.Header().Set("Access-Control-Expose-Headers", strings.Join(CommonS3ResposeHeaders, ","))
+			if headers := w.Header().Get("Access-Control-Expose-Headers"); headers != "" {
+				w.Header().Set("Access-Control-Expose-Headers", strings.Join(append(CommonS3ResposeHeaders, headers), ","))
+			} else {
+				w.Header().Set("Access-Control-Expose-Headers", strings.Join(CommonS3ResposeHeaders, ","))
+			}
 		}
 		WriteSuccessResponse(w, nil)
 		return

@@ -62,7 +62,8 @@ func (rule CorsRule) OriginMatched(origin string) bool {
 	return false
 }
 
-func (rule CorsRule) SetResponseHeaders(w http.ResponseWriter, r *http.Request, origin string) {
+func (rule CorsRule) SetResponseHeaders(w http.ResponseWriter, r *http.Request) {
+	origin := r.Header.Get("Origin")
 	if origin != "" {
 		// the CORS spec(https://www.w3.org/TR/cors) does not define
 		// origin formats like "*.le.com" or "le*.com", so build a full
@@ -87,11 +88,11 @@ func (rule CorsRule) SetResponseHeaders(w http.ResponseWriter, r *http.Request, 
 	}
 	if len(rule.AllowedMethods) > 0 {
 		w.Header().Set("Access-Control-Allow-Methods",
-			strings.Join(rule.AllowedMethods, ", "))
+			strings.Join(rule.AllowedMethods, ","))
 	}
 	if len(rule.ExposedHeaders) > 0 {
 		w.Header().Set("Access-Control-Expose-Headers",
-			strings.Join(rule.ExposedHeaders, ", "))
+			strings.Join(rule.ExposedHeaders, ","))
 	}
 	if rule.MaxAgeSeconds > 0 {
 		w.Header().Set("Access-Control-Max-Age",
