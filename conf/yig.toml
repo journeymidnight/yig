@@ -17,11 +17,6 @@ lcdebug = true
 debug_mode = true
 reserved_origins = "s3.test.com,s3-internal.test.com"
 
-# IAM Config
-iam_endpoint = "http://10.11.144.11:9006"
-iam_key = "key"
-iam_secret = "secret"
-
 # Meta Config
 meta_cache_type = 2
 meta_store = "tidb"
@@ -54,3 +49,15 @@ id = "f7b8ae6f-5008-ceec-6a50-2497f429c8dc"
 secret = "a22f513f-e4eb-d327-2566-77c92e0b4cdd"
 version = 0
 keyname = "yig"
+
+# Plugin Config
+
+[plugins.dummy_iam]
+path = "/etc/yig/plugins/dummy_iam_plugin.so"
+enable = true
+[plugins.dummy_iam.args]
+url="s3.test.com"
+
+[plugins.not_exist]
+path = "not_exist_so"
+enable = false

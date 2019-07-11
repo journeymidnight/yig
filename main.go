@@ -10,6 +10,8 @@ import (
 
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
+	"github.com/journeymidnight/yig/mods"
+	"github.com/journeymidnight/yig/iam"
 	bus "github.com/journeymidnight/yig/messagebus"
 	_ "github.com/journeymidnight/yig/messagebus/kafka"
 	"github.com/journeymidnight/yig/redis"
@@ -81,6 +83,12 @@ func main() {
 		}
 		helper.Logger.Printf(20, "succeed to create message bus sender.")
 	}
+
+
+	//Read all *.so from plugins directory, and fill the varaible allPlugins
+	allPluginMap := mods.InitialPlugins()
+
+	iam.InitializeIamClient(allPluginMap)
 
 	startAdminServer(adminServerConfig)
 

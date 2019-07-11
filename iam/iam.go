@@ -1,12 +1,12 @@
 package iam
 
 import (
-	"github.com/journeymidnight/yig/iam/common"
-	"github.com/journeymidnight/yig/iam/cache"
-	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/iam/client/v1"
-	"github.com/journeymidnight/yig/iam/client/v2"
 	"regexp"
+
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/iam/cache"
+	"github.com/journeymidnight/yig/iam/common"
+	"github.com/journeymidnight/yig/mods"
 )
 
 // IsValidSecretKey - validate secret key.
@@ -15,47 +15,39 @@ var IsValidSecretKey = regexp.MustCompile(`^.{8,40}$`)
 // IsValidAccessKey - validate access key.
 var IsValidAccessKey = regexp.MustCompile(`^[a-zA-Z0-9\\-\\.\\_\\~]{5,20}$`)
 
-
-
 type IamClient interface {
-	GetKeysByUid(string) ([]common.Credential , error)
+	GetKeysByUid(string) ([]common.Credential, error)
 	GetCredential(string) (common.Credential, error)
 }
 
 var iamClient IamClient
 
-func initializeIamClient() {
-	switch helper.CONFIG.IamVersion {
-	case "v1":
-		iamClient = v1.Client{}
-	case "v2":
-		iamClient = v2.Client{}
-	default:
-		panic("Unsupport iam version")
+func InitializeIamClient(plugins map[string]*mods.YigPlugin) {
+	//Search for iam plugins, if we have many iam plugins, always use the first
+	for name, p := range plugins {
+		if p.PluginType == mods.IAM_PLUGIN {
+			c, err := p.Create(helper.CONFIG.Plugins[name].Args)
+			if err != nil {
+				helper.Logger.Fatalf(0, "failed to initial iam plugin %s: err: %v\n", name, err)
+				return
+			}
+			helper.Logger.Printf(5, "Chosen IAM plugin %s..\n", name)
+			iamClient = c.(IamClient)
+			return
+		}
 	}
+	helper.Logger.Fatalf(0, "failed to initial any iam plugin, quiting...\n")
 	return
 }
 
 func GetCredential(accessKey string) (credential common.Credential, err error) {
-	if helper.CONFIG.DebugMode == true {
-		return common.Credential{
-			UserId:          "hehehehe",
-			DisplayName:     "hehehehe",
-			AccessKeyID:     accessKey,
-			SecretAccessKey: "hehehehe",
-		}, nil // For test now
-	}
-
 	if cache.IamCache == nil {
 		cache.InitializeIamCache()
 	}
+
 	credential, hit := cache.IamCache.Get(accessKey)
 	if hit {
 		return credential, nil
-	}
-
-	if iamClient == nil {
-		initializeIamClient()
 	}
 
 	credential, err = iamClient.GetCredential(accessKey)
@@ -68,12 +60,6 @@ func GetCredential(accessKey string) (credential common.Credential, err error) {
 }
 
 func GetKeysByUid(uid string) (credentials []common.Credential, err error) {
-	if helper.CONFIG.DebugMode == true {
-		return
-	}
-	if iamClient == nil {
-		initializeIamClient()
-	}
 	credentials, err = iamClient.GetKeysByUid(uid)
 	return
 }

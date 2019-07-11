@@ -1,9 +1,10 @@
 package helper
 
 import (
-	"github.com/BurntSushi/toml"
 	"io/ioutil"
 	"time"
+
+	"github.com/BurntSushi/toml"
 )
 
 const (
@@ -11,22 +12,19 @@ const (
 )
 
 type Config struct {
-	S3Domain         []string `toml:"s3domain"`     // Domain name of YIG
-	Region           string   `toml:"region"`       // Region name this instance belongs to, e.g cn-bj-1
-	IamEndpoint      string   `toml:"iam_endpoint"` // le IAM endpoint address
-	IamKey           string   `toml:"iam_key"`
-	IamSecret        string   `toml:"iam_secret"`
-	IamVersion       string   `toml:"iam_version"`
-	LogPath          string   `toml:"log_path"`
-	AccessLogPath    string   `toml:"access_log_path"`
-	AccessLogFormat  string   `toml:"access_log_format"`
-	PanicLogPath     string   `toml:"panic_log_path"`
-	PidFile          string   `toml:"pid_file"`
-	BindApiAddress   string   `toml:"api_listener"`
-	BindAdminAddress string   `toml:"admin_listener"`
-	SSLKeyPath       string   `toml:"ssl_key_path"`
-	SSLCertPath      string   `toml:"ssl_cert_path"`
-	ZookeeperAddress string   `toml:"zk_address"`
+	S3Domain         []string                `toml:"s3domain"` // Domain name of YIG
+	Region           string                  `toml:"region"`   // Region name this instance belongs to, e.g cn-bj-1
+	Plugins          map[string]PluginConfig          `toml:"plugins"`
+	LogPath          string                  `toml:"log_path"`
+	AccessLogPath    string                  `toml:"access_log_path"`
+	AccessLogFormat  string                  `toml:"access_log_format"`
+	PanicLogPath     string                  `toml:"panic_log_path"`
+	PidFile          string                  `toml:"pid_file"`
+	BindApiAddress   string                  `toml:"api_listener"`
+	BindAdminAddress string                  `toml:"admin_listener"`
+	SSLKeyPath       string                  `toml:"ssl_key_path"`
+	SSLCertPath      string                  `toml:"ssl_cert_path"`
+	ZookeeperAddress string                  `toml:"zk_address"`
 
 	InstanceId             string // if empty, generated one at server startup
 	ConcurrentRequestLimit int
@@ -71,6 +69,12 @@ type Config struct {
 
 	// Message Bus
 	MsgBus MsgBusConfig `toml:"msg_bus"`
+}
+
+type PluginConfig struct {
+        Path string  `toml:"path"`
+        Enable bool  `toml:"enable"`
+        Args  map[string]interface{} `toml:"args"`
 }
 
 type KMSConfig struct {
@@ -122,11 +126,7 @@ func MarshalTOMLConfig() error {
 	// setup CONFIG with defaults
 	CONFIG.S3Domain = c.S3Domain
 	CONFIG.Region = c.Region
-	CONFIG.IamEndpoint = c.IamEndpoint
-	CONFIG.IamKey = c.IamKey
-	CONFIG.IamSecret = c.IamSecret
-	CONFIG.IamVersion = Ternary(c.IamVersion == "",
-		"v1", c.IamVersion).(string)
+	CONFIG.Plugins = c.Plugins
 	CONFIG.LogPath = c.LogPath
 	CONFIG.AccessLogPath = c.AccessLogPath
 	CONFIG.AccessLogFormat = c.AccessLogFormat
