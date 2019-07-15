@@ -86,9 +86,9 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Access-Control-Allow-Headers", r.Header.Get("Access-Control-Request-Headers"))
 			w.Header().Set("Access-Control-Allow-Methods", r.Header.Get("Access-Control-Request-Method"))
 			if headers := w.Header().Get("Access-Control-Expose-Headers"); headers != "" {
-				w.Header().Set("Access-Control-Expose-Headers", strings.Join(append(CommonS3ResposeHeaders, headers), ","))
+				w.Header().Set("Access-Control-Expose-Headers", strings.Join(append(CommonS3ResponseHeaders, headers), ","))
 			} else {
-				w.Header().Set("Access-Control-Expose-Headers", strings.Join(CommonS3ResposeHeaders, ","))
+				w.Header().Set("Access-Control-Expose-Headers", strings.Join(CommonS3ResponseHeaders, ","))
 			}
 		}
 		WriteSuccessResponse(w, nil)
