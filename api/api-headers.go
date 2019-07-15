@@ -27,7 +27,7 @@ import (
 )
 
 // Refer: https://docs.aws.amazon.com/AmazonS3/latest/API/RESTCommonResponseHeaders.html
-var CommonS3ResposeHeaders = []string{"Content-Length", "Content-Type", "Connection", "Date", "ETag", "Server",
+var CommonS3ResponseHeaders = []string{"Content-Length", "Content-Type", "Connection", "Date", "ETag", "Server",
 	"x-amz-delete-marker", "x-amz-id-2", "x-amz-request-id", "x-amz-version-id"}
 
 // Encodes the response headers into XML format.
