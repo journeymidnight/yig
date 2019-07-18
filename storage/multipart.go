@@ -105,12 +105,12 @@ func (yig *YigStorage) NewMultipartUpload(credential common.Credential, bucketNa
 		contentType = "application/octet-stream"
 	}
 
-	cephCluster, pool := yig.PickOneClusterAndPool(bucketName, objectName, -1, false)
+	cephCluster, pool := yig.pickClusterAndPool(bucketName, objectName, -1, false)
 	multipartMetadata := meta.MultipartMetadata{
 		InitiatorId:  credential.UserId,
 		OwnerId:      bucket.OwnerId,
 		ContentType:  contentType,
-		Location:     cephCluster.Name,
+		Location:     cephCluster.ClusterID(),
 		Pool:         pool,
 		Acl:          acl,
 		SseRequest:   sseRequest,
@@ -178,7 +178,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 	if err != nil {
 		return
 	}
-	oid := cephCluster.GetUniqUploadName()
+	oid := cephCluster.AssignObjectName()
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
 
 	var initializationVector []byte
@@ -200,11 +200,11 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 	// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
 	// so the object in Ceph could be removed asynchronously
 	maybeObjectToRecycle := objectToRecycle{
-		location: cephCluster.Name,
+		location: cephCluster.ClusterID(),
 		pool:     poolName,
 		objectId: oid,
 	}
-	if bytesWritten < size {
+	if bytesWritten < uint64(size) {
 		RecycleQueue <- maybeObjectToRecycle
 		err = ErrIncompleteBody
 		return
@@ -308,7 +308,7 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	if err != nil {
 		return
 	}
-	oid := cephCluster.GetUniqUploadName()
+	oid := cephCluster.AssignObjectName()
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
 
 	var initializationVector []byte
@@ -330,12 +330,12 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
 	// so the object in Ceph could be removed asynchronously
 	maybeObjectToRecycle := objectToRecycle{
-		location: cephCluster.Name,
+		location: cephCluster.ClusterID(),
 		pool:     poolName,
 		objectId: oid,
 	}
 
-	if bytesWritten < size {
+	if bytesWritten < uint64(size) {
 		RecycleQueue <- maybeObjectToRecycle
 		err = ErrIncompleteBody
 		return

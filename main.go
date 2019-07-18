@@ -59,7 +59,7 @@ func main() {
 		defer redis.Close()
 	}
 
-	yig := storage.New(logger, helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache, helper.CONFIG.CephConfigPattern)
+	yig := storage.New(logger, helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache)
 	adminServerConfig := &adminServerConfig{
 		Address: helper.CONFIG.BindAdminAddress,
 		Logger:  logger,

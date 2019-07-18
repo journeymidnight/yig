@@ -83,6 +83,9 @@ type Config struct {
 
 	// Message Bus
 	MsgBus MsgBusConfig `toml:"msg_bus"`
+
+	// seaweed fs
+	SeaweedMasters []string `toml:"seaweed_masters"`
 }
 
 type PluginConfig struct {

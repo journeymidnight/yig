@@ -5,9 +5,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
-	"math/rand"
 	"time"
-
 	"path"
 	"sync"
 
@@ -22,78 +20,16 @@ import (
 	"github.com/journeymidnight/yig/signature"
 )
 
-var latestQueryTime [2]time.Time // 0 is for SMALL_FILE_POOLNAME, 1 is for BIG_FILE_POOLNAME
-const CLUSTER_MAX_USED_SPACE_PERCENT = 85
-
-func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size int64, isAppend bool) (cluster *CephStorage,
-	poolName string) {
-
-	var idx int
-	if isAppend {
-		poolName = BIG_FILE_POOLNAME
-		idx = 1
-	} else if size < 0 { // request.ContentLength is -1 if length is unknown
-		poolName = BIG_FILE_POOLNAME
-		idx = 1
-	} else if size < BIG_FILE_THRESHOLD {
-		poolName = SMALL_FILE_POOLNAME
-		idx = 0
-	} else {
-		poolName = BIG_FILE_POOLNAME
-		idx = 1
+func (yig *YigStorage) pickClusterAndPool(bucket string, object string,
+	size int64, isAppend bool) (cluster backend, poolName string) {
+	// TODO cluster picking logic
+	for _, s := range yig.DataStorage {
+		return s, ""
 	}
-	var needCheck bool
-	queryTime := latestQueryTime[idx]
-	if time.Since(queryTime).Hours() > 24 { // check used space every 24 hours
-		latestQueryTime[idx] = time.Now()
-		needCheck = true
-	}
-	var totalWeight int
-	clusterWeights := make(map[string]int, len(yig.DataStorage))
-	for fsid, _ := range yig.DataStorage {
-		cluster, err := yig.MetaStorage.GetCluster(fsid, poolName)
-		if err != nil {
-			helper.Debugln("Error getting cluster: ", err)
-			continue
-		}
-		if cluster.Weight == 0 {
-			continue
-		}
-		if needCheck {
-			pct, err := yig.DataStorage[fsid].GetUsedSpacePercent()
-			if err != nil {
-				helper.Logger.Println(0, "Error getting used space: ", err, "fsid: ", fsid)
-				continue
-			}
-			if pct > CLUSTER_MAX_USED_SPACE_PERCENT {
-				helper.Logger.Println(0, "Cluster used space exceed ", CLUSTER_MAX_USED_SPACE_PERCENT, fsid)
-				continue
-			}
-		}
-		totalWeight += cluster.Weight
-		clusterWeights[fsid] = cluster.Weight
-	}
-	if len(clusterWeights) == 0 || totalWeight == 0 {
-		helper.Logger.Println(5, "Error picking cluster from table cluster in DB! Use first cluster in config to write.")
-		for _, c := range yig.DataStorage {
-			cluster = c
-			break
-		}
-		return
-	}
-	N := rand.Intn(totalWeight)
-	n := 0
-	for fsid, weight := range clusterWeights {
-		n += weight
-		if n > N {
-			cluster = yig.DataStorage[fsid]
-			break
-		}
-	}
-	return
+	return nil, ""
 }
 
-func (yig *YigStorage) GetClusterByFsName(fsName string) (cluster *CephStorage, err error) {
+func (yig *YigStorage) GetClusterByFsName(fsName string) (cluster backend, err error) {
 	if c, ok := yig.DataStorage[fsName]; ok {
 		cluster = c
 	} else {
@@ -114,9 +50,12 @@ func init() {
 	}
 }
 
-func generateTransWholeObjectFunc(cephCluster *CephStorage, object *meta.Object) func(io.Writer) error {
+func generateTransWholeObjectFunc(cluster backend,
+	object *meta.Object) func(io.Writer) error {
+
 	getWholeObject := func(w io.Writer) error {
-		reader, err := cephCluster.getReader(object.Pool, object.ObjectId, 0, object.Size)
+		reader, err := cluster.GetReader(object.Pool, object.ObjectId,
+			0, uint64(object.Size))
 		if err != nil {
 			return nil
 		}
@@ -130,7 +69,9 @@ func generateTransWholeObjectFunc(cephCluster *CephStorage, object *meta.Object)
 	return getWholeObject
 }
 
-func generateTransPartObjectFunc(cephCluster *CephStorage, object *meta.Object, part *meta.Part, offset, length int64) func(io.Writer) error {
+func generateTransPartObjectFunc(cluster backend, object *meta.Object,
+	part *meta.Part, offset, length int64) func(io.Writer) error {
+
 	getNormalObject := func(w io.Writer) error {
 		var oid string
 		/* the transfered part could be Part or Object */
@@ -139,7 +80,7 @@ func generateTransPartObjectFunc(cephCluster *CephStorage, object *meta.Object, 
 		} else {
 			oid = object.ObjectId
 		}
-		reader, err := cephCluster.getReader(object.Pool, oid, offset, length)
+		reader, err := cluster.GetReader(object.Pool, oid, offset, uint64(length))
 		if err != nil {
 			return nil
 		}
@@ -182,7 +123,8 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 		transWholeObjectWriter := generateTransWholeObjectFunc(cephCluster, object)
 
 		if object.SseType == "" { // unencrypted object
-			transPartObjectWriter := generateTransPartObjectFunc(cephCluster, object, nil, startOffset, length)
+			transPartObjectWriter := generateTransPartObjectFunc(cephCluster, object,
+				nil, startOffset, length)
 
 			return yig.DataCache.WriteFromCache(object, startOffset, length, writer,
 				transPartObjectWriter, transWholeObjectWriter)
@@ -190,18 +132,18 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 
 		// encrypted object
 		normalAligenedGet := func() (io.ReadCloser, error) {
-			return cephCluster.getAlignedReader(object.Pool, object.ObjectId,
-				startOffset, length)
+			return getAlignedReader(cephCluster, object.Pool, object.ObjectId,
+				startOffset, uint64(length))
 		}
-		reader, err := yig.DataCache.GetAlignedReader(object, startOffset, length, normalAligenedGet,
-			transWholeObjectWriter)
+		reader, err := yig.DataCache.GetAlignedReader(object, startOffset, length,
+			normalAligenedGet, transWholeObjectWriter)
 		if err != nil {
 			return err
 		}
 		defer reader.Close()
 
-		decryptedReader, err := wrapAlignedEncryptionReader(reader, startOffset, encryptionKey,
-			object.InitializationVector)
+		decryptedReader, err := wrapAlignedEncryptionReader(reader, startOffset,
+			encryptionKey, object.InitializationVector)
 		if err != nil {
 			return err
 		}
@@ -239,14 +181,14 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 			} else {
 				readLength = startOffset + length - (p.Offset + readOffset)
 			}
-			cephCluster, ok := yig.DataStorage[object.Location]
+			cluster, ok := yig.DataStorage[object.Location]
 			if !ok {
 				return errors.New("Cannot find specified ceph cluster: " +
 					object.Location)
 			}
 			if object.SseType == "" { // unencrypted object
 
-				transPartFunc := generateTransPartObjectFunc(cephCluster, object, p, readOffset, readLength)
+				transPartFunc := generateTransPartObjectFunc(cluster, object, p, readOffset, readLength)
 				err := transPartFunc(writer)
 				if err != nil {
 					return nil
@@ -255,7 +197,7 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 			}
 
 			// encrypted object
-			err = copyEncryptedPart(object.Pool, p, cephCluster, readOffset, readLength, encryptionKey, writer)
+			err = copyEncryptedPart(object.Pool, p, cluster, readOffset, readLength, encryptionKey, writer)
 			if err != nil {
 				helper.Debugln("Multipart uploaded object write error:", err)
 			}
@@ -264,11 +206,12 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 	return
 }
 
-func copyEncryptedPart(pool string, part *meta.Part, cephCluster *CephStorage, readOffset int64, length int64,
+func copyEncryptedPart(pool string, part *meta.Part, cluster backend,
+	readOffset int64, length int64,
 	encryptionKey []byte, targetWriter io.Writer) (err error) {
 
-	reader, err := cephCluster.getAlignedReader(pool, part.ObjectId,
-		readOffset, length)
+	reader, err := getAlignedReader(cluster, pool, part.ObjectId,
+		readOffset, uint64(length))
 	if err != nil {
 		return err
 	}
@@ -464,13 +407,13 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		limitedDataReader = data
 	}
 
-	cephCluster, poolName := yig.PickOneClusterAndPool(bucketName, objectName, size, false)
+	cephCluster, poolName := yig.pickClusterAndPool(bucketName, objectName, size, false)
 	if cephCluster == nil {
 		return result, ErrInternalError
 	}
 
 	// Mapping a shorter name for the object
-	oid := cephCluster.GetUniqUploadName()
+	oid := cephCluster.AssignObjectName()
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
 
 	var initializationVector []byte
@@ -492,11 +435,11 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
 	// so the object in Ceph could be removed asynchronously
 	maybeObjectToRecycle := objectToRecycle{
-		location: cephCluster.Name,
+		location: cephCluster.ClusterID(),
 		pool:     poolName,
 		objectId: oid,
 	}
-	if bytesWritten < size {
+	if bytesWritten < uint64(size) {
 		RecycleQueue <- maybeObjectToRecycle
 		helper.Logger.Printf(2, "failed to write objects, already written(%d), total size(%d)", bytesWritten, size)
 		return result, ErrIncompleteBody
@@ -524,10 +467,10 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	object := &meta.Object{
 		Name:             objectName,
 		BucketName:       bucketName,
-		Location:         cephCluster.Name,
+		Location:         cephCluster.ClusterID(),
 		Pool:             poolName,
 		OwnerId:          credential.UserId,
-		Size:             bytesWritten,
+		Size:             int64(bytesWritten),
 		ObjectId:         oid,
 		LastModifiedTime: time.Now().UTC(),
 		Etag:             calculatedMd5,
@@ -605,7 +548,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 		limitedDataReader = data
 	}
 
-	var cephCluster *CephStorage
+	var cephCluster backend
 	var poolName, oid string
 	var initializationVector []byte
 	var objSize int64
@@ -615,7 +558,8 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 			return
 		}
 		// Every appendable file must be treated as a big file
-		poolName = BIG_FILE_POOLNAME
+		// FIXME poolName
+		poolName = ""
 		oid = objInfo.ObjectId
 		initializationVector = objInfo.InitializationVector
 		objSize = objInfo.Size
@@ -623,13 +567,14 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 		helper.Logger.Println(20, "request append oid:", oid, "iv:", initializationVector, "size:", objSize)
 	} else {
 		// New appendable object
-		cephCluster, poolName = yig.PickOneClusterAndPool(bucketName, objectName, size, true)
-		if cephCluster == nil || poolName != BIG_FILE_POOLNAME {
-			helper.Debugln("PickOneClusterAndPool error")
+		cephCluster, poolName = yig.pickClusterAndPool(bucketName, objectName, size, true)
+		// FIXME poolName
+		if cephCluster == nil || poolName != "" {
+			helper.Debugln("pickClusterAndPool error")
 			return result, ErrInternalError
 		}
 		// Mapping a shorter name for the object
-		oid = cephCluster.GetUniqUploadName()
+		oid = cephCluster.AssignObjectName()
 		if len(encryptionKey) != 0 {
 			initializationVector, err = newInitializationVector()
 			if err != nil {
@@ -645,13 +590,14 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 	if err != nil {
 		return
 	}
-	bytesWritten, err := cephCluster.Append(poolName, oid, storageReader, offset, isObjectExist(objInfo))
+	bytesWritten, err := cephCluster.Append(poolName, oid, storageReader,
+		int64(offset), isObjectExist(objInfo))
 	if err != nil {
 		helper.Debugln("cephCluster.Append err:", err, poolName, oid, offset)
 		return
 	}
 
-	if bytesWritten < size {
+	if bytesWritten < uint64(size) {
 		return result, ErrIncompleteBody
 	}
 
@@ -675,10 +621,10 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 	object := &meta.Object{
 		Name:                 objectName,
 		BucketName:           bucketName,
-		Location:             cephCluster.Name,
+		Location:             cephCluster.ClusterID(),
 		Pool:                 poolName,
 		OwnerId:              credential.UserId,
-		Size:                 objSize + bytesWritten,
+		Size:                 objSize + int64(bytesWritten),
 		ObjectId:             oid,
 		LastModifiedTime:     time.Now().UTC(),
 		Etag:                 calculatedMd5,
@@ -769,7 +715,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 	var limitedDataReader io.Reader
 	limitedDataReader = io.LimitReader(source, targetObject.Size)
 
-	cephCluster, poolName := yig.PickOneClusterAndPool(targetObject.BucketName,
+	cephCluster, poolName := yig.pickClusterAndPool(targetObject.BucketName,
 		targetObject.Name, targetObject.Size, false)
 
 	if len(targetObject.Parts) != 0 {
@@ -789,8 +735,8 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 			}()
 			md5Writer := md5.New()
 			dataReader := io.TeeReader(pr, md5Writer)
-			oid = cephCluster.GetUniqUploadName()
-			var bytesW int64
+			oid = cephCluster.AssignObjectName()
+			var bytesWritten uint64
 			var storageReader io.Reader
 			var initializationVector []byte
 			if len(encryptionKey) != 0 {
@@ -800,13 +746,13 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 				}
 			}
 			storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
-			bytesW, err = cephCluster.Put(poolName, oid, storageReader)
+			bytesWritten, err = cephCluster.Put(poolName, oid, storageReader)
 			maybeObjectToRecycle = objectToRecycle{
-				location: cephCluster.Name,
+				location: cephCluster.ClusterID(),
 				pool:     poolName,
 				objectId: oid,
 			}
-			if bytesW < part.Size {
+			if bytesWritten < uint64(part.Size) {
 				RecycleQueue <- maybeObjectToRecycle
 				return result, ErrIncompleteBody
 			}
@@ -832,7 +778,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		md5Writer := md5.New()
 
 		// Mapping a shorter name for the object
-		oid = cephCluster.GetUniqUploadName()
+		oid = cephCluster.AssignObjectName()
 		dataReader := io.TeeReader(limitedDataReader, md5Writer)
 		var storageReader io.Reader
 		var initializationVector []byte
@@ -846,7 +792,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		if err != nil {
 			return
 		}
-		var bytesWritten int64
+		var bytesWritten uint64
 		bytesWritten, err = cephCluster.Put(poolName, oid, storageReader)
 		if err != nil {
 			return
@@ -854,11 +800,11 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
 		// so the object in Ceph could be removed asynchronously
 		maybeObjectToRecycle = objectToRecycle{
-			location: cephCluster.Name,
+			location: cephCluster.ClusterID(),
 			pool:     poolName,
 			objectId: oid,
 		}
-		if bytesWritten < targetObject.Size {
+		if bytesWritten < uint64(targetObject.Size) {
 			RecycleQueue <- maybeObjectToRecycle
 			return result, ErrIncompleteBody
 		}
@@ -876,7 +822,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 
 	targetObject.Rowkey = nil   // clear the rowkey cache
 	targetObject.VersionId = "" // clear the versionId cache
-	targetObject.Location = cephCluster.Name
+	targetObject.Location = cephCluster.ClusterID()
 	targetObject.Pool = poolName
 	targetObject.OwnerId = credential.UserId
 	targetObject.LastModifiedTime = time.Now().UTC()
