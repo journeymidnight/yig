@@ -5,20 +5,20 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"github.com/journeymidnight/yig/seaweed"
 	"io"
-	"path/filepath"
 	"sync"
+	"path"
+	"time"
 
 	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/circuitbreak"
 	"github.com/journeymidnight/yig/crypto"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/meta"
 	"github.com/journeymidnight/yig/redis"
-	"path"
-	"time"
-	"github.com/journeymidnight/yig/circuitbreak"
 )
 
 const (
@@ -26,15 +26,14 @@ const (
 	ENCRYPTION_KEY_LENGTH        = 32 // key size for AES-"256"
 	INITIALIZATION_VECTOR_LENGTH = 16 // block size of AES
 	DEFAULT_CEPHCONFIG_PATTERN   = "conf/*.conf"
-)
-
-var (
-	RootContext = context.Background()
+	MIN_CHUNK_SIZE = 512 << 10       // 512K
+	BUFFER_SIZE    = 1 << 20         // 1M
+	MAX_CHUNK_SIZE = 8 * BUFFER_SIZE // 8M
 )
 
 // *YigStorage implements api.ObjectLayer
 type YigStorage struct {
-	DataStorage map[string]*CephStorage
+	DataStorage map[string]backend
 	DataCache   DataCache
 	MetaStorage *meta.Meta
 	KMS         crypto.KMS
@@ -43,10 +42,10 @@ type YigStorage struct {
 	WaitGroup   *sync.WaitGroup
 }
 
-func New(logger *log.Logger, metaCacheType int, enableDataCache bool, CephConfigPattern string) *YigStorage {
+func New(logger *log.Logger, metaCacheType int, enableDataCache bool) *YigStorage {
 	kms := crypto.NewKMS()
 	yig := YigStorage{
-		DataStorage: make(map[string]*CephStorage),
+		DataStorage: make(map[string]backend),
 		DataCache:   newDataCache(enableDataCache),
 		MetaStorage: meta.New(logger, meta.CacheType(metaCacheType)),
 		KMS:         kms,
@@ -54,22 +53,9 @@ func New(logger *log.Logger, metaCacheType int, enableDataCache bool, CephConfig
 		Stopping:    false,
 		WaitGroup:   new(sync.WaitGroup),
 	}
-	if CephConfigPattern == "" {
-		CephConfigPattern = DEFAULT_CEPHCONFIG_PATTERN
-	}
-
-	cephConfs, err := filepath.Glob(CephConfigPattern)
-	helper.Logger.Printf(5, "Reading Ceph conf files from %+v\n", cephConfs)
-	if err != nil || len(cephConfs) == 0 {
-		helper.Logger.Panic(0, "PANIC: No ceph conf found")
-	}
-
-	for _, conf := range cephConfs {
-		c := NewCephStorage(conf, logger)
-		if c != nil {
-			yig.DataStorage[c.Name] = c
-		}
-	}
+	// TODO init data storage from plugin
+	seaweedStorage := seaweed.NewSeaweedStorage(logger, helper.CONFIG)
+	yig.DataStorage[seaweedStorage.ClusterID()] = seaweedStorage
 
 	if len(yig.DataStorage) == 0 {
 		helper.Logger.Panic(0, "PANIC: No data storage can be used!")

@@ -79,6 +79,9 @@ type Config struct {
 
 	// Message Bus
 	MsgBus MsgBusConfig `toml:"msg_bus"`
+
+	// seaweed fs
+	SeaweedMasters []string `toml:"seaweed_masters"`
 }
 
 type PluginConfig struct {
@@ -200,6 +203,8 @@ func MarshalTOMLConfig() error {
 	CONFIG.MsgBus.RequestTimeoutMs = Ternary(c.MsgBus.RequestTimeoutMs == 0, 3000, c.MsgBus.RequestTimeoutMs).(int)
 	CONFIG.MsgBus.MessageTimeoutMs = Ternary(c.MsgBus.MessageTimeoutMs == 0, 5000, c.MsgBus.MessageTimeoutMs).(int)
 	CONFIG.MsgBus.SendMaxRetries = Ternary(c.MsgBus.SendMaxRetries == 0, 2, c.MsgBus.SendMaxRetries).(int)
+
+	CONFIG.SeaweedMasters = c.SeaweedMasters
 
 	return nil
 }

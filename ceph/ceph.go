@@ -1,4 +1,4 @@
-package storage
+package ceph
 
 import (
 	"container/list"
