@@ -67,7 +67,7 @@ var supportedHeaders = []string{
 	"content-type",
 	"expires",
 	"website-redirect-location",
-	// Add more supported headers here, in "canonical" form
+	// Add more supported headers here
 }
 
 // extractMetadataFromHeader extracts metadata from HTTP header.

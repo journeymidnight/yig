@@ -142,7 +142,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 
 	var credential common.Credential
 	var err error
-	if _, credential, err = checkRequestAuth(api, r, policy.GetObjectAction, bucketName, objectName); err != nil {
+	if credential, err = checkRequestAuth(api, r, policy.GetObjectAction, bucketName, objectName); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -290,7 +290,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 
 	var credential common.Credential
 	var err error
-	if _, credential, err = checkRequestAuth(api, r, policy.GetObjectAction, bucketName, objectName); err != nil {
+	if credential, err = checkRequestAuth(api, r, policy.GetObjectAction, bucketName, objectName); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -383,7 +383,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 
 	var credential common.Credential
 	var err error
-	if _, credential, err = checkRequestAuth(api, r, policy.PutObjectAction, targetBucketName, targetObjectName); err != nil {
+	if credential, err = checkRequestAuth(api, r, policy.PutObjectAction, targetBucketName, targetObjectName); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -789,7 +789,6 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// if Content-Length is unknown/missing, deny the request
 	// if Content-Length is unknown/missing, deny the request
 	size := r.ContentLength
 	if authType == signature.AuthTypeStreamingSigned {

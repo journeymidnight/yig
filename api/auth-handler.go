@@ -18,30 +18,30 @@ import (
 // - validates the policy action if anonymous tests bucket policies if any,
 //   for authenticated requests validates IAM policies.
 // returns APIErrorCode if any to be replied to the client.
-func checkRequestAuth(api ObjectAPIHandlers, r *http.Request, action policy.Action, bucketName, objectName string) (authType signature.AuthType, c common.Credential, err error) {
+func checkRequestAuth(api ObjectAPIHandlers, r *http.Request, action policy.Action, bucketName, objectName string) (c common.Credential, err error) {
 	// TODO:Location constraint
-	authType = signature.GetRequestAuthType(r)
+	authType := signature.GetRequestAuthType(r)
 	switch authType {
 	case signature.AuthTypeUnknown:
 		helper.Logger.Println(5, "ErrAccessDenied: AuthTypeUnknown")
-		return authType, c, ErrAccessDenied
+		return c, ErrAccessDenied
 	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		helper.Logger.Println(5, "AuthTypeSigned:", authType)
 		if c, err := signature.IsReqAuthenticated(r); err != nil {
 			helper.Logger.Println(5, "ErrAccessDenied: IsReqAuthenticated return false:", err)
-			return authType, c, err
+			return c, err
 		} else {
 			helper.Logger.Println(5, "Credential:", c)
 			// check bucket policy
 			c, err = IsBucketPolicyAllowed(c, api, r, action, bucketName, objectName)
-			return authType, c, err
+			return c, err
 		}
 	case signature.AuthTypeAnonymous:
 		c, err = IsBucketPolicyAllowed(c, api, r, action, bucketName, objectName)
-		return authType, c, err
+		return c, err
 	}
-	return authType, c, ErrAccessDenied
+	return c, ErrAccessDenied
 }
 
 func IsBucketPolicyAllowed(c common.Credential, api ObjectAPIHandlers, r *http.Request, action policy.Action, bucketName, objectName string) (common.Credential, error) {
