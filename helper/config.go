@@ -65,6 +65,8 @@ type Config struct {
 	// This property sets the minimum number of requests in a rolling window that will trip the circuit.
 	CacheCircuitOpenThreshold int `toml:"cache_circuit_open_threshold"`
 
+	DownLoadBufPoolSize int `toml:"download_buf_pool_size"`
+
 	KMS KMSConfig `toml:"kms"`
 
 	// Message Bus
@@ -176,6 +178,8 @@ func MarshalTOMLConfig() error {
 	CONFIG.CacheCircuitCloseSleepWindow = Ternary(c.CacheCircuitCloseSleepWindow < 0, 0, c.CacheCircuitCloseSleepWindow).(int)
 	CONFIG.CacheCircuitCloseRequiredCount = Ternary(c.CacheCircuitCloseRequiredCount < 0, 0, c.CacheCircuitCloseRequiredCount).(int)
 	CONFIG.CacheCircuitOpenThreshold = Ternary(c.CacheCircuitOpenThreshold < 0, 0, c.CacheCircuitOpenThreshold).(int)
+
+	CONFIG.DownLoadBufPoolSize = Ternary(c.DownLoadBufPoolSize < 0,512, c.DownLoadBufPoolSize).(int)
 
 	CONFIG.KMS = c.KMS
 
