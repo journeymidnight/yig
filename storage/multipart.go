@@ -630,13 +630,6 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 		err = yig.MetaStorage.PutObject(object, &multipart, nil, false)
 	}
 
-	//// Remove from multiparts table
-	//err = yig.MetaStorage.Client.DeleteMultipart(multipart)
-	//if err != nil { // rollback objects table
-	//	yig.delTableEntryForRollback(object, objMap)
-	//	return result, err
-	//}
-
 	sseRequest := multipart.Metadata.SseRequest
 	result.SseType = sseRequest.Type
 	result.SseAwsKmsKeyIdBase64 = base64.StdEncoding.EncodeToString([]byte(sseRequest.SseAwsKmsKeyId))

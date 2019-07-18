@@ -418,19 +418,6 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, versio
 	return nil
 }
 
-//func (yig *YigStorage) delTableEntryForRollback(object *meta.Object, objMap *meta.ObjMap) error {
-//	if object != nil {
-//		err := yig.MetaStorage.Client.DeleteObject(object)
-//		return err
-//	}
-//
-//	if objMap != nil {
-//		err := yig.MetaStorage.Client.DeleteObjectMap(objMap)
-//		return err
-//	}
-//	return nil
-//}
-
 // Write path:
 //                                           +-----------+
 // PUT object/part                           |           |   Ceph
