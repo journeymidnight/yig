@@ -42,7 +42,7 @@ cache_circuit_open_threshold = 1
 
 # Ceph Config
 ceph_config_pattern = "/etc/ceph/*.conf"
-download_buf_pool_size = 83886080
+download_buf_pool_size = 524288
 
 [kms]
 type = "vault"
