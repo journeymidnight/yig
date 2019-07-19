@@ -109,7 +109,7 @@ var (
 
 func init() {
 	downloadBufPool.New = func() interface{} {
-		return make([]byte, helper.CONFIG.DownLoadBufPoolSize << 10)
+		return make([]byte, helper.CONFIG.DownLoadBufPoolSize)
 	}
 }
 

@@ -179,7 +179,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.CacheCircuitCloseRequiredCount = Ternary(c.CacheCircuitCloseRequiredCount < 0, 0, c.CacheCircuitCloseRequiredCount).(int)
 	CONFIG.CacheCircuitOpenThreshold = Ternary(c.CacheCircuitOpenThreshold < 0, 0, c.CacheCircuitOpenThreshold).(int)
 
-	CONFIG.DownLoadBufPoolSize = Ternary(c.DownLoadBufPoolSize < 0,512, c.DownLoadBufPoolSize).(int)
+	CONFIG.DownLoadBufPoolSize = Ternary(c.DownLoadBufPoolSize < 0 || c.DownLoadBufPoolSize > 8388608, 524288, c.DownLoadBufPoolSize).(int)
 
 	CONFIG.KMS = c.KMS
 
