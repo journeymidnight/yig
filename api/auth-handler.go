@@ -1,15 +1,16 @@
 package api
 
 import (
+	"net"
+	"net/http"
+	"regexp"
+	"strings"
+
 	"github.com/journeymidnight/yig/api/datatype/policy"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/signature"
-	"net"
-	"net/http"
-	"regexp"
-	"strings"
 )
 
 // Check request auth type verifies the incoming http request
@@ -33,10 +34,12 @@ func checkRequestAuth(api ObjectAPIHandlers, r *http.Request, action policy.Acti
 		} else {
 			helper.Logger.Println(5, "Credential:", c)
 			// check bucket policy
-			return IsBucketPolicyAllowed(c, api, r, action, bucketName, objectName)
+			c, err = IsBucketPolicyAllowed(c, api, r, action, bucketName, objectName)
+			return c, err
 		}
 	case signature.AuthTypeAnonymous:
-		return IsBucketPolicyAllowed(c, api, r, action, bucketName, objectName)
+		c, err = IsBucketPolicyAllowed(c, api, r, action, bucketName, objectName)
+		return c, err
 	}
 	return c, ErrAccessDenied
 }
@@ -64,7 +67,7 @@ func IsBucketPolicyAllowed(c common.Credential, api ObjectAPIHandlers, r *http.R
 		c.AllowOtherUserAccess = true
 		helper.Debugln("Allow", c.UserId, "access", bucketName, "with", action, objectName)
 		return c, nil
-	} else if policyResult == policy.PolicyDeny{
+	} else if policyResult == policy.PolicyDeny {
 		helper.Debugln("ErrAccessDenied: NotAllow", c.UserId, "access", bucketName, "with", action, objectName)
 		return c, ErrAccessDenied
 	} else {

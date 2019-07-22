@@ -21,11 +21,12 @@ import (
 	"strings"
 	"time"
 
+	"net/http"
+	"sort"
+
 	. "github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/iam"
-	"net/http"
-	"sort"
 )
 
 // credentialHeader data type represents structured form of Credential
