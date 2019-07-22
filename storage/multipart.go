@@ -178,7 +178,6 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 	if err != nil {
 		return
 	}
-	oid := cephCluster.AssignObjectName()
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
 
 	var initializationVector []byte
@@ -193,7 +192,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 	if err != nil {
 		return
 	}
-	bytesWritten, err := cephCluster.Put(poolName, oid, storageReader)
+	objectId, bytesWritten, err := cephCluster.Put(poolName, storageReader)
 	if err != nil {
 		return
 	}
@@ -202,7 +201,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 	maybeObjectToRecycle := objectToRecycle{
 		location: cephCluster.ClusterID(),
 		pool:     poolName,
-		objectId: oid,
+		objectId: objectId,
 	}
 	if bytesWritten < uint64(size) {
 		RecycleQueue <- maybeObjectToRecycle
@@ -243,7 +242,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 	part := meta.Part{
 		PartNumber:           partId,
 		Size:                 size,
-		ObjectId:             oid,
+		ObjectId:             objectId,
 		Etag:                 calculatedMd5,
 		LastModified:         time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT),
 		InitializationVector: initializationVector,
@@ -308,7 +307,6 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	if err != nil {
 		return
 	}
-	oid := cephCluster.AssignObjectName()
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
 
 	var initializationVector []byte
@@ -323,7 +321,7 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	if err != nil {
 		return
 	}
-	bytesWritten, err := cephCluster.Put(poolName, oid, storageReader)
+	objectId, bytesWritten, err := cephCluster.Put(poolName, storageReader)
 	if err != nil {
 		return
 	}
@@ -332,7 +330,7 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	maybeObjectToRecycle := objectToRecycle{
 		location: cephCluster.ClusterID(),
 		pool:     poolName,
-		objectId: oid,
+		objectId: objectId,
 	}
 
 	if bytesWritten < uint64(size) {
@@ -366,7 +364,7 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	part := meta.Part{
 		PartNumber:           partId,
 		Size:                 size,
-		ObjectId:             oid,
+		ObjectId:             objectId,
 		Etag:                 result.Md5,
 		LastModified:         now.Format(meta.CREATE_TIME_LAYOUT),
 		InitializationVector: initializationVector,

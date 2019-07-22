@@ -5,14 +5,12 @@ import "io"
 type backend interface {
 	// get cluster ID
 	ClusterID() string
-	// assign a name in backend for new objects
-	AssignObjectName() string
 	// put new object to storage backend
-	Put(poolName, objectName string,
-		object io.Reader) (bytesWritten uint64, err error)
-	// append new chunk to object
-	Append(poolName, objectName string, objectChunk io.Reader,
-		offset int64, metaExist bool) (bytesWritten uint64, err error)
+	Put(poolName string, object io.Reader) (objectName string,
+		bytesWritten uint64, err error)
+	// append new chunk to object, existName could be empty
+	Append(poolName, existName string, objectChunk io.Reader,
+		offset int64) (objectName string, bytesWritten uint64, err error)
 	// get a ReadCloser for object
 	GetReader(poolName, objectName string,
 		offset int64, length uint64) (io.ReadCloser, error)
