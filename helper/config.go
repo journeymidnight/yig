@@ -9,6 +9,8 @@ import (
 
 const (
 	YIG_CONF_PATH = "/etc/yig/yig.toml"
+	MIN_DOWNLOAD_BUFPOOL_SIZE = 512 << 10  // 512k
+	MAX_DOWNLOAD_BUFPOOL_SIZE = 8 << 20    // 8M
 )
 
 type Config struct {
@@ -179,7 +181,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.CacheCircuitCloseRequiredCount = Ternary(c.CacheCircuitCloseRequiredCount < 0, 0, c.CacheCircuitCloseRequiredCount).(int)
 	CONFIG.CacheCircuitOpenThreshold = Ternary(c.CacheCircuitOpenThreshold < 0, 0, c.CacheCircuitOpenThreshold).(int)
 
-	CONFIG.DownLoadBufPoolSize = Ternary(c.DownLoadBufPoolSize < 0 || c.DownLoadBufPoolSize > 8388608, 524288, c.DownLoadBufPoolSize).(int)
+	CONFIG.DownLoadBufPoolSize = Ternary(c.DownLoadBufPoolSize < MIN_DOWNLOAD_BUFPOOL_SIZE || c.DownLoadBufPoolSize > MAX_DOWNLOAD_BUFPOOL_SIZE, MIN_DOWNLOAD_BUFPOOL_SIZE, c.DownLoadBufPoolSize).(int)
 
 	CONFIG.KMS = c.KMS
 
