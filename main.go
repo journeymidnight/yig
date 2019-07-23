@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/log"
-	"github.com/journeymidnight/yig/mods"
 	"github.com/journeymidnight/yig/iam"
+	"github.com/journeymidnight/yig/log"
 	bus "github.com/journeymidnight/yig/messagebus"
 	_ "github.com/journeymidnight/yig/messagebus/kafka"
+	"github.com/journeymidnight/yig/mods"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/storage"
 )
@@ -85,7 +85,7 @@ func main() {
 	}
 
 
-	//Read all *.so from plugins directory, and fill the varaible allPlugins
+	//Read all *.so from plugins directory, and fill the variable allPlugins
 	allPluginMap := mods.InitialPlugins()
 
 	iam.InitializeIamClient(allPluginMap)

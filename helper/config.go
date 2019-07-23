@@ -212,5 +212,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.MsgBus.MessageTimeoutMs = Ternary(c.MsgBus.MessageTimeoutMs == 0, 5000, c.MsgBus.MessageTimeoutMs).(int)
 	CONFIG.MsgBus.SendMaxRetries = Ternary(c.MsgBus.SendMaxRetries == 0, 2, c.MsgBus.SendMaxRetries).(int)
 
+	CONFIG.SeaweedMasters = c.SeaweedMasters
+
 	return nil
 }

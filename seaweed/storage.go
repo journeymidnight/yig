@@ -35,12 +35,14 @@ type Storage struct {
 }
 
 func NewSeaweedStorage(logger *log.Logger, config helper.Config) Storage {
-	clientId := fmt.Sprintf("YIG-%s", string(helper.GenerateRandomId()))
-	logger.Logger.Println("Initializing Seaweedfs client:", clientId)
+	clientId := fmt.Sprintf("YIG-%s", config.InstanceId)
+	logger.Logger.Println("Initializing Seaweedfs client:", clientId,
+		"masters:", config.SeaweedMasters)
 	seaweedClient := wdclient.NewMasterClient(context.Background(),
 		grpc.WithInsecure(), clientId, config.SeaweedMasters)
 	go seaweedClient.KeepConnectedToMaster()
 	seaweedClient.WaitUntilConnected() // FIXME some kind of timeout?
+	logger.Logger.Println("Seaweedfs client initialized")
 	return Storage{
 		logger:        logger,
 		masters:       config.SeaweedMasters,
@@ -170,7 +172,8 @@ func (s Storage) Remove(poolName, objectName string) (err error) {
 		s.logger.Logger.Println("httpClient.Get error:", err)
 		return err
 	}
-	fmt.Println("status code", resp.StatusCode)
+	s.logger.Logger.Println("Seaweed delete", objectName,
+		"status code", resp.StatusCode)
 	if resp.StatusCode == http.StatusAccepted {
 		return nil
 	}
