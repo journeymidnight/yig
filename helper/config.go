@@ -9,6 +9,8 @@ import (
 
 const (
 	YIG_CONF_PATH = "/etc/yig/yig.toml"
+	MIN_DOWNLOAD_BUFPOOL_SIZE = 512 << 10  // 512k
+	MAX_DOWNLOAD_BUFPOOL_SIZE = 8 << 20    // 8M
 )
 
 type Config struct {
@@ -64,6 +66,8 @@ type Config struct {
 	CacheCircuitCloseRequiredCount int `toml:"cache_circuit_close_required_count"`
 	// This property sets the minimum number of requests in a rolling window that will trip the circuit.
 	CacheCircuitOpenThreshold int `toml:"cache_circuit_open_threshold"`
+
+	DownLoadBufPoolSize int `toml:"download_buf_pool_size"`
 
 	KMS KMSConfig `toml:"kms"`
 
@@ -176,6 +180,8 @@ func MarshalTOMLConfig() error {
 	CONFIG.CacheCircuitCloseSleepWindow = Ternary(c.CacheCircuitCloseSleepWindow < 0, 0, c.CacheCircuitCloseSleepWindow).(int)
 	CONFIG.CacheCircuitCloseRequiredCount = Ternary(c.CacheCircuitCloseRequiredCount < 0, 0, c.CacheCircuitCloseRequiredCount).(int)
 	CONFIG.CacheCircuitOpenThreshold = Ternary(c.CacheCircuitOpenThreshold < 0, 0, c.CacheCircuitOpenThreshold).(int)
+
+	CONFIG.DownLoadBufPoolSize = Ternary(c.DownLoadBufPoolSize < MIN_DOWNLOAD_BUFPOOL_SIZE || c.DownLoadBufPoolSize > MAX_DOWNLOAD_BUFPOOL_SIZE, MIN_DOWNLOAD_BUFPOOL_SIZE, c.DownLoadBufPoolSize).(int)
 
 	CONFIG.KMS = c.KMS
 
