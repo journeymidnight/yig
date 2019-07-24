@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
 )
 
@@ -23,7 +24,9 @@ func (m *Meta) DeleteMultipart(multipart Multipart) (err error) {
 	for _, p := range multipart.Parts {
 		removedSize += p.Size
 	}
-	err = m.Client.UpdateUsage(multipart.BucketName, -removedSize, tx)
+	if helper.CONFIG.UsageSwitch {
+		err = m.Client.UpdateUsage(multipart.BucketName, -removedSize, tx)
+	}
 	if err != nil {
 		return
 	}
@@ -46,7 +49,10 @@ func (m *Meta) PutObjectPart(multipart Multipart, part Part) (err error) {
 	if part, ok := multipart.Parts[part.PartNumber]; ok {
 		removedSize += part.Size
 	}
-	err = m.Client.UpdateUsage(multipart.BucketName, part.Size-removedSize, tx)
+	if helper.CONFIG.UsageSwitch {
+		err = m.Client.UpdateUsage(multipart.BucketName, part.Size-removedSize, tx)
+	}
+
 	if err != nil {
 		return
 	}

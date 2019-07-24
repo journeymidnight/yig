@@ -106,12 +106,15 @@ func (m *Meta) PutObject(object *Object, multipart *Multipart, objMap *ObjMap, u
 		}
 	}
 
-	if updateUsage {
-		err = m.Client.UpdateUsage(object.BucketName, object.Size, tx)
-		if err != nil {
-			return err
+	if helper.CONFIG.UsageSwitch {
+		if updateUsage {
+			err = m.Client.UpdateUsage(object.BucketName, object.Size, tx)
+			if err != nil {
+				return err
+			}
 		}
 	}
+
 	err = m.Client.CommitTrans(tx)
 	return nil
 }
@@ -165,20 +168,51 @@ func (m *Meta) DeleteObject(object *Object, DeleteMarker bool, objMap *ObjMap) e
 		return err
 	}
 
-	err = m.Client.UpdateUsage(object.BucketName, -object.Size, tx)
-	if err != nil {
-		return err
+	if helper.CONFIG.UsageSwitch {
+		err = m.Client.UpdateUsage(object.BucketName, -object.Size, tx)
+		if err != nil {
+			return err
+		}
 	}
+
 	err = m.Client.CommitTrans(tx)
 
 	return err
 }
 
-func (m *Meta) AppendObject(object *Object, isExist bool) error {
+func (m *Meta) AppendObject(object *Object, isExist bool,multipart *Multipart, updateUsage bool) error {
+	tx, err := m.Client.NewTrans()
+	defer func() {
+		if err != nil {
+			m.Client.AbortTrans(tx)
+		}
+	}()
 	if !isExist {
-		return m.Client.PutObject(object, nil)
+		err = m.Client.PutObject(object, tx)
 	}
-	return m.Client.UpdateAppendObject(object)
+	err = m.Client.UpdateAppendObject(object)
+	if err != nil {
+		return err
+	}
+
+	if multipart != nil {
+		err = m.Client.DeleteMultipart(multipart, tx)
+		if err != nil {
+			return err
+		}
+	}
+
+	if helper.CONFIG.UsageSwitch {
+		if updateUsage {
+			err = m.Client.UpdateUsage(object.BucketName, object.Size, tx)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	err = m.Client.CommitTrans(tx)
+	return nil
 }
 
 //func (m *Meta) DeleteObjectEntry(object *Object) error {

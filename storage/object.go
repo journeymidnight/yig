@@ -709,7 +709,8 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 	result.NextPosition = object.Size
 	helper.Logger.Println(20, "Append info.", "bucket:", bucketName, "objName:", objectName, "oid:", oid,
 		"objSize:", object.Size, "bytesWritten:", bytesWritten, "storageClass:", storageClass)
-	err = yig.MetaStorage.AppendObject(object, isObjectExist(objInfo))
+
+	err = yig.MetaStorage.AppendObject(object, isObjectExist(objInfo), nil, true)
 	if err != nil {
 		return
 	}

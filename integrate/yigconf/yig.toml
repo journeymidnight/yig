@@ -11,6 +11,7 @@ admin_listener = "0.0.0.0:9000"
 admin_key = "secret"
 ssl_key_path = ""
 ssl_cert_path = ""
+usage_switch = true
 
 # DebugMode
 lcdebug = true
