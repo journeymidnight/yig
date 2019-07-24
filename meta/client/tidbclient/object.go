@@ -123,9 +123,25 @@ func (t *TidbClient) UpdateObjectAttrs(object *Object) error {
 	return err
 }
 
-func (t *TidbClient) UpdateAppendObject(o *Object) (err error) {
+func (t *TidbClient) UpdateAppendObject(o *Object, tx interface{}) (err error) {
+	var sqlTx *sql.Tx
+	if tx == nil {
+		tx, err = t.Client.Begin()
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err == nil {
+				err = sqlTx.Commit()
+			}
+			if err != nil {
+				sqlTx.Rollback()
+			}
+		}()
+	}
+	sqlTx, _ = tx.(*sql.Tx)
 	sql, args := o.GetAppendSql()
-	_, err = t.Client.Exec(sql, args...)
+	_, err = sqlTx.Exec(sql, args...)
 	return err
 }
 
