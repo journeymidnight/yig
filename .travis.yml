@@ -41,9 +41,6 @@ script:
 - pushd messagebus/tests
 - go test -check.vv
 - popd
-- pushd test/ci
-- go test -check.vv
-- popd 
 
 before_deploy:
   - echo "prepare package"
