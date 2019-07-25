@@ -1,33 +1,34 @@
 package tidbclient
 
 import (
+	"context"
 	"database/sql"
+
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
 )
 
-func (t *TidbClient) PutBucketToLifeCycle(lifeCycle LifeCycle) error {
+func (t *TidbClient) PutBucketToLifeCycle(lifeCycle LifeCycle, ctx context.Context) error {
 	sqltext := "insert into lifecycle(bucketname,status) values (?,?);"
 	_, err := t.Client.Exec(sqltext, lifeCycle.BucketName, lifeCycle.Status)
 	if err != nil {
-		helper.Logger.Printf(0, "Failed in PutBucketToLifeCycle: %s\n", sqltext)
+		helper.Logger.Printf(0, "[", helper.RequestIdFromContext(ctx), "]", "Failed in PutBucketToLifeCycle: %s\n", sqltext)
 		return nil
 	}
 	return nil
 }
 
-
-func (t *TidbClient) RemoveBucketFromLifeCycle(bucket *Bucket) error {
+func (t *TidbClient) RemoveBucketFromLifeCycle(bucket Bucket, ctx context.Context) error {
 	sqltext := "delete from lifecycle where bucketname=?;"
 	_, err := t.Client.Exec(sqltext, bucket.Name)
 	if err != nil {
-		helper.Logger.Printf(0, "Failed in RemoveBucketFromLifeCycle: %s\n", sqltext)
+		helper.Logger.Printf(0, "[", helper.RequestIdFromContext(ctx), "]", "Failed in RemoveBucketFromLifeCycle: %s\n", sqltext)
 		return nil
 	}
 	return nil
 }
 
-func (t *TidbClient) ScanLifeCycle(limit int, marker string) (result ScanLifeCycleResult, err error) {
+func (t *TidbClient) ScanLifeCycle(limit int, marker string, ctx context.Context) (result ScanLifeCycleResult, err error) {
 	result.Truncated = false
 	sqltext := "select * from lifecycle where bucketname > ? limit ?;"
 	rows, err := t.Client.Query(sqltext, marker, limit)
@@ -46,14 +47,14 @@ func (t *TidbClient) ScanLifeCycle(limit int, marker string) (result ScanLifeCyc
 			&lc.BucketName,
 			&lc.Status)
 		if err != nil {
-			helper.Logger.Printf(0, "Failed in ScanLifeCycle: %s ... %s\n", result.Lcs,result.NextMarker)
+			helper.Logger.Printf(0, "[", helper.RequestIdFromContext(ctx), "]", "Failed in ScanLifeCycle: %s ... %s\n", result.Lcs, result.NextMarker)
 			return
 		}
 		result.Lcs = append(result.Lcs, lc)
 	}
 	result.NextMarker = lc.BucketName
-	if len(result.Lcs) == limit{
+	if len(result.Lcs) == limit {
 		result.Truncated = true
 	}
-	return result,nil
+	return result, nil
 }

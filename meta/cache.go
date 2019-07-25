@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 
@@ -24,7 +25,7 @@ var cacheNames = [...]string{"NOCACHE", "EnableCache", "SimpleCache"}
 
 type MetaCache interface {
 	Close()
-	Get(table redis.RedisDatabase, prefix, key string,
+	Get(ctx context.Context, table redis.RedisDatabase, prefix, key string,
 		onCacheMiss func() (helper.Serializable, error),
 		onDeserialize func(map[string]string) (interface{}, error),
 		willNeed bool) (value interface{}, err error)
@@ -59,7 +60,7 @@ func newMetaCache(myType CacheType) (m MetaCache) {
 	return &disabledMetaCache{}
 }
 
-func (m *disabledMetaCache) Get(table redis.RedisDatabase, prefix, key string,
+func (m *disabledMetaCache) Get(ctx context.Context, table redis.RedisDatabase, prefix, key string,
 	onCacheMiss func() (helper.Serializable, error),
 	onDeserialize func(map[string]string) (interface{}, error),
 	willNeed bool) (value interface{}, err error) {
@@ -111,17 +112,19 @@ type enabledSimpleMetaCache struct {
 }
 
 func (m *enabledSimpleMetaCache) Get(
+	ctx context.Context,
 	table redis.RedisDatabase,
 	prefix, key string,
 	onCacheMiss func() (helper.Serializable, error),
 	onDeserialize func(map[string]string) (interface{}, error),
 	willNeed bool) (value interface{}, err error) {
 
-	helper.Logger.Println(10, "enabledSimpleMetaCache Get. table:", table, "key:", key)
+	requestId := helper.RequestIdFromContext(ctx)
+	helper.Logger.Println(10, "[", requestId, "]", "enabledSimpleMetaCache Get. table:", table, "key:", key)
 
 	fields, err := redis.HGetAll(table, prefix, key)
 	if err != nil {
-		helper.Logger.Println(5, "enabledSimpleMetaCache Get err:", err, "table:", table, "key:", key)
+		helper.Logger.Println(5, "[", requestId, "]", "enabledSimpleMetaCache Get err:", err, "table:", table, "key:", key)
 	}
 	if err == nil && fields != nil && len(fields) > 0 {
 		value, err = onDeserialize(fields)
@@ -142,12 +145,12 @@ func (m *enabledSimpleMetaCache) Get(
 		if willNeed == true {
 			values, err := obj.Serialize()
 			if err != nil {
-				helper.Logger.Println(2, "failed to serialize from %v", obj, " with err: ", err)
+				helper.Logger.Println(2, "[", requestId, "]", "failed to serialize from %v", obj, " with err: ", err)
 				return nil, err
 			}
 			_, err = redis.HMSet(table, prefix, key, values)
 			if err != nil {
-				helper.Logger.Println(2, "failed to set key: ", key, " with err: ", err)
+				helper.Logger.Println(2, "[", requestId, "]", "failed to set key: ", key, " with err: ", err)
 				//do nothing, even if redis is down.
 			}
 		}

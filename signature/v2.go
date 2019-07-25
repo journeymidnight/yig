@@ -1,6 +1,7 @@
 package signature
 
 import (
+	"context"
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base64"
@@ -10,11 +11,13 @@ import (
 	"time"
 
 	"errors"
+
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/iam/common"
+
 	//	"net"
 	"strconv"
 )
@@ -54,7 +57,7 @@ func verifyNotExpires(dateString string) (bool, error) {
 	return true, nil
 }
 
-func buildCanonicalizedAmzHeaders(headers *http.Header) string {
+func buildCanonicalizedAmzHeaders(headers *http.Header, ctx context.Context) string {
 	var amzHeaders []string
 	for k, _ := range *headers {
 		if strings.HasPrefix(strings.ToLower(k), "x-amz-") {
@@ -68,7 +71,7 @@ func buildCanonicalizedAmzHeaders(headers *http.Header) string {
 		values := (*headers)[h] // Don't use Header.Get() here because we need ALL values
 		ans += strings.ToLower(h) + ":" + strings.Join(values, ",") + "\n"
 	}
-	helper.Debugln("V2 canonical amazon headers:", ans)
+	helper.Debugln("[", helper.RequestIdFromContext(ctx), "]", "V2 canonical amazon headers:", ans)
 	return ans
 }
 
@@ -81,7 +84,7 @@ func buildCanonicalizedResource(req *http.Request) string {
 		ans += "/" + bucketName
 	}
 	ans += req.URL.EscapedPath()
-	helper.Debugln("HOST:", req.Host, hostWithOutPort, ans)
+	helper.Debugln("[", helper.RequestIdFromContext(req.Context()), "]", "HOST:", req.Host, hostWithOutPort, ans)
 	requiredQuery := []string{
 		// NOTE: this array is sorted alphabetically
 		"acl", "cors", "delete", "lifecycle", "location",
@@ -115,16 +118,16 @@ func buildCanonicalizedResource(req *http.Request) string {
 	if encodedQuery != "" {
 		ans += "?" + encodedQuery
 	}
-	helper.Debugln("V2 canonical resource:", ans)
+	helper.Debugln("[", helper.RequestIdFromContext(req.Context()), "]", "V2 canonical resource:", ans)
 	return ans
 }
 
 // Calculate HMAC and compare with signature from client
-func dictate(secretKey string, stringToSign string, signature []byte) error {
+func dictate(secretKey string, stringToSign string, signature []byte, requestId string) error {
 	mac := hmac.New(sha1.New, []byte(secretKey))
 	mac.Write([]byte(stringToSign))
 	expectedMac := mac.Sum(nil)
-	helper.Debugln("key，mac", secretKey, string(expectedMac), string(signature))
+	helper.Debugln("[", requestId, "]", "key，mac", secretKey, string(expectedMac), string(signature))
 	if !hmac.Equal(expectedMac, signature) {
 		return ErrSignatureDoesNotMatch
 	}
@@ -141,7 +144,8 @@ func DoesSignatureMatchV2(r *http.Request) (credential common.Credential, err er
 	}
 	accessKey := splitSignature[0]
 	credential, e := iam.GetCredential(accessKey)
-	helper.Debug("cre1:%s,%s,%s,%s", credential.UserId, credential.DisplayName, credential.AccessKeyID, credential.SecretAccessKey)
+	requestId := helper.RequestIdFromContext(r.Context())
+	helper.Debug("[ %s ] cre1:%s,%s,%s,%s", requestId, credential.UserId, credential.DisplayName, credential.AccessKeyID, credential.SecretAccessKey)
 	if e != nil {
 		return credential, ErrInvalidAccessKeyID
 	}
@@ -183,11 +187,12 @@ func DoesSignatureMatchV2(r *http.Request) (credential common.Credential, err er
 		stringToSign += date + "\n"
 	}
 
-	stringToSign += buildCanonicalizedAmzHeaders(&r.Header)
+	stringToSign += buildCanonicalizedAmzHeaders(&r.Header, r.Context())
 	stringToSign += buildCanonicalizedResource(r)
-	helper.Debugln("stringtosign", stringToSign, credential.SecretAccessKey)
-	helper.Debugln("credential", credential.UserId, credential.AccessKeyID, credential.SecretAccessKey)
-	return credential, dictate(credential.SecretAccessKey, stringToSign, signature)
+
+	helper.Debugln("[", requestId, "]", "stringtosign", stringToSign, credential.SecretAccessKey)
+	helper.Debugln("[", requestId, "]", "credential", credential.UserId, credential.AccessKeyID, credential.SecretAccessKey)
+	return credential, dictate(credential.SecretAccessKey, stringToSign, signature, requestId)
 }
 
 func DoesPresignedSignatureMatchV2(r *http.Request) (credential common.Credential, err error) {
@@ -220,10 +225,10 @@ func DoesPresignedSignatureMatchV2(r *http.Request) (credential common.Credentia
 	stringToSign += r.Header.Get("Content-Md5") + "\n"
 	stringToSign += r.Header.Get("Content-Type") + "\n"
 	stringToSign += expires + "\n"
-	stringToSign += buildCanonicalizedAmzHeaders(&r.Header)
+	stringToSign += buildCanonicalizedAmzHeaders(&r.Header, r.Context())
 	stringToSign += buildCanonicalizedResource(r)
 
-	return credential, dictate(credential.SecretAccessKey, stringToSign, signature)
+	return credential, dictate(credential.SecretAccessKey, stringToSign, signature, helper.RequestIdFromContext((r.Context())))
 }
 
 func DoesPolicySignatureMatchV2(formValues map[string]string) (credential common.Credential,
@@ -252,5 +257,5 @@ func DoesPolicySignatureMatchV2(formValues map[string]string) (credential common
 		return credential, ErrMissingFields
 	}
 
-	return credential, dictate(credential.SecretAccessKey, policy, signature)
+	return credential, dictate(credential.SecretAccessKey, policy, signature, "")
 }

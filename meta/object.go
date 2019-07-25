@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"context"
 	"time"
 
 	. "github.com/journeymidnight/yig/error"
@@ -13,14 +14,14 @@ const (
 	OBJECT_CACHE_PREFIX = "object:"
 )
 
-func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (object *Object, err error) {
+func (m *Meta) GetObject(ctx context.Context, bucketName string, objectName string, willNeed bool) (object *Object, err error) {
 	getObject := func() (o helper.Serializable, err error) {
-		helper.Logger.Println(10, "GetObject CacheMiss. bucket:", bucketName, "object:", objectName)
+		helper.Logger.Println(10, "[", helper.RequestIdFromContext(ctx), "]", "GetObject CacheMiss. bucket:", bucketName, "object:", objectName)
 		object, err := m.Client.GetObject(bucketName, objectName, "")
 		if err != nil {
 			return
 		}
-		helper.Debugln("GetObject object.Name:", object.Name)
+		helper.Debugln("[", helper.RequestIdFromContext(ctx), "]", "GetObject object.Name:", object.Name)
 		if object.Name != objectName {
 			err = ErrNoSuchKey
 			return
@@ -33,7 +34,7 @@ func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (o
 		return o.Deserialize(fields)
 	}
 
-	o, err := m.Cache.Get(redis.ObjectTable, OBJECT_CACHE_PREFIX, bucketName+":"+objectName+":",
+	o, err := m.Cache.Get(ctx, redis.ObjectTable, OBJECT_CACHE_PREFIX, bucketName+":"+objectName+":",
 		getObject, toObject, willNeed)
 	if err != nil {
 		return
@@ -55,7 +56,7 @@ func (m *Meta) GetObjectMap(bucketName, objectName string) (objMap *ObjMap, err 
 	return
 }
 
-func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed bool) (object *Object, err error) {
+func (m *Meta) GetObjectVersion(ctx context.Context, bucketName, objectName, version string, willNeed bool) (object *Object, err error) {
 	getObjectVersion := func() (o helper.Serializable, err error) {
 		object, err := m.Client.GetObject(bucketName, objectName, version)
 		if err != nil {
@@ -73,7 +74,7 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed
 		return o.Deserialize(fields)
 	}
 
-	o, err := m.Cache.Get(redis.ObjectTable, OBJECT_CACHE_PREFIX, bucketName+":"+objectName+":"+version,
+	o, err := m.Cache.Get(ctx, redis.ObjectTable, OBJECT_CACHE_PREFIX, bucketName+":"+objectName+":"+version,
 		getObjectVersion, toObject, willNeed)
 	if err != nil {
 		return

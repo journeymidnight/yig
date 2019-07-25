@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	. "github.com/journeymidnight/yig/log"
 )
 
 const (
@@ -38,6 +39,7 @@ type Config struct {
 	LcThread               int           //used for tools/lc only, set worker numbers to do lc
 	LcDebug                bool          //used for tools/lc only, if this was set true, will treat days as seconds
 	LogLevel               int           `toml:"log_level"` //1-20
+	LogLevelString         string        `toml:"log_level_string"`
 	CephConfigPattern      string        `toml:"ceph_config_pattern"`
 	ReservedOrigins        string        `toml:"reserved_origins"` // www.ccc.com,www.bbb.com,127.0.0.1
 	MetaStore              string        `toml:"meta_store"`
@@ -114,6 +116,16 @@ type MsgBusConfig struct {
 
 var CONFIG Config
 
+var LOG_LEVEL_MAP = map[string]int {
+	"Panic":        LOG_PANIC,
+	"Fatal":        LOG_FATAL,
+	"Error":        LOG_ERROR,
+	"Warn":         LOG_WARN,
+	"Info":         LOG_INFO,
+	"Debug":        LOG_DEBUG,
+	"Trace":        LOG_TRACE,
+}
+
 func SetupConfig() {
 	MarshalTOMLConfig()
 }
@@ -164,6 +176,8 @@ func MarshalTOMLConfig() error {
 	CONFIG.LcThread = Ternary(c.LcThread == 0,
 		1, c.LcThread).(int)
 	CONFIG.LogLevel = Ternary(c.LogLevel == 0, 5, c.LogLevel).(int)
+	logLevel, ok := LOG_LEVEL_MAP[CONFIG.LogLevelString]
+	CONFIG.LogLevel = Ternary(ok, logLevel, CONFIG.LogLevel).(int)
 	CONFIG.MetaStore = Ternary(c.MetaStore == "", "tidb", c.MetaStore).(string)
 
 	CONFIG.RedisAddress = c.RedisAddress

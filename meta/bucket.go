@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -17,24 +18,25 @@ const (
 
 // Note the usage info got from this method is possibly not accurate because we don't
 // invalid cache when updating usage. For accurate usage info, use `GetUsage()`
-func (m *Meta) GetBucket(bucketName string, willNeed bool) (bucket *Bucket, err error) {
-	getBucket := func() (b helper.Serializable, err error) {
-		bt, err := m.Client.GetBucket(bucketName)
-		helper.Logger.Println(10, "GetBucket CacheMiss. bucket:", bucketName)
-		return bt, err
+func (m *Meta) GetBucket(bucketName string, willNeed bool, ctx context.Context) (bucket *Bucket, err error) {
+	getBucket := func() (b interface{}, err error) {
+		b, err = m.Client.GetBucket(bucketName)
+		helper.Logger.Println(10, "[", helper.RequestIdFromContext(ctx), "]",
+			"GetBucket CacheMiss. bucket:", bucketName)
+		return b, err
 	}
 	toBucket := func(fields map[string]string) (interface{}, error) {
 		b := &Bucket{}
 		return b.Deserialize(fields)
 	}
 
-	b, err := m.Cache.Get(redis.BucketTable, BUCKET_CACHE_PREFIX, bucketName, getBucket, toBucket, willNeed)
+	b, err := m.Cache.Get(ctx, redis.BucketTable, BUCKET_CACHE_PREFIX, bucketName, getBucket, toBucket, willNeed)
 	if err != nil {
 		return
 	}
 	bucket, ok := b.(*Bucket)
 	if !ok {
-		helper.Debugln("Cast b failed:", b)
+		helper.Debugln("[", helper.RequestIdFromContext(ctx), "]", "Cast b failed:", b)
 		err = ErrInternalError
 		return
 	}
@@ -82,7 +84,7 @@ func (m *Meta) UpdateUsage(bucketName string, size int64) error {
 	return nil
 }
 
-func (m *Meta) GetUsage(bucketName string) (int64, error) {
+func (m *Meta) GetUsage(ctx context.Context, bucketName string) (int64, error) {
 	usage, err := m.Cache.HGetInt64(redis.BucketTable, BUCKET_CACHE_PREFIX, bucketName, FIELD_NAME_USAGE)
 	if err != nil {
 		helper.Logger.Println(2, "failed to get usage for bucket: ", bucketName, ", err: ", err)
@@ -91,17 +93,17 @@ func (m *Meta) GetUsage(bucketName string) (int64, error) {
 	return usage, nil
 }
 
-func (m *Meta) GetBucketInfo(bucketName string) (*Bucket, error) {
+func (m *Meta) GetBucketInfo(ctx context.Context, bucketName string) (*Bucket, error) {
 	m.Cache.Remove(redis.BucketTable, BUCKET_CACHE_PREFIX, bucketName)
-	bucket, err := m.GetBucket(bucketName, true)
+	bucket, err := m.GetBucket(ctx, bucketName, true)
 	if err != nil {
 		return bucket, err
 	}
 	return bucket, nil
 }
 
-func (m *Meta) GetUserInfo(uid string) ([]string, error) {
-	m.Cache.Remove(redis.UserTable, USER_CACHE_PREFIX, uid)
+func (m *Meta) GetUserInfo(ctx context.Context, uid string) ([]string, error) {
+	m.Cache.Remove(ctx, redis.UserTable, USER_CACHE_PREFIX, uid)
 	buckets, err := m.GetUserBuckets(uid, true)
 	if err != nil {
 		return nil, err

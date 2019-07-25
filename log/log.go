@@ -28,6 +28,16 @@ const (
 	LstdFlags     = Ldate | Ltime // initial values for the standard logger
 )
 
+const (
+	LOG_PANIC	= 1
+	LOG_FATAL	= 2
+	LOG_ERROR	= 5
+	LOG_WARN	= 10
+	LOG_INFO	= 12
+	LOG_DEBUG	= 15
+	LOG_TRACE	= 20
+)
+
 type Logger struct {
 	Logger   *log.Logger
 	LogLevel int
