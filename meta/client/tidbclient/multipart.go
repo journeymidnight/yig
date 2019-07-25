@@ -3,6 +3,12 @@ package tidbclient
 import (
 	"database/sql"
 	"encoding/json"
+	"math"
+	"net/url"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
@@ -10,11 +16,6 @@ import (
 	"github.com/journeymidnight/yig/iam/common"
 	. "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/meta/util"
-	"math"
-	"net/url"
-	"strconv"
-	"strings"
-	"time"
 )
 
 func (t *TidbClient) GetMultipart(bucketName, objectName, uploadId string) (multipart Multipart, err error) {
@@ -273,7 +274,7 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 			timestamp := int64(math.MaxUint64 - uploadtime)
 			s := timestamp / 1e9
 			ns := timestamp % 1e9
-			upload.Initiated = time.Unix(s, ns).Format(CREATE_TIME_LAYOUT)
+			upload.Initiated = time.Unix(s, ns).UTC().Format(CREATE_TIME_LAYOUT)
 			uploads = append(uploads, upload)
 			count += 1
 		}
