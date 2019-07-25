@@ -1,6 +1,8 @@
 package meta
 
 import (
+	"time"
+
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
@@ -85,6 +87,7 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed
 }
 
 func (m *Meta) PutObject(object *Object, multipart *Multipart, objMap *ObjMap, updateUsage bool) error {
+	tstart := time.Now()
 	tx, err := m.Client.NewTrans()
 	defer func() {
 		if err != nil {
@@ -112,12 +115,25 @@ func (m *Meta) PutObject(object *Object, multipart *Multipart, objMap *ObjMap, u
 	}
 
 	if updateUsage {
+		ustart := time.Now()
 		err = m.UpdateUsage(object.BucketName, object.Size)
 		if err != nil {
 			return err
 		}
+		uend := time.Now()
+		dur := uend.Sub(ustart)
+		if dur/1000000 >= 1000 {
+			helper.Logger.Printf(2, "slow log: UpdateUsage, bucket %s, obj: %s, size: %d, takes %d",
+				object.BucketName, object.Name, object.Size, dur)
+		}
 	}
 	err = m.Client.CommitTrans(tx)
+	tend := time.Now()
+	dur := tend.Sub(tstart)
+	if dur/1000000 >= 1000 {
+		helper.Logger.Printf(2, "slow log: MetaPutObject: bucket: %s, obj: %s, size: %d, takes %d",
+			object.BucketName, object.Name, object.Size, dur)
+	}
 	return nil
 }
 

@@ -360,6 +360,32 @@ func HGet(table RedisDatabase, prefix, key, field string) (string, error) {
 	return r, nil
 }
 
+func HDel(table RedisDatabase, prefix, key string, fields []string) (int64, error) {
+	var r int64
+	err := CacheCircuit.Execute(
+		context.Background(),
+		func(ctx context.Context) (err error) {
+			c, err := GetClient(ctx)
+			if err != nil {
+				return err
+			}
+
+			r, err = c.HDel(table.String()+prefix+helper.EscapeColon(key), fields)
+			if err == nil {
+				return nil
+			}
+			helper.ErrorIf(err, "Cmd: %s, key: %s, fields: %v", "HDel", table.String()+helper.EscapeColon(key), fields)
+			return err
+		},
+		nil,
+	)
+
+	if err != nil {
+		return 0, err
+	}
+	return r, nil
+}
+
 func HGetInt64(table RedisDatabase, prefix, key, field string) (int64, error) {
 	var r int64
 	err := CacheCircuit.Execute(

@@ -4,8 +4,8 @@ import (
 	"errors"
 	"github.com/cep21/circuit"
 	"github.com/cep21/circuit/closers/hystrix"
-	"time"
 	"github.com/journeymidnight/yig/helper"
+	"time"
 )
 
 var (
@@ -24,7 +24,8 @@ func NewCacheCircuit() *circuit.Circuit {
 			}),
 		},
 		Execution: circuit.ExecutionConfig{
-			Timeout: 1 * time.Second,
+			Timeout:               1 * time.Second,
+			MaxConcurrentRequests: -1,
 		},
 	})
 }

@@ -2,6 +2,7 @@ package meta
 
 import (
 	"fmt"
+	"time"
 
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
@@ -46,15 +47,38 @@ func (m *Meta) GetBuckets() (buckets []*Bucket, err error) {
 }
 
 func (m *Meta) UpdateUsage(bucketName string, size int64) error {
+	tstart := time.Now()
 	usage, err := m.Cache.HIncrBy(redis.BucketTable, BUCKET_CACHE_PREFIX, bucketName, FIELD_NAME_USAGE, size)
 	if err != nil {
 		helper.Logger.Println(2, fmt.Sprintf("failed to update bucket[%s] usage by %d, err: %v",
 			bucketName, size, err))
 		return err
 	}
+	tinc := time.Now()
+	dur := tinc.Sub(tstart)
+	if dur/1000000 >= 1000 {
+		helper.Logger.Printf(2, "slow log: RedisIncrBy: bucket: %s, size: %d, takes: %d",
+			bucketName, size, dur)
+	}
 
-	AddBucketUsageSyncEvent(bucketName, usage)
+	err = m.addBucketUsageSyncEvent(bucketName)
+	if err != nil {
+		helper.Logger.Printf(2, "failed to add bucket usage sync event for bucket: %s, err: %v",
+			bucketName, err)
+		return err
+	}
 	helper.Logger.Println(15, "incr usage for bucket: ", bucketName, ", updated to ", usage)
+	tend := time.Now()
+	dur = tend.Sub(tinc)
+	if dur/1000000 >= 1000 {
+		helper.Logger.Printf(2, "slow log: AddBucketUsageSyncEvent: bucket: %s, size: %d, takes: %d",
+			bucketName, size, dur)
+	}
+	dur = tend.Sub(tstart)
+	if dur/1000000 >= 1000 {
+		helper.Logger.Printf(2, "slow log: cache update, bucket: %s, size: %d, takes: %d",
+			bucketName, size, dur)
+	}
 	return nil
 }
 
@@ -159,41 +183,48 @@ func (m *Meta) InitBucketUsageCache() error {
 	return nil
 }
 
-func (m *Meta) bucketUsageSync(event SyncEvent) error {
-	bu := &BucketUsageEvent{}
-	err := helper.MsgPackUnMarshal(event.Data.([]byte), bu)
+func (m *Meta) bucketUsageSync() error {
+	buckets, err := m.Cache.HGetAll(redis.BucketTable, SYNC_EVENT_BUCKET_USAGE_PREFIX, "trigger")
 	if err != nil {
-		helper.Logger.Println(2, "failed to unpack from event data to BucketUsageEvent, err: %v", err)
+		helper.Logger.Printf(2, "failed to get buckets whose usage are changed, err: %v", err)
 		return err
 	}
-
-	err = m.Client.UpdateUsage(bu.BucketName, bu.Usage, nil)
-	if err != nil {
-		helper.Logger.Println(2, "failed to update bucket usage ", bu.Usage, " to bucket: ", bu.BucketName,
-			" err: ", err)
-		return err
+	if len(buckets) <= 0 {
+		return nil
 	}
+	var cacheRemove []string
+	for k, _ := range buckets {
+		usage, err := m.Cache.HGetInt64(redis.BucketTable, BUCKET_CACHE_PREFIX, k, FIELD_NAME_USAGE)
+		if err != nil {
+			helper.Logger.Printf(2, "failed to get usage for bucket: %s, err: %v", k, err)
+			continue
+		}
+		err = m.Client.UpdateUsage(k, usage, nil)
+		if err != nil {
+			helper.Logger.Println(2, "failed to update bucket usage ", usage, " to bucket: ", k,
+				" err: ", err)
+			continue
+		}
+		cacheRemove = append(cacheRemove, k)
 
-	helper.Logger.Println(15, "succeed to update bucket usage ", bu.Usage, " for bucket: ", bu.BucketName)
+		helper.Logger.Println(20, "succeed to update bucket usage ", usage, " for bucket: ", k)
+	}
+	// remove the bucket usage sync event.
+	if len(cacheRemove) > 0 {
+		_, err = m.Cache.HDel(redis.BucketTable, SYNC_EVENT_BUCKET_USAGE_PREFIX, "trigger", cacheRemove)
+		if err != nil {
+			helper.Logger.Printf(2, "failed to unset the bucket usage change event for %v, err: %v", cacheRemove, err)
+			return err
+		}
+		helper.Logger.Printf(20, "succeed to remove bucket usage trigger for %v", cacheRemove)
+	}
 	return nil
 }
 
-func AddBucketUsageSyncEvent(bucketName string, usage int64) {
-	bu := &BucketUsageEvent{
-		Usage:      usage,
-		BucketName: bucketName,
-	}
-	data, err := helper.MsgPackMarshal(bu)
+func (m *Meta) addBucketUsageSyncEvent(bucketName string) error {
+	_, err := m.Cache.HSet(redis.BucketTable, SYNC_EVENT_BUCKET_USAGE_PREFIX, "trigger", bucketName, 1)
 	if err != nil {
-		helper.Logger.Printf(2, "failed to package bucket usage event for bucket %s with usage %d, err: %v",
-			bucketName, usage, err)
-		return
+		return err
 	}
-	if MetaSyncQueue != nil {
-		event := SyncEvent{
-			Type: SYNC_EVENT_TYPE_BUCKET_USAGE,
-			Data: data,
-		}
-		MetaSyncQueue <- event
-	}
+	return nil
 }

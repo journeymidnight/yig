@@ -27,28 +27,25 @@ func initializeMetaSyncWorker(yig *YigStorage) {
 func metaSync(yig *YigStorage) {
 	yig.WaitGroup.Add(1)
 	defer yig.WaitGroup.Done()
+	event := meta.SyncEvent{
+		Type: meta.SYNC_EVENT_TYPE_BUCKET_USAGE,
+	}
 	for {
-		select {
-		case event := <-meta.MetaSyncQueue:
+		if yig.Stopping {
+			helper.Logger.Print(5, ".")
+			// check whether all changed bucket usages are synced.
 			err := yig.MetaStorage.Sync(event)
 			if err != nil {
-				event.RetryTimes += 1
-				if event.RetryTimes > META_SYNC_MAX_TRY_TIMES {
-					helper.Logger.Println(5, "Failed to sync meta event: ",
-						event, " with error", err)
-					continue
-				}
-				meta.MetaSyncQueue <- event
-				time.Sleep(1 * time.Second)
+				helper.Logger.Printf(2, "failed to perform bucket usage sync, err: %v", err)
 			}
-		default:
-			if yig.Stopping {
-				helper.Logger.Print(5, ".")
-				if len(meta.MetaSyncQueue) == 0 {
-					return
-				}
-			}
-			time.Sleep(5 * time.Second)
+			break
 		}
+
+		err := yig.MetaStorage.Sync(event)
+		if err != nil {
+			helper.Logger.Printf(2, "failed to perform bucket usage sync, err: %v", err)
+		}
+
+		time.Sleep(1 * time.Second)
 	}
 }

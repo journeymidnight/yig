@@ -280,6 +280,22 @@ func (cli *RedisCli) HGet(key, field string) (val string, err error) {
 	return val, err
 }
 
+func (cli *RedisCli) HDel(key string, fields []string) (val int64, err error) {
+	switch cli.clientType {
+	case REDIS_NORMAL_CLIENT, REDIS_SENTINEL_CLIENT:
+		val, err = cli.redisClient.HDel(key, fields...).Result()
+	case REDIS_CLUSTER_CLIENT:
+		val, err = cli.redisClusterClient.HDel(key, fields...).Result()
+	default:
+		return 0, errors.New(ERR_NOT_INIT_MSG)
+	}
+
+	if err == redis.Nil {
+		return val, nil
+	}
+	return val, err
+}
+
 func (cli *RedisCli) HGetInt64(key, field string) (val int64, err error) {
 	switch cli.clientType {
 	case REDIS_NORMAL_CLIENT, REDIS_SENTINEL_CLIENT:

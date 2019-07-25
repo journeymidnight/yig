@@ -31,7 +31,10 @@ type MetaCache interface {
 	Remove(table redis.RedisDatabase, prefix, key string)
 	GetCacheHitRatio() float64
 	Keys(table redis.RedisDatabase, pattern string) ([]string, error)
+	HSet(table redis.RedisDatabase, prefix, key, field string, value interface{}) (bool, error)
+	HDel(table redis.RedisDatabase, prefix, key string, fields []string) (int64, error)
 	HGetInt64(table redis.RedisDatabase, prefix, key, field string) (int64, error)
+	HGetAll(table redis.RedisDatabase, prefix, key string) (map[string]string, error)
 	HMSet(table redis.RedisDatabase, prefix, key string, fields map[string]interface{}) (string, error)
 	HIncrBy(table redis.RedisDatabase, prefix, key, field string, value int64) (int64, error)
 }
@@ -75,8 +78,20 @@ func (m *disabledMetaCache) Keys(table redis.RedisDatabase, pattern string) ([]s
 	return nil, errors.New(MSG_NOT_IMPL)
 }
 
+func (m *disabledMetaCache) HSet(table redis.RedisDatabase, prefix, key, field string, value interface{}) (bool, error) {
+	return false, errors.New(MSG_NOT_IMPL)
+}
+
+func (m *disabledMetaCache) HDel(table redis.RedisDatabase, prefix, key string, fields []string) (int64, error) {
+	return 0, errors.New(MSG_NOT_IMPL)
+}
+
 func (m *disabledMetaCache) HGetInt64(table redis.RedisDatabase, prefix, key, field string) (int64, error) {
 	return 0, errors.New(MSG_NOT_IMPL)
+}
+
+func (m *disabledMetaCache) HGetAll(table redis.RedisDatabase, prefix, key string) (map[string]string, error) {
+	return nil, errors.New(MSG_NOT_IMPL)
 }
 
 func (m *disabledMetaCache) HMSet(table redis.RedisDatabase, prefix, key string, fields map[string]interface{}) (string, error) {
@@ -154,8 +169,20 @@ func (m *enabledSimpleMetaCache) Keys(table redis.RedisDatabase, pattern string)
 	return redis.Keys(table, pattern)
 }
 
+func (m *enabledSimpleMetaCache) HSet(table redis.RedisDatabase, prefix, key, field string, value interface{}) (bool, error) {
+	return redis.HSet(table, prefix, key, field, value)
+}
+
+func (m *enabledSimpleMetaCache) HDel(table redis.RedisDatabase, prefix, key string, fields []string) (int64, error) {
+	return redis.HDel(table, prefix, key, fields)
+}
+
 func (m *enabledSimpleMetaCache) HGetInt64(table redis.RedisDatabase, prefix, key, field string) (int64, error) {
 	return redis.HGetInt64(table, prefix, key, field)
+}
+
+func (m *enabledSimpleMetaCache) HGetAll(table redis.RedisDatabase, prefix, key string) (map[string]string, error) {
+	return redis.HGetAll(table, prefix, key)
 }
 
 func (m *enabledSimpleMetaCache) HMSet(table redis.RedisDatabase, prefix, key string, fields map[string]interface{}) (string, error) {

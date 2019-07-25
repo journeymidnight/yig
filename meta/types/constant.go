@@ -33,6 +33,10 @@ const (
 	OBJMAP_COLUMN_FAMILY                  = "om"
 )
 
+const (
+	SYNC_EVENT_BUCKET_USAGE_PREFIX = "sync_bucket_usage_"
+)
+
 var (
 	XXTEA_KEY         = []byte("hehehehe")
 	SSE_S3_MASTER_KEY = []byte("hehehehehehehehehehehehehehehehe") // 32 bytes to select AES-256

@@ -445,6 +445,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	size int64, data io.Reader, metadata map[string]string, acl datatype.Acl,
 	sseRequest datatype.SseRequest, storageClass meta.StorageClass) (result datatype.PutObjectResult, err error) {
 
+	tstart := time.Now()
 	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, bucketName, objectName)
 	helper.Debugln("get encryptionKey:", encryptionKey, "cipherKey:", cipherKey, "err:", err)
 	if err != nil {
@@ -497,9 +498,16 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	if err != nil {
 		return
 	}
+	cstart := time.Now()
 	bytesWritten, err := cephCluster.Put(poolName, oid, storageReader)
 	if err != nil {
 		return
+	}
+	cend := time.Now()
+	cdur := cend.Sub(cstart)
+	if cdur/1000000 >= 1000 {
+		helper.Logger.Printf(2, "slow log: ceph put: bucket: %s, object: %s, size: %d, takes: %d",
+			bucketName, objectName, size, cdur)
 	}
 	// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
 	// so the object in Ceph could be removed asynchronously
@@ -589,6 +597,12 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	if err == nil {
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, obj.OBJECT_CACHE_PREFIX, bucketName+":"+objectName+":")
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
+	}
+	tend := time.Now()
+	dur := tend.Sub(tstart)
+	if dur/1000000 >= 1000 {
+		helper.Logger.Printf(2, "slow log: PutOject: object: %s, bucket: %s, size: %d, takes: %d",
+			bucketName, objectName, object.Size, dur)
 	}
 	return result, nil
 }
