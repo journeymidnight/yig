@@ -2,6 +2,7 @@ package datatype
 
 import (
 	"encoding/xml"
+	"context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 )
@@ -111,52 +112,60 @@ func IsValidCannedAcl(acl Acl) (err error) {
 }
 
 // the function will be deleted, because we will use AccessControlPolicy instead canned acl stored in hbase
-func GetCannedAclFromPolicy(policy AccessControlPolicy) (acl Acl, err error) {
+func GetCannedAclFromPolicy(policy AccessControlPolicy, ctx context.Context) (acl Acl, err error) {
 	aclOwner := Owner{ID: policy.ID, DisplayName: policy.DisplayName}
 	var canonUser bool
 	var group bool
 	for _, grant := range policy.AccessControlList {
-		helper.Debugln("GetCannedAclFromPolicy")
+		helper.Debugln("[", helper.RequestIdFromContext(ctx), "]", "GetCannedAclFromPolicy")
 		switch grant.Grantee.XsiType {
 		case ACL_TYPE_CANON_USER:
 			if grant.Grantee.ID != aclOwner.ID {
-				helper.Logger.Println(1, "grant.Grantee.ID:", grant.Grantee.ID, "not equals aclOwner.ID:", aclOwner.ID)
+				helper.Logger.Println(1, "[", helper.RequestIdFromContext(ctx), "]", 
+					"grant.Grantee.ID:", grant.Grantee.ID, "not equals aclOwner.ID:", aclOwner.ID)
 				return acl, ErrUnsupportedAcl
 			}
 			if grant.Permission != ACL_PERM_FULL_CONTROL {
-				helper.Logger.Println(1, "grant.Permission:", grant.Permission, "not equals", ACL_PERM_FULL_CONTROL)
+				helper.Logger.Println(1, "[", helper.RequestIdFromContext(ctx), "]", 
+					"grant.Permission:", grant.Permission, "not equals", ACL_PERM_FULL_CONTROL)
 				return acl, ErrUnsupportedAcl
 			}
 			canonUser = true
 		case ACL_TYPE_GROUP:
 			if grant.Grantee.URI == ACL_GROUP_TYPE_ALL_USERS {
-				helper.Logger.Println(5, "grant.Grantee.URI is", ACL_GROUP_TYPE_ALL_USERS)
+				helper.Logger.Println(5, "[", helper.RequestIdFromContext(ctx), "]", 
+					"grant.Grantee.URI is", ACL_GROUP_TYPE_ALL_USERS)
 				if grant.Permission != ACL_PERM_READ {
-					helper.Logger.Println(1, "grant.Permission:", grant.Permission, "not equals", ACL_PERM_READ)
+					helper.Logger.Println(1, "[", helper.RequestIdFromContext(ctx), "]", 
+						"grant.Permission:", grant.Permission, "not equals", ACL_PERM_READ)
 					return acl, ErrUnsupportedAcl
 				}
 				acl = Acl{CannedAcl: ValidCannedAcl[CANNEDACL_PUBLIC_READ]}
 				group = true
 			} else if grant.Grantee.URI == ACL_GROUP_TYPE_AUTHENTICATED_USERS {
-				helper.Logger.Println(5, "grant.Grantee.URI is", ACL_GROUP_TYPE_AUTHENTICATED_USERS)
+				helper.Logger.Println(5, "[", helper.RequestIdFromContext(ctx), "]", 
+					"grant.Grantee.URI is", ACL_GROUP_TYPE_AUTHENTICATED_USERS)
 				if grant.Permission != ACL_PERM_READ {
-					helper.Logger.Println(1, "grant.Permission:", grant.Permission, "not equals", ACL_PERM_FULL_CONTROL)
+					helper.Logger.Println(1, "[", helper.RequestIdFromContext(ctx), "]", 
+						"grant.Permission:", grant.Permission, "not equals", ACL_PERM_FULL_CONTROL)
 					return acl, ErrUnsupportedAcl
 				}
 				acl = Acl{CannedAcl: ValidCannedAcl[CANNEDACL_AUTHENTICATED_READ]}
 				group = true
 			} else {
-				helper.Logger.Println(1, "grant.Grantee.URI is invalid:", grant.Grantee.URI)
+				helper.Logger.Println(1, "[", helper.RequestIdFromContext(ctx), "]", 
+					"grant.Grantee.URI is invalid:", grant.Grantee.URI)
 				return acl, ErrUnsupportedAcl
 			}
 		default:
-			helper.Logger.Println(1, "grant.Grantee.XsiType is invalid:", grant.Grantee.XsiType)
+			helper.Logger.Println(1, "[", helper.RequestIdFromContext(ctx), "]", 
+				"grant.Grantee.XsiType is invalid:", grant.Grantee.XsiType)
 			return acl, ErrUnsupportedAcl
 		}
 	}
 
 	if !canonUser {
-		helper.Logger.Println(1, "canonUser is invalid:", canonUser)
+		helper.Logger.Println(1, "[", helper.RequestIdFromContext(ctx), "]", "canonUser is invalid:", canonUser)
 		return acl, ErrUnsupportedAcl
 	}
 

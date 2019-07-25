@@ -1,20 +1,23 @@
 package meta
 
 import (
+	"context"
+
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
 )
 
-func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (object *Object, err error) {
+func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool, ctx context.Context) (object *Object, err error) {
 	getObject := func() (o interface{}, err error) {
-		helper.Logger.Println(10, "GetObject CacheMiss. bucket:", bucketName, "object:", objectName)
+		helper.Logger.Println(10, "[", helper.RequestIdFromContext(ctx), "]",
+			"GetObject CacheMiss. bucket:", bucketName, "object:", objectName)
 		object, err := m.Client.GetObject(bucketName, objectName, "")
 		if err != nil {
 			return
 		}
-		helper.Debugln("GetObject object.Name:", object.Name)
+		helper.Debugln("[", helper.RequestIdFromContext(ctx), "]", "GetObject object.Name:", object.Name)
 		if object.Name != objectName {
 			err = ErrNoSuchKey
 			return
@@ -28,7 +31,7 @@ func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (o
 	}
 
 	o, err := m.Cache.Get(redis.ObjectTable, bucketName+":"+objectName+":",
-		getObject, unmarshaller, willNeed)
+		getObject, unmarshaller, willNeed, ctx)
 	if err != nil {
 		return
 	}
@@ -49,7 +52,7 @@ func (m *Meta) GetObjectMap(bucketName, objectName string) (objMap *ObjMap, err 
 	return
 }
 
-func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed bool) (object *Object, err error) {
+func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed bool, ctx context.Context) (object *Object, err error) {
 	getObjectVersion := func() (o interface{}, err error) {
 		object, err := m.Client.GetObject(bucketName, objectName, version)
 		if err != nil {
@@ -67,7 +70,7 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed
 		return &object, err
 	}
 	o, err := m.Cache.Get(redis.ObjectTable, bucketName+":"+objectName+":"+version,
-		getObjectVersion, unmarshaller, willNeed)
+		getObjectVersion, unmarshaller, willNeed, ctx)
 	if err != nil {
 		return
 	}

@@ -17,6 +17,7 @@
 package signature
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -24,10 +25,11 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/journeymidnight/yig/error"
-	"github.com/journeymidnight/yig/helper"
 	"net/http"
 	"regexp"
+
+	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/helper"
 )
 
 var (
@@ -195,7 +197,7 @@ func parsePostPolicyForm(policy string,
 
 // checkPostPolicy - apply policy conditions and validate input values.
 func CheckPostPolicy(formValues map[string]string,
-	postPolicyVersion PostPolicyType) error {
+	postPolicyVersion PostPolicyType, ctx context.Context) error {
 
 	var eqPolicyRegExp, startswithPolicyRegExp, ignoredFormRegExp *regexp.Regexp
 	switch postPolicyVersion {
@@ -220,7 +222,7 @@ func CheckPostPolicy(formValues map[string]string,
 	postPolicyForm, err := parsePostPolicyForm(string(policyBytes),
 		eqPolicyRegExp, startswithPolicyRegExp)
 	if err != nil {
-		helper.Logger.Println(5, "Parse post-policy form error:", err)
+		helper.Logger.Println(5, "[", helper.RequestIdFromContext(ctx), "]", "Parse post-policy form error:", err)
 		return ErrMalformedPOSTRequest
 	}
 	if !postPolicyForm.Expiration.After(time.Now()) {
