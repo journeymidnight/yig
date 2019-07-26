@@ -16,7 +16,7 @@ import (
 func (t *TidbClient) GetBucket(bucketName string) (bucket *Bucket, err error) {
 	var acl, cors, lc, policy, createTime string
 	var updateTime sql.NullString
-	sqltext := "select bucketname,acl,cors,lc,uid,policy,createtime,usages,versioning,file_counts,update_time from buckets where bucketname=?;"
+	sqltext := "select bucketname,acl,cors,lc,uid,policy,createtime,usages,versioning,update_time from buckets where bucketname=?;"
 	tmp := &Bucket{}
 	err = t.Client.QueryRow(sqltext, bucketName).Scan(
 		&tmp.Name,
@@ -28,7 +28,6 @@ func (t *TidbClient) GetBucket(bucketName string) (bucket *Bucket, err error) {
 		&createTime,
 		&tmp.Usage,
 		&tmp.Versioning,
-		&tmp.FileCounts,
 		&updateTime,
 	)
 	if err != nil && err == sql.ErrNoRows {
@@ -68,7 +67,7 @@ func (t *TidbClient) GetBucket(bucketName string) (bucket *Bucket, err error) {
 }
 
 func (t *TidbClient) GetBuckets() (buckets []*Bucket, err error) {
-	sqltext := "select bucketname,acl,cors,lc,uid,policy,createtime,usages,versioning,file_counts,update_time from buckets;"
+	sqltext := "select bucketname,acl,cors,lc,uid,policy,createtime,usages,versioning,update_time from buckets;"
 	rows, err := t.Client.Query(sqltext)
 	if err == sql.ErrNoRows {
 		err = nil
@@ -92,7 +91,6 @@ func (t *TidbClient) GetBuckets() (buckets []*Bucket, err error) {
 			&createTime,
 			&tmp.Usage,
 			&tmp.Versioning,
-			&tmp.FileCounts,
 			&updateTime)
 		if err != nil {
 			return
