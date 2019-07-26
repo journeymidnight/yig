@@ -201,7 +201,7 @@ func GetWocloudIamClient(config map[string]interface{}) (interface{}, error) {
 
 	helper.Logger.Printf(10, "Get plugin config: %v\n", config)
 
-	c := Client{
+	c := &Client{
 		httpClient:  circuitbreak.NewCircuitClient(),
 		iamEndpoint: config["iam_endpoint"].(string),
 		iamKey:      config["iam_key"].(string),
