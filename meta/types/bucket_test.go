@@ -12,9 +12,8 @@ type TestData struct {
 
 func (ts *TypesSuite) TestBucketSerialize(c *C) {
 	b := &Bucket{
-		Name:       "test_bucket",
-		Usage:      100,
-		FileCounts: 120,
+		Name:  "test_bucket",
+		Usage: 100,
 	}
 
 	fields, err := b.Serialize()
