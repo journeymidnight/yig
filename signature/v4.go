@@ -29,6 +29,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -217,9 +218,21 @@ func DoesPresignedSignatureMatchV4(r *http.Request,
 
 	/// Verify finally if signature is same.
 
-	// Get canonical request.
-	query := r.URL.Query()
-	query.Del("X-Amz-Signature")
+	// Construct the query.
+
+	query := make(url.Values)
+	for k, v := range r.URL.Query() {
+		// Delete queries that is not used to calculate the signature
+		if !strings.HasPrefix(k, "X-Amz") {
+			continue
+		}
+		if k == "X-Amz-Signature" {
+			continue
+		}
+
+		query[k] = v
+	}
+
 	presignedCanonicalReq := getCanonicalRequest(extractedSignedHeaders, UnsignedPayload,
 		query.Encode(), r.URL.Path, r.Method)
 
