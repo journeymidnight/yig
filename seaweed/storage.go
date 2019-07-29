@@ -48,7 +48,10 @@ func NewSeaweedStorage(logger *log.Logger, config helper.Config) Storage {
 		masters:       config.SeaweedMasters,
 		seaweedClient: seaweedClient,
 		httpClient: &http.Client{
-			Timeout: time.Minute,
+			Timeout: 3 * time.Minute,
+			Transport: &http.Transport{
+				MaxIdleConnsPerHost: 8192, // keep long connections with volume server
+			},
 		},
 	}
 }
@@ -172,16 +175,14 @@ func (s Storage) Remove(poolName, objectName string) (err error) {
 		s.logger.Logger.Println("httpClient.Get error:", err)
 		return err
 	}
-	s.logger.Logger.Println("Seaweed delete", objectName,
-		"status code", resp.StatusCode)
-	if resp.StatusCode == http.StatusAccepted {
-		return nil
-	}
-	var result map[string]string
+	var result map[string]interface{}
 	err = helper.ReadJsonBody(resp.Body, &result)
 	if err != nil {
 		s.logger.Logger.Println("ReadJsonBody error:", err)
 		return err
 	}
-	return errors.New(result["error"])
+	if resp.StatusCode == http.StatusAccepted {
+		return nil
+	}
+	return errors.New(fmt.Sprintln(result["error"]))
 }
