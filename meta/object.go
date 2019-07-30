@@ -122,7 +122,7 @@ func (m *Meta) PutObject(object *Object, multipart *Multipart, objMap *ObjMap, u
 		}
 		uend := time.Now()
 		dur := uend.Sub(ustart)
-		if dur/1000000 >= 1000 {
+		if dur/1000000 >= 100 {
 			helper.Logger.Printf(2, "slow log: UpdateUsage, bucket %s, obj: %s, size: %d, takes %d",
 				object.BucketName, object.Name, object.Size, dur)
 		}
@@ -130,7 +130,7 @@ func (m *Meta) PutObject(object *Object, multipart *Multipart, objMap *ObjMap, u
 	err = m.Client.CommitTrans(tx)
 	tend := time.Now()
 	dur := tend.Sub(tstart)
-	if dur/1000000 >= 1000 {
+	if dur/1000000 >= 100 {
 		helper.Logger.Printf(2, "slow log: MetaPutObject: bucket: %s, obj: %s, size: %d, takes %d",
 			object.BucketName, object.Name, object.Size, dur)
 	}

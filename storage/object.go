@@ -505,7 +505,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	}
 	cend := time.Now()
 	cdur := cend.Sub(cstart)
-	if cdur/1000000 >= 1000 {
+	if cdur/1000000 >= 300 {
 		helper.Logger.Printf(2, "slow log: ceph put: bucket: %s, object: %s, size: %d, takes: %d",
 			bucketName, objectName, size, cdur)
 	}
