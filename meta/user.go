@@ -1,12 +1,9 @@
 package meta
 
 import (
-<<<<<<< HEAD
 	"errors"
 	"fmt"
-=======
 	"context"
->>>>>>> 97e4e03... add requestId in log message; add log level;
 
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
@@ -78,8 +75,8 @@ func (m *Meta) GetUserBuckets(ctx context.Context, userId string, willNeed bool)
 	return buckets, nil
 }
 
-func (m *Meta) AddBucketForUser(bucketName string, userId string, ctx context.Context) (err error) {
-	buckets, err := m.GetUserBuckets(userId, false, ctx)
+func (m *Meta) AddBucketForUser(ctx context.Context, bucketName string, userId string) (err error) {
+	buckets, err := m.GetUserBuckets(ctx, userId, false)
 	if err != nil {
 		return err
 	}

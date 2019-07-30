@@ -8,7 +8,7 @@ import (
 	. "github.com/journeymidnight/yig/meta/types"
 )
 
-func (t *TidbClient) PutBucketToLifeCycle(lifeCycle LifeCycle, ctx context.Context) error {
+func (t *TidbClient) PutBucketToLifeCycle(ctx context.Context, lifeCycle LifeCycle) error {
 	sqltext := "insert into lifecycle(bucketname,status) values (?,?);"
 	_, err := t.Client.Exec(sqltext, lifeCycle.BucketName, lifeCycle.Status)
 	if err != nil {
@@ -18,7 +18,7 @@ func (t *TidbClient) PutBucketToLifeCycle(lifeCycle LifeCycle, ctx context.Conte
 	return nil
 }
 
-func (t *TidbClient) RemoveBucketFromLifeCycle(bucket Bucket, ctx context.Context) error {
+func (t *TidbClient) RemoveBucketFromLifeCycle(ctx context.Context, bucket Bucket) error {
 	sqltext := "delete from lifecycle where bucketname=?;"
 	_, err := t.Client.Exec(sqltext, bucket.Name)
 	if err != nil {
@@ -28,7 +28,7 @@ func (t *TidbClient) RemoveBucketFromLifeCycle(bucket Bucket, ctx context.Contex
 	return nil
 }
 
-func (t *TidbClient) ScanLifeCycle(limit int, marker string, ctx context.Context) (result ScanLifeCycleResult, err error) {
+func (t *TidbClient) ScanLifeCycle(ctx context.Context, limit int, marker string) (result ScanLifeCycleResult, err error) {
 	result.Truncated = false
 	sqltext := "select * from lifecycle where bucketname > ? limit ?;"
 	rows, err := t.Client.Query(sqltext, marker, limit)

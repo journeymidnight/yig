@@ -1,12 +1,12 @@
 package datatype
 
 import (
+	"context"
 	"encoding/xml"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
-	"context"
 
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
@@ -106,7 +106,7 @@ type Cors struct {
 	CorsRules []CorsRule `xml:"CORSRule"`
 }
 
-func CorsFromXml(corsBuffer []byte, ctx context.Context) (cors Cors, err error) {
+func CorsFromXml(ctx context.Context, corsBuffer []byte) (cors Cors, err error) {
 	helper.Debugln("Incoming CORS XML:", string(corsBuffer))
 	err = xml.Unmarshal(corsBuffer, &cors)
 	if err != nil {

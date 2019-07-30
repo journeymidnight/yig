@@ -17,12 +17,12 @@ const (
 )
 
 type DataCache interface {
-	WriteFromCache(object *meta.Object, startOffset int64, length int64,
+	WriteFromCache(ctx context.Context, object *meta.Object, startOffset int64, length int64,
 		out io.Writer, writeThrough func(io.Writer) error,
-		onCacheMiss func(io.Writer) error, ctx context.Context) error
-	GetAlignedReader(object *meta.Object, startOffset int64, length int64,
+		onCacheMiss func(io.Writer) error) error
+	GetAlignedReader(ctx context.Context, object *meta.Object, startOffset int64, length int64,
 		readThrough func() (io.ReadCloser, error),
-		onCacheMiss func(io.Writer) error, ctx context.Context) (io.ReadCloser, error)
+		onCacheMiss func(io.Writer) error) (io.ReadCloser, error)
 	Remove(key string)
 }
 
@@ -41,8 +41,8 @@ func newDataCache(cacheEnabled bool) (d DataCache) {
 
 // `writeThrough` performs normal workflow without cache
 // `onCacheMiss` should be able to read the WHOLE object
-func (d *enabledDataCache) WriteFromCache(object *meta.Object, startOffset int64, length int64,
-	out io.Writer, writeThrough func(io.Writer) error, onCacheMiss func(io.Writer) error, ctx context.Context) error {
+func (d *enabledDataCache) WriteFromCache(ctx context.Context, object *meta.Object, startOffset int64, length int64,
+	out io.Writer, writeThrough func(io.Writer) error, onCacheMiss func(io.Writer) error) error {
 
 	if object.Size > FILE_CACHE_THRESHOLD_SIZE {
 		return writeThrough(out)
@@ -69,8 +69,8 @@ func (d *enabledDataCache) WriteFromCache(object *meta.Object, startOffset int64
 	return err
 }
 
-func (d *disabledDataCache) WriteFromCache(object *meta.Object, startOffset int64, length int64,
-	out io.Writer, writeThrough func(io.Writer) error, onCacheMiss func(io.Writer) error, ctx context.Context) error {
+func (d *disabledDataCache) WriteFromCache(ctx context.Context, object *meta.Object, startOffset int64, length int64,
+	out io.Writer, writeThrough func(io.Writer) error, onCacheMiss func(io.Writer) error) error {
 
 	return writeThrough(out)
 }
@@ -79,9 +79,9 @@ func (d *disabledDataCache) WriteFromCache(object *meta.Object, startOffset int6
 // `readThrough` performs normal workflow without cache
 // `onCacheMiss` should be able to read the WHOLE object
 // FIXME: this API causes an extra memory copy, need to patch radix to fix it
-func (d *enabledDataCache) GetAlignedReader(object *meta.Object, startOffset int64, length int64,
+func (d *enabledDataCache) GetAlignedReader(ctx context.Context, object *meta.Object, startOffset int64, length int64,
 	readThrough func() (io.ReadCloser, error),
-	onCacheMiss func(io.Writer) error, ctx context.Context) (io.ReadCloser, error) {
+	onCacheMiss func(io.Writer) error) (io.ReadCloser, error) {
 
 	if object.Size > FILE_CACHE_THRESHOLD_SIZE {
 		return readThrough()
@@ -110,9 +110,9 @@ func (d *enabledDataCache) GetAlignedReader(object *meta.Object, startOffset int
 	return r, nil
 }
 
-func (d *disabledDataCache) GetAlignedReader(object *meta.Object, startOffset int64, length int64,
+func (d *disabledDataCache) GetAlignedReader(ctx context.Context, object *meta.Object, startOffset int64, length int64,
 	readThrough func() (io.ReadCloser, error),
-	onCacheMiss func(io.Writer) error, ctx context.Context) (io.ReadCloser, error) {
+	onCacheMiss func(io.Writer) error) (io.ReadCloser, error) {
 
 	return readThrough()
 }

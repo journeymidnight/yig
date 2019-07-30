@@ -18,7 +18,7 @@ const (
 
 // Note the usage info got from this method is possibly not accurate because we don't
 // invalid cache when updating usage. For accurate usage info, use `GetUsage()`
-func (m *Meta) GetBucket(bucketName string, willNeed bool, ctx context.Context) (bucket *Bucket, err error) {
+func (m *Meta) GetBucket(ctx context.Context, bucketName string, willNeed bool) (bucket *Bucket, err error) {
 	getBucket := func() (b interface{}, err error) {
 		b, err = m.Client.GetBucket(bucketName)
 		helper.Logger.Println(10, "[", helper.RequestIdFromContext(ctx), "]",
@@ -103,8 +103,8 @@ func (m *Meta) GetBucketInfo(ctx context.Context, bucketName string) (*Bucket, e
 }
 
 func (m *Meta) GetUserInfo(ctx context.Context, uid string) ([]string, error) {
-	m.Cache.Remove(ctx, redis.UserTable, USER_CACHE_PREFIX, uid)
-	buckets, err := m.GetUserBuckets(uid, true)
+	m.Cache.Remove(redis.UserTable, USER_CACHE_PREFIX, uid)
+	buckets, err := m.GetUserBuckets(ctx, uid, true)
 	if err != nil {
 		return nil, err
 	}

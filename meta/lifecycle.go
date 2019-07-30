@@ -14,13 +14,13 @@ func LifeCycleFromBucket(b *Bucket) (lc LifeCycle) {
 
 func (m *Meta) PutBucketToLifeCycle(ctx context.Context, bucket *Bucket) error {
 	lifeCycle := LifeCycleFromBucket(bucket)
-	return m.Client.PutBucketToLifeCycle(lifeCycle, ctx)
+	return m.Client.PutBucketToLifeCycle(ctx, lifeCycle)
 }
 
 func (m *Meta) RemoveBucketFromLifeCycle(ctx context.Context, bucket *Bucket) error {
 	return m.Client.RemoveBucketFromLifeCycle(ctx, bucket)
 }
 
-func (m *Meta) ScanLifeCycle(limit int, marker string, ctx context.Context) (result ScanLifeCycleResult, err error) {
-	return m.Client.ScanLifeCycle(limit, marker, ctx)
+func (m *Meta) ScanLifeCycle(ctx context.Context, limit int, marker string) (result ScanLifeCycleResult, err error) {
+	return m.Client.ScanLifeCycle(ctx, limit, marker)
 }

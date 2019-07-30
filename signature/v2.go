@@ -57,7 +57,7 @@ func verifyNotExpires(dateString string) (bool, error) {
 	return true, nil
 }
 
-func buildCanonicalizedAmzHeaders(headers *http.Header, ctx context.Context) string {
+func buildCanonicalizedAmzHeaders(ctx context.Context, headers *http.Header) string {
 	var amzHeaders []string
 	for k, _ := range *headers {
 		if strings.HasPrefix(strings.ToLower(k), "x-amz-") {
@@ -187,7 +187,7 @@ func DoesSignatureMatchV2(r *http.Request) (credential common.Credential, err er
 		stringToSign += date + "\n"
 	}
 
-	stringToSign += buildCanonicalizedAmzHeaders(&r.Header, r.Context())
+	stringToSign += buildCanonicalizedAmzHeaders(r.Context(), &r.Header)
 	stringToSign += buildCanonicalizedResource(r)
 
 	helper.Debugln("[", requestId, "]", "stringtosign", stringToSign, credential.SecretAccessKey)
@@ -225,7 +225,7 @@ func DoesPresignedSignatureMatchV2(r *http.Request) (credential common.Credentia
 	stringToSign += r.Header.Get("Content-Md5") + "\n"
 	stringToSign += r.Header.Get("Content-Type") + "\n"
 	stringToSign += expires + "\n"
-	stringToSign += buildCanonicalizedAmzHeaders(&r.Header, r.Context())
+	stringToSign += buildCanonicalizedAmzHeaders(r.Context(), &r.Header)
 	stringToSign += buildCanonicalizedResource(r)
 
 	return credential, dictate(credential.SecretAccessKey, stringToSign, signature, helper.RequestIdFromContext((r.Context())))
