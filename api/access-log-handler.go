@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/journeymidnight/yig/helper"
@@ -96,8 +97,11 @@ func (a AccessLogHandler) notify(elems map[string]string) {
 }
 
 func NewAccessLogHandler(handler http.Handler, _ *meta.Meta) http.Handler {
+	format := helper.CONFIG.AccessLogFormat
+	format = strings.Replace(format, "{combined}", CombinedLogFormat, -1)
+	format = strings.Replace(format, "{billing}", BillingLogFormat, -1)
 	return AccessLogHandler{
 		handler: handler,
-		format:  CombinedLogFormat,
+		format:  format,
 	}
 }
