@@ -28,7 +28,7 @@ import (
 	"github.com/journeymidnight/yig/helper"
 )
 
-func parseListObjectsQuery(query url.Values, ctx context.Context) (request ListObjectsRequest, err error) {
+func parseListObjectsQuery(ctx context.Context, query url.Values) (request ListObjectsRequest, err error) {
 	if query.Get("list-type") == "2" {
 		request.Version = 2
 		request.ContinuationToken = query.Get("continuation-token")

@@ -9,7 +9,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	router "github.com/gorilla/mux"
-	api "github.com/journeymidnight/yig/api"
+	"github.com/journeymidnight/yig/api"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/iam/common"
@@ -55,7 +55,7 @@ func getUsage(w http.ResponseWriter, r *http.Request) {
 	claims := r.Context().Value("claims").(jwt.MapClaims)
 	bucketName := claims["bucket"].(string)
 
-	usage, err := adminServer.Yig.MetaStorage.GetUsage(bucketName, r.Context())
+	usage, err := adminServer.Yig.MetaStorage.GetUsage(r.Context(), bucketName)
 	if err != nil {
 		api.WriteErrorResponse(w, r, err)
 		return
@@ -70,7 +70,7 @@ func getBucketInfo(w http.ResponseWriter, r *http.Request) {
 	bucketName := claims["bucket"].(string)
 
 	helper.Debugln("[", api.RequestIdFromContext(r.Context()), "]", "bucketName:", bucketName)
-	bucket, err := adminServer.Yig.MetaStorage.GetBucketInfo(bucketName, r.Context())
+	bucket, err := adminServer.Yig.MetaStorage.GetBucketInfo(r.Context(), bucketName)
 	if err != nil {
 		api.WriteErrorResponse(w, r, err)
 		return
@@ -85,7 +85,7 @@ func getUserInfo(w http.ResponseWriter, r *http.Request) {
 	claims := r.Context().Value("claims").(jwt.MapClaims)
 	uid := claims["uid"].(string)
 
-	buckets, err := adminServer.Yig.MetaStorage.GetUserInfo(uid, r.Context())
+	buckets, err := adminServer.Yig.MetaStorage.GetUserInfo(r.Context(), uid)
 	if err != nil {
 		api.WriteErrorResponse(w, r, err)
 		return
@@ -111,7 +111,7 @@ func getObjectInfo(w http.ResponseWriter, r *http.Request) {
 	bucketName := claims["bucket"].(string)
 	objectName := claims["object"].(string)
 
-	object, err := adminServer.Yig.MetaStorage.GetObject(bucketName, objectName, true, r.Context())
+	object, err := adminServer.Yig.MetaStorage.GetObject(r.Context(), bucketName, objectName, true)
 	if err != nil {
 		api.WriteErrorResponse(w, r, err)
 		return

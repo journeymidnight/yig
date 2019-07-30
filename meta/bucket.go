@@ -11,7 +11,7 @@ import (
 
 // Note the usage info got from this method is possibly not accurate because we don't
 // invalid cache when updating usage. For accurate usage info, use `GetUsage()`
-func (m *Meta) GetBucket(bucketName string, willNeed bool, ctx context.Context) (bucket *Bucket, err error) {
+func (m *Meta) GetBucket(ctx context.Context, bucketName string, willNeed bool) (bucket *Bucket, err error) {
 	getBucket := func() (b interface{}, err error) {
 		b, err = m.Client.GetBucket(bucketName)
 		helper.Logger.Println(10, "[", helper.RequestIdFromContext(ctx), "]",
@@ -23,7 +23,7 @@ func (m *Meta) GetBucket(bucketName string, willNeed bool, ctx context.Context) 
 		err := helper.MsgPackUnMarshal(in, &bucket)
 		return &bucket, err
 	}
-	b, err := m.Cache.Get(redis.BucketTable, bucketName, getBucket, unmarshaller, willNeed, ctx)
+	b, err := m.Cache.Get(ctx, redis.BucketTable, bucketName, getBucket, unmarshaller, willNeed)
 	if err != nil {
 		return
 	}
@@ -45,27 +45,27 @@ func (m *Meta) UpdateUsage(bucketName string, size int64) {
 	m.Client.UpdateUsage(bucketName, size, nil)
 }
 
-func (m *Meta) GetUsage(bucketName string, ctx context.Context) (int64, error) {
+func (m *Meta) GetUsage(ctx context.Context, bucketName string) (int64, error) {
 	m.Cache.Remove(redis.BucketTable, bucketName)
-	bucket, err := m.GetBucket(bucketName, true, ctx)
+	bucket, err := m.GetBucket(ctx, bucketName, true)
 	if err != nil {
 		return 0, err
 	}
 	return bucket.Usage, nil
 }
 
-func (m *Meta) GetBucketInfo(bucketName string, ctx context.Context) (*Bucket, error) {
+func (m *Meta) GetBucketInfo(ctx context.Context, bucketName string) (*Bucket, error) {
 	m.Cache.Remove(redis.BucketTable, bucketName)
-	bucket, err := m.GetBucket(bucketName, true, ctx)
+	bucket, err := m.GetBucket(ctx, bucketName, true)
 	if err != nil {
 		return bucket, err
 	}
 	return bucket, nil
 }
 
-func (m *Meta) GetUserInfo(uid string, ctx context.Context) ([]string, error) {
+func (m *Meta) GetUserInfo(ctx context.Context, uid string) ([]string, error) {
 	m.Cache.Remove(redis.UserTable, uid)
-	buckets, err := m.GetUserBuckets(uid, true, ctx)
+	buckets, err := m.GetUserBuckets(ctx, uid, true)
 	if err != nil {
 		return nil, err
 	}

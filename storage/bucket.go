@@ -18,8 +18,8 @@ import (
 	"github.com/journeymidnight/yig/redis"
 )
 
-func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
-	credential common.Credential, ctx context.Context) error {
+func (yig *YigStorage) MakeBucket(ctx context.Context, bucketName string, acl datatype.Acl,
+	credential common.Credential) error {
 	// Input validation.
 	if err := api.CheckValidBucketName(bucketName); err != nil {
 		return err
@@ -39,7 +39,7 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 		return err
 	}
 	if !processed { // bucket already exists, return accurate message
-		bucket, err := yig.MetaStorage.GetBucket(bucketName, false, ctx)
+		bucket, err := yig.MetaStorage.GetBucket(ctx, bucketName, false)
 		if err != nil {
 			yig.Logger.Println(5, "[", helper.RequestIdFromContext(ctx), "]", "Error get bucket: ", bucketName, ", with error", err)
 			return ErrBucketAlreadyExists
@@ -50,7 +50,7 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 			return ErrBucketAlreadyExists
 		}
 	}
-	err = yig.MetaStorage.AddBucketForUser(bucketName, credential.UserId, ctx)
+	err = yig.MetaStorage.AddBucketForUser(ctx, bucketName, credential.UserId)
 	if err != nil { // roll back bucket table, i.e. remove inserted bucket
 		yig.Logger.Println(5, "[", helper.RequestIdFromContext(ctx), "]", "Error AddBucketForUser: ", err)
 		err = yig.MetaStorage.Client.DeleteBucket(bucket)
@@ -66,18 +66,18 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 	return err
 }
 
-func (yig *YigStorage) SetBucketAcl(bucketName string, policy datatype.AccessControlPolicy, acl datatype.Acl,
-	credential common.Credential, ctx context.Context) error {
+func (yig *YigStorage) SetBucketAcl(ctx context.Context, bucketName string, policy datatype.AccessControlPolicy, acl datatype.Acl,
+	credential common.Credential) error {
 
 	if acl.CannedAcl == "" {
-		newCannedAcl, err := datatype.GetCannedAclFromPolicy(policy, ctx)
+		newCannedAcl, err := datatype.GetCannedAclFromPolicy(ctx, policy)
 		if err != nil {
 			return err
 		}
 		acl = newCannedAcl
 	}
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, false, ctx)
+	bucket, err := yig.MetaStorage.GetBucket(ctx, bucketName, false)
 	if err != nil {
 		return err
 	}
@@ -95,10 +95,10 @@ func (yig *YigStorage) SetBucketAcl(bucketName string, policy datatype.AccessCon
 	return nil
 }
 
-func (yig *YigStorage) SetBucketLc(bucketName string, lc datatype.Lc,
-	credential common.Credential, ctx context.Context) error {
+func (yig *YigStorage) SetBucketLc(ctx context.Context, bucketName string, lc datatype.Lc,
+	credential common.Credential) error {
 	helper.Logger.Println(10, "[", helper.RequestIdFromContext(ctx), "]", "enter SetBucketLc")
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true, ctx)
+	bucket, err := yig.MetaStorage.GetBucket(ctx, bucketName, true)
 	if err != nil {
 		return err
 	}
@@ -114,7 +114,7 @@ func (yig *YigStorage) SetBucketLc(bucketName string, lc datatype.Lc,
 		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
 	}
 
-	err = yig.MetaStorage.PutBucketToLifeCycle(*bucket, ctx)
+	err = yig.MetaStorage.PutBucketToLifeCycle(ctx, *bucket)
 	if err != nil {
 		yig.Logger.Println(5, "[", helper.RequestIdFromContext(ctx), "]", "Error Put bucket to LC table: ", err)
 		return err
@@ -122,9 +122,9 @@ func (yig *YigStorage) SetBucketLc(bucketName string, lc datatype.Lc,
 	return nil
 }
 
-func (yig *YigStorage) GetBucketLc(bucketName string, credential common.Credential, ctx context.Context) (lc datatype.Lc,
+func (yig *YigStorage) GetBucketLc(ctx context.Context, bucketName string, credential common.Credential) (lc datatype.Lc,
 	err error) {
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true, ctx)
+	bucket, err := yig.MetaStorage.GetBucket(ctx, bucketName, true)
 	if err != nil {
 		return lc, err
 	}
@@ -139,8 +139,8 @@ func (yig *YigStorage) GetBucketLc(bucketName string, credential common.Credenti
 	return bucket.LC, nil
 }
 
-func (yig *YigStorage) DelBucketLc(bucketName string, credential common.Credential, ctx context.Context) error {
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true, ctx)
+func (yig *YigStorage) DelBucketLc(ctx context.Context, bucketName string, credential common.Credential) error {
+	bucket, err := yig.MetaStorage.GetBucket(ctx, bucketName, true)
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ func (yig *YigStorage) DelBucketLc(bucketName string, credential common.Credenti
 	if err == nil {
 		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
 	}
-	err = yig.MetaStorage.RemoveBucketFromLifeCycle(*bucket, ctx)
+	err = yig.MetaStorage.RemoveBucketFromLifeCycle(ctx, *bucket)
 	if err != nil {
 		yig.Logger.Println(5, "[", helper.RequestIdFromContext(ctx), "]", "Error Remove bucket From LC table hbase: ", err)
 		return err
@@ -163,10 +163,10 @@ func (yig *YigStorage) DelBucketLc(bucketName string, credential common.Credenti
 	return nil
 }
 
-func (yig *YigStorage) SetBucketCors(bucketName string, cors datatype.Cors,
-	credential common.Credential, ctx context.Context) error {
+func (yig *YigStorage) SetBucketCors(ctx context.Context, bucketName string, cors datatype.Cors,
+	credential common.Credential) error {
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, false, ctx)
+	bucket, err := yig.MetaStorage.GetBucket(ctx, bucketName, false)
 	if err != nil {
 		return err
 	}
@@ -184,8 +184,8 @@ func (yig *YigStorage) SetBucketCors(bucketName string, cors datatype.Cors,
 	return nil
 }
 
-func (yig *YigStorage) DeleteBucketCors(bucketName string, credential common.Credential, ctx context.Context) error {
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, false, ctx)
+func (yig *YigStorage) DeleteBucketCors(ctx context.Context, bucketName string, credential common.Credential) error {
+	bucket, err := yig.MetaStorage.GetBucket(ctx, bucketName, false)
 	if err != nil {
 		return err
 	}
@@ -203,10 +203,10 @@ func (yig *YigStorage) DeleteBucketCors(bucketName string, credential common.Cre
 	return nil
 }
 
-func (yig *YigStorage) GetBucketCors(bucketName string,
-	credential common.Credential, ctx context.Context) (cors datatype.Cors, err error) {
+func (yig *YigStorage) GetBucketCors(ctx context.Context, bucketName string,
+	credential common.Credential) (cors datatype.Cors, err error) {
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true, ctx)
+	bucket, err := yig.MetaStorage.GetBucket(ctx, bucketName, true)
 	if err != nil {
 		return cors, err
 	}
@@ -221,10 +221,10 @@ func (yig *YigStorage) GetBucketCors(bucketName string,
 	return bucket.CORS, nil
 }
 
-func (yig *YigStorage) SetBucketVersioning(bucketName string, versioning datatype.Versioning,
-	credential common.Credential, ctx context.Context) error {
+func (yig *YigStorage) SetBucketVersioning(ctx context.Context, bucketName string, versioning datatype.Versioning,
+	credential common.Credential) error {
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, false, ctx)
+	bucket, err := yig.MetaStorage.GetBucket(ctx, bucketName, false)
 	if err != nil {
 		return err
 	}
@@ -242,10 +242,10 @@ func (yig *YigStorage) SetBucketVersioning(bucketName string, versioning datatyp
 	return nil
 }
 
-func (yig *YigStorage) GetBucketVersioning(bucketName string, credential common.Credential, ctx context.Context) (
+func (yig *YigStorage) GetBucketVersioning(ctx context.Context, bucketName string, credential common.Credential) (
 	versioning datatype.Versioning, err error) {
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, false, ctx)
+	bucket, err := yig.MetaStorage.GetBucket(ctx, bucketName, false)
 	if err != nil {
 		return versioning, err
 	}
@@ -254,10 +254,10 @@ func (yig *YigStorage) GetBucketVersioning(bucketName string, credential common.
 	return
 }
 
-func (yig *YigStorage) GetBucketAcl(bucketName string, credential common.Credential, ctx context.Context) (
+func (yig *YigStorage) GetBucketAcl(ctx context.Context, bucketName string, credential common.Credential) (
 	policy datatype.AccessControlPolicyResponse, err error) {
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, false, ctx)
+	bucket, err := yig.MetaStorage.GetBucket(ctx, bucketName, false)
 	if err != nil {
 		return policy, err
 	}
@@ -276,14 +276,14 @@ func (yig *YigStorage) GetBucketAcl(bucketName string, credential common.Credent
 }
 
 // For INTERNAL USE ONLY
-func (yig *YigStorage) GetBucket(bucketName string, ctx context.Context) (*meta.Bucket, error) {
-	return yig.MetaStorage.GetBucket(bucketName, true, ctx)
+func (yig *YigStorage) GetBucket(ctx context.Context, bucketName string) (*meta.Bucket, error) {
+	return yig.MetaStorage.GetBucket(ctx, bucketName, true)
 }
 
-func (yig *YigStorage) GetBucketInfo(bucketName string,
-	credential common.Credential, ctx context.Context) (bucket *meta.Bucket, err error) {
+func (yig *YigStorage) GetBucketInfo(ctx context.Context, bucketName string,
+	credential common.Credential) (bucket *meta.Bucket, err error) {
 
-	bucket, err = yig.MetaStorage.GetBucket(bucketName, true, ctx)
+	bucket, err = yig.MetaStorage.GetBucket(ctx, bucketName, true)
 	if err != nil {
 		return
 	}
@@ -303,8 +303,8 @@ func (yig *YigStorage) GetBucketInfo(bucketName string,
 	return
 }
 
-func (yig *YigStorage) SetBucketPolicy(credential common.Credential, bucketName string, bucketPolicy policy.Policy, ctx context.Context) (err error) {
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, false, ctx)
+func (yig *YigStorage) SetBucketPolicy(ctx context.Context, credential common.Credential, bucketName string, bucketPolicy policy.Policy) (err error) {
+	bucket, err := yig.MetaStorage.GetBucket(ctx, bucketName, false)
 	if err != nil {
 		return err
 	}
@@ -333,8 +333,8 @@ func (yig *YigStorage) SetBucketPolicy(credential common.Credential, bucketName 
 	return nil
 }
 
-func (yig *YigStorage) GetBucketPolicy(credential common.Credential, bucketName string, ctx context.Context) (bucketPolicy policy.Policy, err error) {
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true, ctx)
+func (yig *YigStorage) GetBucketPolicy(ctx context.Context, credential common.Credential, bucketName string) (bucketPolicy policy.Policy, err error) {
+	bucket, err := yig.MetaStorage.GetBucket(ctx, bucketName, true)
 	if err != nil {
 		return
 	}
@@ -356,8 +356,8 @@ func (yig *YigStorage) GetBucketPolicy(credential common.Credential, bucketName 
 	return
 }
 
-func (yig *YigStorage) DeleteBucketPolicy(credential common.Credential, bucketName string, ctx context.Context) error {
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, false, ctx)
+func (yig *YigStorage) DeleteBucketPolicy(ctx context.Context, credential common.Credential, bucketName string) error {
+	bucket, err := yig.MetaStorage.GetBucket(ctx, bucketName, false)
 	if err != nil {
 		return err
 	}
@@ -375,13 +375,13 @@ func (yig *YigStorage) DeleteBucketPolicy(credential common.Credential, bucketNa
 	return nil
 }
 
-func (yig *YigStorage) ListBuckets(credential common.Credential, ctx context.Context) (buckets []meta.Bucket, err error) {
-	bucketNames, err := yig.MetaStorage.GetUserBuckets(credential.UserId, true, ctx)
+func (yig *YigStorage) ListBuckets(ctx context.Context, credential common.Credential) (buckets []meta.Bucket, err error) {
+	bucketNames, err := yig.MetaStorage.GetUserBuckets(ctx, credential.UserId, true)
 	if err != nil {
 		return
 	}
 	for _, bucketName := range bucketNames {
-		bucket, err := yig.MetaStorage.GetBucket(bucketName, true, ctx)
+		bucket, err := yig.MetaStorage.GetBucket(ctx, bucketName, true)
 		if err != nil {
 			return buckets, err
 		}
@@ -390,8 +390,8 @@ func (yig *YigStorage) ListBuckets(credential common.Credential, ctx context.Con
 	return
 }
 
-func (yig *YigStorage) DeleteBucket(bucketName string, credential common.Credential, ctx context.Context) (err error) {
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, false, ctx)
+func (yig *YigStorage) DeleteBucket(ctx context.Context, bucketName string, credential common.Credential) (err error) {
+	bucket, err := yig.MetaStorage.GetBucket(ctx, bucketName, false)
 	if err != nil {
 		return err
 	}
@@ -427,7 +427,7 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential common.Credent
 	}
 
 	if bucket.LC.Rule != nil {
-		err = yig.MetaStorage.RemoveBucketFromLifeCycle(*bucket, ctx)
+		err = yig.MetaStorage.RemoveBucketFromLifeCycle(ctx, *bucket)
 		if err != nil {
 			yig.Logger.Println(5, "[", helper.RequestIdFromContext(ctx), "]", "Error remove bucket from lifeCycle: ", err)
 		}
@@ -436,8 +436,8 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential common.Credent
 	return nil
 }
 
-func (yig *YigStorage) ListObjectsInternal(bucketName string,
-	request datatype.ListObjectsRequest, ctx context.Context) (retObjects []*meta.Object, prefixes []string, truncated bool,
+func (yig *YigStorage) ListObjectsInternal(ctx context.Context, bucketName string,
+	request datatype.ListObjectsRequest) (retObjects []*meta.Object, prefixes []string, truncated bool,
 	nextMarker, nextVerIdMarker string, err error) {
 
 	var marker string
@@ -464,10 +464,10 @@ func (yig *YigStorage) ListObjectsInternal(bucketName string,
 	return yig.MetaStorage.Client.ListObjects(bucketName, marker, verIdMarker, request.Prefix, request.Delimiter, request.Versioned, request.MaxKeys)
 }
 
-func (yig *YigStorage) ListObjects(credential common.Credential, bucketName string,
-	request datatype.ListObjectsRequest, ctx context.Context) (result meta.ListObjectsInfo, err error) {
+func (yig *YigStorage) ListObjects(ctx context.Context, credential common.Credential, bucketName string,
+	request datatype.ListObjectsRequest) (result meta.ListObjectsInfo, err error) {
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true, ctx)
+	bucket, err := yig.MetaStorage.GetBucket(ctx, bucketName, true)
 	helper.Debugln("[", helper.RequestIdFromContext(ctx), "]", "GetBucket", bucket)
 	if err != nil {
 		return
@@ -489,7 +489,7 @@ func (yig *YigStorage) ListObjects(credential common.Credential, bucketName stri
 	}
 	// TODO validate user policy and ACL
 
-	retObjects, prefixes, truncated, nextMarker, _, err := yig.ListObjectsInternal(bucketName, request, ctx)
+	retObjects, prefixes, truncated, nextMarker, _, err := yig.ListObjectsInternal(ctx, bucketName, request)
 	if truncated && len(nextMarker) != 0 {
 		result.NextMarker = nextMarker
 	}
@@ -539,10 +539,10 @@ func (yig *YigStorage) ListObjects(credential common.Credential, bucketName stri
 
 // TODO: refactor, similar to ListObjects
 // or not?
-func (yig *YigStorage) ListVersionedObjects(credential common.Credential, bucketName string,
-	request datatype.ListObjectsRequest, ctx context.Context) (result meta.VersionedListObjectsInfo, err error) {
+func (yig *YigStorage) ListVersionedObjects(ctx context.Context, credential common.Credential, bucketName string,
+	request datatype.ListObjectsRequest) (result meta.VersionedListObjectsInfo, err error) {
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true, ctx)
+	bucket, err := yig.MetaStorage.GetBucket(ctx, bucketName, true)
 	if err != nil {
 		return
 	}
@@ -562,7 +562,7 @@ func (yig *YigStorage) ListVersionedObjects(credential common.Credential, bucket
 		}
 	}
 
-	retObjects, prefixes, truncated, nextMarker, nextVerIdMarker, err := yig.ListObjectsInternal(bucketName, request, ctx)
+	retObjects, prefixes, truncated, nextMarker, nextVerIdMarker, err := yig.ListObjectsInternal(ctx, bucketName, request)
 	if truncated && len(nextMarker) != 0 {
 		result.NextKeyMarker = nextMarker
 		result.NextVersionIdMarker = nextVerIdMarker

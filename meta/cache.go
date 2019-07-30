@@ -11,7 +11,7 @@ import (
 type CacheType int
 
 const (
-	NoCache     CacheType = iota
+	NoCache CacheType = iota
 	EnableCache
 	SimpleCache
 )
@@ -19,9 +19,9 @@ const (
 var cacheNames = [...]string{"NOCACHE", "EnableCache", "SimpleCache"}
 
 type MetaCache interface {
-	Get(table redis.RedisDatabase, key string,
+	Get(ctx context.Context, table redis.RedisDatabase, key string,
 		onCacheMiss func() (interface{}, error),
-		unmarshaller func([]byte) (interface{}, error), willNeed bool, ctx context.Context) (value interface{}, err error)
+		unmarshaller func([]byte) (interface{}, error), willNeed bool) (value interface{}, err error)
 	Remove(table redis.RedisDatabase, key string)
 	GetCacheHitRatio() float64
 }
@@ -46,9 +46,9 @@ func newMetaCache(myType CacheType) (m MetaCache) {
 	return &disabledMetaCache{}
 }
 
-func (m *disabledMetaCache) Get(table redis.RedisDatabase, key string,
+func (m *disabledMetaCache) Get(ctx context.Context, table redis.RedisDatabase, key string,
 	onCacheMiss func() (interface{}, error),
-	unmarshaller func([]byte) (interface{}, error), willNeed bool, ctx context.Context) (value interface{}, err error) {
+	unmarshaller func([]byte) (interface{}, error), willNeed bool) (value interface{}, err error) {
 
 	return onCacheMiss()
 }
@@ -66,9 +66,9 @@ type enabledSimpleMetaCache struct {
 	Miss int64
 }
 
-func (m *enabledSimpleMetaCache) Get(table redis.RedisDatabase, key string,
+func (m *enabledSimpleMetaCache) Get(ctx context.Context, table redis.RedisDatabase, key string,
 	onCacheMiss func() (interface{}, error),
-	unmarshaller func([]byte) (interface{}, error), willNeed bool, ctx context.Context) (value interface{}, err error) {
+	unmarshaller func([]byte) (interface{}, error), willNeed bool) (value interface{}, err error) {
 
 	requestId := helper.RequestIdFromContext(ctx)
 	helper.Logger.Println(10, "[", requestId, "]", "enabledSimpleMetaCache Get. table:", table, "key:", key)
@@ -85,8 +85,8 @@ func (m *enabledSimpleMetaCache) Get(table redis.RedisDatabase, key string,
 	//if redis doesn't have the entry
 	if onCacheMiss != nil {
 		value, err = onCacheMiss()
-		if err != nil{
-			if  err != sql.ErrNoRows {
+		if err != nil {
+			if err != sql.ErrNoRows {
 				helper.ErrorIf(err, "exec onCacheMiss() err.")
 			}
 			return

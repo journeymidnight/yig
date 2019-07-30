@@ -12,7 +12,7 @@ const (
 	BUCKET_NUMBER_LIMIT = 100
 )
 
-func (m *Meta) GetUserBuckets(userId string, willNeed bool, ctx context.Context) (buckets []string, err error) {
+func (m *Meta) GetUserBuckets(ctx context.Context, userId string, willNeed bool) (buckets []string, err error) {
 	getUserBuckets := func() (bs interface{}, err error) {
 		return m.Client.GetUserBuckets(userId)
 	}
@@ -21,7 +21,7 @@ func (m *Meta) GetUserBuckets(userId string, willNeed bool, ctx context.Context)
 		err := helper.MsgPackUnMarshal(in, &buckets)
 		return buckets, err
 	}
-	bs, err := m.Cache.Get(redis.UserTable, userId, getUserBuckets, unmarshaller, willNeed, ctx)
+	bs, err := m.Cache.Get(ctx, redis.UserTable, userId, getUserBuckets, unmarshaller, willNeed)
 	if err != nil {
 		return
 	}
@@ -34,8 +34,8 @@ func (m *Meta) GetUserBuckets(userId string, willNeed bool, ctx context.Context)
 	return buckets, nil
 }
 
-func (m *Meta) AddBucketForUser(bucketName string, userId string, ctx context.Context) (err error) {
-	buckets, err := m.GetUserBuckets(userId, false, ctx)
+func (m *Meta) AddBucketForUser(ctx context.Context, bucketName string, userId string) (err error) {
+	buckets, err := m.GetUserBuckets(ctx, userId, false)
 	if err != nil {
 		return err
 	}

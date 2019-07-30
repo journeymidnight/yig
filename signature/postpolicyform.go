@@ -196,8 +196,8 @@ func parsePostPolicyForm(policy string,
 }
 
 // checkPostPolicy - apply policy conditions and validate input values.
-func CheckPostPolicy(formValues map[string]string,
-	postPolicyVersion PostPolicyType, ctx context.Context) error {
+func CheckPostPolicy(ctx context.Context, formValues map[string]string,
+	postPolicyVersion PostPolicyType) error {
 
 	var eqPolicyRegExp, startswithPolicyRegExp, ignoredFormRegExp *regexp.Regexp
 	switch postPolicyVersion {

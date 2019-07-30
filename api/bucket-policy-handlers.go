@@ -88,7 +88,7 @@ func (api ObjectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *ht
 		return
 	}
 
-	if err = api.ObjectAPI.SetBucketPolicy(credential, bucket, *bucketPolicy, r.Context()); err != nil {
+	if err = api.ObjectAPI.SetBucketPolicy(r.Context(), credential, bucket, *bucketPolicy); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -118,7 +118,7 @@ func (api ObjectAPIHandlers) DeleteBucketPolicyHandler(w http.ResponseWriter, r 
 		}
 	}
 
-	if err := api.ObjectAPI.DeleteBucketPolicy(credential, bucket, r.Context()); err != nil {
+	if err := api.ObjectAPI.DeleteBucketPolicy(r.Context(), credential, bucket); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -150,7 +150,7 @@ func (api ObjectAPIHandlers) GetBucketPolicyHandler(w http.ResponseWriter, r *ht
 	}
 
 	// Read bucket access policy.
-	bucketPolicy, err := api.ObjectAPI.GetBucketPolicy(credential, bucket, r.Context())
+	bucketPolicy, err := api.ObjectAPI.GetBucketPolicy(r.Context(), credential, bucket)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return

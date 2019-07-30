@@ -43,9 +43,9 @@ type Client interface {
 	//cluster
 	GetCluster(fsid, pool string) (cluster Cluster, err error)
 	//lc
-	PutBucketToLifeCycle(lifeCycle LifeCycle, ctx context.Context) error
-	RemoveBucketFromLifeCycle(bucket Bucket, ctx context.Context) error
-	ScanLifeCycle(limit int, marker string, ctx context.Context) (result ScanLifeCycleResult, err error)
+	PutBucketToLifeCycle(ctx context.Context, lifeCycle LifeCycle) error
+	RemoveBucketFromLifeCycle(ctx context.Context, bucket Bucket) error
+	ScanLifeCycle(ctx context.Context, limit int, marker string) (result ScanLifeCycleResult, err error)
 	//user
 	GetUserBuckets(userId string) (buckets []string, err error)
 	AddBucketForUser(bucketName, userId string) (err error)

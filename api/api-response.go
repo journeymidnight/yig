@@ -224,16 +224,16 @@ func WriteSuccessNoContent(w http.ResponseWriter) {
 
 // writeErrorResponse write error headers
 func WriteErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
-	WriteErrorResponseHeaders(w, err, r)
+	WriteErrorResponseHeaders(w, r, err)
 	WriteErrorResponseNoHeader(w, r, err, r.URL.Path)
 }
 
 func WriteErrorResponseWithResource(w http.ResponseWriter, r *http.Request, err error, resource string) {
-	WriteErrorResponseHeaders(w, err, r)
+	WriteErrorResponseHeaders(w, r, err)
 	WriteErrorResponseNoHeader(w, r, err, resource)
 }
 
-func WriteErrorResponseHeaders(w http.ResponseWriter, err error, r *http.Request) {
+func WriteErrorResponseHeaders(w http.ResponseWriter, r *http.Request, err error) {
 	var status int
 	apiErrorCode, ok := err.(ApiError)
 	if ok {

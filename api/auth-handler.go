@@ -45,7 +45,7 @@ func checkRequestAuth(api ObjectAPIHandlers, r *http.Request, action policy.Acti
 }
 
 func IsBucketPolicyAllowed(c common.Credential, api ObjectAPIHandlers, r *http.Request, action policy.Action, bucketName, objectName string) (common.Credential, error) {
-	bucket, err := api.ObjectAPI.GetBucket(bucketName, r.Context())
+	bucket, err := api.ObjectAPI.GetBucket(r.Context(), bucketName)
 	if err != nil {
 		helper.Logger.Println(5, "[", RequestIdFromContext(r.Context()), "]", "GetBucket", bucketName, "err:", err)
 		return c, err

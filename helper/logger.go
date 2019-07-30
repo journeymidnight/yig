@@ -97,8 +97,12 @@ func FatalIf(err error, msg string, data ...interface{}) {
 
 // To avoid looped dependency.
 // api.RequestIdFromContext() requires RequestContext, while RequestContext depends on meta package.
-func RequestIdFromContext(context context.Context) string {
-	if result, ok := context.Value(RequestIdKeyString).(string); ok {
+func RequestIdFromContext(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+
+	if result, ok := ctx.Value(RequestIdKeyString).(string); ok {
 		return result
 	}
 

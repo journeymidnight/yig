@@ -187,13 +187,13 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	ctx := context.WithValue(r.Context(), "RequestId", requestId)
 
 	if bucketName != "" {
-		bucketInfo, err = h.meta.GetBucket(bucketName, true, ctx)
+		bucketInfo, err = h.meta.GetBucket(ctx, bucketName, true)
 		if err != nil && err != ErrNoSuchBucket {
 			WriteErrorResponse(w, r, err)
 			return
 		}
 		if bucketInfo != nil && objectName != "" {
-			objectInfo, err = h.meta.GetObject(bucketInfo.Name, objectName, true, ctx)
+			objectInfo, err = h.meta.GetObject(ctx, bucketInfo.Name, objectName, true)
 			if err != nil && err != ErrNoSuchKey {
 				WriteErrorResponse(w, r, err)
 				return

@@ -9,7 +9,7 @@ import (
 	"github.com/journeymidnight/yig/redis"
 )
 
-func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool, ctx context.Context) (object *Object, err error) {
+func (m *Meta) GetObject(ctx context.Context, bucketName string, objectName string, willNeed bool) (object *Object, err error) {
 	getObject := func() (o interface{}, err error) {
 		helper.Logger.Println(10, "[", helper.RequestIdFromContext(ctx), "]",
 			"GetObject CacheMiss. bucket:", bucketName, "object:", objectName)
@@ -30,8 +30,8 @@ func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool, ct
 		return &object, err
 	}
 
-	o, err := m.Cache.Get(redis.ObjectTable, bucketName+":"+objectName+":",
-		getObject, unmarshaller, willNeed, ctx)
+	o, err := m.Cache.Get(ctx, redis.ObjectTable, bucketName+":"+objectName+":",
+		getObject, unmarshaller, willNeed)
 	if err != nil {
 		return
 	}
@@ -52,7 +52,7 @@ func (m *Meta) GetObjectMap(bucketName, objectName string) (objMap *ObjMap, err 
 	return
 }
 
-func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed bool, ctx context.Context) (object *Object, err error) {
+func (m *Meta) GetObjectVersion(ctx context.Context, bucketName, objectName, version string, willNeed bool) (object *Object, err error) {
 	getObjectVersion := func() (o interface{}, err error) {
 		object, err := m.Client.GetObject(bucketName, objectName, version)
 		if err != nil {
@@ -69,8 +69,8 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed
 		err := helper.MsgPackUnMarshal(in, &object)
 		return &object, err
 	}
-	o, err := m.Cache.Get(redis.ObjectTable, bucketName+":"+objectName+":"+version,
-		getObjectVersion, unmarshaller, willNeed, ctx)
+	o, err := m.Cache.Get(ctx, redis.ObjectTable, bucketName+":"+objectName+":"+version,
+		getObjectVersion, unmarshaller, willNeed)
 	if err != nil {
 		return
 	}

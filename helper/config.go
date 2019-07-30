@@ -5,19 +5,19 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
-	. "github.com/journeymidnight/yig/log"
+	"github.com/journeymidnight/yig/log"
 )
 
 const (
-	YIG_CONF_PATH = "/etc/yig/yig.toml"
-	MIN_DOWNLOAD_BUFPOOL_SIZE = 512 << 10  // 512k
-	MAX_DOWNLOAD_BUFPOOL_SIZE = 8 << 20    // 8M
+	YIG_CONF_PATH             = "/etc/yig/yig.toml"
+	MIN_DOWNLOAD_BUFPOOL_SIZE = 512 << 10 // 512k
+	MAX_DOWNLOAD_BUFPOOL_SIZE = 8 << 20   // 8M
 )
 
 type Config struct {
 	S3Domain         []string                `toml:"s3domain"` // Domain name of YIG
 	Region           string                  `toml:"region"`   // Region name this instance belongs to, e.g cn-bj-1
-	Plugins          map[string]PluginConfig          `toml:"plugins"`
+	Plugins          map[string]PluginConfig `toml:"plugins"`
 	LogPath          string                  `toml:"log_path"`
 	AccessLogPath    string                  `toml:"access_log_path"`
 	AccessLogFormat  string                  `toml:"access_log_format"`
@@ -78,9 +78,9 @@ type Config struct {
 }
 
 type PluginConfig struct {
-        Path string  `toml:"path"`
-        Enable bool  `toml:"enable"`
-        Args  map[string]interface{} `toml:"args"`
+	Path   string                 `toml:"path"`
+	Enable bool                   `toml:"enable"`
+	Args   map[string]interface{} `toml:"args"`
 }
 
 type KMSConfig struct {
@@ -113,14 +113,14 @@ type MsgBusConfig struct {
 
 var CONFIG Config
 
-var LOG_LEVEL_MAP = map[string]int {
-	"Panic":        LOG_PANIC,
-	"Fatal":        LOG_FATAL,
-	"Error":        LOG_ERROR,
-	"Warn":         LOG_WARN,
-	"Info":         LOG_INFO,
-	"Debug":        LOG_DEBUG,
-	"Trace":        LOG_TRACE,
+var LOG_LEVEL_MAP = map[string]int{
+	"Panic": log.LOG_PANIC,
+	"Fatal": log.LOG_FATAL,
+	"Error": log.LOG_ERROR,
+	"Warn":  log.LOG_WARN,
+	"Info":  log.LOG_INFO,
+	"Debug": log.LOG_DEBUG,
+	"Trace": log.LOG_TRACE,
 }
 
 func SetupConfig() {
