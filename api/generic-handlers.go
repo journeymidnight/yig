@@ -64,9 +64,17 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Vary", "Origin")
 	origin := r.Header.Get("Origin")
 
+	if InReservedOrigins(origin) {
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Access-Control-Allow-Headers", r.Header.Get("Access-Control-Request-Headers"))
+		w.Header().Set("Access-Control-Allow-Methods", r.Header.Get("Access-Control-Request-Method"))
+		w.Header().Set("Access-Control-Expose-Headers", strings.Join(CommonS3ResponseHeaders, ","))
+	}
+
 	ctx := r.Context().Value(RequestContextKey).(RequestContext)
 	bucket := ctx.BucketInfo
 
+	// If bucket CORS exists, overwrite the in-reserved CORS Headers
 	if bucket != nil {
 		for _, rule := range bucket.CORS.CorsRules {
 			if rule.OriginMatched(origin) {
@@ -80,16 +88,6 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if origin == "" || r.Header.Get("Access-Control-Request-Method") == "" {
 			WriteErrorResponse(w, r, ErrInvalidHeader)
 			return
-		}
-		if InReservedOrigins(origin) {
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Access-Control-Allow-Headers", r.Header.Get("Access-Control-Request-Headers"))
-			w.Header().Set("Access-Control-Allow-Methods", r.Header.Get("Access-Control-Request-Method"))
-			if headers := w.Header().Get("Access-Control-Expose-Headers"); headers != "" {
-				w.Header().Set("Access-Control-Expose-Headers", strings.Join(append(CommonS3ResponseHeaders, headers), ","))
-			} else {
-				w.Header().Set("Access-Control-Expose-Headers", strings.Join(CommonS3ResponseHeaders, ","))
-			}
 		}
 		WriteSuccessResponse(w, nil)
 		return
