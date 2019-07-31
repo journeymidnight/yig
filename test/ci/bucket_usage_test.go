@@ -2,6 +2,8 @@ package ci
 
 import (
 	"fmt"
+	"sync"
+	"sync/atomic"
 
 	"github.com/journeymidnight/aws-sdk-go/aws"
 	"github.com/journeymidnight/aws-sdk-go/service/s3"
@@ -33,39 +35,52 @@ func (cs *CISuite) TestBasicBucketUsage(c *C) {
 }
 
 func (cs *CISuite) TestManyObjectsForBucketUsage(c *C) {
+	var wg sync.WaitGroup
 	bn := "buckettest"
 	count := 100
 	size := (128 << 10)
 	totalObjSize := int64(0)
 	var objNames []string
 	sc := NewS3()
+	sc.DeleteBucket(bn)
 	err := sc.MakeBucket(bn)
 	c.Assert(err, Equals, nil)
-	defer sc.DeleteBucket(bn)
 	b, err := cs.storage.GetBucket(bn)
 	c.Assert(err, Equals, nil)
 	c.Assert(b, Not(Equals), nil)
-	c.Assert(b.Usage == 0, Equals, true)
+	c.Assert(b.Usage, Equals, int64(0))
 	for i := 0; i < count; i++ {
-		randUtil := &RandUtil{}
-		val := randUtil.RandString(size)
-		key := fmt.Sprintf("objt%d", i+1)
-		err = sc.PutObject(bn, key, val)
-		c.Assert(err, Equals, nil)
-		totalObjSize = totalObjSize + int64(size)
-		objNames = append(objNames, key)
+		wg.Add(1)
+		go func(idx int, size int, c *C) {
+			defer wg.Done()
+			randUtil := &RandUtil{}
+			val := randUtil.RandString(size)
+			key := fmt.Sprintf("objt%d", idx+1)
+			err = sc.PutObject(bn, key, val)
+			c.Assert(err, Equals, nil)
+			atomic.AddInt64(&totalObjSize, int64(size))
+			objNames = append(objNames, key)
+		}(i, size, c)
 	}
+	wg.Wait()
 
 	defer func() {
 		for _, obj := range objNames {
-			err = sc.DeleteObject(bn, obj)
-			c.Assert(err, Equals, nil)
-			totalObjSize = totalObjSize - int64(size)
-			b, err = cs.storage.GetBucket(bn)
-			c.Assert(err, Equals, nil)
-			c.Assert(b, Not(Equals), nil)
-			c.Assert(b.Usage, Equals, totalObjSize)
+			wg.Add(1)
+			go func(obj string, c *C) {
+				defer wg.Done()
+				err = sc.DeleteObject(bn, obj)
+				c.Assert(err, Equals, nil)
+				atomic.AddInt64(&totalObjSize, int64(-size))
+			}(obj, c)
 		}
+		wg.Wait()
+		c.Assert(totalObjSize, Equals, int64(0))
+		b, err := cs.storage.GetBucket(bn)
+		c.Assert(err, Equals, nil)
+		c.Assert(b, Not(Equals), nil)
+		c.Assert(b.Usage, Equals, int64(0))
+		sc.DeleteBucket(bn)
 	}()
 	// check the bucket usage.
 	b, err = cs.storage.GetBucket(bn)
