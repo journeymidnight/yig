@@ -278,7 +278,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "getObject"
+	w.(*ResponseRecorder).operationName = "GetObject"
 }
 
 // HeadObjectHandler - HEAD Object
@@ -371,7 +371,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "headObject"
+	w.(*ResponseRecorder).operationName = "HeadObject"
 
 	// Successful response.
 	w.WriteHeader(http.StatusOK)
@@ -612,7 +612,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "copyObject"
+	w.(*ResponseRecorder).operationName = "CopyObject"
 
 	// write success response.
 	WriteSuccessResponse(w, encodedSuccessResponse)
@@ -768,7 +768,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "putObject"
+	w.(*ResponseRecorder).operationName = "PutObject"
 
 	WriteSuccessResponse(w, nil)
 }
@@ -963,7 +963,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	w.Header().Set("X-Amz-Next-Append-Position", strconv.FormatInt(result.NextPosition, 10))
 
 	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "appendObject"
+	w.(*ResponseRecorder).operationName = "AppendObject"
 
 	WriteSuccessResponse(w, nil)
 }
@@ -1025,7 +1025,7 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 	}
 
 	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "putObjectAcl"
+	w.(*ResponseRecorder).operationName = "PutObjectAcl"
 
 	WriteSuccessResponse(w, nil)
 }
@@ -1074,7 +1074,7 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 	setXmlHeader(w, aclBuffer)
 
 	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "getObjectAcl"
+	w.(*ResponseRecorder).operationName = "GetObjectAcl"
 
 	WriteSuccessResponse(w, aclBuffer)
 }
@@ -1156,7 +1156,7 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 	}
 
 	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "newMultipartUpload"
+	w.(*ResponseRecorder).operationName = "NewMultipartUpload"
 
 	// write success response.
 	WriteSuccessResponse(w, encodedSuccessResponse)
@@ -1262,7 +1262,7 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 	}
 
 	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "putObjectPart"
+	w.(*ResponseRecorder).operationName = "PutObjectPart"
 
 	WriteSuccessResponse(w, nil)
 }
@@ -1442,7 +1442,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 	}
 
 	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "copyObjectPart"
+	w.(*ResponseRecorder).operationName = "CopyObjectPart"
 
 	// write success response.
 	WriteSuccessResponse(w, encodedSuccessResponse)
@@ -1481,7 +1481,7 @@ func (api ObjectAPIHandlers) AbortMultipartUploadHandler(w http.ResponseWriter, 
 	}
 
 	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "abortMultipartUpload"
+	w.(*ResponseRecorder).operationName = "AbortMultipartUpload"
 
 	WriteSuccessNoContent(w)
 }
@@ -1524,7 +1524,7 @@ func (api ObjectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 	encodedSuccessResponse := EncodeResponse(listPartsInfo)
 
 	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "listObjectParts"
+	w.(*ResponseRecorder).operationName = "ListObjectParts"
 
 	// Write success response.
 	WriteSuccessResponse(w, encodedSuccessResponse)
@@ -1634,7 +1634,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	setXmlHeader(w, encodedSuccessResponse)
 
 	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "completeMultipartUpload"
+	w.(*ResponseRecorder).operationName = "CompleteMultipartUpload"
 
 	// write success response.
 	WriteSuccessResponse(w, encodedSuccessResponse)
@@ -1682,7 +1682,7 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 		w.Header().Set("x-amz-version-id", result.VersionId)
 	}
 	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "deleteObject"
+	w.(*ResponseRecorder).operationName = "DeleteObject"
 	WriteSuccessNoContent(w)
 }
 
@@ -1835,9 +1835,8 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		w.WriteHeader(201)
 
 		//ResponseRecorder
-		w.(*ResponseRecorder).operationName = "postObject"
+		w.(*ResponseRecorder).operationName = "PostObject"
 
 		w.Write(encodedSuccessResponse)
 	}
 }
-
