@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	CombinedLogFormat = "{time_local} {request_uri} {request_id} {operation} {host_name} {bucket_name} {object_name} " +
+	CombinedLogFormat = "{time_local} {request_uri} {request_id} {operation_name} {host_name} {bucket_name} {object_name} " +
 		"{object_size} {requester_id} {project_id} {remote_addr} {http_x_real_ip} {request_length} {server_cost} " +
 		"{request_time} {http_status} {error_code} {body_bytes_sent} {http_referer} {http_user_agent}"
 
@@ -176,7 +176,6 @@ func (r *replacer) getSubstitution(key string) string {
 	case "{request_id}":
 		return r.request.Context().Value(RequestContextKey).(RequestContext).RequestId
 	case "{operation_name}":
-		// TODO: Fill up the operationName
 		return r.responseRecorder.operationName
 	case "{host_name}":
 		return r.request.Host

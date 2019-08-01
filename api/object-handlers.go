@@ -276,6 +276,9 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		// call wrter.Write(nil) to set appropriate headers.
 		writer.Write(nil)
 	}
+
+	//ResponseRecorder
+	w.(*ResponseRecorder).operationName = "getObject"
 }
 
 // HeadObjectHandler - HEAD Object
@@ -366,6 +369,9 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 		w.Header().Set("X-Amz-Server-Side-Encryption-Customer-Key-Md5",
 			r.Header.Get("X-Amz-Server-Side-Encryption-Customer-Key-Md5"))
 	}
+
+	//ResponseRecorder
+	w.(*ResponseRecorder).operationName = "headObject"
 
 	// Successful response.
 	w.WriteHeader(http.StatusOK)
@@ -604,6 +610,10 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 			w.Header().Set(headerName, header)
 		}
 	}
+
+	//ResponseRecorder
+	w.(*ResponseRecorder).operationName = "copyObject"
+
 	// write success response.
 	WriteSuccessResponse(w, encodedSuccessResponse)
 	// Explicitly close the reader, to avoid fd leaks.
@@ -756,6 +766,10 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 			w.Header().Set(headerName, header)
 		}
 	}
+
+	//ResponseRecorder
+	w.(*ResponseRecorder).operationName = "putObject"
+
 	WriteSuccessResponse(w, nil)
 }
 
@@ -947,6 +961,10 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 
 	// Set next position
 	w.Header().Set("X-Amz-Next-Append-Position", strconv.FormatInt(result.NextPosition, 10))
+
+	//ResponseRecorder
+	w.(*ResponseRecorder).operationName = "appendObject"
+
 	WriteSuccessResponse(w, nil)
 }
 
@@ -1005,6 +1023,10 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 	if version != "" {
 		w.Header().Set("x-amz-version-id", version)
 	}
+
+	//ResponseRecorder
+	w.(*ResponseRecorder).operationName = "putObjectAcl"
+
 	WriteSuccessResponse(w, nil)
 }
 
@@ -1050,6 +1072,10 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 	}
 
 	setXmlHeader(w, aclBuffer)
+
+	//ResponseRecorder
+	w.(*ResponseRecorder).operationName = "getObjectAcl"
+
 	WriteSuccessResponse(w, aclBuffer)
 }
 
@@ -1128,6 +1154,10 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 			w.Header().Set(headerName, header)
 		}
 	}
+
+	//ResponseRecorder
+	w.(*ResponseRecorder).operationName = "newMultipartUpload"
+
 	// write success response.
 	WriteSuccessResponse(w, encodedSuccessResponse)
 }
@@ -1230,6 +1260,10 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 		w.Header().Set("X-Amz-Server-Side-Encryption-Customer-Key-Md5",
 			result.SseCustomerKeyMd5Base64)
 	}
+
+	//ResponseRecorder
+	w.(*ResponseRecorder).operationName = "putObjectPart"
+
 	WriteSuccessResponse(w, nil)
 }
 
@@ -1406,6 +1440,10 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 			w.Header().Set(headerName, header)
 		}
 	}
+
+	//ResponseRecorder
+	w.(*ResponseRecorder).operationName = "copyObjectPart"
+
 	// write success response.
 	WriteSuccessResponse(w, encodedSuccessResponse)
 }
@@ -1441,6 +1479,10 @@ func (api ObjectAPIHandlers) AbortMultipartUploadHandler(w http.ResponseWriter, 
 		WriteErrorResponse(w, r, err)
 		return
 	}
+
+	//ResponseRecorder
+	w.(*ResponseRecorder).operationName = "abortMultipartUpload"
+
 	WriteSuccessNoContent(w)
 }
 
@@ -1480,6 +1522,10 @@ func (api ObjectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 		return
 	}
 	encodedSuccessResponse := EncodeResponse(listPartsInfo)
+
+	//ResponseRecorder
+	w.(*ResponseRecorder).operationName = "listObjectParts"
+
 	// Write success response.
 	WriteSuccessResponse(w, encodedSuccessResponse)
 }
@@ -1586,6 +1632,10 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	}
 
 	setXmlHeader(w, encodedSuccessResponse)
+
+	//ResponseRecorder
+	w.(*ResponseRecorder).operationName = "completeMultipartUpload"
+
 	// write success response.
 	WriteSuccessResponse(w, encodedSuccessResponse)
 }
@@ -1631,6 +1681,8 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 	if result.VersionId != "" {
 		w.Header().Set("x-amz-version-id", result.VersionId)
 	}
+	//ResponseRecorder
+	w.(*ResponseRecorder).operationName = "deleteObject"
 	WriteSuccessNoContent(w)
 }
 
@@ -1781,6 +1833,11 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 			ETag:     result.Md5,
 		})
 		w.WriteHeader(201)
+
+		//ResponseRecorder
+		w.(*ResponseRecorder).operationName = "postObject"
+
 		w.Write(encodedSuccessResponse)
 	}
 }
+
