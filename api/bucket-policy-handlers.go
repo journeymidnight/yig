@@ -94,7 +94,7 @@ func (api ObjectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *ht
 	}
 
 	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "putBucketPolicy"
+	w.(*ResponseRecorder).operationName = "PutBucketPolicy"
 	// Success.
 	WriteSuccessResponse(w, nil)
 }
@@ -126,7 +126,7 @@ func (api ObjectAPIHandlers) DeleteBucketPolicyHandler(w http.ResponseWriter, r 
 	}
 
 	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "deleteBucketPolicy"
+	w.(*ResponseRecorder).operationName = "DeleteBucketPolicy"
 	// Success.
 	WriteSuccessResponse(w, nil)
 }
@@ -167,8 +167,7 @@ func (api ObjectAPIHandlers) GetBucketPolicyHandler(w http.ResponseWriter, r *ht
 	}
 
 	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "getBucketPolicy"
+	w.(*ResponseRecorder).operationName = "GetBucketPolicy"
 	// Write to client.
 	WriteSuccessResponse(w, policyData)
 }
-
