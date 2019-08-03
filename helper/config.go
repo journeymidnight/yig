@@ -17,6 +17,7 @@ type Config struct {
 	S3Domain         []string                `toml:"s3domain"` // Domain name of YIG
 	Region           string                  `toml:"region"`   // Region name this instance belongs to, e.g cn-bj-1
 	Plugins          map[string]PluginConfig          `toml:"plugins"`
+	PiggybackUpdateUsage		 bool					 `toml:"piggyback_update_usage"`
 	LogPath          string                  `toml:"log_path"`
 	AccessLogPath    string                  `toml:"access_log_path"`
 	AccessLogFormat  string                  `toml:"access_log_format"`
@@ -131,6 +132,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.S3Domain = c.S3Domain
 	CONFIG.Region = c.Region
 	CONFIG.Plugins = c.Plugins
+	CONFIG.PiggybackUpdateUsage = c.PiggybackUpdateUsage
 	CONFIG.LogPath = c.LogPath
 	CONFIG.AccessLogPath = c.AccessLogPath
 	CONFIG.AccessLogFormat = c.AccessLogFormat
