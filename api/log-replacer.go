@@ -27,11 +27,11 @@ import (
 )
 
 const (
-	CombinedLogFormat = "{time_local} {request_uri} {request_id} {operation} {host_name} {bucket_name} {object_name} " +
+	CombinedLogFormat = "{time_local} {request_uri} {request_id} {operation_name} {host_name} {bucket_name} {object_name} " +
 		"{object_size} {requester_id} {project_id} {remote_addr} {http_x_real_ip} {request_length} {server_cost} " +
 		"{request_time} {http_status} {error_code} {body_bytes_sent} {http_referer} {http_user_agent}"
 
-	BillingLogFormat = "{is_internal} {storage_class} {target_storage_class} {bucket_logging} {cdn_request}"
+	BillingLogFormat = "{is_private_subnet} {storage_class} {target_storage_class} {bucket_logging} {cdn_request}"
 )
 
 // Replacer is a type which can replace placeholder
@@ -259,6 +259,8 @@ func (r *replacer) getSubstitution(key string) string {
 			return "\"" + referer + "\""
 		}
 		return `"-"`
+
+		// Billing labels
 	case "{is_private_subnet}":
 		// Currently, the intranet domain name is formed by adding the "-internal" on the second-level domain name of the public network.
 		return strconv.FormatBool(strings.Contains(r.request.Host, "internal"))
@@ -277,12 +279,11 @@ func (r *replacer) getSubstitution(key string) string {
 			return storageClassFromHeader.ToString()
 		}
 		return "-"
-
 	case "{bucket_logging}":
 		// TODO: Add bucket logging
 		return strconv.FormatBool(false)
 	case "{cdn_request}":
-		// If you have another judgment method, implement and replace the judgeFunc
+		// TODO: change to go plugin
 		var judgeFunc JudgeCdnRequest
 		judgeFunc = judgeCdnRequestFromQuery
 		return strconv.FormatBool(judgeFunc(r.request))
@@ -361,8 +362,8 @@ func inRange(r ipRange, ipAddress net.IP) bool {
 type JudgeCdnRequest func(r *http.Request) bool
 
 func judgeCdnRequestFromQuery(r *http.Request) bool {
-	cdnFlag := r.URL.Query()["X-Amz-Referer"][0]
-	if cdnFlag == "cdn" {
+	cdnFlag, ok := r.URL.Query()["X-Oss-Referer"]
+	if ok && len(cdnFlag) > 0 && cdnFlag[0] == "cdn" {
 		return true
 	}
 	return false

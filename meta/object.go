@@ -178,10 +178,25 @@ func (m *Meta) DeleteObject(object *Object, DeleteMarker bool, objMap *ObjMap) e
 }
 
 func (m *Meta) AppendObject(object *Object, isExist bool) error {
+	tx, err := m.Client.NewTrans()
+	defer func() {
+		if err != nil {
+			m.Client.AbortTrans(tx)
+		}
+	}()
 	if !isExist {
-		return m.Client.PutObject(object, nil)
+		err = m.Client.PutObject(object, tx)
+	} else {
+		err = m.Client.UpdateAppendObject(object, tx)
 	}
-	return m.Client.UpdateAppendObject(object)
+	if err != nil {
+		return err
+	}
+	err = m.Client.UpdateUsage(object.BucketName, object.Size, tx)
+	if err != nil {
+		return err
+	}
+	return m.Client.CommitTrans(tx)
 }
 
 //func (m *Meta) DeleteObjectEntry(object *Object) error {

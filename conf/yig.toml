@@ -13,6 +13,7 @@ admin_listener = "0.0.0.0:9000"
 admin_key = "secret"
 ssl_key_path = ""
 ssl_cert_path = ""
+piggyback_update_usage = true
 
 # DebugMode
 lcdebug = true
