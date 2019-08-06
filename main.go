@@ -8,7 +8,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/journeymidnight/yig/api"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/mods"
@@ -90,7 +89,6 @@ func main() {
 	allPluginMap := mods.InitialPlugins()
 
 	iam.InitializeIamClient(allPluginMap)
-	api.InitializeJudgeClient(allPluginMap)
 
 	startAdminServer(adminServerConfig)
 

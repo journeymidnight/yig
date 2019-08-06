@@ -7,12 +7,12 @@ import (
 )
 
 
-const pluginNameIAM = "dummy_iam"
+const pluginName = "dummy_iam"
 
 //The variable MUST be named as Exported.
 //the code in yig-plugin will lookup this symbol
 var Exported = mods.YigPlugin{
-	Name:       pluginNameIAM,
+	Name:       pluginName,
 	PluginType: mods.IAM_PLUGIN,
 	Create:  GetIamClient,
 }
@@ -45,5 +45,3 @@ func (d DebugIamClient) GetCredential(accessKey string) (c common.Credential, er
 		SecretAccessKey: "hehehehe",
 	}, nil // For test now
 }
-
-

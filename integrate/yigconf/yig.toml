@@ -66,10 +66,10 @@ enable = true
 [plugins.dummy_iam.args]
 url = "s3.test.com"
 
-[plugins.dummy_judge]
-path = "/etc/yig/plugins/dummy_judge_plugin.so"
+[plugins.cdn_judge]
+path = "/etc/yig/plugins/judge_plugin.so"
 enable = true
-[plugins.dummy_judge.args]
+[plugins.cdn_judge.args]
 target = "X-Oss-Referer"
 
 [plugins.not_exist]
