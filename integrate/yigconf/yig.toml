@@ -2,7 +2,7 @@ s3domain = ["s3.test.com","s3-internal.test.com"]
 region = "cn-bj-1"
 log_path = "/var/log/yig/yig.log"
 access_log_path = "/var/log/yig/access.log"
-access_log_format = "{combined}"
+access_log_format = "{combined} {billing}"
 panic_log_path = "/var/log/yig/panic.log"
 log_level = 20
 pid_file = "/var/run/yig/yig.pid"
@@ -64,8 +64,15 @@ broker_list = "kafka:29092"
 path = "/etc/yig/plugins/dummy_iam_plugin.so"
 enable = true
 [plugins.dummy_iam.args]
-url="s3.test.com"
+url = "s3.test.com"
+
+[plugins.dummy_judge]
+path = "/etc/yig/plugins/dummy_judge_plugin.so"
+enable = true
+[plugins.dummy_judge.args]
+target = "X-Oss-Referer"
 
 [plugins.not_exist]
 path = "not_exist_so"
 enable = false
+
