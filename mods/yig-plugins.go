@@ -19,10 +19,11 @@ type YigPlugin struct {
 	Create     func(map[string]interface{}) (interface{}, error)
 }
 
-const EXPORTED_PLUGIN = "Exported"
+const EXPORTED_PLUGIN    = "Exported"
 
 const (
 	IAM_PLUGIN = iota //IamClient interface
+	JUDGE_PLUGIN
 	NUMS_PLUGIN
 )
 
@@ -38,8 +39,6 @@ func InitialPlugins() map[string]*YigPlugin {
 			helper.Logger.Printf(5, "plugin path for %s is empty\n", name)
 			continue
 		}
-
-
 		//if enable do not exist in toml file, enable's default is false
 		if pluginConfig.Enable == false {
 			helper.Logger.Printf(5, "plugins: %s is not enabled, continue\n", sopath)
@@ -64,7 +63,7 @@ func InitialPlugins() map[string]*YigPlugin {
 			helper.Logger.Printf(5, "plugins: convert %s in %s failed, exported: %v\n", EXPORTED_PLUGIN, sopath, exported)
 			continue
 		}
-
+		
 		//check plugin content
 		if yigPlugin.Name == name && yigPlugin.Create != nil {
 			globalPlugins[yigPlugin.Name] = yigPlugin

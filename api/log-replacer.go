@@ -16,6 +16,7 @@ package api
 
 import (
 	"bytes"
+	"github.com/journeymidnight/yig/mods"
 	"net"
 	"net/http"
 	"strconv"
@@ -283,9 +284,10 @@ func (r *replacer) getSubstitution(key string) string {
 		// TODO: Add bucket logging
 		return strconv.FormatBool(false)
 	case "{cdn_request}":
-		// TODO: change to go plugin
+		allPluginMap := mods.InitialPlugins()
+		InitializeJudgeClient(allPluginMap)
 		var judgeFunc JudgeCdnRequest
-		judgeFunc = judgeCdnRequestFromQuery
+		judgeFunc = JudgeCDNRequest
 		return strconv.FormatBool(judgeFunc(r.request))
 	default:
 		return "-"
@@ -361,7 +363,29 @@ func inRange(r ipRange, ipAddress net.IP) bool {
 
 type JudgeCdnRequest func(r *http.Request) bool
 
-func judgeCdnRequestFromQuery(r *http.Request) bool {
+type JudgeClient interface {
+	JudgeCDNRequest(r *http.Request) bool
+}
+
+var judgeClient JudgeClient
+
+func InitializeJudgeClient(plugins map[string]*mods.YigPlugin) {
+	//Search for JudgeCDN plugins, if we have many JudgeCDN plugins, always use the first
+	name := "cdn_judge"
+	p := plugins["cdn_judge"]
+	if p.PluginType == mods.JUDGE_PLUGIN {
+		c, err := p.Create(helper.CONFIG.Plugins[name].Args)
+		if err != nil {
+			helper.Logger.Fatalf(0, "failed to initial JudgeCDN plugin %s: err: %v\n", name, err)
+			return
+		}
+		helper.Logger.Printf(5, "Chosen JudgeCDN plugin %s..\n", name)
+		judgeClient = c.(JudgeClient)
+		return
+	}
+}
+
+func JudgeCDNRequest(r *http.Request) bool {
 	cdnFlag, ok := r.URL.Query()["X-Oss-Referer"]
 	if ok && len(cdnFlag) > 0 && cdnFlag[0] == "cdn" {
 		return true

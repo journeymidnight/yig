@@ -45,4 +45,3 @@ func (d DebugIamClient) GetCredential(accessKey string) (c common.Credential, er
 		SecretAccessKey: "hehehehe",
 	}, nil // For test now
 }
-
