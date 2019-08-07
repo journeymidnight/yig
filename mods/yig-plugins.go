@@ -19,6 +19,8 @@ type YigPlugin struct {
 	Create     func(map[string]interface{}) (interface{}, error)
 }
 
+var Container map[string]*YigPlugin
+
 const EXPORTED_PLUGIN    = "Exported"
 
 const (
@@ -63,7 +65,7 @@ func InitialPlugins() map[string]*YigPlugin {
 			helper.Logger.Printf(5, "plugins: convert %s in %s failed, exported: %v\n", EXPORTED_PLUGIN, sopath, exported)
 			continue
 		}
-		
+
 		//check plugin content
 		if yigPlugin.Name == name && yigPlugin.Create != nil {
 			globalPlugins[yigPlugin.Name] = yigPlugin
