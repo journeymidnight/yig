@@ -18,7 +18,7 @@ package api
 
 import (
 	"context"
-	"encoding/base64"
+	"encoding/hex"
 	"encoding/xml"
 	"errors"
 	"io"
@@ -37,7 +37,7 @@ func xmlDecoder(body io.Reader, v interface{}) error {
 
 // checkValidMD5 - verify if valid md5, returns md5 in bytes.
 func checkValidMD5(md5 string) ([]byte, error) {
-	return base64.StdEncoding.DecodeString(strings.TrimSpace(md5))
+	return hex.DecodeString(strings.TrimSpace(md5))
 }
 
 /// http://docs.aws.amazon.com/AmazonS3/latest/dev/UploadingObjects.html
