@@ -143,3 +143,7 @@ func setXmlHeader(w http.ResponseWriter, body []byte) {
 func hasServerSideEncryptionHeader(header http.Header) bool {
 	return crypto.S3.IsRequested(header) || crypto.SSEC.IsRequested(header)
 }
+
+func CheckEtagPrefixIsHWH(etagPrefix string) bool {
+	return etagPrefix == "HwH"
+}
