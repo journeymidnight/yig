@@ -4,6 +4,8 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
+	"github.com/minio/highwayhash"
+	"hash"
 	"io"
 	"net/url"
 	"sort"
@@ -171,7 +173,24 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 		return
 	}
 
-	md5Writer := md5.New()
+	//if client not force md5,choose HighwayHash
+	var hashWriter hash.Hash
+	if md5Hex == "" {
+		helper.Logger.Println(20,"Calculate hash by HighwayHash")
+		key, err := hex.DecodeString(keyValue)
+		if err != nil {
+			helper.Debugln("Cannot decode hex key: %v", err)
+			return result,err
+		}
+		hashWriter,err = highwayhash.New(key)
+		if err != nil {
+			helper.Debugln(20,"Failed to create HighwayHash instance: %v", err)
+			return result,err
+		}
+	} else {
+		helper.Logger.Println(20,"Calculate hash by Md5")
+		hashWriter = md5.New()
+	}
 	limitedDataReader := io.LimitReader(data, size)
 	poolName := multipart.Metadata.Pool
 	cephCluster, err := yig.GetClusterByFsName(multipart.Metadata.Location)
@@ -179,7 +198,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 		return
 	}
 	oid := cephCluster.GetUniqUploadName()
-	dataReader := io.TeeReader(limitedDataReader, md5Writer)
+	dataReader := io.TeeReader(limitedDataReader, hashWriter)
 
 	var initializationVector []byte
 	if len(encryptionKey) != 0 {
@@ -210,8 +229,8 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 		return
 	}
 
-	calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
-	if md5Hex != "" && md5Hex != calculatedMd5 {
+	calculatedHash := hex.EncodeToString(hashWriter.Sum(nil))
+	if md5Hex != "" && md5Hex != calculatedHash {
 		RecycleQueue <- maybeObjectToRecycle
 		err = ErrBadDigest
 		return
@@ -244,7 +263,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 		PartNumber:           partId,
 		Size:                 size,
 		ObjectId:             oid,
-		Etag:                 calculatedMd5,
+		Etag:                 calculatedHash,
 		LastModified:         time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT),
 		InitializationVector: initializationVector,
 	}
@@ -262,7 +281,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 		}
 	}
 
-	result.ETag = calculatedMd5
+	result.ETag = calculatedHash
 	result.SseType = sseRequest.Type
 	result.SseAwsKmsKeyIdBase64 = base64.StdEncoding.EncodeToString([]byte(sseRequest.SseAwsKmsKeyId))
 	result.SseCustomerAlgorithm = sseRequest.SseCustomerAlgorithm
@@ -270,16 +289,15 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 	return result, nil
 }
 
-func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, partId int,
-	size int64, data io.Reader, credential common.Credential,
-	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
+func (yig *YigStorage) CopyObjectPart(targetObject *meta.Object, data io.Reader, uploadId string, partId int,
+	credential common.Credential, sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
 
-	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
+	multipart, err := yig.MetaStorage.GetMultipart(targetObject.BucketName, targetObject.Name, uploadId)
 	if err != nil {
 		return
 	}
 
-	if size > MAX_PART_SIZE {
+	if targetObject.Size > MAX_PART_SIZE {
 		err = ErrEntityTooLarge
 		return
 	}
@@ -301,15 +319,31 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 		return
 	}
 
-	md5Writer := md5.New()
-	limitedDataReader := io.LimitReader(data, size)
+	var hashWriter hash.Hash
+	if targetObject.CustomAttributes["md5Sum"] != "" {
+		hashWriter = md5.New()
+		helper.Logger.Println(20,"Calculate hash by Md5")
+	} else {
+		key, err := hex.DecodeString(keyValue)
+		if err != nil {
+			helper.Debugln("Cannot decode hex key: %v", err)
+			return result,err
+		}
+		hashWriter,err = highwayhash.New(key)
+		helper.Logger.Println(20,"Calculate hash by HighwayHash")
+		if err != nil {
+			helper.Debugln("Failed to create HighwayHash instance: %v", err)
+			return result,err
+		}
+	}
+	limitedDataReader := io.LimitReader(data, targetObject.Size)
 	poolName := multipart.Metadata.Pool
 	cephCluster, err := yig.GetClusterByFsName(multipart.Metadata.Location)
 	if err != nil {
 		return
 	}
 	oid := cephCluster.GetUniqUploadName()
-	dataReader := io.TeeReader(limitedDataReader, md5Writer)
+	dataReader := io.TeeReader(limitedDataReader, hashWriter)
 
 	var initializationVector []byte
 	if len(encryptionKey) != 0 {
@@ -335,15 +369,15 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 		objectId: oid,
 	}
 
-	if bytesWritten < size {
+	if bytesWritten < targetObject.Size {
 		RecycleQueue <- maybeObjectToRecycle
 		err = ErrIncompleteBody
 		return
 	}
 
-	result.Md5 = hex.EncodeToString(md5Writer.Sum(nil))
+	result.Md5 = hex.EncodeToString(hashWriter.Sum(nil))
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
+	bucket, err := yig.MetaStorage.GetBucket(targetObject.BucketName, true)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
@@ -365,7 +399,7 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	now := time.Now().UTC()
 	part := meta.Part{
 		PartNumber:           partId,
-		Size:                 size,
+		Size:                 targetObject.Size,
 		ObjectId:             oid,
 		Etag:                 result.Md5,
 		LastModified:         now.Format(meta.CREATE_TIME_LAYOUT),
@@ -514,11 +548,11 @@ func (yig *YigStorage) AbortMultipartUpload(credential common.Credential,
 	return nil
 }
 
-func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, bucketName,
-	objectName, uploadId string, uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult,
+func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, targetObject *meta.Object, uploadID string,
+	uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult,
 	err error) {
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
+	bucket, err := yig.MetaStorage.GetBucket(targetObject.BucketName, true)
 	if err != nil {
 		return
 	}
@@ -533,23 +567,39 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 	}
 	// TODO policy and fancy ACL
 
-	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
+	multipart, err := yig.MetaStorage.GetMultipart(targetObject.BucketName, targetObject.Name, uploadID)
 	if err != nil {
 		return
 	}
 
-	md5Writer := md5.New()
+	var hashWriter hash.Hash
+	if targetObject.CustomAttributes["md5Sum"] != "" {
+		hashWriter = md5.New()
+		helper.Logger.Println(20,"Calculate hash by Md5")
+	} else {
+		key, err := hex.DecodeString(keyValue)
+		if err != nil {
+			helper.Debugln("Cannot decode hex key: %v", err)
+			return result,err
+		}
+		hashWriter,err = highwayhash.New(key)
+		helper.Logger.Println(20,"Calculate hash by HighwayHash")
+		if err != nil {
+			helper.Debugln("Failed to create HighwayHash instance: %v", err)
+			return result,err
+		}
+	}
 	var totalSize int64 = 0
-	helper.Logger.Println(20, "Upload parts:", uploadedParts, "uploadId:", uploadId)
+	helper.Logger.Println(20, "Upload parts:", uploadedParts, "uploadId:", uploadID)
 	for i := 0; i < len(uploadedParts); i++ {
 		if uploadedParts[i].PartNumber != i+1 {
-			helper.Logger.Println(20, "uploadedParts[i].PartNumber != i+1; i:", i, "uploadId:", uploadId)
+			helper.Logger.Println(20, "uploadedParts[i].PartNumber != i+1; i:", i, "uploadId:", uploadID)
 			err = ErrInvalidPart
 			return
 		}
 		part, ok := multipart.Parts[i+1]
 		if !ok {
-			helper.Logger.Println(20, "multipart.Parts[i+1] does not exist; i:", i, "uploadId:", uploadId)
+			helper.Logger.Println(20, "multipart.Parts[i+1] does not exist; i:", i, "uploadId:", uploadID)
 			err = ErrInvalidPart
 			return
 		}
@@ -563,22 +613,22 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 		}
 		if part.Etag != uploadedParts[i].ETag {
 			helper.Logger.Println(20, "part.Etag != uploadedParts[i].ETag;",
-				"i:", i, "Etag:", part.Etag, "reqEtag:", uploadedParts[i].ETag, "uploadId:", uploadId)
+				"i:", i, "Etag:", part.Etag, "reqEtag:", uploadedParts[i].ETag, "uploadId:", uploadID)
 			err = ErrInvalidPart
 			return
 		}
 		var etagBytes []byte
 		etagBytes, err = hex.DecodeString(part.Etag)
 		if err != nil {
-			helper.Logger.Println(20, "hex.DecodeString(part.Etag) err;", "uploadId:", uploadId)
+			helper.Logger.Println(20, "hex.DecodeString(part.Etag) err;", "uploadId:", uploadID)
 			err = ErrInvalidPart
 			return
 		}
 		part.Offset = totalSize
 		totalSize += part.Size
-		md5Writer.Write(etagBytes)
+		hashWriter.Write(etagBytes)
 	}
-	result.ETag = hex.EncodeToString(md5Writer.Sum(nil))
+	result.ETag = hex.EncodeToString(hashWriter.Sum(nil))
 	result.ETag += "-" + strconv.Itoa(len(uploadedParts))
 	// See http://stackoverflow.com/questions/12186993
 	// for how to calculate multipart Etag
@@ -586,8 +636,8 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 	// Add to objects table
 	contentType := multipart.Metadata.ContentType
 	object := &meta.Object{
-		Name:             objectName,
-		BucketName:       bucketName,
+		Name:             targetObject.Name,
+		BucketName:       targetObject.BucketName,
 		OwnerId:          multipart.Metadata.OwnerId,
 		Pool:             multipart.Metadata.Pool,
 		Location:         multipart.Metadata.Location,
@@ -607,7 +657,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 	}
 
 	var nullVerNum uint64
-	nullVerNum, err = yig.checkOldObject(bucketName, objectName, bucket.Versioning)
+	nullVerNum, err = yig.checkOldObject(targetObject.BucketName, targetObject.Name, bucket.Versioning)
 	if err != nil {
 		return
 	}
@@ -620,8 +670,8 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 	}
 
 	objMap := &meta.ObjMap{
-		Name:       objectName,
-		BucketName: bucketName,
+		Name:       targetObject.Name,
+		BucketName: targetObject.BucketName,
 	}
 
 	if nullVerNum != 0 {
@@ -644,8 +694,8 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 	result.SseCustomerKeyMd5Base64 = base64.StdEncoding.EncodeToString(sseRequest.SseCustomerKey)
 
 	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
-		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
+		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + object.GetVersionId())
 	}
 
 	return
