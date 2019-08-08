@@ -4,8 +4,12 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
+	"github.com/journeymidnight/yig/api"
+	"github.com/minio/highwayhash"
+	"hash"
 	"io"
 	"math/rand"
+	"strings"
 	"time"
 
 	"path"
@@ -24,6 +28,8 @@ import (
 
 var latestQueryTime [2]time.Time // 0 is for SMALL_FILE_POOLNAME, 1 is for BIG_FILE_POOLNAME
 const CLUSTER_MAX_USED_SPACE_PERCENT = 85
+
+const keyValue = "000102030405060708090A0B0C0D0E0FF0E0D0C0B0A090807060504030201000" // This is the key for hash sum !
 
 func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size int64, isAppend bool) (cluster *CephStorage,
 	poolName string) {
@@ -467,7 +473,24 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		}
 	}
 
-	md5Writer := md5.New()
+	//if client not force md5,choose HighwayHash
+	var hashWriter hash.Hash
+	if metadata["md5Sum"] == "" {
+		helper.Logger.Println(20,"Calculate hash by HighwayHash")
+		key, err := hex.DecodeString(keyValue)
+		if err != nil {
+			helper.Debugln("Cannot decode hex key: %v", err)
+			return result,err
+		}
+		hashWriter,err = highwayhash.New(key)
+		if err != nil {
+			helper.Debugln(20,"Failed to create HighwayHash instance: %v", err)
+			return result,err
+		}
+	} else {
+		helper.Logger.Println(20,"Calculate hash by Md5")
+		hashWriter = md5.New()
+	}
 
 	// Limit the reader to its provided size if specified.
 	var limitedDataReader io.Reader
@@ -484,7 +507,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 
 	// Mapping a shorter name for the object
 	oid := cephCluster.GetUniqUploadName()
-	dataReader := io.TeeReader(limitedDataReader, md5Writer)
+	dataReader := io.TeeReader(limitedDataReader, hashWriter)
 
 	var initializationVector []byte
 	if len(encryptionKey) != 0 {
@@ -515,16 +538,20 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		return result, ErrIncompleteBody
 	}
 
-	calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
-	helper.Logger.Println(20, "### calculatedMd5:", calculatedMd5, "userMd5:", metadata["md5Sum"])
-	if userMd5, ok := metadata["md5Sum"]; ok {
-		if userMd5 != "" && userMd5 != calculatedMd5 {
+	calculatedHash := hex.EncodeToString(hashWriter.Sum(nil))
+	helper.Logger.Println(20, "### calculatedHash:", calculatedHash, "userMd5:", metadata["md5Sum"])
+	if userHash, ok := metadata["md5Sum"]; ok {
+		if userHash != "" && userHash != calculatedHash {
 			RecycleQueue <- maybeObjectToRecycle
 			return result, ErrBadDigest
 		}
 	}
+	if metadata["md5Sum"] == "" {
+		result.Md5 = "HwH:" + calculatedHash
+	} else {
+		result.Md5 = calculatedHash
+	}
 
-	result.Md5 = calculatedMd5
 
 	if signVerifyReader, ok := data.(*signature.SignVerifyReader); ok {
 		credential, err = signVerifyReader.Verify()
@@ -543,7 +570,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		Size:             bytesWritten,
 		ObjectId:         oid,
 		LastModifiedTime: time.Now().UTC(),
-		Etag:             calculatedMd5,
+		Etag:             result.Md5,
 		ContentType:      metadata["Content-Type"],
 		ACL:              acl,
 		NullVersion:      helper.Ternary(bucket.Versioning == "Enabled", false, true).(bool),
@@ -608,7 +635,24 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 	//TODO: Append Support Encryption
 	encryptionKey = nil
 
-	md5Writer := md5.New()
+	//if client not force md5,choose HighwayHash
+	var hashWriter hash.Hash
+	if metadata["md5Sum"] == "" {
+		key, err := hex.DecodeString(keyValue)
+		if err != nil {
+			helper.Debugln("Cannot decode hex key: %v", err)
+			return result,err
+		}
+		hashWriter,err = highwayhash.New(key)
+		helper.Logger.Println(20,"Calculate hash by HighwayHash")
+		if err != nil {
+			helper.Debugln("Failed to create HighwayHash instance: %v", err)
+			return result,err
+		}
+	} else {
+		hashWriter = md5.New()
+		helper.Logger.Println(20,"Calculate hash by Md5")
+	}
 
 	// Limit the reader to its provided size if specified.
 	var limitedDataReader io.Reader
@@ -652,7 +696,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 		helper.Logger.Println(20, "request first append oid:", oid, "iv:", initializationVector, "size:", objSize)
 	}
 
-	dataReader := io.TeeReader(limitedDataReader, md5Writer)
+	dataReader := io.TeeReader(limitedDataReader, hashWriter)
 
 	storageReader, err := wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
 	if err != nil {
@@ -668,14 +712,18 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 		return result, ErrIncompleteBody
 	}
 
-	calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
-	if userMd5, ok := metadata["md5Sum"]; ok {
-		if userMd5 != "" && userMd5 != calculatedMd5 {
+	calculatedHash := hex.EncodeToString(hashWriter.Sum(nil))
+	if userHash, ok := metadata["md5Sum"]; ok {
+		if userHash != "" && userHash != calculatedHash {
 			return result, ErrBadDigest
 		}
 	}
+	if metadata["md5Sum"] == "" {
+		result.Md5 = "HwH:" + calculatedHash
+	} else {
+		result.Md5 = calculatedHash
+	}
 
-	result.Md5 = calculatedMd5
 
 	if signVerifyReader, ok := data.(*signature.SignVerifyReader); ok {
 		credential, err = signVerifyReader.Verify()
@@ -694,7 +742,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 		Size:                 objSize + bytesWritten,
 		ObjectId:             oid,
 		LastModifiedTime:     time.Now().UTC(),
-		Etag:                 calculatedMd5,
+		Etag:                 calculatedHash,
 		ContentType:          metadata["Content-Type"],
 		ACL:                  acl,
 		NullVersion:          true,
@@ -785,57 +833,78 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 	cephCluster, poolName := yig.PickOneClusterAndPool(targetObject.BucketName,
 		targetObject.Name, targetObject.Size, false)
 
+	var hashWriter hash.Hash
+	var splitEtagForHwH []string
 	if len(targetObject.Parts) != 0 {
 		var targetParts map[int]*meta.Part = make(map[int]*meta.Part, len(targetObject.Parts))
 		for i := 1; i <= len(targetObject.Parts); i++ {
 			part := targetObject.Parts[i]
 			targetParts[i] = part
 			result,err = func() (result datatype.PutObjectResult, err error) {
-			pr, pw := io.Pipe()
-			defer pr.Close()
-			var total = part.Size
-			go func() {
-				_, err = io.CopyN(pw, source, total)
+				pr, pw := io.Pipe()
+				defer pr.Close()
+				var total = part.Size
+				go func() {
+					_, err = io.CopyN(pw, source, total)
+					if err != nil {
+						return
+					}
+					pw.Close()
+				}()
+				splitEtagForHwH = strings.Split(part.Etag,":")
+				if !api.CheckEtagPrefixIsHWH(splitEtagForHwH[0]) {
+					hashWriter = md5.New()
+					helper.Logger.Println(20,"Calculate hash by Md5")
+				} else {
+					key, err := hex.DecodeString(keyValue)
+					if err != nil {
+						helper.Debugln("Cannot decode hex key: %v", err)
+						return result,err
+					}
+					hashWriter,err = highwayhash.New(key)
+					helper.Logger.Println(20,"Calculate hash by HighwayHash")
+					if err != nil {
+						helper.Debugln("Failed to create HighwayHash instance: %v", err)
+						return result,err
+					}
+				}
+				dataReader := io.TeeReader(pr, hashWriter)
+				oid = cephCluster.GetUniqUploadName()
+				var bytesW int64
+				var storageReader io.Reader
+				var initializationVector []byte
+				if len(encryptionKey) != 0 {
+					initializationVector, err = newInitializationVector()
+					if err != nil {
+						return
+					}
+				}
+				storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
+				bytesW, err = cephCluster.Put(poolName, oid, storageReader)
+				maybeObjectToRecycle = objectToRecycle{
+					location: cephCluster.Name,
+					pool:     poolName,
+					objectId: oid,
+				}
+				if bytesW < part.Size {
+					RecycleQueue <- maybeObjectToRecycle
+					return result, ErrIncompleteBody
+				}
 				if err != nil {
+					return result, err
+				}
+				calculatedHash := hex.EncodeToString(hashWriter.Sum(nil))
+				//we will only chack part etag,overall etag will be same if each part of etag is same
+				if api.CheckEtagPrefixIsHWH(splitEtagForHwH[0]) {
+					calculatedHash = "HwH:" + calculatedHash
+				}
+				if calculatedHash != part.Etag {
+					err = ErrInternalError
+					RecycleQueue <- maybeObjectToRecycle
 					return
 				}
-				pw.Close()
-			}()
-			md5Writer := md5.New()
-			dataReader := io.TeeReader(pr, md5Writer)
-			oid = cephCluster.GetUniqUploadName()
-			var bytesW int64
-			var storageReader io.Reader
-			var initializationVector []byte
-			if len(encryptionKey) != 0 {
-				initializationVector, err = newInitializationVector()
-				if err != nil {
-					return
-				}
-			}
-			storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
-			bytesW, err = cephCluster.Put(poolName, oid, storageReader)
-			maybeObjectToRecycle = objectToRecycle{
-				location: cephCluster.Name,
-				pool:     poolName,
-				objectId: oid,
-			}
-			if bytesW < part.Size {
-				RecycleQueue <- maybeObjectToRecycle
-				return result, ErrIncompleteBody
-			}
-			if err != nil {
-				return result, err
-			}
-			calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
-			//we will only chack part etag,overall etag will be same if each part of etag is same
-			if calculatedMd5 != part.Etag {
-				err = ErrInternalError
-				RecycleQueue <- maybeObjectToRecycle
-				return
-			}
-			part.LastModified = time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT)
-			part.ObjectId = oid
+				part.LastModified = time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT)
+				part.ObjectId = oid
 
 				part.InitializationVector = initializationVector
 				return result,nil
@@ -848,11 +917,27 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		targetObject.Parts = targetParts
 		result.Md5 = targetObject.Etag
 	} else {
-		md5Writer := md5.New()
+		splitEtagForHwH = strings.Split(targetObject.Etag,":")
+		if !api.CheckEtagPrefixIsHWH(splitEtagForHwH[0]) {
+			hashWriter = md5.New()
+			helper.Logger.Println(20,"Calculate hash by Md5")
+		} else {
+			key, err := hex.DecodeString(keyValue)
+			if err != nil {
+				helper.Debugln("Cannot decode hex key: %v", err)
+				return result,err
+			}
+			hashWriter,err = highwayhash.New(key)
+			helper.Logger.Println(20,"Calculate hash by HighwayHash")
+			if err != nil {
+				helper.Debugln("Failed to create HighwayHash instance: %v", err)
+				return result,err
+			}
+		}
 
 		// Mapping a shorter name for the object
 		oid = cephCluster.GetUniqUploadName()
-		dataReader := io.TeeReader(limitedDataReader, md5Writer)
+		dataReader := io.TeeReader(limitedDataReader, hashWriter)
 		var storageReader io.Reader
 		var initializationVector []byte
 		if len(encryptionKey) != 0 {
@@ -882,12 +967,15 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 			return result, ErrIncompleteBody
 		}
 
-		calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
-		if calculatedMd5 != targetObject.Etag {
+		calculatedHash := hex.EncodeToString(hashWriter.Sum(nil))
+		if api.CheckEtagPrefixIsHWH(splitEtagForHwH[0]) {
+			calculatedHash = "HwH:" + calculatedHash
+		}
+		if calculatedHash != targetObject.Etag {
 			RecycleQueue <- maybeObjectToRecycle
 			return result, ErrBadDigest
 		}
-		result.Md5 = calculatedMd5
+		result.Md5 = calculatedHash
 		targetObject.ObjectId = oid
 		targetObject.InitializationVector = initializationVector
 	}

@@ -681,12 +681,10 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	// Get Content-Md5 sent by client and verify if valid
 	if _, ok := r.Header["Content-Md5"]; !ok {
 		metadata["md5Sum"] = ""
-	} else {
-		if len(r.Header.Get("Content-Md5")) == 0 {
-			helper.Debugln("Content Md5 is null!")
-			WriteErrorResponse(w, r, ErrInvalidDigest)
-			return
-		}
+	} else if len(r.Header.Get("Content-Md5")) == 0 {
+		helper.Debugln("Content Md5 is null!")
+		metadata["md5Sum"] = ""
+	}else {
 		md5Bytes, err := checkValidMD5(r.Header.Get("Content-Md5"))
 		if err != nil {
 			helper.Debugln("Content Md5 is invalid!")
@@ -841,12 +839,10 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	// Get Content-Md5 sent by client and verify if valid
 	if _, ok := r.Header["Content-Md5"]; !ok {
 		metadata["md5Sum"] = ""
-	} else {
-		if len(r.Header.Get("Content-Md5")) == 0 {
-			helper.Debugln("Content Md5 is null!")
-			WriteErrorResponse(w, r, ErrInvalidDigest)
-			return
-		}
+	} else if len(r.Header.Get("Content-Md5")) == 0 {
+		helper.Debugln("Content Md5 is null!")
+		metadata["md5Sum"] = ""
+	}else {
 		md5Bytes, err := checkValidMD5(r.Header.Get("Content-Md5"))
 		if err != nil {
 			helper.Debugln("Content Md5 is invalid!")
@@ -1172,12 +1168,17 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 	authType := signature.GetRequestAuthType(r)
 
 	var incomingMd5 string
-	// get Content-Md5 sent by client and verify if valid
-	md5Bytes, err := checkValidMD5(r.Header.Get("Content-Md5"))
-	if err != nil {
+	// get Content-Md5 or HighwayHash sent by client and verify if valid
+	var err error
+	if r.Header.Get("Content-Md5") == "" {
 		incomingMd5 = ""
 	} else {
-		incomingMd5 = hex.EncodeToString(md5Bytes)
+		md5Bytes, err := checkValidMD5(r.Header.Get("Content-Md5"))
+		if err != nil {
+			incomingMd5 = ""
+		} else {
+			incomingMd5 = hex.EncodeToString(md5Bytes)
+		}
 	}
 
 	size := r.ContentLength
@@ -1411,9 +1412,14 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 		pipeWriter.Close()
 	}()
 
+	// Note that sourceObject and targetObject are pointers
+	targetObject := &meta.Object{}
+	targetObject.BucketName = targetBucketName
+	targetObject.Name = targetObjectName
+	targetObject.Size = readLength
+
 	// Create the object.
-	result, err := api.ObjectAPI.CopyObjectPart(targetBucketName, targetObjectName, targetUploadId,
-		targetPartId, readLength, pipeReader, credential, sseRequest)
+	result, err := api.ObjectAPI.CopyObjectPart(targetObject, pipeReader, targetUploadId, targetPartId, credential, sseRequest)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to copy object part from "+sourceObjectName+
 			" to "+targetObjectName)
@@ -1586,9 +1592,12 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 		completeParts = append(completeParts, part)
 	}
 
+	targetObject := &meta.Object{}
+	targetObject.BucketName = bucketName
+	targetObject.Name = objectName
+
 	var result CompleteMultipartResult
-	result, err = api.ObjectAPI.CompleteMultipartUpload(credential, bucketName,
-		objectName, uploadId, completeParts)
+	result, err = api.ObjectAPI.CompleteMultipartUpload(credential, targetObject, uploadId, completeParts)
 
 	if err != nil {
 		helper.ErrorIf(err, "Unable to complete multipart upload.")
