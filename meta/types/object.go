@@ -35,6 +35,7 @@ type Object struct {
 	CustomAttributes map[string]string
 	Parts            map[int]*Part
 	PartsIndex       *SimpleIndex
+	PartId			 int
 	ACL              datatype.Acl
 	NullVersion      bool   // if this entry has `null` version
 	DeleteMarker     bool   // if this entry is a delete marker
@@ -49,6 +50,7 @@ type Object struct {
 	// ObjectType include `Normal`, `Appendable`, 'Multipart'
 	Type         int
 	StorageClass StorageClass
+	UploadId		string
 }
 
 type ObjectType string

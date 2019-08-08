@@ -17,12 +17,11 @@
 package api
 
 import (
-	"io"
-
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/policy"
 	"github.com/journeymidnight/yig/iam/common"
 	meta "github.com/journeymidnight/yig/meta/types"
+	"io"
 )
 
 // ObjectLayer implements primitives for object API layer.
@@ -86,12 +85,12 @@ type ObjectLayer interface {
 	PutObjectPart(bucket, object string, credential common.Credential, uploadID string, partID int,
 		size int64, data io.Reader, md5Hex string,
 		sse datatype.SseRequest) (result datatype.PutObjectPartResult, err error)
-	CopyObjectPart(bucketName, objectName, uploadId string, partId int, size int64, data io.Reader,
+	CopyObjectPart(targetObject *meta.Object, data io.Reader,
 		credential common.Credential, sse datatype.SseRequest) (result datatype.PutObjectResult,
 		err error)
 	ListObjectParts(credential common.Credential, bucket, object string,
 		request datatype.ListPartsRequest) (result datatype.ListPartsResponse, err error)
 	AbortMultipartUpload(credential common.Credential, bucket, object, uploadID string) error
-	CompleteMultipartUpload(credential common.Credential, bucket, object, uploadID string,
-		uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult, err error)
+	CompleteMultipartUpload(credential common.Credential, targetObject *meta.Object,
+		uploadedParts []meta.CompletePart)(result datatype.CompleteMultipartResult, err error)
 }
