@@ -28,6 +28,7 @@ Requires:       librdkafka1
 #The go build still use source code in GOPATH/src/legitlab/yig/
 #keep git source tree clean, better ways to build?
 #I do not know
+export GOPROXY=https://goproxy.cn
 make build_internal
 
 %install
