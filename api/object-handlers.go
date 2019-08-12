@@ -61,7 +61,6 @@ func setGetRespHeaders(w http.ResponseWriter, reqParams url.Values) {
 func getStorageClassFromHeader(r *http.Request) (meta.StorageClass, error) {
 	storageClassStr := r.Header.Get("X-Amz-Storage-Class")
 
-
 	if storageClassStr != "" {
 		helper.Logger.Println(20, "Get storage class header:", storageClassStr)
 		return meta.MatchStorageClassIndex(storageClassStr)
@@ -440,6 +439,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	var isOnlyUpdateMetadata = false
+	var isOnlyRename = false
 
 	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName {
 		if r.Header.Get("X-Amz-Metadata-Directive") == "COPY" {
@@ -450,6 +450,12 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		} else {
 			WriteErrorResponse(w, r, ErrInvalidRequestBody)
 			return
+		}
+	}
+
+	if sourceBucketName == targetBucketName && sourceObjectName != targetObjectName {
+		if r.Header.Get("X-Amz-Metadata-Directive") == "RENAME" {
+			isOnlyRename = true
 		}
 	}
 
@@ -530,6 +536,57 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 				w.Header().Set(headerName, header)
 			}
 		}
+		//ResponseRecorder
+		w.(*ResponseRecorder).operationName = "ReplaceObject"
+		// write success response.
+		WriteSuccessResponse(w, encodedSuccessResponse)
+		return
+	}
+
+	//if source == dest and X-Amz-Metadata-Directive == RENAME, only update the meta;
+	//Do not support bucket to enable multiVersion renaming;
+	//Folder renaming operation is not supported.
+	if isOnlyRename {
+		targetObject := sourceObject
+
+		//Determine if the renamed object is a folder
+		if string(targetObjectName[len(targetObjectName)-1]) == "/" {
+			helper.ErrorIf(err, "Unable to Folder renaming with :"+targetObject.ObjectId)
+			WriteErrorResponse(w, r, err)
+			return
+		}
+		result, err := api.ObjectAPI.UpdateObjectName(targetObject, credential, targetObjectName)
+		if err != nil {
+			helper.ErrorIf(err, "Unable to update object meta for "+targetObject.ObjectId)
+			WriteErrorResponse(w, r, err)
+			return
+		}
+
+		response := GenerateCopyObjectResponse(result.Md5, result.LastModified)
+		encodedSuccessResponse := EncodeResponse(response)
+		// write headers
+		if result.Md5 != "" {
+			w.Header()["ETag"] = []string{"\"" + result.Md5 + "\""}
+		}
+		if sourceVersion != "" {
+			w.Header().Set("x-amz-copy-source-version-id", sourceVersion)
+		}
+		if result.VersionId != "" {
+			w.Header().Set("x-amz-version-id", result.VersionId)
+		}
+		// Set SSE related headers
+		for _, headerName := range []string{
+			"X-Amz-Server-Side-Encryption",
+			"X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id",
+			"X-Amz-Server-Side-Encryption-Customer-Algorithm",
+			"X-Amz-Server-Side-Encryption-Customer-Key-Md5",
+		} {
+			if header := r.Header.Get(headerName); header != "" {
+				w.Header().Set(headerName, header)
+			}
+		}
+		//ResponseRecorder
+		w.(*ResponseRecorder).operationName = "RenameObject"
 		// write success response.
 		WriteSuccessResponse(w, encodedSuccessResponse)
 		return
@@ -1692,7 +1749,6 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 // signature policy in multipart/form-data
 
 var ValidSuccessActionStatus = []string{"200", "201", "204"}
-
 
 func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Request) {
 	var err error

@@ -131,6 +131,11 @@ func (m *Meta) UpdateObjectAttrs(object *Object) error {
 	return err
 }
 
+func (m *Meta) UpdateObjectName(object *Object, name string) error {
+	err := m.Client.UpdateObjectNameAttrs(object, name)
+	return err
+}
+
 func (m *Meta) PutObjMapEntry(objMap *ObjMap) error {
 	err := m.Client.PutObjectMap(objMap, nil)
 	return err
@@ -205,3 +210,4 @@ func (m *Meta) AppendObject(object *Object, isExist bool) error {
 //	err := m.Client.DeleteObjectMap(objMap, nil)
 //	return err
 //}
+

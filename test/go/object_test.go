@@ -216,6 +216,55 @@ func Test_UpdateObject(t *testing.T) {
 	svc.DeleteObject(TEST_BUCKET, TEST_KEY)
 }
 
+func Test_UpdateObjectName(t *testing.T) {
+	//non-cryption
+	svc := NewS3()
+	err := svc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	if err != nil {
+		t.Fatal("PutObject err:", err)
+	}
+
+	TEST_COPY_KEY := "COPYED:" + TEST_KEY
+	input1 := &s3.CopyObjectInput{
+		Bucket:     aws.String(TEST_BUCKET),
+		CopySource: aws.String(TEST_BUCKET + "/" + TEST_KEY),
+		Key:        aws.String(TEST_COPY_KEY),
+	}
+	_, err = svc.Client.CopyObject(input1)
+	if err != nil {
+		t.Fatal("Copy Object err:", err)
+	}
+
+	TEST_RENAME_KEY := "RENAMED:" + TEST_KEY
+	input2 := &s3.CopyObjectInput{
+		Bucket:     aws.String(TEST_BUCKET),
+		CopySource: aws.String(TEST_BUCKET + "/" + TEST_KEY),
+		Key:        aws.String(TEST_RENAME_KEY),
+		MetadataDirective: aws.String("RENAME"),
+	}
+	_, err = svc.Client.CopyObject(input2)
+	if err != nil {
+		t.Fatal("Renamed Object err:", err)
+	}
+
+	//verify them
+	v1, err := svc.GetObject(TEST_BUCKET, TEST_COPY_KEY)
+	if err != nil {
+		t.Fatal("Get Object err:", err)
+	}
+	v2, err := svc.GetObject(TEST_BUCKET, TEST_RENAME_KEY)
+	if err != nil {
+		t.Fatal("Get Object err:", err)
+	}
+	if v1 != v2 {
+		t.Fatal("Copyed result is not the same.")
+	}
+
+	//clean up
+	svc.DeleteObject(TEST_BUCKET, TEST_COPY_KEY)
+	svc.DeleteObject(TEST_BUCKET, TEST_RENAME_KEY)
+}
+
 func Test_Object_Append(t *testing.T) {
 	sc := NewS3()
 	sc.DeleteObject(TEST_BUCKET, TEST_KEY)

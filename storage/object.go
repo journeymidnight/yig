@@ -751,6 +751,36 @@ func (yig *YigStorage) UpdateObjectAttrs(targetObject *meta.Object, credential c
 	return result, nil
 }
 
+func (yig *YigStorage) UpdateObjectName(targetObject *meta.Object, credential common.Credential, targetObjectName string) (result datatype.PutObjectResult, err error) {
+
+	bucket, err := yig.MetaStorage.GetBucket(targetObject.BucketName, true)
+	if err != nil {
+		return
+	}
+	switch bucket.ACL.CannedAcl {
+	case "public-read-write":
+		break
+	default:
+		if bucket.OwnerId != credential.UserId {
+			return result, ErrBucketAccessForbidden
+		}
+	}
+
+	err = yig.MetaStorage.UpdateObjectName(targetObject, targetObjectName)
+	if err != nil {
+		yig.Logger.Println(5, "Update Object Attrs, sql fails")
+		return result, ErrInternalError
+	}
+	result.LastModified = targetObject.LastModifiedTime
+	result.Md5 = targetObject.Etag
+	result.VersionId = targetObject.GetVersionId()
+
+	yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
+	yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
+
+	return result, nil
+}
+
 func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, credential common.Credential,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
 
