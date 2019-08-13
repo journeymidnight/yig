@@ -407,6 +407,14 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential common.Credent
 	if len(objs) != 0 {
 		return ErrBucketNotEmpty
 	}
+	// Check if object part is empty
+	objparts, _, _, _, _, err := yig.MetaStorage.Client.ListMultipartUploads(bucketName, "", "","","", "",1)
+	if err != nil {
+		return err
+	}
+	if  len(objparts) != 0 {
+		return ErrBucketNotEmpty
+	}
 	err = yig.MetaStorage.Client.DeleteBucket(*bucket)
 	if err != nil {
 		return err
@@ -612,3 +620,4 @@ func (yig *YigStorage) ListVersionedObjects(credential common.Credential, bucket
 
 	return
 }
+
