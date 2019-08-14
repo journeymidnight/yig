@@ -52,6 +52,7 @@ def put_object_copy(name, client):
             'Bucket': name+'hehe',
             'Key': name+'hehe',
         }
+	MetadataDirective='COPY',
     )
     print 'Copy object:', ans
 
