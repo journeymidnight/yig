@@ -75,7 +75,7 @@ func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size 
 		clusterWeights[fsid] = cluster.Weight
 	}
 	if len(clusterWeights) == 0 || totalWeight == 0 {
-		helper.Logger.Println(5, "Error picking cluster from table cluster in DB! Use first cluster in config to write.")
+		helper.Logger.Println(20, "Error picking cluster from table cluster in DB! Use first cluster in config to write.")
 		for _, c := range yig.DataStorage {
 			cluster = c
 			break
@@ -205,7 +205,18 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 		if err != nil {
 			return err
 		}
-		buffer := make([]byte, MAX_CHUNK_SIZE)
+		//buffer := make([]byte, MAX_CHUNK_SIZE)
+		buffer := downloadBufPool.Get().([]byte)
+		defer func() {
+			bufLen := len(buffer)
+			if bufLen > 0 {
+				buffer[0] = 0
+				for bp := 1; bp < bufLen; bp *= 2 {
+					copy(buffer[bp:], buffer[:bp])
+				}
+			}
+			downloadBufPool.Put(buffer)
+		}()
 		_, err = io.CopyBuffer(writer, decryptedReader, buffer)
 		return err
 	}
@@ -505,8 +516,8 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	}
 	cend := time.Now()
 	cdur := cend.Sub(cstart)
-	if cdur/1000000 >= 1000 {
-		helper.Logger.Printf(2, "slow log: ceph put: bucket: %s, object: %s, size: %d, takes: %d",
+	if cdur/1000000 >= 300 {
+		helper.Logger.Printf(5, "slow log: ceph put: bucket: %s, object: %s, size: %d, takes: %d",
 			bucketName, objectName, size, cdur)
 	}
 	// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
@@ -601,7 +612,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	tend := time.Now()
 	dur := tend.Sub(tstart)
 	if dur/1000000 >= 1000 {
-		helper.Logger.Printf(2, "slow log: PutOject: object: %s, bucket: %s, size: %d, takes: %d",
+		helper.Logger.Printf(5, "slow log: PutOject: object: %s, bucket: %s, size: %d, takes: %d",
 			bucketName, objectName, object.Size, dur)
 	}
 	return result, nil

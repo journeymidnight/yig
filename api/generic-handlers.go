@@ -20,6 +20,7 @@ import (
 	"context"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	. "github.com/journeymidnight/yig/error"
@@ -111,8 +112,8 @@ type resourceHandler struct {
 // Resource handler ServeHTTP() wrapper
 func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Skip the first element which is usually '/' and split the rest.
+	tstart := time.Now()
 	bucketName, objectName := GetBucketAndObjectInfoFromRequest(r)
-	helper.Logger.Println(5, "ServeHTTP", bucketName, objectName)
 	// If bucketName is present and not objectName check for bucket
 	// level resource queries.
 	if bucketName != "" && objectName == "" {
@@ -135,6 +136,11 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.handler.ServeHTTP(w, r)
+	tend := time.Now()
+	dur := tend.Sub(tstart).Nanoseconds() / 1000000
+	if dur >= 100 {
+		helper.Logger.Printf(5, "slow log resouce_handler(%s, %s) spent %d", bucketName, objectName, dur)
+	}
 }
 
 // setIgnoreResourcesHandler -
@@ -182,6 +188,7 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	var bucketInfo *types.Bucket
 	var objectInfo *types.Object
 	var err error
+	tstart := time.Now()
 	requestId := string(helper.GenerateRandomId())
 	bucketName, objectName := GetBucketAndObjectInfoFromRequest(r)
 	helper.Logger.Println(20, "GenerateContextHandler. RequestId:", requestId, "BucketName:", bucketName, "ObjectName:", objectName)
@@ -203,6 +210,11 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 
 	ctx := context.WithValue(r.Context(), RequestContextKey, RequestContext{requestId, bucketInfo, objectInfo})
 	h.handler.ServeHTTP(w, r.WithContext(ctx))
+	tend := time.Now()
+	dur := tend.Sub(tstart).Nanoseconds() / 1000000
+	if dur >= 100 {
+		helper.Logger.Printf(5, "slow log: generic_context(%s, %s) spent %d", bucketName, objectName, dur)
+	}
 
 }
 

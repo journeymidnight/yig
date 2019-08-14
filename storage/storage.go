@@ -9,16 +9,13 @@ import (
 	"path"
 	"path/filepath"
 	"sync"
-	"time"
 
 	"github.com/journeymidnight/yig/api/datatype"
-	"github.com/journeymidnight/yig/circuitbreak"
 	"github.com/journeymidnight/yig/crypto"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/meta"
-	"github.com/journeymidnight/yig/redis"
 )
 
 const (
@@ -87,33 +84,6 @@ func (y *YigStorage) Stop() {
 	helper.Logger.Println(5, "done")
 	helper.Logger.Print(5, "Stopping MetaStorage...")
 	y.MetaStorage.Stop()
-}
-
-// check cache health per one second if enable cache
-func (y *YigStorage) PingCache(interval time.Duration) {
-	tick := time.NewTicker(interval)
-	for {
-		select {
-		case <-tick.C:
-			redis.CacheCircuit.Execute(
-				context.Background(),
-				func(ctx context.Context) (err error) {
-					c, err := redis.GetClient(ctx)
-					if err != nil {
-						return err
-					}
-					// Use table.String() + key as Redis key
-					_, err = c.Ping()
-					helper.ErrorIf(err, "Cmd: %s.", "PING")
-					return err
-				},
-				nil,
-			)
-			if redis.CacheCircuit.IsOpen() {
-				helper.Logger.Println(10, circuitbreak.CacheCircuitIsOpenErr)
-			}
-		}
-	}
 }
 
 func (yig *YigStorage) encryptionKeyFromSseRequest(sseRequest datatype.SseRequest, bucket, object string) (key []byte, encKey []byte, err error) {

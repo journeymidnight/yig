@@ -4,7 +4,7 @@ PACKAGENAME=yig
 echo Building RPMs..
 GITROOT=`git rev-parse --show-toplevel`
 cd $GITROOT
-VER=1.1
+VER=1.1.2
 echo "Git get full depth..."
 git fetch --unshallow
 REL=`git rev-parse --short HEAD`git

@@ -1,17 +1,17 @@
 package storage
 
 import (
+	"bytes"
 	"container/list"
 	"errors"
 	"io"
-	"io/ioutil"
 	"sync"
 
+	"fmt"
 	"github.com/journeymidnight/radoshttpd/rados"
+	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
 	"time"
-	"fmt"
-	"github.com/journeymidnight/yig/helper"
 )
 
 const (
@@ -36,6 +36,8 @@ type CephStorage struct {
 	Logger     *log.Logger
 	CountMutex *sync.Mutex
 	Counter    uint64
+	BufPool    *sync.Pool
+	BigBufPool *sync.Pool
 }
 
 func NewCephStorage(configFile string, logger *log.Logger) *CephStorage {
@@ -73,6 +75,16 @@ func NewCephStorage(configFile string, logger *log.Logger) *CephStorage {
 		InstanceId: id,
 		Logger:     logger,
 		CountMutex: new(sync.Mutex),
+		BufPool: &sync.Pool{
+			New: func() interface{} {
+				return bytes.NewBuffer(make([]byte, BIG_FILE_THRESHOLD))
+			},
+		},
+		BigBufPool: &sync.Pool{
+			New: func() interface{} {
+				return make([]byte, MAX_CHUNK_SIZE)
+			},
+		},
 	}
 
 	logger.Printf(5, "Ceph Cluster %s is ready, InstanceId is %d\n", name, id)
@@ -139,20 +151,48 @@ func (c *CephStorage) Shutdown() {
 }
 
 func (cluster *CephStorage) doSmallPut(poolname string, oid string, data io.Reader) (size int64, err error) {
+	tstart := time.Now()
 	pool, err := cluster.Conn.OpenPool(poolname)
 	if err != nil {
 		return 0, errors.New("Bad poolname")
 	}
 	defer pool.Destroy()
-
-	buf, err := ioutil.ReadAll(data)
-	size = int64(len(buf))
-	if err != nil {
-		return 0, errors.New("Read from client failed")
+	tpool := time.Now()
+	dur := tpool.Sub(tstart).Nanoseconds() / 1000000
+	if dur >= 10 {
+		helper.Logger.Printf(5, "slow log: doSmallPut OpenPool(%s, %s) spent %d", poolname, oid, dur)
 	}
-	err = pool.WriteSmallObject(oid, buf)
+
+	buffer := cluster.BufPool.Get().(*bytes.Buffer)
+	buffer.Reset()
+	defer cluster.BufPool.Put(buffer)
+	written, err := buffer.ReadFrom(data)
+	if err != nil {
+		helper.Logger.Printf(2, "failed to read data for pool %s, oid %s, err: %v", poolname, oid, err)
+		return 0, err
+	}
+
+	size = written
+
+	tread := time.Now()
+	dur = tread.Sub(tpool).Nanoseconds() / 1000000
+	if dur >= 10 {
+		helper.Logger.Printf(5, "slow log: doSmallPut read body(%s, %s) spent %d", poolname, oid, dur)
+	}
+
+	err = pool.WriteSmallObject(oid, buffer.Bytes())
 	if err != nil {
 		return 0, err
+	}
+	twrite := time.Now()
+	dur = twrite.Sub(tread).Nanoseconds() / 1000000
+	if dur >= 50 {
+		helper.Logger.Printf(5, "slow log: doSmallPut ceph write(%s, %s) spent %d", poolname, oid, dur)
+	}
+
+	dur = twrite.Sub(tstart).Nanoseconds() / 1000000
+	if dur >= 100 {
+		helper.Logger.Printf(5, "slow log: doSmallPut fin(%s, %s) spent %d", poolname, oid, dur)
 	}
 
 	return size, nil
@@ -223,7 +263,19 @@ func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (si
 	var c *rados.AioCompletion
 	pending := list.New()
 	var current_upload_window = MIN_CHUNK_SIZE /* initial window size as MIN_CHUNK_SIZE, max size is MAX_CHUNK_SIZE */
-	var pending_data = make([]byte, current_upload_window)
+	//var pending_data = make([]byte, current_upload_window)
+	var pending_data = cluster.BigBufPool.Get().([]byte)
+	bufLen := len(pending_data)
+	defer func() {
+		// clear the buffer first.
+		if bufLen > 0 {
+			pending_data[0] = 0
+			for bp := 1; bp < bufLen; bp *= 2 {
+				copy(pending_data[bp:], pending_data[:bp])
+			}
+		}
+		cluster.BigBufPool.Put(pending_data)
+	}()
 
 	var slice_offset = 0
 	var slow_count = 0
@@ -280,11 +332,11 @@ func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (si
 		offset += uint64(len(pending_data))
 
 		/* Resize current upload window */
-		expected_time := count * 1000 * 1000 * 1000 / current_upload_window  /* 1000 * 1000 * 1000 means use Nanoseconds */
+		expected_time := count * 1000 * 1000 * 1000 / current_upload_window /* 1000 * 1000 * 1000 means use Nanoseconds */
 
 		// If the upload speed is less than half of the current upload window, reduce the upload window by half.
 		// If upload speed is larger than current window size per second, used the larger window and twice
-		if  elapsed_time.Nanoseconds() > 2 * int64(expected_time) {
+		if elapsed_time.Nanoseconds() > 2*int64(expected_time) {
 			if slow_count > 2 && current_upload_window > MIN_CHUNK_SIZE {
 				current_upload_window = current_upload_window >> 1
 				slow_count = 0
@@ -299,7 +351,14 @@ func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (si
 			slow_count = 0
 		}
 		/* allocate a new pending data */
-		pending_data = make([]byte, current_upload_window)
+		//pending_data = make([]byte, current_upload_window)
+		// clear pending_data
+		if bufLen > 0 {
+			pending_data[0] = 0
+			for bp := 1; bp < bufLen; bp *= 2 {
+				copy(pending_data[bp:], pending_data[:bp])
+			}
+		}
 		slice_offset = 0
 		slice = pending_data[0:current_upload_window]
 	}
@@ -374,11 +433,11 @@ func (cluster *CephStorage) Append(poolname string, oid string, data io.Reader, 
 		offset += uint64(len(pending_data))
 
 		/* Resize current upload window */
-		expected_time := count * 1000 * 1000 * 1000 / current_upload_window  /* 1000 * 1000 * 1000 means use Nanoseconds */
+		expected_time := count * 1000 * 1000 * 1000 / current_upload_window /* 1000 * 1000 * 1000 means use Nanoseconds */
 
 		// If the upload speed is less than half of the current upload window, reduce the upload window by half.
 		// If upload speed is larger than current window size per second, used the larger window and twice
-		if  elapsed_time.Nanoseconds() > 2 * int64(expected_time) {
+		if elapsed_time.Nanoseconds() > 2*int64(expected_time) {
 			if slow_count > 2 && current_upload_window > MIN_CHUNK_SIZE {
 				current_upload_window = current_upload_window >> 1
 				slow_count = 0

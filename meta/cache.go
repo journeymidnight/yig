@@ -134,7 +134,7 @@ func (m *enabledSimpleMetaCache) Get(
 		obj, err := onCacheMiss()
 		if err != nil {
 			if err != sql.ErrNoRows {
-				helper.ErrorIf(err, "exec onCacheMiss() err.")
+				helper.Logger.Printf(20, "exec onCacheMiss() err: %v.", err)
 			}
 			return nil, err
 		}
@@ -147,7 +147,7 @@ func (m *enabledSimpleMetaCache) Get(
 			}
 			_, err = redis.HMSet(table, prefix, key, values)
 			if err != nil {
-				helper.Logger.Println(5, "failed to set key: ", key, " with err: ", err)
+				helper.Logger.Println(2, "failed to set key: ", key, " with err: ", err)
 				//do nothing, even if redis is down.
 			}
 		}
