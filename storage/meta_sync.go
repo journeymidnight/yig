@@ -18,9 +18,9 @@ const (
 )
 
 func initializeMetaSyncWorker(yig *YigStorage) {
-	if meta.MetaSyncQueue == nil {
+	/*if meta.MetaSyncQueue == nil {
 		meta.MetaSyncQueue = make(chan meta.SyncEvent, META_SYNC_QUEUE_SIZE)
-	}
+	}*/
 	go metaSync(yig)
 }
 
@@ -38,6 +38,7 @@ func metaSync(yig *YigStorage) {
 			if err != nil {
 				helper.Logger.Printf(2, "failed to perform bucket usage sync, err: %v", err)
 			}
+			helper.Logger.Printf(5, "meta sync job stopped")
 			break
 		}
 
@@ -46,6 +47,6 @@ func metaSync(yig *YigStorage) {
 			helper.Logger.Printf(2, "failed to perform bucket usage sync, err: %v", err)
 		}
 
-		time.Sleep(1 * time.Second)
+		time.Sleep(5 * time.Second)
 	}
 }

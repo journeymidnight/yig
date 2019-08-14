@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/journeymidnight/yig/helper"
@@ -40,9 +41,12 @@ type AccessLogHandler struct {
 	handler          http.Handler
 	responseRecorder *ResponseRecorder
 	format           string
+	mapPool          *sync.Pool
+	replacePool      *sync.Pool
 }
 
 func (a AccessLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	tstart := time.Now()
 	a.responseRecorder = NewResponseRecorder(w)
 
 	startTime := time.Now()
@@ -50,13 +54,25 @@ func (a AccessLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	finishTime := time.Now()
 	a.responseRecorder.requestTime = finishTime.Sub(startTime)
 
-	newReplacer := NewReplacer(r, a.responseRecorder, "-")
+	valueMap := a.mapPool.Get().(map[string]string)
+	newReplacer := NewReplacer(r, a.responseRecorder, "-", valueMap, a.replacePool)
+	defer func() {
+		for k := range valueMap {
+			delete(valueMap, k)
+		}
+		a.mapPool.Put(valueMap)
+	}()
 	response := newReplacer.Replace(a.format)
 
-	helper.AccessLogger.Println(5, response)
+	helper.AccessLogger.Println(20, response)
 	// send the entrys in access logger to message bus.
 	elems := newReplacer.GetReplacedValues()
 	a.notify(elems)
+	tend := time.Now()
+	dur := tend.Sub(tstart).Nanoseconds() / 1000000
+	if dur >= 100 {
+		helper.Logger.Printf(5, "slow log: access_log_handler(%s) spent %d", response, dur)
+	}
 }
 
 func (a AccessLogHandler) notify(elems map[string]string) {
@@ -99,5 +115,15 @@ func NewAccessLogHandler(handler http.Handler, _ *meta.Meta) http.Handler {
 	return AccessLogHandler{
 		handler: handler,
 		format:  CombinedLogFormat,
+		mapPool: &sync.Pool{
+			New: func() interface{} {
+				return make(map[string]string)
+			},
+		},
+		replacePool: &sync.Pool{
+			New: func() interface{} {
+				return make([]byte, 256)
+			},
+		},
 	}
 }

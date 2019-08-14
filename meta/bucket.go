@@ -57,7 +57,7 @@ func (m *Meta) UpdateUsage(bucketName string, size int64) error {
 	tinc := time.Now()
 	dur := tinc.Sub(tstart)
 	if dur/1000000 >= 100 {
-		helper.Logger.Printf(2, "slow log: RedisIncrBy: bucket: %s, size: %d, takes: %d",
+		helper.Logger.Printf(5, "slow log: RedisIncrBy: bucket: %s, size: %d, takes: %d",
 			bucketName, size, dur)
 	}
 
@@ -71,12 +71,12 @@ func (m *Meta) UpdateUsage(bucketName string, size int64) error {
 	tend := time.Now()
 	dur = tend.Sub(tinc)
 	if dur/1000000 >= 100 {
-		helper.Logger.Printf(2, "slow log: AddBucketUsageSyncEvent: bucket: %s, size: %d, takes: %d",
+		helper.Logger.Printf(5, "slow log: AddBucketUsageSyncEvent: bucket: %s, size: %d, takes: %d",
 			bucketName, size, dur)
 	}
 	dur = tend.Sub(tstart)
 	if dur/1000000 >= 100 {
-		helper.Logger.Printf(2, "slow log: cache update, bucket: %s, size: %d, takes: %d",
+		helper.Logger.Printf(5, "slow log: cache update, bucket: %s, size: %d, takes: %d",
 			bucketName, size, dur)
 	}
 	return nil

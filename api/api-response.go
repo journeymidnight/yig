@@ -241,7 +241,7 @@ func WriteErrorResponseHeaders(w http.ResponseWriter, err error) {
 	} else {
 		status = http.StatusInternalServerError
 	}
-	helper.Logger.Println(5, "Response status code:", status, "err:", err)
+	helper.Logger.Println(20, "Response status code:", status, "err:", err)
 
 	//ResponseRecorder
 	w.(*ResponseRecorder).status = status

@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/journeymidnight/yig/helper"
@@ -57,6 +58,7 @@ type replacer struct {
 	responseRecorder   *ResponseRecorder
 	request            *http.Request
 	replacedValues     map[string]string
+	replacePool        *sync.Pool
 }
 
 // NewReplacer makes a new replacer based on r and rr which
@@ -66,12 +68,13 @@ type replacer struct {
 // is invoked. rr may be nil if it is not available.
 // emptyValue should be the string that is used in place
 // of empty string (can still be empty string).
-func NewReplacer(r *http.Request, rr *ResponseRecorder, emptyValue string) Replacer {
+func NewReplacer(r *http.Request, rr *ResponseRecorder, emptyValue string, valueMap map[string]string, replacePool *sync.Pool) Replacer {
 	rep := &replacer{
 		request:          r,
 		responseRecorder: rr,
 		emptyValue:       emptyValue,
-		replacedValues:   make(map[string]string),
+		replacedValues:   valueMap,
+		replacePool:      replacePool,
 	}
 
 	return rep
@@ -93,7 +96,13 @@ func (r *replacer) Replace(s string) string {
 		return s
 	}
 
-	result := ""
+	s = unescapeBraces(s)
+
+	resultIdx := 0
+	result := r.replacePool.Get().([]byte)
+	defer func() {
+		r.replacePool.Put(result)
+	}()
 Placeholders: // process each placeholder in sequence
 	for {
 		var idxStart, idxEnd int
@@ -135,7 +144,8 @@ Placeholders: // process each placeholder in sequence
 		}
 
 		// get a replacement for the unescaped placeholder
-		placeholder := unescapeBraces(s[idxStart : idxEnd+1])
+		//placeholder := unescapeBraces(s[idxStart : idxEnd+1])
+		placeholder := s[idxStart : idxEnd+1]
 		replacement := r.getSubstitution(placeholder)
 		if replacement == "" {
 			replacement = "-"
@@ -143,14 +153,18 @@ Placeholders: // process each placeholder in sequence
 		r.setReplacedValue(placeholder, replacement)
 
 		// append unescaped prefix + replacement
-		result += strings.TrimPrefix(unescapeBraces(s[:idxStart]), "\\") + replacement
+		//result += strings.TrimPrefix(unescapeBraces(s[:idxStart]), "\\") + replacement
+		//resultIdx += copy(result[resultIdx:], strings.TrimPrefix(unescapeBraces(s[:idxStart]), "\\")+replacement)
+		resultIdx += copy(result[resultIdx:], strings.TrimPrefix(s[:idxStart], "\\")+replacement)
 
 		// strip out scanned parts
 		s = s[idxEnd+1:]
 	}
 
 	// append unscanned parts
-	return result + unescapeBraces(s)
+	//return result + unescapeBraces(s)
+	resultIdx += copy(result[resultIdx:], s)
+	return string(result[:resultIdx])
 }
 
 func (r *replacer) GetReplacedValues() map[string]string {
@@ -169,7 +183,7 @@ func (r *replacer) getSubstitution(key string) string {
 	// search default replacements in the end
 	switch key {
 	case "{time_local}":
-		timeLocal := time.Now().Format("2006-01-02 15:04:05")
+		timeLocal := time.Now().Format("2006-01-02T15:04:05-0700")
 		return "[" + timeLocal + "]"
 	case "{request_uri}":
 		return r.request.Method + " " + r.request.URL.String() + " " + r.request.Proto

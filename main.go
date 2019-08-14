@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/log"
-	"github.com/journeymidnight/yig/mods"
 	"github.com/journeymidnight/yig/iam"
+	"github.com/journeymidnight/yig/log"
 	bus "github.com/journeymidnight/yig/messagebus"
 	_ "github.com/journeymidnight/yig/messagebus/kafka"
+	"github.com/journeymidnight/yig/mods"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/storage"
 )
@@ -64,9 +64,6 @@ func main() {
 		Logger:  logger,
 		Yig:     yig,
 	}
-	if redis.HasRedisClient() && helper.CONFIG.CacheCircuitCheckInterval != 0 {
-		go yig.PingCache(time.Duration(helper.CONFIG.CacheCircuitCheckInterval) * time.Second)
-	}
 
 	// try to create message bus sender if message bus is enabled.
 	// message bus sender is singleton so create it beforehand.
@@ -82,7 +79,6 @@ func main() {
 		}
 		helper.Logger.Printf(20, "succeed to create message bus sender.")
 	}
-
 
 	//Read all *.so from plugins directory, and fill the varaible allPlugins
 	allPluginMap := mods.InitialPlugins()
