@@ -520,10 +520,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		}
 		targetObject.CustomAttributes = newMetadata
 		targetObject.StorageClass = storageClassFromHeader
-	} else {
-		WriteErrorResponse(w, r, ErrInvalidRequestBody)
-		return
-	}
+	} 
 
 	// Create the object.
 	result, err := api.ObjectAPI.CopyObject(targetObject, pipeReader, credential, sseRequest)
