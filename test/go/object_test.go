@@ -132,6 +132,7 @@ func Test_CopyObject(t *testing.T) {
 		Bucket:     aws.String(TEST_BUCKET),
 		CopySource: aws.String(TEST_BUCKET + "/" + TEST_KEY),
 		Key:        aws.String(TEST_COPY_KEY),
+		MetadataDirective: aws.String("COPY"),
 	}
 	_, err = svc.Client.CopyObject(input)
 	if err != nil {
@@ -156,18 +157,18 @@ func Test_CopyObject(t *testing.T) {
 	svc.DeleteObject(TEST_BUCKET, TEST_COPY_KEY)
 }
 
-func Test_UpdateObject(t *testing.T) {
-
+func Test_CopyObjectWithReplace(t *testing.T) {
 	svc := NewS3()
 	err := svc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
 	if err != nil {
 		t.Fatal("PutObject err:", err)
 	}
 
+	TEST_COPY_KEY := "COPYED:" + TEST_KEY
 	input := &s3.CopyObjectInput{
 		Bucket:            aws.String(TEST_BUCKET),
 		CopySource:        aws.String(TEST_BUCKET + "/" + TEST_KEY),
-		Key:               aws.String(TEST_KEY),
+		Key:               aws.String(TEST_COPY_KEY),
 		MetadataDirective: aws.String("REPLACE"),
 		CacheControl:      aws.String("max-age:1983"),
 		ContentType:       aws.String("image/jpeg"),
@@ -186,7 +187,7 @@ func Test_UpdateObject(t *testing.T) {
 	// check the connn
 	params := &s3.HeadObjectInput{
 		Bucket: aws.String(TEST_BUCKET),
-		Key:    aws.String(TEST_KEY),
+		Key:    aws.String(TEST_COPY_KEY),
 	}
 
 	headResult, err := svc.Client.HeadObject(params)
@@ -212,8 +213,8 @@ func Test_UpdateObject(t *testing.T) {
 			break
 		}
 	}
-
 	svc.DeleteObject(TEST_BUCKET, TEST_KEY)
+	svc.DeleteObject(TEST_BUCKET, TEST_COPY_KEY)
 }
 
 func Test_Object_Append(t *testing.T) {
@@ -418,3 +419,4 @@ func Test_GetObjectByAnonymous(t *testing.T) {
 	sc.CleanEnv()
 
 }
+

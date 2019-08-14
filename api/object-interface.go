@@ -69,7 +69,6 @@ type ObjectLayer interface {
 
 	CopyObject(targetObject *meta.Object, source io.Reader, credential common.Credential,
 		sse datatype.SseRequest) (result datatype.PutObjectResult, err error)
-	UpdateObjectAttrs(targetObject *meta.Object, credential common.Credential) (result datatype.PutObjectResult, err error)
 	SetObjectAcl(bucket string, object string, version string, policy datatype.AccessControlPolicy,
 		acl datatype.Acl, credential common.Credential) error
 	GetObjectAcl(bucket string, object string, version string, credential common.Credential) (
@@ -95,3 +94,4 @@ type ObjectLayer interface {
 	CompleteMultipartUpload(credential common.Credential, bucket, object, uploadID string,
 		uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult, err error)
 }
+

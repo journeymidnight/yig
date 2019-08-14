@@ -117,12 +117,6 @@ func (t *TidbClient) UpdateObjectAcl(object *Object) error {
 	return err
 }
 
-func (t *TidbClient) UpdateObjectAttrs(object *Object) error {
-	sql, args := object.GetUpdateAttrsSql()
-	_, err := t.Client.Exec(sql, args...)
-	return err
-}
-
 func (t *TidbClient) UpdateAppendObject(o *Object, tx interface{}) (err error) {
 	var sqlTx *sql.Tx
 	if tx == nil {
@@ -229,3 +223,4 @@ func getParts(bucketName, objectName string, version uint64, cli *sql.DB) (parts
 	}
 	return
 }
+

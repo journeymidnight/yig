@@ -16,7 +16,6 @@ type Client interface {
 	GetAllObject(bucketName, objectName, version string) (object []*Object, err error)
 	PutObject(object *Object, tx interface{}) error
 	UpdateAppendObject(object *Object, tx interface{}) error
-	UpdateObjectAttrs(object *Object) error
 	DeleteObject(object *Object, tx interface{}) error
 	UpdateObjectAcl(object *Object) error
 	//bucket
@@ -53,3 +52,4 @@ type Client interface {
 	ScanGarbageCollection(limit int, startRowKey string) ([]GarbageCollection, error)
 	RemoveGarbageCollection(garbage GarbageCollection) error
 }
+
