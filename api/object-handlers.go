@@ -520,7 +520,11 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		}
 		targetObject.CustomAttributes = newMetadata
 		targetObject.StorageClass = storageClassFromHeader
-	} 
+	} else {
+		targetObject.CustomAttributes = sourceObject.CustomAttributes
+		targetObject.StorageClass = sourceObject.StorageClass
+		targetObject.ContentType = sourceObject.ContentType
+	}
 
 	// Create the object.
 	result, err := api.ObjectAPI.CopyObject(targetObject, pipeReader, credential, sseRequest)
@@ -1783,4 +1787,3 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		w.Write(encodedSuccessResponse)
 	}
 }
-
