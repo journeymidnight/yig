@@ -265,15 +265,7 @@ func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (si
 	var current_upload_window = MIN_CHUNK_SIZE /* initial window size as MIN_CHUNK_SIZE, max size is MAX_CHUNK_SIZE */
 	//var pending_data = make([]byte, current_upload_window)
 	var pending_data = cluster.BigBufPool.Get().([]byte)
-	bufLen := len(pending_data)
 	defer func() {
-		// clear the buffer first.
-		if bufLen > 0 {
-			pending_data[0] = 0
-			for bp := 1; bp < bufLen; bp *= 2 {
-				copy(pending_data[bp:], pending_data[:bp])
-			}
-		}
 		cluster.BigBufPool.Put(pending_data)
 	}()
 
@@ -352,13 +344,6 @@ func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (si
 		}
 		/* allocate a new pending data */
 		//pending_data = make([]byte, current_upload_window)
-		// clear pending_data
-		if bufLen > 0 {
-			pending_data[0] = 0
-			for bp := 1; bp < bufLen; bp *= 2 {
-				copy(pending_data[bp:], pending_data[:bp])
-			}
-		}
 		slice_offset = 0
 		slice = pending_data[0:current_upload_window]
 	}
