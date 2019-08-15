@@ -325,6 +325,20 @@ func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 	return
 }
 
+// TODO：Determine here whether it is a multi-version control object or bucket
+func (yig *YigStorage) GetObjectMultiVersionInfo(bucketName string, objectName string,
+	version string, credential common.Credential) bool {
+
+	bucket, err := yig.MetaStorage.GetObject(bucketName, objectName, true)
+	if err != nil {
+		return false
+	}
+	if bucket.Name != objectName{
+		return false
+	}
+	return true
+}
+
 func (yig *YigStorage) GetObjectAcl(bucketName string, objectName string,
 	version string, credential common.Credential) (policy datatype.AccessControlPolicyResponse, err error) {
 
@@ -718,6 +732,36 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
 	}
+	return result, nil
+}
+
+func (yig *YigStorage) UpdateObjectAttrs(targetObject *meta.Object, credential common.Credential, sourceObject string) (result datatype.PutObjectResult, err error) {
+
+	bucket, err := yig.MetaStorage.GetBucket(targetObject.BucketName, true)
+	if err != nil {
+		return
+	}
+	switch bucket.ACL.CannedAcl {
+	case "public-read-write":
+		break
+	default:
+		if bucket.OwnerId != credential.UserId {
+			return result, ErrBucketAccessForbidden
+		}
+	}
+
+	err = yig.MetaStorage.UpdateObjectAttrs(targetObject, sourceObject)
+	if err != nil {
+		yig.Logger.Println(5, "Update Object Attrs, sql fails")
+		return result, ErrInternalError
+	}
+	result.LastModified = targetObject.LastModifiedTime
+	result.Md5 = targetObject.Etag
+	result.VersionId = targetObject.GetVersionId()
+
+	yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
+	yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
+
 	return result, nil
 }
 

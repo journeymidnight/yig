@@ -117,6 +117,12 @@ func (t *TidbClient) UpdateObjectAcl(object *Object) error {
 	return err
 }
 
+func (t *TidbClient) UpdateObjectAttrs(object *Object, sourceObject string) error {
+	sql, args := object.GetUpdateAttrsSql(sourceObject)
+	_, err := t.Client.Exec(sql, args...)
+	return err
+}
+
 func (t *TidbClient) UpdateAppendObject(o *Object, tx interface{}) (err error) {
 	var sqlTx *sql.Tx
 	if tx == nil {

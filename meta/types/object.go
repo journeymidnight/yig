@@ -253,11 +253,10 @@ func (o *Object) GetUpdateAclSql() (string, []interface{}) {
 	return sql, args
 }
 
-func (o *Object) GetUpdateAttrsSql() (string, []interface{}) {
+func (o *Object) GetUpdateAttrsSql(sourceObject string) (string, []interface{}) {
 	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
-	attrs, _ := json.Marshal(o.CustomAttributes)
-	sql := "update objects set customattributes =?, storageclass=? where bucketname=? and name=? and version=?"
-	args := []interface{}{attrs, o.StorageClass, o.BucketName, o.Name, version}
+	sql := "update objects set name=? where bucketname=? and name=? and version=?"
+	args := []interface{}{o.Name, o.BucketName, sourceObject, version}
 	return sql, args
 
 }
@@ -273,3 +272,4 @@ func (o *Object) GetSubUsageSql() (string, []interface{}) {
 	args := []interface{}{-o.Size, o.BucketName}
 	return sql, args
 }
+

@@ -60,6 +60,10 @@ const (
 	ErrInvalidCopySource
 	ErrInvalidCopySourceStorageClass
 	ErrInvalidCopyDest
+	ErrInvalidCopyRequest
+	ErrInvalidRenameSource
+	ErrInvalidRenameObjectName
+	ErrInvalidRenameBucketVersion
 	ErrInvalidPrecondition
 	ErrInvalidPolicyDocument
 	ErrInvalidCorsDocument
@@ -165,6 +169,26 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidCopySourceStorageClass: {
 		AwsErrorCode:   "InvalidCopySourceStorageClass",
 		Description:    "Storage class of copy source cannot be GLACIER or DEEP_ARCHIVE.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidCopyRequest: {
+		AwsErrorCode:   "InvalidCopyRequest",
+		Description:    "Request of copy source cannot be others only COPY and REPLACE and null.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidRenameSource: {
+		AwsErrorCode:   "InvalidArgument",
+		Description:    "Rename Source must mention the source bucket and key: sourcebucket/sourcekey.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidRenameObjectName: {
+		AwsErrorCode:   "InvalidRenameObjectName",
+		Description:    "Object name of rename source cannot be folder.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidRenameBucketVersion: {
+		AwsErrorCode:   "InvalidRenameBucketVersion",
+		Description:    "Bucket of rename source cannot be multiversion.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidPrecondition: {
@@ -682,3 +706,4 @@ func (e ApiErrorCode) HttpStatusCode() int {
 	}
 	return awsError.HttpStatusCode
 }
+
