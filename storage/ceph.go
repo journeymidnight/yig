@@ -311,14 +311,14 @@ func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (si
 		for pending_has_completed(pending) {
 			if ret := wait_pending_front(pending); ret < 0 {
 				drain_pending(pending)
-				return 0, fmt.Errorf("Error drain_pending in pending_has_completed. pool:%s oid:%s", poolname, oid)
+				return 0, fmt.Errorf("Error drain_pending in pending_has_completed(%d). pool:%s oid:%s", ret, poolname, oid)
 			}
 		}
 
 		if pending.Len() > AIO_CONCURRENT {
 			if ret := wait_pending_front(pending); ret < 0 {
 				drain_pending(pending)
-				return 0, fmt.Errorf("Error wait_pending_front. pool:%s oid:%s", poolname, oid)
+				return 0, fmt.Errorf("Error wait_pending_front(%d). pool:%s oid:%s", ret, poolname, oid)
 			}
 		}
 		offset += uint64(len(pending_data))
@@ -359,7 +359,7 @@ func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (si
 
 	//drain_pending
 	if ret := drain_pending(pending); ret < 0 {
-		return 0, fmt.Errorf("Error wait_pending_front. pool:%s oid:%s", poolname, oid)
+		return 0, fmt.Errorf("Error wait_pending_front(%d). pool:%s oid:%s", ret, poolname, oid)
 	}
 	return size, nil
 }
