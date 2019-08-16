@@ -53,4 +53,3 @@ type Client interface {
 	ScanGarbageCollection(limit int, startRowKey string) ([]GarbageCollection, error)
 	RemoveGarbageCollection(garbage GarbageCollection) error
 }
-

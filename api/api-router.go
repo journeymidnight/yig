@@ -139,4 +139,3 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 	// ListBuckets
 	apiRouter.Methods("GET").HandlerFunc(api.ListBucketsHandler)
 }
-

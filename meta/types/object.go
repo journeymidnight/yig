@@ -272,4 +272,3 @@ func (o *Object) GetSubUsageSql() (string, []interface{}) {
 	args := []interface{}{-o.Size, o.BucketName}
 	return sql, args
 }
-

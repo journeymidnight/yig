@@ -60,7 +60,7 @@ type ObjectLayer interface {
 		sse datatype.SseRequest) (err error)
 	GetObjectInfo(bucket, object, version string, credential common.Credential) (objInfo *meta.Object,
 		err error)
-	GetObjectMultiVersionInfo(bucket, object, Version string, credential common.Credential) bool
+	GetBucketMultiVersionInfo(bucketName string, credential common.Credential) string
 	PutObject(bucket, object string, credential common.Credential, size int64, data io.Reader,
 		metadata map[string]string, acl datatype.Acl,
 		sse datatype.SseRequest, storageClass meta.StorageClass) (result datatype.PutObjectResult, err error)
@@ -96,4 +96,3 @@ type ObjectLayer interface {
 	CompleteMultipartUpload(credential common.Credential, bucket, object, uploadID string,
 		uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult, err error)
 }
-

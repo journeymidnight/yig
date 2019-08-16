@@ -205,4 +205,3 @@ func (m *Meta) AppendObject(object *Object, isExist bool) error {
 //	err := m.Client.DeleteObjectMap(objMap, nil)
 //	return err
 //}
-

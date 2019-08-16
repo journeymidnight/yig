@@ -489,4 +489,3 @@ func Test_GetObjectByAnonymous(t *testing.T) {
 	sc.CleanEnv()
 
 }
-

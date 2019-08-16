@@ -229,4 +229,3 @@ func getParts(bucketName, objectName string, version uint64, cli *sql.DB) (parts
 	}
 	return
 }
-

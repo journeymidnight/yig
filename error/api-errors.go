@@ -63,7 +63,7 @@ const (
 	ErrInvalidCopyRequest
 	ErrInvalidRenameSource
 	ErrInvalidRenameObjectName
-	ErrInvalidRenameBucketVersion
+	ErrRenameBucket
 	ErrInvalidPrecondition
 	ErrInvalidPolicyDocument
 	ErrInvalidCorsDocument
@@ -186,9 +186,9 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		Description:    "Object name of rename source cannot be folder.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
-	ErrInvalidRenameBucketVersion: {
-		AwsErrorCode:   "InvalidRenameBucketVersion",
-		Description:    "Bucket of rename source cannot be multiversion.",
+	ErrRenameBucket: {
+		AwsErrorCode:   "ErrRenameBucket",
+		Description:    "Bucket of rename source cannot be a multi-version bucket.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidPrecondition: {
@@ -706,4 +706,3 @@ func (e ApiErrorCode) HttpStatusCode() int {
 	}
 	return awsError.HttpStatusCode
 }
-

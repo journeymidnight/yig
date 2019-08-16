@@ -326,17 +326,13 @@ func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 }
 
 // TODO：Determine here whether it is a multi-version control object or bucket
-func (yig *YigStorage) GetObjectMultiVersionInfo(bucketName string, objectName string,
-	version string, credential common.Credential) bool {
+func (yig *YigStorage) GetBucketMultiVersionInfo(bucketName string, credential common.Credential) string {
 
-	bucket, err := yig.MetaStorage.GetObject(bucketName, objectName, true)
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
-		return false
+		helper.ErrorIf(err,"No have this bucket:",bucketName)
 	}
-	if bucket.Name != objectName{
-		return false
-	}
-	return true
+	return bucket.Versioning
 }
 
 func (yig *YigStorage) GetObjectAcl(bucketName string, objectName string,
@@ -1197,4 +1193,3 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 func isObjectExist(obj *meta.Object) bool {
 	return obj != nil
 }
-

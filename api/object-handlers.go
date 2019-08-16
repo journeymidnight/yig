@@ -623,8 +623,29 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 		WriteErrorResponse(w, r, ErrInvalidRenameSource)
 		return
 	}
-	helper.Debugln("sourceBucketName", sourceBucketName, "sourceObjectName", sourceObjectName,
-		"sourceVersion", sourceVersion)
+
+	//Determine if the renamed object is a folder
+	if string(targetObjectName[len(targetObjectName)-1]) == "/" {
+		helper.ErrorIf(err, "Unable to Folder renaming with :"+targetObjectName)
+		WriteErrorResponse(w, r, ErrInvalidRenameObjectName)
+		return
+	} else if string(sourceObjectName[len(sourceObjectName)-1]) == "/"{
+		helper.ErrorIf(err, "Unable to Folder renaming with :"+sourceObjectName)
+		WriteErrorResponse(w, r, ErrInvalidRenameObjectName)
+		return
+	} else {
+		helper.Debugln("sourceBucketName", sourceBucketName, "sourceObjectName", sourceObjectName,
+			"sourceVersion", sourceVersion)
+	}
+
+	//TODO: Object MultiVersion Judge
+	bucketVersion := api.ObjectAPI.GetBucketMultiVersionInfo(sourceBucketName, credential)
+	if bucketVersion == "Enabled" {
+		WriteErrorResponse(w, r, ErrRenameBucket)
+		return
+	}else {
+		helper.Debugln("Bucket Multi-version is:",bucketVersion)
+	}
 
 	sourceObject, err := api.ObjectAPI.GetObjectInfo(sourceBucketName, sourceObjectName,
 		sourceVersion, credential)
@@ -633,27 +654,13 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	//
-	isMultiVersion := api.ObjectAPI.GetObjectMultiVersionInfo(sourceBucketName, sourceObjectName,
-		sourceVersion, credential)
-	if !isMultiVersion {
-		WriteErrorResponse(w, r, ErrInvalidRenameBucketVersion)
-		return
-	}
-
 	// Verify before x-amz-copy-source preconditions before continuing with CopyObject.
 	if err = checkObjectPreconditions(w, r, sourceObject); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
+
 	targetObject := sourceObject
-	
-	//Determine if the renamed object is a folder
-	if string(targetObjectName[len(targetObjectName)-1]) == "/" {
-		helper.ErrorIf(err, "Unable to Folder renaming with :"+targetObject.ObjectId)
-		WriteErrorResponse(w, r, ErrInvalidRenameObjectName)
-		return
-	}
 	targetObject.Name = targetObjectName
 	result, err := api.ObjectAPI.UpdateObjectAttrs(targetObject, credential,sourceObjectName)
 	if err != nil {
@@ -1909,4 +1916,3 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		w.Write(encodedSuccessResponse)
 	}
 }
-
