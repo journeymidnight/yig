@@ -576,7 +576,7 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 	vars := mux.Vars(r)
 	BucketName := vars["bucket"]
 	targetObjectName := vars["object"]
-	
+
 	//Determine if the renamed object is a folder
 	if hasSuffix(targetObjectName,"/") {
 		WriteErrorResponse(w, r, ErrInvalidRenameSource)
@@ -604,13 +604,10 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 		return
 	 }
 
-	//TODO: Object MultiVersion Judge
-	bucketVersion, err := api.ObjectAPI.GetBucketMultiVersionInfo(BucketName, credential)
-	if err != nil {
-		WriteErrorResponse(w, r, ErrMultiVersionBucket)
-		return
-	}
-	helper.Debugln("Bucket Multi-version is:",bucketVersion)
+	//TODO: Supplement Object MultiVersion Judge.
+	ctx := r.Context().Value(RequestContextKey).(RequestContext)
+	bucket := ctx.BucketInfo
+	helper.Debugln("Bucket Multi-version is:",bucket.Versioning)
 
 	var sourceVersion string
 	sourceObject, err := api.ObjectAPI.GetObjectInfo(BucketName, sourceObjectName,

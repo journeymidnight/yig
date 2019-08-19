@@ -62,7 +62,6 @@ const (
 	ErrInvalidCopyDest
 	ErrInvalidCopyRequest
 	ErrInvalidRenameSource
-	ErrMultiVersionBucket
 	ErrInvalidPrecondition
 	ErrInvalidPolicyDocument
 	ErrInvalidCorsDocument
@@ -178,11 +177,6 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidRenameSource: {
 		AwsErrorCode:   "ErrInvalidRenameSource",
 		Description:    "Rename Source must be the Object in your bucket, which have been created, not be a folder.",
-		HttpStatusCode: http.StatusBadRequest,
-	},
-	ErrMultiVersionBucket: {
-		AwsErrorCode:   "ErrMultiVersionBucket",
-		Description:    "Bucket of operation source cannot be a multi-version bucket.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidPrecondition: {
