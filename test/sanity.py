@@ -62,24 +62,6 @@ def put_object_copy(name, client):
     )
 
 
-def put_object_rename(name, client):
-    ans = client.copy_object(
-        Bucket=name+'hehe',
-        Key=name+'hehe-renamed',
-        CopySource={
-            'Bucket': name+'hehe',
-            'Key': name+'hehe',
-        }
-    )
-    print 'Rename object:', ans
-
-    # clean-up
-    client.delete_object(
-        Bucket=name+'hehe',
-        Key=name+'hehe-renamed',
-    )
-
-
 def get_object_nonexist(name, client):
     client.get_object(
         Bucket=name+'haha',

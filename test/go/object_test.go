@@ -238,7 +238,7 @@ func Test_RenameObject(t *testing.T) {
 	TEST_RENAME_KEY := "RENAME:" + TEST_KEY
 	input2 := &s3.RenameObjectInput{
 		Bucket:     aws.String(TEST_BUCKET),
-		CopySource: aws.String(TEST_BUCKET + "/" + TEST_KEY),
+		RenameSourceKey: aws.String(TEST_KEY),
 		Key:        aws.String(TEST_RENAME_KEY),
 	}
 	_, err = svc.Client.RenameObject(input2)
@@ -275,14 +275,14 @@ func Test_RenameObjectErrFloder(t *testing.T) {
 	TEST_RENAME_KEY := "RENAME:" + TEST_KEY +"/"
 	input := &s3.RenameObjectInput{
 		Bucket:     aws.String(TEST_BUCKET),
-		CopySource: aws.String(TEST_BUCKET + "/" + TEST_KEY),
+		RenameSourceKey: aws.String(TEST_KEY),
 		Key:        aws.String(TEST_RENAME_KEY),
 	}
 	_, err = svc.Client.RenameObject(input)
 	if err == nil {
 		t.Fatal("Rename Object with floder:", err)
 	}
-	
+
 	//clean up
 	svc.DeleteObject(TEST_BUCKET, TEST_RENAME_KEY)
 }

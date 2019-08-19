@@ -253,7 +253,7 @@ func (o *Object) GetUpdateAclSql() (string, []interface{}) {
 	return sql, args
 }
 
-func (o *Object) GetUpdateAttrsSql(sourceObject string) (string, []interface{}) {
+func (o *Object) GetUpdateNameSql(sourceObject string) (string, []interface{}) {
 	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
 	sql := "update objects set name=? where bucketname=? and name=? and version=?"
 	args := []interface{}{o.Name, o.BucketName, sourceObject, version}

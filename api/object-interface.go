@@ -58,9 +58,8 @@ type ObjectLayer interface {
 	// Object operations.
 	GetObject(object *meta.Object, startOffset int64, length int64, writer io.Writer,
 		sse datatype.SseRequest) (err error)
-	GetObjectInfo(bucket, object, version string, credential common.Credential) (objInfo *meta.Object,
-		err error)
-	GetBucketMultiVersionInfo(bucketName string, credential common.Credential) string
+	GetObjectInfo(bucket, object, version string, credential common.Credential) (objInfo *meta.Object, err error)
+	GetBucketMultiVersionInfo(bucketName string, credential common.Credential) (Versioning string,err error)
 	PutObject(bucket, object string, credential common.Credential, size int64, data io.Reader,
 		metadata map[string]string, acl datatype.Acl,
 		sse datatype.SseRequest, storageClass meta.StorageClass) (result datatype.PutObjectResult, err error)
@@ -70,7 +69,7 @@ type ObjectLayer interface {
 
 	CopyObject(targetObject *meta.Object, source io.Reader, credential common.Credential,
 		sse datatype.SseRequest) (result datatype.PutObjectResult, err error)
-	UpdateObjectAttrs(targetObject *meta.Object, credential common.Credential, sourceObject string) (result datatype.PutObjectResult, err error)
+	RenameObject(targetObject *meta.Object, credential common.Credential, sourceObject string) (result datatype.PutObjectResult, err error)
 	SetObjectAcl(bucket string, object string, version string, policy datatype.AccessControlPolicy,
 		acl datatype.Acl, credential common.Credential) error
 	GetObjectAcl(bucket string, object string, version string, credential common.Credential) (

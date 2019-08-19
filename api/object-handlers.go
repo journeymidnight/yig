@@ -574,50 +574,24 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.Request){
 	helper.Debugln("RenameObjectHandler", "enter")
 	vars := mux.Vars(r)
-	targetBucketName := vars["bucket"]
+	BucketName := vars["bucket"]
 	targetObjectName := vars["object"]
-
-	var credential common.Credential
-	var err error
-	if credential, err = checkRequestAuth(api, r, policy.PutObjectAction, targetBucketName, targetObjectName); err != nil {
-		WriteErrorResponse(w, r, err)
-		return
-	}
-	renameSource := r.Header.Get("X-Amz-Copy-Source")
-	// Skip the first element if it is '/', split the rest.
-	if strings.HasPrefix(renameSource, "/") {
-		renameSource = renameSource[1:]
-	}
-	splits := strings.SplitN(renameSource, "/", 2)
-
-	// Save sourceBucket and sourceObject extracted from url Path.
-	var sourceBucketName, sourceObjectName, sourceVersion string
-	if len(splits) == 2 {
-		sourceBucketName = splits[0]
-		sourceObjectName = splits[1]
-	}
-	// If source object is empty, reply back error.
-	if sourceObjectName == "" {
-		WriteErrorResponse(w, r, ErrInvalidCopySource)
-		return
-	}
-
-	splits = strings.SplitN(sourceObjectName, "?", 2)
-	if len(splits) == 2 {
-		sourceObjectName = splits[0]
-		if !strings.HasPrefix(splits[1], "versionId=") {
-			WriteErrorResponse(w, r, ErrInvalidRenameSource)
-			return
-		}
-		sourceVersion = strings.TrimPrefix(splits[1], "versionId=")
-	}
-
-	// X-Amz-Copy-Source should be URL-encoded
-	sourceBucketName, err = url.QueryUnescape(sourceBucketName)
-	if err != nil {
+	
+	//Determine if the renamed object is a folder
+	if hasSuffix(targetObjectName,"/") {
 		WriteErrorResponse(w, r, ErrInvalidRenameSource)
 		return
 	}
+
+	var credential common.Credential
+	var err error
+	if credential, err = checkRequestAuth(api, r, policy.PutObjectAction, BucketName, targetObjectName); err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+	sourceObjectName := r.Header.Get("X-Amz-Rename-Source-Key")
+
+	// X-Amz-Copy-Source should be URL-encoded
 	sourceObjectName, err = url.QueryUnescape(sourceObjectName)
 	if err != nil {
 		WriteErrorResponse(w, r, ErrInvalidRenameSource)
@@ -625,72 +599,44 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 	}
 
 	//Determine if the renamed object is a folder
-	if string(targetObjectName[len(targetObjectName)-1]) == "/" {
-		helper.ErrorIf(err, "Unable to Folder renaming with :"+targetObjectName)
-		WriteErrorResponse(w, r, ErrInvalidRenameObjectName)
+	 if hasSuffix(sourceObjectName,"/"){
+		WriteErrorResponse(w, r, ErrInvalidRenameSource)
 		return
-	} else if string(sourceObjectName[len(sourceObjectName)-1]) == "/"{
-		helper.ErrorIf(err, "Unable to Folder renaming with :"+sourceObjectName)
-		WriteErrorResponse(w, r, ErrInvalidRenameObjectName)
-		return
-	} else {
-		helper.Debugln("sourceBucketName", sourceBucketName, "sourceObjectName", sourceObjectName,
-			"sourceVersion", sourceVersion)
-	}
+	 }
 
 	//TODO: Object MultiVersion Judge
-	bucketVersion := api.ObjectAPI.GetBucketMultiVersionInfo(sourceBucketName, credential)
-	if bucketVersion == "Enabled" {
-		WriteErrorResponse(w, r, ErrRenameBucket)
+	bucketVersion, err := api.ObjectAPI.GetBucketMultiVersionInfo(BucketName, credential)
+	if err != nil {
+		WriteErrorResponse(w, r, ErrMultiVersionBucket)
 		return
-	}else {
-		helper.Debugln("Bucket Multi-version is:",bucketVersion)
 	}
+	helper.Debugln("Bucket Multi-version is:",bucketVersion)
 
-	sourceObject, err := api.ObjectAPI.GetObjectInfo(sourceBucketName, sourceObjectName,
+	var sourceVersion string
+	sourceObject, err := api.ObjectAPI.GetObjectInfo(BucketName, sourceObjectName,
 		sourceVersion, credential)
 	if err != nil {
-		WriteErrorResponseWithResource(w, r, err, renameSource)
-		return
-	}
-
-	// Verify before x-amz-copy-source preconditions before continuing with CopyObject.
-	if err = checkObjectPreconditions(w, r, sourceObject); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteErrorResponseWithResource(w, r, err, sourceObjectName)
 		return
 	}
 
 	targetObject := sourceObject
 	targetObject.Name = targetObjectName
-	result, err := api.ObjectAPI.UpdateObjectAttrs(targetObject, credential,sourceObjectName)
+	result, err := api.ObjectAPI.RenameObject(targetObject, credential,sourceObjectName)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to update object meta for "+targetObject.ObjectId)
 		WriteErrorResponse(w, r, err)
 		return
 	}
-	response := GenerateCopyObjectResponse(result.Md5, result.LastModified)
-	encodedSuccessResponse := EncodeResponse(response)
+	response := GenerateRenameObjectResponse(result.LastModified)
 	// write headers
-	if result.Md5 != "" {
-		w.Header()["ETag"] = []string{"\"" + result.Md5 + "\""}
-	}
 	if sourceVersion != "" {
-		w.Header().Set("x-amz-copy-source-version-id", sourceVersion)
+		w.Header().Set("x-amz-rename-source-version-id", sourceVersion)
 	}
 	if result.VersionId != "" {
 		w.Header().Set("x-amz-version-id", result.VersionId)
 	}
-	// Set SSE related headers
-	for _, headerName := range []string{
-		"X-Amz-Server-Side-Encryption",
-		"X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id",
-		"X-Amz-Server-Side-Encryption-Customer-Algorithm",
-		"X-Amz-Server-Side-Encryption-Customer-Key-Md5",
-	} {
-		if header := r.Header.Get(headerName); header != "" {
-			w.Header().Set(headerName, header)
-		}
-	}
+	encodedSuccessResponse := EncodeResponse(response)
 	//ResponseRecorder
 	w.(*ResponseRecorder).operationName = "RenameObject"
 	// write success response.

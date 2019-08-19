@@ -326,13 +326,10 @@ func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 }
 
 // TODO：Determine here whether it is a multi-version control object or bucket
-func (yig *YigStorage) GetBucketMultiVersionInfo(bucketName string, credential common.Credential) string {
+func (yig *YigStorage) GetBucketMultiVersionInfo(bucketName string, credential common.Credential) (Versioning string,err error) {
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
-	if err != nil {
-		helper.ErrorIf(err,"No have this bucket:",bucketName)
-	}
-	return bucket.Versioning
+	return bucket.Versioning , err
 }
 
 func (yig *YigStorage) GetObjectAcl(bucketName string, objectName string,
@@ -731,7 +728,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 	return result, nil
 }
 
-func (yig *YigStorage) UpdateObjectAttrs(targetObject *meta.Object, credential common.Credential, sourceObject string) (result datatype.PutObjectResult, err error) {
+func (yig *YigStorage) RenameObject(targetObject *meta.Object, credential common.Credential, sourceObject string) (result datatype.PutObjectResult, err error) {
 
 	bucket, err := yig.MetaStorage.GetBucket(targetObject.BucketName, true)
 	if err != nil {
@@ -746,13 +743,12 @@ func (yig *YigStorage) UpdateObjectAttrs(targetObject *meta.Object, credential c
 		}
 	}
 
-	err = yig.MetaStorage.UpdateObjectAttrs(targetObject, sourceObject)
+	err = yig.MetaStorage.UpdateObjectName(targetObject, sourceObject)
 	if err != nil {
 		yig.Logger.Println(5, "Update Object Attrs, sql fails")
 		return result, ErrInternalError
 	}
 	result.LastModified = targetObject.LastModifiedTime
-	result.Md5 = targetObject.Etag
 	result.VersionId = targetObject.GetVersionId()
 
 	yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
