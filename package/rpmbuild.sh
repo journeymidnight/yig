@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PACKAGENAME=yig
+PACKAGENAME=$1
 echo Building RPMs..
 GITROOT=`git rev-parse --show-toplevel`
 cd $GITROOT
@@ -9,14 +9,15 @@ echo "Git get full depth..."
 git fetch --unshallow
 REL=`git rev-parse --short HEAD`git
 REL=`git log --oneline|wc -l`.$REL
-RPMTOPDIR=$GITROOT/rpm-build
+BUILDROOT=$2
+RPMTOPDIR=$GITROOT/$BUILDROOT
 echo "Ver: $VER, Release: $REL"
 
 
 rm -rf $RPMTOPDIR
 # Create tarball
 mkdir -p $RPMTOPDIR/{SOURCES,SPECS}
-git archive --format=tar --prefix=${PACKAGENAME}-${VER}-${REL}/ HEAD | gzip -c > $RPMTOPDIR/SOURCES/${PACKAGENAME}-${VER}-${REL}.tar.gz
+git archive --format=tar --prefix=${PACKAGENAME}/ HEAD | gzip -c > $RPMTOPDIR/SOURCES/${PACKAGENAME}-${VER}-${REL}.tar.gz
 
 # Convert git log to RPM's ChangeLog format (shown with rpm -qp --changelog <rpm file>)
 sed -e "s/%{ver}/$VER/" -e "s/%{rel}/$REL/" $GITROOT/package/${PACKAGENAME}.spec > $RPMTOPDIR/SPECS/${PACKAGENAME}.spec
