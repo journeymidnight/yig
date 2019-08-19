@@ -21,14 +21,13 @@ Requires:       librdkafka1
 
 
 %prep
-%setup -q -n %{name}-%{version}-%{rel}
+%setup -q -n %{name}
 
 
 %build
 #The go build still use source code in GOPATH/src/legitlab/yig/
 #keep git source tree clean, better ways to build?
 #I do not know
-export GOPROXY=https://goproxy.cn
 make build_internal
 
 %install
@@ -37,7 +36,7 @@ install -D -m 755 admin %{buildroot}%{_bindir}/yig_admin
 install -D -m 755 delete %{buildroot}%{_bindir}/yig_delete_daemon
 install -D -m 755 getrediskeys %{buildroot}%{_bindir}/yig_getrediskeys
 install -D -m 755 lc     %{buildroot}%{_bindir}/yig_lifecyle_daemon
-install -D -m 755 %{_builddir}/yig-%{version}-%{rel}/build/bin/yig %{buildroot}%{_bindir}/yig
+install -D -m 755 %{_builddir}/yig/build/bin/yig %{buildroot}%{_bindir}/yig
 install -D -m 644 package/yig.logrotate %{buildroot}/etc/logrotate.d/yig.logrotate
 install -D -m 644 package/access.logrotate %{buildroot}/etc/logrotate.d/access.logrotate
 install -D -m 644 package/yig_delete.logrotate %{buildroot}/etc/logrotate.d/yig_delete.logrotate

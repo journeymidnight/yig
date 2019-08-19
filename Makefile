@@ -1,50 +1,47 @@
 .PHONY: build
-GOPATH = $(PWD)/build
-export GOPATH
-GOBIN = $(PWD)/build/bin
-export GOBIN
 URL = github.com/journeymidnight
 REPO = yig
-URLPATH = $(PWD)/build/src/$(URL)
+WORKDIR = /work
+BUILDROOT = rpm-build
+BUILDDIR = $(WORKDIR)/$(BUILDROOT)/BUILD/$(REPO)
+export GO111MODULE=on
+export GOPROXY=https://goproxy.cn
 
 build:
-	cd integrate && bash buildyig.sh
+	cd integrate && bash buildyig.sh $(BUILDDIR)
 
 build_internal:
-	@[ -d $(URLPATH) ] || mkdir -p $(URLPATH)
-	@[ -d $(GOBIN) ] || mkdir -p $(GOBIN)
-	@ln -nsf $(PWD) $(URLPATH)/$(REPO)
 	go build $(URL)/$(REPO)
 	bash plugins/build_plugins_internal.sh
-	go build $(URLPATH)/$(REPO)/tools/admin.go
-	go build $(URLPATH)/$(REPO)/tools/delete.go
-	go build $(URLPATH)/$(REPO)/tools/getrediskeys.go
-	go build $(URLPATH)/$(REPO)/tools/lc.go
-	cp -f yig $(PWD)/build/bin/
+	go build $(PWD)/tools/admin.go
+	go build $(PWD)/tools/delete.go
+	go build $(PWD)/tools/getrediskeys.go
+	go build $(PWD)/tools/lc.go
 	cp -f $(PWD)/plugins/*.so $(PWD)/integrate/yigconf/plugins/
-	cp -f admin $(PWD)/build/bin/
-	cp -f delete $(PWD)/build/bin/
-	cp -f getrediskeys $(PWD)/build/bin/
-	cp -f lc $(PWD)/build/bin/
+
 pkg:
-	docker run --rm -v $(PWD):/work -w /work journeymidnight/yig bash -c 'bash package/rpmbuild.sh'
+	docker run --rm -v $(PWD):$(WORKDIR) -w $(WORKDIR) journeymidnight/yig bash -c 'bash package/rpmbuild.sh $(REPO) $(BUILDROOT)'
+
 image:
 	docker build -t  journeymidnight/yig . -f integrate/yig.docker
 
 run: 
-	cd integrate && bash runyig.sh
-stop: 
+	cd integrate && bash runyig.sh $(WORKDIR)
+
+stop:
 	cd integrate && bash stopyig.sh
 
-
 rundelete:
-	cd integrate && sudo bash rundelete.sh
+	cd integrate && sudo bash rundelete.sh $(WORKDIR)
+
+runlc:
+	cd integrate && sudo bash runlc.sh $(WORKDIR)
 
 env:
 	cd integrate && docker-compose stop && docker-compose rm --force && sudo rm -rf cephconf && docker-compose up -d && sleep 20 && bash prepare_env.sh
 	
 plugin:
-	cd plugins && bash build_plugins.sh
+	cd plugins && bash build_plugins.sh $(BUILDDIR)
 
 plugin_internal:
 	bash plugins/build_plugins_internal.sh
