@@ -49,8 +49,6 @@ var supportedGetReqParams = map[string]string{
 	"response-content-encoding":    "Content-Encoding",
 }
 
-const VERSIONDISABLED  = "Disabled"
-
 // setGetRespHeaders - set any requested parameters as response headers.
 func setGetRespHeaders(w http.ResponseWriter, reqParams url.Values) {
 	for k, v := range reqParams {
@@ -609,8 +607,9 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 	//TODO: Supplement Object MultiVersion Judge.
 	ctx := r.Context().Value(RequestContextKey).(RequestContext)
 	bucket := ctx.BucketInfo
-	if bucket.Versioning !=  VERSIONDISABLED {
-		WriteErrorResponse(w, r, ErrNotSupportBucketHasVersion)
+	if bucket.Versioning !=  meta.VERSIONDISABLED {
+		WriteErrorResponse(w, r, ErrNotSupportBucketEnabledVersion)
+		return
 	}
 	helper.Debugln("Bucket Multi-version is:",bucket.Versioning)
 

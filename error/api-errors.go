@@ -63,7 +63,7 @@ const (
 	ErrInvalidCopyRequest
 	ErrInvalidRenameSourceKey
 	ErrInvalidRenameTarget
-	ErrNotSupportBucketHasVersion
+	ErrNotSupportBucketEnabledVersion
 	ErrInvalidPrecondition
 	ErrInvalidPolicyDocument
 	ErrInvalidCorsDocument
@@ -186,9 +186,9 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		Description:    "Rename Target must not be a folder.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
-	ErrNotSupportBucketHasVersion: {
+	ErrNotSupportBucketEnabledVersion: {
 		AwsErrorCode:   "InvalidRequest",
-		Description:    "We not support to rename object in the bucket which has multi-version.",
+		Description:    "We not support to rename object in the bucket which enabled multi-version.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidPrecondition: {
