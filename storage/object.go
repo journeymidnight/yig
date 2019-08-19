@@ -325,13 +325,6 @@ func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 	return
 }
 
-// TODO：Determine here whether it is a multi-version control object or bucket
-func (yig *YigStorage) GetBucketMultiVersionInfo(bucketName string, credential common.Credential) (Versioning string,err error) {
-
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
-	return bucket.Versioning , err
-}
-
 func (yig *YigStorage) GetObjectAcl(bucketName string, objectName string,
 	version string, credential common.Credential) (policy datatype.AccessControlPolicyResponse, err error) {
 

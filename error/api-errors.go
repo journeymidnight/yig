@@ -61,7 +61,9 @@ const (
 	ErrInvalidCopySourceStorageClass
 	ErrInvalidCopyDest
 	ErrInvalidCopyRequest
-	ErrInvalidRenameSource
+	ErrInvalidRenameSourceKey
+	ErrInvalidRenameTarget
+	ErrNotSupportBucketHasVersion
 	ErrInvalidPrecondition
 	ErrInvalidPolicyDocument
 	ErrInvalidCorsDocument
@@ -174,9 +176,19 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		Description:    "Request of copy source cannot be others only COPY and REPLACE and null.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
-	ErrInvalidRenameSource: {
-		AwsErrorCode:   "ErrInvalidRenameSource",
+	ErrInvalidRenameSourceKey: {
+		AwsErrorCode:   "InvalidRenameSourceKey",
 		Description:    "Rename Source must be the Object in your bucket, which have been created, not be a folder.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidRenameTarget: {
+		AwsErrorCode:   "InvalidRenameTarget",
+		Description:    "Rename Target must not be a folder.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrNotSupportBucketHasVersion: {
+		AwsErrorCode:   "InvalidRequest",
+		Description:    "We not support to rename object in the bucket which has multi-version.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidPrecondition: {

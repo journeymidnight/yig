@@ -58,8 +58,8 @@ type ObjectLayer interface {
 	// Object operations.
 	GetObject(object *meta.Object, startOffset int64, length int64, writer io.Writer,
 		sse datatype.SseRequest) (err error)
-	GetObjectInfo(bucket, object, version string, credential common.Credential) (objInfo *meta.Object, err error)
-	GetBucketMultiVersionInfo(bucketName string, credential common.Credential) (Versioning string,err error)
+	GetObjectInfo(bucket, object, version string, credential common.Credential) (objInfo *meta.Object,
+		err error)
 	PutObject(bucket, object string, credential common.Credential, size int64, data io.Reader,
 		metadata map[string]string, acl datatype.Acl,
 		sse datatype.SseRequest, storageClass meta.StorageClass) (result datatype.PutObjectResult, err error)

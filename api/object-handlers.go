@@ -49,6 +49,8 @@ var supportedGetReqParams = map[string]string{
 	"response-content-encoding":    "Content-Encoding",
 }
 
+const VERSIONDISABLED  = "Disabled"
+
 // setGetRespHeaders - set any requested parameters as response headers.
 func setGetRespHeaders(w http.ResponseWriter, reqParams url.Values) {
 	for k, v := range reqParams {
@@ -579,7 +581,7 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 
 	//Determine if the renamed object is a folder
 	if hasSuffix(targetObjectName,"/") {
-		WriteErrorResponse(w, r, ErrInvalidRenameSource)
+		WriteErrorResponse(w, r, ErrInvalidRenameTarget)
 		return
 	}
 
@@ -594,19 +596,22 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 	// X-Amz-Copy-Source should be URL-encoded
 	sourceObjectName, err = url.QueryUnescape(sourceObjectName)
 	if err != nil {
-		WriteErrorResponse(w, r, ErrInvalidRenameSource)
+		WriteErrorResponse(w, r, ErrInvalidRenameSourceKey)
 		return
 	}
 
 	//Determine if the renamed object is a folder
 	 if hasSuffix(sourceObjectName,"/"){
-		WriteErrorResponse(w, r, ErrInvalidRenameSource)
+		WriteErrorResponse(w, r, ErrInvalidRenameSourceKey)
 		return
 	 }
 
 	//TODO: Supplement Object MultiVersion Judge.
 	ctx := r.Context().Value(RequestContextKey).(RequestContext)
 	bucket := ctx.BucketInfo
+	if bucket.Versioning !=  VERSIONDISABLED {
+		WriteErrorResponse(w, r, ErrNotSupportBucketHasVersion)
+	}
 	helper.Debugln("Bucket Multi-version is:",bucket.Versioning)
 
 	var sourceVersion string
