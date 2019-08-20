@@ -19,6 +19,8 @@ type YigPlugin struct {
 	Create     func(map[string]interface{}) (interface{}, error)
 }
 
+var Container map[string]*YigPlugin
+
 const EXPORTED_PLUGIN    = "Exported"
 
 const (
