@@ -11,10 +11,10 @@ import (
 	"time"
 )
 
-const(
+const (
 	VersionEnabled   = "Enabled"
 	VersionDisabled  = "Disabled"
-	VersionSuspended ="Suspended"
+	VersionSuspended = "Suspended"
 )
 
 type Bucket struct {

@@ -237,9 +237,9 @@ func Test_RenameObject(t *testing.T) {
 
 	TEST_RENAME_KEY := "RENAME:" + TEST_KEY
 	input2 := &s3.RenameObjectInput{
-		Bucket:     aws.String(TEST_BUCKET),
+		Bucket:          aws.String(TEST_BUCKET),
 		RenameSourceKey: aws.String(TEST_KEY),
-		Key:        aws.String(TEST_RENAME_KEY),
+		Key:             aws.String(TEST_RENAME_KEY),
 	}
 	_, err = svc.Client.RenameObject(input2)
 	if err != nil {
@@ -272,11 +272,11 @@ func Test_RenameObjectErrFloder(t *testing.T) {
 		t.Fatal("PutObject err:", err)
 	}
 
-	TEST_RENAME_KEY := "RENAME:" + TEST_KEY +"/"
+	TEST_RENAME_KEY := "RENAME:" + TEST_KEY + "/"
 	input := &s3.RenameObjectInput{
-		Bucket:     aws.String(TEST_BUCKET),
+		Bucket:          aws.String(TEST_BUCKET),
 		RenameSourceKey: aws.String(TEST_KEY),
-		Key:        aws.String(TEST_RENAME_KEY),
+		Key:             aws.String(TEST_RENAME_KEY),
 	}
 	_, err = svc.Client.RenameObject(input)
 	if err == nil {

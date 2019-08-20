@@ -571,14 +571,14 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 // ----------
 //Do not support bucket to enable multiVersion renaming;
 //Folder renaming operation is not supported.
-func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.Request){
+func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.Request) {
 	helper.Debugln("RenameObjectHandler", "enter")
 	vars := mux.Vars(r)
 	BucketName := vars["bucket"]
 	targetObjectName := vars["object"]
 
 	//Determine if the renamed object is a folder
-	if hasSuffix(targetObjectName,"/") {
+	if hasSuffix(targetObjectName, "/") {
 		WriteErrorResponse(w, r, ErrInvalidRenameTarget)
 		return
 	}
@@ -598,20 +598,31 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	//Determine if the renamed object is a folder
-	 if hasSuffix(sourceObjectName,"/"){
+	//Determine if the renamed object is a folder and judge if target key in the same folder.
+	switch strings.IndexAny(sourceObjectName, "/") {
+	case len(sourceObjectName) - 1:
 		WriteErrorResponse(w, r, ErrInvalidRenameSourceKey)
 		return
-	 }
+	case -1:
+		break
+	default:
+		sourceSlice := strings.Split(sourceObjectName, "/")
+		targetSlice := strings.Split(targetObjectName, "/")
+		for i := 0; i < len(sourceSlice)-1; i++ {
+			if sourceSlice[i] != targetSlice[i] {
+				WriteErrorResponse(w, r, ErrInvalidRenameTarget)
+			}
+		}
+	}
 
 	//TODO: Supplement Object MultiVersion Judge.
 	ctx := r.Context().Value(RequestContextKey).(RequestContext)
 	bucket := ctx.BucketInfo
-	if bucket.Versioning !=  meta.VersionDisabled {
+	if bucket.Versioning != meta.VersionDisabled {
 		WriteErrorResponse(w, r, ErrNotSupportBucketEnabledVersion)
 		return
 	}
-	helper.Debugln("Bucket Multi-version is:",bucket.Versioning)
+	helper.Debugln("Bucket Multi-version is:", bucket.Versioning)
 
 	var sourceVersion string
 	sourceObject, err := api.ObjectAPI.GetObjectInfo(BucketName, sourceObjectName,
@@ -623,7 +634,7 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 
 	targetObject := sourceObject
 	targetObject.Name = targetObjectName
-	result, err := api.ObjectAPI.RenameObject(targetObject, credential,sourceObjectName)
+	result, err := api.ObjectAPI.RenameObject(targetObject, credential, sourceObjectName)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to update object meta for "+targetObject.ObjectId)
 		WriteErrorResponse(w, r, err)

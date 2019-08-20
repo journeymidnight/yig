@@ -183,7 +183,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrInvalidRenameTarget: {
 		AwsErrorCode:   "InvalidRenameTarget",
-		Description:    "Rename Target must not be a folder.",
+		Description:    "Rename Target must not be a folder and be in the same folder.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrNotSupportBucketEnabledVersion: {
