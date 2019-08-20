@@ -76,7 +76,19 @@ func Test_PluginJudge(t *testing.T) {
 		t.Fatal("StatusCode should be STATUS_OK(200), but the code is:", statusCode)
 	}
 	t.Log("Get object value:", string(data))
-	filePath := "/var/log/yig/access.log"
+	Path, _ := os.Getwd()
+	YigPath := strings.Split(Path,"/")
+	var PathGo string
+	PathGo = ""
+	for i := 0 ;i < len(YigPath); i++ {
+		if YigPath[i] != "yig" {
+			PathGo = PathGo + "/" + YigPath[i]
+		}else {
+			PathGo = PathGo + "/" + YigPath[i]
+			break
+		}
+	}
+	filePath := PathGo + "/access.log"
 	f, err := os.Open(filePath)
 	if err != nil {
 		t.Fatal("[ERROR] Read file", filePath, "error:", err)
