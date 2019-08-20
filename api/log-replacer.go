@@ -284,12 +284,10 @@ func (r *replacer) getSubstitution(key string) string {
 		// TODO: Add bucket logging
 		return strconv.FormatBool(false)
 	case "{cdn_request}":
-		err := InitializeJudgeCdnFunc(mods.Container)
-		if err != nil {
-			return "-"
-		}
-		var judgeFunc IsCdnRequest
-		judgeFunc = JudgeCdnRequest
+		allPluginMap := mods.InitialPlugins()
+		InitializeJudgeClient(allPluginMap)
+		var judgeFunc JudgeCdnRequest
+		judgeFunc = JudgeCDNRequest
 		return strconv.FormatBool(judgeFunc(r.request))
 	default:
 		return "-"
@@ -365,20 +363,32 @@ func inRange(r ipRange, ipAddress net.IP) bool {
 
 type IsCdnRequest func(r *http.Request) bool
 
-type JudgeCdnFunc interface {
-	JudgeCdnRequest(r *http.Request) bool
+type JudgeClient interface {
+	JudgeCDNRequest(r *http.Request) bool
 }
 
-var judgeCdnFunc JudgeCdnFunc
+var judgeClient JudgeClient
 
-func InitializeJudgeCdnFunc(plugins map[string]*mods.YigPlugin) error {
+func InitializeJudgeClient(plugins map[string]*mods.YigPlugin) {
 	//Search for JudgeCDN plugins, if we have many JudgeCDN plugins, always use the first
 	name := "cdn_judge"
 	p := plugins["cdn_judge"]
-	c, err := p.Create(helper.CONFIG.Plugins[name].Args)
-	if err != nil {
-		helper.Logger.Fatalf(0, "failed to initial cdn_Judge plugin %s: err: %v\n", name, err)
-		return err
+	if p.PluginType == mods.JUDGE_PLUGIN {
+		c, err := p.Create(helper.CONFIG.Plugins[name].Args)
+		if err != nil {
+			helper.Logger.Fatalf(0, "failed to initial JudgeCDN plugin %s: err: %v\n", name, err)
+			return
+		}
+		helper.Logger.Printf(5, "Chosen JudgeCDN plugin %s..\n", name)
+		judgeClient = c.(JudgeClient)
+		return
+	}
+}
+
+func JudgeCDNRequest(r *http.Request) bool {
+	cdnFlag, ok := r.URL.Query()["X-Oss-Referer"]
+	if ok && len(cdnFlag) > 0 && cdnFlag[0] == "cdn" {
+		return true
 	}
 	helper.Logger.Printf(5, "Chosen JudgeCDN plugin %s..\n", name)
 	judgeCdnFunc = c.(JudgeCdnFunc)

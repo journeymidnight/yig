@@ -90,7 +90,7 @@ func Test_PluginJudge(t *testing.T) {
 		t.Fatal("StatusCode should be STATUS_OK(200), but the code is:", statusCode)
 	}
 	t.Log("Get object value:", string(data))
-	filePath := "/root/yig/access.log"
+	filePath := "/var/log/yig/access.log"
 	f, err := os.Open(filePath)
 	if err != nil {
 		t.Fatal("[ERROR] Read file", filePath, "error:", err)

@@ -12,26 +12,26 @@ const pluginName = "cdn_judge"
 var Exported = mods.YigPlugin{
 	Name:       pluginName,
 	PluginType: mods.JUDGE_PLUGIN,
-	Create:  GetJudgeCdnFunc,
+	Create:  GetJudgeClient,
 }
 
 
-func GetJudgeCdnFunc(config map[string]interface{}) (interface{}, error) {
+func GetJudgeClient(config map[string]interface{}) (interface{}, error) {
 
 	helper.Logger.Printf(10, "Get plugin config: %v\n", config)
 
-	c := JudgeCdnFunc{
-		JudgeCdnTarget: config["target"].(string),
+	c := JudgeClient{
+	JudgeCdnTarget: config["target"].(string),
 	}
 
 	return interface{}(c), nil
 }
 
-type JudgeCdnFunc struct {
+type JudgeClient struct {
 	JudgeCdnTarget string
 }
 
-func (j JudgeCdnFunc) JudgeCdnRequest(r *http.Request) bool {
+func (j JudgeClient) JudgeCDNRequest(r *http.Request) bool {
 	cdnFlag, ok := r.URL.Query()[j.JudgeCdnTarget]
 	if ok && len(cdnFlag) > 0 && cdnFlag[0] == "cdn" {
 		return true
