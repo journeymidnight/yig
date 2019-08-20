@@ -11,9 +11,9 @@ import (
 	"time"
 )
 
-const VERSIONENABLED   = "Enabled"
-const VERSIONDISABLED  = "Disabled"
-const VERSIONSUSPENDED = "Suspended"
+const VersionEnabled   = "Enabled"
+const VersionDisabled  = "Disabled"
+const VersionSuspended = "Suspended"
 
 type Bucket struct {
 	Name string

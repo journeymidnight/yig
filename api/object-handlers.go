@@ -607,7 +607,7 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 	//TODO: Supplement Object MultiVersion Judge.
 	ctx := r.Context().Value(RequestContextKey).(RequestContext)
 	bucket := ctx.BucketInfo
-	if bucket.Versioning !=  meta.VERSIONDISABLED {
+	if bucket.Versioning !=  meta.VersionDisabled {
 		WriteErrorResponse(w, r, ErrNotSupportBucketEnabledVersion)
 		return
 	}

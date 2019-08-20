@@ -30,7 +30,7 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 		CreateTime: now,
 		OwnerId:    credential.UserId,
 		ACL:        acl,
-		Versioning: "Disabled", // it's the default
+		Versioning: meta.VersionDisabled, // it's the default
 	}
 	processed, err := yig.MetaStorage.Client.CheckAndPutBucket(bucket)
 	if err != nil {
@@ -248,7 +248,7 @@ func (yig *YigStorage) GetBucketVersioning(bucketName string, credential common.
 	if err != nil {
 		return versioning, err
 	}
-	versioning.Status = helper.Ternary(bucket.Versioning == "Disabled",
+	versioning.Status = helper.Ternary(bucket.Versioning == meta.VersionDisabled,
 		"", bucket.Versioning).(string)
 	return
 }

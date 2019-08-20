@@ -562,11 +562,11 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
-	if bucket.Versioning == "Enabled" {
+	if bucket.Versioning == meta.VersionEnabled {
 		result.VersionId = object.GetVersionId()
 	}
 	// update null version number
-	if bucket.Versioning == "Suspended" {
+	if bucket.Versioning == meta.VersionSuspended {
 		nullVerNum = uint64(object.LastModifiedTime.UnixNano())
 	}
 
@@ -976,12 +976,12 @@ func (yig *YigStorage) removeAllObjectsEntryByName(bucketName, objectName string
 
 func (yig *YigStorage) checkOldObject(bucketName, objectName, versioning string) (version uint64, err error) {
 
-	if versioning == "Disabled" {
+	if versioning == meta.VersionDisabled {
 		err = yig.removeAllObjectsEntryByName(bucketName, objectName)
 		return
 	}
 
-	if versioning == "Enabled" || versioning == "Suspended" {
+	if versioning == meta.VersionEnabled || versioning == meta.VersionSuspended {
 		objMapExist := true
 		objectExist := true
 
@@ -1121,7 +1121,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 	} // TODO policy and fancy ACL
 
 	switch bucket.Versioning {
-	case "Disabled":
+	case meta.VersionDisabled:
 		if version != "" && version != "null" {
 			return result, ErrNoSuchVersion
 		}
@@ -1129,7 +1129,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 		if err != nil {
 			return
 		}
-	case "Enabled":
+	case meta.VersionEnabled:
 		if version == "" {
 			result.VersionId, err = yig.addDeleteMarker(*bucket, objectName, false)
 			if err != nil {
@@ -1143,7 +1143,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 			}
 			result.VersionId = version
 		}
-	case "Suspended":
+	case meta.VersionSuspended:
 		if version == "" {
 			err = yig.removeObjectVersion(bucketName, objectName, "null")
 			if err != nil {
