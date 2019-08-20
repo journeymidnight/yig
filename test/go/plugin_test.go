@@ -15,21 +15,7 @@ import (
 const timeLayoutStr = "2006-01-02 15"
 
 const (
-	AclPrivateXml = `<AccessControlPolicy xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
-		<Owner>
-			<ID>hehehehe</ID>
-		</Owner>
-		<AccessControlList>
-			<Grant>
-				<Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="CanonicalUser">
-				<ID>hehehehe</ID>
-				</Grantee>
-				<Permission>FULL_CONTROL</Permission>
-			</Grant>
-		</AccessControlList>
-	</AccessControlPolicy>`
-
-	AclPublicXml = `<AccessControlPolicy xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+	AclPublicXmlPlugin = `<AccessControlPolicy xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
 		<Owner>
 			<ID>hehehehe</ID>
 		</Owner>
@@ -68,7 +54,7 @@ func Test_PluginJudge(t *testing.T) {
 	t.Log("PutObject Success.")
 	url := GenTestObjectUrl(sc) + "?X-Oss-Referer=cdn"
 	var policy = &datatype.AccessControlPolicy{}
-	err = xml.Unmarshal([]byte(AclPublicXml), policy)
+	err = xml.Unmarshal([]byte(AclPublicXmlPlugin), policy)
 	if err != nil {
 		t.Fatal("PutObjectPublicAclWithXml err:", err)
 	}
