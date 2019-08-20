@@ -87,8 +87,8 @@ func main() {
 
 	//Read all *.so from plugins directory, and fill the varaible allPlugins
 	allPluginMap := mods.InitialPlugins()
-
 	iam.InitializeIamClient(allPluginMap)
+	mods.Container = allPluginMap
 
 	startAdminServer(adminServerConfig)
 
