@@ -13,7 +13,7 @@ import (
 
 const(
 	VersionEnabled   = "Enabled"
-    VersionDisabled  = "Disabled"
+	VersionDisabled  = "Disabled"
 	VersionSuspended ="Suspended"
 )
 
