@@ -736,7 +736,7 @@ func (yig *YigStorage) RenameObject(targetObject *meta.Object, credential common
 		}
 	}
 
-	err = yig.MetaStorage.UpdateObjectName(targetObject, sourceObject)
+	err = yig.MetaStorage.RenameObject(targetObject, sourceObject)
 	if err != nil {
 		yig.Logger.Println(5, "Update Object Attrs, sql fails")
 		return result, ErrInternalError
