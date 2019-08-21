@@ -117,8 +117,8 @@ func (t *TidbClient) UpdateObjectAcl(object *Object) error {
 	return err
 }
 
-func (t *TidbClient) UpdateObjectAttrs(object *Object) error {
-	sql, args := object.GetUpdateAttrsSql()
+func (t *TidbClient) RenameObject(object *Object, sourceObject string) error {
+	sql, args := object.GetUpdateNameSql(sourceObject)
 	_, err := t.Client.Exec(sql, args...)
 	return err
 }

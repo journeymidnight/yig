@@ -60,6 +60,10 @@ const (
 	ErrInvalidCopySource
 	ErrInvalidCopySourceStorageClass
 	ErrInvalidCopyDest
+	ErrInvalidCopyRequest
+	ErrInvalidRenameSourceKey
+	ErrInvalidRenameTarget
+	ErrNotSupportBucketEnabledVersion
 	ErrInvalidPrecondition
 	ErrInvalidPolicyDocument
 	ErrInvalidCorsDocument
@@ -165,6 +169,26 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidCopySourceStorageClass: {
 		AwsErrorCode:   "InvalidCopySourceStorageClass",
 		Description:    "Storage class of copy source cannot be GLACIER or DEEP_ARCHIVE.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidCopyRequest: {
+		AwsErrorCode:   "InvalidCopyRequest",
+		Description:    "Request of copy source cannot be others only COPY and REPLACE and null.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidRenameSourceKey: {
+		AwsErrorCode:   "InvalidRenameSourceKey",
+		Description:    "Rename Source must be the Object in your bucket, which have been created, not be a folder.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidRenameTarget: {
+		AwsErrorCode:   "InvalidRenameTarget",
+		Description:    "Rename Target must not be a folder and be in the same folder.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrNotSupportBucketEnabledVersion: {
+		AwsErrorCode:   "InvalidRequest",
+		Description:    "We not support to rename object in the bucket which enabled multi-version.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidPrecondition: {

@@ -126,8 +126,8 @@ func (m *Meta) UpdateObjectAcl(object *Object) error {
 	return err
 }
 
-func (m *Meta) UpdateObjectAttrs(object *Object) error {
-	err := m.Client.UpdateObjectAttrs(object)
+func (m *Meta) RenameObject(object *Object, sourceObject string) error {
+	err := m.Client.RenameObject(object, sourceObject)
 	return err
 }
 

@@ -16,7 +16,7 @@ type Client interface {
 	GetAllObject(bucketName, objectName, version string) (object []*Object, err error)
 	PutObject(object *Object, tx interface{}) error
 	UpdateAppendObject(object *Object, tx interface{}) error
-	UpdateObjectAttrs(object *Object) error
+	RenameObject(object *Object, sourceObject string) error
 	DeleteObject(object *Object, tx interface{}) error
 	UpdateObjectAcl(object *Object) error
 	//bucket

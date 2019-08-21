@@ -11,6 +11,12 @@ import (
 	"time"
 )
 
+const (
+	VersionEnabled   = "Enabled"
+	VersionDisabled  = "Disabled"
+	VersionSuspended = "Suspended"
+)
+
 type Bucket struct {
 	Name string
 	// Date and time when the bucket was created,
