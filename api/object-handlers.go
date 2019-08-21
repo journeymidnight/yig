@@ -611,6 +611,7 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 		for i := 0; i < len(sourceSlice)-1; i++ {
 			if sourceSlice[i] != targetSlice[i] {
 				WriteErrorResponse(w, r, ErrInvalidRenameTarget)
+				return
 			}
 		}
 	}
