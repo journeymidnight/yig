@@ -577,8 +577,8 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 	BucketName := vars["bucket"]
 	targetObjectName := vars["object"]
 
-	//Determine if the renamed object is a folder
-	if hasSuffix(targetObjectName, "/") {
+	//Determine if the renamed object is legal
+	if hasSuffix(targetObjectName, "/") || targetObjectName == "" {
 		WriteErrorResponse(w, r, ErrInvalidRenameTarget)
 		return
 	}
@@ -598,22 +598,10 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	//Determine if the renamed object is a folder and judge if target key in the same folder.
-	switch strings.IndexAny(sourceObjectName, "/") {
-	case len(sourceObjectName) - 1:
+	//Determine if the renamed object is a folder
+	if hasSuffix(sourceObjectName, "/") {
 		WriteErrorResponse(w, r, ErrInvalidRenameSourceKey)
 		return
-	case -1:
-		break
-	default:
-		sourceSlice := strings.Split(sourceObjectName, "/")
-		targetSlice := strings.Split(targetObjectName, "/")
-		for i := 0; i < len(sourceSlice)-1; i++ {
-			if sourceSlice[i] != targetSlice[i] {
-				WriteErrorResponse(w, r, ErrInvalidRenameTarget)
-				return
-			}
-		}
 	}
 
 	//TODO: Supplement Object MultiVersion Judge.
