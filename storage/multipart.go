@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/journeymidnight/yig/api"
@@ -234,6 +235,10 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 		RecycleQueue <- maybeObjectToRecycle
 		err = ErrBadDigest
 		return
+	}
+
+	if md5Hex == "" {
+		calculatedHash = "HwH:" + calculatedHash
 	}
 
 	if signVerifyReader, ok := data.(*signature.SignVerifyReader); ok {
@@ -573,23 +578,20 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, tar
 	}
 
 	var hashWriter hash.Hash
-	if targetObject.CustomAttributes["md5Sum"] != "" {
-		hashWriter = md5.New()
-		helper.Logger.Println(20,"Calculate hash by Md5")
-	} else {
-		key, err := hex.DecodeString(keyValue)
-		if err != nil {
-			helper.Debugln("Cannot decode hex key: %v", err)
-			return result,err
-		}
-		hashWriter,err = highwayhash.New(key)
-		helper.Logger.Println(20,"Calculate hash by HighwayHash")
-		if err != nil {
-			helper.Debugln("Failed to create HighwayHash instance: %v", err)
-			return result,err
-		}
+	key, err := hex.DecodeString(keyValue)
+	if err != nil {
+		helper.Debugln("Cannot decode hex key: %v", err)
+		return result,err
 	}
+	hashWriter,err = highwayhash.New(key)
+	helper.Logger.Println(20,"Calculate hash by HighwayHash")
+	if err != nil {
+		helper.Debugln("Failed to create HighwayHash instance: %v", err)
+		return result,err
+	}
+
 	var totalSize int64 = 0
+	var splitEtagForHwH []string
 	helper.Logger.Println(20, "Upload parts:", uploadedParts, "uploadId:", uploadID)
 	for i := 0; i < len(uploadedParts); i++ {
 		if uploadedParts[i].PartNumber != i+1 {
@@ -611,14 +613,20 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, tar
 			}
 			return
 		}
+
 		if part.Etag != uploadedParts[i].ETag {
 			helper.Logger.Println(20, "part.Etag != uploadedParts[i].ETag;",
 				"i:", i, "Etag:", part.Etag, "reqEtag:", uploadedParts[i].ETag, "uploadId:", uploadID)
 			err = ErrInvalidPart
 			return
 		}
+		splitEtagForHwH = strings.Split(part.Etag, ":")
 		var etagBytes []byte
-		etagBytes, err = hex.DecodeString(part.Etag)
+		if splitEtagForHwH[0] == "HwH" {
+			etagBytes, err = hex.DecodeString(splitEtagForHwH[1])
+		} else {
+			etagBytes, err = hex.DecodeString(splitEtagForHwH[0])
+		}
 		if err != nil {
 			helper.Logger.Println(20, "hex.DecodeString(part.Etag) err;", "uploadId:", uploadID)
 			err = ErrInvalidPart
@@ -629,7 +637,11 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, tar
 		hashWriter.Write(etagBytes)
 	}
 	result.ETag = hex.EncodeToString(hashWriter.Sum(nil))
-	result.ETag += "-" + strconv.Itoa(len(uploadedParts))
+	if splitEtagForHwH[0] == "HwH" {
+		result.ETag = "HwH:" + result.ETag + "-" + strconv.Itoa(len(uploadedParts))
+	} else {
+		result.ETag += "-" + strconv.Itoa(len(uploadedParts))
+	}
 	// See http://stackoverflow.com/questions/12186993
 	// for how to calculate multipart Etag
 

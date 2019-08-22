@@ -8,6 +8,7 @@ import (
 	"hash"
 	"io"
 	"math/rand"
+	"strings"
 	"time"
 
 	"path"
@@ -542,8 +543,12 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 			return result, ErrBadDigest
 		}
 	}
+	if metadata["md5Sum"] == "" {
+		result.Md5 = "HwH:" + calculatedHash
+	} else {
+		result.Md5 = calculatedHash
+	}
 
-	result.Md5 = calculatedHash
 
 	if signVerifyReader, ok := data.(*signature.SignVerifyReader); ok {
 		credential, err = signVerifyReader.Verify()
@@ -710,8 +715,12 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 			return result, ErrBadDigest
 		}
 	}
+	if metadata["md5Sum"] == "" {
+		result.Md5 = "HwH:" + calculatedHash
+	} else {
+		result.Md5 = calculatedHash
+	}
 
-	result.Md5 = calculatedHash
 
 	if signVerifyReader, ok := data.(*signature.SignVerifyReader); ok {
 		credential, err = signVerifyReader.Verify()
@@ -822,6 +831,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		targetObject.Name, targetObject.Size, false)
 
 	var hashWriter hash.Hash
+	splitEtagForHwH := strings.Split(targetObject.Etag,":")
 	if len(targetObject.Parts) != 0 {
 		var targetParts map[int]*meta.Part = make(map[int]*meta.Part, len(targetObject.Parts))
 		//		etaglist := make([]string, len(sourceObject.Parts))
@@ -837,7 +847,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 				}
 				pw.Close()
 			}()
-			if targetObject.CustomAttributes["md5Sum"] != "" {
+			if splitEtagForHwH[0] != "HwH" {
 				hashWriter = md5.New()
 				helper.Logger.Println(20,"Calculate hash by Md5")
 			} else {
@@ -880,6 +890,10 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 			}
 			calculatedHash := hex.EncodeToString(hashWriter.Sum(nil))
 			//we will only chack part etag,overall etag will be same if each part of etag is same
+			splitPartEtagForHwH := strings.Split(part.Etag,":")
+			if splitPartEtagForHwH[0] == "HwH" {
+				part.Etag = splitPartEtagForHwH[1]
+			}
 			if calculatedHash != part.Etag {
 				err = ErrInternalError
 				RecycleQueue <- maybeObjectToRecycle
@@ -894,8 +908,9 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		targetObject.Parts = targetParts
 		result.Md5 = targetObject.Etag
 	} else {
-		if targetObject.CustomAttributes["md5Sum"] != "" {
+		if splitEtagForHwH[0] != "HwH" {
 			hashWriter = md5.New()
+			helper.Logger.Println(20,"Calculate hash by Md5")
 		} else {
 			key, err := hex.DecodeString(keyValue)
 			if err != nil {
@@ -903,6 +918,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 				return result,err
 			}
 			hashWriter,err = highwayhash.New(key)
+			helper.Logger.Println(20,"Calculate hash by HighwayHash")
 			if err != nil {
 				helper.Debugln("Failed to create HighwayHash instance: %v", err)
 				return result,err
