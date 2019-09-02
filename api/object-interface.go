@@ -44,7 +44,7 @@ type ObjectLayer interface {
 	GetBucketCors(ctx context.Context, bucket string, credential common.Credential) (datatype.Cors, error)
 	GetBucket(ctx context.Context, bucketName string) (bucket *meta.Bucket, err error) // For INTERNAL USE ONLY
 	GetBucketInfo(ctx context.Context, bucket string, credential common.Credential) (bucketInfo *meta.Bucket, err error)
-	ListBuckets(ctx context.Context, credential common.Credential) (buckets []meta.Bucket, err error)
+	ListBuckets(ctx context.Context, credential common.Credential) (buckets []*meta.Bucket, err error)
 	DeleteBucket(ctx context.Context, bucket string, credential common.Credential) error
 	ListObjects(ctx context.Context, credential common.Credential, bucket string,
 		request datatype.ListObjectsRequest) (result meta.ListObjectsInfo, err error)

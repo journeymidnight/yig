@@ -19,7 +19,7 @@ const (
 // Note the usage info got from this method is possibly not accurate because we don't
 // invalid cache when updating usage. For accurate usage info, use `GetUsage()`
 func (m *Meta) GetBucket(ctx context.Context, bucketName string, willNeed bool) (bucket *Bucket, err error) {
-	getBucket := func() (b interface{}, err error) {
+	getBucket := func() (b helper.Serializable, err error) {
 		b, err = m.Client.GetBucket(bucketName)
 		helper.Logger.Println(10, "[", helper.RequestIdFromContext(ctx), "]",
 			"GetBucket CacheMiss. bucket:", bucketName)
@@ -48,38 +48,39 @@ func (m *Meta) GetBuckets() (buckets []*Bucket, err error) {
 	return
 }
 
-func (m *Meta) UpdateUsage(bucketName string, size int64) error {
+func (m *Meta) UpdateUsage(ctx context.Context, bucketName string, size int64) error {
+	requestId := helper.RequestIdFromContext(ctx)
 	tstart := time.Now()
 	usage, err := m.Cache.HIncrBy(redis.BucketTable, BUCKET_CACHE_PREFIX, bucketName, FIELD_NAME_USAGE, size)
 	if err != nil {
-		helper.Logger.Println(2, fmt.Sprintf("failed to update bucket[%s] usage by %d, err: %v",
-			bucketName, size, err))
+		helper.Logger.Println(2, fmt.Sprintf("[ %s ] failed to update bucket[%s] usage by %d, err: %v",
+			requestId, bucketName, size, err))
 		return err
 	}
 	tinc := time.Now()
 	dur := tinc.Sub(tstart)
 	if dur/1000000 >= 100 {
-		helper.Logger.Printf(5, "slow log: RedisIncrBy: bucket: %s, size: %d, takes: %d",
-			bucketName, size, dur)
+		helper.Logger.Printf(5, "[ %s ] slow log: RedisIncrBy: bucket: %s, size: %d, takes: %d",
+			requestId, bucketName, size, dur)
 	}
 
 	err = m.addBucketUsageSyncEvent(bucketName)
 	if err != nil {
-		helper.Logger.Printf(2, "failed to add bucket usage sync event for bucket: %s, err: %v",
-			bucketName, err)
+		helper.Logger.Printf(2, "[ %s ] failed to add bucket usage sync event for bucket: %s, err: %v",
+			requestId, bucketName, err)
 		return err
 	}
-	helper.Logger.Println(15, "incr usage for bucket: ", bucketName, ", updated to ", usage)
+	helper.Logger.Println(15, "[", requestId, "]", "incr usage for bucket: ", bucketName, ", updated to ", usage)
 	tend := time.Now()
 	dur = tend.Sub(tinc)
 	if dur/1000000 >= 100 {
-		helper.Logger.Printf(5, "slow log: AddBucketUsageSyncEvent: bucket: %s, size: %d, takes: %d",
-			bucketName, size, dur)
+		helper.Logger.Printf(5, "[ %s ] slow log: AddBucketUsageSyncEvent: bucket: %s, size: %d, takes: %d",
+			requestId, bucketName, size, dur)
 	}
 	dur = tend.Sub(tstart)
 	if dur/1000000 >= 100 {
-		helper.Logger.Printf(5, "slow log: cache update, bucket: %s, size: %d, takes: %d",
-			bucketName, size, dur)
+		helper.Logger.Printf(5, "[ %s ] slow log: cache update, bucket: %s, size: %d, takes: %d",
+			requestId, bucketName, size, dur)
 	}
 	return nil
 }
@@ -87,7 +88,7 @@ func (m *Meta) UpdateUsage(bucketName string, size int64) error {
 func (m *Meta) GetUsage(ctx context.Context, bucketName string) (int64, error) {
 	usage, err := m.Cache.HGetInt64(redis.BucketTable, BUCKET_CACHE_PREFIX, bucketName, FIELD_NAME_USAGE)
 	if err != nil {
-		helper.Logger.Println(2, "failed to get usage for bucket: ", bucketName, ", err: ", err)
+		helper.Logger.Println(2, "[", helper.RequestIdFromContext(ctx), "]", "failed to get usage for bucket: ", bucketName, ", err: ", err)
 		return 0, err
 	}
 	return usage, nil

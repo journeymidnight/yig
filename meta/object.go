@@ -87,7 +87,7 @@ func (m *Meta) GetObjectVersion(ctx context.Context, bucketName, objectName, ver
 	return object, nil
 }
 
-func (m *Meta) PutObject(object *Object, multipart *Multipart, objMap *ObjMap, updateUsage bool) error {
+func (m *Meta) PutObject(ctx context.Context, object *Object, multipart *Multipart, objMap *ObjMap, updateUsage bool) error {
 	tstart := time.Now()
 	tx, err := m.Client.NewTrans()
 	defer func() {
@@ -115,25 +115,26 @@ func (m *Meta) PutObject(object *Object, multipart *Multipart, objMap *ObjMap, u
 		}
 	}
 
+	requestId := helper.RequestIdFromContext(ctx)
 	if updateUsage {
 		ustart := time.Now()
-		err = m.UpdateUsage(object.BucketName, object.Size)
+		err = m.UpdateUsage(ctx, object.BucketName, object.Size)
 		if err != nil {
 			return err
 		}
 		uend := time.Now()
 		dur := uend.Sub(ustart)
 		if dur/1000000 >= 100 {
-			helper.Logger.Printf(5, "slow log: UpdateUsage, bucket %s, obj: %s, size: %d, takes %d",
-				object.BucketName, object.Name, object.Size, dur)
+			helper.Logger.Printf(5, "[ %s ] slow log: UpdateUsage, bucket %s, obj: %s, size: %d, takes %d",
+				requestId, object.BucketName, object.Name, object.Size, dur)
 		}
 	}
 	err = m.Client.CommitTrans(tx)
 	tend := time.Now()
 	dur := tend.Sub(tstart)
 	if dur/1000000 >= 100 {
-		helper.Logger.Printf(5, "slow log: MetaPutObject: bucket: %s, obj: %s, size: %d, takes %d",
-			object.BucketName, object.Name, object.Size, dur)
+		helper.Logger.Printf(5, "[ %s ] slow log: MetaPutObject: bucket: %s, obj: %s, size: %d, takes %d",
+			requestId, object.BucketName, object.Name, object.Size, dur)
 	}
 	return nil
 }
@@ -158,7 +159,7 @@ func (m *Meta) PutObjMapEntry(objMap *ObjMap) error {
 	return err
 }
 
-func (m *Meta) DeleteObject(object *Object, DeleteMarker bool, objMap *ObjMap) error {
+func (m *Meta) DeleteObject(ctx context.Context, object *Object, DeleteMarker bool, objMap *ObjMap) error {
 	tx, err := m.Client.NewTrans()
 	defer func() {
 		if err != nil {
@@ -187,7 +188,7 @@ func (m *Meta) DeleteObject(object *Object, DeleteMarker bool, objMap *ObjMap) e
 		return err
 	}
 
-	err = m.UpdateUsage(object.BucketName, -object.Size)
+	err = m.UpdateUsage(ctx, object.BucketName, -object.Size)
 	if err != nil {
 		return err
 	}

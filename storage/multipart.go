@@ -250,7 +250,7 @@ func (yig *YigStorage) PutObjectPart(ctx context.Context, bucketName, objectName
 		LastModified:         time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT),
 		InitializationVector: initializationVector,
 	}
-	err = yig.MetaStorage.PutObjectPart(multipart, part)
+	err = yig.MetaStorage.PutObjectPart(ctx, multipart, part)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
@@ -375,7 +375,7 @@ func (yig *YigStorage) CopyObjectPart(ctx context.Context, bucketName, objectNam
 	}
 	result.LastModified = now
 
-	err = yig.MetaStorage.PutObjectPart(multipart, part)
+	err = yig.MetaStorage.PutObjectPart(ctx, multipart, part)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
@@ -498,7 +498,7 @@ func (yig *YigStorage) AbortMultipartUpload(ctx context.Context, credential comm
 		return err
 	}
 
-	err = yig.MetaStorage.DeleteMultipart(multipart)
+	err = yig.MetaStorage.DeleteMultipart(ctx, multipart)
 	if err != nil {
 		return err
 	}
@@ -630,9 +630,9 @@ func (yig *YigStorage) CompleteMultipartUpload(ctx context.Context, credential c
 	}
 
 	if nullVerNum != 0 {
-		err = yig.MetaStorage.PutObject(object, &multipart, objMap, false)
+		err = yig.MetaStorage.PutObject(ctx, object, &multipart, objMap, false)
 	} else {
-		err = yig.MetaStorage.PutObject(object, &multipart, nil, false)
+		err = yig.MetaStorage.PutObject(ctx, object, &multipart, nil, false)
 	}
 
 	//// Remove from multiparts table

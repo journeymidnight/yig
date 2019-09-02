@@ -12,7 +12,6 @@ import (
 	"context"
 	"path"
 	"sync"
-	"time"
 
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/crypto"
@@ -54,10 +53,11 @@ func (yig *YigStorage) PickOneClusterAndPool(ctx context.Context, bucket string,
 	}
 	var totalWeight int
 	clusterWeights := make(map[string]int, len(yig.DataStorage))
+	requestId := helper.RequestIdFromContext(ctx)
 	for fsid, _ := range yig.DataStorage {
 		cluster, err := yig.MetaStorage.GetCluster(ctx, fsid, poolName)
 		if err != nil {
-			helper.Debugln("Error getting cluster: ", err)
+			helper.Debugln("[", requestId, "]", "Error getting cluster: ", err)
 			continue
 		}
 		if cluster.Weight == 0 {
@@ -66,11 +66,11 @@ func (yig *YigStorage) PickOneClusterAndPool(ctx context.Context, bucket string,
 		if needCheck {
 			pct, err := yig.DataStorage[fsid].GetUsedSpacePercent()
 			if err != nil {
-				helper.Logger.Println(0, "Error getting used space: ", err, "fsid: ", fsid)
+				helper.Logger.Println(0, "[", requestId, "]", "Error getting used space: ", err, "fsid: ", fsid)
 				continue
 			}
 			if pct > CLUSTER_MAX_USED_SPACE_PERCENT {
-				helper.Logger.Println(0, "Cluster used space exceed ", CLUSTER_MAX_USED_SPACE_PERCENT, fsid)
+				helper.Logger.Println(0, "[", requestId, "]", "Cluster used space exceed ", CLUSTER_MAX_USED_SPACE_PERCENT, fsid)
 				continue
 			}
 		}
@@ -78,7 +78,7 @@ func (yig *YigStorage) PickOneClusterAndPool(ctx context.Context, bucket string,
 		clusterWeights[fsid] = cluster.Weight
 	}
 	if len(clusterWeights) == 0 || totalWeight == 0 {
-		helper.Logger.Println(20, "[", helper.RequestIdFromContext(ctx), "]", "Error picking cluster from table cluster in DB! Use first cluster in config to write.")
+		helper.Logger.Println(20, "[", requestId, "]", "Error picking cluster from table cluster in DB! Use first cluster in config to write.")
 		for _, c := range yig.DataStorage {
 			cluster = c
 			break
@@ -537,7 +537,7 @@ func (yig *YigStorage) PutObject(ctx context.Context, bucketName string, objectN
 	}
 
 	calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
-	helper.Logger.Println(20, "### calculatedMd5:", calculatedMd5, "userMd5:", metadata["md5Sum"])
+	helper.Logger.Println(20, "[", helper.RequestIdFromContext(ctx), "]", "calculatedMd5:", calculatedMd5, "userMd5:", metadata["md5Sum"])
 	if userMd5, ok := metadata["md5Sum"]; ok {
 		if userMd5 != "" && userMd5 != calculatedMd5 {
 			RecycleQueue <- maybeObjectToRecycle
@@ -598,9 +598,9 @@ func (yig *YigStorage) PutObject(ctx context.Context, bucketName string, objectN
 			Name:       objectName,
 			BucketName: bucketName,
 		}
-		err = yig.MetaStorage.PutObject(object, nil, objMap, true)
+		err = yig.MetaStorage.PutObject(ctx, object, nil, objMap, true)
 	} else {
-		err = yig.MetaStorage.PutObject(object, nil, nil, true)
+		err = yig.MetaStorage.PutObject(ctx, object, nil, nil, true)
 	}
 
 	if err != nil {
@@ -745,7 +745,7 @@ func (yig *YigStorage) AppendObject(ctx context.Context, bucketName string, obje
 	}
 
 	// update bucket usage.
-	err = yig.MetaStorage.UpdateUsage(bucketName, bytesWritten)
+	err = yig.MetaStorage.UpdateUsage(ctx, bucketName, bytesWritten)
 	if err != nil {
 		helper.Logger.Println(2, fmt.Sprintf("failed to update bucket usage for bucket: %s with append object: %v, err: %v", bucketName, object, err))
 		return result, err
@@ -954,9 +954,9 @@ func (yig *YigStorage) CopyObject(ctx context.Context, targetObject *meta.Object
 
 	if nullVerNum != 0 {
 		objMap.NullVerNum = nullVerNum
-		err = yig.MetaStorage.PutObject(targetObject, nil, objMap, true)
+		err = yig.MetaStorage.PutObject(ctx, targetObject, nil, objMap, true)
 	} else {
-		err = yig.MetaStorage.PutObject(targetObject, nil, nil, true)
+		err = yig.MetaStorage.PutObject(ctx, targetObject, nil, nil, true)
 	}
 
 	if err != nil {
@@ -970,9 +970,9 @@ func (yig *YigStorage) CopyObject(ctx context.Context, targetObject *meta.Object
 	return result, nil
 }
 
-func (yig *YigStorage) removeByObject(object *meta.Object, objMap *meta.ObjMap) (err error) {
+func (yig *YigStorage) removeByObject(ctx context.Context, object *meta.Object, objMap *meta.ObjMap) (err error) {
 
-	err = yig.MetaStorage.DeleteObject(object, object.DeleteMarker, objMap)
+	err = yig.MetaStorage.DeleteObject(ctx, object, object.DeleteMarker, objMap)
 	if err != nil {
 		return
 	}
@@ -991,7 +991,7 @@ func (yig *YigStorage) getObjWithVersion(ctx context.Context, bucketName, object
 
 }
 
-func (yig *YigStorage) removeAllObjectsEntryByName(bucketName, objectName string) (err error) {
+func (yig *YigStorage) removeAllObjectsEntryByName(ctx context.Context, bucketName, objectName string) (err error) {
 
 	objs, err := yig.MetaStorage.GetAllObject(bucketName, objectName)
 	if err == ErrNoSuchKey {
@@ -1001,7 +1001,7 @@ func (yig *YigStorage) removeAllObjectsEntryByName(bucketName, objectName string
 		return err
 	}
 	for _, obj := range objs {
-		err = yig.removeByObject(obj, nil)
+		err = yig.removeByObject(ctx, obj, nil)
 		if err != nil {
 			return err
 		}
@@ -1012,7 +1012,7 @@ func (yig *YigStorage) removeAllObjectsEntryByName(bucketName, objectName string
 func (yig *YigStorage) checkOldObject(ctx context.Context, bucketName, objectName, versioning string) (version uint64, err error) {
 
 	if versioning == "Disabled" {
-		err = yig.removeAllObjectsEntryByName(bucketName, objectName)
+		err = yig.removeAllObjectsEntryByName(ctx, bucketName, objectName)
 		return
 	}
 
@@ -1069,7 +1069,7 @@ func (yig *YigStorage) checkOldObject(ctx context.Context, bucketName, objectNam
 		} else {
 			helper.Debugln("[", reqId, "]", "object.NullVersion:", object.NullVersion)
 			if objectExist && object.NullVersion {
-				err = yig.MetaStorage.DeleteObject(object, object.DeleteMarker, nil)
+				err = yig.MetaStorage.DeleteObject(ctx, object, object.DeleteMarker, nil)
 				if err != nil {
 					return
 				}
@@ -1095,7 +1095,7 @@ func (yig *YigStorage) removeObjectVersion(ctx context.Context, bucketName, obje
 			Name:       objectName,
 			BucketName: bucketName,
 		}
-		err = yig.removeByObject(object, objMap)
+		err = yig.removeByObject(ctx, object, objMap)
 		if err != nil {
 			return err
 		}
@@ -1103,7 +1103,7 @@ func (yig *YigStorage) removeObjectVersion(ctx context.Context, bucketName, obje
 	return nil
 }
 
-func (yig *YigStorage) addDeleteMarker(bucket *meta.Bucket, objectName string,
+func (yig *YigStorage) addDeleteMarker(ctx context.Context, bucket *meta.Bucket, objectName string,
 	nullVersion bool) (versionId string, err error) {
 
 	deleteMarker := &meta.Object{
@@ -1122,9 +1122,9 @@ func (yig *YigStorage) addDeleteMarker(bucket *meta.Bucket, objectName string,
 	}
 
 	if nullVersion {
-		err = yig.MetaStorage.PutObject(deleteMarker, nil, objMap, false)
+		err = yig.MetaStorage.PutObject(ctx, deleteMarker, nil, objMap, false)
 	} else {
-		err = yig.MetaStorage.PutObject(deleteMarker, nil, nil, false)
+		err = yig.MetaStorage.PutObject(ctx, deleteMarker, nil, nil, false)
 	}
 
 	return
@@ -1161,13 +1161,13 @@ func (yig *YigStorage) DeleteObject(ctx context.Context, bucketName string, obje
 		if version != "" && version != "null" {
 			return result, ErrNoSuchVersion
 		}
-		err = yig.removeAllObjectsEntryByName(bucketName, objectName)
+		err = yig.removeAllObjectsEntryByName(ctx, bucketName, objectName)
 		if err != nil {
 			return
 		}
 	case "Enabled":
 		if version == "" {
-			result.VersionId, err = yig.addDeleteMarker(bucket, objectName, false)
+			result.VersionId, err = yig.addDeleteMarker(ctx, bucket, objectName, false)
 			if err != nil {
 				return
 			}
@@ -1185,7 +1185,7 @@ func (yig *YigStorage) DeleteObject(ctx context.Context, bucketName string, obje
 			if err != nil {
 				return
 			}
-			result.VersionId, err = yig.addDeleteMarker(bucket, objectName, true)
+			result.VersionId, err = yig.addDeleteMarker(ctx, bucket, objectName, true)
 			if err != nil {
 				return
 			}

@@ -18,7 +18,7 @@ func (t *TidbClient) PutBucketToLifeCycle(ctx context.Context, lifeCycle LifeCyc
 	return nil
 }
 
-func (t *TidbClient) RemoveBucketFromLifeCycle(ctx context.Context, bucket Bucket) error {
+func (t *TidbClient) RemoveBucketFromLifeCycle(ctx context.Context, bucket *Bucket) error {
 	sqltext := "delete from lifecycle where bucketname=?;"
 	_, err := t.Client.Exec(sqltext, bucket.Name)
 	if err != nil {

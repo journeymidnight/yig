@@ -45,7 +45,7 @@ type Client interface {
 	GetCluster(fsid, pool string) (cluster Cluster, err error)
 	//lc
 	PutBucketToLifeCycle(ctx context.Context, lifeCycle LifeCycle) error
-	RemoveBucketFromLifeCycle(ctx context.Context, bucket Bucket) error
+	RemoveBucketFromLifeCycle(ctx context.Context, bucket *Bucket) error
 	ScanLifeCycle(ctx context.Context, limit int, marker string) (result ScanLifeCycleResult, err error)
 	//user
 	GetUserBuckets(userId string) (buckets []string, err error)

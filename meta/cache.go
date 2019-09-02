@@ -137,7 +137,7 @@ func (m *enabledSimpleMetaCache) Get(
 		obj, err := onCacheMiss()
 		if err != nil {
 			if err != sql.ErrNoRows {
-				helper.Logger.Printf(20, "[", requestId, "]", "exec onCacheMiss() err: %v.", err)
+				helper.Logger.Printf(20, "[ %s ] exec onCacheMiss() err: %v.", requestId, err)
 			}
 			return nil, err
 		}
