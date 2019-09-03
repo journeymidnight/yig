@@ -17,7 +17,8 @@ import (
 	"time"
 )
 
-const ObjectSizeLimit = 30 << 20 // 30M, limit introduced by cannlys
+// 30M, more precisely (32M - 2B), limit introduced by cannyls
+const ObjectSizeLimit = 30 << 20
 
 type uploadResult struct {
 	Name  string `json:"name,omitempty"`
@@ -81,6 +82,31 @@ func (s Storage) assignObject(poolName string) (result operation.AssignResult, e
 	return *assignResult, nil
 }
 
+func (s Storage) formUploadBody(object io.Reader, objectName string) (body *bytes.Buffer,
+	contentType string, bytesWritten uint64, err error) {
+
+	// limit object size because of cannyls
+	object = io.LimitReader(object, ObjectSizeLimit)
+	body = &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("file", objectName)
+	if err != nil {
+		s.logger.Logger.Println("CreateFormFile error:", err)
+		return nil, "", 0, err
+	}
+	n, err := io.Copy(part, object)
+	if err != nil {
+		s.logger.Logger.Println("io.Copy error:", err)
+		return nil, "", 0, err
+	}
+	err = writer.Close()
+	if err != nil {
+		s.logger.Logger.Println("writer.Close error:", err)
+		return nil, "", 0, err
+	}
+	return body, writer.FormDataContentType(), uint64(n), nil
+}
+
 func (s Storage) Put(poolName string, object io.Reader) (objectName string,
 	bytesWritten uint64, err error) {
 
@@ -90,33 +116,18 @@ func (s Storage) Put(poolName string, object io.Reader) (objectName string,
 		return "", 0, err
 	}
 	url := fmt.Sprintf("http://%s/%s", assigned.Url, assigned.Fid)
-	// limit object size because of cannlys
-	object = io.LimitReader(object, ObjectSizeLimit)
 
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile("file", assigned.Fid)
+	body, contentType, bytesWritten, err := s.formUploadBody(object, assigned.Fid)
 	if err != nil {
-		s.logger.Logger.Println("CreateFormFile error:", err)
+		s.logger.Logger.Println("formUploadBody error:", err)
 		return "", 0, err
 	}
-	n, err := io.Copy(part, object)
-	if err != nil {
-		s.logger.Logger.Println("io.Copy error:", err)
-		return "", 0, err
-	}
-	err = writer.Close()
-	if err != nil {
-		s.logger.Logger.Println("writer.Close error:", err)
-		return "", 0, err
-	}
-
 	req, err := http.NewRequest("POST", url, body)
 	if err != nil {
 		s.logger.Logger.Println("http.NewRequest error:", err)
 		return "", 0, err
 	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Content-Type", contentType)
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
@@ -132,24 +143,78 @@ func (s Storage) Put(poolName string, object io.Reader) (objectName string,
 	if result.Error != "" {
 		return "", 0, errors.New(result.Error)
 	}
-	return assigned.Fid, uint64(n), nil
+	return assigned.Fid, bytesWritten, nil
 }
 
 func (s Storage) Append(poolName, existName string, objectChunk io.Reader,
 	offset int64) (objectName string, bytesWritten uint64, err error) {
-	// TODO
-	return "", 0, nil
+
+	var url string
+	if len(existName) == 0 {
+		assigned, err := s.assignObject(poolName)
+		if err != nil {
+			s.logger.Logger.Println("assignObject error:", err)
+			return "", 0, err
+		}
+		url = fmt.Sprintf("http://%s/%s", assigned.Url, assigned.Fid)
+		objectName = assigned.Fid
+	} else {
+		url, err = s.seaweedClient.LookupFileId(existName)
+		if err != nil {
+			s.logger.Logger.Println("seaweedClient.LookupFileId error:", err)
+			return "", 0, err
+		}
+		objectName = existName
+	}
+
+	body, contentType, bytesWritten, err := s.formUploadBody(objectChunk, objectName)
+	if err != nil {
+		s.logger.Logger.Println("formUploadBody error:", err)
+		return "", 0, err
+	}
+	req, err := http.NewRequest("POST", url, body)
+	if err != nil {
+		s.logger.Logger.Println("http.NewRequest error:", err)
+		return "", 0, err
+	}
+	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("X-Start-Offset", fmt.Sprint(offset))
+	req.Header.Set("X-Reservation", fmt.Sprint(ObjectSizeLimit))
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		s.logger.Logger.Println("s.httpClient.Do error:", err)
+		return "", 0, err
+	}
+	var result uploadResult
+	err = helper.ReadJsonBody(resp.Body, &result)
+	if err != nil {
+		s.logger.Logger.Println("ReadJsonBody error:", err)
+		return "", 0, err
+	}
+	if result.Error != "" {
+		return "", 0, errors.New(result.Error)
+	}
+	return objectName, bytesWritten, nil
 }
 
 func (s Storage) GetReader(poolName, objectName string,
 	offset int64, length uint64) (reader io.ReadCloser, err error) {
-	// TODO offset and length
+
 	url, err := s.seaweedClient.LookupFileId(objectName)
 	if err != nil {
 		s.logger.Logger.Println("seaweedClient.LookupFileId error:", err)
 		return nil, err
 	}
-	resp, err := s.httpClient.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if length != 0 {
+		req.Header.Set("X-Start-Offset", fmt.Sprint(offset))
+		req.Header.Set("X-Length-Required", fmt.Sprint(length))
+	}
+	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		s.logger.Logger.Println("httpClient.Get error:", err)
 		return nil, err

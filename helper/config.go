@@ -190,12 +190,18 @@ func MarshalTOMLConfig() error {
 	CONFIG.CacheCircuitCloseSleepWindow = Ternary(c.CacheCircuitCloseSleepWindow < 0, 0, c.CacheCircuitCloseSleepWindow).(int)
 	CONFIG.CacheCircuitCloseRequiredCount = Ternary(c.CacheCircuitCloseRequiredCount < 0, 0, c.CacheCircuitCloseRequiredCount).(int)
 	CONFIG.CacheCircuitOpenThreshold = Ternary(c.CacheCircuitOpenThreshold < 0, 0, c.CacheCircuitOpenThreshold).(int)
-	CONFIG.CacheCircuitExecTimeout = Ternary(c.CacheCircuitExecTimeout == 0, 1, c.CacheCircuitExecTimeout).(uint)
+	CONFIG.CacheCircuitExecTimeout = Ternary(c.CacheCircuitExecTimeout == 0, uint(1), c.CacheCircuitExecTimeout).(uint)
 	CONFIG.CacheCircuitExecMaxConcurrent = c.CacheCircuitExecMaxConcurrent
 
-	CONFIG.DownloadBufPoolSize = Ternary(c.DownloadBufPoolSize < MIN_BUFFER_SIZE || c.DownloadBufPoolSize > MAX_BUFEER_SIZE, MIN_BUFFER_SIZE, c.DownloadBufPoolSize).(int64)
-	CONFIG.UploadMinChunkSize = Ternary(c.UploadMinChunkSize < MIN_BUFFER_SIZE || c.UploadMinChunkSize > MAX_BUFEER_SIZE, MIN_BUFFER_SIZE, c.UploadMinChunkSize).(int64)
-	CONFIG.UploadMaxChunkSize = Ternary(c.UploadMaxChunkSize < CONFIG.UploadMinChunkSize || c.UploadMaxChunkSize > MAX_BUFEER_SIZE, MAX_BUFEER_SIZE, c.UploadMaxChunkSize).(int64)
+	CONFIG.DownloadBufPoolSize = Ternary(
+		c.DownloadBufPoolSize < MIN_BUFFER_SIZE || c.DownloadBufPoolSize > MAX_BUFEER_SIZE,
+		int64(MIN_BUFFER_SIZE), c.DownloadBufPoolSize).(int64)
+	CONFIG.UploadMinChunkSize = Ternary(
+		c.UploadMinChunkSize < MIN_BUFFER_SIZE || c.UploadMinChunkSize > MAX_BUFEER_SIZE,
+		int64(MIN_BUFFER_SIZE), c.UploadMinChunkSize).(int64)
+	CONFIG.UploadMaxChunkSize = Ternary(
+		c.UploadMaxChunkSize < CONFIG.UploadMinChunkSize || c.UploadMaxChunkSize > MAX_BUFEER_SIZE,
+		int64(MAX_BUFEER_SIZE), c.UploadMaxChunkSize).(int64)
 
 	CONFIG.KMS = c.KMS
 
