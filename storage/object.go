@@ -721,7 +721,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 	return result, nil
 }
 
-func (yig *YigStorage) RenameObject(targetObject *meta.Object, credential common.Credential, sourceObject string) (result datatype.PutObjectResult, err error) {
+func (yig *YigStorage) RenameObject(targetObject *meta.Object, credential common.Credential, sourceObject string) (result datatype.RenameObjectResult, err error) {
 
 	bucket, err := yig.MetaStorage.GetBucket(targetObject.BucketName, true)
 	if err != nil {

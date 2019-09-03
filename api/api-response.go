@@ -173,8 +173,8 @@ func GenerateCopyObjectPartResponse(etag string, lastModified time.Time) CopyObj
 }
 
 // GenerateRenameObjectResponse
-func GenerateRenameObjectResponse(lastModified time.Time) CopyObjectResponse {
-	return CopyObjectResponse{
+func GenerateRenameObjectResponse(lastModified time.Time) RenameObjectResponse {
+	return RenameObjectResponse{
 		LastModified: lastModified.UTC().Format(timeFormatAMZ),
 	}
 }
