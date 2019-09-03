@@ -7,11 +7,12 @@ import (
 	"io/ioutil"
 	"sync"
 
-	"github.com/journeymidnight/radoshttpd/rados"
-	"github.com/journeymidnight/yig/log"
-	"time"
 	"fmt"
+	"time"
+
+	"github.com/journeymidnight/radoshttpd/rados"
 	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/log"
 )
 
 const (
@@ -19,10 +20,7 @@ const (
 	OSD_TIMEOUT         = "10"
 	STRIPE_UNIT         = 512 << 10 /* 512K */
 	STRIPE_COUNT        = 2
-	OBJECT_SIZE         = 8 << 20         /* 8M */
-	BUFFER_SIZE         = 1 << 20         /* 1M */
-	MIN_CHUNK_SIZE      = 512 << 10       /* 512K */
-	MAX_CHUNK_SIZE      = 8 * BUFFER_SIZE /* 8M */
+	OBJECT_SIZE         = 8 << 20 /* 8M */
 	SMALL_FILE_POOLNAME = "rabbit"
 	BIG_FILE_POOLNAME   = "tiger"
 	BIG_FILE_THRESHOLD  = 128 << 10 /* 128K */
@@ -222,7 +220,7 @@ func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (si
 
 	var c *rados.AioCompletion
 	pending := list.New()
-	var current_upload_window = MIN_CHUNK_SIZE /* initial window size as MIN_CHUNK_SIZE, max size is MAX_CHUNK_SIZE */
+	var current_upload_window = helper.CONFIG.UploadMinChunkSize /* initial window size as MIN_CHUNK_SIZE, max size is MAX_CHUNK_SIZE */
 	var pending_data = make([]byte, current_upload_window)
 
 	var slice_offset = 0
@@ -280,12 +278,12 @@ func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (si
 		offset += uint64(len(pending_data))
 
 		/* Resize current upload window */
-		expected_time := count * 1000 * 1000 * 1000 / current_upload_window  /* 1000 * 1000 * 1000 means use Nanoseconds */
+		expected_time := int64(count) * 1000 * 1000 * 1000 / current_upload_window /* 1000 * 1000 * 1000 means use Nanoseconds */
 
 		// If the upload speed is less than half of the current upload window, reduce the upload window by half.
 		// If upload speed is larger than current window size per second, used the larger window and twice
-		if  elapsed_time.Nanoseconds() > 2 * int64(expected_time) {
-			if slow_count > 2 && current_upload_window > MIN_CHUNK_SIZE {
+		if elapsed_time.Nanoseconds() > 2*int64(expected_time) {
+			if slow_count > 2 && current_upload_window > helper.CONFIG.UploadMinChunkSize {
 				current_upload_window = current_upload_window >> 1
 				slow_count = 0
 			}
@@ -293,8 +291,8 @@ func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (si
 		} else if int64(expected_time) > elapsed_time.Nanoseconds() {
 			/* if upload speed is fast enough, enlarge the current_upload_window a bit */
 			current_upload_window = current_upload_window << 1
-			if current_upload_window > MAX_CHUNK_SIZE {
-				current_upload_window = MAX_CHUNK_SIZE
+			if current_upload_window > helper.CONFIG.UploadMaxChunkSize {
+				current_upload_window = helper.CONFIG.UploadMaxChunkSize
 			}
 			slow_count = 0
 		}
@@ -339,7 +337,7 @@ func (cluster *CephStorage) Append(poolname string, oid string, data io.Reader, 
 
 	setStripeLayout(&striper)
 
-	var current_upload_window = MIN_CHUNK_SIZE /* initial window size as MIN_CHUNK_SIZE, max size is MAX_CHUNK_SIZE */
+	var current_upload_window = helper.CONFIG.UploadMinChunkSize /* initial window size as MIN_CHUNK_SIZE, max size is MAX_CHUNK_SIZE */
 	var pending_data = make([]byte, current_upload_window)
 
 	var origin_offset = offset
@@ -374,12 +372,12 @@ func (cluster *CephStorage) Append(poolname string, oid string, data io.Reader, 
 		offset += uint64(len(pending_data))
 
 		/* Resize current upload window */
-		expected_time := count * 1000 * 1000 * 1000 / current_upload_window  /* 1000 * 1000 * 1000 means use Nanoseconds */
+		expected_time := int64(count) * 1000 * 1000 * 1000 / current_upload_window /* 1000 * 1000 * 1000 means use Nanoseconds */
 
 		// If the upload speed is less than half of the current upload window, reduce the upload window by half.
 		// If upload speed is larger than current window size per second, used the larger window and twice
-		if  elapsed_time.Nanoseconds() > 2 * int64(expected_time) {
-			if slow_count > 2 && current_upload_window > MIN_CHUNK_SIZE {
+		if elapsed_time.Nanoseconds() > 2*int64(expected_time) {
+			if slow_count > 2 && current_upload_window > helper.CONFIG.UploadMinChunkSize {
 				current_upload_window = current_upload_window >> 1
 				slow_count = 0
 			}
@@ -387,8 +385,8 @@ func (cluster *CephStorage) Append(poolname string, oid string, data io.Reader, 
 		} else if int64(expected_time) > elapsed_time.Nanoseconds() {
 			/* if upload speed is fast enough, enlarge the current_upload_window a bit */
 			current_upload_window = current_upload_window << 1
-			if current_upload_window > MAX_CHUNK_SIZE {
-				current_upload_window = MAX_CHUNK_SIZE
+			if current_upload_window > helper.CONFIG.UploadMaxChunkSize {
+				current_upload_window = helper.CONFIG.UploadMaxChunkSize
 			}
 			slow_count = 0
 		}

@@ -1,4 +1,4 @@
-s3domain = ["s3.test.com","s3-internal.test.com"]
+s3domain = ["s3.test.com", "s3-internal.test.com"]
 region = "cn-bj-1"
 log_path = "/var/log/yig/yig.log"
 access_log_path = "/var/log/yig/access.log"
@@ -35,15 +35,24 @@ redis_write_timeout = 1
 redis_keepalive = 60
 redis_pool_max_idle = 3
 redis_pool_idle_timeout = 30
+
 cache_circuit_check_interval = 3
 cache_circuit_close_sleep_window = 1
 cache_circuit_close_required_count = 3
 cache_circuit_open_threshold = 1
+cache_circuit_exec_timeout = 5
+cache_circuit_exec_max_concurrent = -1
 
+db_max_open_conns = 10240
+db_max_idle_conns = 1024
+db_conn_max_life_seconds = 300
+
+download_buf_pool_size = 8388608 #8MB
+upload_min_chunk_size = 524288 #512KB
+upload_max_chunk_size = 8388608 #8MB
 
 # Ceph Config
 ceph_config_pattern = "/etc/ceph/*.conf"
-download_buf_pool_size = 524288
 
 [kms]
 type = "vault"
@@ -60,7 +69,9 @@ msg_bus_topic = "testTopic2"
 [msg_bus.msg_bus_server]
 broker_list = "kafka:29092"
 
-# Plugin Config list
+
+# Plugin Config
+
 [plugins.dummy_iam]
 path = "/etc/yig/plugins/dummy_iam_plugin.so"
 enable = true
