@@ -17,7 +17,7 @@ import (
 	"time"
 )
 
-const ObjectSizeLimit = 30 << 20 // 30M, limit introduced by cannlys
+const ObjectSizeLimit = 30 << 20 // 30M, limit introduced by cannyls
 
 type uploadResult struct {
 	Name  string `json:"name,omitempty"`
@@ -143,13 +143,21 @@ func (s Storage) Append(poolName, existName string, objectChunk io.Reader,
 
 func (s Storage) GetReader(poolName, objectName string,
 	offset int64, length uint64) (reader io.ReadCloser, err error) {
-	// TODO offset and length
+
 	url, err := s.seaweedClient.LookupFileId(objectName)
 	if err != nil {
 		s.logger.Logger.Println("seaweedClient.LookupFileId error:", err)
 		return nil, err
 	}
-	resp, err := s.httpClient.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if length != 0 {
+		req.Header.Set("X-Start-Offset", fmt.Sprint(offset))
+		req.Header.Set("X-Length-Required", fmt.Sprint(length))
+	}
+	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		s.logger.Logger.Println("httpClient.Get error:", err)
 		return nil, err

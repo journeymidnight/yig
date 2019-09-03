@@ -3,16 +3,14 @@ package ceph
 import (
 	"container/list"
 	"errors"
-	"io"
-	"io/ioutil"
-	"sync"
-
 	"fmt"
-	"time"
-
 	"github.com/journeymidnight/radoshttpd/rados"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
+	"io"
+	"io/ioutil"
+	"sync"
+	"time"
 )
 
 const (
@@ -278,11 +276,12 @@ func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (si
 		offset += uint64(len(pending_data))
 
 		/* Resize current upload window */
-		expected_time := int64(count) * 1000 * 1000 * 1000 / current_upload_window /* 1000 * 1000 * 1000 means use Nanoseconds */
+		expected_time := count * 1000 * 1000 * 1000 / current_upload_window /* 1000 * 1000 * 1000 means use Nanoseconds */
 
 		// If the upload speed is less than half of the current upload window, reduce the upload window by half.
 		// If upload speed is larger than current window size per second, used the larger window and twice
 		if elapsed_time.Nanoseconds() > 2*int64(expected_time) {
+			if slow_count > 2 && current_upload_window > MIN_CHUNK_SIZE {
 			if slow_count > 2 && current_upload_window > helper.CONFIG.UploadMinChunkSize {
 				current_upload_window = current_upload_window >> 1
 				slow_count = 0
@@ -372,7 +371,7 @@ func (cluster *CephStorage) Append(poolname string, oid string, data io.Reader, 
 		offset += uint64(len(pending_data))
 
 		/* Resize current upload window */
-		expected_time := int64(count) * 1000 * 1000 * 1000 / current_upload_window /* 1000 * 1000 * 1000 means use Nanoseconds */
+		expected_time := count * 1000 * 1000 * 1000 / current_upload_window /* 1000 * 1000 * 1000 means use Nanoseconds */
 
 		// If the upload speed is less than half of the current upload window, reduce the upload window by half.
 		// If upload speed is larger than current window size per second, used the larger window and twice
