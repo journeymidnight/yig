@@ -788,8 +788,9 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 	if len(targetObject.Parts) != 0 {
 		var targetParts map[int]*meta.Part = make(map[int]*meta.Part, len(targetObject.Parts))
 		//		etaglist := make([]string, len(sourceObject.Parts))
-		for partNum, part := range targetObject.Parts {
-			targetParts[partNum] = part
+		for i := 1; i <= len(targetObject.Parts); i++ {
+			part := targetObject.Parts[i]
+			targetParts[i] = part
 			pr, pw := io.Pipe()
 			defer pr.Close()
 			var total = part.Size
