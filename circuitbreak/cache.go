@@ -2,9 +2,10 @@ package circuitbreak
 
 import (
 	"errors"
+	"time"
+
 	"github.com/cep21/circuit"
 	"github.com/cep21/circuit/closers/hystrix"
-	"time"
 	"github.com/journeymidnight/yig/helper"
 )
 
@@ -24,7 +25,8 @@ func NewCacheCircuit() *circuit.Circuit {
 			}),
 		},
 		Execution: circuit.ExecutionConfig{
-			Timeout: 1 * time.Second,
+			Timeout:               time.Duration(helper.CONFIG.CacheCircuitExecTimeout) * time.Second,
+			MaxConcurrentRequests: helper.CONFIG.CacheCircuitExecMaxConcurrent,
 		},
 	})
 }

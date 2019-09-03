@@ -109,7 +109,8 @@ var (
 
 func init() {
 	downloadBufPool.New = func() interface{} {
-		return make([]byte, helper.CONFIG.DownLoadBufPoolSize)
+		helper.Logger.Println(20, helper.CONFIG.DownloadBufPoolSize)
+		return make([]byte, helper.CONFIG.DownloadBufPoolSize)
 	}
 }
 
@@ -204,8 +205,9 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 		if err != nil {
 			return err
 		}
-		buffer := make([]byte, MAX_CHUNK_SIZE)
+		buffer := downloadBufPool.Get().([]byte)
 		_, err = io.CopyBuffer(writer, decryptedReader, buffer)
+		downloadBufPool.Put(buffer)
 		return err
 	}
 

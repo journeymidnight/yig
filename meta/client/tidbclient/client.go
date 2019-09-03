@@ -2,12 +2,12 @@ package tidbclient
 
 import (
 	"database/sql"
+	"os"
+	"time"
+
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/journeymidnight/yig/helper"
-	"os"
 )
-
-const MAX_OPEN_CONNS = 1024
 
 type TidbClient struct {
 	Client *sql.DB
@@ -19,8 +19,9 @@ func NewTidbClient() *TidbClient {
 	if err != nil {
 		os.Exit(1)
 	}
-	conn.SetMaxIdleConns(0)
-	conn.SetMaxOpenConns(MAX_OPEN_CONNS)
+	conn.SetMaxIdleConns(helper.CONFIG.DbMaxIdleConns)
+	conn.SetMaxOpenConns(helper.CONFIG.DbMaxOpenConns)
+	conn.SetConnMaxLifetime(time.Duration(helper.CONFIG.DbConnMaxLifeSeconds) * time.Second)
 	cli.Client = conn
 	return cli
 }
