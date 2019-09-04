@@ -849,17 +849,16 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 				pw.Close()
 			}()
 			splitEtagForHwH = strings.Split(part.Etag,":")
-			if !api.CheckEtagPrefixIsHWH(splitEtagForHwH[0]) {
+			switch api.CheckEtagPrefix(splitEtagForHwH[0]) {
+			case api.EtagMd5:
 				hashWriter = md5.New()
-				helper.Logger.Println(20,"Calculate hash by Md5")
-			} else {
+			case api.EtagHWH:
 				key, err := hex.DecodeString(keyValue)
 				if err != nil {
 					helper.Debugln("Cannot decode hex key: %v", err)
 					return result,err
 				}
 				hashWriter,err = highwayhash.New(key)
-				helper.Logger.Println(20,"Calculate hash by HighwayHash")
 				if err != nil {
 					helper.Debugln("Failed to create HighwayHash instance: %v", err)
 					return result,err
@@ -892,7 +891,10 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 			}
 			calculatedHash := hex.EncodeToString(hashWriter.Sum(nil))
 			//we will only chack part etag,overall etag will be same if each part of etag is same
-			if api.CheckEtagPrefixIsHWH(splitEtagForHwH[0]) {
+			switch api.CheckEtagPrefix(splitEtagForHwH[0]) {
+			case api.EtagMd5:
+				break
+			case api.EtagHWH:
 				calculatedHash = "HwH:" + calculatedHash
 			}
 			if calculatedHash != part.Etag {
@@ -910,10 +912,11 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		result.Md5 = targetObject.Etag
 	} else {
 		splitEtagForHwH = strings.Split(targetObject.Etag,":")
-		if !api.CheckEtagPrefixIsHWH(splitEtagForHwH[0]) {
+		switch api.CheckEtagPrefix(splitEtagForHwH[0]) {
+		case api.EtagMd5:
 			hashWriter = md5.New()
 			helper.Logger.Println(20,"Calculate hash by Md5")
-		} else {
+		case api.EtagHWH:
 			key, err := hex.DecodeString(keyValue)
 			if err != nil {
 				helper.Debugln("Cannot decode hex key: %v", err)
@@ -960,7 +963,10 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		}
 
 		calculatedHash := hex.EncodeToString(hashWriter.Sum(nil))
-		if api.CheckEtagPrefixIsHWH(splitEtagForHwH[0]) {
+		switch api.CheckEtagPrefix(splitEtagForHwH[0]) {
+		case api.EtagMd5:
+			break
+		case api.EtagHWH:
 			calculatedHash = "HwH:" + calculatedHash
 		}
 		if calculatedHash != targetObject.Etag {

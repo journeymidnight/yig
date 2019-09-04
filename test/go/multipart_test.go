@@ -23,7 +23,7 @@ func Test_MultipartUpload(t *testing.T) {
 		panic(err)
 	}
 
-	partCount := 3
+	partCount := 10
 	completedUpload := &s3.CompletedMultipartUpload{
 		Parts: make([]*s3.CompletedPart, partCount),
 	}
@@ -67,7 +67,7 @@ func Test_MultipartUploadWithoutMD5(t *testing.T) {
 		panic(err)
 	}
 
-	partCount := 3
+	partCount := 10
 	completedUpload := &s3.CompletedMultipartUpload{
 		Parts: make([]*s3.CompletedPart, partCount),
 	}
@@ -110,7 +110,7 @@ func Test_CopyObjectPart(t *testing.T) {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
-	partCount := 3
+	partCount := 10
 	completedUpload := &s3.CompletedMultipartUpload{
 		Parts: make([]*s3.CompletedPart, partCount),
 	}
@@ -180,7 +180,7 @@ func Test_CopyObjectPartWithoutMD5(t *testing.T) {
 		panic(err)
 	}
 
-	partCount := 3
+	partCount := 10
 	completedUpload := &s3.CompletedMultipartUpload{
 		Parts: make([]*s3.CompletedPart, partCount),
 	}
