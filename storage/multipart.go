@@ -327,10 +327,11 @@ func (yig *YigStorage) CopyObjectPart(targetObject *meta.Object, data io.Reader,
 	var hashWriter hash.Hash
 	var splitEtagForHwH []string
 	splitEtagForHwH = strings.Split(targetObject.Etag, ":")
-	if !api.CheckEtagPrefixIsHWH(splitEtagForHwH[0]) {
+	switch api.CheckEtagPrefix(splitEtagForHwH[0]) {
+	case api.EtagMd5:
 		hashWriter = md5.New()
 		helper.Logger.Println(20,"Calculate hash by Md5")
-	} else {
+	case api.EtagHWH:
 		key, err := hex.DecodeString(keyValue)
 		if err != nil {
 			helper.Debugln("Cannot decode hex key: %v", err)
@@ -624,10 +625,11 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, tar
 		}
 		splitEtagForHwH = strings.Split(part.Etag, ":")
 		var etagBytes []byte
-		if api.CheckEtagPrefixIsHWH(splitEtagForHwH[0]) {
-			etagBytes, err = hex.DecodeString(splitEtagForHwH[1])
-		} else {
+		switch api.CheckEtagPrefix(splitEtagForHwH[0]) {
+		case api.EtagMd5:
 			etagBytes, err = hex.DecodeString(splitEtagForHwH[0])
+		case api.EtagHWH:
+			etagBytes, err = hex.DecodeString(splitEtagForHwH[1])
 		}
 		if err != nil {
 			helper.Logger.Println(20, "hex.DecodeString(part.Etag) err;", "uploadId:", uploadID)
@@ -639,10 +641,11 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, tar
 		hashWriter.Write(etagBytes)
 	}
 	result.ETag = hex.EncodeToString(hashWriter.Sum(nil))
-	if api.CheckEtagPrefixIsHWH(splitEtagForHwH[0]) {
-		result.ETag = "HwH:" + result.ETag + "-" + strconv.Itoa(len(uploadedParts))
-	} else {
+	switch api.CheckEtagPrefix(splitEtagForHwH[0]) {
+	case api.EtagMd5:
 		result.ETag += "-" + strconv.Itoa(len(uploadedParts))
+	case api.EtagHWH:
+		result.ETag = "HwH:" + result.ETag + "-" + strconv.Itoa(len(uploadedParts))
 	}
 	// See http://stackoverflow.com/questions/12186993
 	// for how to calculate multipart Etag
