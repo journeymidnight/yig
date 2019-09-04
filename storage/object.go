@@ -115,7 +115,8 @@ var (
 
 func init() {
 	downloadBufPool.New = func() interface{} {
-		return make([]byte, helper.CONFIG.DownLoadBufPoolSize)
+		helper.Logger.Println(20, helper.CONFIG.DownloadBufPoolSize)
+		return make([]byte, helper.CONFIG.DownloadBufPoolSize)
 	}
 }
 
@@ -210,8 +211,9 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 		if err != nil {
 			return err
 		}
-		buffer := make([]byte, MAX_CHUNK_SIZE)
+		buffer := downloadBufPool.Get().([]byte)
 		_, err = io.CopyBuffer(writer, decryptedReader, buffer)
+		downloadBufPool.Put(buffer)
 		return err
 	}
 
@@ -835,85 +837,94 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 	var splitEtagForHwH []string
 	if len(targetObject.Parts) != 0 {
 		var targetParts map[int]*meta.Part = make(map[int]*meta.Part, len(targetObject.Parts))
-		//		etaglist := make([]string, len(sourceObject.Parts))
-		for partNum, part := range targetObject.Parts {
-			targetParts[partNum] = part
-			pr, pw := io.Pipe()
-			defer pr.Close()
-			var total = part.Size
-			go func() {
-				_, err = io.CopyN(pw, source, total)
+		for i := 1; i <= len(targetObject.Parts); i++ {
+			part := targetObject.Parts[i]
+			targetParts[i] = part
+			result, err = func() (result datatype.PutObjectResult, err error) {
+				pr, pw := io.Pipe()
+				defer pr.Close()
+				var total = part.Size
+				go func() {
+					_, err = io.CopyN(pw, source, total)
+					if err != nil {
+						return
+					}
+					pw.Close()
+				}()
+				splitEtagForHwH = strings.Split(part.Etag,":")
+				switch api.CheckEtagPrefix(splitEtagForHwH[0]) {
+				case api.EtagMd5:
+					hashWriter = md5.New()
+				case api.EtagHWH:
+					key, err := hex.DecodeString(keyValue)
+					if err != nil {
+						helper.Debugln("Cannot decode hex key: %v", err)
+						return result,err
+					}
+					hashWriter,err = highwayhash.New(key)
+					if err != nil {
+						helper.Debugln("Failed to create HighwayHash instance: %v", err)
+						return result,err
+					}
+				}
+				dataReader := io.TeeReader(pr, hashWriter)
+				oid = cephCluster.GetUniqUploadName()
+				var bytesW int64
+				var storageReader io.Reader
+				var initializationVector []byte
+				if len(encryptionKey) != 0 {
+					initializationVector, err = newInitializationVector()
+					if err != nil {
+						return
+					}
+				}
+				storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
+				bytesW, err = cephCluster.Put(poolName, oid, storageReader)
+				maybeObjectToRecycle = objectToRecycle{
+					location: cephCluster.Name,
+					pool:     poolName,
+					objectId: oid,
+				}
+				if bytesW < part.Size {
+					RecycleQueue <- maybeObjectToRecycle
+					return result, ErrIncompleteBody
+				}
 				if err != nil {
+					return result, err
+				}
+				calculatedHash := hex.EncodeToString(hashWriter.Sum(nil))
+				//we will only chack part etag,overall etag will be same if each part of etag is same
+				switch api.CheckEtagPrefix(splitEtagForHwH[0]) {
+				case api.EtagMd5:
+					break
+				case api.EtagHWH:
+					calculatedHash = "HwH:" + calculatedHash
+				}
+				if calculatedHash != part.Etag {
+					err = ErrInternalError
+					RecycleQueue <- maybeObjectToRecycle
 					return
 				}
-				pw.Close()
+				part.LastModified = time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT)
+				part.ObjectId = oid
+
+				part.InitializationVector = initializationVector
+				return result, nil
 			}()
-			splitEtagForHwH = strings.Split(part.Etag,":")
-			if !api.CheckEtagPrefixIsHWH(splitEtagForHwH[0]) {
-				hashWriter = md5.New()
-				helper.Logger.Println(20,"Calculate hash by Md5")
-			} else {
-				key, err := hex.DecodeString(keyValue)
-				if err != nil {
-					helper.Debugln("Cannot decode hex key: %v", err)
-					return result,err
-				}
-				hashWriter,err = highwayhash.New(key)
-				helper.Logger.Println(20,"Calculate hash by HighwayHash")
-				if err != nil {
-					helper.Debugln("Failed to create HighwayHash instance: %v", err)
-					return result,err
-				}
-			}
-			dataReader := io.TeeReader(pr, hashWriter)
-			oid = cephCluster.GetUniqUploadName()
-			var bytesW int64
-			var storageReader io.Reader
-			var initializationVector []byte
-			if len(encryptionKey) != 0 {
-				initializationVector, err = newInitializationVector()
-				if err != nil {
-					return
-				}
-			}
-			storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
-			bytesW, err = cephCluster.Put(poolName, oid, storageReader)
-			maybeObjectToRecycle = objectToRecycle{
-				location: cephCluster.Name,
-				pool:     poolName,
-				objectId: oid,
-			}
-			if bytesW < part.Size {
-				RecycleQueue <- maybeObjectToRecycle
-				return result, ErrIncompleteBody
-			}
 			if err != nil {
 				return result, err
 			}
-			calculatedHash := hex.EncodeToString(hashWriter.Sum(nil))
-			//we will only chack part etag,overall etag will be same if each part of etag is same
-			if api.CheckEtagPrefixIsHWH(splitEtagForHwH[0]) {
-				calculatedHash = "HwH:" + calculatedHash
-			}
-			if calculatedHash != part.Etag {
-				err = ErrInternalError
-				RecycleQueue <- maybeObjectToRecycle
-				return
-			}
-			part.LastModified = time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT)
-			part.ObjectId = oid
-
-			part.InitializationVector = initializationVector
 		}
 		targetObject.ObjectId = ""
 		targetObject.Parts = targetParts
 		result.Md5 = targetObject.Etag
 	} else {
 		splitEtagForHwH = strings.Split(targetObject.Etag,":")
-		if !api.CheckEtagPrefixIsHWH(splitEtagForHwH[0]) {
+		switch api.CheckEtagPrefix(splitEtagForHwH[0]) {
+		case api.EtagMd5:
 			hashWriter = md5.New()
 			helper.Logger.Println(20,"Calculate hash by Md5")
-		} else {
+		case api.EtagHWH:
 			key, err := hex.DecodeString(keyValue)
 			if err != nil {
 				helper.Debugln("Cannot decode hex key: %v", err)
@@ -960,7 +971,10 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		}
 
 		calculatedHash := hex.EncodeToString(hashWriter.Sum(nil))
-		if api.CheckEtagPrefixIsHWH(splitEtagForHwH[0]) {
+		switch api.CheckEtagPrefix(splitEtagForHwH[0]) {
+		case api.EtagMd5:
+			break
+		case api.EtagHWH:
 			calculatedHash = "HwH:" + calculatedHash
 		}
 		if calculatedHash != targetObject.Etag {
