@@ -29,6 +29,13 @@ import (
 	"github.com/journeymidnight/yig/crypto"
 )
 
+type  EtagPrefixType int
+
+const (
+	EtagMd5 EtagPrefixType = iota
+	EtagHWH
+)
+
 // xmlDecoder provide decoded value in xml.
 func xmlDecoder(body io.Reader, v interface{}) error {
 	d := xml.NewDecoder(body)
@@ -144,6 +151,13 @@ func hasServerSideEncryptionHeader(header http.Header) bool {
 	return crypto.S3.IsRequested(header) || crypto.SSEC.IsRequested(header)
 }
 
-func CheckEtagPrefixIsHWH(etagPrefix string) bool {
-	return etagPrefix == "HwH"
+func CheckEtagPrefix(etagPrefix string) EtagPrefixType {
+	switch etagPrefix {
+	case "":
+		return EtagMd5
+	case "HwH":
+		return EtagHWH
+	default:
+		return EtagMd5
+	}
 }
