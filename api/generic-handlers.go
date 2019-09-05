@@ -71,7 +71,7 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Expose-Headers", strings.Join(CommonS3ResponseHeaders, ","))
 	}
 
-	ctx := r.Context().Value(RequestContextKey).(RequestContext)
+	ctx := getRequestContext(r)
 	bucket := ctx.BucketInfo
 
 	// If bucket CORS exists, overwrite the in-reserved CORS Headers
@@ -109,7 +109,8 @@ type resourceHandler struct {
 // Resource handler ServeHTTP() wrapper
 func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Skip the first element which is usually '/' and split the rest.
-	bucketName, objectName := GetBucketAndObjectInfoFromRequest(r)
+	ctx := getRequestContext(r)
+	bucketName, objectName := ctx.BucketName, ctx.ObjectName
 	helper.Logger.Println(5, "ServeHTTP", bucketName, objectName)
 	// If bucketName is present and not objectName check for bucket
 	// level resource queries.
@@ -143,105 +144,11 @@ func SetIgnoreResourcesHandler(h http.Handler, _ *meta.Meta) http.Handler {
 	return resourceHandler{h}
 }
 
-// authHandler - handles all the incoming authorization headers and
-// validates them if possible.
-type AuthHandler struct {
-	handler http.Handler
-}
-
-// handler for validating incoming authorization headers.
-func (a AuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	switch signature.GetRequestAuthType(r) {
-	case signature.AuthTypeUnknown:
-		WriteErrorResponse(w, r, ErrSignatureVersionNotSupported)
-		return
-	default:
-		// Let top level caller validate for anonymous and known
-		// signed requests.
-		a.handler.ServeHTTP(w, r)
-		return
-	}
-}
-
-// setAuthHandler to validate authorization header for the incoming request.
-func SetAuthHandler(h http.Handler, _ *meta.Meta) http.Handler {
-	return AuthHandler{h}
-}
-
-// authHandler - handles all the incoming authorization headers and
-// validates them if possible.
-type GenerateContextHandler struct {
-	handler http.Handler
-	meta    *meta.Meta
-}
-
-// handler for validating incoming authorization headers.
-func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var bucketInfo *types.Bucket
-	var objectInfo *types.Object
-	var err error
-	requestId := string(helper.GenerateRandomId())
-	bucketName, objectName := GetBucketAndObjectInfoFromRequest(r)
-	helper.Logger.Println(20, "GenerateContextHandler. RequestId:", requestId, "BucketName:", bucketName, "ObjectName:", objectName)
-
-	if bucketName != "" {
-		bucketInfo, err = h.meta.GetBucket(bucketName, true)
-		if err != nil && err != ErrNoSuchBucket {
-			WriteErrorResponse(w, r, err)
-			return
-		}
-		if bucketInfo != nil && objectName != "" {
-			objectInfo, err = h.meta.GetObject(bucketInfo.Name, objectName, true)
-			if err != nil && err != ErrNoSuchKey {
-				WriteErrorResponse(w, r, err)
-				return
-			}
-		}
-	}
-
-	ctx := context.WithValue(r.Context(), RequestContextKey, RequestContext{requestId, bucketInfo, objectInfo})
-	h.handler.ServeHTTP(w, r.WithContext(ctx))
-
-}
-
-// setAuthHandler to validate authorization header for the incoming request.
-func SetGenerateContextHandler(h http.Handler, meta *meta.Meta) http.Handler {
-	return GenerateContextHandler{h, meta}
-}
-
-func InReservedOrigins(origin string) bool {
-	if len(helper.CONFIG.ReservedOrigins) == 0 {
-		return false
-	}
-	OriginsSplit := strings.Split(helper.CONFIG.ReservedOrigins, ",")
-	for _, r := range OriginsSplit {
-		if strings.Contains(origin, r) {
-			return true
-		}
-	}
-	return false
-}
-
-// guessIsBrowserReq - returns true if the request is browser.
-// This implementation just validates user-agent and
-// looks for "Mozilla" string. This is no way certifiable
-// way to know if the request really came from a browser
-// since User-Agent's can be arbitrary. But this is just
-// a best effort function.
-func guessIsBrowserReq(req *http.Request) bool {
-	if req == nil {
-		return false
-	}
-	return true
-	//return strings.Contains(req.Header.Get("User-Agent"), "Mozilla")
-}
-
-//// helpers
-
 // Checks requests for not implemented Bucket resources
 func ignoreNotImplementedBucketResources(req *http.Request) bool {
 	for name := range req.URL.Query() {
 		if notimplementedBucketResourceNames[name] {
+			helper.Logger.Println(20, "Bucket", name, "has not been implemented.")
 			return true
 		}
 	}
@@ -252,6 +159,7 @@ func ignoreNotImplementedBucketResources(req *http.Request) bool {
 func ignoreNotImplementedObjectResources(req *http.Request) bool {
 	for name := range req.URL.Query() {
 		if notimplementedObjectResourceNames[name] {
+			helper.Logger.Println(20, "Object", name, "has not been implemented.")
 			return true
 		}
 	}
@@ -273,6 +181,78 @@ var notimplementedObjectResourceNames = map[string]bool{
 	"torrent": true,
 }
 
+// authHandler - handles all the incoming authorization headers and
+// validates them if possible.
+type GenerateContextHandler struct {
+	handler http.Handler
+	meta    *meta.Meta
+}
+
+// handler for validating incoming authorization headers.
+func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	var bucketInfo *types.Bucket
+	var objectInfo *types.Object
+	var err error
+	requestId := string(helper.GenerateRandomId())
+	bucketName, objectName := GetBucketAndObjectInfoFromRequest(r)
+
+	if bucketName != "" {
+		bucketInfo, err = h.meta.GetBucket(bucketName, true)
+		if err != nil && err != ErrNoSuchBucket {
+			WriteErrorResponse(w, r, err)
+			return
+		}
+		if bucketInfo != nil && objectName != "" {
+			objectInfo, err = h.meta.GetObject(bucketInfo.Name, objectName, true)
+			if err != nil && err != ErrNoSuchKey {
+				WriteErrorResponse(w, r, err)
+				return
+			}
+		}
+	}
+
+	authType := signature.GetRequestAuthType(r)
+	if authType == signature.AuthTypeUnknown {
+		WriteErrorResponse(w, r, ErrSignatureVersionNotSupported)
+		return
+	}
+
+	ctx := context.WithValue(
+		r.Context(),
+		RequestContextKey,
+		&RequestContext{
+			RequestId:  requestId,
+			BucketName: bucketName,
+			ObjectName: objectName,
+			BucketInfo: bucketInfo,
+			ObjectInfo: objectInfo,
+			AuthType:   authType,
+		})
+	helper.Logger.Printf(20, "RequestId: %s, BucketName: %s, ObjectName: %s, BucketInfo: %s, ObjectInfo: %s, AuthType: %d",
+		requestId, bucketName, objectName, bucketInfo, objectInfo, authType)
+	h.handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+// setAuthHandler to validate authorization header for the incoming request.
+func SetGenerateContextHandler(h http.Handler, meta *meta.Meta) http.Handler {
+	return GenerateContextHandler{h, meta}
+}
+
+func InReservedOrigins(origin string) bool {
+	if len(helper.CONFIG.ReservedOrigins) == 0 {
+		return false
+	}
+	OriginsSplit := strings.Split(helper.CONFIG.ReservedOrigins, ",")
+	for _, r := range OriginsSplit {
+		if strings.Contains(origin, r) {
+			return true
+		}
+	}
+	return false
+}
+
+//// helpers
+
 func GetBucketAndObjectInfoFromRequest(r *http.Request) (bucketName string, objectName string) {
 	splits := strings.SplitN(r.URL.Path[1:], "/", 2)
 	v := strings.Split(r.Host, ":")
@@ -292,4 +272,8 @@ func GetBucketAndObjectInfoFromRequest(r *http.Request) (bucketName string, obje
 		}
 	}
 	return
+}
+
+func getRequestContext(r *http.Request) *RequestContext {
+	return r.Context().Value(RequestContextKey).(*RequestContext)
 }

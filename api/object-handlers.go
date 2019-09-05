@@ -148,7 +148,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 
 	version := r.URL.Query().Get("versionId")
 	// Fetch object stat info.
-	object, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName, version, credential)
+	object, err := api.ObjectAPI.GetObjectInfoByCtx(getRequestContext(r), version, credential)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
 		if err == ErrNoSuchKey {
@@ -298,7 +298,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	version := r.URL.Query().Get("versionId")
-	object, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName, version, credential)
+	object, err := api.ObjectAPI.GetObjectInfoByCtx(getRequestContext(r), version, credential)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
 		if err == ErrNoSuchKey {
@@ -919,7 +919,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 
 	// Check whether the object is exist or not
 	// Check whether the bucket is owned by the specified user
-	objInfo, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName, "", credential)
+	objInfo, err := api.ObjectAPI.GetObjectInfoByCtx(getRequestContext(r), "", credential)
 	if err != nil && err != ErrNoSuchKey {
 		WriteErrorResponse(w, r, err)
 		return

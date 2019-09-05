@@ -65,10 +65,6 @@ func configureServerHandler(c *ServerConfig) http.Handler {
 		// Validates all incoming URL resources, for invalid/unsupported
 		// resources client receives a HTTP error.
 		api.SetIgnoreResourcesHandler,
-		// Auth handler verifies incoming authorization headers and
-		// routes them accordingly. Client receives a HTTP error for
-		// invalid/unsupported signatures.
-		api.SetAuthHandler,
 		// Add new handlers here.
 
 		api.SetLogHandler,
