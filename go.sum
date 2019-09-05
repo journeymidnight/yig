@@ -126,6 +126,8 @@ github.com/journeymidnight/aws-sdk-go v0.0.0-20190819070633-707af93b199c h1:pBz/
 github.com/journeymidnight/aws-sdk-go v0.0.0-20190819070633-707af93b199c/go.mod h1:bPAdbt/vJ+eG/DJ2q1rFWIAEF+VWvld83i27b/SFRJg=
 github.com/journeymidnight/aws-sdk-go v0.0.0-20190819083022-ecaf78f2133b h1:dFL2zY1rtGuqfOBLakLP14abMvmR2Mvv7B69sAtxbk4=
 github.com/journeymidnight/aws-sdk-go v0.0.0-20190819083022-ecaf78f2133b/go.mod h1:bPAdbt/vJ+eG/DJ2q1rFWIAEF+VWvld83i27b/SFRJg=
+github.com/journeymidnight/aws-sdk-go v0.0.0-20190905144850-21150785b32d h1:o5A9FhyYIIY6phcWID+PayJ74arKstnLp78i6MAZSZQ=
+github.com/journeymidnight/aws-sdk-go v0.0.0-20190905144850-21150785b32d/go.mod h1:bPAdbt/vJ+eG/DJ2q1rFWIAEF+VWvld83i27b/SFRJg=
 github.com/journeymidnight/aws-sdk-go v1.17.5 h1:fXF7G+rEq+I1cbtIhRgCVjqC5Zj46usmF8+7Waat8Zc=
 github.com/journeymidnight/aws-sdk-go v1.17.5/go.mod h1:bPAdbt/vJ+eG/DJ2q1rFWIAEF+VWvld83i27b/SFRJg=
 github.com/journeymidnight/radoshttpd v0.0.0-20190617133011-609666b51136 h1:ioRwpqJIOz8DOhriRNkd2/DYXYLi44N61N9MnjozzuM=
