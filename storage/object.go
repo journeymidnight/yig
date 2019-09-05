@@ -11,6 +11,7 @@ import (
 	"path"
 	"sync"
 
+	"github.com/journeymidnight/yig/api"
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/crypto"
 	. "github.com/journeymidnight/yig/error"
@@ -300,6 +301,50 @@ func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 	}
 	if err != nil {
 		return
+	}
+
+	if !credential.AllowOtherUserAccess {
+		switch object.ACL.CannedAcl {
+		case "public-read", "public-read-write":
+			break
+		case "authenticated-read":
+			if credential.UserId == "" {
+				err = ErrAccessDenied
+				return
+			}
+		case "bucket-owner-read", "bucket-owner-full-control":
+			if bucket.OwnerId != credential.UserId {
+				err = ErrAccessDenied
+				return
+			}
+		default:
+			if object.OwnerId != credential.UserId {
+				err = ErrAccessDenied
+				return
+			}
+		}
+	}
+
+	return
+}
+
+func (yig *YigStorage) GetObjectInfoByCtx(ctx *api.RequestContext,
+	version string, credential common.Credential) (object *meta.Object, err error) {
+	bucket := ctx.BucketInfo
+	if bucket == nil {
+		return nil, ErrNoSuchBucket
+	}
+	object = ctx.ObjectInfo
+	if object == nil {
+		return nil, ErrNoSuchKey
+	}
+	if version == "" {
+		return object, nil
+	} else {
+		object, err = yig.getObjWithVersion(ctx.BucketName, ctx.ObjectName, version)
+		if err != nil {
+			return
+		}
 	}
 
 	if !credential.AllowOtherUserAccess {

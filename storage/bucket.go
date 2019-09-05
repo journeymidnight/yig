@@ -302,6 +302,28 @@ func (yig *YigStorage) GetBucketInfo(bucketName string,
 	return
 }
 
+func (yig *YigStorage) GetBucketInfoByCtx(ctx *api.RequestContext,
+	credential common.Credential) (bucket *meta.Bucket, err error) {
+
+	bucket = ctx.BucketInfo
+	if bucket == nil {
+		return nil, ErrNoSuchBucket
+	}
+	if !credential.AllowOtherUserAccess {
+		if bucket.OwnerId != credential.UserId {
+			switch bucket.ACL.CannedAcl {
+			case "public-read", "public-read-write", "authenticated-read":
+				break
+			default:
+				err = ErrBucketAccessForbidden
+				return
+			}
+		}
+	}
+
+	return
+}
+
 func (yig *YigStorage) SetBucketPolicy(credential common.Credential, bucketName string, bucketPolicy policy.Policy) (err error) {
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, false)
 	if err != nil {
@@ -408,11 +430,11 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential common.Credent
 		return ErrBucketNotEmpty
 	}
 	// Check if object part is empty
-	objparts, _, _, _, _, err := yig.MetaStorage.Client.ListMultipartUploads(bucketName, "", "","","", "",1)
+	objparts, _, _, _, _, err := yig.MetaStorage.Client.ListMultipartUploads(bucketName, "", "", "", "", "", 1)
 	if err != nil {
 		return err
 	}
-	if  len(objparts) != 0 {
+	if len(objparts) != 0 {
 		return ErrBucketNotEmpty
 	}
 	err = yig.MetaStorage.Client.DeleteBucket(*bucket)
@@ -620,4 +642,3 @@ func (yig *YigStorage) ListVersionedObjects(credential common.Credential, bucket
 
 	return
 }
-

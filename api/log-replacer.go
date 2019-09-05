@@ -174,7 +174,7 @@ func (r *replacer) getSubstitution(key string) string {
 	case "{request_uri}":
 		return r.request.Method + " " + r.request.URL.String() + " " + r.request.Proto
 	case "{request_id}":
-		return r.request.Context().Value(RequestContextKey).(RequestContext).RequestId
+		return getRequestContext(r.request).RequestId
 	case "{operation_name}":
 		return r.responseRecorder.operationName
 	case "{host_name}":
@@ -195,7 +195,7 @@ func (r *replacer) getSubstitution(key string) string {
 		return objectName
 	case "{object_size}":
 		var objectSize int64
-		objectInfo := r.request.Context().Value(RequestContextKey).(RequestContext).ObjectInfo
+		objectInfo := getRequestContext(r.request).ObjectInfo
 		if objectInfo != nil {
 			objectSize = objectInfo.Size
 		}
@@ -208,7 +208,7 @@ func (r *replacer) getSubstitution(key string) string {
 		}
 		return requester_id
 	case "{project_id}":
-		bucketInfo := r.request.Context().Value(RequestContextKey).(RequestContext).BucketInfo
+		bucketInfo := getRequestContext(r.request).BucketInfo
 		if bucketInfo == nil {
 			return "-"
 		}
@@ -265,7 +265,7 @@ func (r *replacer) getSubstitution(key string) string {
 		// Currently, the intranet domain name is formed by adding the "-internal" on the second-level domain name of the public network.
 		return strconv.FormatBool(strings.Contains(r.request.Host, "internal"))
 	case "{storage_class}":
-		objectInfo := r.request.Context().Value(RequestContextKey).(RequestContext).ObjectInfo
+		objectInfo := getRequestContext(r.request).ObjectInfo
 		if objectInfo == nil {
 			return "-"
 		}
