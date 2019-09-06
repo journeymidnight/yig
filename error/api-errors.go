@@ -153,6 +153,17 @@ const (
 	ErrInvalidStorageClass
 	ErrInvalidWebsiteConfiguration
 	ErrMalformedWebsiteConfiguration
+	ErrInvalidWebsiteRedirectProtocol
+	ErrExceededWebsiteRoutingRulesLimit
+	ErrSecondLevelDomainForbidden
+	ErrMissingRoutingRuleInWebsiteRules
+	ErrMissingRedirectInWebsiteRoutingRule
+	ErrMissingRedirectElementInWebsiteRoutingRule
+	ErrDuplicateKeyReplaceTagInWebsiteRoutingRule
+	ErrInvalidHttpRedirectCodeInWebsiteRoutingRule
+	ErrIndexDocumentNotAllowed
+	ErrInvalidIndexDocumentSuffix
+	ErrInvalidErrorDocumentKey
 )
 
 // error code to APIError structure, these fields carry respective
@@ -681,13 +692,68 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrInvalidWebsiteConfiguration: {
 		AwsErrorCode:   "InvalidWebsiteConfiguration",
-		Description:    "The XML of website configuration in the request is invalid.",
-		HttpStatusCode: http.StatusConflict,
+		Description:    "If element RedirectAllRequestsTo is present, no other siblings are allowed.",
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrMalformedWebsiteConfiguration: {
 		AwsErrorCode:   "MalformedWebsiteConfiguration",
 		Description:    "Cannot Marshal/Unmarshal XML of website configuration.",
 		HttpStatusCode: http.StatusConflict,
+	},
+	ErrInvalidWebsiteRedirectProtocol: {
+		AwsErrorCode:   "InvalidWebsiteRedirectProtocol",
+		Description:    "The protocol you specified in the website configuration is invalid.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrExceededWebsiteRoutingRulesLimit: {
+		AwsErrorCode:   "ExceededWebsiteRoutingRulesLimit",
+		Description:    "The quantity of the routing rules in the website configuration is exceeded.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrSecondLevelDomainForbidden: {
+		AwsErrorCode:   "SecondLevelDomainForbidden",
+		Description:    "The bucket you are attempting to access must be addressed using OSS third level domain.",
+		HttpStatusCode: http.StatusForbidden,
+	},
+	ErrMissingRoutingRuleInWebsiteRules: {
+		AwsErrorCode:   "MissingRoutingRuleInWebsiteRules",
+		Description:    "In a RoutingRules container, there must be at least one of RoutingRule element.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMissingRedirectInWebsiteRoutingRule: {
+		AwsErrorCode:   "MissingRedirectInWebsiteRoutingRule",
+		Description:    "In a RoutingRule container, there must be at least one of Redirect element.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMissingRedirectElementInWebsiteRoutingRule: {
+		AwsErrorCode:   "MissingRedirectElementInWebsiteRoutingRule",
+		Description:    "In a Redirect container, there must be at least one element.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrDuplicateKeyReplaceTagInWebsiteRoutingRule: {
+		AwsErrorCode:   "DuplicateKeyReplaceTagInWebsiteRoutingRule",
+		Description:    "In a Redirect container, element ReplaceKeyPrefixWith and ReplaceKeyWith can not appear at the same time.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidHttpRedirectCodeInWebsiteRoutingRule: {
+		AwsErrorCode:   "InvalidHttpRedirectCodeInWebsiteRoutingRule",
+		Description:    "Element HttpRedirectCode in Redirect container is invalid.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrIndexDocumentNotAllowed: {
+		AwsErrorCode:   "IndexDocumentNotAllowed",
+		Description:    "If element RedirectAllRequestsTo is present, no other siblings are allowed..",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidIndexDocumentSuffix: {
+		AwsErrorCode:   "InvalidIndexDocumentSuffix",
+		Description:    "The suffix must not be empty and must not include a slash character.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidErrorDocumentKey: {
+		AwsErrorCode:   "InvalidErrorDocumentKey",
+		Description:    "The key is required when ErrorDocument is specified.",
+		HttpStatusCode: http.StatusBadRequest,
 	},
 }
 

@@ -1,12 +1,14 @@
 package _go
 
 import (
-	. "github.com/journeymidnight/yig/test/go/lib"
 	"testing"
+
+	. "github.com/journeymidnight/yig/test/go/lib"
 )
 
 func Test_BucketWebSite(t *testing.T) {
 	sc := NewS3()
+	defer sc.CleanEnv()
 	err := sc.MakeBucket(TEST_BUCKET)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
@@ -25,6 +27,6 @@ func Test_BucketWebSite(t *testing.T) {
 		t.Fatal("DeleteBucketWebsite err:", err)
 		panic(err)
 	}
-	sc.DeleteBucket(TEST_BUCKET)
-
 }
+
+const testHtml = `<html><body>test website</body></html>`

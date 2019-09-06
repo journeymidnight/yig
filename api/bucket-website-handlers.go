@@ -1,15 +1,19 @@
 package api
 
 import (
+	"io"
+	"net/http"
+	"strings"
+
 	"github.com/dustin/go-humanize"
 	"github.com/gorilla/mux"
+	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/api/datatype/policy"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/signature"
-	"io"
-	"net/http"
 )
 
 const (
@@ -132,4 +136,136 @@ func (api ObjectAPIHandlers) DeleteBucketWebsiteHandler(w http.ResponseWriter, r
 	}
 	// Success.
 	WriteSuccessNoContent(w)
+}
+
+func (api ObjectAPIHandlers) HandledByWebsite(w http.ResponseWriter, r *http.Request) (handled bool) {
+	ctx := getRequestContext(r)
+	if ctx.BucketInfo == nil {
+		WriteErrorResponse(w, r, ErrNoSuchBucket)
+		return true
+	}
+	if ctx.AuthType != signature.AuthTypeAnonymous {
+		return false
+	}
+
+	website := ctx.BucketInfo.Website
+	// redirect
+	if redirect := website.RedirectAllRequestsTo; redirect != nil && redirect.HostName != "" {
+		if !ctx.IsBucketDomain {
+			WriteErrorResponse(w, r, ErrSecondLevelDomainForbidden)
+			return true
+		}
+		protocol := redirect.Protocol
+		if protocol == "" {
+			protocol = helper.Ternary(r.URL.Scheme == "", "http", r.URL.Scheme).(string)
+		}
+		http.Redirect(w, r, protocol+"://"+redirect.HostName+r.RequestURI, http.StatusFound)
+		return true
+	}
+
+	if id := website.IndexDocument; id != nil && id.Suffix != "" {
+		if !ctx.IsBucketDomain {
+			WriteErrorResponse(w, r, ErrSecondLevelDomainForbidden)
+			return true
+		}
+
+		// match routing rules
+		if website.RoutingRules != nil || len(website.RoutingRules) != 0 {
+			for _, rule := range website.RoutingRules {
+				// If the condition matches, handle redirect
+				if rule.Match(ctx.ObjectName, "") {
+					rule.DoRedirect(w, r, ctx.ObjectName)
+					return
+				}
+			}
+		}
+
+		// handle IndexDocument
+		if strings.HasSuffix(ctx.ObjectName, "/") || ctx.ObjectName == "" {
+			indexName := ctx.ObjectName + id.Suffix
+			credential := common.Credential{}
+			err := IsBucketPolicyAllowed(&credential, ctx.BucketInfo, r, policy.GetObjectAction, indexName)
+			if err != nil {
+				WriteErrorResponse(w, r, err)
+				return true
+			}
+			index, err := api.ObjectAPI.GetObjectInfo(ctx.BucketName, indexName, "", credential)
+			if err != nil {
+				if err == ErrNoSuchKey {
+					api.errAllowableObjectNotFound(w, r, credential)
+					return true
+				}
+				WriteErrorResponse(w, r, err)
+				return true
+			}
+			writer := newGetObjectResponseWriter(w, r, index, nil, http.StatusOK, "")
+			// Reads the object at startOffset and writes to mw.
+			if err := api.ObjectAPI.GetObject(index, 0, index.Size, writer, datatype.SseRequest{}); err != nil {
+				helper.ErrorIf(err, "Unable to write to client.")
+				if !writer.dataWritten {
+					// Error response only if no data has been written to client yet. i.e if
+					// partial data has already been written before an error
+					// occurred then no point in setting StatusCode and
+					// sending error XML.
+					WriteErrorResponse(w, r, err)
+				}
+				return true
+			}
+			if !writer.dataWritten {
+				// If ObjectAPI.GetObject did not return error and no data has
+				// been written it would mean that it is a 0-byte object.
+				// call wrter.Write(nil) to set appropriate headers.
+				writer.Write(nil)
+			}
+			return true
+		}
+
+	}
+	return false
+}
+
+func (api ObjectAPIHandlers) ReturnWebsiteErrorDocument(w http.ResponseWriter, r *http.Request) (handled bool) {
+	w.(*ResponseRecorder).operationName = "GetObject"
+	ctx := getRequestContext(r)
+	if ctx.BucketInfo == nil {
+		WriteErrorResponse(w, r, ErrNoSuchBucket)
+		return true
+	}
+	website := ctx.BucketInfo.Website
+	if ed := website.ErrorDocument; ed != nil && ed.Key != "" {
+		indexName := ed.Key
+		credential := new(common.Credential)
+		err := IsBucketPolicyAllowed(credential, ctx.BucketInfo, r, policy.GetObjectAction, indexName)
+		if err != nil {
+			WriteErrorResponse(w, r, err)
+			return true
+		}
+		index, err := api.ObjectAPI.GetObjectInfo(ctx.BucketName, indexName, "", *credential)
+		if err != nil {
+			WriteErrorResponse(w, r, err)
+			return true
+		}
+		writer := newGetObjectResponseWriter(w, r, index, nil, http.StatusNotFound, "")
+		// Reads the object at startOffset and writes to mw.
+		if err := api.ObjectAPI.GetObject(index, 0, index.Size, writer, datatype.SseRequest{}); err != nil {
+			helper.ErrorIf(err, "Unable to write to client.")
+			if !writer.dataWritten {
+				// Error response only if no data has been written to client yet. i.e if
+				// partial data has already been written before an error
+				// occurred then no point in setting StatusCode and
+				// sending error XML.
+				WriteErrorResponse(w, r, err)
+			}
+			return true
+		}
+		if !writer.dataWritten {
+			// If ObjectAPI.GetObject did not return error and no data has
+			// been written it would mean that it is a 0-byte object.
+			// call wrter.Write(nil) to set appropriate headers.
+			writer.Write(nil)
+		}
+		return true
+	} else {
+		return false
+	}
 }
