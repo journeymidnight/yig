@@ -74,8 +74,7 @@ func getStorageClassFromHeader(r *http.Request) (meta.StorageClass, error) {
 // this is in keeping with the permissions sections of the docs of both:
 //   HEAD Object: http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectHEAD.html
 //   GET Object: http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGET.html
-func (api ObjectAPIHandlers) errAllowableObjectNotFound(request *http.Request, bucketName string,
-	credential common.Credential) error {
+func (api ObjectAPIHandlers) errAllowableObjectNotFound(w http.ResponseWriter, r *http.Request, credential common.Credential) {
 
 	// As per "Permission" section in
 	// https://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGET.html
@@ -90,43 +89,79 @@ func (api ObjectAPIHandlers) errAllowableObjectNotFound(request *http.Request, b
 	// * if you don’t have the s3:ListBucket
 	//   permission, Amazon S3 will return an HTTP
 	//   status code 403 ("access denied") error.`
-
-	bucket, err := api.ObjectAPI.GetBucket(bucketName)
-	if err != nil {
-		return err
+	ctx := getRequestContext(r)
+	if ctx.BucketInfo == nil {
+		WriteErrorResponse(w, r, ErrNoSuchBucket)
+		return
 	}
-
-	if bucket.Policy.IsAllowed(policy.Args{
+	if api.ReturnWebsiteErrorDocument(w, r) {
+		return
+	}
+	var err error
+	if ctx.BucketInfo.Policy.IsAllowed(policy.Args{
 		Action:          policy.ListBucketAction,
-		BucketName:      bucketName,
-		ConditionValues: getConditionValues(request, ""),
+		BucketName:      ctx.BucketName,
+		ConditionValues: getConditionValues(r, ""),
 		IsOwner:         false,
 	}) == policy.PolicyAllow {
-		return ErrNoSuchKey
+		err = ErrNoSuchKey
 	} else {
-		switch bucket.ACL.CannedAcl {
+		switch ctx.BucketInfo.ACL.CannedAcl {
 		case "public-read", "public-read-write":
-			return ErrNoSuchKey
+			err = ErrNoSuchKey
 		case "authenticated-read":
 			if credential.AccessKeyID != "" {
-				return ErrNoSuchKey
+				err = ErrNoSuchKey
 			} else {
-				return ErrAccessDenied
+				err = ErrAccessDenied
 			}
 		default:
-			if bucket.OwnerId == credential.UserId {
-				return ErrNoSuchKey
+			if ctx.BucketInfo.OwnerId == credential.UserId {
+				err = ErrNoSuchKey
+			} else {
+				err = ErrAccessDenied
 			}
-			return ErrAccessDenied
 		}
 	}
+	WriteErrorResponse(w, r, err)
 }
 
-// Simple way to convert a func to io.Writer type.
-type funcToWriter func([]byte) (int, error)
+type GetObjectResponseWriter struct {
+	dataWritten bool
+	w           http.ResponseWriter
+	r           *http.Request
+	object      *meta.Object
+	hrange      *HttpRange
+	statusCode  int
+	version     string
+}
 
-func (f funcToWriter) Write(p []byte) (int, error) {
-	return f(p)
+func newGetObjectResponseWriter(w http.ResponseWriter, r *http.Request, object *meta.Object, hrange *HttpRange, statusCode int, version string) *GetObjectResponseWriter {
+	return &GetObjectResponseWriter{false, w, r, object, hrange, statusCode, version}
+}
+
+func (o *GetObjectResponseWriter) Write(p []byte) (int, error) {
+	if !o.dataWritten {
+		if o.version != "" {
+			o.w.Header().Set("x-amz-version-id", o.version)
+		}
+		// Set any additional requested response headers.
+		setGetRespHeaders(o.w, o.r.URL.Query())
+		// Set headers on the first write.
+		// Set standard object headers.
+		SetObjectHeaders(o.w, o.object, o.hrange, o.statusCode)
+
+		o.dataWritten = true
+	}
+	n, err := o.w.Write(p)
+	if n > 0 {
+		/*
+			If the whole write or only part of write is successfull,
+			n should be positive, so record this
+		*/
+		o.w.(*ResponseRecorder).size += int64(n)
+	}
+	return n, err
 }
 
 // GetObjectHandler - GET Object
@@ -134,14 +169,13 @@ func (f funcToWriter) Write(p []byte) (int, error) {
 // This implementation of the GET operation retrieves object. To use GET,
 // you must have READ access to the object.
 func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Request) {
-	var objectName, bucketName string
-	vars := mux.Vars(r)
-	bucketName = vars["bucket"]
-	objectName = vars["object"]
-
 	var credential common.Credential
 	var err error
-	if credential, err = checkRequestAuth(api, r, policy.GetObjectAction, bucketName, objectName); err != nil {
+	if api.HandledByWebsite(w, r) {
+		return
+	}
+
+	if credential, err = checkRequestAuth(r, policy.GetObjectAction); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -152,7 +186,8 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
 		if err == ErrNoSuchKey {
-			err = api.errAllowableObjectNotFound(r, bucketName, credential)
+			api.errAllowableObjectNotFound(w, r, credential)
+			return
 		}
 		WriteErrorResponse(w, r, err)
 		return
@@ -190,7 +225,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			w.Header()["ETag"] = []string{"\"" + object.Etag + "\""}
 		}
 		if err == ContentNotModified { // write only header if is a 304
-			WriteErrorResponseHeaders(w, err)
+			WriteErrorResponseHeaders(w, r, err)
 		} else {
 			WriteErrorResponse(w, r, err)
 		}
@@ -214,34 +249,9 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		startOffset = hrange.OffsetBegin
 		length = hrange.GetLength()
 	}
-	// Indicates if any data was written to the http.ResponseWriter
-	dataWritten := false
 
 	// io.Writer type which keeps track if any data was written.
-	writer := funcToWriter(func(p []byte) (int, error) {
-		if !dataWritten {
-			// Set headers on the first write.
-			// Set standard object headers.
-			SetObjectHeaders(w, object, hrange)
-
-			// Set any additional requested response headers.
-			setGetRespHeaders(w, r.URL.Query())
-
-			if version != "" {
-				w.Header().Set("x-amz-version-id", version)
-			}
-			dataWritten = true
-		}
-		n, err := w.Write(p)
-		if n > 0 {
-			/*
-				If the whole write or only part of write is successfull,
-				n should be positive, so record this
-			*/
-			w.(*ResponseRecorder).size += int64(n)
-		}
-		return n, err
-	})
+	writer := newGetObjectResponseWriter(w, r, object, hrange, http.StatusOK, version)
 
 	switch object.SseType {
 	case "":
@@ -257,27 +267,29 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			r.Header.Get("X-Amz-Server-Side-Encryption-Customer-Key-Md5"))
 	}
 
+	//ResponseRecorder
+	w.(*ResponseRecorder).operationName = "GetObject"
+
 	// Reads the object at startOffset and writes to mw.
 	if err := api.ObjectAPI.GetObject(object, startOffset, length, writer, sseRequest); err != nil {
 		helper.ErrorIf(err, "Unable to write to client.")
-		if !dataWritten {
+		if !writer.dataWritten {
 			// Error response only if no data has been written to client yet. i.e if
 			// partial data has already been written before an error
 			// occurred then no point in setting StatusCode and
 			// sending error XML.
 			WriteErrorResponse(w, r, err)
+			return
 		}
 		return
 	}
-	if !dataWritten {
+	if !writer.dataWritten {
 		// If ObjectAPI.GetObject did not return error and no data has
 		// been written it would mean that it is a 0-byte object.
 		// call wrter.Write(nil) to set appropriate headers.
 		writer.Write(nil)
 	}
 
-	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "GetObject"
 }
 
 // HeadObjectHandler - HEAD Object
@@ -285,14 +297,9 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 // The HEAD operation retrieves metadata from an object without returning the object itself.
 // TODO refactor HEAD and GET
 func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Request) {
-	var objectName, bucketName string
-	vars := mux.Vars(r)
-	bucketName = vars["bucket"]
-	objectName = vars["object"]
-
 	var credential common.Credential
 	var err error
-	if credential, err = checkRequestAuth(api, r, policy.GetObjectAction, bucketName, objectName); err != nil {
+	if credential, err = checkRequestAuth(r, policy.GetObjectAction); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -302,7 +309,8 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
 		if err == ErrNoSuchKey {
-			err = api.errAllowableObjectNotFound(r, bucketName, credential)
+			api.errAllowableObjectNotFound(w, r, credential)
+			return
 		}
 		WriteErrorResponse(w, r, err)
 		return
@@ -339,7 +347,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 			w.Header()["ETag"] = []string{"\"" + object.Etag + "\""}
 		}
 		if err == ContentNotModified { // write only header if is a 304
-			WriteErrorResponseHeaders(w, err)
+			WriteErrorResponseHeaders(w, r, err)
 		} else {
 			WriteErrorResponse(w, r, err)
 		}
@@ -351,9 +359,6 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 		WriteErrorResponse(w, r, err)
 		return
 	}
-
-	// Set standard object headers.
-	SetObjectHeaders(w, object, nil)
 
 	switch object.SseType {
 	case "":
@@ -373,7 +378,8 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 	w.(*ResponseRecorder).operationName = "HeadObject"
 
 	// Successful response.
-	w.WriteHeader(http.StatusOK)
+	// Set standard object headers.
+	SetObjectHeaders(w, object, nil, http.StatusOK)
 }
 
 // CopyObjectHandler - Copy Object
@@ -388,7 +394,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 
 	var credential common.Credential
 	var err error
-	if credential, err = checkRequestAuth(api, r, policy.PutObjectAction, targetBucketName, targetObjectName); err != nil {
+	if credential, err = checkRequestAuth(r, policy.PutObjectAction); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}

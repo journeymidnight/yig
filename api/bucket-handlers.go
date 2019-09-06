@@ -131,6 +131,11 @@ func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 
 	var credential common.Credential
 	var err error
+
+	if api.HandledByWebsite(w, r) {
+		return
+	}
+
 	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.

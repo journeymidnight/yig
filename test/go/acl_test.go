@@ -2,10 +2,11 @@ package _go
 
 import (
 	"encoding/xml"
-	"github.com/journeymidnight/yig/api/datatype"
-	. "github.com/journeymidnight/yig/test/go/lib"
 	"net/http"
 	"testing"
+
+	"github.com/journeymidnight/yig/api/datatype"
+	. "github.com/journeymidnight/yig/test/go/lib"
 )
 
 const (
@@ -110,7 +111,6 @@ func Test_GetObjectAcl(t *testing.T) {
 func Test_PutObjectPublicAclWithXml(t *testing.T) {
 	sc := NewS3()
 	url := GenTestObjectUrl(sc)
-
 	// before set public-read ACL.
 	statusCode, _, err := HTTPRequestToGetObject(url)
 	if err != nil {

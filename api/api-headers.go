@@ -40,7 +40,7 @@ func EncodeResponse(response interface{}) []byte {
 }
 
 // Write object header
-func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *HttpRange) {
+func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *HttpRange, statusCode int) {
 	// set object-related metadata headers
 	lastModified := object.LastModifiedTime.UTC().Format(http.TimeFormat)
 	w.Header().Set("Last-Modified", lastModified)
@@ -73,4 +73,6 @@ func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *
 		w.Header().Set("Content-Range", contentRange.String())
 		w.WriteHeader(http.StatusPartialContent)
 	}
+
+	w.WriteHeader(statusCode)
 }

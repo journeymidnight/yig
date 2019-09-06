@@ -110,7 +110,6 @@ var (
 
 func init() {
 	downloadBufPool.New = func() interface{} {
-		helper.Logger.Println(20, helper.CONFIG.DownloadBufPoolSize)
 		return make([]byte, helper.CONFIG.DownloadBufPoolSize)
 	}
 }
@@ -338,9 +337,7 @@ func (yig *YigStorage) GetObjectInfoByCtx(ctx *api.RequestContext,
 	if object == nil {
 		return nil, ErrNoSuchKey
 	}
-	if version == "" {
-		return object, nil
-	} else {
+	if version != "" {
 		object, err = yig.getObjWithVersion(ctx.BucketName, ctx.ObjectName, version)
 		if err != nil {
 			return

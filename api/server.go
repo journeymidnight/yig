@@ -11,12 +11,13 @@ import (
 const RequestContextKey = "RequestContext"
 
 type RequestContext struct {
-	RequestId  string
-	BucketName string
-	ObjectName string
-	BucketInfo *types.Bucket
-	ObjectInfo *types.Object
-	AuthType   signature.AuthType
+	RequestId      string
+	BucketName     string
+	ObjectName     string
+	BucketInfo     *types.Bucket
+	ObjectInfo     *types.Object
+	AuthType       signature.AuthType
+	IsBucketDomain bool
 }
 
 type Server struct {

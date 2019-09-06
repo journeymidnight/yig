@@ -10,6 +10,7 @@ import (
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
+	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/signature"
 )
 
@@ -18,13 +19,14 @@ import (
 // - validates the policy action if anonymous tests bucket policies if any,
 //   for authenticated requests validates IAM policies.
 // returns APIErrorCode if any to be replied to the client.
-func checkRequestAuth(api ObjectAPIHandlers, r *http.Request, action policy.Action, bucketName, objectName string) (c common.Credential, err error) {
+func checkRequestAuth(r *http.Request, action policy.Action) (c common.Credential, err error) {
 	// TODO:Location constraint
-	authType := signature.GetRequestAuthType(r)
+	ctx := getRequestContext(r)
+	authType := ctx.AuthType
 	switch authType {
 	case signature.AuthTypeUnknown:
 		helper.Logger.Println(5, "ErrAccessDenied: AuthTypeUnknown")
-		return c, ErrAccessDenied
+		return c, ErrSignatureVersionNotSupported
 	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		helper.Logger.Println(5, "AuthTypeSigned:", authType)
@@ -34,44 +36,39 @@ func checkRequestAuth(api ObjectAPIHandlers, r *http.Request, action policy.Acti
 		} else {
 			helper.Logger.Println(5, "Credential:", c)
 			// check bucket policy
-			c, err = IsBucketPolicyAllowed(c, api, r, action, bucketName, objectName)
+			err = IsBucketPolicyAllowed(&c, ctx.BucketInfo, r, action, ctx.ObjectName)
 			return c, err
 		}
 	case signature.AuthTypeAnonymous:
-		c, err = IsBucketPolicyAllowed(c, api, r, action, bucketName, objectName)
+		err = IsBucketPolicyAllowed(&c, ctx.BucketInfo, r, action, ctx.ObjectName)
 		return c, err
 	}
 	return c, ErrAccessDenied
 }
 
-func IsBucketPolicyAllowed(c common.Credential, api ObjectAPIHandlers, r *http.Request, action policy.Action, bucketName, objectName string) (common.Credential, error) {
-	bucket, err := api.ObjectAPI.GetBucket(bucketName)
-	if err != nil {
-		helper.Logger.Println(5, "GetBucket", bucketName, "err:", err)
-		return c, err
+func IsBucketPolicyAllowed(c *common.Credential, bucket *meta.Bucket, r *http.Request, action policy.Action, objectName string) error {
+	if c == nil || bucket == nil {
+		return ErrAccessDenied
 	}
 	if bucket.OwnerId == c.UserId {
-		return c, nil
+		return nil
 	}
-	helper.Logger.Println(5, "bucket.OwnerId:", bucket.OwnerId, "not equals c.UserId:", c.UserId)
-	helper.Debugln("GetBucketPolicy:", bucket.Policy)
 	policyResult := bucket.Policy.IsAllowed(policy.Args{
+		// TODO: Add IAM policy. Current account name is always useless.
 		AccountName:     c.UserId,
 		Action:          action,
-		BucketName:      bucketName,
+		BucketName:      bucket.Name,
 		ConditionValues: getConditionValues(r, ""),
 		IsOwner:         false,
 		ObjectName:      objectName,
 	})
 	if policyResult == policy.PolicyAllow {
 		c.AllowOtherUserAccess = true
-		helper.Debugln("Allow", c.UserId, "access", bucketName, "with", action, objectName)
-		return c, nil
+		return nil
 	} else if policyResult == policy.PolicyDeny {
-		helper.Debugln("ErrAccessDenied: NotAllow", c.UserId, "access", bucketName, "with", action, objectName)
-		return c, ErrAccessDenied
+		return ErrAccessDenied
 	} else {
-		return c, nil
+		return nil
 	}
 
 }

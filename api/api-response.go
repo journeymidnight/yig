@@ -231,16 +231,20 @@ func WriteSuccessNoContent(w http.ResponseWriter) {
 
 // writeErrorResponse write error headers
 func WriteErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
-	WriteErrorResponseHeaders(w, err)
-	WriteErrorResponseNoHeader(w, r, err, r.URL.Path)
+	handled := WriteErrorResponseHeaders(w, r, err)
+	if !handled {
+		WriteErrorResponseNoHeader(w, r, err, r.URL.Path)
+	}
 }
 
 func WriteErrorResponseWithResource(w http.ResponseWriter, r *http.Request, err error, resource string) {
-	WriteErrorResponseHeaders(w, err)
-	WriteErrorResponseNoHeader(w, r, err, resource)
+	handled := WriteErrorResponseHeaders(w, r, err)
+	if !handled {
+		WriteErrorResponseNoHeader(w, r, err, resource)
+	}
 }
 
-func WriteErrorResponseHeaders(w http.ResponseWriter, err error) {
+func WriteErrorResponseHeaders(w http.ResponseWriter, r *http.Request, err error) (handled bool) {
 	var status int
 	apiErrorCode, ok := err.(ApiError)
 	if ok {
@@ -253,7 +257,25 @@ func WriteErrorResponseHeaders(w http.ResponseWriter, err error) {
 	//ResponseRecorder
 	w.(*ResponseRecorder).status = status
 
+	// check website routing rules
+	ctx := getRequestContext(r)
+	if ctx.BucketInfo == nil {
+		w.WriteHeader(status)
+		return false
+	}
+	website := ctx.BucketInfo.Website
+	// match routing rules
+	if website.RoutingRules != nil || len(website.RoutingRules) != 0 {
+		for _, rule := range website.RoutingRules {
+			// If the condition matches, handle redirect
+			if rule.Match(ctx.ObjectName, strconv.Itoa(status)) {
+				rule.DoRedirect(w, r, ctx.ObjectName)
+				return true
+			}
+		}
+	}
 	w.WriteHeader(status)
+	return false
 }
 
 func WriteErrorResponseNoHeader(w http.ResponseWriter, req *http.Request, err error, resource string) {

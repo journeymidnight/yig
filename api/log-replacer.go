@@ -182,13 +182,13 @@ func (r *replacer) getSubstitution(key string) string {
 	case "{region_id}":
 		return helper.CONFIG.Region
 	case "{bucket_name}":
-		bucketName, _ := GetBucketAndObjectInfoFromRequest(r.request)
+		bucketName := getRequestContext(r.request).BucketName
 		if bucketName == "" {
 			return "-"
 		}
 		return bucketName
 	case "{object_name}":
-		_, objectName := GetBucketAndObjectInfoFromRequest(r.request)
+		objectName := getRequestContext(r.request).ObjectName
 		if objectName == "" {
 			return "-"
 		}
