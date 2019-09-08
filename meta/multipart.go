@@ -53,3 +53,23 @@ func (m *Meta) PutObjectPart(multipart Multipart, part Part) (err error) {
 	err = m.Client.CommitTrans(tx)
 	return
 }
+
+func (m *Meta) RenameObjectPart(object *Object, sourceObject string) (err error) {
+	var tx interface{}
+	tx, err = m.Client.NewTrans()
+	defer func() {
+		if err != nil {
+			m.Client.AbortTrans(tx)
+		}
+	}()
+	err = m.Client.RenameObjectPart(object, sourceObject, tx)
+	if err != nil {
+		return err
+	}
+	err = m.Client.UpdateObjectName(object, sourceObject, tx)
+	if err != nil {
+		return err
+	}
+	err = m.Client.CommitTrans(tx)
+	return nil
+}

@@ -736,11 +736,20 @@ func (yig *YigStorage) RenameObject(targetObject *meta.Object, credential common
 		}
 	}
 
-	err = yig.MetaStorage.RenameObject(targetObject, sourceObject)
-	if err != nil {
-		yig.Logger.Println(5, "Update Object Attrs, sql fails")
-		return result, ErrInternalError
+	if len(targetObject.Parts) != 0 {
+		err = yig.MetaStorage.RenameObjectPart(targetObject, sourceObject)
+		if err != nil {
+			yig.Logger.Println(5, "Update Object Attrs, sql fails")
+			return result, ErrInternalError
+		}
+	} else {
+		err = yig.MetaStorage.RenameObject(targetObject, sourceObject)
+		if err != nil {
+			yig.Logger.Println(5, "Update Object Attrs, sql fails")
+			return result, ErrInternalError
+		}
 	}
+
 	result.LastModified = targetObject.LastModifiedTime
 	result.VersionId = targetObject.GetVersionId()
 

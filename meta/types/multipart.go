@@ -160,3 +160,10 @@ func (p *Part) GetCreateGcSql(bucketname, objectname string, version uint64) (st
 	args := []interface{}{p.PartNumber, p.Size, p.ObjectId, p.Offset, p.Etag, p.LastModified, p.InitializationVector, bucketname, objectname, version}
 	return sql, args
 }
+
+func (o *Object) GetUpdateObjectPartNameSql(sourceObject string) (string, []interface{}) {
+	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
+	sql := "update objectpart set objectname=? where bucketname=? and objectname=? and version=?"
+	args := []interface{}{o.Name, o.BucketName, sourceObject, version}
+	return sql, args
+}

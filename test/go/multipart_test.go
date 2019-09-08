@@ -49,5 +49,97 @@ func Test_MultipartUpload(t *testing.T) {
 			t.Fatal("AbortMultiPartUpload err:", err)
 		}
 	}
+}
 
+func Test_MultipartRename(t *testing.T) {
+	sc := NewS3()
+	err := sc.MakeBucket(TEST_BUCKET)
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+		panic(err)
+	}
+	uploadId, err := sc.CreateMultiPartUpload(TEST_BUCKET, TEST_KEY, s3.ObjectStorageClassStandard)
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+		panic(err)
+	}
+
+	partCount := 3
+	completedUpload := &s3.CompletedMultipartUpload{
+		Parts: make([]*s3.CompletedPart, partCount),
+	}
+
+	for i := 0; i < partCount; i++ {
+		partNumber := int64(i + 1)
+		etag, err := sc.UploadPart(TEST_BUCKET, TEST_KEY, GenMinimalPart(), uploadId, partNumber)
+		if err != nil {
+			t.Fatal("UploadPart err:", err)
+			panic(err)
+		}
+		completedUpload.Parts[i] = &s3.CompletedPart{
+			ETag:       aws.String(etag),
+			PartNumber: aws.Int64(partNumber),
+		}
+	}
+
+	err = sc.CompleteMultiPartUpload(TEST_BUCKET, TEST_KEY, uploadId, completedUpload)
+	if err != nil {
+		t.Fatal("CompleteMultiPartUpload err:", err)
+		err = sc.AbortMultiPartUpload(TEST_BUCKET, TEST_KEY, uploadId)
+		if err != nil {
+			t.Fatal("AbortMultiPartUpload err:", err)
+		}
+	}
+
+	TEST_COPY_KEY := "COPY:" + TEST_KEY
+	input1 := &s3.CopyObjectInput{
+		Bucket:     aws.String(TEST_BUCKET),
+		CopySource: aws.String(TEST_BUCKET + "/" + TEST_KEY),
+		Key:        aws.String(TEST_COPY_KEY),
+	}
+	_, err = sc.Client.CopyObject(input1)
+	if err != nil {
+		t.Fatal("Copy Object err:", err)
+	}
+
+	TEST_RENAME_KEY := "RENAME:" + TEST_KEY
+	input2 := &s3.RenameObjectInput{
+		Bucket:          aws.String(TEST_BUCKET),
+		RenameSourceKey: aws.String(TEST_KEY),
+		Key:             aws.String(TEST_RENAME_KEY),
+	}
+	_, err = sc.Client.RenameObject(input2)
+	if err != nil {
+		t.Fatal("Rename Object err:", err)
+	}
+
+	//verify them
+	v1, err := sc.GetObject(TEST_BUCKET, TEST_COPY_KEY)
+	if err != nil {
+		t.Fatal("Get Object err:", err)
+	}
+	v2, err := sc.GetObject(TEST_BUCKET, TEST_RENAME_KEY)
+	if err != nil {
+		t.Fatal("Get Object err:", err)
+	}
+	if v1 != v2 {
+		t.Fatal("Rename result is not the same.")
+	}
+
+	//clean up
+	sc.DeleteObject(TEST_BUCKET, TEST_COPY_KEY)
+	sc.DeleteObject(TEST_BUCKET, TEST_RENAME_KEY)
+}
+
+func Test_Multipart_End(t *testing.T) {
+	sc := NewS3()
+	err := sc.DeleteObject(TEST_BUCKET, TEST_KEY)
+	if err != nil {
+		t.Log("DeleteObject err:", err)
+	}
+	err = sc.DeleteBucket(TEST_BUCKET)
+	if err != nil {
+		t.Fatal("DeleteBucket err:", err)
+		panic(err)
+	}
 }

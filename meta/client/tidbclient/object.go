@@ -117,6 +117,25 @@ func (t *TidbClient) UpdateObjectAcl(object *Object) error {
 	return err
 }
 
+func (t *TidbClient) UpdateObjectName(object *Object, sourceObject string, tx interface{}) (err error) {
+	var sqlTx *sql.Tx
+	if tx == nil {
+		tx, err = t.Client.Begin()
+		defer func() {
+			if err == nil {
+				err = sqlTx.Commit()
+			}
+			if err != nil {
+				sqlTx.Rollback()
+			}
+		}()
+	}
+	sqlTx, _ = tx.(*sql.Tx)
+	sql, args := object.GetUpdateNameSql(sourceObject)
+	_, err = sqlTx.Exec(sql, args...)
+	return
+}
+
 func (t *TidbClient) RenameObject(object *Object, sourceObject string) error {
 	sql, args := object.GetUpdateNameSql(sourceObject)
 	_, err := t.Client.Exec(sql, args...)

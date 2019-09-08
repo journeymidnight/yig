@@ -258,7 +258,6 @@ func (o *Object) GetUpdateNameSql(sourceObject string) (string, []interface{}) {
 	sql := "update objects set name=? where bucketname=? and name=? and version=?"
 	args := []interface{}{o.Name, o.BucketName, sourceObject, version}
 	return sql, args
-
 }
 
 func (o *Object) GetAddUsageSql() (string, []interface{}) {
