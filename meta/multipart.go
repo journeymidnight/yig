@@ -66,7 +66,7 @@ func (m *Meta) RenameObjectPart(object *Object, sourceObject string) (err error)
 	if err != nil {
 		return err
 	}
-	err = m.Client.UpdateObjectName(object, sourceObject, tx)
+	err = m.Client.RenameObject(object, sourceObject, tx)
 	if err != nil {
 		return err
 	}
