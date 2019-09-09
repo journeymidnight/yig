@@ -175,6 +175,22 @@ func (t *TidbClient) PutObject(object *Object, tx interface{}) (err error) {
 	return err
 }
 
+func (t *TidbClient) CreateObjectPart(bucketName, objectName, version string,
+	part *Part) (err error) {
+
+	createSql, args := part.GetCreateSql(bucketName, objectName, version)
+	_, err = t.Client.Exec(createSql, args...)
+	return err
+}
+
+func (t *TidbClient) AppendObjectPart(bucketName, objectName, version string,
+	part *Part) (err error) {
+
+	appendSql, args := part.GetAppendSql(bucketName, objectName, version)
+	_, err = t.Client.Exec(appendSql, args...)
+	return err
+}
+
 func (t *TidbClient) DeleteObject(object *Object, tx interface{}) (err error) {
 	var sqlTx *sql.Tx
 	if tx == nil {

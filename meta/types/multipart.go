@@ -154,6 +154,17 @@ func (p *Part) GetCreateSql(bucketname, objectname, version string) (string, []i
 	return sql, args
 }
 
+func (p *Part) GetAppendSql(bucketName, objectName, version string) (string, []interface{}) {
+	sql := "UPDATE objectpart SET size = ?, lastmodified = ? " +
+		"WHERE bucketname = ? " +
+		"AND objectname = ? " +
+		"AND version = ? " +
+		"AND partnumber = ?"
+	args := []interface{}{p.Size, p.LastModified,
+		bucketName, objectName, version, p.PartNumber}
+	return sql, args
+}
+
 func (p *Part) GetCreateGcSql(bucketname, objectname string, version uint64) (string, []interface{}) {
 	sql := "insert into gcpart(partnumber,size,objectid,offset,etag,lastmodified,initializationvector,bucketname,objectname,version) " +
 		"values(?,?,?,?,?,?,?,?,?,?)"

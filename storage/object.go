@@ -4,6 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
+	"github.com/journeymidnight/yig/seaweed"
 	"io"
 	"path"
 	"sync"
@@ -522,75 +523,136 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	return result, nil
 }
 
-//TODO: Append Support Encryption
-func (yig *YigStorage) AppendObject(bucketName string, objectName string, credential common.Credential,
-	offset uint64, size int64, data io.Reader, metadata map[string]string, acl datatype.Acl,
-	sseRequest datatype.SseRequest, storageClass meta.StorageClass, objInfo *meta.Object) (result datatype.AppendObjectResult, err error) {
-
-	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, bucketName, objectName)
-	helper.Logger.Println(10, "get encryptionKey:", encryptionKey, "cipherKey:", cipherKey, "err:", err)
-	if err != nil {
-		return
-	}
-
-	//TODO: Append Support Encryption
-	encryptionKey = nil
-
-	md5Writer := md5.New()
-
-	// Limit the reader to its provided size if specified.
-	var limitedDataReader io.Reader
-	if size > 0 { // request.ContentLength is -1 if length is unknown
-		limitedDataReader = io.LimitReader(data, size)
-	} else {
-		limitedDataReader = data
-	}
+// TODO: Append Support Encryption
+// TODO: Support version
+// FIXME: ETag calculation
+func (yig *YigStorage) AppendObject(bucketName string, objectName string,
+	credential common.Credential, offset uint64, size int64, data io.Reader,
+	metadata map[string]string, acl datatype.Acl, sseRequest datatype.SseRequest,
+	storageClass meta.StorageClass,
+	objectMeta *meta.Object) (result datatype.AppendObjectResult, err error) {
 
 	var cluster backend
-	var poolName, objectId string
+	var poolName string
 	var initializationVector []byte
-	var objSize int64
-	if isObjectExist(objInfo) {
-		cluster, err = yig.GetClusterByFsName(objInfo.Location)
-		if err != nil {
-			return
-		}
-		// Every appendable file must be treated as a big file
-		// FIXME poolName
-		poolName = ""
-		objectId = objInfo.ObjectId
-		initializationVector = objInfo.InitializationVector
-		objSize = objInfo.Size
-		storageClass = objInfo.StorageClass
-		helper.Logger.Println(20, "request append objectId:", objectId, "iv:", initializationVector, "size:", objSize)
-	} else {
+	now := time.Now().UTC()
+
+	objectMetaExists := true
+	if objectMeta == nil {
+		objectMetaExists = false
 		// New appendable object
-		cluster, poolName = yig.pickClusterAndPool(bucketName, objectName, size, true)
+		cluster, poolName = yig.pickClusterAndPool(
+			bucketName, objectName, size, true)
 		// FIXME poolName
 		if cluster == nil || poolName != "" {
 			helper.Debugln("pickClusterAndPool error")
 			return result, ErrInternalError
 		}
-		if len(encryptionKey) != 0 {
-			initializationVector, err = newInitializationVector()
-			if err != nil {
-				return
-			}
+		objectMeta = &meta.Object{
+			Name:                 objectName,
+			BucketName:           bucketName,
+			Location:             cluster.ClusterID(),
+			Pool:                 poolName,
+			OwnerId:              credential.UserId,
+			Size:                 0, // updated below
+			ObjectId:             "",
+			LastModifiedTime:     now,
+			Etag:                 "",
+			ContentType:          metadata["Content-Type"],
+			ACL:                  acl,
+			NullVersion:          true,
+			DeleteMarker:         false,
+			SseType:              sseRequest.Type,
+			EncryptionKey:        []byte(""),
+			InitializationVector: initializationVector,
+			CustomAttributes:     metadata,
+			Parts:                make(map[int]*meta.Part), // updated below
+			Type:                 meta.ObjectTypeAppendable,
+			StorageClass:         storageClass,
 		}
-		helper.Logger.Println(20, "request first append objectId:", objectId, "iv:", initializationVector, "size:", objSize)
+	}
+	cluster, err = yig.GetClusterByFsName(objectMeta.Location)
+	if err != nil {
+		helper.Debugln("GetClusterByFsName error", err)
+		return result, ErrInternalError
+	}
+	poolName = objectMeta.Pool
+	md5Writer := md5.New()
+	dataReader := io.TeeReader(data, md5Writer)
+	// FIXME: assume append size < ObjectSizeLimit(30M) here
+	var partToUpdate, partToCreate *meta.Part
+	var updatePartReader, createPartReader io.Reader
+	var updatePartOffset int64
+	partNumber := (offset/seaweed.ObjectSizeLimit) + 1
+	if objectMeta.Parts[int(partNumber)] == nil {
+		partToCreate = &meta.Part{
+			PartNumber: int(partNumber),
+			Size: size,
+			ObjectId: "",
+			Offset: int64(partNumber-1) * seaweed.ObjectSizeLimit,
+			Etag: "",
+			LastModified: now.Format(meta.CREATE_TIME_LAYOUT),
+			InitializationVector: initializationVector,
+		}
+		createPartReader = io.LimitReader(dataReader, size)
+	} else {
+		partToUpdate = objectMeta.Parts[int(partNumber)]
+		partToUpdate.LastModified = now.Format(meta.CREATE_TIME_LAYOUT)
+		updatePartOffset = partToUpdate.Size
+		if partToUpdate.Size + size > seaweed.ObjectSizeLimit {
+			updatePartReader = io.LimitReader(dataReader,
+				seaweed.ObjectSizeLimit-partToUpdate.Size)
+			partToUpdate.Size = seaweed.ObjectSizeLimit
+
+			partToCreate = &meta.Part{
+				PartNumber: partToUpdate.PartNumber + 1,
+				Size: partToUpdate.Size + size - seaweed.ObjectSizeLimit,
+				Offset: int64(partToUpdate.PartNumber) * seaweed.ObjectSizeLimit,
+				Etag: "",
+				LastModified: now.Format(meta.CREATE_TIME_LAYOUT),
+				InitializationVector: initializationVector,
+			}
+			createPartReader = io.LimitReader(dataReader, partToCreate.Size)
+		} else {
+			partToUpdate.Size += size
+			updatePartReader = io.LimitReader(dataReader, size)
+		}
 	}
 
-	dataReader := io.TeeReader(limitedDataReader, md5Writer)
-
-	storageReader, err := wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
-	if err != nil {
-		return
+	var bytesWritten, n uint64
+	if partToUpdate != nil {
+		_, n, err = cluster.Append(poolName, partToUpdate.ObjectId,
+			updatePartReader, updatePartOffset)
+		if err != nil {
+			helper.Debugln("cluster.Append err:", err,
+				poolName, partToUpdate.ObjectId, offset)
+			return
+		}
+		bytesWritten += n
+		err = yig.MetaStorage.AppendObjectPart(bucketName, objectName, "",
+			partToUpdate)
+		if err != nil {
+			helper.Debugln("AppendObjectPart err:", err)
+			return
+		}
 	}
-	objectId, bytesWritten, err := cluster.Append(poolName, objectId,
-		storageReader, int64(offset))
-	if err != nil {
-		helper.Debugln("cluster.Append err:", err, poolName, objectId, offset)
-		return
+	if partToCreate != nil {
+		var objectId string
+		objectId, n, err = cluster.Append(poolName, "",
+			createPartReader, 0)
+		if err != nil {
+			helper.Debugln("cluster.Append err:", err,
+				poolName, partToCreate.ObjectId, offset)
+			return
+		}
+		partToCreate.ObjectId = objectId
+		bytesWritten += n
+		err = yig.MetaStorage.CreateObjectPart(bucketName, objectName, "",
+			partToCreate)
+		if err != nil {
+			helper.Debugln("CreateObjectPart err:", err)
+			return
+		}
 	}
 
 	if bytesWritten < uint64(size) {
@@ -613,42 +675,22 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 		}
 	}
 
-	// TODO validate bucket policy and fancy ACL
-	object := &meta.Object{
-		Name:                 objectName,
-		BucketName:           bucketName,
-		Location:             cluster.ClusterID(),
-		Pool:                 poolName,
-		OwnerId:              credential.UserId,
-		Size:                 objSize + int64(bytesWritten),
-		ObjectId:             objectId,
-		LastModifiedTime:     time.Now().UTC(),
-		Etag:                 calculatedMd5,
-		ContentType:          metadata["Content-Type"],
-		ACL:                  acl,
-		NullVersion:          true,
-		DeleteMarker:         false,
-		SseType:              sseRequest.Type,
-		EncryptionKey:        []byte(""),
-		InitializationVector: initializationVector,
-		CustomAttributes:     metadata,
-		Type:                 meta.ObjectTypeAppendable,
-		StorageClass:         storageClass,
-	}
-
-	result.LastModified = object.LastModifiedTime
-	result.NextPosition = object.Size
-	helper.Logger.Println(20, "Append info.", "bucket:", bucketName, "objName:", objectName, "objectId:", objectId,
-		"objSize:", object.Size, "bytesWritten:", bytesWritten, "storageClass:", storageClass)
-	err = yig.MetaStorage.AppendObject(object, isObjectExist(objInfo))
+	result.LastModified = now
+	result.NextPosition = int64(offset) + size
+	objectMeta.Size += size
+	objectMeta.LastModifiedTime = now
+	helper.Logger.Println(20, "Append info.", "bucket:", bucketName,
+		"objName:", objectName, "parts:", objectMeta.Parts, "objSize:", size,
+		"bytesWritten:", bytesWritten, "storageClass:", storageClass)
+	// Note we don't update objectMeta.Parts in current method,
+	// so yig.MetaStorage.AppendObject won't touch those entries in db.
+	err = yig.MetaStorage.AppendObject(objectMeta, objectMetaExists)
 	if err != nil {
 		return
 	}
 
-	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
-		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
-	}
+	yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
+	yig.DataCache.Remove(bucketName + ":" + objectName + ":" + objectMeta.GetVersionId())
 	return result, nil
 }
 
@@ -1106,6 +1148,6 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 	return result, nil
 }
 
-func isObjectExist(obj *meta.Object) bool {
+func objectExists(obj *meta.Object) bool {
 	return obj != nil
 }
