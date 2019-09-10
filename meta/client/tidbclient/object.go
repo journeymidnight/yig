@@ -68,7 +68,7 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 	if err != nil {
 		return
 	}
-	object.Parts, err = getParts(object.BucketName, object.Name, iversion, t.Client)
+	object.Parts, err = getParts(object.BucketName, object.Name, t.Client)
 	//build simple index for multipart
 	if len(object.Parts) != 0 {
 		var sortedPartNum = make([]int64, len(object.Parts))
@@ -222,10 +222,13 @@ func (t *TidbClient) DeleteObject(object *Object, tx interface{}) (err error) {
 }
 
 //util function
-func getParts(bucketName, objectName string, version uint64, cli *sql.DB) (parts map[int]*Part, err error) {
+func getParts(bucketName, objectName string, cli *sql.DB) (parts map[int]*Part, err error) {
 	parts = make(map[int]*Part)
-	sqltext := "select partnumber,size,objectid,offset,etag,lastmodified,initializationvector from objectpart where bucketname=? and objectname=? and version=?;"
-	rows, err := cli.Query(sqltext, bucketName, objectName, version)
+	sqltext := "select partnumber,size,objectid,offset,etag,lastmodified,initializationvector " +
+		"from objectpart " +
+		"where bucketname=? " +
+		"and objectname=? "
+	rows, err := cli.Query(sqltext, bucketName, objectName)
 	if err != nil {
 		return
 	}

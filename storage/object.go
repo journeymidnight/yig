@@ -557,7 +557,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string,
 			Size:                 0, // updated below
 			ObjectId:             "",
 			LastModifiedTime:     now,
-			Etag:                 "",
+			Etag:                 "-", // FIXME workaround, s3cmd would ignore ETags with "-"
 			ContentType:          metadata["Content-Type"],
 			ACL:                  acl,
 			NullVersion:          true,
