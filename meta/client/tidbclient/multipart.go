@@ -294,6 +294,9 @@ func (t *TidbClient) RenameObjectPart(object *Object, sourceObject string, tx in
 	var sqlTx *sql.Tx
 	if tx == nil {
 		tx, err = t.Client.Begin()
+		if err != nil {
+			return err
+		}
 		defer func() {
 			if err == nil {
 				err = sqlTx.Commit()

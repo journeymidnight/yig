@@ -173,12 +173,12 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrInvalidCopyRequest: {
 		AwsErrorCode:   "InvalidCopyRequest",
-		Description:    "Request of copy source cannot be others only COPY and REPLACE and null.",
+		Description:    "X-Amz-Metadata-Directive can only be COPY or REPLACE",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidRenameSourceKey: {
 		AwsErrorCode:   "InvalidRenameSourceKey",
-		Description:    "Rename Source must be the Object in your bucket, which have been created, not be a folder.",
+		Description:    "X-Amz-Rename-Source-Key must be a valid URL-encoded object name, renaming folders is not supported.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidRenameTarget: {
@@ -188,7 +188,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrNotSupportBucketEnabledVersion: {
 		AwsErrorCode:   "InvalidRequest",
-		Description:    "We not support to rename object in the bucket which enabled multi-version.",
+		Description:    "Renaming objects in multi-version enabled buckets is not supported.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidPrecondition: {
