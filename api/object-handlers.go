@@ -591,6 +591,11 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 	}
 	sourceObjectName := r.Header.Get("X-Amz-Rename-Source-Key")
 
+	if sourceObjectName == targetObjectName {
+		WriteErrorResponse(w, r, ErrInvalidRenameTarget)
+		return
+	}
+
 	// X-Amz-Copy-Source should be URL-encoded
 	sourceObjectName, err = url.QueryUnescape(sourceObjectName)
 	if err != nil {

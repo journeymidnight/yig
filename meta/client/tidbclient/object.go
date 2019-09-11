@@ -121,6 +121,9 @@ func (t *TidbClient) RenameObject(object *Object, sourceObject string, tx interf
 	var sqlTx *sql.Tx
 	if tx == nil {
 		tx, err = t.Client.Begin()
+		if err != nil {
+			return err
+		}
 		defer func() {
 			if err == nil {
 				err = sqlTx.Commit()
