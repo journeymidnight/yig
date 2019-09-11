@@ -43,7 +43,7 @@ require (
 	github.com/journeymidnight/radoshttpd v0.0.0-20190617133011-609666b51136
 	github.com/journeymidnight/seaweedfs v0.0.0-20190715083639-5b5e443d5b99
 	github.com/minio/highwayhash v1.0.0
-	github.com/prometheus/client_golang v1.0.0
+	github.com/prometheus/client_golang v1.1.0
 	github.com/samuel/go-zookeeper v0.0.0-20180130194729-c4fab1ac1bec // indirect
 	github.com/ugorji/go v1.1.7
 	github.com/ugorji/go/codec v1.1.7
