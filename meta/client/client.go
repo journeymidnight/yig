@@ -41,7 +41,7 @@ type Client interface {
 	PutObjectMap(objMap *ObjMap, tx interface{}) error
 	DeleteObjectMap(objMap *ObjMap, tx interface{}) error
 	//cluster
-	GetCluster(fsid, pool string) (cluster Cluster, err error)
+	GetClusters() (cluster []Cluster, err error)
 	//lc
 	PutBucketToLifeCycle(lifeCycle LifeCycle) error
 	RemoveBucketFromLifeCycle(bucket Bucket) error

@@ -275,9 +275,7 @@ var notimplementedObjectResourceNames = map[string]bool{
 
 func GetBucketAndObjectInfoFromRequest(r *http.Request) (bucketName string, objectName string) {
 	splits := strings.SplitN(r.URL.Path[1:], "/", 2)
-	v := strings.Split(r.Host, ":")
-	hostWithOutPort := v[0]
-	ok, bucketName := helper.HasBucketInDomain(hostWithOutPort, ".", helper.CONFIG.S3Domain)
+	ok, bucketName := helper.HasBucketInDomain(r.Host, ".", helper.CONFIG.S3Domain)
 	if ok {
 		if len(splits) == 1 {
 			objectName = splits[0]

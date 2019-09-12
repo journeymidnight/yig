@@ -5,10 +5,10 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"github.com/journeymidnight/yig/seaweed"
+	"github.com/journeymidnight/yig/backend"
 	"io"
-	"sync"
 	"path"
+	"sync"
 	"time"
 
 	"github.com/journeymidnight/yig/api/datatype"
@@ -25,44 +25,17 @@ const (
 	AES_BLOCK_SIZE               = 16
 	ENCRYPTION_KEY_LENGTH        = 32 // key size for AES-"256"
 	INITIALIZATION_VECTOR_LENGTH = 16 // block size of AES
-	DEFAULT_CEPHCONFIG_PATTERN   = "conf/*.conf"
-	MIN_CHUNK_SIZE = 512 << 10       // 512K
-	BUFFER_SIZE    = 1 << 20         // 1M
-	MAX_CHUNK_SIZE = 8 * BUFFER_SIZE // 8M
 )
 
 // *YigStorage implements api.ObjectLayer
 type YigStorage struct {
-	DataStorage map[string]backend
+	DataStorage map[string]backend.Cluster
 	DataCache   DataCache
 	MetaStorage *meta.Meta
 	KMS         crypto.KMS
 	Logger      *log.Logger
 	Stopping    bool
 	WaitGroup   *sync.WaitGroup
-}
-
-func New(logger *log.Logger, metaCacheType int, enableDataCache bool) *YigStorage {
-	kms := crypto.NewKMS()
-	yig := YigStorage{
-		DataStorage: make(map[string]backend),
-		DataCache:   newDataCache(enableDataCache),
-		MetaStorage: meta.New(logger, meta.CacheType(metaCacheType)),
-		KMS:         kms,
-		Logger:      logger,
-		Stopping:    false,
-		WaitGroup:   new(sync.WaitGroup),
-	}
-	// TODO init data storage from plugin
-	seaweedStorage := seaweed.NewSeaweedStorage(logger, helper.CONFIG)
-	yig.DataStorage[seaweedStorage.ClusterID()] = seaweedStorage
-
-	if len(yig.DataStorage) == 0 {
-		helper.Logger.Panic(0, "PANIC: No data storage can be used!")
-	}
-
-	initializeRecycler(&yig)
-	return &yig
 }
 
 func (y *YigStorage) Stop() {

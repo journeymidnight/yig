@@ -4,7 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
-	"github.com/journeymidnight/yig/seaweed"
+	"github.com/journeymidnight/yig/backend"
 	"io"
 	"path"
 	"sync"
@@ -21,16 +21,7 @@ import (
 	"github.com/journeymidnight/yig/signature"
 )
 
-func (yig *YigStorage) pickClusterAndPool(bucket string, object string,
-	size int64, isAppend bool) (cluster backend, poolName string) {
-	// TODO cluster picking logic
-	for _, s := range yig.DataStorage {
-		return s, ""
-	}
-	return nil, ""
-}
-
-func (yig *YigStorage) GetClusterByFsName(fsName string) (cluster backend, err error) {
+func (yig *YigStorage) GetClusterByFsName(fsName string) (cluster backend.Cluster, err error) {
 	if c, ok := yig.DataStorage[fsName]; ok {
 		cluster = c
 	} else {
@@ -51,7 +42,7 @@ func init() {
 	}
 }
 
-func generateTransWholeObjectFunc(cluster backend,
+func generateTransWholeObjectFunc(cluster backend.Cluster,
 	object *meta.Object) func(io.Writer) error {
 
 	getWholeObject := func(w io.Writer) error {
@@ -70,7 +61,7 @@ func generateTransWholeObjectFunc(cluster backend,
 	return getWholeObject
 }
 
-func generateTransPartObjectFunc(cluster backend, object *meta.Object,
+func generateTransPartObjectFunc(cluster backend.Cluster, object *meta.Object,
 	part *meta.Part, offset, length int64) func(io.Writer) error {
 
 	getNormalObject := func(w io.Writer) error {
@@ -92,6 +83,15 @@ func generateTransPartObjectFunc(cluster backend, object *meta.Object,
 		return err
 	}
 	return getNormalObject
+}
+
+// Works together with `wrapAlignedEncryptionReader`, see comments there.
+func getAlignedReader(cluster backend.Cluster, poolName, objectName string,
+	startOffset int64, length uint64) (reader io.ReadCloser, err error) {
+
+	alignedOffset := startOffset / AES_BLOCK_SIZE * AES_BLOCK_SIZE
+	length += uint64(startOffset - alignedOffset)
+	return cluster.GetReader(poolName, objectName, alignedOffset, length)
 }
 
 func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
@@ -207,7 +207,7 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 	return
 }
 
-func copyEncryptedPart(pool string, part *meta.Part, cluster backend,
+func copyEncryptedPart(pool string, part *meta.Part, cluster backend.Cluster,
 	readOffset int64, length int64,
 	encryptionKey []byte, targetWriter io.Writer) (err error) {
 
@@ -434,11 +434,11 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
 	// so the object in Ceph could be removed asynchronously
 	maybeObjectToRecycle := objectToRecycle{
-		location: cluster.ClusterID(),
+		location: cluster.ID(),
 		pool:     poolName,
 		objectId: objectId,
 	}
-	if bytesWritten < uint64(size) {
+	if int64(bytesWritten) < size {
 		RecycleQueue <- maybeObjectToRecycle
 		helper.Logger.Printf(2, "failed to write objects, already written(%d), total size(%d)", bytesWritten, size)
 		return result, ErrIncompleteBody
@@ -466,7 +466,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	object := &meta.Object{
 		Name:             objectName,
 		BucketName:       bucketName,
-		Location:         cluster.ClusterID(),
+		Location:         cluster.ID(),
 		Pool:             poolName,
 		OwnerId:          credential.UserId,
 		Size:             int64(bytesWritten),
@@ -520,177 +520,6 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
 	}
-	return result, nil
-}
-
-// TODO: Append Support Encryption
-// TODO: Support version
-// FIXME: ETag calculation
-func (yig *YigStorage) AppendObject(bucketName string, objectName string,
-	credential common.Credential, offset uint64, size int64, data io.Reader,
-	metadata map[string]string, acl datatype.Acl, sseRequest datatype.SseRequest,
-	storageClass meta.StorageClass,
-	objectMeta *meta.Object) (result datatype.AppendObjectResult, err error) {
-
-	var cluster backend
-	var poolName string
-	var initializationVector []byte
-	now := time.Now().UTC()
-
-	objectMetaExists := true
-	if objectMeta == nil {
-		objectMetaExists = false
-		// New appendable object
-		cluster, poolName = yig.pickClusterAndPool(
-			bucketName, objectName, size, true)
-		// FIXME poolName
-		if cluster == nil || poolName != "" {
-			helper.Debugln("pickClusterAndPool error")
-			return result, ErrInternalError
-		}
-		objectMeta = &meta.Object{
-			Name:                 objectName,
-			BucketName:           bucketName,
-			Location:             cluster.ClusterID(),
-			Pool:                 poolName,
-			OwnerId:              credential.UserId,
-			Size:                 0, // updated below
-			ObjectId:             "",
-			LastModifiedTime:     now,
-			Etag:                 "-", // FIXME workaround, s3cmd would ignore ETags with "-"
-			ContentType:          metadata["Content-Type"],
-			ACL:                  acl,
-			NullVersion:          true,
-			DeleteMarker:         false,
-			SseType:              sseRequest.Type,
-			EncryptionKey:        []byte(""),
-			InitializationVector: initializationVector,
-			CustomAttributes:     metadata,
-			Parts:                make(map[int]*meta.Part), // updated below
-			Type:                 meta.ObjectTypeAppendable,
-			StorageClass:         storageClass,
-		}
-	}
-	cluster, err = yig.GetClusterByFsName(objectMeta.Location)
-	if err != nil {
-		helper.Debugln("GetClusterByFsName error", err)
-		return result, ErrInternalError
-	}
-	poolName = objectMeta.Pool
-	md5Writer := md5.New()
-	dataReader := io.TeeReader(data, md5Writer)
-	// FIXME: assume append size < ObjectSizeLimit(30M) here
-	var partToUpdate, partToCreate *meta.Part
-	var updatePartReader, createPartReader io.Reader
-	var updatePartOffset int64
-	partNumber := (offset/seaweed.ObjectSizeLimit) + 1
-	if objectMeta.Parts[int(partNumber)] == nil {
-		partToCreate = &meta.Part{
-			PartNumber: int(partNumber),
-			Size: size,
-			ObjectId: "",
-			Offset: int64(partNumber-1) * seaweed.ObjectSizeLimit,
-			Etag: "",
-			LastModified: now.Format(meta.CREATE_TIME_LAYOUT),
-			InitializationVector: initializationVector,
-		}
-		createPartReader = io.LimitReader(dataReader, size)
-	} else {
-		partToUpdate = objectMeta.Parts[int(partNumber)]
-		partToUpdate.LastModified = now.Format(meta.CREATE_TIME_LAYOUT)
-		updatePartOffset = partToUpdate.Size
-		if partToUpdate.Size + size > seaweed.ObjectSizeLimit {
-			updatePartReader = io.LimitReader(dataReader,
-				seaweed.ObjectSizeLimit-partToUpdate.Size)
-			partToUpdate.Size = seaweed.ObjectSizeLimit
-
-			partToCreate = &meta.Part{
-				PartNumber: partToUpdate.PartNumber + 1,
-				Size: partToUpdate.Size + size - seaweed.ObjectSizeLimit,
-				Offset: int64(partToUpdate.PartNumber) * seaweed.ObjectSizeLimit,
-				Etag: "",
-				LastModified: now.Format(meta.CREATE_TIME_LAYOUT),
-				InitializationVector: initializationVector,
-			}
-			createPartReader = io.LimitReader(dataReader, partToCreate.Size)
-		} else {
-			partToUpdate.Size += size
-			updatePartReader = io.LimitReader(dataReader, size)
-		}
-	}
-
-	var bytesWritten, n uint64
-	if partToUpdate != nil {
-		_, n, err = cluster.Append(poolName, partToUpdate.ObjectId,
-			updatePartReader, updatePartOffset)
-		if err != nil {
-			helper.Debugln("cluster.Append err:", err,
-				poolName, partToUpdate.ObjectId, offset)
-			return
-		}
-		bytesWritten += n
-		err = yig.MetaStorage.AppendObjectPart(bucketName, objectName, "",
-			partToUpdate)
-		if err != nil {
-			helper.Debugln("AppendObjectPart err:", err)
-			return
-		}
-	}
-	if partToCreate != nil {
-		var objectId string
-		objectId, n, err = cluster.Append(poolName, "",
-			createPartReader, 0)
-		if err != nil {
-			helper.Debugln("cluster.Append err:", err,
-				poolName, partToCreate.ObjectId, offset)
-			return
-		}
-		partToCreate.ObjectId = objectId
-		bytesWritten += n
-		err = yig.MetaStorage.CreateObjectPart(bucketName, objectName, "",
-			partToCreate)
-		if err != nil {
-			helper.Debugln("CreateObjectPart err:", err)
-			return
-		}
-	}
-
-	if bytesWritten < uint64(size) {
-		return result, ErrIncompleteBody
-	}
-
-	calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
-	if userMd5, ok := metadata["md5Sum"]; ok {
-		if userMd5 != "" && userMd5 != calculatedMd5 {
-			return result, ErrBadDigest
-		}
-	}
-
-	result.Md5 = calculatedMd5
-
-	if signVerifyReader, ok := data.(*signature.SignVerifyReader); ok {
-		credential, err = signVerifyReader.Verify()
-		if err != nil {
-			return
-		}
-	}
-
-	result.LastModified = now
-	result.NextPosition = int64(offset) + size
-	objectMeta.Size += size
-	objectMeta.LastModifiedTime = now
-	helper.Logger.Println(20, "Append info.", "bucket:", bucketName,
-		"objName:", objectName, "parts:", objectMeta.Parts, "objSize:", size,
-		"bytesWritten:", bytesWritten, "storageClass:", storageClass)
-	// Note we don't update objectMeta.Parts in current method,
-	// so yig.MetaStorage.AppendObject won't touch those entries in db.
-	err = yig.MetaStorage.AppendObject(objectMeta, objectMetaExists)
-	if err != nil {
-		return
-	}
-
-	yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
-	yig.DataCache.Remove(bucketName + ":" + objectName + ":" + objectMeta.GetVersionId())
 	return result, nil
 }
 
@@ -811,7 +640,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 			storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
 			objectId, bytesWritten, err := cephCluster.Put(poolName, storageReader)
 			maybeObjectToRecycle = objectToRecycle{
-				location: cephCluster.ClusterID(),
+				location: cephCluster.ID(),
 				pool:     poolName,
 				objectId: objectId,
 			}
@@ -860,7 +689,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
 		// so the object in Ceph could be removed asynchronously
 		maybeObjectToRecycle = objectToRecycle{
-			location: cephCluster.ClusterID(),
+			location: cephCluster.ID(),
 			pool:     poolName,
 			objectId: objectId,
 		}
@@ -882,7 +711,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 
 	targetObject.Rowkey = nil   // clear the rowkey cache
 	targetObject.VersionId = "" // clear the versionId cache
-	targetObject.Location = cephCluster.ClusterID()
+	targetObject.Location = cephCluster.ID()
 	targetObject.Pool = poolName
 	targetObject.OwnerId = credential.UserId
 	targetObject.LastModifiedTime = time.Now().UTC()
@@ -1175,6 +1004,3 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 	return result, nil
 }
 
-func objectExists(obj *meta.Object) bool {
-	return obj != nil
-}

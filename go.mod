@@ -29,7 +29,6 @@ replace (
 require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/cep21/circuit v0.0.0-20181030180945-e893c027dc21
-	github.com/chrislusf/seaweedfs v0.0.0-20190718065734-c54d9221b906 // indirect
 	github.com/confluentinc/confluent-kafka-go v1.0.0 //indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dustin/go-humanize v1.0.0
@@ -39,7 +38,7 @@ require (
 	github.com/hashicorp/vault/api v1.0.2
 	github.com/journeymidnight/aws-sdk-go v1.17.5
 	github.com/journeymidnight/radoshttpd v0.0.0-20190617133011-609666b51136
-	github.com/journeymidnight/seaweedfs v0.0.0-20190715083639-5b5e443d5b99
+	github.com/journeymidnight/seaweedfs v0.0.0-20190917023228-1f5aa3745774
 	github.com/minio/highwayhash v1.0.0
 	github.com/prometheus/client_golang v1.1.0
 	github.com/ugorji/go v1.1.4
@@ -47,5 +46,3 @@ require (
 	google.golang.org/grpc v1.22.0
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15
 )
-
-replace github.com/journeymidnight/seaweedfs => ../seaweedfs

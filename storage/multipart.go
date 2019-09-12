@@ -110,7 +110,7 @@ func (yig *YigStorage) NewMultipartUpload(credential common.Credential, bucketNa
 		InitiatorId:  credential.UserId,
 		OwnerId:      bucket.OwnerId,
 		ContentType:  contentType,
-		Location:     cephCluster.ClusterID(),
+		Location:     cephCluster.ID(),
 		Pool:         pool,
 		Acl:          acl,
 		SseRequest:   sseRequest,
@@ -199,7 +199,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 	// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
 	// so the object in Ceph could be removed asynchronously
 	maybeObjectToRecycle := objectToRecycle{
-		location: cephCluster.ClusterID(),
+		location: cephCluster.ID(),
 		pool:     poolName,
 		objectId: objectId,
 	}
@@ -328,7 +328,7 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
 	// so the object in Ceph could be removed asynchronously
 	maybeObjectToRecycle := objectToRecycle{
-		location: cephCluster.ClusterID(),
+		location: cephCluster.ID(),
 		pool:     poolName,
 		objectId: objectId,
 	}

@@ -44,14 +44,14 @@ type Object struct {
 	EncryptionKey        []byte
 	InitializationVector []byte
 	// ObjectType include `Normal`, `Appendable`, 'Multipart'
-	Type         int
+	Type         ObjectType
 	StorageClass StorageClass
 }
 
-type ObjectType string
+type ObjectType int
 
 const (
-	ObjectTypeNormal = iota
+	ObjectTypeNormal ObjectType = iota
 	ObjectTypeAppendable
 	ObjectTypeMultipart
 )
