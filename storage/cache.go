@@ -1,9 +1,11 @@
 package storage
 
 import (
+	"context"
 	"io"
 
 	"bytes"
+
 	"github.com/journeymidnight/yig/helper"
 	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
@@ -15,17 +17,16 @@ const (
 )
 
 type DataCache interface {
-	WriteFromCache(object *meta.Object, startOffset int64, length int64,
+	WriteFromCache(ctx context.Context, object *meta.Object, startOffset int64, length int64,
 		out io.Writer, writeThrough func(io.Writer) error,
 		onCacheMiss func(io.Writer) error) error
-	GetAlignedReader(object *meta.Object, startOffset int64, length int64,
+	GetAlignedReader(ctx context.Context, object *meta.Object, startOffset int64, length int64,
 		readThrough func() (io.ReadCloser, error),
 		onCacheMiss func(io.Writer) error) (io.ReadCloser, error)
 	Remove(key string)
 }
 
 type enabledDataCache struct {
-
 }
 
 type disabledDataCache struct{}
@@ -40,7 +41,7 @@ func newDataCache(cacheEnabled bool) (d DataCache) {
 
 // `writeThrough` performs normal workflow without cache
 // `onCacheMiss` should be able to read the WHOLE object
-func (d *enabledDataCache) WriteFromCache(object *meta.Object, startOffset int64, length int64,
+func (d *enabledDataCache) WriteFromCache(ctx context.Context, object *meta.Object, startOffset int64, length int64,
 	out io.Writer, writeThrough func(io.Writer) error, onCacheMiss func(io.Writer) error) error {
 
 	if object.Size > FILE_CACHE_THRESHOLD_SIZE {
@@ -51,12 +52,14 @@ func (d *enabledDataCache) WriteFromCache(object *meta.Object, startOffset int64
 
 	file, err := redis.GetBytes(cacheKey, startOffset, startOffset+length-1)
 	if err == nil && file != nil && int64(len(file)) == length {
-		helper.Debugln("File cache HIT. key:", cacheKey, "range:", startOffset, startOffset+length-1)
+		helper.Debugln("[", helper.RequestIdFromContext(ctx), "]",
+			"File cache HIT. key:", cacheKey, "range:", startOffset, startOffset+length-1)
 		_, err := out.Write(file)
 		return err
 	}
 
-	helper.Debugln("File cache MISS. key:", cacheKey , "range:", startOffset, startOffset+length-1)
+	helper.Debugln("[", helper.RequestIdFromContext(ctx), "]",
+		"File cache MISS. key:", cacheKey, "range:", startOffset, startOffset+length-1)
 
 	var buffer bytes.Buffer
 	onCacheMiss(&buffer)
@@ -66,7 +69,7 @@ func (d *enabledDataCache) WriteFromCache(object *meta.Object, startOffset int64
 	return err
 }
 
-func (d *disabledDataCache) WriteFromCache(object *meta.Object, startOffset int64, length int64,
+func (d *disabledDataCache) WriteFromCache(ctx context.Context, object *meta.Object, startOffset int64, length int64,
 	out io.Writer, writeThrough func(io.Writer) error, onCacheMiss func(io.Writer) error) error {
 
 	return writeThrough(out)
@@ -76,7 +79,7 @@ func (d *disabledDataCache) WriteFromCache(object *meta.Object, startOffset int6
 // `readThrough` performs normal workflow without cache
 // `onCacheMiss` should be able to read the WHOLE object
 // FIXME: this API causes an extra memory copy, need to patch radix to fix it
-func (d *enabledDataCache) GetAlignedReader(object *meta.Object, startOffset int64, length int64,
+func (d *enabledDataCache) GetAlignedReader(ctx context.Context, object *meta.Object, startOffset int64, length int64,
 	readThrough func() (io.ReadCloser, error),
 	onCacheMiss func(io.Writer) error) (io.ReadCloser, error) {
 
@@ -92,12 +95,12 @@ func (d *enabledDataCache) GetAlignedReader(object *meta.Object, startOffset int
 
 	file, err := redis.GetBytes(cacheKey, startOffset, startOffset+length-1)
 	if err == nil && file != nil && int64(len(file)) == length {
-		helper.Debugln("File cache HIT")
+		helper.Debugln("[", helper.RequestIdFromContext(ctx), "]", "File cache HIT")
 		r := newReadCloser(file)
 		return r, nil
 	}
 
-	helper.Debugln("File cache MISS")
+	helper.Debugln("[", helper.RequestIdFromContext(ctx), "]", "File cache MISS")
 
 	var buffer bytes.Buffer
 	onCacheMiss(&buffer)
@@ -107,7 +110,7 @@ func (d *enabledDataCache) GetAlignedReader(object *meta.Object, startOffset int
 	return r, nil
 }
 
-func (d *disabledDataCache) GetAlignedReader(object *meta.Object, startOffset int64, length int64,
+func (d *disabledDataCache) GetAlignedReader(ctx context.Context, object *meta.Object, startOffset int64, length int64,
 	readThrough func() (io.ReadCloser, error),
 	onCacheMiss func(io.Writer) error) (io.ReadCloser, error) {
 

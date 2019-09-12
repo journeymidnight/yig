@@ -114,6 +114,7 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Skip the first element which is usually '/' and split the rest.
 	tstart := time.Now()
 	bucketName, objectName := GetBucketAndObjectInfoFromRequest(r)
+	helper.Logger.Println(5, "[", RequestIdFromContext(r.Context()), "]", "ServeHTTP", bucketName, objectName)
 	// If bucketName is present and not objectName check for bucket
 	// level resource queries.
 	if bucketName != "" && objectName == "" {
@@ -131,7 +132,7 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	// A put method on path "/" doesn't make sense, ignore it.
 	if r.Method == "PUT" && r.URL.Path == "/" && bucketName == "" {
-		helper.Debugln("Host:", r.Host, "Path:", r.URL.Path, "Bucket:", bucketName)
+		helper.Debugln("[", RequestIdFromContext(r.Context()), "]", "Host:", r.Host, "Path:", r.URL.Path, "Bucket:", bucketName)
 		WriteErrorResponse(w, r, ErrMethodNotAllowed)
 		return
 	}
@@ -191,16 +192,18 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	tstart := time.Now()
 	requestId := string(helper.GenerateRandomId())
 	bucketName, objectName := GetBucketAndObjectInfoFromRequest(r)
-	helper.Logger.Println(20, "GenerateContextHandler. RequestId:", requestId, "BucketName:", bucketName, "ObjectName:", objectName)
+	helper.Logger.Println(20, "[", requestId, "]", "GenerateContextHandler. RequestId:", requestId, "BucketName:", bucketName, "ObjectName:", objectName)
+
+	ctx := context.WithValue(r.Context(), "RequestId", requestId)
 
 	if bucketName != "" {
-		bucketInfo, err = h.meta.GetBucket(bucketName, true)
+		bucketInfo, err = h.meta.GetBucket(ctx, bucketName, true)
 		if err != nil && err != ErrNoSuchBucket {
 			WriteErrorResponse(w, r, err)
 			return
 		}
 		if bucketInfo != nil && objectName != "" {
-			objectInfo, err = h.meta.GetObject(bucketInfo.Name, objectName, true)
+			objectInfo, err = h.meta.GetObject(ctx, bucketInfo.Name, objectName, true)
 			if err != nil && err != ErrNoSuchKey {
 				WriteErrorResponse(w, r, err)
 				return
@@ -208,7 +211,7 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	ctx := context.WithValue(r.Context(), RequestContextKey, RequestContext{requestId, bucketInfo, objectInfo})
+	ctx = context.WithValue(ctx, RequestContextKey, RequestContext{requestId, bucketInfo, objectInfo})
 	h.handler.ServeHTTP(w, r.WithContext(ctx))
 	tend := time.Now()
 	dur := tend.Sub(tstart).Nanoseconds() / 1000000

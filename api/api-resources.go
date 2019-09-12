@@ -17,16 +17,18 @@
 package api
 
 import (
+	"context"
 	"net/url"
 	"strconv"
+
+	"unicode/utf8"
 
 	. "github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
-	"unicode/utf8"
 )
 
-func parseListObjectsQuery(query url.Values) (request ListObjectsRequest, err error) {
+func parseListObjectsQuery(ctx context.Context, query url.Values) (request ListObjectsRequest, err error) {
 	if query.Get("list-type") == "2" {
 		request.Version = 2
 		request.ContinuationToken = query.Get("continuation-token")
@@ -60,7 +62,7 @@ func parseListObjectsQuery(query url.Values) (request ListObjectsRequest, err er
 	} else {
 		request.MaxKeys, err = strconv.Atoi(query.Get("max-keys"))
 		if err != nil {
-			helper.Debugln("Error parsing max-keys:", err)
+			helper.Debugln("[", RequestIdFromContext(ctx), "]", "Error parsing max-keys:", err)
 			return request, ErrInvalidMaxKeys
 		}
 		if request.MaxKeys > MaxObjectList || request.MaxKeys < 1 {

@@ -5,18 +5,19 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/journeymidnight/yig/log"
 )
 
 const (
-	YIG_CONF_PATH = "/etc/yig/yig.toml"
-	MIN_DOWNLOAD_BUFPOOL_SIZE = 512 << 10  // 512k
-	MAX_DOWNLOAD_BUFPOOL_SIZE = 8 << 20    // 8M
+	YIG_CONF_PATH             = "/etc/yig/yig.toml"
+	MIN_DOWNLOAD_BUFPOOL_SIZE = 512 << 10 // 512k
+	MAX_DOWNLOAD_BUFPOOL_SIZE = 8 << 20   // 8M
 )
 
 type Config struct {
 	S3Domain         []string                `toml:"s3domain"` // Domain name of YIG
 	Region           string                  `toml:"region"`   // Region name this instance belongs to, e.g cn-bj-1
-	Plugins          map[string]PluginConfig          `toml:"plugins"`
+	Plugins          map[string]PluginConfig `toml:"plugins"`
 	LogPath          string                  `toml:"log_path"`
 	AccessLogPath    string                  `toml:"access_log_path"`
 	AccessLogFormat  string                  `toml:"access_log_format"`
@@ -38,6 +39,7 @@ type Config struct {
 	LcThread               int           //used for tools/lc only, set worker numbers to do lc
 	LcDebug                bool          //used for tools/lc only, if this was set true, will treat days as seconds
 	LogLevel               int           `toml:"log_level"` //1-20
+	LogLevelString         string        `toml:"log_level_string"`
 	CephConfigPattern      string        `toml:"ceph_config_pattern"`
 	ReservedOrigins        string        `toml:"reserved_origins"` // www.ccc.com,www.bbb.com,127.0.0.1
 	MetaStore              string        `toml:"meta_store"`
@@ -79,9 +81,9 @@ type Config struct {
 }
 
 type PluginConfig struct {
-        Path string  `toml:"path"`
-        Enable bool  `toml:"enable"`
-        Args  map[string]interface{} `toml:"args"`
+	Path   string                 `toml:"path"`
+	Enable bool                   `toml:"enable"`
+	Args   map[string]interface{} `toml:"args"`
 }
 
 type KMSConfig struct {
@@ -113,6 +115,16 @@ type MsgBusConfig struct {
 }
 
 var CONFIG Config
+
+var LOG_LEVEL_MAP = map[string]int{
+	"Panic": log.LOG_PANIC,
+	"Fatal": log.LOG_FATAL,
+	"Error": log.LOG_ERROR,
+	"Warn":  log.LOG_WARN,
+	"Info":  log.LOG_INFO,
+	"Debug": log.LOG_DEBUG,
+	"Trace": log.LOG_TRACE,
+}
 
 func SetupConfig() {
 	MarshalTOMLConfig()
@@ -164,6 +176,8 @@ func MarshalTOMLConfig() error {
 	CONFIG.LcThread = Ternary(c.LcThread == 0,
 		1, c.LcThread).(int)
 	CONFIG.LogLevel = Ternary(c.LogLevel == 0, 5, c.LogLevel).(int)
+	logLevel, ok := LOG_LEVEL_MAP[CONFIG.LogLevelString]
+	CONFIG.LogLevel = Ternary(ok, logLevel, CONFIG.LogLevel).(int)
 	CONFIG.MetaStore = Ternary(c.MetaStore == "", "tidb", c.MetaStore).(string)
 
 	CONFIG.RedisAddress = c.RedisAddress

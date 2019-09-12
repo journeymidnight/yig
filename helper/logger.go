@@ -19,17 +19,21 @@ package helper
 import (
 	"bufio"
 	"bytes"
-	"github.com/dustin/go-humanize"
-	"github.com/journeymidnight/yig/log"
+	"context"
 	"os"
 	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
+
+	"github.com/dustin/go-humanize"
+	"github.com/journeymidnight/yig/log"
 )
 
 var Logger *log.Logger
 var AccessLogger *log.Logger
+
+const RequestIdKeyString = "RequestId"
 
 // sysInfo returns useful system statistics.
 func sysInfo() map[string]string {
@@ -89,4 +93,18 @@ func FatalIf(err error, msg string, data ...interface{}) {
 	Logger.Println(5, "System Info: ", sysInfo())
 	Logger.Println(5, "Stack trace: ", stackInfo())
 	os.Exit(1)
+}
+
+// To avoid looped dependency.
+// api.RequestIdFromContext() requires RequestContext, while RequestContext depends on meta package.
+func RequestIdFromContext(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+
+	if result, ok := ctx.Value(RequestIdKeyString).(string); ok {
+		return result
+	}
+
+	return ""
 }

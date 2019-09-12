@@ -224,16 +224,16 @@ func WriteSuccessNoContent(w http.ResponseWriter) {
 
 // writeErrorResponse write error headers
 func WriteErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
-	WriteErrorResponseHeaders(w, err)
+	WriteErrorResponseHeaders(w, r, err)
 	WriteErrorResponseNoHeader(w, r, err, r.URL.Path)
 }
 
 func WriteErrorResponseWithResource(w http.ResponseWriter, r *http.Request, err error, resource string) {
-	WriteErrorResponseHeaders(w, err)
+	WriteErrorResponseHeaders(w, r, err)
 	WriteErrorResponseNoHeader(w, r, err, resource)
 }
 
-func WriteErrorResponseHeaders(w http.ResponseWriter, err error) {
+func WriteErrorResponseHeaders(w http.ResponseWriter, r *http.Request, err error) {
 	var status int
 	apiErrorCode, ok := err.(ApiError)
 	if ok {
@@ -241,7 +241,7 @@ func WriteErrorResponseHeaders(w http.ResponseWriter, err error) {
 	} else {
 		status = http.StatusInternalServerError
 	}
-	helper.Logger.Println(20, "Response status code:", status, "err:", err)
+	helper.Logger.Println(5, "[", RequestIdFromContext(r.Context()), "]", "Response status code:", status, "err:", err)
 
 	//ResponseRecorder
 	w.(*ResponseRecorder).status = status
@@ -266,7 +266,7 @@ func WriteErrorResponseNoHeader(w http.ResponseWriter, req *http.Request, err er
 		errorResponse.Message = "We encountered an internal error, please try again."
 	}
 	errorResponse.Resource = resource
-	errorResponse.RequestId = requestIdFromContext(req.Context())
+	errorResponse.RequestId = RequestIdFromContext(req.Context())
 	errorResponse.HostId = helper.CONFIG.InstanceId
 
 	encodedErrorResponse := EncodeResponse(errorResponse)

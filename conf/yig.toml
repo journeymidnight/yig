@@ -5,6 +5,8 @@ access_log_path = "/var/log/yig/access.log"
 access_log_format = "{combined}"
 panic_log_path = "/var/log/yig/panic.log"
 log_level = 20
+#"Panic":0, "Fatal":2, "Error":5, "Warn":10, "Info":12, "Debug":15, "Trace":20
+log_level_string = "Trace"
 pid_file = "/var/run/yig/yig.pid"
 api_listener = "0.0.0.0:8080"
 admin_listener = "0.0.0.0:9000"

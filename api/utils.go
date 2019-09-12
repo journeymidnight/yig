@@ -74,7 +74,11 @@ func contains(stringList []string, element string) bool {
 	return false
 }
 
-func requestIdFromContext(ctx context.Context) string {
+func RequestIdFromContext(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	
 	if result, ok := ctx.Value(RequestContextKey).(RequestContext); ok {
 		return result.RequestId
 	}

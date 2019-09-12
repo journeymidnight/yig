@@ -1,6 +1,7 @@
 package datatype
 
 import (
+	"context"
 	"encoding/xml"
 	"net/http"
 	"net/url"
@@ -105,7 +106,7 @@ type Cors struct {
 	CorsRules []CorsRule `xml:"CORSRule"`
 }
 
-func CorsFromXml(corsBuffer []byte) (cors Cors, err error) {
+func CorsFromXml(ctx context.Context, corsBuffer []byte) (cors Cors, err error) {
 	helper.Debugln("Incoming CORS XML:", string(corsBuffer))
 	err = xml.Unmarshal(corsBuffer, &cors)
 	if err != nil {

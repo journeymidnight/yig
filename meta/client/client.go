@@ -1,6 +1,8 @@
 package client
 
 import (
+	"context"
+
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/meta/types"
 )
@@ -42,9 +44,9 @@ type Client interface {
 	//cluster
 	GetCluster(fsid, pool string) (cluster Cluster, err error)
 	//lc
-	PutBucketToLifeCycle(lifeCycle LifeCycle) error
-	RemoveBucketFromLifeCycle(bucket *Bucket) error
-	ScanLifeCycle(limit int, marker string) (result ScanLifeCycleResult, err error)
+	PutBucketToLifeCycle(ctx context.Context, lifeCycle LifeCycle) error
+	RemoveBucketFromLifeCycle(ctx context.Context, bucket *Bucket) error
+	ScanLifeCycle(ctx context.Context, limit int, marker string) (result ScanLifeCycleResult, err error)
 	//user
 	GetUserBuckets(userId string) (buckets []string, err error)
 	AddBucketForUser(bucketName, userId string) (err error)

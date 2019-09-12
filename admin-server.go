@@ -55,7 +55,7 @@ func getUsage(w http.ResponseWriter, r *http.Request) {
 	claims := r.Context().Value("claims").(jwt.MapClaims)
 	bucketName := claims["bucket"].(string)
 
-	usage, err := adminServer.Yig.MetaStorage.GetUsage(bucketName)
+	usage, err := adminServer.Yig.MetaStorage.GetUsage(r.Context(), bucketName)
 	if err != nil {
 		api.WriteErrorResponse(w, r, err)
 		return
@@ -69,8 +69,8 @@ func getBucketInfo(w http.ResponseWriter, r *http.Request) {
 	claims := r.Context().Value("claims").(jwt.MapClaims)
 	bucketName := claims["bucket"].(string)
 
-	helper.Debugln("bucketName:", bucketName)
-	bucket, err := adminServer.Yig.MetaStorage.GetBucketInfo(bucketName)
+	helper.Debugln("[", api.RequestIdFromContext(r.Context()), "]", "bucketName:", bucketName)
+	bucket, err := adminServer.Yig.MetaStorage.GetBucketInfo(r.Context(), bucketName)
 	if err != nil {
 		api.WriteErrorResponse(w, r, err)
 		return
@@ -85,12 +85,12 @@ func getUserInfo(w http.ResponseWriter, r *http.Request) {
 	claims := r.Context().Value("claims").(jwt.MapClaims)
 	uid := claims["uid"].(string)
 
-	buckets, err := adminServer.Yig.MetaStorage.GetUserInfo(uid)
+	buckets, err := adminServer.Yig.MetaStorage.GetUserInfo(r.Context(), uid)
 	if err != nil {
 		api.WriteErrorResponse(w, r, err)
 		return
 	}
-	helper.Debugln("enter getUserInfo", uid, buckets)
+	helper.Debugln("[", api.RequestIdFromContext(r.Context()), "]", "enter getUserInfo", uid, buckets)
 
 	var keys []common.Credential
 	if helper.CONFIG.DebugMode == false {
@@ -106,12 +106,12 @@ func getUserInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func getObjectInfo(w http.ResponseWriter, r *http.Request) {
-	helper.Debugln("enter getObjectInfo")
+	helper.Debugln("[", api.RequestIdFromContext(r.Context()), "]", "enter getObjectInfo")
 	claims := r.Context().Value("claims").(jwt.MapClaims)
 	bucketName := claims["bucket"].(string)
 	objectName := claims["object"].(string)
 
-	object, err := adminServer.Yig.MetaStorage.GetObject(bucketName, objectName, true)
+	object, err := adminServer.Yig.MetaStorage.GetObject(r.Context(), bucketName, objectName, true)
 	if err != nil {
 		api.WriteErrorResponse(w, r, err)
 		return
@@ -122,7 +122,7 @@ func getObjectInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func getCacheHitRatio(w http.ResponseWriter, r *http.Request) {
-	helper.Debugln("enter getCacheHitRatio")
+	helper.Debugln("[", api.RequestIdFromContext(r.Context()), "]", "enter getCacheHitRatio")
 
 	rate := adminServer.Yig.MetaStorage.Cache.GetCacheHitRatio()
 	b, _ := json.Marshal(cacheJson{HitRate: rate})

@@ -2,13 +2,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/journeymidnight/yig/api/datatype"
-	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/iam/common"
-	"github.com/journeymidnight/yig/log"
-	"github.com/journeymidnight/yig/meta/types"
-	"github.com/journeymidnight/yig/redis"
-	"github.com/journeymidnight/yig/storage"
 	"os"
 	"os/signal"
 	"strconv"
@@ -16,10 +9,18 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/iam/common"
+	"github.com/journeymidnight/yig/log"
+	"github.com/journeymidnight/yig/meta/types"
+	"github.com/journeymidnight/yig/redis"
+	"github.com/journeymidnight/yig/storage"
 )
 
 const (
-	SCAN_HBASE_LIMIT = 50
+	SCAN_HBASE_LIMIT    = 50
 	DEFAULT_LC_LOG_PATH = "/var/log/yig/lc.log"
 )
 
@@ -44,7 +45,7 @@ func getLifeCycles() {
 			return
 		}
 
-		result, err := yig.MetaStorage.ScanLifeCycle(SCAN_HBASE_LIMIT, marker)
+		result, err := yig.MetaStorage.ScanLifeCycle(nil, SCAN_HBASE_LIMIT, marker)
 		if err != nil {
 			logger.Println(5, "ScanLifeCycle failed", err)
 			signalQueue <- syscall.SIGQUIT
@@ -88,7 +89,7 @@ func checkIfExpiration(updateTime time.Time, days int) bool {
 func retrieveBucket(lc types.LifeCycle) error {
 	defaultConfig := false
 	defaultDays := 0
-	bucket, err := yig.MetaStorage.GetBucket(lc.BucketName, false)
+	bucket, err := yig.MetaStorage.GetBucket(nil, lc.BucketName, false)
 	if err != nil {
 		return err
 	}
@@ -107,7 +108,7 @@ func retrieveBucket(lc types.LifeCycle) error {
 	request.MaxKeys = 1000
 	if defaultConfig == true {
 		for {
-			retObjects, _, truncated, nextMarker, nextVerIdMarker, err := yig.ListObjectsInternal(bucket.Name, request)
+			retObjects, _, truncated, nextMarker, nextVerIdMarker, err := yig.ListObjectsInternal(nil, bucket.Name, request)
 			if err != nil {
 				return err
 			}
@@ -140,7 +141,7 @@ func retrieveBucket(lc types.LifeCycle) error {
 					if object.NullVersion {
 						object.VersionId = ""
 					}
-					_, err = yig.DeleteObject(object.BucketName, object.Name, object.VersionId, common.Credential{})
+					_, err = yig.DeleteObject(nil, object.BucketName, object.Name, object.VersionId, common.Credential{})
 					if err != nil {
 						helper.Logger.Println(5, "[FAILED]", object.BucketName, object.Name, object.VersionId, err)
 						fmt.Println("[FAILED]", object.BucketName, object.Name, object.VersionId, err)
@@ -169,13 +170,13 @@ func retrieveBucket(lc types.LifeCycle) error {
 			request.Prefix = rule.Prefix
 			for {
 
-				retObjects, _, truncated, nextMarker, nextVerIdMarker, err := yig.ListObjectsInternal(bucket.Name, request)
+				retObjects, _, truncated, nextMarker, nextVerIdMarker, err := yig.ListObjectsInternal(nil, bucket.Name, request)
 				if err != nil {
 					return err
 				}
 				for _, object := range retObjects {
 					if checkIfExpiration(object.LastModifiedTime, days) {
-						_, err = yig.DeleteObject(object.BucketName, object.Name, object.VersionId, common.Credential{})
+						_, err = yig.DeleteObject(nil, object.BucketName, object.Name, object.VersionId, common.Credential{})
 						if err != nil {
 							logger.Println(5, "failed to delete object:", object.Name, object.BucketName)
 							helper.Logger.Println(5, "[FAILED]", object.BucketName, object.Name, object.VersionId, err)
