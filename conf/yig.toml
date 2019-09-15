@@ -35,10 +35,21 @@ redis_write_timeout = 1
 redis_keepalive = 60
 redis_pool_max_idle = 3
 redis_pool_idle_timeout = 30
+
 cache_circuit_check_interval = 3
 cache_circuit_close_sleep_window = 1
 cache_circuit_close_required_count = 3
 cache_circuit_open_threshold = 1
+cache_circuit_exec_timeout = 5
+cache_circuit_exec_max_concurrent = -1
+
+db_max_open_conns = 10240
+db_max_idle_conns = 1024
+db_conn_max_life_seconds = 300
+
+download_buf_pool_size = 8388608 #8MB
+upload_min_chunk_size = 524288 #512KB
+upload_max_chunk_size = 8388608 #8MB
 
 # Ceph Config
 ceph_config_pattern = "/etc/ceph/*.conf"
@@ -46,10 +57,18 @@ ceph_config_pattern = "/etc/ceph/*.conf"
 [kms]
 type = "vault"
 endpoint = "http://10.5.0.19:8200"
-id = "f7b8ae6f-5008-ceec-6a50-2497f429c8dc"
-secret = "a22f513f-e4eb-d327-2566-77c92e0b4cdd"
+kms_id = "your_id"
+kms_secret = "your_secret"
 version = 0
 keyname = "yig"
+
+[msg_bus]
+msg_bus_enable = true
+msg_bus_type = 1
+msg_bus_topic = "testTopic2"
+[msg_bus.msg_bus_server]
+broker_list = "kafka:29092"
+
 
 # Plugin Config
 

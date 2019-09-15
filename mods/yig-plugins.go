@@ -39,7 +39,6 @@ func InitialPlugins() map[string]*YigPlugin {
 			continue
 		}
 
-
 		//if enable do not exist in toml file, enable's default is false
 		if pluginConfig.Enable == false {
 			helper.Logger.Printf(5, "plugins: %s is not enabled, continue\n", sopath)
@@ -49,7 +48,7 @@ func InitialPlugins() map[string]*YigPlugin {
 		//open plugin file
 		plug, err := plugin.Open(sopath)
 		if err != nil {
-			helper.Logger.Printf(5, "plugins: failed to open %s for %s", sopath, name)
+			helper.Logger.Printf(5, "plugins: failed to open %s for %s, err: %v\n", sopath, name, err)
 			continue
 		}
 		exported, err := plug.Lookup(EXPORTED_PLUGIN)

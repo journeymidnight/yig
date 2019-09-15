@@ -506,6 +506,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	targetObject.Size = sourceObject.Size
 	targetObject.Etag = sourceObject.Etag
 	targetObject.Parts = sourceObject.Parts
+	targetObject.Type = sourceObject.Type
 
 	if r.Header.Get("X-Amz-Metadata-Directive") == "COPY" || r.Header.Get("X-Amz-Metadata-Directive") == "" {
 		targetObject.CustomAttributes = sourceObject.CustomAttributes

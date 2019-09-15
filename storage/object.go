@@ -109,7 +109,8 @@ var (
 
 func init() {
 	downloadBufPool.New = func() interface{} {
-		return make([]byte, helper.CONFIG.DownLoadBufPoolSize)
+		helper.Logger.Println(20, helper.CONFIG.DownloadBufPoolSize)
+		return make([]byte, helper.CONFIG.DownloadBufPoolSize)
 	}
 }
 
@@ -204,8 +205,9 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 		if err != nil {
 			return err
 		}
-		buffer := make([]byte, MAX_CHUNK_SIZE)
+		buffer := downloadBufPool.Get().([]byte)
 		_, err = io.CopyBuffer(writer, decryptedReader, buffer)
+		downloadBufPool.Put(buffer)
 		return err
 	}
 
@@ -794,55 +796,62 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 	if len(targetObject.Parts) != 0 {
 		var targetParts map[int]*meta.Part = make(map[int]*meta.Part, len(targetObject.Parts))
 		//		etaglist := make([]string, len(sourceObject.Parts))
-		for partNum, part := range targetObject.Parts {
-			targetParts[partNum] = part
-			pr, pw := io.Pipe()
-			defer pr.Close()
-			var total = part.Size
-			go func() {
-				_, err = io.CopyN(pw, source, total)
-				if err != nil {
-					return
+		for i := 1; i <= len(targetObject.Parts); i++ {
+			part := targetObject.Parts[i]
+			targetParts[i] = part
+			result,err = func() (result datatype.PutObjectResult, err error) {
+				pr, pw := io.Pipe()
+				defer pr.Close()
+				var total = part.Size
+				go func() {
+					_, err = io.CopyN(pw, source, total)
+					if err != nil {
+						return
+					}
+					pw.Close()
+				}()
+				md5Writer := md5.New()
+				dataReader := io.TeeReader(pr, md5Writer)
+				oid = cephCluster.GetUniqUploadName()
+				var bytesW int64
+				var storageReader io.Reader
+				var initializationVector []byte
+				if len(encryptionKey) != 0 {
+					initializationVector, err = newInitializationVector()
+					if err != nil {
+						return
+					}
 				}
-				pw.Close()
+				storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
+				bytesW, err = cephCluster.Put(poolName, oid, storageReader)
+				maybeObjectToRecycle = objectToRecycle{
+					location: cephCluster.Name,
+					pool:     poolName,
+					objectId: oid,
+				}
+				if bytesW < part.Size {
+					RecycleQueue <- maybeObjectToRecycle
+					return result, ErrIncompleteBody
+				}
+				if err != nil {
+					return result, err
+				}
+				calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
+				//we will only chack part etag,overall etag will be same if each part of etag is same
+				if calculatedMd5 != part.Etag {
+					err = ErrInternalError
+					RecycleQueue <- maybeObjectToRecycle
+					return result, err
+				}
+				part.LastModified = time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT)
+				part.ObjectId = oid
+
+				part.InitializationVector = initializationVector
+				return result,nil
 			}()
-			md5Writer := md5.New()
-			dataReader := io.TeeReader(pr, md5Writer)
-			oid = cephCluster.GetUniqUploadName()
-			var bytesW int64
-			var storageReader io.Reader
-			var initializationVector []byte
-			if len(encryptionKey) != 0 {
-				initializationVector, err = newInitializationVector()
-				if err != nil {
-					return
-				}
-			}
-			storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
-			bytesW, err = cephCluster.Put(poolName, oid, storageReader)
-			maybeObjectToRecycle = objectToRecycle{
-				location: cephCluster.Name,
-				pool:     poolName,
-				objectId: oid,
-			}
-			if bytesW < part.Size {
-				RecycleQueue <- maybeObjectToRecycle
-				return result, ErrIncompleteBody
-			}
 			if err != nil {
 				return result, err
 			}
-			calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
-			//we will only chack part etag,overall etag will be same if each part of etag is same
-			if calculatedMd5 != part.Etag {
-				err = ErrInternalError
-				RecycleQueue <- maybeObjectToRecycle
-				return
-			}
-			part.LastModified = time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT)
-			part.ObjectId = oid
-
-			part.InitializationVector = initializationVector
 		}
 		targetObject.ObjectId = ""
 		targetObject.Parts = targetParts

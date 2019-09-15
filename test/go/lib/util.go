@@ -76,7 +76,7 @@ func (sc *S3Client) TestAnonymousAccessResult(policyGroup AccessPolicyGroup, res
 	return nil
 }
 
-// Generate 128KiB part data
+// Generate 5M part data
 func GenMinimalPart() []byte {
 	return RandBytes(5 << 20)
 }
