@@ -9,7 +9,6 @@ services:
 - docker
 
 before_install:
-  - sudo apt-get update 
   - sudo -E apt-get -yq --no-install-suggests --no-install-recommends --force-yes install docker-ce
   - sudo apt-get install golang -y
   - docker version
@@ -28,6 +27,7 @@ install:
 
 script:
 - make integrate
+- export GOPROXY=https://goproxy.cn
 - export GO111MODULE=on
   # golang 1.12 will change the permission of go.mod and go.sum
   # use chmod to reset the permission of go.mod and go.sum to make go test happy

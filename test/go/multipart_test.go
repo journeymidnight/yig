@@ -236,4 +236,5 @@ func Test_CopyObjectPartWithoutMD5(t *testing.T) {
 	//clean up
 	svc.DeleteObject(TEST_BUCKET, TEST_KEY)
 	svc.DeleteObject(TEST_BUCKET, TEST_COPY_KEY)
+
 }

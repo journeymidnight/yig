@@ -2,8 +2,8 @@ import base
 from urllib import unquote
 
 SMALL_TEST_FILE = bytes('a' * 1024 * 1024)  # 1M
-RANGE_1 = bytes('abcdefghijklmnop' * 64 * 1024)  # 1M
-RANGE_2 = bytes('qrstuvwxyz012345' * 64 * 1024)  # 1M
+RANGE_1 = bytes('abcdefghijklmnop' * 64 * 1024 * 5)  # 5M
+RANGE_2 = bytes('qrstuvwxyz012345' * 64 * 1024 * 5)  # 5M
 
 # =====================================================
 
@@ -310,7 +310,7 @@ def get_object_ranged(name, client):
     ans = client.get_object(
         Bucket=name+'hehe',
         Key=name+'multipart',
-        Range='bytes=1048570-1048580'
+        Range='bytes=5242874-5242884'
     )
     body = ans['Body'].read()
     assert body == 'klmnopqrstu'

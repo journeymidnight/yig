@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	MIN_PART_SIZE = 128 << 10 // 128KB
+	MIN_PART_SIZE = 5 << 20 // 5MB
 )
 
 // writeErrorResponsePartTooSmall - function is used specifically to
