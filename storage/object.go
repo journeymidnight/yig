@@ -787,10 +787,10 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 
 	if len(targetObject.Parts) != 0 {
 		var targetParts map[int]*meta.Part = make(map[int]*meta.Part, len(targetObject.Parts))
-		//		etaglist := make([]string, len(sourceObject.Parts))
 		for i := 1; i <= len(targetObject.Parts); i++ {
 			part := targetObject.Parts[i]
 			targetParts[i] = part
+			result,err = func() (result datatype.PutObjectResult, err error) {
 			pr, pw := io.Pipe()
 			defer pr.Close()
 			var total = part.Size
@@ -837,7 +837,12 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 			part.LastModified = time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT)
 			part.ObjectId = oid
 
-			part.InitializationVector = initializationVector
+				part.InitializationVector = initializationVector
+				return result,nil
+			}()
+			if err != nil {
+				return result, err
+			}
 		}
 		targetObject.ObjectId = ""
 		targetObject.Parts = targetParts

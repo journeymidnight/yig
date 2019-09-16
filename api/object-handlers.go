@@ -571,6 +571,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	targetObject.ContentType = sourceObject.ContentType
 	targetObject.CustomAttributes = sourceObject.CustomAttributes
 	targetObject.Parts = sourceObject.Parts
+	targetObject.Type = sourceObject.Type
 
 	if r.Header.Get("X-Amz-Storage-Class") != "" {
 		targetObject.StorageClass = storageClassFromHeader
