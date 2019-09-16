@@ -44,9 +44,11 @@ func New(logger *log.Logger, myCacheType CacheType) *Meta {
 	} else {
 		panic("unsupport metastore")
 	}
-	err := meta.InitBucketUsageCache()
-	if err != nil {
-		panic("failed to init bucket usage cache")
+	if myCacheType != NoCache {
+		err := meta.InitBucketUsageCache()
+		if err != nil {
+			panic("failed to init bucket usage cache")
+		}
 	}
 	return &meta
 }
