@@ -264,6 +264,40 @@ func Test_RenameObject(t *testing.T) {
 	svc.DeleteObject(TEST_BUCKET, TEST_RENAME_KEY)
 }
 
+func Test_RenameObjectWithSameName(t *testing.T) {
+	//non-cryption
+	svc := NewS3()
+	err := svc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	if err != nil {
+		t.Fatal("PutObject err:", err)
+	}
+
+	TEST_SAME_KEY := "SAME:" + TEST_KEY
+	input1 := &s3.CopyObjectInput{
+		Bucket:     aws.String(TEST_BUCKET),
+		CopySource: aws.String(TEST_BUCKET + "/" + TEST_KEY),
+		Key:        aws.String(TEST_SAME_KEY),
+	}
+	_, err = svc.Client.CopyObject(input1)
+	if err != nil {
+		t.Fatal("Copy Object err:", err)
+	}
+	
+	input2 := &s3.RenameObjectInput{
+		Bucket:          aws.String(TEST_BUCKET),
+		RenameSourceKey: aws.String(TEST_KEY),
+		Key:             aws.String(TEST_SAME_KEY),
+	}
+	_, err = svc.Client.RenameObject(input2)
+	if err == nil {
+		t.Fatal("Rename Object err:", err)
+	}
+
+	//clean up
+	svc.DeleteObject(TEST_BUCKET, TEST_SAME_KEY)
+	svc.DeleteObject(TEST_BUCKET, TEST_KEY)
+}
+
 func Test_RenameObjectErrFolder(t *testing.T) {
 	//non-cryption
 	svc := NewS3()

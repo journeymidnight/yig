@@ -590,6 +590,14 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 		WriteErrorResponse(w, r, err)
 		return
 	}
+
+	var version string
+	validObject, err := api.ObjectAPI.GetObjectInfo(BucketName, targetObjectName, version, credential)
+	if validObject != nil {
+		WriteErrorResponse(w, r, ErrInvalidRenameTarget)
+		return
+	}
+
 	sourceObjectName := r.Header.Get("X-Amz-Rename-Source-Key")
 
 	if sourceObjectName == targetObjectName {
