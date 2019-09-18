@@ -758,7 +758,7 @@ func (api ObjectAPIHandlers) PutBucketVersioningHandler(w http.ResponseWriter, r
 	WriteSuccessResponse(w, nil)
 }
 
-func extractHTTPFormValues(reader *multipart.Reader) (filePartReader io.Reader,
+func extractHTTPFormValues(reader *multipart.Reader) (filePartReader io.ReadCloser,
 	formValues map[string]string, err error) {
 
 	formValues = make(map[string]string)

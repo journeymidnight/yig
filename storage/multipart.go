@@ -142,8 +142,10 @@ func (yig *YigStorage) NewMultipartUpload(credential common.Credential, bucketNa
 }
 
 func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential common.Credential,
-	uploadId string, partId int, size int64, data io.Reader, md5Hex string,
+	uploadId string, partId int, size int64, data io.ReadCloser, md5Hex string,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectPartResult, err error) {
+
+	defer data.Close()
 	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
 	if err != nil {
 		return
@@ -217,7 +219,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 		return
 	}
 
-	if signVerifyReader, ok := data.(*signature.SignVerifyReader); ok {
+	if signVerifyReader, ok := data.(*signature.SignVerifyReadCloser); ok {
 		credential, err = signVerifyReader.Verify()
 		if err != nil {
 			RecycleQueue <- maybeObjectToRecycle
