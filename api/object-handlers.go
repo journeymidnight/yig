@@ -735,14 +735,14 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	credential, dataReader, err := signature.VerifyUpload(r)
+	credential, dataReadCloser, err := signature.VerifyUpload(r)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
 
 	var result PutObjectResult
-	result, err = api.ObjectAPI.PutObject(bucketName, objectName, credential, size, dataReader,
+	result, err = api.ObjectAPI.PutObject(bucketName, objectName, credential, size, dataReadCloser,
 		metadata, acl, sseRequest, storageClass)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to create object "+objectName)
@@ -878,7 +878,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	}
 
 	// Verify auth
-	credential, dataReader, err := signature.VerifyUpload(r)
+	credential, dataReadCloser, err := signature.VerifyUpload(r)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -933,7 +933,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	}
 
 	var result AppendObjectResult
-	result, err = api.ObjectAPI.AppendObject(bucketName, objectName, credential, position, size, dataReader,
+	result, err = api.ObjectAPI.AppendObject(bucketName, objectName, credential, position, size, dataReadCloser,
 		metadata, acl, sseRequest, storageClass, objInfo)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to append object "+objectName)
@@ -1227,7 +1227,7 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 		return
 	}
 
-	credential, dataReader, err := signature.VerifyUpload(r)
+	credential, dataReadCloser, err := signature.VerifyUpload(r)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -1236,7 +1236,7 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 	var result PutObjectPartResult
 	// No need to verify signature, anonymous request access is already allowed.
 	result, err = api.ObjectAPI.PutObjectPart(bucketName, objectName, credential,
-		uploadID, partID, size, dataReader, incomingMd5, sseRequest)
+		uploadID, partID, size, dataReadCloser, incomingMd5, sseRequest)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to create object part for "+objectName)
 		// Verify if the underlying error is signature mismatch.

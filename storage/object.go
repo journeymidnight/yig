@@ -443,9 +443,10 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, versio
 // SHA256 is calculated only for v4 signed authentication
 // Encryptor is enabled when user set SSE headers
 func (yig *YigStorage) PutObject(bucketName string, objectName string, credential common.Credential,
-	size int64, data io.Reader, metadata map[string]string, acl datatype.Acl,
+	size int64, data io.ReadCloser, metadata map[string]string, acl datatype.Acl,
 	sseRequest datatype.SseRequest, storageClass meta.StorageClass) (result datatype.PutObjectResult, err error) {
 
+	defer data.Close()
 	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, bucketName, objectName)
 	helper.Debugln("get encryptionKey:", encryptionKey, "cipherKey:", cipherKey, "err:", err)
 	if err != nil {
@@ -526,7 +527,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 
 	result.Md5 = calculatedMd5
 
-	if signVerifyReader, ok := data.(*signature.SignVerifyReader); ok {
+	if signVerifyReader, ok := data.(*signature.SignVerifyReadCloser); ok {
 		credential, err = signVerifyReader.Verify()
 		if err != nil {
 			RecycleQueue <- maybeObjectToRecycle
@@ -596,9 +597,10 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 
 //TODO: Append Support Encryption
 func (yig *YigStorage) AppendObject(bucketName string, objectName string, credential common.Credential,
-	offset uint64, size int64, data io.Reader, metadata map[string]string, acl datatype.Acl,
+	offset uint64, size int64, data io.ReadCloser, metadata map[string]string, acl datatype.Acl,
 	sseRequest datatype.SseRequest, storageClass meta.StorageClass, objInfo *meta.Object) (result datatype.AppendObjectResult, err error) {
 
+	defer data.Close()
 	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, bucketName, objectName)
 	helper.Logger.Println(10, "get encryptionKey:", encryptionKey, "cipherKey:", cipherKey, "err:", err)
 	if err != nil {
@@ -677,7 +679,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 
 	result.Md5 = calculatedMd5
 
-	if signVerifyReader, ok := data.(*signature.SignVerifyReader); ok {
+	if signVerifyReader, ok := data.(*signature.SignVerifyReadCloser); ok {
 		credential, err = signVerifyReader.Verify()
 		if err != nil {
 			return
