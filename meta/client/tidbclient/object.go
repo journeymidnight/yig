@@ -57,7 +57,6 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 	s := int64(rversion) / 1e9
 	ns := int64(rversion) % 1e9
 	object.LastModifiedTime = time.Unix(s, ns)
-	object.GetRowkey()
 	object.Name = objectName
 	object.BucketName = bucketName
 	err = json.Unmarshal([]byte(acl), &object.ACL)

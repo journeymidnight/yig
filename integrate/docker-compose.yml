@@ -5,13 +5,6 @@
 version: '2'
 
 services:
-#  hbase:
-#    image: harisekhon/hbase
-#    container_name: hbase
-#    networks:
-#      vpcbr:
-#        ipv4_address: "10.5.0.5"
-
   ceph:
     image: journeymidnight/ceph
     container_name: ceph
