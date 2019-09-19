@@ -556,6 +556,7 @@ func (yig *YigStorage) UpdateObjectAttrs(targetObject *meta.Object, credential c
 func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, credential common.Credential,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
 
+	var oid string
 	var maybeObjectToRecycle objectToRecycle
 	var encryptionKey []byte
 	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, targetObject.BucketName, targetObject.Name)
@@ -590,7 +591,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		for i := 1; i <= len(targetObject.Parts); i++ {
 			part := targetObject.Parts[i]
 			targetParts[i] = part
-			result,err = func() (result datatype.PutObjectResult, err error) {
+			result, err = func() (result datatype.PutObjectResult, err error) {
 				pr, pw := io.Pipe()
 				defer pr.Close()
 				var total = part.Size
@@ -603,8 +604,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 				}()
 				md5Writer := md5.New()
 				dataReader := io.TeeReader(pr, md5Writer)
-				oid = cephCluster.GetUniqUploadName()
-				var bytesW int64
+				var bytesW uint64
 				var storageReader io.Reader
 				var initializationVector []byte
 				if len(encryptionKey) != 0 {
@@ -614,53 +614,35 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 					}
 				}
 				storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
-				bytesW, err = cephCluster.Put(poolName, oid, storageReader)
+				oid, bytesW, err = cephCluster.Put(poolName, storageReader)
 				maybeObjectToRecycle = objectToRecycle{
-					location: cephCluster.Name,
+					location: cephCluster.ID(),
 					pool:     poolName,
 					objectId: oid,
 				}
-				if bytesW < part.Size {
+				if bytesW < uint64(part.Size) {
 					RecycleQueue <- maybeObjectToRecycle
 					return result, ErrIncompleteBody
 				}
-				pw.Close()
-			}()
-			md5Writer := md5.New()
-			dataReader := io.TeeReader(pr, md5Writer)
-			var bytesWritten uint64
-			var storageReader io.Reader
-			var initializationVector []byte
-			if len(encryptionKey) != 0 {
-				initializationVector, err = newInitializationVector()
 				if err != nil {
 					return result, err
 				}
-			}
-			storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
-			objectId, bytesWritten, err := cephCluster.Put(poolName, storageReader)
-			maybeObjectToRecycle = objectToRecycle{
-				location: cephCluster.ID(),
-				pool:     poolName,
-				objectId: objectId,
-			}
-			if bytesWritten < uint64(part.Size) {
-				RecycleQueue <- maybeObjectToRecycle
-				return result, ErrIncompleteBody
-			}
+				calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
+				//we will only chack part etag,overall etag will be same if each part of etag is same
+				if calculatedMd5 != part.Etag {
+					err = ErrInternalError
+					RecycleQueue <- maybeObjectToRecycle
+					return result, err
+				}
+				part.LastModified = time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT)
+				part.ObjectId = oid
+
+				part.InitializationVector = initializationVector
+				return result, nil
+			}()
 			if err != nil {
 				return result, err
 			}
-			calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
-			//we will only chack part etag,overall etag will be same if each part of etag is same
-			if calculatedMd5 != part.Etag {
-				RecycleQueue <- maybeObjectToRecycle
-				return result, ErrInternalError
-			}
-			part.LastModified = time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT)
-			part.ObjectId = objectId
-
-			part.InitializationVector = initializationVector
 		}
 		targetObject.ObjectId = ""
 		targetObject.Parts = targetParts
@@ -668,6 +650,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 	} else {
 		md5Writer := md5.New()
 
+		// Mapping a shorter name for the object
 		dataReader := io.TeeReader(limitedDataReader, md5Writer)
 		var storageReader io.Reader
 		var initializationVector []byte
@@ -682,16 +665,16 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 			return
 		}
 		var bytesWritten uint64
-		objectId, bytesWritten, err := cephCluster.Put(poolName, storageReader)
+		oid, bytesWritten, err = cephCluster.Put(poolName, storageReader)
 		if err != nil {
-			return result, err
+			return
 		}
 		// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
 		// so the object in Ceph could be removed asynchronously
 		maybeObjectToRecycle = objectToRecycle{
 			location: cephCluster.ID(),
 			pool:     poolName,
-			objectId: objectId,
+			objectId: oid,
 		}
 		if bytesWritten < uint64(targetObject.Size) {
 			RecycleQueue <- maybeObjectToRecycle
@@ -704,7 +687,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 			return result, ErrBadDigest
 		}
 		result.Md5 = calculatedMd5
-		targetObject.ObjectId = objectId
+		targetObject.ObjectId = oid
 		targetObject.InitializationVector = initializationVector
 	}
 	// TODO validate bucket policy and fancy ACL
@@ -1003,4 +986,3 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 	}
 	return result, nil
 }
-
