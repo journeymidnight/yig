@@ -1,11 +1,9 @@
 package types
 
 import (
-	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -15,7 +13,6 @@ import (
 	"time"
 
 	"github.com/journeymidnight/yig/api/datatype"
-	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/meta/util"
 	"github.com/xxtea/xxtea-go/xxtea"
 )
@@ -97,88 +94,6 @@ func (o *Object) GetVersionNumber() (uint64, error) {
 		return 0, err
 	}
 	return version, nil
-}
-
-// Rowkey format:
-// BucketName +
-// ObjectNameSeparator +
-// ObjectName +
-// ObjectNameSeparator +
-// bigEndian(uint64.max - unixNanoTimestamp)
-func (o *Object) GetRowkey() (string, error) {
-	if len(o.Rowkey) != 0 {
-		return string(o.Rowkey), nil
-	}
-	var rowkey bytes.Buffer
-	rowkey.WriteString(o.BucketName + ObjectNameSeparator)
-	rowkey.WriteString(o.Name + ObjectNameSeparator)
-	err := binary.Write(&rowkey, binary.BigEndian,
-		math.MaxUint64-uint64(o.LastModifiedTime.UnixNano()))
-	if err != nil {
-		return "", err
-	}
-	o.Rowkey = rowkey.Bytes()
-	return string(o.Rowkey), nil
-}
-
-func (o *Object) GetValues() (values map[string]map[string][]byte, err error) {
-	var size bytes.Buffer
-	err = binary.Write(&size, binary.BigEndian, o.Size)
-	if err != nil {
-		return
-	}
-	err = o.encryptSseKey()
-	if err != nil {
-		return
-	}
-	if o.EncryptionKey == nil {
-		o.EncryptionKey = []byte{}
-	}
-	if o.InitializationVector == nil {
-		o.InitializationVector = []byte{}
-	}
-	var attrsData []byte
-	if o.CustomAttributes != nil {
-		attrsData, err = json.Marshal(o.CustomAttributes)
-		if err != nil {
-			return
-		}
-	}
-	values = map[string]map[string][]byte{
-		OBJECT_COLUMN_FAMILY: map[string][]byte{
-			"bucket":        []byte(o.BucketName),
-			"location":      []byte(o.Location),
-			"pool":          []byte(o.Pool),
-			"owner":         []byte(o.OwnerId),
-			"oid":           []byte(o.ObjectId),
-			"size":          size.Bytes(),
-			"lastModified":  []byte(o.LastModifiedTime.Format(CREATE_TIME_LAYOUT)),
-			"etag":          []byte(o.Etag),
-			"content-type":  []byte(o.ContentType),
-			"attributes":    attrsData, // TODO
-			"ACL":           []byte(o.ACL.CannedAcl),
-			"nullVersion":   []byte(helper.Ternary(o.NullVersion, "true", "false").(string)),
-			"deleteMarker":  []byte(helper.Ternary(o.DeleteMarker, "true", "false").(string)),
-			"sseType":       []byte(o.SseType),
-			"encryptionKey": o.EncryptionKey,
-			"IV":            o.InitializationVector,
-			"type":          []byte(o.ObjectTypeToString()),
-		},
-	}
-	if len(o.Parts) != 0 {
-		values[OBJECT_PART_COLUMN_FAMILY], err = valuesForParts(o.Parts)
-		if err != nil {
-			return
-		}
-	}
-	return
-}
-
-func (o *Object) GetValuesForDelete() (values map[string]map[string][]byte) {
-	return map[string]map[string][]byte{
-		OBJECT_COLUMN_FAMILY:      map[string][]byte{},
-		OBJECT_PART_COLUMN_FAMILY: map[string][]byte{},
-	}
 }
 
 func (o *Object) encryptSseKey() (err error) {
