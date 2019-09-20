@@ -20,6 +20,18 @@ func (s3client *S3Client) PutBucketWebsite(bucketName, index, error string) (err
 	return
 }
 
+func (s3client *S3Client) PutBucketWebsiteWithConf(bucketName string, conf *s3.WebsiteConfiguration) (err error) {
+	params := &s3.PutBucketWebsiteInput{
+		Bucket:               aws.String(bucketName),
+		WebsiteConfiguration: conf,
+	}
+	_, err = s3client.Client.PutBucketWebsite(params)
+	if err != nil {
+		return
+	}
+	return
+}
+
 func (s3client *S3Client) GetBucketWebsite(bucketName string) (conf string, err error) {
 	params := &s3.GetBucketWebsiteInput{
 		Bucket: aws.String(bucketName),

@@ -12,13 +12,19 @@ type S3Client struct {
 }
 
 const (
-	TEST_BUCKET = "mybucket"
-	TEST_KEY    = "testput"
-	TEST_KEY_SPECIAL = "testputspecial:!@$%^&*()_+=-;?><| "
-	TEST_VALUE  = "valueput"
+	Endpoint         = "s3.test.com:8080"
+	EndpointInternal = "s3.test.com-internal:8080"
+	AccessKey        = "hehehehe"
+	SecretKey        = "hehehehe"
+	Region           = "RegionHeHe"
+
+	TEST_BUCKET         = "mybucket"
+	TEST_KEY            = "testput"
+	TEST_KEY_SPECIAL    = "testputspecial:!@$%^&*()_+=-;?><| "
+	TEST_VALUE          = "valueput"
 	TEST_ILLEGALREFERER = "http://www.thief.com/"
-	TEST_LEGALREFERER = "http://www.genltemen.com/"
-	TEST_COMMONREFERER = "http://www.common.com/"
+	TEST_LEGALREFERER   = "http://www.genltemen.com/"
+	TEST_COMMONREFERER  = "http://www.common.com/"
 )
 
 func NewS3WithoutMD5() *S3Client {
@@ -27,11 +33,11 @@ func NewS3WithoutMD5() *S3Client {
 	// By default make sure a region is specified
 	s3client := s3.New(session.Must(session.NewSession(
 		&aws.Config{
-			Credentials: creds,
-			DisableSSL:  aws.Bool(true),
-			Endpoint:    aws.String("s3.test.com:8080"),
-			Region:      aws.String("r"),
-			S3DisableContentMD5Validation:	aws.Bool(true),
+			Credentials:                   creds,
+			DisableSSL:                    aws.Bool(true),
+			Endpoint:                      aws.String("s3.test.com:8080"),
+			Region:                        aws.String("r"),
+			S3DisableContentMD5Validation: aws.Bool(true),
 		},
 	),
 	),
@@ -40,15 +46,15 @@ func NewS3WithoutMD5() *S3Client {
 }
 
 func NewS3() *S3Client {
-	creds := credentials.NewStaticCredentials("hehehehe", "hehehehe", "")
+	creds := credentials.NewStaticCredentials(AccessKey, SecretKey, "")
 
 	// By default make sure a region is specified
 	s3client := s3.New(session.Must(session.NewSession(
 		&aws.Config{
 			Credentials: creds,
 			DisableSSL:  aws.Bool(true),
-			Endpoint:    aws.String("s3.test.com:8080"),
-			Region:      aws.String("r"),
+			Endpoint:    aws.String(Endpoint),
+			Region:      aws.String(Region),
 		},
 	),
 	),
@@ -64,8 +70,8 @@ func NewS3Internal() *S3Client {
 		&aws.Config{
 			Credentials: creds,
 			DisableSSL:  aws.Bool(true),
-			Endpoint:    aws.String("s3-internal.test.com:8080"),
-			Region:      aws.String("r"),
+			Endpoint:    aws.String(EndpointInternal),
+			Region:      aws.String(Region),
 		},
 	),
 	),
