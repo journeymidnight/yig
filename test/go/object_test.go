@@ -29,6 +29,15 @@ func Test_PutObject(t *testing.T) {
 	t.Log("PutObject Success!")
 }
 
+func Test_PutObjectWithoutMD5(t *testing.T) {
+	sc := NewS3WithoutMD5()
+	err := sc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	if err != nil {
+		t.Fatal("PutObject err:", err)
+	}
+	t.Log("PutObject Success!")
+}
+
 func Test_HeadObject(t *testing.T) {
 	sc := NewS3()
 	err := sc.HeadObject(TEST_BUCKET, TEST_KEY)
@@ -117,6 +126,42 @@ func Test_PreSignedGetObject(t *testing.T) {
 		t.Fatal("StatusCode should be AccessDenied(403), but the code is:", statusCode)
 	}
 	t.Log("PreSignedGetObject Success.")
+}
+
+func Test_CopyObjectWithoutMD5(t *testing.T) {
+	svc := NewS3WithoutMD5()
+	err := svc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	if err != nil {
+		t.Fatal("PutObject err:", err)
+	}
+
+	TEST_COPY_KEY := "COPYED:" + TEST_KEY
+	input := &s3.CopyObjectInput{
+		Bucket:     aws.String(TEST_BUCKET),
+		CopySource: aws.String(TEST_BUCKET + "/" + TEST_KEY),
+		Key:        aws.String(TEST_COPY_KEY),
+	}
+	_, err = svc.Client.CopyObject(input)
+	if err != nil {
+		t.Fatal("Copy Object err:", err)
+	}
+
+	//verify them
+	v1, err := svc.GetObject(TEST_BUCKET, TEST_KEY)
+	if err != nil {
+		t.Fatal("Get Object err:", err)
+	}
+	v2, err := svc.GetObject(TEST_BUCKET, TEST_COPY_KEY)
+	if err != nil {
+		t.Fatal("Get Object err:", err)
+	}
+	if v1 != v2 {
+		t.Fatal("Copyed result is not the same.")
+	}
+
+	//clean up
+	svc.DeleteObject(TEST_BUCKET, TEST_KEY)
+	svc.DeleteObject(TEST_BUCKET, TEST_COPY_KEY)
 }
 
 func Test_CopyObject(t *testing.T) {
