@@ -1,14 +1,14 @@
 package lib
 
 import (
+	"errors"
+	"fmt"
 	"github.com/journeymidnight/aws-sdk-go/aws"
 	"github.com/journeymidnight/aws-sdk-go/service/s3"
 	"github.com/journeymidnight/yig/api/datatype"
 	"net/url"
 	"os"
 	"strings"
-	"errors"
-	"fmt"
 )
 
 func GenTestObjectUrl(sc *S3Client) string {
@@ -52,6 +52,8 @@ type AccessPolicyGroup struct {
 	ObjectACL    string
 }
 
+type HTTPRequestToGetObjectType func(url string, requestCondition string) (status int, val []byte, err error)
+
 func (sc *S3Client) TestAnonymousAccessResult(policyGroup AccessPolicyGroup, resultCode int) (err error) {
 	err = sc.PutBucketPolicy(TEST_BUCKET, policyGroup.BucketPolicy)
 	if err != nil {
@@ -76,7 +78,37 @@ func (sc *S3Client) TestAnonymousAccessResult(policyGroup AccessPolicyGroup, res
 	return nil
 }
 
+func (sc *S3Client) TestAnonymousAccessResultWithPolicyCondition(policyGroup AccessPolicyGroup, resultCode int,
+	requestCondition string, HTTPRequestToGetObject HTTPRequestToGetObjectType) (err error) {
+	err = sc.PutBucketAcl(TEST_BUCKET, policyGroup.BucketACL)
+	if err != nil {
+		return
+	}
+
+	err = sc.PutObjectAcl(TEST_BUCKET, TEST_KEY, policyGroup.ObjectACL)
+	if err != nil {
+		return
+	}
+
+	err = sc.PutBucketPolicy(TEST_BUCKET, policyGroup.BucketPolicy)
+	if err != nil {
+		return
+	}
+
+	statusCode, data, err := HTTPRequestToGetObject(GenTestObjectUrl(sc), requestCondition)
+	if statusCode != resultCode {
+		return errors.New(fmt.Sprint("HTTPRequestToGetObject err:", err,
+			" statusCode should be ", resultCode, " but statusCode:", statusCode, " data:\n", string(data)))
+	}
+
+	return nil
+}
+
 // Generate 128KiB part data
 func GenMinimalPart() []byte {
 	return make([]byte, 128<<10)
+}
+
+func Format(s string) string {
+	return strings.Replace(strings.Replace(strings.Replace(s, " ", "", -1), "\n", "", -1), "\t", "", -1)
 }

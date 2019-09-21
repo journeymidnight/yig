@@ -16,6 +16,9 @@ const (
 	TEST_KEY    = "testput"
 	TEST_KEY_SPECIAL = "testputspecial:!@$%^&*()_+=-;?><| "
 	TEST_VALUE  = "valueput"
+	TEST_ILLEGALREFERER = "http://www.thief.com/"
+	TEST_LEGALREFERER = "http://www.genltemen.com/"
+	TEST_COMMONREFERER = "http://www.common.com/"
 )
 
 func NewS3() *S3Client {
