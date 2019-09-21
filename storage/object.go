@@ -723,7 +723,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 	return result, nil
 }
 
-func (yig *YigStorage) RenameObject(targetObject *meta.Object, credential common.Credential, sourceObject string) (result datatype.RenameObjectResult, err error) {
+func (yig *YigStorage) RenameObject(targetObject *meta.Object, sourceObject string, credential common.Credential) (result datatype.RenameObjectResult, err error) {
 
 	bucket, err := yig.MetaStorage.GetBucket(targetObject.BucketName, true)
 	if err != nil {
@@ -753,8 +753,6 @@ func (yig *YigStorage) RenameObject(targetObject *meta.Object, credential common
 	}
 
 	result.LastModified = targetObject.LastModifiedTime
-	result.VersionId = targetObject.GetVersionId()
-
 	yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
 	yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
 
@@ -799,7 +797,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		for i := 1; i <= len(targetObject.Parts); i++ {
 			part := targetObject.Parts[i]
 			targetParts[i] = part
-			result,err = func() (result datatype.PutObjectResult, err error) {
+			result, err = func() (result datatype.PutObjectResult, err error) {
 				pr, pw := io.Pipe()
 				defer pr.Close()
 				var total = part.Size
@@ -847,7 +845,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 				part.ObjectId = oid
 
 				part.InitializationVector = initializationVector
-				return result,nil
+				return result, nil
 			}()
 			if err != nil {
 				return result, err

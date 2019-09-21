@@ -53,6 +53,8 @@ func Test_MultipartUpload(t *testing.T) {
 
 func Test_MultipartRename(t *testing.T) {
 	sc := NewS3()
+	defer sc.CleanEnv()
+	sc.CleanEnv()
 	err := sc.MakeBucket(TEST_BUCKET)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
@@ -131,19 +133,6 @@ func Test_MultipartRename(t *testing.T) {
 	sc.DeleteObject(TEST_BUCKET, TEST_RENAME_KEY)
 }
 
-func Test_Multipart_End(t *testing.T) {
-	sc := NewS3()
-	err := sc.DeleteObject(TEST_BUCKET, TEST_KEY)
-	if err != nil {
-		t.Log("DeleteObject err:", err)
-	}
-	err = sc.DeleteBucket(TEST_BUCKET)
-	if err != nil {
-		t.Fatal("DeleteBucket err:", err)
-		panic(err)
-	}
-}
-
 func Test_CopyObjectPart(t *testing.T) {
 	svc := NewS3()
 	defer svc.CleanEnv()
@@ -188,7 +177,6 @@ func Test_CopyObjectPart(t *testing.T) {
 		Bucket:     aws.String(TEST_BUCKET),
 		CopySource: aws.String(TEST_BUCKET + "/" + TEST_KEY),
 		Key:        aws.String(TEST_COPY_KEY),
-
 	}
 	_, err = svc.Client.CopyObject(input)
 	if err != nil {

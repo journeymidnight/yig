@@ -592,8 +592,8 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 	}
 
 	var version string
-	validObject, err := api.ObjectAPI.GetObjectInfo(BucketName, targetObjectName, version, credential)
-	if validObject != nil {
+	_, err = api.ObjectAPI.GetObjectInfo(BucketName, targetObjectName, version, credential)
+	if err != ErrNoSuchKey {
 		WriteErrorResponse(w, r, ErrInvalidRenameTarget)
 		return
 	}
@@ -637,20 +637,13 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 
 	targetObject := sourceObject
 	targetObject.Name = targetObjectName
-	result, err := api.ObjectAPI.RenameObject(targetObject, credential, sourceObjectName)
+	result, err := api.ObjectAPI.RenameObject(targetObject, sourceObjectName, credential)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to update object meta for "+targetObject.ObjectId)
 		WriteErrorResponse(w, r, err)
 		return
 	}
 	response := GenerateRenameObjectResponse(result.LastModified)
-	// write headers
-	if sourceVersion != "" {
-		w.Header().Set("x-amz-rename-source-version-id", sourceVersion)
-	}
-	if result.VersionId != "" {
-		w.Header().Set("x-amz-version-id", result.VersionId)
-	}
 	encodedSuccessResponse := EncodeResponse(response)
 	//ResponseRecorder
 	w.(*ResponseRecorder).operationName = "RenameObject"
