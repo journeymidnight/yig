@@ -183,11 +183,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrInvalidRenameTarget: {
 		AwsErrorCode:   "InvalidRenameTarget",
-		Description:    "Rename Target must not be a folder and be in the same folder.",
+		Description:    "Rename Target must not be a folder and addition target have not already created.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrNotSupportBucketEnabledVersion: {
-		AwsErrorCode:   "InvalidRequest",
+		AwsErrorCode:   "InvalidBucketVersion",
 		Description:    "Renaming objects in multi-version enabled buckets is not supported.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
