@@ -18,15 +18,29 @@ package api
 
 import (
 	"context"
+	"crypto/md5"
 	"encoding/base64"
 	"encoding/xml"
 	"errors"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/minio/highwayhash"
+	"hash"
 	"io"
 	"net/http"
 	"regexp"
 	"strings"
 
 	"github.com/journeymidnight/yig/crypto"
+)
+
+var HwHSecretKey = []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 240, 224,
+	208, 192, 176, 160, 144, 128, 112, 96, 80, 64, 48, 32, 16, 0} // This is the key for hash sum !
+
+type EtagPrefixType int
+
+const (
+	EtagMd5 EtagPrefixType = iota
+	EtagHWH
 )
 
 // xmlDecoder provide decoded value in xml.
@@ -142,4 +156,33 @@ func setXmlHeader(w http.ResponseWriter, body []byte) {
 // contains server-side-encryption.
 func hasServerSideEncryptionHeader(header http.Header) bool {
 	return crypto.S3.IsRequested(header) || crypto.SSEC.IsRequested(header)
+}
+
+func JudgeHashWayByEtag(etagPrefix string) (hashWriter hash.Hash, err error) {
+	switch etagPrefix {
+	case "HwH":
+		hashWriter, err = highwayhash.New(HwHSecretKey)
+		if err != nil {
+			helper.Debugln("Failed to create HighwayHash instance: %v", err)
+			return nil, err
+		}
+	default:
+		hashWriter = md5.New()
+	}
+	return hashWriter, nil
+}
+
+func JudgeWayOfHash(md5um string) (hashWriter hash.Hash, err error) {
+	if md5um == "" {
+		helper.Logger.Println(20, "Calculate hash by HighwayHash")
+		hashWriter, err = highwayhash.New(HwHSecretKey)
+		if err != nil {
+			helper.Debugln(20, "Failed to create HighwayHash instance: %v", err)
+			return nil, err
+		}
+	} else {
+		helper.Logger.Println(20, "Calculate hash by Md5")
+		hashWriter = md5.New()
+	}
+	return hashWriter, nil
 }
