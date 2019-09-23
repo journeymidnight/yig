@@ -1,11 +1,9 @@
 package storage
 
 import (
-	"crypto/md5"
 	"encoding/hex"
 	"errors"
 	"github.com/journeymidnight/yig/api"
-	"github.com/minio/highwayhash"
 	"hash"
 	"io"
 	"math/rand"
@@ -28,8 +26,6 @@ import (
 
 var latestQueryTime [2]time.Time // 0 is for SMALL_FILE_POOLNAME, 1 is for BIG_FILE_POOLNAME
 const CLUSTER_MAX_USED_SPACE_PERCENT = 85
-
-const keyValue = "000102030405060708090A0B0C0D0E0FF0E0D0C0B0A090807060504030201000" // This is the key for hash sum !
 
 func (yig *YigStorage) PickOneClusterAndPool(bucket string, object string, size int64, isAppend bool) (cluster *CephStorage,
 	poolName string) {
@@ -474,24 +470,11 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	}
 
 	//if client not force md5,choose HighwayHash
-	var hashWriter hash.Hash
-	if metadata["md5Sum"] == "" {
-		helper.Logger.Println(20,"Calculate hash by HighwayHash")
-		key, err := hex.DecodeString(keyValue)
-		if err != nil {
-			helper.Debugln("Cannot decode hex key: %v", err)
-			return result,err
-		}
-		hashWriter,err = highwayhash.New(key)
-		if err != nil {
-			helper.Debugln(20,"Failed to create HighwayHash instance: %v", err)
-			return result,err
-		}
-	} else {
-		helper.Logger.Println(20,"Calculate hash by Md5")
-		hashWriter = md5.New()
+	hashWriter, err := api.JudgeWayOfHash(metadata["md5Sum"])
+	if err != nil {
+		helper.Debugln(20, "Failed to create hashWriter instance: %v", err)
+		return result, err
 	}
-
 	// Limit the reader to its provided size if specified.
 	var limitedDataReader io.Reader
 	if size > 0 { // request.ContentLength is -1 if length is unknown
@@ -551,7 +534,6 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	} else {
 		result.Md5 = calculatedHash
 	}
-
 
 	if signVerifyReader, ok := data.(*signature.SignVerifyReader); ok {
 		credential, err = signVerifyReader.Verify()
@@ -636,22 +618,10 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 	encryptionKey = nil
 
 	//if client not force md5,choose HighwayHash
-	var hashWriter hash.Hash
-	if metadata["md5Sum"] == "" {
-		key, err := hex.DecodeString(keyValue)
-		if err != nil {
-			helper.Debugln("Cannot decode hex key: %v", err)
-			return result,err
-		}
-		hashWriter,err = highwayhash.New(key)
-		helper.Logger.Println(20,"Calculate hash by HighwayHash")
-		if err != nil {
-			helper.Debugln("Failed to create HighwayHash instance: %v", err)
-			return result,err
-		}
-	} else {
-		hashWriter = md5.New()
-		helper.Logger.Println(20,"Calculate hash by Md5")
+	hashWriter, err := api.JudgeWayOfHash(metadata["md5Sum"])
+	if err != nil {
+		helper.Debugln(20, "Failed to create hashWriter instance: %v", err)
+		return result, err
 	}
 
 	// Limit the reader to its provided size if specified.
@@ -723,7 +693,6 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 	} else {
 		result.Md5 = calculatedHash
 	}
-
 
 	if signVerifyReader, ok := data.(*signature.SignVerifyReader); ok {
 		credential, err = signVerifyReader.Verify()
@@ -852,21 +821,11 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 					}
 					pw.Close()
 				}()
-				splitEtagForHwH = strings.Split(part.Etag,":")
-				switch api.CheckEtagPrefix(splitEtagForHwH[0]) {
-				case api.EtagMd5:
-					hashWriter = md5.New()
-				case api.EtagHWH:
-					key, err := hex.DecodeString(keyValue)
-					if err != nil {
-						helper.Debugln("Cannot decode hex key: %v", err)
-						return result,err
-					}
-					hashWriter,err = highwayhash.New(key)
-					if err != nil {
-						helper.Debugln("Failed to create HighwayHash instance: %v", err)
-						return result,err
-					}
+				splitEtagForHwH = strings.Split(part.Etag, ":")
+				hashWriter, err = api.JudgeHashWayByEtag(splitEtagForHwH[0])
+				if err != nil {
+					helper.Debugln("Failed to create hashWriter instance: %v", err)
+					return result, err
 				}
 				dataReader := io.TeeReader(pr, hashWriter)
 				oid = cephCluster.GetUniqUploadName()
@@ -895,10 +854,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 				}
 				calculatedHash := hex.EncodeToString(hashWriter.Sum(nil))
 				//we will only chack part etag,overall etag will be same if each part of etag is same
-				switch api.CheckEtagPrefix(splitEtagForHwH[0]) {
-				case api.EtagMd5:
-					break
-				case api.EtagHWH:
+				if splitEtagForHwH[0] == "HwH" {
 					calculatedHash = "HwH:" + calculatedHash
 				}
 				if calculatedHash != part.Etag {
@@ -920,23 +876,12 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		targetObject.Parts = targetParts
 		result.Md5 = targetObject.Etag
 	} else {
-		splitEtagForHwH = strings.Split(targetObject.Etag,":")
-		switch api.CheckEtagPrefix(splitEtagForHwH[0]) {
-		case api.EtagMd5:
-			hashWriter = md5.New()
-			helper.Logger.Println(20,"Calculate hash by Md5")
-		case api.EtagHWH:
-			key, err := hex.DecodeString(keyValue)
-			if err != nil {
-				helper.Debugln("Cannot decode hex key: %v", err)
-				return result,err
-			}
-			hashWriter,err = highwayhash.New(key)
-			helper.Logger.Println(20,"Calculate hash by HighwayHash")
-			if err != nil {
-				helper.Debugln("Failed to create HighwayHash instance: %v", err)
-				return result,err
-			}
+		splitEtagForHwH = strings.Split(targetObject.Etag, ":")
+		hashWriter, err = api.JudgeHashWayByEtag(splitEtagForHwH[0])
+		if err != nil {
+			helper.Debugln("Failed to create hashWriter instance: %v", err)
+			return result, err	
+	
 		}
 
 		// Mapping a shorter name for the object
@@ -972,10 +917,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		}
 
 		calculatedHash := hex.EncodeToString(hashWriter.Sum(nil))
-		switch api.CheckEtagPrefix(splitEtagForHwH[0]) {
-		case api.EtagMd5:
-			break
-		case api.EtagHWH:
+		if splitEtagForHwH[0] == "HwH" {
 			calculatedHash = "HwH:" + calculatedHash
 		}
 		if calculatedHash != targetObject.Etag {

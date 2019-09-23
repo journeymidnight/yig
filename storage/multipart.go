@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
 	"github.com/minio/highwayhash"
@@ -175,22 +174,10 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 	}
 
 	//if client not force md5,choose HighwayHash
-	var hashWriter hash.Hash
-	if md5Hex == "" {
-		helper.Logger.Println(20,"Calculate hash by HighwayHash")
-		key, err := hex.DecodeString(keyValue)
-		if err != nil {
-			helper.Debugln("Cannot decode hex key: %v", err)
-			return result,err
-		}
-		hashWriter,err = highwayhash.New(key)
-		if err != nil {
-			helper.Debugln(20,"Failed to create HighwayHash instance: %v", err)
-			return result,err
-		}
-	} else {
-		helper.Logger.Println(20,"Calculate hash by Md5")
-		hashWriter = md5.New()
+	hashWriter, err := api.JudgeWayOfHash(md5Hex)
+	if err != nil {
+		helper.Debugln(20, "Failed to create hashWriter instance: %v", err)
+		return result, err
 	}
 	limitedDataReader := io.LimitReader(data, size)
 	poolName := multipart.Metadata.Pool
@@ -327,22 +314,10 @@ func (yig *YigStorage) CopyObjectPart(targetObject *meta.Object, data io.Reader,
 	var hashWriter hash.Hash
 	var splitEtagForHwH []string
 	splitEtagForHwH = strings.Split(targetObject.Etag, ":")
-	switch api.CheckEtagPrefix(splitEtagForHwH[0]) {
-	case api.EtagMd5:
-		hashWriter = md5.New()
-		helper.Logger.Println(20,"Calculate hash by Md5")
-	case api.EtagHWH:
-		key, err := hex.DecodeString(keyValue)
-		if err != nil {
-			helper.Debugln("Cannot decode hex key: %v", err)
-			return result,err
-		}
-		hashWriter,err = highwayhash.New(key)
-		helper.Logger.Println(20,"Calculate hash by HighwayHash")
-		if err != nil {
-			helper.Debugln("Failed to create HighwayHash instance: %v", err)
-			return result,err
-		}
+	hashWriter, err = api.JudgeHashWayByEtag(splitEtagForHwH[0])
+	if err != nil {
+		helper.Debugln("Failed to create hashWriter instance: %v", err)
+		return result, err
 	}
 	limitedDataReader := io.LimitReader(data, targetObject.Size)
 	poolName := multipart.Metadata.Pool
@@ -581,16 +556,11 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, tar
 	}
 
 	var hashWriter hash.Hash
-	key, err := hex.DecodeString(keyValue)
-	if err != nil {
-		helper.Debugln("Cannot decode hex key: %v", err)
-		return result,err
-	}
-	hashWriter,err = highwayhash.New(key)
-	helper.Logger.Println(20,"Calculate hash by HighwayHash")
+	hashWriter, err = highwayhash.New(api.HwHSecretKey)
+	helper.Logger.Println(20, "Calculate hash by HighwayHash")
 	if err != nil {
 		helper.Debugln("Failed to create HighwayHash instance: %v", err)
-		return result,err
+		return result, err
 	}
 
 	var totalSize int64 = 0
@@ -625,11 +595,10 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, tar
 		}
 		splitEtagForHwH = strings.Split(part.Etag, ":")
 		var etagBytes []byte
-		switch api.CheckEtagPrefix(splitEtagForHwH[0]) {
-		case api.EtagMd5:
-			etagBytes, err = hex.DecodeString(splitEtagForHwH[0])
-		case api.EtagHWH:
+		if splitEtagForHwH[0] == "HwH" {
 			etagBytes, err = hex.DecodeString(splitEtagForHwH[1])
+		} else {
+			etagBytes, err = hex.DecodeString(splitEtagForHwH[0])
 		}
 		if err != nil {
 			helper.Logger.Println(20, "hex.DecodeString(part.Etag) err;", "uploadId:", uploadID)
@@ -641,11 +610,10 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, tar
 		hashWriter.Write(etagBytes)
 	}
 	result.ETag = hex.EncodeToString(hashWriter.Sum(nil))
-	switch api.CheckEtagPrefix(splitEtagForHwH[0]) {
-	case api.EtagMd5:
-		result.ETag += "-" + strconv.Itoa(len(uploadedParts))
-	case api.EtagHWH:
+	if splitEtagForHwH[0] == "HwH" {
 		result.ETag = "HwH:" + result.ETag + "-" + strconv.Itoa(len(uploadedParts))
+	} else {
+		result.ETag += "-" + strconv.Itoa(len(uploadedParts))
 	}
 	// See http://stackoverflow.com/questions/12186993
 	// for how to calculate multipart Etag

@@ -61,7 +61,6 @@ func setGetRespHeaders(w http.ResponseWriter, reqParams url.Values) {
 func getStorageClassFromHeader(r *http.Request) (meta.StorageClass, error) {
 	storageClassStr := r.Header.Get("X-Amz-Storage-Class")
 
-
 	if storageClassStr != "" {
 		helper.Logger.Println(20, "Get storage class header:", storageClassStr)
 		return meta.MatchStorageClassIndex(storageClassStr)
@@ -684,7 +683,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	} else if len(r.Header.Get("Content-Md5")) == 0 {
 		helper.Debugln("Content Md5 is null!")
 		metadata["md5Sum"] = ""
-	}else {
+	} else {
 		md5Bytes, err := checkValidMD5(r.Header.Get("Content-Md5"))
 		if err != nil {
 			helper.Debugln("Content Md5 is invalid!")
@@ -842,7 +841,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	} else if len(r.Header.Get("Content-Md5")) == 0 {
 		helper.Debugln("Content Md5 is null!")
 		metadata["md5Sum"] = ""
-	}else {
+	} else {
 		md5Bytes, err := checkValidMD5(r.Header.Get("Content-Md5"))
 		if err != nil {
 			helper.Debugln("Content Md5 is invalid!")
@@ -1175,7 +1174,9 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 	} else {
 		md5Bytes, err := checkValidMD5(r.Header.Get("Content-Md5"))
 		if err != nil {
-			incomingMd5 = ""
+			helper.Debugln("Content MD5 is invalid!")
+			WriteErrorResponse(w, r, ErrInvalidDigest)
+			return
 		} else {
 			incomingMd5 = hex.EncodeToString(md5Bytes)
 		}
@@ -1702,7 +1703,6 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 // signature policy in multipart/form-data
 
 var ValidSuccessActionStatus = []string{"200", "201", "204"}
-
 
 func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Request) {
 	var err error
