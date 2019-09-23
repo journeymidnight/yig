@@ -13,7 +13,7 @@ type S3Client struct {
 
 const (
 	Endpoint         = "s3.test.com:8080"
-	EndpointInternal = "s3.test.com-internal:8080"
+	EndpointInternal = "s3-internal.test.com:8080"
 	AccessKey        = "hehehehe"
 	SecretKey        = "hehehehe"
 	Region           = "RegionHeHe"

@@ -94,9 +94,6 @@ func (api ObjectAPIHandlers) errAllowableObjectNotFound(w http.ResponseWriter, r
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return
 	}
-	if api.ReturnWebsiteErrorDocument(w, r) {
-		return
-	}
 	var err error
 	if ctx.BucketInfo.Policy.IsAllowed(policy.Args{
 		Action:          policy.ListBucketAction,
@@ -122,6 +119,27 @@ func (api ObjectAPIHandlers) errAllowableObjectNotFound(w http.ResponseWriter, r
 				err = ErrAccessDenied
 			}
 		}
+	}
+	var status int
+	website := ctx.BucketInfo.Website
+	apiErrorCode, ok := err.(ApiError)
+	if ok {
+		status = apiErrorCode.HttpStatusCode()
+	} else {
+		status = http.StatusInternalServerError
+	}
+	// match routing rules
+	if len(website.RoutingRules) != 0 {
+		for _, rule := range website.RoutingRules {
+			// If the condition matches, handle redirect
+			if rule.Match(ctx.ObjectName, strconv.Itoa(status)) {
+				rule.DoRedirect(w, r, ctx.ObjectName)
+				return
+			}
+		}
+	}
+	if api.ReturnWebsiteErrorDocument(w, r, status) {
+		return
 	}
 	WriteErrorResponse(w, r, err)
 }

@@ -8,13 +8,14 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dustin/go-humanize"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 )
 
 const (
-	MaxBucketWebsiteRulesCount         = 100
-	MaxBucketWebsiteRulesContentLength = 1 << 20
+	MaxBucketWebsiteRulesCount        = 100
+	MaxBucketWebsiteConfigurationSize = 20 * humanize.KiByte
 )
 
 type WebsiteConfiguration struct {
@@ -113,46 +114,48 @@ func (w *WebsiteConfiguration) Validate() (error error) {
 		if protocol != "" && protocol != "http" && protocol != "https" {
 			return ErrInvalidWebsiteRedirectProtocol
 		}
-	}
-	if w.IndexDocument != nil {
+	} else if w.IndexDocument != nil {
 		if w.IndexDocument.Suffix == "" || strings.Contains(w.IndexDocument.Suffix, "/") {
 			return ErrInvalidIndexDocumentSuffix
 		}
 		if w.ErrorDocument != nil && w.ErrorDocument.Key == "" {
 			return ErrInvalidErrorDocumentKey
 		}
-	}
-	if w.RoutingRules != nil {
-		if len(w.RoutingRules) == 0 {
-			return ErrMissingRoutingRuleInWebsiteRules
-		}
-		if len(w.RoutingRules) > MaxBucketWebsiteRulesCount {
-			return ErrExceededWebsiteRoutingRulesLimit
-		}
-		for _, r := range w.RoutingRules {
-			redirect := r.Redirect
-			if redirect == nil {
-				return ErrMissingRedirectInWebsiteRoutingRule
+		if w.RoutingRules != nil {
+			if len(w.RoutingRules) == 0 {
+				return ErrMissingRoutingRuleInWebsiteRules
 			}
-			if redirect.Protocol == "" && redirect.HostName == "" && redirect.ReplaceKeyPrefixWith == "" &&
-				redirect.ReplaceKeyWith == "" && redirect.HttpRedirectCode == "" {
-				return ErrMissingRedirectElementInWebsiteRoutingRule
+			if len(w.RoutingRules) > MaxBucketWebsiteRulesCount {
+				return ErrExceededWebsiteRoutingRulesLimit
 			}
-			if redirect.ReplaceKeyPrefixWith != "" && redirect.ReplaceKeyWith != "" {
-				return ErrDuplicateKeyReplaceTagInWebsiteRoutingRule
-			}
-			protocol := redirect.Protocol
-			if protocol != "" && protocol != "http" && protocol != "https" {
-				return ErrInvalidWebsiteRedirectProtocol
-			}
-			if redirect.HttpRedirectCode != "" {
-				code, _ := strconv.Atoi(redirect.HttpRedirectCode)
-				if http.StatusText(code) == "" {
-					return ErrInvalidHttpRedirectCodeInWebsiteRoutingRule
+			for _, r := range w.RoutingRules {
+				redirect := r.Redirect
+				if redirect == nil {
+					return ErrMissingRedirectInWebsiteRoutingRule
+				}
+				if redirect.Protocol == "" && redirect.HostName == "" && redirect.ReplaceKeyPrefixWith == "" &&
+					redirect.ReplaceKeyWith == "" && redirect.HttpRedirectCode == "" {
+					return ErrMissingRedirectElementInWebsiteRoutingRule
+				}
+				if redirect.ReplaceKeyPrefixWith != "" && redirect.ReplaceKeyWith != "" {
+					return ErrDuplicateKeyReplaceTagInWebsiteRoutingRule
+				}
+				protocol := redirect.Protocol
+				if protocol != "" && protocol != "http" && protocol != "https" {
+					return ErrInvalidWebsiteRedirectProtocol
+				}
+				if redirect.HttpRedirectCode != "" {
+					code, _ := strconv.Atoi(redirect.HttpRedirectCode)
+					if http.StatusText(code) == "" {
+						return ErrInvalidHttpRedirectCodeInWebsiteRoutingRule
+					}
 				}
 			}
 		}
+	} else {
+		return ErrInvalidWebsiteConfiguration
 	}
+
 	return
 }
 
@@ -164,7 +167,7 @@ func ParseWebsiteConfig(reader io.Reader) (*WebsiteConfiguration, error) {
 		return nil, err
 	}
 	size := len(websiteBuffer)
-	if size > MaxBucketWebsiteRulesContentLength {
+	if size > MaxBucketWebsiteConfigurationSize {
 		return nil, ErrEntityTooLarge
 	}
 	err = xml.Unmarshal(websiteBuffer, websiteConfig)
