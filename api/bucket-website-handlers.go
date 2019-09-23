@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/dustin/go-humanize"
 	"github.com/gorilla/mux"
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/api/datatype"
@@ -14,10 +13,6 @@ import (
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/signature"
-)
-
-const (
-	MaxBucketWebsiteConfigurationSize = 20 * humanize.KiByte
 )
 
 func (api ObjectAPIHandlers) PutBucketWebsiteHandler(w http.ResponseWriter, r *http.Request) {
@@ -46,12 +41,6 @@ func (api ObjectAPIHandlers) PutBucketWebsiteHandler(w http.ResponseWriter, r *h
 	// PutBucketPolicy always needs Content-Length.
 	if r.ContentLength <= 0 {
 		WriteErrorResponse(w, r, ErrMissingContentLength)
-		return
-	}
-
-	// Error out if Content-Length is beyond allowed size.
-	if r.ContentLength > MaxBucketWebsiteConfigurationSize {
-		WriteErrorResponse(w, r, ErrEntityTooLarge)
 		return
 	}
 
@@ -170,7 +159,7 @@ func (api ObjectAPIHandlers) HandledByWebsite(w http.ResponseWriter, r *http.Req
 		}
 
 		// match routing rules
-		if website.RoutingRules != nil || len(website.RoutingRules) != 0 {
+		if len(website.RoutingRules) != 0 {
 			for _, rule := range website.RoutingRules {
 				// If the condition matches, handle redirect
 				if rule.Match(ctx.ObjectName, "") {
@@ -224,7 +213,7 @@ func (api ObjectAPIHandlers) HandledByWebsite(w http.ResponseWriter, r *http.Req
 	return false
 }
 
-func (api ObjectAPIHandlers) ReturnWebsiteErrorDocument(w http.ResponseWriter, r *http.Request) (handled bool) {
+func (api ObjectAPIHandlers) ReturnWebsiteErrorDocument(w http.ResponseWriter, r *http.Request, statusCode int) (handled bool) {
 	w.(*ResponseRecorder).operationName = "GetObject"
 	ctx := getRequestContext(r)
 	if ctx.BucketInfo == nil {

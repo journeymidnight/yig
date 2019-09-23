@@ -121,6 +121,7 @@ var testUnits = []WebsiteTestUnit{
 		},
 		Buckets: []string{TEST_BUCKET},
 		Objects: []ObjectInput{
+			{TEST_BUCKET, "documents/", ""},
 			{TEST_BUCKET, "documents/index.html", testIndexHTML},
 		},
 		Fn: doGet,
@@ -130,35 +131,54 @@ var testUnits = []WebsiteTestUnit{
 		},
 	},
 	// Configure bucket as a website and redirect errors
-	// TODO: Find a redirect host can be used.
-	//{
-	//	WebsiteConfiguration: &s3.WebsiteConfiguration{
-	//		IndexDocument: &s3.IndexDocument{Suffix: aws.String("index.html")},
-	//		ErrorDocument: &s3.ErrorDocument{Key: aws.String("error.html")},
-	//		RoutingRules: []*s3.RoutingRule{
-	//			{
-	//				Condition: &s3.Condition{HttpErrorCodeReturnedEquals: aws.String("404")},
-	//				Redirect: &s3.Redirect{
-	//					HostName:             aws.String("s3.test"),
-	//					ReplaceKeyPrefixWith: aws.String("documents/"),
-	//				},
-	//			},
-	//		},
-	//	},
-	//},
-	//{
-	// Configure a bucket as a website and redirect folder requests to a page
-	//	WebsiteConfiguration: &s3.WebsiteConfiguration{
-	//		IndexDocument: &s3.IndexDocument{Suffix: aws.String("index.html")},
-	//		ErrorDocument: &s3.ErrorDocument{Key: aws.String("error.html")},
-	//		RoutingRules: []*s3.RoutingRule{
-	//			{
-	//				Condition: &s3.Condition{KeyPrefixEquals: aws.String("docs/")},
-	//				Redirect:  &s3.Redirect{ReplaceKeyWith: aws.String("error.html")},
-	//			},
-	//		},
-	//	},
-	//}
+	{
+		WebsiteConfiguration: &s3.WebsiteConfiguration{
+			IndexDocument: &s3.IndexDocument{Suffix: aws.String("index.html")},
+			ErrorDocument: &s3.ErrorDocument{Key: aws.String("error.html")},
+			RoutingRules: []*s3.RoutingRule{
+				{
+					Condition: &s3.Condition{HttpErrorCodeReturnedEquals: aws.String("404")},
+					Redirect: &s3.Redirect{
+						HostName:             aws.String(TEST_BUCKET + ".s3-internal.test.com:8080"),
+						ReplaceKeyPrefixWith: aws.String("docs/"),
+					},
+				},
+			},
+		},
+		Buckets: []string{TEST_BUCKET},
+		Objects: []ObjectInput{
+			{TEST_BUCKET, "docs/", ""},
+			{TEST_BUCKET, "docs/error.html", testErrorHTML},
+		},
+		Fn: doGet,
+		Cases: []Case{
+			{"http://" + TEST_BUCKET + "." + Endpoint + "/error.html", 200, testErrorHTML, true},
+		},
+	},
+	//  Configure a bucket as a website and redirect folder requests to a page
+	{
+		WebsiteConfiguration: &s3.WebsiteConfiguration{
+			IndexDocument: &s3.IndexDocument{Suffix: aws.String("index.html")},
+			ErrorDocument: &s3.ErrorDocument{Key: aws.String("error.html")},
+			RoutingRules: []*s3.RoutingRule{
+				{
+					Condition: &s3.Condition{KeyPrefixEquals: aws.String("docs/")},
+					Redirect:  &s3.Redirect{ReplaceKeyWith: aws.String("errorPage")},
+				},
+			},
+		},
+
+		Buckets: []string{TEST_BUCKET},
+		Objects: []ObjectInput{
+			{TEST_BUCKET, "docs/", ""},
+			{TEST_BUCKET, "docs/test", TEST_VALUE},
+			{TEST_BUCKET, "errorPage", testErrorHTML},
+		},
+		Fn: doGet,
+		Cases: []Case{
+			{"http://" + TEST_BUCKET + "." + Endpoint + "/docs/test", 200, testErrorHTML, true},
+		},
+	},
 }
 
 func Test_BucketWebsiteCases(t *testing.T) {
