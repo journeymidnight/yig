@@ -592,8 +592,14 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 	}
 
 	var version string
-	_, err = api.ObjectAPI.GetObjectInfo(BucketName, targetObjectName, version, credential)
-	if err != ErrNoSuchKey {
+	info, err := api.ObjectAPI.GetObjectInfo(BucketName, targetObjectName, version, credential)
+	if err != nil {
+		if err != ErrNoSuchKey {
+			WriteErrorResponse(w, r, ErrInvalidRenameTarget)
+			return
+		}
+	}
+	if info != nil {
 		WriteErrorResponse(w, r, ErrInvalidRenameTarget)
 		return
 	}
