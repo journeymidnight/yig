@@ -5,78 +5,37 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"github.com/journeymidnight/yig/backend"
 	"io"
-	"path/filepath"
+	"path"
 	"sync"
+	"time"
 
 	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/circuitbreak"
 	"github.com/journeymidnight/yig/crypto"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/meta"
 	"github.com/journeymidnight/yig/redis"
-	"path"
-	"time"
-	"github.com/journeymidnight/yig/circuitbreak"
 )
 
 const (
 	AES_BLOCK_SIZE               = 16
 	ENCRYPTION_KEY_LENGTH        = 32 // key size for AES-"256"
 	INITIALIZATION_VECTOR_LENGTH = 16 // block size of AES
-	DEFAULT_CEPHCONFIG_PATTERN   = "conf/*.conf"
-)
-
-var (
-	RootContext = context.Background()
 )
 
 // *YigStorage implements api.ObjectLayer
 type YigStorage struct {
-	DataStorage map[string]*CephStorage
+	DataStorage map[string]backend.Cluster
 	DataCache   DataCache
 	MetaStorage *meta.Meta
 	KMS         crypto.KMS
 	Logger      *log.Logger
 	Stopping    bool
 	WaitGroup   *sync.WaitGroup
-}
-
-func New(logger *log.Logger, metaCacheType int, enableDataCache bool, CephConfigPattern string) *YigStorage {
-	kms := crypto.NewKMS()
-	yig := YigStorage{
-		DataStorage: make(map[string]*CephStorage),
-		DataCache:   newDataCache(enableDataCache),
-		MetaStorage: meta.New(logger, meta.CacheType(metaCacheType)),
-		KMS:         kms,
-		Logger:      logger,
-		Stopping:    false,
-		WaitGroup:   new(sync.WaitGroup),
-	}
-	if CephConfigPattern == "" {
-		CephConfigPattern = DEFAULT_CEPHCONFIG_PATTERN
-	}
-
-	cephConfs, err := filepath.Glob(CephConfigPattern)
-	helper.Logger.Printf(5, "Reading Ceph conf files from %+v\n", cephConfs)
-	if err != nil || len(cephConfs) == 0 {
-		helper.Logger.Panic(0, "PANIC: No ceph conf found")
-	}
-
-	for _, conf := range cephConfs {
-		c := NewCephStorage(conf, logger)
-		if c != nil {
-			yig.DataStorage[c.Name] = c
-		}
-	}
-
-	if len(yig.DataStorage) == 0 {
-		helper.Logger.Panic(0, "PANIC: No data storage can be used!")
-	}
-
-	initializeRecycler(&yig)
-	return &yig
 }
 
 func (y *YigStorage) Stop() {

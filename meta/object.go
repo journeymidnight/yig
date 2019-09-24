@@ -196,6 +196,16 @@ func (m *Meta) AppendObject(object *Object, isExist bool) error {
 	return m.Client.CommitTrans(tx)
 }
 
+func (m *Meta) AppendObjectPart(bucketName, objectName, version string,
+	part *Part) error {
+	return m.Client.AppendObjectPart(bucketName, objectName, version, part)
+}
+
+func (m *Meta) CreateObjectPart(bucketName, objectName, version string,
+	part *Part) error {
+	return m.Client.CreateObjectPart(bucketName, objectName, version, part)
+}
+
 //func (m *Meta) DeleteObjectEntry(object *Object) error {
 //	err := m.Client.DeleteObject(object, nil)
 //	return err

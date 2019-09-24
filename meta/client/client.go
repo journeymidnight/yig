@@ -19,6 +19,8 @@ type Client interface {
 	UpdateObjectAttrs(object *Object) error
 	DeleteObject(object *Object, tx interface{}) error
 	UpdateObjectAcl(object *Object) error
+	CreateObjectPart(bucketName, objectName, version string, part *Part) error
+	AppendObjectPart(bucketName, objectName, version string, part *Part) error
 	//bucket
 	GetBucket(bucketName string) (bucket *Bucket, err error)
 	GetBuckets() (buckets []Bucket, err error)
@@ -39,7 +41,7 @@ type Client interface {
 	PutObjectMap(objMap *ObjMap, tx interface{}) error
 	DeleteObjectMap(objMap *ObjMap, tx interface{}) error
 	//cluster
-	GetCluster(fsid, pool string) (cluster Cluster, err error)
+	GetClusters() (cluster []Cluster, err error)
 	//lc
 	PutBucketToLifeCycle(lifeCycle LifeCycle) error
 	RemoveBucketFromLifeCycle(bucket Bucket) error

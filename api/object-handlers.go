@@ -236,7 +236,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		n, err := w.Write(p)
 		if n > 0 {
 			/*
-				If the whole write or only part of write is successfull,
+				If the whole write or only part of write is successful,
 				n should be positive, so record this
 			*/
 			w.(*ResponseRecorder).size += int64(n)

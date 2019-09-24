@@ -66,7 +66,7 @@ func Test_CopyObjectPart(t *testing.T) {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
-	partCount := 10
+	partCount := 6
 	completedUpload := &s3.CompletedMultipartUpload{
 		Parts: make([]*s3.CompletedPart, partCount),
 	}
