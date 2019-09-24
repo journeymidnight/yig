@@ -114,6 +114,19 @@ services:
       vpcbr:
         ipv4_address: "10.5.0.21"
 
+  seaweedfs:
+    image: cannium/seaweedfs-cannyls:v2.0.4
+    container_name: seaweedfs
+    environment:
+      - SEAWEED_IP=10.5.0.23
+    ports:
+      - 10001:10001
+      - 30001:30001
+      - 30002:30002
+      - 30003:30003
+    networks:
+      vpcbr:
+        ipv4_address: "10.5.0.23"
 
 networks:
   vpcbr:

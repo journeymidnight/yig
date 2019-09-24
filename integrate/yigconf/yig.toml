@@ -52,6 +52,8 @@ upload_max_chunk_size = 8388608 #8MB
 
 # Ceph Config
 ceph_config_pattern = "/etc/ceph/*.conf"
+# SeaweedFS
+seaweed_masters = [["10.5.0.23:10001"]]
 
 [kms]
 type = "vault"

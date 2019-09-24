@@ -676,7 +676,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 			pool:     poolName,
 			objectId: oid,
 		}
-		if bytesWritten < uint64(targetObject.Size) {
+		if int64(bytesWritten) < targetObject.Size {
 			RecycleQueue <- maybeObjectToRecycle
 			return result, ErrIncompleteBody
 		}

@@ -183,7 +183,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string,
 		}
 	}
 
-	if bytesWritten < uint64(size) {
+	if int64(bytesWritten) < size {
 		return result, ErrIncompleteBody
 	}
 

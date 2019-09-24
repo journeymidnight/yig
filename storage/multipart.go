@@ -174,7 +174,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 	md5Writer := md5.New()
 	limitedDataReader := io.LimitReader(data, size)
 	poolName := multipart.Metadata.Pool
-	cephCluster, err := yig.GetClusterByFsName(multipart.Metadata.Location)
+	cluster, err := yig.GetClusterByFsName(multipart.Metadata.Location)
 	if err != nil {
 		return
 	}
@@ -192,18 +192,18 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 	if err != nil {
 		return
 	}
-	objectId, bytesWritten, err := cephCluster.Put(poolName, storageReader)
+	objectId, bytesWritten, err := cluster.Put(poolName, storageReader)
 	if err != nil {
 		return
 	}
 	// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
 	// so the object in Ceph could be removed asynchronously
 	maybeObjectToRecycle := objectToRecycle{
-		location: cephCluster.ID(),
+		location: cluster.ID(),
 		pool:     poolName,
 		objectId: objectId,
 	}
-	if bytesWritten < uint64(size) {
+	if int64(bytesWritten) < size {
 		RecycleQueue <- maybeObjectToRecycle
 		err = ErrIncompleteBody
 		return
@@ -333,7 +333,7 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 		objectId: objectId,
 	}
 
-	if bytesWritten < uint64(size) {
+	if int64(bytesWritten) < size {
 		RecycleQueue <- maybeObjectToRecycle
 		err = ErrIncompleteBody
 		return
