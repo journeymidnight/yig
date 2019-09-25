@@ -154,13 +154,14 @@ var errMalformedEncoding = errors.New("malformed chunked encoding")
 //
 // NewChunkedReader is not needed by normal applications. The http package
 // automatically decodes chunking when reading response bodies.
-func newSignV4ChunkedReader(req *http.Request) (io.Reader, error) {
+func newSignV4ChunkedReader(req *http.Request) (io.ReadCloser, error) {
 	credential, seedSignature, region, seedDate, err := CalculateSeedSignature(req)
 	if err != nil {
 		return nil, err
 	}
 
 	return &s3ChunkedReader{
+		body:              req.Body,
 		reader:            bufio.NewReader(req.Body),
 		cred:              credential,
 		seedSignature:     seedSignature,
@@ -174,6 +175,7 @@ func newSignV4ChunkedReader(req *http.Request) (io.Reader, error) {
 // Represents the overall state that is required for decoding a
 // AWS Signature V4 chunked reader.
 type s3ChunkedReader struct {
+	body              io.ReadCloser
 	reader            *bufio.Reader
 	cred              common.Credential
 	seedSignature     string
@@ -315,6 +317,10 @@ func (cr *s3ChunkedReader) Read(buf []byte) (n int, err error) {
 			return n, io.EOF
 		}
 	}
+}
+
+func (cr *s3ChunkedReader) Close() error {
+	return cr.body.Close()
 }
 
 // readCRLF - check if reader only has '\r\n' CRLF character.

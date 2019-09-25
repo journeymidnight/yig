@@ -3,10 +3,6 @@ function prepare_ceph(){
 	docker exec ceph ceph osd pool create rabbit 32
 }
 
-function prepare_hbase(){
-	cat hbase_commands | sudo docker exec -i hbase /hbase/bin/hbase shell -n
-}
-
 function prepare_mysql(){
 	docker exec mysql mysql -e "create database yig character set utf8;"
     docker exec mysql mysql -e "use yig;source /yig.sql;"
@@ -25,8 +21,6 @@ function prepare_vault(){
 
 echo "creating Ceph pool..."
 prepare_ceph
-echo "creating  HBase table..."
-#prepare_hbase
 echo "creating  MySQL db..."
 docker cp yig.sql mysql:/yig.sql
 prepare_mysql

@@ -1,10 +1,8 @@
 package helper
 
 import (
-	"io/ioutil"
-	"time"
-
 	"github.com/BurntSushi/toml"
+	"io/ioutil"
 )
 
 const (
@@ -31,8 +29,6 @@ type Config struct {
 
 	InstanceId             string // if empty, generated one at server startup
 	ConcurrentRequestLimit int
-	HbaseZnodeParent       string        // won't change default("/hbase") if leave this option empty
-	HbaseTimeout           time.Duration // in seconds
 	DebugMode              bool          `toml:"debug_mode"`
 	AdminKey               string        `toml:"admin_key"` //used for tools/admin to communicate with yig
 	GcThread               int           `toml:"gc_thread"`
@@ -163,10 +159,6 @@ func MarshalTOMLConfig() error {
 		string(GenerateRandomId()), c.InstanceId).(string)
 	CONFIG.ConcurrentRequestLimit = Ternary(c.ConcurrentRequestLimit == 0,
 		10000, c.ConcurrentRequestLimit).(int)
-	CONFIG.HbaseZnodeParent = Ternary(c.HbaseZnodeParent == "",
-		"/hbase", c.HbaseZnodeParent).(string)
-	CONFIG.HbaseTimeout = Ternary(c.HbaseTimeout == 0, 30*time.Second,
-		c.HbaseTimeout).(time.Duration)
 	CONFIG.GcThread = Ternary(c.GcThread == 0,
 		1, c.GcThread).(int)
 	CONFIG.LcThread = Ternary(c.LcThread == 0,

@@ -32,7 +32,6 @@ var (
 	RootContext = context.Background()
 )
 
-// *YigStorage implements api.ObjectLayer
 type YigStorage struct {
 	DataStorage map[string]*CephStorage
 	DataCache   DataCache

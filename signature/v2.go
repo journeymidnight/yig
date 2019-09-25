@@ -22,10 +22,6 @@ import (
 const (
 	SignV2Algorithm = "AWS"
 	SignV4Algorithm = "AWS4-HMAC-SHA256"
-	/*HOST_URL        = "s3.test.com"  should be something like
-	s3.lecloud.com
-	for production servers
-	*/
 )
 
 func verifyDate(dateString string) (bool, error) {

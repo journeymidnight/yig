@@ -57,7 +57,6 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 	s := int64(rversion) / 1e9
 	ns := int64(rversion) % 1e9
 	object.LastModifiedTime = time.Unix(s, ns)
-	object.GetRowkey()
 	object.Name = objectName
 	object.BucketName = bucketName
 	err = json.Unmarshal([]byte(acl), &object.ACL)
@@ -117,10 +116,26 @@ func (t *TidbClient) UpdateObjectAcl(object *Object) error {
 	return err
 }
 
-func (t *TidbClient) UpdateObjectAttrs(object *Object) error {
-	sql, args := object.GetUpdateAttrsSql()
-	_, err := t.Client.Exec(sql, args...)
-	return err
+func (t *TidbClient) RenameObject(object *Object, sourceObject string, tx interface{}) (err error) {
+	var sqlTx *sql.Tx
+	if tx == nil {
+		tx, err = t.Client.Begin()
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err == nil {
+				err = sqlTx.Commit()
+			}
+			if err != nil {
+				sqlTx.Rollback()
+			}
+		}()
+	}
+	sqlTx, _ = tx.(*sql.Tx)
+	sql, args := object.GetUpdateNameSql(sourceObject)
+	_, err = sqlTx.Exec(sql, args...)
+	return
 }
 
 func (t *TidbClient) UpdateAppendObject(o *Object, tx interface{}) (err error) {

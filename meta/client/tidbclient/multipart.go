@@ -289,3 +289,25 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 	prefixs = helper.Keys(commonPrefixes)
 	return
 }
+
+func (t *TidbClient) RenameObjectPart(object *Object, sourceObject string, tx interface{}) (err error) {
+	var sqlTx *sql.Tx
+	if tx == nil {
+		tx, err = t.Client.Begin()
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err == nil {
+				err = sqlTx.Commit()
+			}
+			if err != nil {
+				sqlTx.Rollback()
+			}
+		}()
+	}
+	sqlTx, _ = tx.(*sql.Tx)
+	sql, args := object.GetUpdateObjectPartNameSql(sourceObject)
+	_, err = sqlTx.Exec(sql, args...)
+	return err
+}

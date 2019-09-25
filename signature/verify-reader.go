@@ -27,20 +27,20 @@ import (
 	"github.com/journeymidnight/yig/iam/common"
 )
 
-// SignVerifyReader represents an io.Reader compatible interface which
+// SignVerifyReadCloser represents an io.ReadCloser compatible interface which
 // transparently calculates SHA256 for v4 signed authentication.
-// Caller should call `SignVerifyReader.Verify()` to validate the signature header.
-type SignVerifyReader struct {
+// Caller should call `SignVerifyReadCloser.Verify()` to validate the signature header.
+type SignVerifyReadCloser struct {
 	Request      *http.Request
 	Reader       io.Reader
 	Sha256Writer hash.Hash
 }
 
 // Initializes a new signature verify reader.
-func newSignVerify(req *http.Request) *SignVerifyReader {
+func newSignVerify(req *http.Request) *SignVerifyReadCloser {
 	// do not need to calculate SHA256 when header is unsigned
 	if req.Header.Get("x-amz-content-sha256") == UnsignedPayload {
-		return &SignVerifyReader{
+		return &SignVerifyReadCloser{
 			Request:      req,
 			Reader:       req.Body,
 			Sha256Writer: nil,
@@ -49,7 +49,7 @@ func newSignVerify(req *http.Request) *SignVerifyReader {
 
 	sha256Writer := sha256.New()
 	reader := io.TeeReader(req.Body, sha256Writer)
-	return &SignVerifyReader{
+	return &SignVerifyReadCloser{
 		Request:      req,
 		Reader:       reader,
 		Sha256Writer: sha256Writer,
@@ -57,7 +57,7 @@ func newSignVerify(req *http.Request) *SignVerifyReader {
 }
 
 // Verify - verifies signature and returns error upon signature mismatch.
-func (v *SignVerifyReader) Verify() (common.Credential, error) {
+func (v *SignVerifyReadCloser) Verify() (common.Credential, error) {
 	var payloadSha256Hex string
 	if v.Sha256Writer != nil {
 		payloadSha256Hex = hex.EncodeToString(v.Sha256Writer.Sum(nil))
@@ -67,11 +67,17 @@ func (v *SignVerifyReader) Verify() (common.Credential, error) {
 	return DoesSignatureMatchV4(payloadSha256Hex, v.Request, true)
 }
 
-func (v *SignVerifyReader) Read(b []byte) (int, error) {
+func (v *SignVerifyReadCloser) Read(b []byte) (int, error) {
 	return v.Reader.Read(b)
 }
 
-func VerifyUpload(r *http.Request) (credential common.Credential, dataReader io.Reader, err error) {
+func (v *SignVerifyReadCloser) Close() error {
+	return v.Request.Body.Close()
+}
+
+func VerifyUpload(r *http.Request) (credential common.Credential,
+	dataReader io.ReadCloser, err error) {
+
 	dataReader = r.Body
 	switch GetRequestAuthType(r) {
 	default:

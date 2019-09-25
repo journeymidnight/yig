@@ -60,16 +60,16 @@ type ObjectLayer interface {
 		sse datatype.SseRequest) (err error)
 	GetObjectInfo(bucket, object, version string, credential common.Credential) (objInfo *meta.Object,
 		err error)
-	PutObject(bucket, object string, credential common.Credential, size int64, data io.Reader,
+	PutObject(bucket, object string, credential common.Credential, size int64, data io.ReadCloser,
 		metadata map[string]string, acl datatype.Acl,
 		sse datatype.SseRequest, storageClass meta.StorageClass) (result datatype.PutObjectResult, err error)
-	AppendObject(bucket, object string, credential common.Credential, offset uint64, size int64, data io.Reader,
+	AppendObject(bucket, object string, credential common.Credential, offset uint64, size int64, data io.ReadCloser,
 		metadata map[string]string, acl datatype.Acl,
 		sse datatype.SseRequest, storageClass meta.StorageClass, objInfo *meta.Object) (result datatype.AppendObjectResult, err error)
 
 	CopyObject(targetObject *meta.Object, source io.Reader, credential common.Credential,
 		sse datatype.SseRequest) (result datatype.PutObjectResult, err error)
-	UpdateObjectAttrs(targetObject *meta.Object, credential common.Credential) (result datatype.PutObjectResult, err error)
+	RenameObject(targetObject *meta.Object, sourceObject string, credential common.Credential) (result datatype.RenameObjectResult, err error)
 	SetObjectAcl(bucket string, object string, version string, policy datatype.AccessControlPolicy,
 		acl datatype.Acl, credential common.Credential) error
 	GetObjectAcl(bucket string, object string, version string, credential common.Credential) (
@@ -84,7 +84,7 @@ type ObjectLayer interface {
 		metadata map[string]string, acl datatype.Acl,
 		sse datatype.SseRequest, storageClass meta.StorageClass) (uploadID string, err error)
 	PutObjectPart(bucket, object string, credential common.Credential, uploadID string, partID int,
-		size int64, data io.Reader, md5Hex string,
+		size int64, data io.ReadCloser, md5Hex string,
 		sse datatype.SseRequest) (result datatype.PutObjectPartResult, err error)
 	CopyObjectPart(bucketName, objectName, uploadId string, partId int, size int64, data io.Reader,
 		credential common.Credential, sse datatype.SseRequest) (result datatype.PutObjectResult,

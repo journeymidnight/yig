@@ -1,14 +1,18 @@
 package types
 
 import (
-	"bytes"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"github.com/dustin/go-humanize"
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/policy"
 	"time"
+)
+
+const (
+	VersionEnabled   = "Enabled"
+	VersionDisabled  = "Disabled"
+	VersionSuspended = "Suspended"
 )
 
 type Bucket struct {
@@ -35,37 +39,6 @@ func (b *Bucket) String() (s string) {
 	s += "Policy: " + fmt.Sprintf("%+v", b.Policy) + "\n"
 	s += "Version: " + b.Versioning + "\n"
 	s += "Usage: " + humanize.Bytes(uint64(b.Usage)) + "\n"
-	return
-}
-
-/* Learn from this, http://stackoverflow.com/questions/33587227/golang-method-sets-pointer-vs-value-receiver */
-/* If you have a T and it is addressable you can call methods that have a receiver type of *T as well as methods that have a receiver type of T */
-func (b *Bucket) GetValues() (values map[string]map[string][]byte, err error) {
-	cors, err := json.Marshal(b.CORS)
-	if err != nil {
-		return
-	}
-	lc, err := json.Marshal(b.LC)
-	if err != nil {
-		return
-	}
-	var usage bytes.Buffer
-	err = binary.Write(&usage, binary.BigEndian, b.Usage)
-	if err != nil {
-		return
-	}
-	values = map[string]map[string][]byte{
-		BUCKET_COLUMN_FAMILY: map[string][]byte{
-			"UID":        []byte(b.OwnerId),
-			"ACL":        []byte(b.ACL.CannedAcl),
-			"CORS":       cors,
-			"LC":         lc,
-			"createTime": []byte(b.CreateTime.Format(CREATE_TIME_LAYOUT)),
-			"versioning": []byte(b.Versioning),
-			"usage":      usage.Bytes(),
-		},
-		// TODO fancy ACL
-	}
 	return
 }
 

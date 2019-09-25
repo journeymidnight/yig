@@ -60,6 +60,10 @@ const (
 	ErrInvalidCopySource
 	ErrInvalidCopySourceStorageClass
 	ErrInvalidCopyDest
+	ErrInvalidCopyRequest
+	ErrInvalidRenameSourceKey
+	ErrInvalidRenameTarget
+	ErrNotSupportBucketEnabledVersion
 	ErrInvalidPrecondition
 	ErrInvalidPolicyDocument
 	ErrInvalidCorsDocument
@@ -165,6 +169,26 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidCopySourceStorageClass: {
 		AwsErrorCode:   "InvalidCopySourceStorageClass",
 		Description:    "Storage class of copy source cannot be GLACIER or DEEP_ARCHIVE.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidCopyRequest: {
+		AwsErrorCode:   "InvalidCopyRequest",
+		Description:    "X-Amz-Metadata-Directive can only be COPY or REPLACE",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidRenameSourceKey: {
+		AwsErrorCode:   "InvalidRenameSourceKey",
+		Description:    "X-Amz-Rename-Source-Key must be a valid URL-encoded object name, renaming folders is not supported.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidRenameTarget: {
+		AwsErrorCode:   "InvalidRenameTarget",
+		Description:    "Rename Target must not be a folder and addition target have not already created.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrNotSupportBucketEnabledVersion: {
+		AwsErrorCode:   "InvalidBucketVersion",
+		Description:    "Renaming objects in multi-version enabled buckets is not supported.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidPrecondition: {
