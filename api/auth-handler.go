@@ -36,26 +36,28 @@ func checkRequestAuth(r *http.Request, action policy.Action) (c common.Credentia
 		} else {
 			helper.Logger.Println(5, "Credential:", c)
 			// check bucket policy
-			err = IsBucketPolicyAllowed(&c, ctx.BucketInfo, r, action, ctx.ObjectName)
+			isAllow, err := IsBucketPolicyAllowed(c.UserId, ctx.BucketInfo, r, action, ctx.ObjectName)
+			c.AllowOtherUserAccess = isAllow
 			return c, err
 		}
 	case signature.AuthTypeAnonymous:
-		err = IsBucketPolicyAllowed(&c, ctx.BucketInfo, r, action, ctx.ObjectName)
+		isAllow, err := IsBucketPolicyAllowed(c.UserId, ctx.BucketInfo, r, action, ctx.ObjectName)
+		c.AllowOtherUserAccess = isAllow
 		return c, err
 	}
 	return c, ErrAccessDenied
 }
 
-func IsBucketPolicyAllowed(c *common.Credential, bucket *meta.Bucket, r *http.Request, action policy.Action, objectName string) error {
-	if c == nil || bucket == nil {
-		return ErrAccessDenied
+func IsBucketPolicyAllowed(userId string, bucket *meta.Bucket, r *http.Request, action policy.Action, objectName string) (allow bool, err error) {
+	if bucket == nil {
+		return false, ErrAccessDenied
 	}
-	if bucket.OwnerId == c.UserId {
-		return nil
+	if bucket.OwnerId == userId {
+		return false, nil
 	}
 	policyResult := bucket.Policy.IsAllowed(policy.Args{
 		// TODO: Add IAM policy. Current account name is always useless.
-		AccountName:     c.UserId,
+		AccountName:     userId,
 		Action:          action,
 		BucketName:      bucket.Name,
 		ConditionValues: getConditionValues(r, ""),
@@ -63,12 +65,11 @@ func IsBucketPolicyAllowed(c *common.Credential, bucket *meta.Bucket, r *http.Re
 		ObjectName:      objectName,
 	})
 	if policyResult == policy.PolicyAllow {
-		c.AllowOtherUserAccess = true
-		return nil
+		return true, nil
 	} else if policyResult == policy.PolicyDeny {
-		return ErrAccessDenied
+		return false, ErrAccessDenied
 	} else {
-		return nil
+		return false, nil
 	}
 
 }
