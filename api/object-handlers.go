@@ -598,36 +598,29 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 //Folder renaming operation is not supported.
 func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.Request) {
 	helper.Debugln("RenameObjectHandler", "enter")
-	vars := mux.Vars(r)
-	BucketName := vars["bucket"]
-	targetObjectName := vars["object"]
 
+	ctx := getRequestContext(r)
 	//Determine if the renamed object is legal
-	if hasSuffix(targetObjectName, "/") || targetObjectName == "" {
+	if hasSuffix(ctx.ObjectName, "/") || ctx.ObjectName == "" {
 		WriteErrorResponse(w, r, ErrInvalidRenameTarget)
 		return
 	}
 
 	var credential common.Credential
 	var err error
-	if credential, err = checkRequestAuth(api, r, policy.PutObjectAction, BucketName, targetObjectName); err != nil {
+	if credential, err = checkRequestAuth(r, policy.PutObjectAction); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
 
-	var version string
-	_, err = api.ObjectAPI.GetObjectInfo(BucketName, targetObjectName, version, credential)
-	if err == nil {
+	if ctx.ObjectInfo != nil {
 		WriteErrorResponse(w, r, ErrInvalidRenameTarget)
-		return
-	} else if err != ErrNoSuchKey {
-		WriteErrorResponse(w, r, err)
 		return
 	}
 
 	sourceObjectName := r.Header.Get("X-Amz-Rename-Source-Key")
 
-	if sourceObjectName == targetObjectName {
+	if sourceObjectName == ctx.ObjectName {
 		WriteErrorResponse(w, r, ErrInvalidRenameTarget)
 		return
 	}
@@ -646,7 +639,6 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 	}
 
 	//TODO: Supplement Object MultiVersion Judge.
-	ctx := r.Context().Value(RequestContextKey).(RequestContext)
 	bucket := ctx.BucketInfo
 	if bucket.Versioning != meta.VersionDisabled {
 		WriteErrorResponse(w, r, ErrNotSupportBucketEnabledVersion)
@@ -655,7 +647,7 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 	helper.Debugln("Bucket Multi-version is:", bucket.Versioning)
 
 	var sourceVersion string
-	sourceObject, err := api.ObjectAPI.GetObjectInfo(BucketName, sourceObjectName,
+	sourceObject, err := api.ObjectAPI.GetObjectInfo(ctx.BucketName, sourceObjectName,
 		sourceVersion, credential)
 	if err != nil {
 		WriteErrorResponseWithResource(w, r, err, sourceObjectName)
@@ -663,7 +655,7 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 	}
 
 	targetObject := sourceObject
-	targetObject.Name = targetObjectName
+	targetObject.Name = ctx.ObjectName
 	result, err := api.ObjectAPI.RenameObject(targetObject, sourceObjectName, credential)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to update object meta for "+targetObject.ObjectId)

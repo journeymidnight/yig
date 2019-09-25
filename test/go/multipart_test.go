@@ -97,8 +97,15 @@ func Test_MultipartUploadWithoutMD5(t *testing.T) {
 
 func Test_MultipartRename(t *testing.T) {
 	sc := NewS3()
-	defer sc.CleanEnv()
-	sc.CleanEnv()
+	TEST_COPY_KEY := "COPY:" + TEST_KEY
+	TEST_RENAME_KEY := "RENAME:" + TEST_KEY
+	delFn := func() {
+		sc.DeleteObject(TEST_BUCKET, TEST_KEY)
+		sc.DeleteObject(TEST_BUCKET, TEST_COPY_KEY)
+		sc.DeleteObject(TEST_BUCKET, TEST_RENAME_KEY)
+		sc.DeleteBucket(TEST_BUCKET)
+	}
+	defer delFn()
 	err := sc.MakeBucket(TEST_BUCKET)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
@@ -137,7 +144,6 @@ func Test_MultipartRename(t *testing.T) {
 		}
 	}
 
-	TEST_COPY_KEY := "COPY:" + TEST_KEY
 	input1 := &s3.CopyObjectInput{
 		Bucket:     aws.String(TEST_BUCKET),
 		CopySource: aws.String(TEST_BUCKET + "/" + TEST_KEY),
@@ -148,7 +154,6 @@ func Test_MultipartRename(t *testing.T) {
 		t.Fatal("Copy Object err:", err)
 	}
 
-	TEST_RENAME_KEY := "RENAME:" + TEST_KEY
 	input2 := &s3.RenameObjectInput{
 		Bucket:          aws.String(TEST_BUCKET),
 		RenameSourceKey: aws.String(TEST_KEY),
@@ -172,9 +177,6 @@ func Test_MultipartRename(t *testing.T) {
 		t.Fatal("Rename result is not the same.")
 	}
 
-	//clean up
-	sc.DeleteObject(TEST_BUCKET, TEST_COPY_KEY)
-	sc.DeleteObject(TEST_BUCKET, TEST_RENAME_KEY)
 }
 
 func Test_CopyObjectPart(t *testing.T) {
@@ -277,7 +279,7 @@ func Test_CopyObjectPartWithoutMD5(t *testing.T) {
 			PartNumber: aws.Int64(partNumber),
 		}
 	}
-  
+
 	err = svc.CompleteMultiPartUpload(TEST_BUCKET, TEST_KEY, uploadId, completedUpload)
 	if err != nil {
 		t.Fatal("CompleteMultiPartUpload err:", err)
@@ -293,7 +295,7 @@ func Test_CopyObjectPartWithoutMD5(t *testing.T) {
 		CopySource: aws.String(TEST_BUCKET + "/" + TEST_KEY),
 		Key:        aws.String(TEST_COPY_KEY),
 	}
-  
+
 	_, err = svc.Client.CopyObject(input)
 	if err != nil {
 		t.Fatal("Copy Object err:", err)

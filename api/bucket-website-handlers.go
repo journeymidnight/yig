@@ -164,7 +164,7 @@ func (api ObjectAPIHandlers) HandledByWebsite(w http.ResponseWriter, r *http.Req
 				// If the condition matches, handle redirect
 				if rule.Match(ctx.ObjectName, "") {
 					rule.DoRedirect(w, r, ctx.ObjectName)
-					return
+					return true
 				}
 			}
 		}
@@ -173,11 +173,12 @@ func (api ObjectAPIHandlers) HandledByWebsite(w http.ResponseWriter, r *http.Req
 		if strings.HasSuffix(ctx.ObjectName, "/") || ctx.ObjectName == "" {
 			indexName := ctx.ObjectName + id.Suffix
 			credential := common.Credential{}
-			err := IsBucketPolicyAllowed(&credential, ctx.BucketInfo, r, policy.GetObjectAction, indexName)
+			isAllow, err := IsBucketPolicyAllowed(credential.UserId, ctx.BucketInfo, r, policy.GetObjectAction, indexName)
 			if err != nil {
 				WriteErrorResponse(w, r, err)
 				return true
 			}
+			credential.AllowOtherUserAccess = isAllow
 			index, err := api.ObjectAPI.GetObjectInfo(ctx.BucketName, indexName, "", credential)
 			if err != nil {
 				if err == ErrNoSuchKey {
@@ -223,13 +224,14 @@ func (api ObjectAPIHandlers) ReturnWebsiteErrorDocument(w http.ResponseWriter, r
 	website := ctx.BucketInfo.Website
 	if ed := website.ErrorDocument; ed != nil && ed.Key != "" {
 		indexName := ed.Key
-		credential := new(common.Credential)
-		err := IsBucketPolicyAllowed(credential, ctx.BucketInfo, r, policy.GetObjectAction, indexName)
+		credential := common.Credential{}
+		isAllow, err := IsBucketPolicyAllowed(credential.UserId, ctx.BucketInfo, r, policy.GetObjectAction, indexName)
 		if err != nil {
 			WriteErrorResponse(w, r, err)
 			return true
 		}
-		index, err := api.ObjectAPI.GetObjectInfo(ctx.BucketName, indexName, "", *credential)
+		credential.AllowOtherUserAccess = isAllow
+		index, err := api.ObjectAPI.GetObjectInfo(ctx.BucketName, indexName, "", credential)
 		if err != nil {
 			WriteErrorResponse(w, r, err)
 			return true
