@@ -32,8 +32,8 @@ const (
 )
 
 const (
-	ACL_TYPE_CANON_USER = "CanonicalUser"
-	ACL_TYPE_GROUP      = "Group"
+	ACL_TYPE_CANONICAL_USER = "CanonicalUser"
+	ACL_TYPE_GROUP          = "Group"
 )
 
 const (
@@ -113,50 +113,55 @@ func IsValidCannedAcl(acl Acl) (err error) {
 // the function will be deleted, because we will use AccessControlPolicy instead canned acl stored in hbase
 func GetCannedAclFromPolicy(policy AccessControlPolicy) (acl Acl, err error) {
 	aclOwner := Owner{ID: policy.ID, DisplayName: policy.DisplayName}
-	var canonUser bool
+	var canonicalUser bool
 	var group bool
 	for _, grant := range policy.AccessControlList {
-		helper.Debugln("GetCannedAclFromPolicy")
+		helper.Logger.Info("GetCannedAclFromPolicy")
 		switch grant.Grantee.XsiType {
-		case ACL_TYPE_CANON_USER:
+		case ACL_TYPE_CANONICAL_USER:
 			if grant.Grantee.ID != aclOwner.ID {
-				helper.Logger.Println(1, "grant.Grantee.ID:", grant.Grantee.ID, "not equals aclOwner.ID:", aclOwner.ID)
+				helper.Logger.Info("grant.Grantee.ID:", grant.Grantee.ID,
+					"not equals aclOwner.ID:", aclOwner.ID)
 				return acl, ErrUnsupportedAcl
 			}
 			if grant.Permission != ACL_PERM_FULL_CONTROL {
-				helper.Logger.Println(1, "grant.Permission:", grant.Permission, "not equals", ACL_PERM_FULL_CONTROL)
+				helper.Logger.Info("grant.Permission:", grant.Permission,
+					"not equals", ACL_PERM_FULL_CONTROL)
 				return acl, ErrUnsupportedAcl
 			}
-			canonUser = true
+			canonicalUser = true
 		case ACL_TYPE_GROUP:
 			if grant.Grantee.URI == ACL_GROUP_TYPE_ALL_USERS {
-				helper.Logger.Println(5, "grant.Grantee.URI is", ACL_GROUP_TYPE_ALL_USERS)
+				helper.Logger.Info("grant.Grantee.URI is", ACL_GROUP_TYPE_ALL_USERS)
 				if grant.Permission != ACL_PERM_READ {
-					helper.Logger.Println(1, "grant.Permission:", grant.Permission, "not equals", ACL_PERM_READ)
+					helper.Logger.Info("grant.Permission:", grant.Permission,
+						"not equals", ACL_PERM_READ)
 					return acl, ErrUnsupportedAcl
 				}
 				acl = Acl{CannedAcl: ValidCannedAcl[CANNEDACL_PUBLIC_READ]}
 				group = true
 			} else if grant.Grantee.URI == ACL_GROUP_TYPE_AUTHENTICATED_USERS {
-				helper.Logger.Println(5, "grant.Grantee.URI is", ACL_GROUP_TYPE_AUTHENTICATED_USERS)
+				helper.Logger.Info("grant.Grantee.URI is",
+					ACL_GROUP_TYPE_AUTHENTICATED_USERS)
 				if grant.Permission != ACL_PERM_READ {
-					helper.Logger.Println(1, "grant.Permission:", grant.Permission, "not equals", ACL_PERM_FULL_CONTROL)
+					helper.Logger.Info("grant.Permission:", grant.Permission,
+						"not equals", ACL_PERM_FULL_CONTROL)
 					return acl, ErrUnsupportedAcl
 				}
 				acl = Acl{CannedAcl: ValidCannedAcl[CANNEDACL_AUTHENTICATED_READ]}
 				group = true
 			} else {
-				helper.Logger.Println(1, "grant.Grantee.URI is invalid:", grant.Grantee.URI)
+				helper.Logger.Info("grant.Grantee.URI is invalid:", grant.Grantee.URI)
 				return acl, ErrUnsupportedAcl
 			}
 		default:
-			helper.Logger.Println(1, "grant.Grantee.XsiType is invalid:", grant.Grantee.XsiType)
+			helper.Logger.Info("grant.Grantee.XsiType is invalid:", grant.Grantee.XsiType)
 			return acl, ErrUnsupportedAcl
 		}
 	}
 
-	if !canonUser {
-		helper.Logger.Println(1, "canonUser is invalid:", canonUser)
+	if !canonicalUser {
+		helper.Logger.Info("canonicalUser is invalid:", canonicalUser)
 		return acl, ErrUnsupportedAcl
 	}
 
@@ -169,7 +174,7 @@ func GetCannedAclFromPolicy(policy AccessControlPolicy) (acl Acl, err error) {
 
 func createGrant(xsiType string, owner Owner, perm string, groupType string) (grant GrantResponse, err error) {
 
-	if xsiType == ACL_TYPE_CANON_USER {
+	if xsiType == ACL_TYPE_CANONICAL_USER {
 		grant.Grantee.ID = owner.ID
 		grant.Grantee.DisplayName = owner.DisplayName
 	} else if xsiType == ACL_TYPE_GROUP {
@@ -189,7 +194,7 @@ func CreatePolicyFromCanned(owner Owner, bucketOwner Owner, acl Acl) (
 	policy.ID = owner.ID
 	policy.DisplayName = owner.DisplayName
 	policy.Xmlns = XMLNS
-	grant, err := createGrant(ACL_TYPE_CANON_USER, owner, ACL_PERM_FULL_CONTROL, "")
+	grant, err := createGrant(ACL_TYPE_CANONICAL_USER, owner, ACL_PERM_FULL_CONTROL, "")
 	if err != nil {
 		return policy, err
 	}
@@ -225,7 +230,7 @@ func CreatePolicyFromCanned(owner Owner, bucketOwner Owner, acl Acl) (
 		}
 		policy.AccessControlList = append(policy.AccessControlList, grant)
 	case "bucket-owner-read":
-		grant, err := createGrant(ACL_TYPE_CANON_USER, bucketOwner, ACL_PERM_READ, "")
+		grant, err := createGrant(ACL_TYPE_CANONICAL_USER, bucketOwner, ACL_PERM_READ, "")
 		if err != nil {
 			return policy, err
 		}
@@ -233,7 +238,7 @@ func CreatePolicyFromCanned(owner Owner, bucketOwner Owner, acl Acl) (
 			policy.AccessControlList = append(policy.AccessControlList, grant)
 		}
 	case "bucket-owner-full-control":
-		grant, err := createGrant(ACL_TYPE_CANON_USER, bucketOwner, ACL_PERM_FULL_CONTROL, "")
+		grant, err := createGrant(ACL_TYPE_CANONICAL_USER, bucketOwner, ACL_PERM_FULL_CONTROL, "")
 		if err != nil {
 			return policy, err
 		}

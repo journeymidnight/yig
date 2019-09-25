@@ -10,7 +10,7 @@ import (
 func (m *Meta) GetCluster(fsid string, pool string) (cluster Cluster, err error) {
 	rowKey := fsid + ObjectNameSeparator + pool
 	getCluster := func() (c interface{}, err error) {
-		helper.Logger.Println(10, "GetCluster CacheMiss. fsid:", fsid)
+		helper.Logger.Info("GetCluster CacheMiss. fsid:", fsid)
 		return m.Client.GetCluster(fsid, pool)
 	}
 	unmarshaller := func(in []byte) (interface{}, error) {

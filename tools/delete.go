@@ -23,7 +23,6 @@ const (
 )
 
 var (
-	logger      *log.Logger
 	RootContext = context.Background()
 	yigs        []*storage.YigStorage
 	gcTaskQ     chan types.GarbageCollection
@@ -34,7 +33,7 @@ var (
 func deleteFromCeph(index int) {
 	for {
 		if gcStop {
-			helper.Logger.Print(5, ".")
+			helper.Logger.Info("Shutting down...")
 			return
 		}
 		var (
@@ -48,12 +47,12 @@ func deleteFromCeph(index int) {
 				Remove(garbage.Pool, garbage.ObjectId)
 			if err != nil {
 				if strings.Contains(err.Error(), "ret=-2") {
-					helper.Logger.Println(5, "failed delete", garbage.BucketName, ":", garbage.ObjectName, ":",
+					helper.Logger.Error("delete failed:", garbage.BucketName, ":", garbage.ObjectName, ":",
 						garbage.Location, ":", garbage.Pool, ":", garbage.ObjectId, " error:", err)
 					goto release
 				}
 			} else {
-				helper.Logger.Println(5, "success delete", garbage.BucketName, ":", garbage.ObjectName, ":",
+				helper.Logger.Info("delete succeeded", garbage.BucketName, ":", garbage.ObjectName, ":",
 					garbage.Location, ":", garbage.Pool, ":", garbage.ObjectId)
 			}
 		} else {
@@ -62,11 +61,11 @@ func deleteFromCeph(index int) {
 					Remove(garbage.Pool, p.ObjectId)
 				if err != nil {
 					if strings.Contains(err.Error(), "ret=-2") {
-						helper.Logger.Println(5, "failed delete part", garbage.Location, ":", garbage.Pool, ":", p.ObjectId, " error:", err)
+						helper.Logger.Error("failed delete part", garbage.Location, ":", garbage.Pool, ":", p.ObjectId, " error:", err)
 						goto release
 					}
 				} else {
-					helper.Logger.Println(5, "success delete part", garbage.Location, ":", garbage.Pool, ":", p.ObjectId)
+					helper.Logger.Info("success delete part", garbage.Location, ":", garbage.Pool, ":", p.ObjectId)
 				}
 			}
 		}
@@ -83,7 +82,7 @@ func removeDeleted() {
 	var err error
 	for {
 		if gcStop {
-			helper.Logger.Print(5, ".")
+			helper.Logger.Info("Shutting down...")
 			return
 		}
 	wait:
@@ -122,26 +121,23 @@ func removeDeleted() {
 }
 
 func main() {
-	helper.SetupConfig()
-
-	f, err := os.OpenFile(DEFAULT_DELETE_LOG_PATH, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		panic("Failed to open log file in current dir")
-	}
-	defer f.Close()
 	gcStop = false
-	logger = log.New(f, "[yig]", log.LstdFlags, helper.CONFIG.LogLevel)
-	helper.Logger = logger
+
+	helper.SetupConfig()
+	logLevel := log.ParseLevel(helper.CONFIG.LogLevel)
+
+	helper.Logger = log.NewFileLogger(DEFAULT_DELETE_LOG_PATH, logLevel)
+	defer helper.Logger.Close()
 	gcTaskQ = make(chan types.GarbageCollection, TASKQ_MAX_LENGTH)
 	signal.Ignore()
 	signalQueue := make(chan os.Signal)
 
 	numOfWorkers := helper.CONFIG.GcThread
 	yigs = make([]*storage.YigStorage, helper.CONFIG.GcThread+1)
-	yigs[0] = storage.New(logger, int(meta.NoCache), false, helper.CONFIG.CephConfigPattern)
-	helper.Logger.Println(5, "start gc thread:", numOfWorkers)
+	yigs[0] = storage.New(helper.Logger, int(meta.NoCache), false, helper.CONFIG.CephConfigPattern)
+	helper.Logger.Info("start gc thread:", numOfWorkers)
 	for i := 0; i < numOfWorkers; i++ {
-		yigs[i+1] = storage.New(logger, int(meta.NoCache), false, helper.CONFIG.CephConfigPattern)
+		yigs[i+1] = storage.New(helper.Logger, int(meta.NoCache), false, helper.CONFIG.CephConfigPattern)
 		go deleteFromCeph(i + 1)
 	}
 	go removeDeleted()

@@ -10,12 +10,13 @@ import (
 
 func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (object *Object, err error) {
 	getObject := func() (o interface{}, err error) {
-		helper.Logger.Println(10, "GetObject CacheMiss. bucket:", bucketName, "object:", objectName)
+		helper.Logger.Info("GetObject CacheMiss. bucket:", bucketName,
+			"object:", objectName)
 		object, err := m.Client.GetObject(bucketName, objectName, "")
 		if err != nil {
 			return
 		}
-		helper.Debugln("GetObject object.Name:", object.Name)
+		helper.Logger.Info("GetObject object.Name:", object.Name)
 		if object.Name != objectName {
 			err = ErrNoSuchKey
 			return

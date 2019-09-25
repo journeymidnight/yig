@@ -351,7 +351,7 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 // ----------
 // This implementation of the PUT operation creates a new bucket for authenticated request
 func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Request) {
-	helper.Debugln("PutBucketHandler", "enter")
+	helper.Logger.Info("PutBucketHandler", "enter")
 	vars := mux.Vars(r)
 	bucketName := strings.ToLower(vars["bucket"])
 	if !isValidBucketName(bucketName) {
@@ -366,7 +366,7 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	if len(r.Header.Get("Content-Length")) == 0 {
-		helper.Debugln("Content Length is null!")
+		helper.Logger.Info("Content Length is null!")
 		WriteErrorResponse(w, r, ErrInvalidHeader)
 		return
 	}
@@ -404,7 +404,7 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 func (api ObjectAPIHandlers) PutBucketLifeCycleHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
-	helper.Logger.Println(10, "enter PutBucketLCHandler")
+	helper.Logger.Info("enter PutBucketLCHandler")
 	var credential common.Credential
 	var err error
 	if credential, err = signature.IsReqAuthenticated(r); err != nil {
@@ -426,7 +426,7 @@ func (api ObjectAPIHandlers) PutBucketLifeCycleHandler(w http.ResponseWriter, r 
 		return
 	}
 
-	helper.Debugln("Set LC:", lc)
+	helper.Logger.Info("Set LC:", lc)
 	err = api.ObjectAPI.SetBucketLc(bucket, lc, credential)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to set LC for bucket.")

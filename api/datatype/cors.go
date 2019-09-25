@@ -106,7 +106,7 @@ type Cors struct {
 }
 
 func CorsFromXml(corsBuffer []byte) (cors Cors, err error) {
-	helper.Debugln("Incoming CORS XML:", string(corsBuffer))
+	helper.Logger.Info("Incoming CORS XML:", string(corsBuffer))
 	err = xml.Unmarshal(corsBuffer, &cors)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to unmarshal CORS XML")

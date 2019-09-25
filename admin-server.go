@@ -22,7 +22,7 @@ import (
 
 type adminServerConfig struct {
 	Address string
-	Logger  *log.Logger
+	Logger  log.Logger
 	Yig     *storage.YigStorage
 }
 
@@ -69,7 +69,7 @@ func getBucketInfo(w http.ResponseWriter, r *http.Request) {
 	claims := r.Context().Value("claims").(jwt.MapClaims)
 	bucketName := claims["bucket"].(string)
 
-	helper.Debugln("bucketName:", bucketName)
+	helper.Logger.Info("bucketName:", bucketName)
 	bucket, err := adminServer.Yig.MetaStorage.GetBucketInfo(bucketName)
 	if err != nil {
 		api.WriteErrorResponse(w, r, err)
@@ -90,15 +90,13 @@ func getUserInfo(w http.ResponseWriter, r *http.Request) {
 		api.WriteErrorResponse(w, r, err)
 		return
 	}
-	helper.Debugln("enter getUserInfo", uid, buckets)
+	helper.Logger.Info("enter getUserInfo", uid, buckets)
 
 	var keys []common.Credential
-	if helper.CONFIG.DebugMode == false {
-		keys, err = iam.GetKeysByUid(uid)
-		if err != nil {
-			api.WriteErrorResponse(w, r, err)
-			return
-		}
+	keys, err = iam.GetKeysByUid(uid)
+	if err != nil {
+		api.WriteErrorResponse(w, r, err)
+		return
 	}
 	b, err := json.Marshal(userJson{Buckets: buckets, Keys: keys})
 	w.Write(b)
@@ -106,7 +104,7 @@ func getUserInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func getObjectInfo(w http.ResponseWriter, r *http.Request) {
-	helper.Debugln("enter getObjectInfo")
+	helper.Logger.Info("enter getObjectInfo")
 	claims := r.Context().Value("claims").(jwt.MapClaims)
 	bucketName := claims["bucket"].(string)
 	objectName := claims["object"].(string)
@@ -122,7 +120,7 @@ func getObjectInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func getCacheHitRatio(w http.ResponseWriter, r *http.Request) {
-	helper.Debugln("enter getCacheHitRatio")
+	helper.Logger.Info("enter getCacheHitRatio")
 
 	rate := adminServer.Yig.MetaStorage.Cache.GetCacheHitRatio()
 	b, _ := json.Marshal(cacheJson{HitRate: rate})
@@ -191,7 +189,7 @@ func startAdminServer(c *adminServerConfig) {
 
 	hosts, port := getListenIPs(adminServer) // get listen ips and port.
 
-	logger.Println(5, "\nS3 Object Storage:")
+	helper.Logger.Info("S3 Object Storage:")
 	// Print api listen ips.
 	printListenIPs(false, hosts, port)
 

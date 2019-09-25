@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -54,8 +55,8 @@ func (a AccessLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	newReplacer := NewReplacer(r, a.responseRecorder, "-")
 	response := newReplacer.Replace(a.format)
 
-	helper.AccessLogger.Println(5, response)
-	// send the entrys in access logger to message bus.
+	helper.AccessLogger.Println(response)
+	// send the entries in access logger to message bus.
 	elems := newReplacer.GetReplacedValues()
 	a.notify(elems)
 }
@@ -69,13 +70,13 @@ func (a AccessLogHandler) notify(elems map[string]string) {
 	}
 	val, err := helper.MsgPackMarshal(elems)
 	if err != nil {
-		helper.Logger.Printf(2, "failed to pack %v, err: %v", elems, err)
+		helper.Logger.Error("Failed to pack", elems, "err:", err)
 		return
 	}
 
 	sender, err := bus.GetMessageSender()
 	if err != nil {
-		helper.Logger.Printf(2, "failed to get message bus sender, err: %v", err)
+		helper.Logger.Error("Failed to get message bus sender, err:", err)
 		return
 	}
 
@@ -90,10 +91,13 @@ func (a AccessLogHandler) notify(elems map[string]string) {
 
 	err = sender.AsyncSend(msg)
 	if err != nil {
-		helper.Logger.Printf(2, "failed to send message [%v] to message bus, err: %v", elems, err)
+		helper.Logger.Error(
+			fmt.Sprintf("Failed to send message [%v] to message bus, err: %v",
+				elems, err))
 		return
 	}
-	helper.Logger.Printf(20, "succeed to send message [%v] to message bus.", elems)
+	helper.Logger.Info(fmt.Sprintf("Succeed to send message [%v] to message bus.",
+		elems))
 }
 
 func NewAccessLogHandler(handler http.Handler, _ *meta.Meta) http.Handler {

@@ -252,9 +252,9 @@ func WriteErrorResponseHeaders(w http.ResponseWriter, r *http.Request, err error
 	} else {
 		status = http.StatusInternalServerError
 	}
-	helper.Logger.Println(5, "Response status code:", status, "err:", err)
+	helper.Logger.Info("Response status code:", status, "err:", err)
 
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).status = status
 
 	// check website routing rules

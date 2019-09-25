@@ -42,7 +42,7 @@ const (
 // PutBucketPolicyHandler - This HTTP handler stores given bucket policy configuration as per
 // https://docs.aws.amazon.com/AmazonS3/latest/dev/access-policy-language-overview.html
 func (api ObjectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *http.Request) {
-	helper.Debugln("PutBucketPolicyHandler", "enter")
+	helper.Logger.Info("PutBucketPolicyHandler", "enter")
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
@@ -133,7 +133,7 @@ func (api ObjectAPIHandlers) DeleteBucketPolicyHandler(w http.ResponseWriter, r 
 
 // GetBucketPolicyHandler - This HTTP handler returns bucket policy configuration.
 func (api ObjectAPIHandlers) GetBucketPolicyHandler(w http.ResponseWriter, r *http.Request) {
-	helper.Debugln("GetBucketPolicyHandler", "enter")
+	helper.Logger.Info("GetBucketPolicyHandler", "enter")
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 	var credential common.Credential

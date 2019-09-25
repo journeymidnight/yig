@@ -12,7 +12,7 @@ import (
 func (m *Meta) GetBucket(bucketName string, willNeed bool) (bucket *Bucket, err error) {
 	getBucket := func() (b interface{}, err error) {
 		b, err = m.Client.GetBucket(bucketName)
-		helper.Logger.Println(10, "GetBucket CacheMiss. bucket:", bucketName)
+		helper.Logger.Info("GetBucket CacheMiss. bucket:", bucketName)
 		return b, err
 	}
 	unmarshaller := func(in []byte) (interface{}, error) {
@@ -26,7 +26,7 @@ func (m *Meta) GetBucket(bucketName string, willNeed bool) (bucket *Bucket, err 
 	}
 	bucket, ok := b.(*Bucket)
 	if !ok {
-		helper.Debugln("Cast b failed:", b)
+		helper.Logger.Info("Cast b failed:", b)
 		err = ErrInternalError
 		return
 	}

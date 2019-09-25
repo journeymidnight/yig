@@ -34,13 +34,13 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 	}
 	processed, err := yig.MetaStorage.Client.CheckAndPutBucket(bucket)
 	if err != nil {
-		yig.Logger.Println(5, "Error making checkandput: ", err)
+		yig.Logger.Error("Error making CheckAndPut:", err)
 		return err
 	}
 	if !processed { // bucket already exists, return accurate message
 		bucket, err := yig.MetaStorage.GetBucket(bucketName, false)
 		if err != nil {
-			yig.Logger.Println(5, "Error get bucket: ", bucketName, ", with error", err)
+			yig.Logger.Info("Error get bucket:", bucketName, "with error:", err)
 			return ErrBucketAlreadyExists
 		}
 		if bucket.OwnerId == credential.UserId {
@@ -51,17 +51,15 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 	}
 	err = yig.MetaStorage.AddBucketForUser(bucketName, credential.UserId)
 	if err != nil { // roll back bucket table, i.e. remove inserted bucket
-		yig.Logger.Println(5, "Error AddBucketForUser: ", err)
+		yig.Logger.Error("Error AddBucketForUser:", err)
 		err = yig.MetaStorage.Client.DeleteBucket(bucket)
 		if err != nil {
-			yig.Logger.Println(5, "Error deleting: ", err)
-			yig.Logger.Println(5, "Leaving junk bucket unremoved: ", bucketName)
+			yig.Logger.Error("Error deleting:", bucketName, "error:", err,
+				"leaving junk bucket unremoved")
 			return err
 		}
 	}
-	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.UserTable, credential.UserId)
-	}
+	yig.MetaStorage.Cache.Remove(redis.UserTable, credential.UserId)
 	return err
 }
 
@@ -96,7 +94,7 @@ func (yig *YigStorage) SetBucketAcl(bucketName string, policy datatype.AccessCon
 
 func (yig *YigStorage) SetBucketLc(bucketName string, lc datatype.Lc,
 	credential common.Credential) error {
-	helper.Logger.Println(10, "enter SetBucketLc")
+	helper.Logger.Info("enter SetBucketLc")
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
 		return err
@@ -115,7 +113,7 @@ func (yig *YigStorage) SetBucketLc(bucketName string, lc datatype.Lc,
 
 	err = yig.MetaStorage.PutBucketToLifeCycle(*bucket)
 	if err != nil {
-		yig.Logger.Println(5, "Error Put bucket to LC table: ", err)
+		yig.Logger.Error("Error Put bucket to lifecycle table:", err)
 		return err
 	}
 	return nil
@@ -156,7 +154,7 @@ func (yig *YigStorage) DelBucketLc(bucketName string, credential common.Credenti
 	}
 	err = yig.MetaStorage.RemoveBucketFromLifeCycle(*bucket)
 	if err != nil {
-		yig.Logger.Println(5, "Error Remove bucket From LC table hbase: ", err)
+		yig.Logger.Error("Remove bucket From lifecycle table error:", err)
 		return err
 	}
 	return nil
@@ -485,7 +483,7 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential common.Credent
 	if bucket.LC.Rule != nil {
 		err = yig.MetaStorage.RemoveBucketFromLifeCycle(*bucket)
 		if err != nil {
-			yig.Logger.Println(5, "Error remove bucket from lifeCycle: ", err)
+			yig.Logger.Warn("Remove bucket from lifeCycle error:", err)
 		}
 	}
 
@@ -514,7 +512,7 @@ func (yig *YigStorage) ListObjectsInternal(bucketName string,
 	} else { // version 1
 		marker = request.Marker
 	}
-	helper.Debugln("Prefix:", request.Prefix, "Marker:", request.Marker, "MaxKeys:",
+	helper.Logger.Info("Prefix:", request.Prefix, "Marker:", request.Marker, "MaxKeys:",
 		request.MaxKeys, "Delimiter:", request.Delimiter, "Version:", request.Version,
 		"keyMarker:", request.KeyMarker, "versionIdMarker:", request.VersionIdMarker)
 	return yig.MetaStorage.Client.ListObjects(bucketName, marker, verIdMarker, request.Prefix, request.Delimiter, request.Versioned, request.MaxKeys)
@@ -524,7 +522,7 @@ func (yig *YigStorage) ListObjects(credential common.Credential, bucketName stri
 	request datatype.ListObjectsRequest) (result meta.ListObjectsInfo, err error) {
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
-	helper.Debugln("GetBucket", bucket)
+	helper.Logger.Info("GetBucket", bucket)
 	if err != nil {
 		return
 	}
@@ -554,7 +552,7 @@ func (yig *YigStorage) ListObjects(credential common.Credential, bucketName stri
 	}
 	objects := make([]datatype.Object, 0, len(retObjects))
 	for _, obj := range retObjects {
-		helper.Debugln("result:", obj.Name)
+		helper.Logger.Info("result:", obj.Name)
 		object := datatype.Object{
 			LastModified: obj.LastModifiedTime.UTC().Format(meta.CREATE_TIME_LAYOUT),
 			ETag:         "\"" + obj.Etag + "\"",

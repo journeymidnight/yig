@@ -37,7 +37,7 @@ func GenerateKey(extKey [32]byte, random io.Reader) (key ObjectKey) {
 	}
 	var nonce [32]byte
 	if _, err := io.ReadFull(random, nonce[:]); err != nil {
-		helper.Logger.Println(5, errOutOfEntropy)
+		helper.Logger.Error(errOutOfEntropy)
 		return key
 	}
 	sha := sha256.New()

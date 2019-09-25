@@ -542,16 +542,18 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 
 	md5Writer := md5.New()
 	var totalSize int64 = 0
-	helper.Logger.Println(20, "Upload parts:", uploadedParts, "uploadId:", uploadId)
+	helper.Logger.Info("Upload parts:", uploadedParts, "uploadId:", uploadId)
 	for i := 0; i < len(uploadedParts); i++ {
 		if uploadedParts[i].PartNumber != i+1 {
-			helper.Logger.Println(20, "uploadedParts[i].PartNumber != i+1; i:", i, "uploadId:", uploadId)
+			helper.Logger.Error("uploadedParts[i].PartNumber != i+1; i:", i,
+				"uploadId:", uploadId)
 			err = ErrInvalidPart
 			return
 		}
 		part, ok := multipart.Parts[i+1]
 		if !ok {
-			helper.Logger.Println(20, "multipart.Parts[i+1] does not exist; i:", i, "uploadId:", uploadId)
+			helper.Logger.Error("multipart.Parts[i+1] does not exist; i:", i,
+				"uploadId:", uploadId)
 			err = ErrInvalidPart
 			return
 		}
@@ -564,15 +566,17 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 			return
 		}
 		if part.Etag != uploadedParts[i].ETag {
-			helper.Logger.Println(20, "part.Etag != uploadedParts[i].ETag;",
-				"i:", i, "Etag:", part.Etag, "reqEtag:", uploadedParts[i].ETag, "uploadId:", uploadId)
+			helper.Logger.Error("part.Etag != uploadedParts[i].ETag;",
+				"i:", i, "Etag:", part.Etag, "reqEtag:",
+				uploadedParts[i].ETag, "uploadId:", uploadId)
 			err = ErrInvalidPart
 			return
 		}
 		var etagBytes []byte
 		etagBytes, err = hex.DecodeString(part.Etag)
 		if err != nil {
-			helper.Logger.Println(20, "hex.DecodeString(part.Etag) err;", "uploadId:", uploadId)
+			helper.Logger.Error("hex.DecodeString(part.Etag) err:", err,
+				"uploadId:", uploadId)
 			err = ErrInvalidPart
 			return
 		}
@@ -631,13 +635,6 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 	} else {
 		err = yig.MetaStorage.PutObject(object, &multipart, nil, false)
 	}
-
-	//// Remove from multiparts table
-	//err = yig.MetaStorage.Client.DeleteMultipart(multipart)
-	//if err != nil { // rollback objects table
-	//	yig.delTableEntryForRollback(object, objMap)
-	//	return result, err
-	//}
 
 	sseRequest := multipart.Metadata.SseRequest
 	result.SseType = sseRequest.Type

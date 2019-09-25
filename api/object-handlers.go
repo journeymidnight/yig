@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -62,7 +63,7 @@ func getStorageClassFromHeader(r *http.Request) (meta.StorageClass, error) {
 	storageClassStr := r.Header.Get("X-Amz-Storage-Class")
 
 	if storageClassStr != "" {
-		helper.Logger.Println(20, "Get storage class header:", storageClassStr)
+		helper.Logger.Info("Get storage class header:", storageClassStr)
 		return meta.MatchStorageClassIndex(storageClassStr)
 	} else {
 		// If you don't specify this header, Amazon S3 uses STANDARD
@@ -405,7 +406,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 // This implementation of the PUT operation adds an object to a bucket
 // while reading the object from another source.
 func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Request) {
-	helper.Logger.Println(20, "CopyObjectHandler enter")
+	helper.Logger.Info("CopyObjectHandler enter")
 	vars := mux.Vars(r)
 	targetBucketName := vars["bucket"]
 	targetObjectName := vars["object"]
@@ -462,7 +463,8 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	helper.Debugln("sourceBucketName", sourceBucketName, "sourceObjectName", sourceObjectName,
+	helper.Logger.Info("sourceBucketName", sourceBucketName,
+		"sourceObjectName", sourceObjectName,
 		"sourceVersion", sourceVersion)
 
 	sourceObject, err := api.ObjectAPI.GetObjectInfo(sourceBucketName, sourceObjectName,
@@ -597,7 +599,10 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 //Do not support bucket to enable multiVersion renaming;
 //Folder renaming operation is not supported.
 func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.Request) {
-	helper.Debugln("RenameObjectHandler", "enter")
+	helper.Logger.Info("RenameObjectHandler", "enter")
+	vars := mux.Vars(r)
+	BucketName := vars["bucket"]
+	targetObjectName := vars["object"]
 
 	ctx := getRequestContext(r)
 	//Determine if the renamed object is legal
@@ -644,7 +649,7 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 		WriteErrorResponse(w, r, ErrNotSupportBucketEnabledVersion)
 		return
 	}
-	helper.Debugln("Bucket Multi-version is:", bucket.Versioning)
+	helper.Logger.Info("Bucket Multi-version is:", bucket.Versioning)
 
 	var sourceVersion string
 	sourceObject, err := api.ObjectAPI.GetObjectInfo(ctx.BucketName, sourceObjectName,
@@ -674,7 +679,7 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 // ----------
 // This implementation of the PUT operation adds an object to a bucket.
 func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Request) {
-	helper.Debugln("PutObjectHandler", "enter")
+	helper.Logger.Info("PutObjectHandler", "enter")
 	// If the matching failed, it means that the X-Amz-Copy-Source was
 	// wrong, fail right here.
 	if _, ok := r.Header["X-Amz-Copy-Source"]; ok {
@@ -732,13 +737,13 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		metadata["md5Sum"] = ""
 	} else {
 		if len(r.Header.Get("Content-Md5")) == 0 {
-			helper.Debugln("Content Md5 is null!")
+			helper.Logger.Info("Content Md5 is null!")
 			WriteErrorResponse(w, r, ErrInvalidDigest)
 			return
 		}
 		md5Bytes, err := checkValidMD5(r.Header.Get("Content-Md5"))
 		if err != nil {
-			helper.Debugln("Content Md5 is invalid!")
+			helper.Logger.Info("Content Md5 is invalid!")
 			WriteErrorResponse(w, r, ErrInvalidDigest)
 			return
 		} else {
@@ -827,7 +832,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 // ----------
 // This implementation of the POST operation append an object in a bucket.
 func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.Request) {
-	helper.Debugln("AppendObjectHandler", "enter")
+	helper.Logger.Info("AppendObjectHandler", "enter")
 
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
@@ -892,13 +897,13 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 		metadata["md5Sum"] = ""
 	} else {
 		if len(r.Header.Get("Content-Md5")) == 0 {
-			helper.Debugln("Content Md5 is null!")
+			helper.Logger.Info("Content Md5 is null!")
 			WriteErrorResponse(w, r, ErrInvalidDigest)
 			return
 		}
 		md5Bytes, err := checkValidMD5(r.Header.Get("Content-Md5"))
 		if err != nil {
-			helper.Debugln("Content Md5 is invalid!")
+			helper.Logger.Info("Content Md5 is invalid!")
 			WriteErrorResponse(w, r, ErrInvalidDigest)
 			return
 		} else {
@@ -947,7 +952,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	}
 
 	if objInfo != nil && objInfo.Size != int64(position) {
-		helper.Debugln("Current Size:", objInfo.Size, "Position:", position)
+		helper.Logger.Info("Current Size:", objInfo.Size, "Position:", position)
 		w.Header().Set("X-Amz-Next-Append-Position", strconv.FormatInt(objInfo.Size, 10))
 		WriteErrorResponse(w, r, ErrPositionNotEqualToLength)
 		return
@@ -1049,7 +1054,7 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 		}
 	} else {
 		aclBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 1024))
-		helper.Debug("acl body:\n %s", string(aclBuffer))
+		helper.Logger.Info(fmt.Sprintf("acl body: %s", string(aclBuffer)))
 		if err != nil {
 			helper.ErrorIf(err, "Unable to read acls body")
 			WriteErrorResponse(w, r, ErrInvalidAcl)
@@ -1772,12 +1777,12 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	helper.Debugln("formValues", formValues)
-	helper.Debugln("bucket", bucketName)
+	helper.Logger.Info("formValues", formValues)
+	helper.Logger.Info("bucket", bucketName)
 
 	var credential common.Credential
 	postPolicyType := signature.GetPostPolicyType(formValues)
-	helper.Debugln("type", postPolicyType)
+	helper.Logger.Info("type", postPolicyType)
 	switch postPolicyType {
 	case signature.PostPolicyV2:
 		credential, err = signature.DoesPolicySignatureMatchV2(formValues)
