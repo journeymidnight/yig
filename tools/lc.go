@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	SCAN_HBASE_LIMIT = 50
+	SCAN_LIMIT          = 50
 	DEFAULT_LC_LOG_PATH = "/var/log/yig/lc.log"
 )
 
@@ -44,7 +44,7 @@ func getLifeCycles() {
 			return
 		}
 
-		result, err := yig.MetaStorage.ScanLifeCycle(SCAN_HBASE_LIMIT, marker)
+		result, err := yig.MetaStorage.ScanLifeCycle(SCAN_LIMIT, marker)
 		if err != nil {
 			logger.Println(5, "ScanLifeCycle failed", err)
 			signalQueue <- syscall.SIGQUIT
@@ -246,7 +246,7 @@ func main() {
 		defer redis.Close()
 	}
 	yig = storage.New(logger, helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache, helper.CONFIG.CephConfigPattern)
-	taskQ = make(chan types.LifeCycle, SCAN_HBASE_LIMIT)
+	taskQ = make(chan types.LifeCycle, SCAN_LIMIT)
 	signal.Ignore()
 	signalQueue = make(chan os.Signal)
 

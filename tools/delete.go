@@ -16,9 +16,9 @@ import (
 )
 
 const (
-	WATER_LOW        = 120
-	TASKQ_MAX_LENGTH = 200
-	SCAN_HBASE_LIMIT = 50
+	WATER_LOW               = 120
+	TASKQ_MAX_LENGTH        = 200
+	SCAN_LIMIT              = 50
 	DEFAULT_DELETE_LOG_PATH = "/var/log/yig/delete.log"
 )
 
@@ -94,7 +94,7 @@ func removeDeleted() {
 
 		if len(gcTaskQ) < WATER_LOW {
 			garbages = garbages[:0]
-			garbages, err = yigs[0].MetaStorage.ScanGarbageCollection(SCAN_HBASE_LIMIT, startRowKey)
+			garbages, err = yigs[0].MetaStorage.ScanGarbageCollection(SCAN_LIMIT, startRowKey)
 			if err != nil {
 				continue
 			}

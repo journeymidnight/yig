@@ -10,7 +10,7 @@
 
 ## A completely new designed object storage gateway framework that fully compatible with Amazon S3
 
-At its core, Yig extend minio backend storage to allow more than one ceph cluster work together and form a super large storage resource pool, users could easily enlarge the pool`s capacity to EB level by adding a new ceph cluser to this pool. Benifits are avoiding data movement and IO drop down caused by adding new host or disks to old ceph cluster as usual way. To accomplish this goal, Yig need a distribute database to store meta infomation. Now already Support Tidb,MySql,Hbase.
+At its core, Yig extend minio backend storage to allow more than one ceph cluster work together and form a super large storage resource pool, users could easily enlarge the pool`s capacity to EB level by adding a new ceph cluser to this pool. Benifits are avoiding data movement and IO drop down caused by adding new host or disks to old ceph cluster as usual way. To accomplish this goal, Yig need a distribute database to store meta infomation. Now already Support Tidb,MySql.
 
 ![arch](https://github.com/journeymidnight/yig/raw/master/doc/images/yig.jpg)
 
@@ -49,7 +49,7 @@ sh package/rpmbuild.sh
 Before running Yig, requirments below are needed:
 
  * Deploy at least a ceph cluster with two specify pools named 'tiger' and 'rabbit' are created. About how to deploy ceph, please refer [https://ceph.com](https://ceph.com) or our [[Sample]](https://github.com/journeymidnight/yig/wiki/Minimal-Ceph-Deployment)
- * Deploy a Hbase/TiDB/Mysql, then create tables. [[Sample]](https://github.com/journeymidnight/yig/blob/master/doc/deploy.md)
+ * Deploy a TiDB/Mysql, then create tables. [[Sample]](https://github.com/journeymidnight/yig/blob/master/doc/deploy.md)
 
  	* Tidb/Mysql: 
  	
@@ -58,22 +58,6 @@ Before running Yig, requirments below are needed:
  	 MariaDB [(none)]> source ../yig/integrate/yig.sql
  	```
  	
- 	* Hbase
-
- 	```
- 	 sh ../yig/tools/create_table.sh
- 	```
- 		
- * If you want to use one ceph cluster to store data, you dont need to put data to table 'cluster' in hbase. Once there are more than one ceph cluster, you need put every cluster's fsid and pool name and weight to table 'cluster' as follows. Pls replace fsid with real fsid in ceph config. You can use any actual number to replace weight_num. YIG can calculate proportion in total weights and assign a cluster to write according to it when you put data.
- 
- 	* Hbase
-
- 	```
-   hbase shell
-   put 'cluster', "fsid\x0Atiger", 'c:weight', 'weight_num'
-   put 'cluster', "fsid\x0Arabbit", 'c:weight', 'weight_num'
- 	```
-   
  * Deploy [yig-iam](https://github.com/journeymidnight/yig-iam) used for user management and authorize request. If Yig is running in Debug Mode, request will not sent to yig-iam. So this deployment is optional, but in real factory environment, you still need it.
 
  * Deploy a standalone Redis instance used as cache for better performance. This deployment is optional but strong recommend
