@@ -229,6 +229,11 @@ type CopyObjectResponse struct {
 	LastModified string // time string of format "2006-01-02T15:04:05.000Z"
 }
 
+type RenameObjectResponse struct {
+	XMLName      xml.Name `xml:"http://s3.amazonaws.com/doc/2006-03-01/ RenameObjectResult" json:"-"`
+	LastModified string   // time string of format "2006-01-02T15:04:05.000Z"
+}
+
 type CopyObjectPartResponse struct {
 	XMLName      xml.Name `xml:"CopyPartResult"`
 	LastModified string
@@ -308,6 +313,10 @@ type DeleteObjectsRequest struct {
 type PutObjectResult struct {
 	Md5          string
 	VersionId    string
+	LastModified time.Time
+}
+
+type RenameObjectResult struct {
 	LastModified time.Time
 }
 

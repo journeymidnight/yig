@@ -36,7 +36,7 @@ require (
 	github.com/gomodule/redigo v1.7.0
 	github.com/gorilla/mux v1.6.2
 	github.com/hashicorp/vault/api v1.0.2
-	github.com/journeymidnight/aws-sdk-go v1.17.5
+	github.com/journeymidnight/aws-sdk-go v0.0.0-20190905144850-21150785b32d
 	github.com/journeymidnight/radoshttpd v0.0.0-20190617133011-609666b51136
 	github.com/minio/highwayhash v1.0.0
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829

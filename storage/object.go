@@ -565,11 +565,11 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
-	if bucket.Versioning == "Enabled" {
+	if bucket.Versioning == meta.VersionEnabled {
 		result.VersionId = object.GetVersionId()
 	}
 	// update null version number
-	if bucket.Versioning == "Suspended" {
+	if bucket.Versioning == meta.VersionSuspended {
 		nullVerNum = uint64(object.LastModifiedTime.UnixNano())
 	}
 
@@ -725,7 +725,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 	return result, nil
 }
 
-func (yig *YigStorage) UpdateObjectAttrs(targetObject *meta.Object, credential common.Credential) (result datatype.PutObjectResult, err error) {
+func (yig *YigStorage) RenameObject(targetObject *meta.Object, sourceObject string, credential common.Credential) (result datatype.RenameObjectResult, err error) {
 
 	bucket, err := yig.MetaStorage.GetBucket(targetObject.BucketName, true)
 	if err != nil {
@@ -740,15 +740,21 @@ func (yig *YigStorage) UpdateObjectAttrs(targetObject *meta.Object, credential c
 		}
 	}
 
-	err = yig.MetaStorage.UpdateObjectAttrs(targetObject)
-	if err != nil {
-		yig.Logger.Println(5, "Update Object Attrs, sql fails")
-		return result, ErrInternalError
+	if len(targetObject.Parts) != 0 {
+		err = yig.MetaStorage.RenameObjectPart(targetObject, sourceObject)
+		if err != nil {
+			yig.Logger.Println(5, "Update Object Attrs, sql fails")
+			return result, ErrInternalError
+		}
+	} else {
+		err = yig.MetaStorage.RenameObject(targetObject, sourceObject)
+		if err != nil {
+			yig.Logger.Println(5, "Update Object Attrs, sql fails")
+			return result, ErrInternalError
+		}
 	}
-	result.LastModified = targetObject.LastModifiedTime
-	result.Md5 = targetObject.Etag
-	result.VersionId = targetObject.GetVersionId()
 
+	result.LastModified = targetObject.LastModifiedTime
 	yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
 	yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
 
@@ -793,7 +799,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		for i := 1; i <= len(targetObject.Parts); i++ {
 			part := targetObject.Parts[i]
 			targetParts[i] = part
-			result,err = func() (result datatype.PutObjectResult, err error) {
+			result, err = func() (result datatype.PutObjectResult, err error) {
 				pr, pw := io.Pipe()
 				defer pr.Close()
 				var total = part.Size
@@ -841,7 +847,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 				part.ObjectId = oid
 
 				part.InitializationVector = initializationVector
-				return result,nil
+				return result, nil
 			}()
 			if err != nil {
 				return result, err
@@ -988,12 +994,12 @@ func (yig *YigStorage) removeAllObjectsEntryByName(bucketName, objectName string
 
 func (yig *YigStorage) checkOldObject(bucketName, objectName, versioning string) (version uint64, err error) {
 
-	if versioning == "Disabled" {
+	if versioning == meta.VersionDisabled {
 		err = yig.removeAllObjectsEntryByName(bucketName, objectName)
 		return
 	}
 
-	if versioning == "Enabled" || versioning == "Suspended" {
+	if versioning == meta.VersionEnabled || versioning == meta.VersionSuspended {
 		objMapExist := true
 		objectExist := true
 
@@ -1133,7 +1139,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 	} // TODO policy and fancy ACL
 
 	switch bucket.Versioning {
-	case "Disabled":
+	case meta.VersionDisabled:
 		if version != "" && version != "null" {
 			return result, ErrNoSuchVersion
 		}
@@ -1141,7 +1147,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 		if err != nil {
 			return
 		}
-	case "Enabled":
+	case meta.VersionEnabled:
 		if version == "" {
 			result.VersionId, err = yig.addDeleteMarker(*bucket, objectName, false)
 			if err != nil {
@@ -1155,7 +1161,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 			}
 			result.VersionId = version
 		}
-	case "Suspended":
+	case meta.VersionSuspended:
 		if version == "" {
 			err = yig.removeObjectVersion(bucketName, objectName, "null")
 			if err != nil {
