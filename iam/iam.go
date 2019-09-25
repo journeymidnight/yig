@@ -1,6 +1,7 @@
 package iam
 
 import (
+	"fmt"
 	"regexp"
 
 	"github.com/journeymidnight/yig/helper"
@@ -28,15 +29,16 @@ func InitializeIamClient(plugins map[string]*mods.YigPlugin) {
 		if p.PluginType == mods.IAM_PLUGIN {
 			c, err := p.Create(helper.CONFIG.Plugins[name].Args)
 			if err != nil {
-				helper.Logger.Fatalf(0, "failed to initial iam plugin %s: err: %v\n", name, err)
-				return
+				message := fmt.Sprintf("Failed to initial iam plugin %s: err: %v",
+					name, err)
+				panic(message)
 			}
-			helper.Logger.Printf(5, "Chosen IAM plugin %s..\n", name)
+			helper.Logger.Info("Use IAM plugin", name)
 			iamClient = c.(IamClient)
 			return
 		}
 	}
-	helper.Logger.Fatalf(0, "failed to initial any iam plugin, quiting...\n")
+	panic("Failed to initialize any IAM plugin, quiting...\n")
 	return
 }
 

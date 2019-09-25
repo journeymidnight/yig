@@ -31,14 +31,14 @@ type CephStorage struct {
 	Name       string
 	Conn       *rados.Conn
 	InstanceId uint64
-	Logger     *log.Logger
+	Logger     log.Logger
 	CountMutex *sync.Mutex
 	Counter    uint64
 }
 
-func NewCephStorage(configFile string, logger *log.Logger) *CephStorage {
+func NewCephStorage(configFile string, logger log.Logger) *CephStorage {
 
-	logger.Printf(5, "Loading Ceph file %s\n", configFile)
+	logger.Info("Loading Ceph file", configFile)
 
 	Rados, err := rados.NewConn("admin")
 	Rados.SetConfigOption("rados_mon_op_timeout", MON_TIMEOUT)
@@ -46,19 +46,19 @@ func NewCephStorage(configFile string, logger *log.Logger) *CephStorage {
 
 	err = Rados.ReadConfigFile(configFile)
 	if err != nil {
-		helper.Logger.Printf(0, "Failed to open ceph.conf: %s\n", configFile)
+		helper.Logger.Error("Failed to open ceph.conf:", configFile)
 		return nil
 	}
 
 	err = Rados.Connect()
 	if err != nil {
-		helper.Logger.Printf(0, "Failed to connect to remote cluster: %s\n", configFile)
+		helper.Logger.Error("Failed to connect to remote cluster:", configFile)
 		return nil
 	}
 
 	name, err := Rados.GetFSID()
 	if err != nil {
-		helper.Logger.Printf(0, "Failed to get FSID: %s\n", configFile)
+		helper.Logger.Error("Failed to get FSID:", configFile)
 		Rados.Shutdown()
 		return nil
 	}
@@ -73,7 +73,7 @@ func NewCephStorage(configFile string, logger *log.Logger) *CephStorage {
 		CountMutex: new(sync.Mutex),
 	}
 
-	logger.Printf(5, "Ceph Cluster %s is ready, InstanceId is %d\n", name, id)
+	logger.Info("Ceph Cluster", name, "is ready, InstanceId is", name, id)
 	return &cluster
 }
 

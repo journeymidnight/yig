@@ -43,7 +43,7 @@ func (d DebugIamClient) GetCredential(accessKey string) (c common.Credential, er
 func GetIamClient() (c iam.IamClient, err error) {
 	// Get config data
 	data := helper.CONFIG.Plugins[iam.IamPluginName].Data
-	helper.Logger.Println(20, "Get plugin data:", data)
+	helper.Logger.Info("Get plugin data:", data)
 	c = DebugIamClient{
 		IamUrl: data["url"].(string),
 	}

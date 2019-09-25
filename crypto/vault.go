@@ -171,14 +171,15 @@ func NewVault(kmsConf KMSConfig) (KMS, error) {
 		leaseDuration = DEBUG_LEASE_DURATION
 	} else {
 		accessToken, leaseDuration, err = getVaultAccessToken(c, config.Auth.AppRole.ID, config.Auth.AppRole.Secret)
-		helper.Logger.Println(1, "get access token:", accessToken, "lease duration:")
+		helper.Logger.Info("Get access token:", accessToken,
+			"lease duration:", leaseDuration)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	// authenticate and get the access token
-	helper.Logger.Println(5, "Get vault token:", accessToken, "leaseDuration", leaseDuration)
+	helper.Logger.Info("Get vault token:", accessToken, "leaseDuration", leaseDuration)
 	c.SetToken(accessToken)
 	v := vaultService{client: c, config: &config, leaseDuration: time.Duration(leaseDuration)}
 	v.renewToken(c)

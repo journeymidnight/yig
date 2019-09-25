@@ -13,23 +13,17 @@ import (
 func Test(t *testing.T) { TestingT(t) }
 
 type MessageBusTestSuite struct {
-	logger *log.Logger
-	f      *os.File
+	logger log.Logger
 }
 
 var _ = Suite(&MessageBusTestSuite{})
 
 func (mbs *MessageBusTestSuite) SetUpSuite(c *C) {
-	var err error
-	mbs.f, err = os.OpenFile("./test.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	c.Assert(err, Equals, nil)
-	helper.CONFIG.LogLevel = 20
-	mbs.logger = log.New(mbs.f, "[yig]", log.LstdFlags, helper.CONFIG.LogLevel)
+	mbs.logger = log.NewLogger(os.Stdout, log.InfoLevel)
 	helper.Logger = mbs.logger
 }
 
 func (mbs *MessageBusTestSuite) TearDownSuite(c *C) {
-	mbs.f.Close()
 }
 
 func (mbs *MessageBusTestSuite) SetUpTest(c *C) {

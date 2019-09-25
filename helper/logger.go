@@ -28,8 +28,8 @@ import (
 	"strings"
 )
 
-var Logger *log.Logger
-var AccessLogger *log.Logger
+var Logger log.Logger
+var AccessLogger log.Logger
 
 // sysInfo returns useful system statistics.
 func sysInfo() map[string]string {
@@ -74,9 +74,7 @@ func ErrorIf(err error, msg string, data ...interface{}) {
 	if err == nil {
 		return
 	}
-	Logger.Printf(5, msg, data...)
-	Logger.Println(5, "With error: ", err.Error())
-	Logger.Println(5, "System Info: ", sysInfo())
+	Logger.Error(msg, data, "with error:", err, "system info:", sysInfo())
 }
 
 // fatalIf wrapper function which takes error and prints error messages.
@@ -84,9 +82,7 @@ func FatalIf(err error, msg string, data ...interface{}) {
 	if err == nil {
 		return
 	}
-	Logger.Printf(5, msg, data...)
-	Logger.Println(5, "With error: ", err.Error())
-	Logger.Println(5, "System Info: ", sysInfo())
-	Logger.Println(5, "Stack trace: ", stackInfo())
+	Logger.Error(msg, data, "with error:", err, "system info:", sysInfo(),
+		"stack trace:", stackInfo())
 	os.Exit(1)
 }

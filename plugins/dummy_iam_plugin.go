@@ -20,7 +20,7 @@ var Exported = mods.YigPlugin{
 
 func GetIamClient(config map[string]interface{}) (interface{}, error) {
 
-	helper.Logger.Printf(10, "Get plugin config: %v\n", config)
+	helper.Logger.Info("Get plugin config:", config)
 
 	c := DebugIamClient{
 		IamUrl: config["url"].(string),

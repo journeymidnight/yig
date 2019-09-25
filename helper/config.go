@@ -33,8 +33,7 @@ type Config struct {
 	AdminKey               string        `toml:"admin_key"` //used for tools/admin to communicate with yig
 	GcThread               int           `toml:"gc_thread"`
 	LcThread               int           //used for tools/lc only, set worker numbers to do lc
-	LcDebug                bool          //used for tools/lc only, if this was set true, will treat days as seconds
-	LogLevel               int           `toml:"log_level"` //1-20
+	LogLevel               string        `toml:"log_level"` // "info", "warn", "error"
 	CephConfigPattern      string        `toml:"ceph_config_pattern"`
 	ReservedOrigins        string        `toml:"reserved_origins"` // www.ccc.com,www.bbb.com,127.0.0.1
 	MetaStore              string        `toml:"meta_store"`
@@ -150,7 +149,6 @@ func MarshalTOMLConfig() error {
 	CONFIG.ZookeeperAddress = c.ZookeeperAddress
 	CONFIG.DebugMode = c.DebugMode
 	CONFIG.AdminKey = c.AdminKey
-	CONFIG.LcDebug = c.LcDebug
 	CONFIG.CephConfigPattern = c.CephConfigPattern
 	CONFIG.ReservedOrigins = c.ReservedOrigins
 	CONFIG.TidbInfo = c.TidbInfo
@@ -163,7 +161,7 @@ func MarshalTOMLConfig() error {
 		1, c.GcThread).(int)
 	CONFIG.LcThread = Ternary(c.LcThread == 0,
 		1, c.LcThread).(int)
-	CONFIG.LogLevel = Ternary(c.LogLevel == 0, 5, c.LogLevel).(int)
+	CONFIG.LogLevel = Ternary(len(c.LogLevel) == 0, "info", c.LogLevel).(string)
 	CONFIG.MetaStore = Ternary(c.MetaStore == "", "tidb", c.MetaStore).(string)
 
 	CONFIG.RedisAddress = c.RedisAddress

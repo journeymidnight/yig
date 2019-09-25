@@ -25,16 +25,18 @@ func checkRequestAuth(r *http.Request, action policy.Action) (c common.Credentia
 	authType := ctx.AuthType
 	switch authType {
 	case signature.AuthTypeUnknown:
+		helper.Logger.Info("ErrAccessDenied: AuthTypeUnknown")
+		return c, ErrAccessDenied
 		helper.Logger.Println(5, "ErrAccessDenied: AuthTypeUnknown")
 		return c, ErrSignatureVersionNotSupported
 	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		helper.Logger.Println(5, "AuthTypeSigned:", authType)
+		helper.Logger.Info("AuthTypeSigned:", authType)
 		if c, err := signature.IsReqAuthenticated(r); err != nil {
-			helper.Logger.Println(5, "ErrAccessDenied: IsReqAuthenticated return false:", err)
+			helper.Logger.Info("ErrAccessDenied: IsReqAuthenticated return false:", err)
 			return c, err
 		} else {
-			helper.Logger.Println(5, "Credential:", c)
+			helper.Logger.Info("Credential:", c)
 			// check bucket policy
 			isAllow, err := IsBucketPolicyAllowed(c.UserId, ctx.BucketInfo, r, action, ctx.ObjectName)
 			c.AllowOtherUserAccess = isAllow

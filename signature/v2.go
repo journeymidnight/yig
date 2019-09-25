@@ -4,6 +4,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"sort"
 	"strings"
@@ -64,7 +65,7 @@ func buildCanonicalizedAmzHeaders(headers *http.Header) string {
 		values := (*headers)[h] // Don't use Header.Get() here because we need ALL values
 		ans += strings.ToLower(h) + ":" + strings.Join(values, ",") + "\n"
 	}
-	helper.Debugln("V2 canonical amazon headers:", ans)
+	helper.Logger.Info("V2 canonical amazon headers:", ans)
 	return ans
 }
 
@@ -77,7 +78,7 @@ func buildCanonicalizedResource(req *http.Request) string {
 		ans += "/" + bucketName
 	}
 	ans += req.URL.EscapedPath()
-	helper.Debugln("HOST:", req.Host, hostWithOutPort, ans)
+	helper.Logger.Info("HOST:", req.Host, hostWithOutPort, ans)
 	requiredQuery := []string{
 		// NOTE: this array is sorted alphabetically
 		"acl", "cors", "delete", "lifecycle", "location",
@@ -111,7 +112,7 @@ func buildCanonicalizedResource(req *http.Request) string {
 	if encodedQuery != "" {
 		ans += "?" + encodedQuery
 	}
-	helper.Debugln("V2 canonical resource:", ans)
+	helper.Logger.Info("V2 canonical resource:", ans)
 	return ans
 }
 
@@ -120,7 +121,7 @@ func dictate(secretKey string, stringToSign string, signature []byte) error {
 	mac := hmac.New(sha1.New, []byte(secretKey))
 	mac.Write([]byte(stringToSign))
 	expectedMac := mac.Sum(nil)
-	helper.Debugln("key，mac", secretKey, string(expectedMac), string(signature))
+	helper.Logger.Info("key，mac", secretKey, string(expectedMac), string(signature))
 	if !hmac.Equal(expectedMac, signature) {
 		return ErrSignatureDoesNotMatch
 	}
@@ -137,7 +138,7 @@ func DoesSignatureMatchV2(r *http.Request) (credential common.Credential, err er
 	}
 	accessKey := splitSignature[0]
 	credential, e := iam.GetCredential(accessKey)
-	helper.Debug("cre1:%s,%s,%s,%s", credential.UserId, credential.DisplayName, credential.AccessKeyID, credential.SecretAccessKey)
+	helper.Logger.Info(fmt.Sprintf("credential: %+v", credential))
 	if e != nil {
 		return credential, ErrInvalidAccessKeyID
 	}
@@ -181,8 +182,8 @@ func DoesSignatureMatchV2(r *http.Request) (credential common.Credential, err er
 
 	stringToSign += buildCanonicalizedAmzHeaders(&r.Header)
 	stringToSign += buildCanonicalizedResource(r)
-	helper.Debugln("stringtosign", stringToSign, credential.SecretAccessKey)
-	helper.Debugln("credential", credential.UserId, credential.AccessKeyID, credential.SecretAccessKey)
+	helper.Logger.Info("stringtosign", stringToSign, credential.SecretAccessKey)
+	helper.Logger.Info("credential", credential.UserId, credential.AccessKeyID, credential.SecretAccessKey)
 	return credential, dictate(credential.SecretAccessKey, stringToSign, signature)
 }
 

@@ -111,7 +111,6 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Skip the first element which is usually '/' and split the rest.
 	ctx := getRequestContext(r)
 	bucketName, objectName := ctx.BucketName, ctx.ObjectName
-	helper.Logger.Println(5, "ServeHTTP", bucketName, objectName)
 	// If bucketName is present and not objectName check for bucket
 	// level resource queries.
 	if bucketName != "" && objectName == "" {
@@ -129,7 +128,7 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	// A put method on path "/" doesn't make sense, ignore it.
 	if r.Method == "PUT" && r.URL.Path == "/" && bucketName == "" {
-		helper.Debugln("Host:", r.Host, "Path:", r.URL.Path, "Bucket:", bucketName)
+		helper.Logger.Info("Host:", r.Host, "Path:", r.URL.Path, "Bucket:", bucketName)
 		WriteErrorResponse(w, r, ErrMethodNotAllowed)
 		return
 	}

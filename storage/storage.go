@@ -37,12 +37,12 @@ type YigStorage struct {
 	DataCache   DataCache
 	MetaStorage *meta.Meta
 	KMS         crypto.KMS
-	Logger      *log.Logger
+	Logger      log.Logger
 	Stopping    bool
 	WaitGroup   *sync.WaitGroup
 }
 
-func New(logger *log.Logger, metaCacheType int, enableDataCache bool, CephConfigPattern string) *YigStorage {
+func New(logger log.Logger, metaCacheType int, enableDataCache bool, CephConfigPattern string) *YigStorage {
 	kms := crypto.NewKMS()
 	yig := YigStorage{
 		DataStorage: make(map[string]*CephStorage),
@@ -58,9 +58,9 @@ func New(logger *log.Logger, metaCacheType int, enableDataCache bool, CephConfig
 	}
 
 	cephConfs, err := filepath.Glob(CephConfigPattern)
-	helper.Logger.Printf(5, "Reading Ceph conf files from %+v\n", cephConfs)
+	helper.Logger.Info("Reading Ceph conf files from", cephConfs)
 	if err != nil || len(cephConfs) == 0 {
-		helper.Logger.Panic(0, "PANIC: No ceph conf found")
+		panic("No ceph conf found")
 	}
 
 	for _, conf := range cephConfs {
@@ -71,7 +71,7 @@ func New(logger *log.Logger, metaCacheType int, enableDataCache bool, CephConfig
 	}
 
 	if len(yig.DataStorage) == 0 {
-		helper.Logger.Panic(0, "PANIC: No data storage can be used!")
+		panic("No data storage can be used!")
 	}
 
 	initializeRecycler(&yig)
@@ -80,9 +80,9 @@ func New(logger *log.Logger, metaCacheType int, enableDataCache bool, CephConfig
 
 func (y *YigStorage) Stop() {
 	y.Stopping = true
-	helper.Logger.Print(5, "Stopping storage...")
+	helper.Logger.Info("Stopping storage...")
 	y.WaitGroup.Wait()
-	helper.Logger.Println(5, "done")
+	helper.Logger.Info("done")
 }
 
 // check cache health per one second if enable cache
@@ -107,7 +107,7 @@ func (y *YigStorage) PingCache(interval time.Duration) {
 				nil,
 			)
 			if redis.CacheCircuit.IsOpen() {
-				helper.Logger.Println(10, circuitbreak.CacheCircuitIsOpenErr)
+				helper.Logger.Warn(circuitbreak.CacheCircuitIsOpenErr)
 			}
 		}
 	}

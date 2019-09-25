@@ -10,7 +10,7 @@ func (t *TidbClient) PutBucketToLifeCycle(lifeCycle LifeCycle) error {
 	sqltext := "insert into lifecycle(bucketname,status) values (?,?);"
 	_, err := t.Client.Exec(sqltext, lifeCycle.BucketName, lifeCycle.Status)
 	if err != nil {
-		helper.Logger.Printf(0, "Failed in PutBucketToLifeCycle: %s\n", sqltext)
+		helper.Logger.Error("Failed to execute:", sqltext, "err:", err)
 		return nil
 	}
 	return nil
@@ -21,7 +21,7 @@ func (t *TidbClient) RemoveBucketFromLifeCycle(bucket Bucket) error {
 	sqltext := "delete from lifecycle where bucketname=?;"
 	_, err := t.Client.Exec(sqltext, bucket.Name)
 	if err != nil {
-		helper.Logger.Printf(0, "Failed in RemoveBucketFromLifeCycle: %s\n", sqltext)
+		helper.Logger.Error("Failed to execute:", sqltext, "err:", err)
 		return nil
 	}
 	return nil
@@ -32,7 +32,7 @@ func (t *TidbClient) ScanLifeCycle(limit int, marker string) (result ScanLifeCyc
 	sqltext := "select * from lifecycle where bucketname > ? limit ?;"
 	rows, err := t.Client.Query(sqltext, marker, limit)
 	if err == sql.ErrNoRows {
-		helper.Logger.Printf(0, "Failed in sql.ErrNoRows: %s\n", sqltext)
+		helper.Logger.Error("Failed in sql.ErrNoRows:", sqltext, "err:", err)
 		err = nil
 		return
 	} else if err != nil {
@@ -46,7 +46,7 @@ func (t *TidbClient) ScanLifeCycle(limit int, marker string) (result ScanLifeCyc
 			&lc.BucketName,
 			&lc.Status)
 		if err != nil {
-			helper.Logger.Printf(0, "Failed in ScanLifeCycle: %s ... %s\n", result.Lcs,result.NextMarker)
+			helper.Logger.Error("Failed in scan LifeCycle:", err)
 			return
 		}
 		result.Lcs = append(result.Lcs, lc)

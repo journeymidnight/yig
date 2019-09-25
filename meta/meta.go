@@ -13,11 +13,11 @@ const (
 
 type Meta struct {
 	Client client.Client
-	Logger *log.Logger
+	Logger log.Logger
 	Cache  MetaCache
 }
 
-func New(logger *log.Logger, myCacheType CacheType) *Meta {
+func New(logger log.Logger, myCacheType CacheType) *Meta {
 	meta := Meta{
 		Logger: logger,
 		Cache:  newMetaCache(myCacheType),

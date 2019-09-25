@@ -4,7 +4,7 @@ log_path = "/var/log/yig/yig.log"
 access_log_path = "/var/log/yig/access.log"
 access_log_format = "{combined}"
 panic_log_path = "/var/log/yig/panic.log"
-log_level = 20
+log_level = "info"
 pid_file = "/var/run/yig/yig.pid"
 api_listener = "0.0.0.0:8080"
 admin_listener = "0.0.0.0:9000"
@@ -13,8 +13,6 @@ ssl_key_path = ""
 ssl_cert_path = ""
 piggyback_update_usage = true
 
-# DebugMode
-lcdebug = true
 debug_mode = true
 reserved_origins = "s3.test.com,s3-internal.test.com"
 
