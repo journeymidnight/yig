@@ -80,12 +80,12 @@ func (m *enabledSimpleMetaCache) Get(table redis.RedisDatabase, key string,
 		return value, nil
 	}
 
-	//if redis doesn't have the entry
+	// if redis doesn't have the entry
 	if onCacheMiss != nil {
 		value, err = onCacheMiss()
 		if err != nil{
-			if  err != sql.ErrNoRows {
-				helper.ErrorIf(err, "exec onCacheMiss() err.")
+			if err != sql.ErrNoRows {
+				helper.Logger.Error("exec onCacheMiss() err:", err)
 			}
 			return
 		}

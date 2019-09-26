@@ -29,10 +29,10 @@ import (
 type ObjectLayer interface {
 	// Bucket operations.
 	MakeBucket(bucket string, acl datatype.Acl, credential common.Credential) error
-	SetBucketLc(bucket string, config datatype.Lc,
+	SetBucketLifecycle(bucket string, config datatype.Lifecycle,
 		credential common.Credential) error
-	GetBucketLc(bucket string, credential common.Credential) (datatype.Lc, error)
-	DelBucketLc(bucket string, credential common.Credential) error
+	GetBucketLifecycle(bucket string, credential common.Credential) (datatype.Lifecycle, error)
+	DelBucketLifecycle(bucket string, credential common.Credential) error
 	SetBucketAcl(bucket string, policy datatype.AccessControlPolicy, acl datatype.Acl,
 		credential common.Credential) error
 	GetBucketAcl(bucket string, credential common.Credential) (datatype.AccessControlPolicyResponse, error)

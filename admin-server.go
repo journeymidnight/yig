@@ -197,7 +197,7 @@ func startAdminServer(c *adminServerConfig) {
 		var err error
 		// Configure TLS if certs are available.
 		err = adminServer.ListenAndServe()
-		helper.FatalIf(err, "API server error.")
+		helper.PanicOnError(err, "API server error.")
 	}()
 }
 

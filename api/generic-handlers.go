@@ -18,6 +18,7 @@ package api
 
 import (
 	"context"
+	"github.com/journeymidnight/yig/log"
 	"net/http"
 	"strings"
 
@@ -108,6 +109,7 @@ type resourceHandler struct {
 
 // Resource handler ServeHTTP() wrapper
 func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	// Skip the first element which is usually '/' and split the rest.
 	ctx := getRequestContext(r)
 	bucketName, objectName := ctx.BucketName, ctx.ObjectName
@@ -128,7 +130,7 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	// A put method on path "/" doesn't make sense, ignore it.
 	if r.Method == "PUT" && r.URL.Path == "/" && bucketName == "" {
-		helper.Logger.Info("Host:", r.Host, "Path:", r.URL.Path, "Bucket:", bucketName)
+		logger.Info("Host:", r.Host, "Path:", r.URL.Path, "Bucket:", bucketName)
 		WriteErrorResponse(w, r, ErrMethodNotAllowed)
 		return
 	}
@@ -177,6 +179,10 @@ var notimplementedBucketResourceNames = map[string]bool{
 // List of not implemented object queries
 var notimplementedObjectResourceNames = map[string]bool{
 	"torrent": true,
+}
+
+func ContextLogger(r *http.Request) log.Logger {
+	return r.Context().Value(RequestContextKey).(RequestContext).Logger
 }
 
 // authHandler - handles all the incoming authorization headers and

@@ -23,7 +23,7 @@ type Bucket struct {
 	OwnerId    string
 	CORS       datatype.Cors
 	ACL        datatype.Acl
-	LC         datatype.Lc
+	Lifecycle  datatype.Lifecycle
 	Policy     policy.Policy
 	Website    datatype.WebsiteConfiguration
 	Versioning string // actually enum: Disabled/Enabled/Suspended
@@ -36,7 +36,7 @@ func (b *Bucket) String() (s string) {
 	s += "OwnerId: " + b.OwnerId + "\n"
 	s += "CORS: " + fmt.Sprintf("%+v", b.CORS) + "\n"
 	s += "ACL: " + fmt.Sprintf("%+v", b.ACL) + "\n"
-	s += "LifeCycle: " + fmt.Sprintf("%+v", b.LC) + "\n"
+	s += "LifeCycle: " + fmt.Sprintf("%+v", b.Lifecycle) + "\n"
 	s += "Policy: " + fmt.Sprintf("%+v", b.Policy) + "\n"
 	s += "Website: " + fmt.Sprintf("%+v", b.Website) + "\n"
 	s += "Version: " + b.Versioning + "\n"
@@ -48,7 +48,7 @@ func (b *Bucket) String() (s string) {
 func (b Bucket) GetUpdateSql() (string, []interface{}) {
 	acl, _ := json.Marshal(b.ACL)
 	cors, _ := json.Marshal(b.CORS)
-	lc, _ := json.Marshal(b.LC)
+	lc, _ := json.Marshal(b.Lifecycle)
 	bucket_policy, _ := json.Marshal(b.Policy)
 	website, _ := json.Marshal(b.Website)
 	sql := "update buckets set bucketname=?,acl=?,policy=?,cors=?,lc=?,website=?,uid=?,versioning=? where bucketname=?"
@@ -59,7 +59,7 @@ func (b Bucket) GetUpdateSql() (string, []interface{}) {
 func (b Bucket) GetCreateSql() (string, []interface{}) {
 	acl, _ := json.Marshal(b.ACL)
 	cors, _ := json.Marshal(b.CORS)
-	lc, _ := json.Marshal(b.LC)
+	lc, _ := json.Marshal(b.Lifecycle)
 	bucket_policy, _ := json.Marshal(b.Policy)
 	website, _ := json.Marshal(b.Website)
 	createTime := b.CreateTime.Format(TIME_LAYOUT_TIDB)

@@ -92,9 +92,9 @@ func (yig *YigStorage) SetBucketAcl(bucketName string, policy datatype.AccessCon
 	return nil
 }
 
-func (yig *YigStorage) SetBucketLc(bucketName string, lc datatype.Lc,
+func (yig *YigStorage) SetBucketLifecycle(bucketName string, lc datatype.Lifecycle,
 	credential common.Credential) error {
-	helper.Logger.Info("enter SetBucketLc")
+	helper.Logger.Info("enter SetBucketLifecycle")
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
 		return err
@@ -102,7 +102,7 @@ func (yig *YigStorage) SetBucketLc(bucketName string, lc datatype.Lc,
 	if bucket.OwnerId != credential.UserId {
 		return ErrBucketAccessForbidden
 	}
-	bucket.LC = lc
+	bucket.Lifecycle = lc
 	err = yig.MetaStorage.Client.PutBucket(*bucket)
 	if err != nil {
 		return err
@@ -119,7 +119,7 @@ func (yig *YigStorage) SetBucketLc(bucketName string, lc datatype.Lc,
 	return nil
 }
 
-func (yig *YigStorage) GetBucketLc(bucketName string, credential common.Credential) (lc datatype.Lc,
+func (yig *YigStorage) GetBucketLifecycle(bucketName string, credential common.Credential) (lc datatype.Lifecycle,
 	err error) {
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
@@ -129,14 +129,14 @@ func (yig *YigStorage) GetBucketLc(bucketName string, credential common.Credenti
 		err = ErrBucketAccessForbidden
 		return
 	}
-	if len(bucket.LC.Rule) == 0 {
+	if len(bucket.Lifecycle.Rule) == 0 {
 		err = ErrNoSuchBucketLc
 		return
 	}
-	return bucket.LC, nil
+	return bucket.Lifecycle, nil
 }
 
-func (yig *YigStorage) DelBucketLc(bucketName string, credential common.Credential) error {
+func (yig *YigStorage) DelBucketLifecycle(bucketName string, credential common.Credential) error {
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
 		return err
@@ -144,7 +144,7 @@ func (yig *YigStorage) DelBucketLc(bucketName string, credential common.Credenti
 	if bucket.OwnerId != credential.UserId {
 		return ErrBucketAccessForbidden
 	}
-	bucket.LC = datatype.Lc{}
+	bucket.Lifecycle = datatype.Lifecycle{}
 	err = yig.MetaStorage.Client.PutBucket(*bucket)
 	if err != nil {
 		return err
@@ -480,7 +480,7 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential common.Credent
 		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
 	}
 
-	if bucket.LC.Rule != nil {
+	if bucket.Lifecycle.Rule != nil {
 		err = yig.MetaStorage.RemoveBucketFromLifeCycle(*bucket)
 		if err != nil {
 			yig.Logger.Warn("Remove bucket from lifeCycle error:", err)

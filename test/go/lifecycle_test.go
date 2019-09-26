@@ -73,7 +73,7 @@ func Test_LifeCycle(t *testing.T) {
 	}
 	t.Log("GetObject before lc Success value:", v)
 
-	//Test "lc.go".
+	//Test "lifecycle.go".
 	err = os.Chdir("../../")
 	if err != nil {
 		t.Fatal("change dir in lc err:", err)

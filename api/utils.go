@@ -73,12 +73,8 @@ func contains(stringList []string, element string) bool {
 	return false
 }
 
-func requestIdFromRequest(r *http.Request) string {
-	ctx := getRequestContext(r)
-	if ctx != nil {
-		return ctx.RequestId
-	}
-	return ""
+func requestIdFromContext(ctx context.Context) string {
+	return ctx.Value(RequestContextKey).(RequestContext).RequestID
 }
 
 // We support '.' with bucket names but we fallback to using path

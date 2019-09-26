@@ -25,7 +25,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/journeymidnight/yig/api/datatype/policy"
 	. "github.com/journeymidnight/yig/error"
-	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/signature"
 )
@@ -42,7 +41,6 @@ const (
 // PutBucketPolicyHandler - This HTTP handler stores given bucket policy configuration as per
 // https://docs.aws.amazon.com/AmazonS3/latest/dev/access-policy-language-overview.html
 func (api ObjectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *http.Request) {
-	helper.Logger.Info("PutBucketPolicyHandler", "enter")
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
@@ -93,7 +91,7 @@ func (api ObjectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *ht
 		return
 	}
 
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "PutBucketPolicy"
 	// Success.
 	WriteSuccessResponse(w, nil)
@@ -125,7 +123,7 @@ func (api ObjectAPIHandlers) DeleteBucketPolicyHandler(w http.ResponseWriter, r 
 		return
 	}
 
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "DeleteBucketPolicy"
 	// Success.
 	WriteSuccessResponse(w, nil)
@@ -133,7 +131,6 @@ func (api ObjectAPIHandlers) DeleteBucketPolicyHandler(w http.ResponseWriter, r 
 
 // GetBucketPolicyHandler - This HTTP handler returns bucket policy configuration.
 func (api ObjectAPIHandlers) GetBucketPolicyHandler(w http.ResponseWriter, r *http.Request) {
-	helper.Logger.Info("GetBucketPolicyHandler", "enter")
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 	var credential common.Credential
@@ -166,7 +163,7 @@ func (api ObjectAPIHandlers) GetBucketPolicyHandler(w http.ResponseWriter, r *ht
 		return
 	}
 
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "GetBucketPolicy"
 	// Write to client.
 	WriteSuccessResponse(w, policyData)
