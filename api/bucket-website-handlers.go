@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/gorilla/mux"
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/policy"
@@ -17,12 +16,11 @@ import (
 
 func (api ObjectAPIHandlers) PutBucketWebsiteHandler(w http.ResponseWriter, r *http.Request) {
 	helper.Debugln("PutBucketWebsiteHandler", "enter")
-	vars := mux.Vars(r)
-	bucket := vars["bucket"]
+	ctx := getRequestContext(r)
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
+	switch ctx.AuthType {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -37,6 +35,14 @@ func (api ObjectAPIHandlers) PutBucketWebsiteHandler(w http.ResponseWriter, r *h
 		}
 	}
 
+	if ctx.BucketInfo == nil {
+		WriteErrorResponse(w, r, ErrNoSuchBucket)
+		return
+	}
+	if credential.UserId != ctx.BucketInfo.OwnerId {
+		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
+		return
+	}
 	// Error out if Content-Length is missing.
 	// PutBucketPolicy always needs Content-Length.
 	if r.ContentLength <= 0 {
@@ -50,7 +56,7 @@ func (api ObjectAPIHandlers) PutBucketWebsiteHandler(w http.ResponseWriter, r *h
 		return
 	}
 
-	err = api.ObjectAPI.SetBucketWebsite(credential, bucket, *websiteConfig)
+	err = api.ObjectAPI.SetBucketWebsite(ctx.BucketInfo, *websiteConfig)
 	if err != nil {
 		helper.ErrorIf(err, "Unable to set website for bucket.")
 		WriteErrorResponse(w, r, err)
@@ -61,11 +67,11 @@ func (api ObjectAPIHandlers) PutBucketWebsiteHandler(w http.ResponseWriter, r *h
 
 func (api ObjectAPIHandlers) GetBucketWebsiteHandler(w http.ResponseWriter, r *http.Request) {
 	helper.Debugln("GetBucketPolicyHandler", "enter")
-	vars := mux.Vars(r)
-	bucket := vars["bucket"]
+	ctx := getRequestContext(r)
+
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
+	switch ctx.AuthType {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -80,8 +86,17 @@ func (api ObjectAPIHandlers) GetBucketWebsiteHandler(w http.ResponseWriter, r *h
 		}
 	}
 
+	if ctx.BucketInfo == nil {
+		WriteErrorResponse(w, r, ErrNoSuchBucket)
+		return
+	}
+	if credential.UserId != ctx.BucketInfo.OwnerId {
+		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
+		return
+	}
+
 	// Read bucket access policy.
-	bucketWebsite, err := api.ObjectAPI.GetBucketWebsite(credential, bucket)
+	bucketWebsite, err := api.ObjectAPI.GetBucketWebsite(ctx.BucketName)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -89,7 +104,7 @@ func (api ObjectAPIHandlers) GetBucketWebsiteHandler(w http.ResponseWriter, r *h
 
 	encodedSuccessResponse, err := xmlFormat(bucketWebsite)
 	if err != nil {
-		helper.ErrorIf(err, "Failed to marshal Website XML for bucket", bucket)
+		helper.ErrorIf(err, "Failed to marshal Website XML for bucket", ctx.BucketName)
 		WriteErrorResponse(w, r, ErrInternalError)
 		return
 	}
@@ -100,11 +115,11 @@ func (api ObjectAPIHandlers) GetBucketWebsiteHandler(w http.ResponseWriter, r *h
 }
 
 func (api ObjectAPIHandlers) DeleteBucketWebsiteHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	bucket := vars["bucket"]
+	ctx := getRequestContext(r)
+
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
+	switch ctx.AuthType {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -119,7 +134,15 @@ func (api ObjectAPIHandlers) DeleteBucketWebsiteHandler(w http.ResponseWriter, r
 		}
 	}
 
-	if err := api.ObjectAPI.DeleteBucketWebsite(credential, bucket); err != nil {
+	if ctx.BucketInfo == nil {
+		WriteErrorResponse(w, r, ErrNoSuchBucket)
+		return
+	}
+	if credential.UserId != ctx.BucketInfo.OwnerId {
+		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
+		return
+	}
+	if err := api.ObjectAPI.DeleteBucketWebsite(ctx.BucketInfo); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
