@@ -667,7 +667,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrInvalidLc: {
 		AwsErrorCode:   "IllegalLcConfigurationException",
-		Description:    "The LC configuration specified in the request is invalid.",
+		Description:    "The Lifecycle configuration specified in the request is invalid.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidPosition: {

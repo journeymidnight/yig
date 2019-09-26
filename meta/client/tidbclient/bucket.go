@@ -47,7 +47,7 @@ func (t *TidbClient) GetBucket(bucketName string) (bucket *Bucket, err error) {
 	if err != nil {
 		return
 	}
-	err = json.Unmarshal([]byte(lc), &bucket.LC)
+	err = json.Unmarshal([]byte(lc), &bucket.Lifecycle)
 	if err != nil {
 		return
 	}
@@ -102,7 +102,7 @@ func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
 		if err != nil {
 			return
 		}
-		err = json.Unmarshal([]byte(lc), &tmp.LC)
+		err = json.Unmarshal([]byte(lc), &tmp.Lifecycle)
 		if err != nil {
 			return
 		}

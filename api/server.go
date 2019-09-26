@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/journeymidnight/yig/log"
 	"net/http"
 
 	"github.com/journeymidnight/yig/helper"
@@ -8,7 +9,8 @@ import (
 	"github.com/journeymidnight/yig/signature"
 )
 
-const RequestContextKey = "RequestContext"
+type RequestContextKeyType string
+const RequestContextKey RequestContextKeyType = "RequestContext"
 
 type RequestContext struct {
 	RequestId      string
@@ -18,6 +20,7 @@ type RequestContext struct {
 	ObjectInfo     *types.Object
 	AuthType       signature.AuthType
 	IsBucketDomain bool
+	Logger     log.Logger
 }
 
 type Server struct {

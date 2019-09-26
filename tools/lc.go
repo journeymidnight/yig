@@ -90,7 +90,7 @@ func retrieveBucket(lc types.LifeCycle) error {
 	if err != nil {
 		return err
 	}
-	rules := bucket.LC.Rule
+	rules := bucket.Lifecycle.Rule
 	for _, rule := range rules {
 		if rule.Prefix == "" {
 			defaultConfig = true

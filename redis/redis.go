@@ -2,6 +2,7 @@ package redis
 
 import (
 	"encoding/hex"
+	"fmt"
 	"github.com/minio/highwayhash"
 	"io"
 	"strconv"
@@ -82,7 +83,7 @@ func Pool() *redigo.Pool {
 func Close() {
 	err := redisPool.Close()
 	if err != nil {
-		helper.ErrorIf(err, "Cannot close redis pool.")
+		helper.Logger.Error("Cannot close redis pool:", err)
 	}
 }
 
@@ -108,7 +109,10 @@ func Remove(table RedisDatabase, key string) (err error) {
 			if err == redigo.ErrNil {
 				return nil
 			}
-			helper.ErrorIf(err, "Cmd: %s. Key: %s.", "DEL", table.String()+key)
+			if err != nil {
+				helper.Logger.Error("Redis DEL", table.String()+key,
+					"error:", err)
+			}
 			return err
 		},
 		nil,
@@ -137,7 +141,11 @@ func Set(table RedisDatabase, key string, value interface{}) (err error) {
 			if err == redigo.ErrNil {
 				return nil
 			}
-			helper.ErrorIf(err, "Cmd: %s. Key: %s. Value: %s. Reply: %s.", "SET", table.String()+key, string(encodedValue), r)
+			if err != nil {
+				helper.Logger.Error(
+					fmt.Sprintf("Cmd: SET. Key: %s. Value: %s. Reply: %s.",
+						table.String()+key, string(encodedValue), r))
+			}
 			return err
 		},
 		nil,
@@ -232,7 +240,10 @@ func SetBytes(key string, value []byte) (err error) {
 			if err == redigo.ErrNil {
 				return nil
 			}
-			helper.ErrorIf(err, "Cmd: %s. Key: %s. Value: %s. Reply: %s.", "SET", FileTable.String()+key, string(value), r)
+			if err != nil {
+				helper.Logger.Error(fmt.Sprintf("Cmd: SET. Key: %s. Value: %s. Reply: %s.",
+					FileTable.String()+key, string(value), r))
+			}
 			return err
 		},
 		nil,
@@ -257,12 +268,14 @@ func Invalid(table RedisDatabase, key string) (err error) {
 			if err == redigo.ErrNil {
 				return nil
 			}
-			helper.ErrorIf(err, "Cmd: %s. Queue: %s. Key: %s. Reply: %s.", "PUBLISH", table.InvalidQueue(), FileTable.String()+key, r)
+			if err != nil {
+				helper.Logger.Error(fmt.Sprintf("Cmd: PUBLISH. Queue: %s. Key: %s. Reply: %s.",
+					table.InvalidQueue(), FileTable.String()+key, r))
+			}
 			return err
 		},
 		nil,
 	)
-
 }
 
 // Get Object to HighWayHash for redis
