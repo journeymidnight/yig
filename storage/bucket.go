@@ -396,51 +396,30 @@ func (yig *YigStorage) DeleteBucketPolicy(credential common.Credential, bucketNa
 	return nil
 }
 
-func (yig *YigStorage) SetBucketWebsite(credential common.Credential, bucketName string, config datatype.WebsiteConfiguration) (err error) {
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, false)
-	if err != nil {
-		return err
-	}
-	if bucket.OwnerId != credential.UserId {
-		return ErrBucketAccessForbidden
-	}
+func (yig *YigStorage) SetBucketWebsite(bucket *meta.Bucket, config datatype.WebsiteConfiguration) (err error) {
 	bucket.Website = config
 	err = yig.MetaStorage.Client.PutBucket(*bucket)
 	if err != nil {
 		return err
 	}
-	yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
+	yig.MetaStorage.Cache.Remove(redis.BucketTable, bucket.Name)
 	return nil
 }
 
-func (yig *YigStorage) GetBucketWebsite(credential common.Credential, bucketName string) (config datatype.WebsiteConfiguration, err error) {
+func (yig *YigStorage) GetBucketWebsite(bucketName string) (config datatype.WebsiteConfiguration, err error) {
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
 		return
 	}
-	if bucket.OwnerId != credential.UserId {
-		err = ErrBucketAccessForbidden
-		return
-	}
-
-	config = bucket.Website
-	return
+	return bucket.Website, nil
 }
 
-func (yig *YigStorage) DeleteBucketWebsite(credential common.Credential, bucketName string) error {
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, false)
+func (yig *YigStorage) DeleteBucketWebsite(bucket *meta.Bucket) error {
+	err := yig.MetaStorage.Client.PutBucket(*bucket)
 	if err != nil {
 		return err
 	}
-	if bucket.OwnerId != credential.UserId {
-		return ErrBucketAccessForbidden
-	}
-	bucket.Website = datatype.WebsiteConfiguration{}
-	err = yig.MetaStorage.Client.PutBucket(*bucket)
-	if err != nil {
-		return err
-	}
-	yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
+	yig.MetaStorage.Cache.Remove(redis.BucketTable, bucket.Name)
 	return nil
 }
 

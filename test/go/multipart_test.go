@@ -23,7 +23,7 @@ func Test_MultipartUpload(t *testing.T) {
 		panic(err)
 	}
 
-	partCount := 10
+	partCount := 3
 	completedUpload := &s3.CompletedMultipartUpload{
 		Parts: make([]*s3.CompletedPart, partCount),
 	}
@@ -67,7 +67,7 @@ func Test_MultipartUploadWithoutMD5(t *testing.T) {
 		panic(err)
 	}
 
-	partCount := 10
+	partCount := 3
 	completedUpload := &s3.CompletedMultipartUpload{
 		Parts: make([]*s3.CompletedPart, partCount),
 	}
@@ -99,13 +99,13 @@ func Test_MultipartRename(t *testing.T) {
 	sc := NewS3()
 	TEST_COPY_KEY := "COPY:" + TEST_KEY
 	TEST_RENAME_KEY := "RENAME:" + TEST_KEY
-	delFn := func() {
+	delFn := func(sc *S3Client) {
 		sc.DeleteObject(TEST_BUCKET, TEST_KEY)
 		sc.DeleteObject(TEST_BUCKET, TEST_COPY_KEY)
 		sc.DeleteObject(TEST_BUCKET, TEST_RENAME_KEY)
 		sc.DeleteBucket(TEST_BUCKET)
 	}
-	defer delFn()
+	defer delFn(sc)
 	err := sc.MakeBucket(TEST_BUCKET)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
@@ -193,7 +193,7 @@ func Test_CopyObjectPart(t *testing.T) {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
-	partCount := 10
+	partCount := 3
 	completedUpload := &s3.CompletedMultipartUpload{
 		Parts: make([]*s3.CompletedPart, partCount),
 	}
@@ -262,7 +262,7 @@ func Test_CopyObjectPartWithoutMD5(t *testing.T) {
 		panic(err)
 	}
 
-	partCount := 10
+	partCount := 3
 	completedUpload := &s3.CompletedMultipartUpload{
 		Parts: make([]*s3.CompletedPart, partCount),
 	}
