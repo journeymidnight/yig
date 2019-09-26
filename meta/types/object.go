@@ -70,16 +70,16 @@ func (o *Object) ObjectTypeToString() string {
 }
 
 func (o *Object) String() (s string) {
-	s += "Name: " + o.Name + "\n"
-	s += "Location: " + o.Location + "\n"
-	s += "Pool: " + o.Pool + "\n"
-	s += "Object ID: " + o.ObjectId + "\n"
-	s += "Last Modified Time: " + o.LastModifiedTime.Format(CREATE_TIME_LAYOUT) + "\n"
-	s += "Version: " + o.VersionId + "\n"
-	s += "Type: " + o.ObjectTypeToString() + "\n"
-	s += "StorageClass: " + o.StorageClass.ToString() + "\n"
+	s += "Name: " + o.Name + "\t"
+	s += "Location: " + o.Location + "\t"
+	s += "Pool: " + o.Pool + "\t"
+	s += "Object ID: " + o.ObjectId + "\t"
+	s += "Last Modified Time: " + o.LastModifiedTime.Format(CREATE_TIME_LAYOUT) + "\t"
+	s += "Version: " + o.VersionId + "\t"
+	s += "Type: " + o.ObjectTypeToString() + "\t"
+	s += "StorageClass: " + o.StorageClass.ToString() + "\t"
 	for n, part := range o.Parts {
-		s += fmt.Sprintln("Part", n, "Object ID:", part.ObjectId)
+		s += fmt.Sprintf("Part %d ObjectID: %s\t", n, part.ObjectId)
 	}
 	return s
 }

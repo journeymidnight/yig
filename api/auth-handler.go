@@ -22,12 +22,11 @@ import (
 func checkRequestAuth(r *http.Request, action policy.Action) (c common.Credential, err error) {
 	// TODO:Location constraint
 	ctx := getRequestContext(r)
+	logger := ctx.Logger
 	authType := ctx.AuthType
 	switch authType {
 	case signature.AuthTypeUnknown:
-		helper.Logger.Info("ErrAccessDenied: AuthTypeUnknown")
-		return c, ErrAccessDenied
-		helper.Logger.Println(5, "ErrAccessDenied: AuthTypeUnknown")
+		logger.Info("ErrAccessDenied: AuthTypeUnknown")
 		return c, ErrSignatureVersionNotSupported
 	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:

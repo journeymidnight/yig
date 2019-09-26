@@ -15,8 +15,8 @@ import (
 )
 
 func (api ObjectAPIHandlers) PutBucketWebsiteHandler(w http.ResponseWriter, r *http.Request) {
-	helper.Debugln("PutBucketWebsiteHandler", "enter")
 	ctx := getRequestContext(r)
+	logger := ctx.Logger
 
 	var credential common.Credential
 	var err error
@@ -58,7 +58,7 @@ func (api ObjectAPIHandlers) PutBucketWebsiteHandler(w http.ResponseWriter, r *h
 
 	err = api.ObjectAPI.SetBucketWebsite(ctx.BucketInfo, *websiteConfig)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to set website for bucket.")
+		logger.Error("Unable to set website for bucket:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -66,8 +66,8 @@ func (api ObjectAPIHandlers) PutBucketWebsiteHandler(w http.ResponseWriter, r *h
 }
 
 func (api ObjectAPIHandlers) GetBucketWebsiteHandler(w http.ResponseWriter, r *http.Request) {
-	helper.Debugln("GetBucketPolicyHandler", "enter")
 	ctx := getRequestContext(r)
+	logger := ctx.Logger
 
 	var credential common.Credential
 	var err error
@@ -104,7 +104,8 @@ func (api ObjectAPIHandlers) GetBucketWebsiteHandler(w http.ResponseWriter, r *h
 
 	encodedSuccessResponse, err := xmlFormat(bucketWebsite)
 	if err != nil {
-		helper.ErrorIf(err, "Failed to marshal Website XML for bucket", ctx.BucketName)
+		logger.Error("Failed to marshal Website XML for bucket", ctx.BucketName,
+			"error:", err)
 		WriteErrorResponse(w, r, ErrInternalError)
 		return
 	}
@@ -152,6 +153,7 @@ func (api ObjectAPIHandlers) DeleteBucketWebsiteHandler(w http.ResponseWriter, r
 
 func (api ObjectAPIHandlers) HandledByWebsite(w http.ResponseWriter, r *http.Request) (handled bool) {
 	ctx := getRequestContext(r)
+	logger := ctx.Logger
 	if ctx.BucketInfo == nil {
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return true
@@ -214,7 +216,7 @@ func (api ObjectAPIHandlers) HandledByWebsite(w http.ResponseWriter, r *http.Req
 			writer := newGetObjectResponseWriter(w, r, index, nil, http.StatusOK, "")
 			// Reads the object at startOffset and writes to mw.
 			if err := api.ObjectAPI.GetObject(index, 0, index.Size, writer, datatype.SseRequest{}); err != nil {
-				helper.ErrorIf(err, "Unable to write to client.")
+				logger.Error("Unable to write to client:", err)
 				if !writer.dataWritten {
 					// Error response only if no data has been written to client yet. i.e if
 					// partial data has already been written before an error
@@ -240,6 +242,7 @@ func (api ObjectAPIHandlers) HandledByWebsite(w http.ResponseWriter, r *http.Req
 func (api ObjectAPIHandlers) ReturnWebsiteErrorDocument(w http.ResponseWriter, r *http.Request, statusCode int) (handled bool) {
 	w.(*ResponseRecorder).operationName = "GetObject"
 	ctx := getRequestContext(r)
+	logger := ctx.Logger
 	if ctx.BucketInfo == nil {
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return true
@@ -262,7 +265,7 @@ func (api ObjectAPIHandlers) ReturnWebsiteErrorDocument(w http.ResponseWriter, r
 		writer := newGetObjectResponseWriter(w, r, index, nil, http.StatusNotFound, "")
 		// Reads the object at startOffset and writes to mw.
 		if err := api.ObjectAPI.GetObject(index, 0, index.Size, writer, datatype.SseRequest{}); err != nil {
-			helper.ErrorIf(err, "Unable to write to client.")
+			logger.Error("Unable to write to client:", err)
 			if !writer.dataWritten {
 				// Error response only if no data has been written to client yet. i.e if
 				// partial data has already been written before an error

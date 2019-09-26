@@ -186,7 +186,8 @@ func (o *GetObjectResponseWriter) Write(p []byte) (int, error) {
 // This implementation of the GET operation retrieves object. To use GET,
 // you must have READ access to the object.
 func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
+	ctx := getRequestContext(r)
+	logger := ctx.Logger
 	var credential common.Credential
 	var err error
 	if api.HandledByWebsite(w, r) {
@@ -200,7 +201,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 
 	version := r.URL.Query().Get("versionId")
 	// Fetch object stat info.
-	object, err := api.ObjectAPI.GetObjectInfoByCtx(getRequestContext(r), version, credential)
+	object, err := api.ObjectAPI.GetObjectInfoByCtx(ctx, version, credential)
 	if err != nil {
 		logger.Error("Unable to fetch object info:", err)
 		if err == ErrNoSuchKey {
@@ -307,9 +308,6 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		// call wrter.Write(nil) to set appropriate headers.
 		writer.Write(nil)
 	}
-
-	// ResponseRecorder
-	w.(*ResponseRecorder).operationName = "GetObject"
 }
 
 // HeadObjectHandler - HEAD Object
@@ -317,7 +315,8 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 // The HEAD operation retrieves metadata from an object without returning the object itself.
 // TODO refactor HEAD and GET
 func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
+	ctx := getRequestContext(r)
+	logger := ctx.Logger
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.GetObjectAction); err != nil {
@@ -326,7 +325,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	version := r.URL.Query().Get("versionId")
-	object, err := api.ObjectAPI.GetObjectInfoByCtx(getRequestContext(r), version, credential)
+	object, err := api.ObjectAPI.GetObjectInfoByCtx(ctx, version, credential)
 	if err != nil {
 		logger.Error("Unable to fetch object info:", err)
 		if err == ErrNoSuchKey {
@@ -601,12 +600,11 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 // Do not support bucket to enable multiVersion renaming;
 // Folder renaming operation is not supported.
 func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
-	targetObjectName := vars["object"]
-
 	ctx := getRequestContext(r)
+	logger := ctx.Logger
+	bucketName := ctx.BucketName
+	targetObjectName := ctx.ObjectName
+
 	// Determine if the renamed object is legal
 	if hasSuffix(ctx.ObjectName, "/") || ctx.ObjectName == "" {
 		WriteErrorResponse(w, r, ErrInvalidRenameTarget)
@@ -837,7 +835,8 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 // ----------
 // This implementation of the POST operation append an object in a bucket.
 func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
+	ctx := getRequestContext(r)
+	logger := ctx.Logger
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 	objectName := vars["object"]
@@ -946,7 +945,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 
 	// Check whether the object is exist or not
 	// Check whether the bucket is owned by the specified user
-	objInfo, err := api.ObjectAPI.GetObjectInfoByCtx(getRequestContext(r), "", credential)
+	objInfo, err := api.ObjectAPI.GetObjectInfoByCtx(ctx, "", credential)
 	if err != nil && err != ErrNoSuchKey {
 		WriteErrorResponse(w, r, err)
 		return

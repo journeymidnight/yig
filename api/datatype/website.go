@@ -163,7 +163,7 @@ func ParseWebsiteConfig(reader io.Reader) (*WebsiteConfiguration, error) {
 	websiteConfig := new(WebsiteConfiguration)
 	websiteBuffer, err := ioutil.ReadAll(reader)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to read website config body")
+		helper.Logger.Error("Unable to read website config body:", err)
 		return nil, err
 	}
 	size := len(websiteBuffer)
@@ -172,7 +172,7 @@ func ParseWebsiteConfig(reader io.Reader) (*WebsiteConfiguration, error) {
 	}
 	err = xml.Unmarshal(websiteBuffer, websiteConfig)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to parse website config xml body")
+		helper.Logger.Error("Unable to parse website config XML body:", err)
 		return nil, ErrMalformedWebsiteConfiguration
 	}
 	err = websiteConfig.Validate()

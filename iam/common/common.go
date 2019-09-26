@@ -14,7 +14,7 @@ func (a Credential) String() string {
 	userId := "UserId: " + a.UserId
 	accessStr := "AccessKey: " + a.AccessKeyID
 	secretStr := "SecretKey: " + a.SecretAccessKey
-	return userId + " " + accessStr + " " + secretStr + "\n"
+	return userId + " " + accessStr + " " + secretStr
 }
 
 var ErrAccessKeyNotExist = errors.New("Access key does not exist")

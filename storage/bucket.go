@@ -300,7 +300,7 @@ func (yig *YigStorage) GetBucketInfo(bucketName string,
 	return
 }
 
-func (yig *YigStorage) GetBucketInfoByCtx(ctx *api.RequestContext,
+func (yig *YigStorage) GetBucketInfoByCtx(ctx api.RequestContext,
 	credential common.Credential) (bucket *meta.Bucket, err error) {
 
 	bucket = ctx.BucketInfo

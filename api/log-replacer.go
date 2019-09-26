@@ -174,7 +174,7 @@ func (r *replacer) getSubstitution(key string) string {
 	case "{request_uri}":
 		return r.request.Method + " " + r.request.URL.String() + " " + r.request.Proto
 	case "{request_id}":
-		return getRequestContext(r.request).RequestId
+		return getRequestContext(r.request).RequestID
 	case "{operation_name}":
 		return r.responseRecorder.operationName
 	case "{host_name}":
