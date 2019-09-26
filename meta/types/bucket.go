@@ -31,16 +31,16 @@ type Bucket struct {
 }
 
 func (b *Bucket) String() (s string) {
-	s += "Name: " + b.Name + "\n"
-	s += "CreateTime: " + b.CreateTime.Format(CREATE_TIME_LAYOUT) + "\n"
-	s += "OwnerId: " + b.OwnerId + "\n"
-	s += "CORS: " + fmt.Sprintf("%+v", b.CORS) + "\n"
-	s += "ACL: " + fmt.Sprintf("%+v", b.ACL) + "\n"
-	s += "LifeCycle: " + fmt.Sprintf("%+v", b.Lifecycle) + "\n"
-	s += "Policy: " + fmt.Sprintf("%+v", b.Policy) + "\n"
-	s += "Website: " + fmt.Sprintf("%+v", b.Website) + "\n"
-	s += "Version: " + b.Versioning + "\n"
-	s += "Usage: " + humanize.Bytes(uint64(b.Usage)) + "\n"
+	s += "Name: " + b.Name + "\t"
+	s += "CreateTime: " + b.CreateTime.Format(CREATE_TIME_LAYOUT) + "\t"
+	s += "OwnerId: " + b.OwnerId + "\t"
+	s += "CORS: " + fmt.Sprintf("%+v", b.CORS) + "\t"
+	s += "ACL: " + fmt.Sprintf("%+v", b.ACL) + "\t"
+	s += "LifeCycle: " + fmt.Sprintf("%+v", b.Lifecycle) + "\t"
+	s += "Policy: " + fmt.Sprintf("%+v", b.Policy) + "\t"
+	s += "Website: " + fmt.Sprintf("%+v", b.Website) + "\t"
+	s += "Version: " + b.Versioning + "\t"
+	s += "Usage: " + humanize.Bytes(uint64(b.Usage)) + "\t"
 	return
 }
 

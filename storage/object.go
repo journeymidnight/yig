@@ -330,7 +330,7 @@ func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 	return
 }
 
-func (yig *YigStorage) GetObjectInfoByCtx(ctx *api.RequestContext,
+func (yig *YigStorage) GetObjectInfoByCtx(ctx api.RequestContext,
 	version string, credential common.Credential) (object *meta.Object, err error) {
 	bucket := ctx.BucketInfo
 	if bucket == nil {
@@ -793,13 +793,13 @@ func (yig *YigStorage) RenameObject(targetObject *meta.Object, sourceObject stri
 	if len(targetObject.Parts) != 0 {
 		err = yig.MetaStorage.RenameObjectPart(targetObject, sourceObject)
 		if err != nil {
-			yig.Logger.Println(5, "Update Object Attrs, sql fails")
+			yig.Logger.Error("Update Object Attrs, sql fails:", err)
 			return result, ErrInternalError
 		}
 	} else {
 		err = yig.MetaStorage.RenameObject(targetObject, sourceObject)
 		if err != nil {
-			yig.Logger.Println(5, "Update Object Attrs, sql fails")
+			yig.Logger.Error("Update Object Attrs, sql fails:", err)
 			return result, ErrInternalError
 		}
 	}

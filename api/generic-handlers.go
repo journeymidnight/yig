@@ -18,13 +18,14 @@ package api
 
 import (
 	"context"
-	"github.com/journeymidnight/yig/log"
+	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/gorilla/mux"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/meta"
 	"github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/signature"
@@ -109,9 +110,9 @@ type resourceHandler struct {
 
 // Resource handler ServeHTTP() wrapper
 func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
 	// Skip the first element which is usually '/' and split the rest.
 	ctx := getRequestContext(r)
+	logger := ctx.Logger
 	bucketName, objectName := ctx.BucketName, ctx.ObjectName
 	// If bucketName is present and not objectName check for bucket
 	// level resource queries.
@@ -148,8 +149,8 @@ func SetIgnoreResourcesHandler(h http.Handler, _ *meta.Meta) http.Handler {
 // Checks requests for not implemented Bucket resources
 func ignoreNotImplementedBucketResources(req *http.Request) bool {
 	for name := range req.URL.Query() {
-		if notimplementedBucketResourceNames[name] {
-			helper.Logger.Println(20, "Bucket", name, "has not been implemented.")
+		if notImplementedBucketResourceNames[name] {
+			helper.Logger.Warn("Bucket", name, "has not been implemented.")
 			return true
 		}
 	}
@@ -159,8 +160,8 @@ func ignoreNotImplementedBucketResources(req *http.Request) bool {
 // Checks requests for not implemented Object resources
 func ignoreNotImplementedObjectResources(req *http.Request) bool {
 	for name := range req.URL.Query() {
-		if notimplementedObjectResourceNames[name] {
-			helper.Logger.Println(20, "Object", name, "has not been implemented.")
+		if notImplementedObjectResourceNames[name] {
+			helper.Logger.Warn("Object", name, "has not been implemented.")
 			return true
 		}
 	}
@@ -168,7 +169,7 @@ func ignoreNotImplementedObjectResources(req *http.Request) bool {
 }
 
 // List of not implemented bucket queries
-var notimplementedBucketResourceNames = map[string]bool{
+var notImplementedBucketResourceNames = map[string]bool{
 	"logging":        true,
 	"notification":   true,
 	"replication":    true,
@@ -177,12 +178,28 @@ var notimplementedBucketResourceNames = map[string]bool{
 }
 
 // List of not implemented object queries
-var notimplementedObjectResourceNames = map[string]bool{
+var notImplementedObjectResourceNames = map[string]bool{
 	"torrent": true,
 }
 
 func ContextLogger(r *http.Request) log.Logger {
 	return r.Context().Value(RequestContextKey).(RequestContext).Logger
+}
+
+type RequestIdHandler struct {
+	handler http.Handler
+}
+
+func (h RequestIdHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	requestID := string(helper.GenerateRandomId())
+	logger := helper.Logger.NewWithRequestID(requestID)
+	ctx := context.WithValue(r.Context(), RequestIdKey, requestID)
+	ctx = context.WithValue(ctx, ContextLoggerKey, logger)
+	h.handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+func SetRequestIdHandler(h http.Handler, _ *meta.Meta) http.Handler {
+	return RequestIdHandler{h}
 }
 
 // authHandler - handles all the incoming authorization headers and
@@ -197,9 +214,9 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	var bucketInfo *types.Bucket
 	var objectInfo *types.Object
 	var err error
-	requestId := string(helper.GenerateRandomId())
+	requestId := r.Context().Value(RequestIdKey).(string)
+	logger := r.Context().Value(ContextLoggerKey).(log.Logger)
 	bucketName, objectName, isBucketDomain := GetBucketAndObjectInfoFromRequest(r)
-
 	if bucketName != "" {
 		bucketInfo, err = h.meta.GetBucket(bucketName, true)
 		if err != nil && err != ErrNoSuchBucket {
@@ -224,8 +241,9 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	ctx := context.WithValue(
 		r.Context(),
 		RequestContextKey,
-		&RequestContext{
-			RequestId:      requestId,
+		RequestContext{
+			RequestID:      requestId,
+			Logger:         logger,
 			BucketName:     bucketName,
 			ObjectName:     objectName,
 			BucketInfo:     bucketInfo,
@@ -233,8 +251,8 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 			AuthType:       authType,
 			IsBucketDomain: isBucketDomain,
 		})
-	helper.Logger.Printf(20, "RequestId: %s, BucketName: %s, ObjectName: %s, BucketInfo: %+v, ObjectInfo: %+v, AuthType: %d",
-		requestId, bucketName, objectName, bucketInfo, objectInfo, authType)
+	logger.Info(fmt.Sprintf("BucketName: %s, ObjectName: %s, BucketInfo: %+v, ObjectInfo: %+v, AuthType: %d",
+		bucketName, objectName, bucketInfo, objectInfo, authType))
 	h.handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
@@ -277,6 +295,13 @@ func GetBucketAndObjectInfoFromRequest(r *http.Request) (bucketName string, obje
 	return bucketName, objectName, isBucketDomain
 }
 
-func getRequestContext(r *http.Request) *RequestContext {
-	return r.Context().Value(RequestContextKey).(*RequestContext)
+func getRequestContext(r *http.Request) RequestContext {
+	ctx, ok := r.Context().Value(RequestContextKey).(RequestContext)
+	if ok {
+		return ctx
+	}
+	return RequestContext{
+		Logger: r.Context().Value(ContextLoggerKey).(log.Logger),
+		RequestID: r.Context().Value(RequestIdKey).(string),
+	}
 }

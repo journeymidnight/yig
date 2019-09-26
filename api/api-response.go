@@ -245,6 +245,9 @@ func WriteErrorResponseWithResource(w http.ResponseWriter, r *http.Request, err 
 }
 
 func WriteErrorResponseHeaders(w http.ResponseWriter, r *http.Request, err error) (handled bool) {
+	ctx := getRequestContext(r)
+	logger := ctx.Logger
+
 	var status int
 	apiErrorCode, ok := err.(ApiError)
 	if ok {
@@ -252,13 +255,12 @@ func WriteErrorResponseHeaders(w http.ResponseWriter, r *http.Request, err error
 	} else {
 		status = http.StatusInternalServerError
 	}
-	helper.Logger.Info("Response status code:", status, "err:", err)
+	logger.Info("Response status code:", status, "err:", err)
 
 	// ResponseRecorder
 	w.(*ResponseRecorder).status = status
 
 	// check website routing rules
-	ctx := getRequestContext(r)
 	if ctx.BucketInfo == nil {
 		w.WriteHeader(status)
 		return false
@@ -296,12 +298,12 @@ func WriteErrorResponseNoHeader(w http.ResponseWriter, req *http.Request, err er
 		errorResponse.Message = "We encountered an internal error, please try again."
 	}
 	errorResponse.Resource = resource
-	errorResponse.RequestId = requestIdFromRequest(req)
+	errorResponse.RequestId = getRequestContext(req).RequestID
 	errorResponse.HostId = helper.CONFIG.InstanceId
 
 	encodedErrorResponse := EncodeResponse(errorResponse)
 
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).size = int64(len(encodedErrorResponse))
 
 	w.Write(encodedErrorResponse)
