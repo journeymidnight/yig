@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"database/sql"
 	. "github.com/journeymidnight/yig/meta/types"
 )
 
@@ -10,6 +11,9 @@ func (m *Meta) GetMultipart(bucketName, objectName, uploadId string) (multipart 
 
 func (m *Meta) DeleteMultipart(multipart Multipart) (err error) {
 	tx, err := m.Client.NewTrans()
+	if err != nil {
+		return err
+	}
 	defer func() {
 		if err != nil {
 			m.Client.AbortTrans(tx)
@@ -33,6 +37,9 @@ func (m *Meta) DeleteMultipart(multipart Multipart) (err error) {
 
 func (m *Meta) PutObjectPart(multipart Multipart, part Part) (err error) {
 	tx, err := m.Client.NewTrans()
+	if err != nil {
+		return err
+	}
 	defer func() {
 		if err != nil {
 			m.Client.AbortTrans(tx)
@@ -55,7 +62,7 @@ func (m *Meta) PutObjectPart(multipart Multipart, part Part) (err error) {
 }
 
 func (m *Meta) RenameObjectPart(object *Object, sourceObject string) (err error) {
-	var tx interface{}
+	var tx *sql.Tx
 	tx, err = m.Client.NewTrans()
 	if err != nil {
 		return err
