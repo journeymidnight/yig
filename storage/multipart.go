@@ -105,12 +105,12 @@ func (yig *YigStorage) NewMultipartUpload(credential common.Credential, bucketNa
 		contentType = "application/octet-stream"
 	}
 
-	cephCluster, pool := yig.PickOneClusterAndPool(bucketName, objectName, -1, false)
+	cephCluster, pool := yig.pickClusterAndPool(bucketName, objectName, -1, false)
 	multipartMetadata := meta.MultipartMetadata{
 		InitiatorId:  credential.UserId,
 		OwnerId:      bucket.OwnerId,
 		ContentType:  contentType,
-		Location:     cephCluster.Name,
+		Location:     cephCluster.ID(),
 		Pool:         pool,
 		Acl:          acl,
 		SseRequest:   sseRequest,
@@ -176,11 +176,10 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 	md5Writer := md5.New()
 	limitedDataReader := io.LimitReader(data, size)
 	poolName := multipart.Metadata.Pool
-	cephCluster, err := yig.GetClusterByFsName(multipart.Metadata.Location)
+	cluster, err := yig.GetClusterByFsName(multipart.Metadata.Location)
 	if err != nil {
 		return
 	}
-	oid := cephCluster.GetUniqUploadName()
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
 
 	var initializationVector []byte
@@ -195,18 +194,18 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 	if err != nil {
 		return
 	}
-	bytesWritten, err := cephCluster.Put(poolName, oid, storageReader)
+	objectId, bytesWritten, err := cluster.Put(poolName, storageReader)
 	if err != nil {
 		return
 	}
 	// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
 	// so the object in Ceph could be removed asynchronously
 	maybeObjectToRecycle := objectToRecycle{
-		location: cephCluster.Name,
+		location: cluster.ID(),
 		pool:     poolName,
-		objectId: oid,
+		objectId: objectId,
 	}
-	if bytesWritten < size {
+	if int64(bytesWritten) < size {
 		RecycleQueue <- maybeObjectToRecycle
 		err = ErrIncompleteBody
 		return
@@ -245,7 +244,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 	part := meta.Part{
 		PartNumber:           partId,
 		Size:                 size,
-		ObjectId:             oid,
+		ObjectId:             objectId,
 		Etag:                 calculatedMd5,
 		LastModified:         time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT),
 		InitializationVector: initializationVector,
@@ -310,7 +309,6 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	if err != nil {
 		return
 	}
-	oid := cephCluster.GetUniqUploadName()
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
 
 	var initializationVector []byte
@@ -325,19 +323,19 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	if err != nil {
 		return
 	}
-	bytesWritten, err := cephCluster.Put(poolName, oid, storageReader)
+	objectId, bytesWritten, err := cephCluster.Put(poolName, storageReader)
 	if err != nil {
 		return
 	}
 	// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
 	// so the object in Ceph could be removed asynchronously
 	maybeObjectToRecycle := objectToRecycle{
-		location: cephCluster.Name,
+		location: cephCluster.ID(),
 		pool:     poolName,
-		objectId: oid,
+		objectId: objectId,
 	}
 
-	if bytesWritten < size {
+	if int64(bytesWritten) < size {
 		RecycleQueue <- maybeObjectToRecycle
 		err = ErrIncompleteBody
 		return
@@ -368,7 +366,7 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	part := meta.Part{
 		PartNumber:           partId,
 		Size:                 size,
-		ObjectId:             oid,
+		ObjectId:             objectId,
 		Etag:                 result.Md5,
 		LastModified:         now.Format(meta.CREATE_TIME_LAYOUT),
 		InitializationVector: initializationVector,

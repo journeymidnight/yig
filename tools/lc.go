@@ -234,7 +234,7 @@ func main() {
 		redis.Initialize()
 		defer redis.Close()
 	}
-	yig = storage.New(helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache, helper.CONFIG.CephConfigPattern)
+	yig = storage.New(helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache)
 	taskQ = make(chan types.LifeCycle, SCAN_LIMIT)
 	signal.Ignore()
 	signalQueue = make(chan os.Signal)
