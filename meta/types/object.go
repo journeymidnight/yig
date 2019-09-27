@@ -44,20 +44,20 @@ type Object struct {
 	EncryptionKey        []byte
 	InitializationVector []byte
 	// ObjectType include `Normal`, `Appendable`, 'Multipart'
-	Type         int
+	Type         ObjectType
 	StorageClass StorageClass
 }
 
-type ObjectType string
+type ObjectType int
 
 const (
-	ObjectTypeNormal = iota
-	ObjectTypeAppendable
-	ObjectTypeMultipart
+	ObjectTypeNormal     ObjectType = 0
+	ObjectTypeAppendable ObjectType = 1
+	ObjectTypeMultipart  ObjectType = 2
 )
 
 func (o *Object) ObjectTypeToString() string {
-	switch o.Type {
+	switch ObjectType(o.Type) {
 	case ObjectTypeNormal:
 		return "Normal"
 	case ObjectTypeAppendable:

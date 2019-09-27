@@ -134,10 +134,10 @@ func main() {
 
 	numOfWorkers := helper.CONFIG.GcThread
 	yigs = make([]*storage.YigStorage, helper.CONFIG.GcThread+1)
-	yigs[0] = storage.New(int(meta.NoCache), false, helper.CONFIG.CephConfigPattern)
+	yigs[0] = storage.New(int(meta.NoCache), false)
 	helper.Logger.Info("start gc thread:", numOfWorkers)
 	for i := 0; i < numOfWorkers; i++ {
-		yigs[i+1] = storage.New(int(meta.NoCache), false, helper.CONFIG.CephConfigPattern)
+		yigs[i+1] = storage.New(int(meta.NoCache), false)
 		go deleteFromCeph(i + 1)
 	}
 	go removeDeleted()
