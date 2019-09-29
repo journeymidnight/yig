@@ -12,7 +12,6 @@ import (
 
 	"github.com/journeymidnight/radoshttpd/rados"
 	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/log"
 )
 
 const (
@@ -31,14 +30,13 @@ type CephStorage struct {
 	Name       string
 	Conn       *rados.Conn
 	InstanceId uint64
-	Logger     log.Logger
 	CountMutex *sync.Mutex
 	Counter    uint64
 }
 
-func NewCephStorage(configFile string, logger log.Logger) *CephStorage {
+func NewCephStorage(configFile string) *CephStorage {
 
-	logger.Info("Loading Ceph file", configFile)
+	helper.Logger.Info("Loading Ceph file", configFile)
 
 	Rados, err := rados.NewConn("admin")
 	Rados.SetConfigOption("rados_mon_op_timeout", MON_TIMEOUT)
@@ -69,11 +67,10 @@ func NewCephStorage(configFile string, logger log.Logger) *CephStorage {
 		Conn:       Rados,
 		Name:       name,
 		InstanceId: id,
-		Logger:     logger,
 		CountMutex: new(sync.Mutex),
 	}
 
-	logger.Info("Ceph Cluster", name, "is ready, InstanceId is", name, id)
+	helper.Logger.Info("Ceph Cluster", name, "is ready, InstanceId is", name, id)
 	return &cluster
 }
 
