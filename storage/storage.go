@@ -10,15 +10,14 @@ import (
 	"sync"
 
 	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/circuitbreak"
 	"github.com/journeymidnight/yig/crypto"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/meta"
 	"github.com/journeymidnight/yig/redis"
 	"path"
 	"time"
-	"github.com/journeymidnight/yig/circuitbreak"
 )
 
 const (
@@ -37,19 +36,17 @@ type YigStorage struct {
 	DataCache   DataCache
 	MetaStorage *meta.Meta
 	KMS         crypto.KMS
-	Logger      log.Logger
 	Stopping    bool
 	WaitGroup   *sync.WaitGroup
 }
 
-func New(logger log.Logger, metaCacheType int, enableDataCache bool, CephConfigPattern string) *YigStorage {
+func New(metaCacheType int, enableDataCache bool, CephConfigPattern string) *YigStorage {
 	kms := crypto.NewKMS()
 	yig := YigStorage{
 		DataStorage: make(map[string]*CephStorage),
 		DataCache:   newDataCache(enableDataCache),
-		MetaStorage: meta.New(logger, meta.CacheType(metaCacheType)),
+		MetaStorage: meta.New(meta.CacheType(metaCacheType)),
 		KMS:         kms,
-		Logger:      logger,
 		Stopping:    false,
 		WaitGroup:   new(sync.WaitGroup),
 	}
@@ -64,7 +61,7 @@ func New(logger log.Logger, metaCacheType int, enableDataCache bool, CephConfigP
 	}
 
 	for _, conf := range cephConfs {
-		c := NewCephStorage(conf, logger)
+		c := NewCephStorage(conf)
 		if c != nil {
 			yig.DataStorage[c.Name] = c
 		}

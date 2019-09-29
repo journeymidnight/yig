@@ -1,8 +1,9 @@
 package main
 
 import (
-	"sync"
+	"github.com/journeymidnight/yig/helper"
 	"github.com/prometheus/client_golang/prometheus"
+	"sync"
 )
 
 type Metrics struct {
@@ -21,7 +22,7 @@ func newGlobalMetric(namespace string, metricName string, docString string, labe
 func NewMetrics(namespace string) *Metrics {
 	return &Metrics{
 		metrics: map[string]*prometheus.Desc{
-			"bucket_usage_byte_metric": newGlobalMetric(namespace, "bucket_usage_byte_metric","The description of bucket_usage_byte_metric", []string{"bucket_name", "owner"}),
+			"bucket_usage_byte_metric": newGlobalMetric(namespace, "bucket_usage_byte_metric", "The description of bucket_usage_byte_metric", []string{"bucket_name", "owner"}),
 		},
 	}
 }
@@ -38,14 +39,14 @@ func (c *Metrics) Collect(ch chan<- prometheus.Metric) {
 
 	GaugeMetricData := c.GenerateUsageData()
 	for bucket, data := range GaugeMetricData {
-		ch <-prometheus.MustNewConstMetric(c.metrics["bucket_usage_byte_metric"], prometheus.GaugeValue, float64(data.value), bucket, data.owner)
+		ch <- prometheus.MustNewConstMetric(c.metrics["bucket_usage_byte_metric"], prometheus.GaugeValue, float64(data.value), bucket, data.owner)
 	}
 }
 
 func (c *Metrics) GenerateUsageData() (GaugeMetricData map[string]UsageData) {
 	buckets, err := adminServer.Yig.MetaStorage.GetBuckets()
 	if err != nil {
-		adminServer.Yig.Logger.Error("Get usage data for prometheus failed:",
+		helper.Logger.Error("Get usage data for prometheus failed:",
 			err.Error())
 		return
 	}

@@ -793,13 +793,13 @@ func (yig *YigStorage) RenameObject(targetObject *meta.Object, sourceObject stri
 	if len(targetObject.Parts) != 0 {
 		err = yig.MetaStorage.RenameObjectPart(targetObject, sourceObject)
 		if err != nil {
-			yig.Logger.Error("Update Object Attrs, sql fails:", err)
+			helper.Logger.Error("Update Object Attrs, sql fails:", err)
 			return result, ErrInternalError
 		}
 	} else {
 		err = yig.MetaStorage.RenameObject(targetObject, sourceObject)
 		if err != nil {
-			yig.Logger.Error("Update Object Attrs, sql fails:", err)
+			helper.Logger.Error("Update Object Attrs, sql fails:", err)
 			return result, ErrInternalError
 		}
 	}
@@ -1222,7 +1222,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 			result.VersionId = version
 		}
 	default:
-		yig.Logger.Error("Invalid bucket versioning:", bucketName)
+		helper.Logger.Error("Invalid bucket versioning:", bucketName)
 		return result, ErrInternalError
 	}
 
