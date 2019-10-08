@@ -10,7 +10,7 @@ import (
 	"io"
 	"io/ioutil"
 	"path/filepath"
-	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -51,8 +51,7 @@ type CephCluster struct {
 	Name       string
 	Conn       *rados.Conn
 	InstanceId uint64
-	CountMutex *sync.Mutex
-	Counter    uint64
+	counter    uint64
 }
 
 func NewCephStorage(configFile string) *CephCluster {
@@ -88,7 +87,6 @@ func NewCephStorage(configFile string) *CephCluster {
 		Conn:       Rados,
 		Name:       name,
 		InstanceId: id,
-		CountMutex: new(sync.Mutex),
 	}
 
 	helper.Logger.Info("Ceph Cluster", name, "is ready, InstanceId is", name, id)
@@ -143,10 +141,8 @@ func drain_pending(p *list.List) int {
 }
 
 func (cluster *CephCluster) getUniqUploadName() string {
-	cluster.CountMutex.Lock()
-	defer cluster.CountMutex.Unlock()
-	cluster.Counter += 1
-	oid := fmt.Sprintf("%d:%d", cluster.InstanceId, cluster.Counter)
+	v := atomic.AddUint64(&cluster.counter, 1)
+	oid := fmt.Sprintf("%d:%d", cluster.InstanceId, v)
 	return oid
 }
 
