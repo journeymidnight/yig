@@ -112,20 +112,10 @@ func (t *TidbClient) CreateMultipart(multipart Multipart) (err error) {
 	return
 }
 
-func (t *TidbClient) PutObjectPart(multipart *Multipart, part *Part, tx interface{}) (err error) {
-	var sqlTx *sql.Tx
+func (t *TidbClient) PutObjectPart(multipart *Multipart, part *Part, tx DB) (err error) {
 	if tx == nil {
-		tx, err = t.Client.Begin()
-		defer func() {
-			if err == nil {
-				err = sqlTx.Commit()
-			}
-			if err != nil {
-				sqlTx.Rollback()
-			}
-		}()
+		tx = t.Client
 	}
-	sqlTx, _ = tx.(*sql.Tx)
 
 	uploadtime := math.MaxUint64 - uint64(multipart.InitialTime.UnixNano())
 	lastt, err := time.Parse(CREATE_TIME_LAYOUT, part.LastModified)
@@ -135,37 +125,34 @@ func (t *TidbClient) PutObjectPart(multipart *Multipart, part *Part, tx interfac
 	lastModified := lastt.Format(TIME_LAYOUT_TIDB)
 	sqltext := "insert into multipartpart(partnumber,size,objectid,offset,etag,lastmodified,initializationvector,bucketname,objectname,uploadtime) " +
 		"values(?,?,?,?,?,?,?,?,?,?)"
-	_, err = sqlTx.Exec(sqltext, part.PartNumber, part.Size, part.ObjectId, part.Offset, part.Etag, lastModified, part.InitializationVector, multipart.BucketName, multipart.ObjectName, uploadtime)
+	_, err = tx.Exec(sqltext, part.PartNumber, part.Size, part.ObjectId, part.Offset, part.Etag, lastModified, part.InitializationVector, multipart.BucketName, multipart.ObjectName, uploadtime)
 	return
 }
 
-func (t *TidbClient) DeleteMultipart(multipart *Multipart, tx interface{}) (err error) {
-	var sqlTx *sql.Tx
+func (t *TidbClient) DeleteMultipart(multipart *Multipart, tx DB) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()
+		if err != nil {
+			return err
+		}
 		defer func() {
 			if err == nil {
-				err = sqlTx.Commit()
+				err = tx.(*sql.Tx).Commit()
 			}
 			if err != nil {
-				sqlTx.Rollback()
+				tx.(*sql.Tx).Rollback()
 			}
 		}()
 	}
-	sqlTx, _ = tx.(*sql.Tx)
-
 	uploadtime := math.MaxUint64 - uint64(multipart.InitialTime.UnixNano())
 	sqltext := "delete from multiparts where bucketname=? and objectname=? and uploadtime=?;"
-	_, err = sqlTx.Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime)
+	_, err = tx.Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime)
 	if err != nil {
 		return
 	}
 	sqltext = "delete from multipartpart where bucketname=? and objectname=? and uploadtime=?;"
-	_, err = sqlTx.Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime)
-	if err != nil {
-		return
-	}
-	return
+	_, err = tx.Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime)
+	return err
 }
 
 func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker, prefix, delimiter, encodingType string, maxUploads int) (uploads []datatype.Upload, prefixs []string, isTruncated bool, nextKeyMarker, nextUploadIdMarker string, err error) {
@@ -290,24 +277,11 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 	return
 }
 
-func (t *TidbClient) RenameObjectPart(object *Object, sourceObject string, tx interface{}) (err error) {
-	var sqlTx *sql.Tx
+func (t *TidbClient) RenameObjectPart(object *Object, sourceObject string, tx DB) (err error) {
 	if tx == nil {
-		tx, err = t.Client.Begin()
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err == nil {
-				err = sqlTx.Commit()
-			}
-			if err != nil {
-				sqlTx.Rollback()
-			}
-		}()
+		tx = t.Client
 	}
-	sqlTx, _ = tx.(*sql.Tx)
 	sql, args := object.GetUpdateObjectPartNameSql(sourceObject)
-	_, err = sqlTx.Exec(sql, args...)
+	_, err = tx.Exec(sql, args...)
 	return err
 }

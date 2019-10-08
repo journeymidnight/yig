@@ -1,6 +1,7 @@
 package client
 
 import (
+	"database/sql"
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/meta/types"
 )
@@ -8,17 +9,17 @@ import (
 //DB Client Interface
 type Client interface {
 	//Transaction
-	NewTrans() (tx interface{}, err error)
-	AbortTrans(tx interface{}) error
-	CommitTrans(tx interface{}) error
+	NewTrans() (tx *sql.Tx, err error)
+	AbortTrans(tx *sql.Tx) error
+	CommitTrans(tx *sql.Tx) error
 	//object
 	GetObject(bucketName, objectName, version string) (object *Object, err error)
 	GetAllObject(bucketName, objectName, version string) (object []*Object, err error)
-	PutObject(object *Object, tx interface{}) error
-	UpdateAppendObject(object *Object, tx interface{}) error
-	RenameObjectPart(object *Object, sourceObject string, tx interface{}) (err error)
-	RenameObject(object *Object, sourceObject string, tx interface{}) (err error)
-	DeleteObject(object *Object, tx interface{}) error
+	PutObject(object *Object, tx DB) error
+	UpdateAppendObject(object *Object, tx DB) error
+	RenameObjectPart(object *Object, sourceObject string, tx DB) (err error)
+	RenameObject(object *Object, sourceObject string, tx DB) (err error)
+	DeleteObject(object *Object, tx DB) error
 	UpdateObjectAcl(object *Object) error
 	//bucket
 	GetBucket(bucketName string) (bucket *Bucket, err error)
@@ -27,18 +28,18 @@ type Client interface {
 	CheckAndPutBucket(bucket Bucket) (bool, error)
 	DeleteBucket(bucket Bucket) error
 	ListObjects(bucketName, marker, verIdMarker, prefix, delimiter string, versioned bool, maxKeys int) (retObjects []*Object, prefixes []string, truncated bool, nextMarker, nextVerIdMarker string, err error)
-	UpdateUsage(bucketName string, size int64, tx interface{}) error
+	UpdateUsage(bucketName string, size int64, tx DB) error
 
 	//multipart
 	GetMultipart(bucketName, objectName, uploadId string) (multipart Multipart, err error)
 	CreateMultipart(multipart Multipart) (err error)
-	PutObjectPart(multipart *Multipart, part *Part, tx interface{}) (err error)
-	DeleteMultipart(multipart *Multipart, tx interface{}) (err error)
+	PutObjectPart(multipart *Multipart, part *Part, tx DB) (err error)
+	DeleteMultipart(multipart *Multipart, tx DB) (err error)
 	ListMultipartUploads(bucketName, keyMarker, uploadIdMarker, prefix, delimiter, encodingType string, maxUploads int) (uploads []datatype.Upload, prefixs []string, isTruncated bool, nextKeyMarker, nextUploadIdMarker string, err error)
 	//objmap
 	GetObjectMap(bucketName, objectName string) (objMap *ObjMap, err error)
-	PutObjectMap(objMap *ObjMap, tx interface{}) error
-	DeleteObjectMap(objMap *ObjMap, tx interface{}) error
+	PutObjectMap(objMap *ObjMap, tx DB) error
+	DeleteObjectMap(objMap *ObjMap, tx DB) error
 	//cluster
 	GetCluster(fsid, pool string) (cluster Cluster, err error)
 	//lc
@@ -50,7 +51,7 @@ type Client interface {
 	AddBucketForUser(bucketName, userId string) (err error)
 	RemoveBucketForUser(bucketName string, userId string) (err error)
 	//gc
-	PutObjectToGarbageCollection(object *Object, tx interface{}) error
+	PutObjectToGarbageCollection(object *Object, tx DB) error
 	ScanGarbageCollection(limit int, startRowKey string) ([]GarbageCollection, error)
 	RemoveGarbageCollection(garbage GarbageCollection) error
 }

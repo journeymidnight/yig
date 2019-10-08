@@ -116,30 +116,25 @@ func (t *TidbClient) UpdateObjectAcl(object *Object) error {
 	return err
 }
 
-func (t *TidbClient) RenameObject(object *Object, sourceObject string, tx interface{}) (err error) {
-	var sqlTx *sql.Tx
+func (t *TidbClient) RenameObject(object *Object, sourceObject string, tx DB) (err error) {
 	if tx == nil {
-		tx, err = t.Client.Begin()
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err == nil {
-				err = sqlTx.Commit()
-			}
-			if err != nil {
-				sqlTx.Rollback()
-			}
-		}()
+		tx = t.Client
 	}
-	sqlTx, _ = tx.(*sql.Tx)
 	sql, args := object.GetUpdateNameSql(sourceObject)
-	_, err = sqlTx.Exec(sql, args...)
+	_, err = tx.Exec(sql, args...)
 	return
 }
 
-func (t *TidbClient) UpdateAppendObject(o *Object, tx interface{}) (err error) {
-	var sqlTx *sql.Tx
+func (t *TidbClient) UpdateAppendObject(object *Object, tx DB) (err error) {
+	if tx == nil {
+		tx = t.Client
+	}
+	sql, args := object.GetAppendSql()
+	_, err = tx.Exec(sql, args...)
+	return err
+}
+
+func (t *TidbClient) PutObject(object *Object, tx DB) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		if err != nil {
@@ -147,41 +142,21 @@ func (t *TidbClient) UpdateAppendObject(o *Object, tx interface{}) (err error) {
 		}
 		defer func() {
 			if err == nil {
-				err = sqlTx.Commit()
+				err = tx.(*sql.Tx).Commit()
 			}
 			if err != nil {
-				sqlTx.Rollback()
+				tx.(*sql.Tx).Rollback()
 			}
 		}()
 	}
-	sqlTx, _ = tx.(*sql.Tx)
-	sql, args := o.GetAppendSql()
-	_, err = sqlTx.Exec(sql, args...)
-	return err
-}
-
-func (t *TidbClient) PutObject(object *Object, tx interface{}) (err error) {
-	var sqlTx *sql.Tx
-	if tx == nil {
-		tx, err = t.Client.Begin()
-		defer func() {
-			if err == nil {
-				err = sqlTx.Commit()
-			}
-			if err != nil {
-				sqlTx.Rollback()
-			}
-		}()
-	}
-	sqlTx, _ = tx.(*sql.Tx)
 	sql, args := object.GetCreateSql()
-	_, err = sqlTx.Exec(sql, args...)
+	_, err = tx.Exec(sql, args...)
 	if object.Parts != nil {
 		v := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
 		version := strconv.FormatUint(v, 10)
 		for _, p := range object.Parts {
 			psql, args := p.GetCreateSql(object.BucketName, object.Name, version)
-			_, err = sqlTx.Exec(psql, args...)
+			_, err = tx.Exec(psql, args...)
 			if err != nil {
 				return err
 			}
@@ -190,30 +165,31 @@ func (t *TidbClient) PutObject(object *Object, tx interface{}) (err error) {
 	return err
 }
 
-func (t *TidbClient) DeleteObject(object *Object, tx interface{}) (err error) {
-	var sqlTx *sql.Tx
+func (t *TidbClient) DeleteObject(object *Object, tx DB) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()
+		if err != nil {
+			return err
+		}
 		defer func() {
 			if err == nil {
-				err = sqlTx.Commit()
+				err = tx.(*sql.Tx).Commit()
 			}
 			if err != nil {
-				sqlTx.Rollback()
+				tx.(*sql.Tx).Rollback()
 			}
 		}()
 	}
-	sqlTx, _ = tx.(*sql.Tx)
 
 	v := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
 	version := strconv.FormatUint(v, 10)
 	sqltext := "delete from objects where name=? and bucketname=? and version=?;"
-	_, err = sqlTx.Exec(sqltext, object.Name, object.BucketName, version)
+	_, err = tx.Exec(sqltext, object.Name, object.BucketName, version)
 	if err != nil {
 		return err
 	}
 	sqltext = "delete from objectpart where objectname=? and bucketname=? and version=?;"
-	_, err = sqlTx.Exec(sqltext, object.Name, object.BucketName, version)
+	_, err = tx.Exec(sqltext, object.Name, object.BucketName, version)
 	if err != nil {
 		return err
 	}

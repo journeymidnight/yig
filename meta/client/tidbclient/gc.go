@@ -9,20 +9,21 @@ import (
 )
 
 //gc
-func (t *TidbClient) PutObjectToGarbageCollection(object *Object, tx interface{}) (err error) {
-	var sqlTx *sql.Tx
+func (t *TidbClient) PutObjectToGarbageCollection(object *Object, tx DB) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()
+		if err != nil {
+			return err
+		}
 		defer func() {
 			if err == nil {
-				err = sqlTx.Commit()
+				err = tx.(*sql.Tx).Commit()
 			}
 			if err != nil {
-				sqlTx.Rollback()
+				tx.(*sql.Tx).Rollback()
 			}
 		}()
 	}
-	sqlTx, _ = tx.(*sql.Tx)
 
 	o := GarbageCollectionFromObject(object)
 	var hasPart bool
@@ -32,13 +33,13 @@ func (t *TidbClient) PutObjectToGarbageCollection(object *Object, tx interface{}
 	mtime := o.MTime.Format(TIME_LAYOUT_TIDB)
 	version := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
 	sqltext := "insert ignore into gc(bucketname,objectname,version,location,pool,objectid,status,mtime,part,triedtimes) values(?,?,?,?,?,?,?,?,?,?);"
-	_, err = sqlTx.Exec(sqltext, o.BucketName, o.ObjectName, version, o.Location, o.Pool, o.ObjectId, o.Status, mtime, hasPart, o.TriedTimes)
+	_, err = tx.Exec(sqltext, o.BucketName, o.ObjectName, version, o.Location, o.Pool, o.ObjectId, o.Status, mtime, hasPart, o.TriedTimes)
 	if err != nil {
 		return err
 	}
 	for _, p := range object.Parts {
 		psql, args := p.GetCreateGcSql(o.BucketName, o.ObjectName, version)
-		_, err = sqlTx.Exec(psql, args...)
+		_, err = tx.Exec(psql, args...)
 		if err != nil {
 			return err
 		}
@@ -87,8 +88,12 @@ func (t *TidbClient) ScanGarbageCollection(limit int, startRowKey string) (gcs [
 	return
 }
 
-func (t *TidbClient) RemoveGarbageCollection(garbage GarbageCollection) error {
-	tx, err := t.Client.Begin()
+func (t *TidbClient) RemoveGarbageCollection(garbage GarbageCollection) (err error) {
+	var tx *sql.Tx
+	tx, err = t.Client.Begin()
+	if err != nil {
+		return err
+	}
 	defer func() {
 		if err == nil {
 			err = tx.Commit()
