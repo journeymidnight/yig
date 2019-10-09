@@ -1,9 +1,9 @@
 language: go
 sudo: required
-dist: trusty
+dist: bionic
 
 go:
-  - 1.12
+  - 1.13
 
 services:
 - docker
