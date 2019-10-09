@@ -49,7 +49,7 @@ func Initialize(config helper.Config) map[string]backend.Cluster {
 
 type CephCluster struct {
 	Name       string
-	Conn       *rados.Conn
+	Conn       RadosConn
 	InstanceId uint64
 	counter    uint64
 }
@@ -58,33 +58,33 @@ func NewCephStorage(configFile string) *CephCluster {
 
 	helper.Logger.Info("Loading Ceph file", configFile)
 
-	Rados, err := rados.NewConn("admin")
-	Rados.SetConfigOption("rados_mon_op_timeout", MON_TIMEOUT)
-	Rados.SetConfigOption("rados_osd_op_timeout", OSD_TIMEOUT)
+	conn, err := rados.NewConn("admin")
+	conn.SetConfigOption("rados_mon_op_timeout", MON_TIMEOUT)
+	conn.SetConfigOption("rados_osd_op_timeout", OSD_TIMEOUT)
 
-	err = Rados.ReadConfigFile(configFile)
+	err = conn.ReadConfigFile(configFile)
 	if err != nil {
 		helper.Logger.Error("Failed to open ceph.conf:", configFile)
 		return nil
 	}
 
-	err = Rados.Connect()
+	err = conn.Connect()
 	if err != nil {
 		helper.Logger.Error("Failed to connect to remote cluster:", configFile)
 		return nil
 	}
 
-	name, err := Rados.GetFSID()
+	name, err := conn.GetFSID()
 	if err != nil {
 		helper.Logger.Error("Failed to get FSID:", configFile)
-		Rados.Shutdown()
+		conn.Shutdown()
 		return nil
 	}
 
-	id := Rados.GetInstanceID()
+	id := conn.GetInstanceID()
 
 	cluster := CephCluster{
-		Conn:       Rados,
+		Conn:       radosConn{conn},
 		Name:       name,
 		InstanceId: id,
 	}
@@ -93,7 +93,7 @@ func NewCephStorage(configFile string) *CephCluster {
 	return &cluster
 }
 
-func setStripeLayout(p *rados.StriperPool) int {
+func setStripeLayout(p StriperPool) int {
 	var ret int = 0
 	if ret = p.SetLayoutStripeUnit(STRIPE_UNIT); ret < 0 {
 		return ret
@@ -146,8 +146,8 @@ func (cluster *CephCluster) getUniqUploadName() string {
 	return oid
 }
 
-func (c *CephCluster) Shutdown() {
-	c.Conn.Shutdown()
+func (cluster *CephCluster) Shutdown() {
+	cluster.Conn.Shutdown()
 }
 
 func (cluster *CephCluster) doSmallPut(poolname string, oid string, data io.Reader) (size uint64, err error) {
@@ -174,7 +174,7 @@ type RadosSmallDownloader struct {
 	oid       string
 	offset    int64
 	remaining int64
-	pool      *rados.Pool
+	pool      Pool
 }
 
 func (rd *RadosSmallDownloader) Read(p []byte) (n int, err error) {
@@ -231,12 +231,12 @@ func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
 	}
 	defer striper.Destroy()
 
-	setStripeLayout(&striper)
+	setStripeLayout(striper)
 
 	/* if the data len in pending_data is bigger than current_upload_window, I will flush the data to ceph */
 	/* current_upload_window could not dynamically increase or shrink */
 
-	var c *rados.AioCompletion
+	var c AioCompletion
 	pending := list.New()
 	var current_upload_window = helper.CONFIG.UploadMinChunkSize /* initial window size as MIN_CHUNK_SIZE, max size is MAX_CHUNK_SIZE */
 	var pending_data = make([]byte, current_upload_window)
@@ -271,9 +271,7 @@ func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
 		}
 
 		/* pending data is full now */
-		c = new(rados.AioCompletion)
-		c.Create()
-		_, err = striper.WriteAIO(c, oid, pending_data, offset)
+		c, err = striper.WriteAIO(oid, pending_data, offset)
 		if err != nil {
 			c.Release()
 			drain_pending(pending)
@@ -327,9 +325,12 @@ func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
 	size = uint64(slice_offset) + offset
 	//write all remaining data
 	if slice_offset > 0 {
-		c = new(rados.AioCompletion)
-		c.Create()
-		striper.WriteAIO(c, oid, pending_data[:slice_offset], offset)
+		c, err = striper.WriteAIO(oid, pending_data[:slice_offset], offset)
+		if err != nil {
+			c.Release()
+			return oid, 0, fmt.Errorf("error writing remaining data, pool:%s oid:%s",
+				poolname, oid)
+		}
 		pending.PushBack(c)
 	}
 
@@ -367,7 +368,7 @@ func (cluster *CephCluster) Append(poolname string, existName string, data io.Re
 	}
 	defer striper.Destroy()
 
-	setStripeLayout(&striper)
+	setStripeLayout(striper)
 
 	var current_upload_window = helper.CONFIG.UploadMinChunkSize /* initial window size as MIN_CHUNK_SIZE, max size is MAX_CHUNK_SIZE */
 	var pending_data = make([]byte, current_upload_window)
@@ -443,11 +444,11 @@ func (cluster *CephCluster) Append(poolname string, existName string, data io.Re
 }
 
 type RadosDownloader struct {
-	striper   *rados.StriperPool
+	striper   StriperPool
 	oid       string
 	offset    int64
 	remaining int64
-	pool      *rados.Pool
+	pool      Pool
 }
 
 func (rd *RadosDownloader) Read(p []byte) (n int, err error) {
@@ -516,7 +517,7 @@ func (cluster *CephCluster) GetReader(poolName string, oid string, startOffset i
 	}
 
 	radosReader := &RadosDownloader{
-		striper:   &striper,
+		striper:   striper,
 		oid:       oid,
 		offset:    startOffset,
 		pool:      pool,
