@@ -14,7 +14,7 @@ import (
 
 func Test_LifeCycle(t *testing.T) {
 	sc := NewS3()
-
+	defer sc.CleanEnv()
 	//Create bucket.
 	err := sc.MakeBucket(TEST_BUCKET)
 	if err != nil {
@@ -97,7 +97,7 @@ func Test_LifeCycle(t *testing.T) {
 			t.Fatal("GetObject after lc test Fail!", err)
 		}
 	} else {
-		t.Fatal("GetObject after lc test Fail!", err)
+		t.Fatal("Object still exists after lc test!")
 	}
 
 	//DeleteBucketLifecycle:Deletes the lifecycle configuration from the bucket.
@@ -109,19 +109,5 @@ func Test_LifeCycle(t *testing.T) {
 		t.Fatal("DeleteBucketLifecycle err:", err)
 	}
 	t.Log("DeleteBucketLifecycle Success!")
-
-}
-
-func Test_LC_End(t *testing.T) {
-	sc := NewS3()
-	err := sc.DeleteObject(TEST_BUCKET, TEST_KEY)
-	if err != nil {
-		t.Log("DeleteObject err:", err)
-	}
-	err = sc.DeleteBucket(TEST_BUCKET)
-	if err != nil {
-		t.Fatal("DeleteBucket err:", err)
-		panic(err)
-	}
 
 }

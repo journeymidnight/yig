@@ -4,11 +4,12 @@ import (
 	//	"encoding/json"
 	"errors"
 	"fmt"
+
 	//	"io/ioutil"
+	"crypto/tls"
 	"net/http"
 	"sync"
 	"time"
-	"crypto/tls"
 )
 
 /*
@@ -188,31 +189,3 @@ func parseUrl(req *http.Request) string {
 	dest := fmt.Sprintf("%s://%s", scheme, url.Host)
 	return dest
 }
-
-/*
-func main() {
-	c := NewCircuitClient()
-	//	c.StartLookUp()
-	var i int
-	for {
-		i += 1
-		time.Sleep(2 * time.Second)
-		fmt.Println("#####################", i)
-		request, err := http.NewRequest("GET", "http://localhost/safd", nil)
-		if err != nil {
-			fmt.Println(err)
-		}
-		_, err = c.Do(request)
-		fmt.Println(*c.UrlMap["http://localhost:80"])
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-				if err == nil {
-					body, err := ioutil.ReadAll(res.Body)
-					fmt.Println(string(body), err)
-				}
-		fmt.Println("\n")
-	}
-}
-*/

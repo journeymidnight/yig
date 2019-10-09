@@ -199,9 +199,8 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	version := r.URL.Query().Get("versionId")
 	// Fetch object stat info.
-	object, err := api.ObjectAPI.GetObjectInfoByCtx(ctx, version, credential)
+	object, err := api.ObjectAPI.GetObjectInfoByCtx(ctx, credential)
 	if err != nil {
 		logger.Error("Unable to fetch object info:", err)
 		if err == ErrNoSuchKey {
@@ -270,7 +269,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	// io.Writer type which keeps track if any data was written.
-	writer := newGetObjectResponseWriter(w, r, object, hrange, http.StatusOK, version)
+	writer := newGetObjectResponseWriter(w, r, object, hrange, http.StatusOK, ctx.VersionId)
 
 	switch object.SseType {
 	case "":
@@ -324,8 +323,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	version := r.URL.Query().Get("versionId")
-	object, err := api.ObjectAPI.GetObjectInfoByCtx(ctx, version, credential)
+	object, err := api.ObjectAPI.GetObjectInfoByCtx(ctx, credential)
 	if err != nil {
 		logger.Error("Unable to fetch object info:", err)
 		if err == ErrNoSuchKey {
@@ -408,10 +406,8 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 // while reading the object from another source.
 func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Request) {
 	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	targetBucketName := vars["bucket"]
-	targetObjectName := vars["object"]
-
+	ctx := getRequestContext(r)
+	targetBucketName, targetObjectName := ctx.BucketName, ctx.ObjectName
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.PutObjectAction); err != nil {
@@ -555,7 +551,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	// Create the object.
-	result, err := api.ObjectAPI.CopyObject(targetObject, pipeReader, credential, sseRequest)
+	result, err := api.ObjectAPI.CopyObject(ctx, targetObject, pipeReader, credential, sseRequest)
 	if err != nil {
 		logger.Error("CopyObject failed:", err)
 		WriteErrorResponse(w, r, err)
@@ -689,10 +685,8 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		WriteErrorResponse(w, r, ErrInvalidCopySource)
 		return
 	}
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
-	objectName := vars["object"]
-
+	ctx := getRequestContext(r)
+	objectName := ctx.ObjectName
 	var authType = signature.GetRequestAuthType(r)
 	var err error
 	if !isValidObjectName(objectName) {
@@ -799,7 +793,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	var result PutObjectResult
-	result, err = api.ObjectAPI.PutObject(bucketName, objectName, credential, size, dataReadCloser,
+	result, err = api.ObjectAPI.PutObject(ctx, credential, size, dataReadCloser,
 		metadata, acl, sseRequest, storageClass)
 	if err != nil {
 		logger.Error("Unable to create object", objectName, "error:", err)
@@ -945,7 +939,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 
 	// Check whether the object is exist or not
 	// Check whether the bucket is owned by the specified user
-	objInfo, err := api.ObjectAPI.GetObjectInfoByCtx(ctx, "", credential)
+	objInfo, err := api.ObjectAPI.GetObjectInfoByCtx(ctx, credential)
 	if err != nil && err != ErrNoSuchKey {
 		WriteErrorResponse(w, r, err)
 		return
@@ -1598,10 +1592,8 @@ func (api ObjectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 // CompleteMultipartUploadHandler - Complete multipart upload
 func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWriter, r *http.Request) {
 	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
-	objectName := vars["object"]
-
+	ctx := getRequestContext(r)
+	bucketName, objectName := ctx.BucketName, ctx.ObjectName
 	// Get upload id.
 	uploadId := r.URL.Query().Get("uploadId")
 
@@ -1636,7 +1628,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 		return
 	}
 	if len(complMultipartUpload.Parts) == 0 {
-		logger.Error( "Unable to complete multipart upload: " +
+		logger.Error("Unable to complete multipart upload: " +
 			"len(complMultipartUpload.Parts) == 0")
 		WriteErrorResponse(w, r, ErrMalformedXML)
 		return
@@ -1656,8 +1648,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	}
 
 	var result CompleteMultipartResult
-	result, err = api.ObjectAPI.CompleteMultipartUpload(credential, bucketName,
-		objectName, uploadId, completeParts)
+	result, err = api.ObjectAPI.CompleteMultipartUpload(ctx, credential, uploadId, completeParts)
 
 	if err != nil {
 		logger.Error("Unable to complete multipart upload:", err)
@@ -1713,10 +1704,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 
 // DeleteObjectHandler - delete an object
 func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
-	objectName := vars["object"]
-
+	ctx := getRequestContext(r)
 	var credential common.Credential
 	var err error
 	switch signature.GetRequestAuthType(r) {
@@ -1733,10 +1721,10 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 			return
 		}
 	}
-	version := r.URL.Query().Get("versionId")
+
 	// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectDELETE.html
 	// Ignore delete object errors, since we are supposed to reply only 204.
-	result, err := api.ObjectAPI.DeleteObject(bucketName, objectName, version, credential)
+	result, err := api.ObjectAPI.DeleteObject(ctx, credential)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -1763,6 +1751,7 @@ var ValidSuccessActionStatus = []string{"200", "201", "204"}
 
 func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Request) {
 	logger := ContextLogger(r)
+	ctx := getRequestContext(r)
 	var err error
 	// Here the parameter is the size of the form data that should
 	// be loaded in memory, the remaining being put in temporary files.
@@ -1779,17 +1768,12 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		WriteErrorResponse(w, r, ErrMalformedPOSTRequest)
 		return
 	}
-	objectName := formValues["Key"]
-	if !isValidObjectName(objectName) {
-		WriteErrorResponse(w, r, ErrInvalidObjectName)
-		return
-	}
 
-	bucketName := mux.Vars(r)["bucket"]
+	bucketName := ctx.BucketName
 	formValues["Bucket"] = bucketName
-	bucket, err := api.ObjectAPI.GetBucket(bucketName)
-	if err != nil {
-		WriteErrorResponse(w, r, err)
+	bucket := ctx.BucketInfo
+	if bucket == nil {
+		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return
 	}
 
@@ -1816,6 +1800,18 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		WriteErrorResponse(w, r, err)
 		return
 	}
+
+	objectName := formValues["Key"]
+	if !isValidObjectName(objectName) {
+		WriteErrorResponse(w, r, ErrInvalidObjectName)
+		return
+	}
+	ctx.ObjectInfo, err = api.ObjectAPI.GetObjectInfo(bucketName, objectName, "", credential)
+	if err != nil && err != ErrNoSuchKey {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+	ctx.ObjectName = objectName
 
 	if err = signature.CheckPostPolicy(formValues, postPolicyType); err != nil {
 		WriteErrorResponse(w, r, err)
@@ -1854,7 +1850,7 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	result, err := api.ObjectAPI.PutObject(bucketName, objectName, credential, -1, fileBody,
+	result, err := api.ObjectAPI.PutObject(ctx, credential, -1, fileBody,
 		metadata, acl, sseRequest, storageClass)
 	if err != nil {
 		logger.Error("Unable to create object", objectName, "error:", err)

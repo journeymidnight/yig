@@ -1,13 +1,6 @@
 package main
 
 import (
-	"github.com/journeymidnight/yig/api/datatype"
-	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/iam/common"
-	"github.com/journeymidnight/yig/log"
-	"github.com/journeymidnight/yig/meta/types"
-	"github.com/journeymidnight/yig/redis"
-	"github.com/journeymidnight/yig/storage"
 	"os"
 	"os/signal"
 	"strconv"
@@ -15,6 +8,16 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/journeymidnight/yig/api"
+	"github.com/journeymidnight/yig/api/datatype"
+	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/iam/common"
+	"github.com/journeymidnight/yig/log"
+	"github.com/journeymidnight/yig/meta/types"
+	"github.com/journeymidnight/yig/redis"
+	"github.com/journeymidnight/yig/storage"
 )
 
 const (
@@ -103,6 +106,7 @@ func retrieveBucket(lc types.LifeCycle) error {
 	var request datatype.ListObjectsRequest
 	request.Versioned = false
 	request.MaxKeys = 1000
+	credential := common.Credential{AllowOtherUserAccess: true}
 	if defaultConfig == true {
 		for {
 			retObjects, _, truncated, nextMarker, nextVerIdMarker, err := yig.ListObjectsInternal(bucket.Name, request)
@@ -138,7 +142,19 @@ func retrieveBucket(lc types.LifeCycle) error {
 					if object.NullVersion {
 						object.VersionId = ""
 					}
-					_, err = yig.DeleteObject(object.BucketName, object.Name, object.VersionId, common.Credential{})
+					ctx := api.RequestContext{
+						BucketInfo: bucket,
+						BucketName: object.BucketName,
+						ObjectName: object.Name,
+						VersionId:  object.VersionId,
+						Logger:     helper.Logger,
+					}
+					ctx.ObjectInfo, err = yig.GetObjectInfo(bucket.Name, object.Name, object.VersionId, credential)
+					if err != nil && err != ErrNoSuchKey {
+						helper.Logger.Error(object.BucketName, object.Name, object.VersionId, err)
+						continue
+					}
+					_, err = yig.DeleteObject(ctx, credential)
 					if err != nil {
 						helper.Logger.Error(object.BucketName, object.Name, object.VersionId, err)
 						continue
@@ -164,14 +180,25 @@ func retrieveBucket(lc types.LifeCycle) error {
 			}
 			request.Prefix = rule.Prefix
 			for {
-
 				retObjects, _, truncated, nextMarker, nextVerIdMarker, err := yig.ListObjectsInternal(bucket.Name, request)
 				if err != nil {
 					return err
 				}
 				for _, object := range retObjects {
 					if checkIfExpiration(object.LastModifiedTime, days) {
-						_, err = yig.DeleteObject(object.BucketName, object.Name, object.VersionId, common.Credential{})
+						ctx := api.RequestContext{
+							BucketInfo: bucket,
+							BucketName: object.BucketName,
+							ObjectName: object.Name,
+							VersionId:  object.VersionId,
+							Logger:     helper.Logger,
+						}
+						ctx.ObjectInfo, err = yig.GetObjectInfo(bucket.Name, object.Name, object.VersionId, credential)
+						if err != nil && err != ErrNoSuchKey {
+							helper.Logger.Error(object.BucketName, object.Name, object.VersionId, err)
+							continue
+						}
+						_, err = yig.DeleteObject(ctx, common.Credential{})
 						if err != nil {
 							helper.Logger.Error(object.BucketName, object.Name, object.VersionId, "failed:", err)
 							continue

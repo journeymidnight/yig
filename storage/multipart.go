@@ -514,13 +514,13 @@ func (yig *YigStorage) AbortMultipartUpload(credential common.Credential,
 	return nil
 }
 
-func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, bucketName,
-	objectName, uploadId string, uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult,
-	err error) {
+func (yig *YigStorage) CompleteMultipartUpload(ctx api.RequestContext, credential common.Credential, uploadId string,
+	uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult, err error) {
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
-	if err != nil {
-		return
+	bucketName, objectName := ctx.BucketName, ctx.ObjectName
+	bucket := ctx.BucketInfo
+	if bucket == nil {
+		return result, ErrNoSuchBucket
 	}
 	switch bucket.ACL.CannedAcl {
 	case "public-read-write":
@@ -540,17 +540,17 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 
 	md5Writer := md5.New()
 	var totalSize int64 = 0
-	helper.Logger.Info("Upload parts:", uploadedParts, "uploadId:", uploadId)
+	ctx.Logger.Info("Upload parts:", uploadedParts, "uploadId:", uploadId)
 	for i := 0; i < len(uploadedParts); i++ {
 		if uploadedParts[i].PartNumber != i+1 {
-			helper.Logger.Error("uploadedParts[i].PartNumber != i+1; i:", i,
+			ctx.Logger.Error("uploadedParts[i].PartNumber != i+1; i:", i,
 				"uploadId:", uploadId)
 			err = ErrInvalidPart
 			return
 		}
 		part, ok := multipart.Parts[i+1]
 		if !ok {
-			helper.Logger.Error("multipart.Parts[i+1] does not exist; i:", i,
+			ctx.Logger.Error("multipart.Parts[i+1] does not exist; i:", i,
 				"uploadId:", uploadId)
 			err = ErrInvalidPart
 			return
@@ -564,7 +564,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 			return
 		}
 		if part.Etag != uploadedParts[i].ETag {
-			helper.Logger.Error("part.Etag != uploadedParts[i].ETag;",
+			ctx.Logger.Error("part.Etag != uploadedParts[i].ETag;",
 				"i:", i, "Etag:", part.Etag, "reqEtag:",
 				uploadedParts[i].ETag, "uploadId:", uploadId)
 			err = ErrInvalidPart
@@ -573,7 +573,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 		var etagBytes []byte
 		etagBytes, err = hex.DecodeString(part.Etag)
 		if err != nil {
-			helper.Logger.Error("hex.DecodeString(part.Etag) err:", err,
+			ctx.Logger.Error("hex.DecodeString(part.Etag) err:", err,
 				"uploadId:", uploadId)
 			err = ErrInvalidPart
 			return
@@ -611,7 +611,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 	}
 
 	var nullVerNum uint64
-	nullVerNum, err = yig.checkOldObject(bucketName, objectName, bucket.Versioning)
+	nullVerNum, err = yig.checkOldObject(ctx)
 	if err != nil {
 		return
 	}
