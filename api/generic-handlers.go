@@ -238,6 +238,8 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	version := r.URL.Query().Get("versionId")
+
 	ctx := context.WithValue(
 		r.Context(),
 		RequestContextKey,
@@ -250,9 +252,10 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 			ObjectInfo:     objectInfo,
 			AuthType:       authType,
 			IsBucketDomain: isBucketDomain,
+			VersionId:      version,
 		})
-	logger.Info(fmt.Sprintf("BucketName: %s, ObjectName: %s, BucketInfo: %+v, ObjectInfo: %+v, AuthType: %d",
-		bucketName, objectName, bucketInfo, objectInfo, authType))
+	logger.Info(fmt.Sprintf("BucketName: %s, ObjectName: %s, BucketInfo: %+v, ObjectInfo: %+v, AuthType: %d, VersionId: %s",
+		bucketName, objectName, bucketInfo, objectInfo, authType, version))
 	h.handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
@@ -301,7 +304,7 @@ func getRequestContext(r *http.Request) RequestContext {
 		return ctx
 	}
 	return RequestContext{
-		Logger: r.Context().Value(ContextLoggerKey).(log.Logger),
+		Logger:    r.Context().Value(ContextLoggerKey).(log.Logger),
 		RequestID: r.Context().Value(RequestIdKey).(string),
 	}
 }
