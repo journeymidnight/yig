@@ -16,9 +16,9 @@ import (
 )
 
 const (
-	WATER_LOW        = 120
-	TASKQ_MAX_LENGTH = 200
-	SCAN_HBASE_LIMIT = 50
+	WATER_LOW               = 120
+	TASKQ_MAX_LENGTH        = 200
+	SCAN_HBASE_LIMIT        = 50
 	DEFAULT_DELETE_LOG_PATH = "/var/log/yig/delete.log"
 )
 
@@ -52,6 +52,9 @@ func deleteFromCeph(index int) {
 						garbage.Location, ":", garbage.Pool, ":", garbage.ObjectId, " error:", err)
 					goto release
 				}
+				helper.Logger.Printf(2, "failed to delete obj %s in bucket %s with objid: %s from pool %s, err: %v", garbage.ObjectName, garbage.BucketName, garbage.ObjectId, garbage.Pool, err)
+				gcWaitgroup.Done()
+				continue
 			} else {
 				helper.Logger.Println(5, "success delete", garbage.BucketName, ":", garbage.ObjectName, ":",
 					garbage.Location, ":", garbage.Pool, ":", garbage.ObjectId)
@@ -65,6 +68,9 @@ func deleteFromCeph(index int) {
 						helper.Logger.Println(5, "failed delete part", garbage.Location, ":", garbage.Pool, ":", p.ObjectId, " error:", err)
 						goto release
 					}
+					helper.Logger.Printf(2, "failed to delete part %s with objid: %s from pool %s, err: %v", garbage.Location, garbage.ObjectId, garbage.Pool, err)
+					gcWaitgroup.Done()
+					continue
 				} else {
 					helper.Logger.Println(5, "success delete part", garbage.Location, ":", garbage.Pool, ":", p.ObjectId)
 				}

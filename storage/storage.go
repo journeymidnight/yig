@@ -73,7 +73,9 @@ func New(logger *log.Logger, metaCacheType int, enableDataCache bool, CephConfig
 	}
 
 	initializeRecycler(&yig)
-	initializeMetaSyncWorker(&yig)
+	if enableDataCache {
+		initializeMetaSyncWorker(&yig)
+	}
 	return &yig
 }
 
