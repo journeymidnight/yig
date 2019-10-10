@@ -256,7 +256,7 @@ func (api ObjectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.R
 // DeleteMultipleObjectsHandler - deletes multiple objects.
 func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := getRequestContext(r)
-	logger := ContextLogger(r)
+	logger := ctx.Logger
 	bucket := ctx.BucketName
 
 	var credential common.Credential

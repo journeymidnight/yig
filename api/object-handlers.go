@@ -405,8 +405,8 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 // This implementation of the PUT operation adds an object to a bucket
 // while reading the object from another source.
 func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
 	ctx := getRequestContext(r)
+	logger := ctx.Logger
 	targetBucketName, targetObjectName := ctx.BucketName, ctx.ObjectName
 	var credential common.Credential
 	var err error
@@ -678,14 +678,15 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 // ----------
 // This implementation of the PUT operation adds an object to a bucket.
 func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
+	ctx := getRequestContext(r)
+	logger := ctx.Logger
 	// If the matching failed, it means that the X-Amz-Copy-Source was
 	// wrong, fail right here.
 	if _, ok := r.Header["X-Amz-Copy-Source"]; ok {
 		WriteErrorResponse(w, r, ErrInvalidCopySource)
 		return
 	}
-	ctx := getRequestContext(r)
+
 	objectName := ctx.ObjectName
 	var authType = signature.GetRequestAuthType(r)
 	var err error
@@ -1591,8 +1592,8 @@ func (api ObjectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 
 // CompleteMultipartUploadHandler - Complete multipart upload
 func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
 	ctx := getRequestContext(r)
+	logger := ctx.Logger
 	bucketName, objectName := ctx.BucketName, ctx.ObjectName
 	// Get upload id.
 	uploadId := r.URL.Query().Get("uploadId")
@@ -1750,8 +1751,8 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 var ValidSuccessActionStatus = []string{"200", "201", "204"}
 
 func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
 	ctx := getRequestContext(r)
+	logger := ctx.Logger
 	var err error
 	// Here the parameter is the size of the form data that should
 	// be loaded in memory, the remaining being put in temporary files.
