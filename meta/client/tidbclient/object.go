@@ -4,24 +4,27 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
-	. "github.com/journeymidnight/yig/error"
-	. "github.com/journeymidnight/yig/meta/types"
-	"github.com/xxtea/xxtea-go/xxtea"
 	"math"
 	"strconv"
 	"time"
+
+	. "github.com/journeymidnight/yig/error"
+	. "github.com/journeymidnight/yig/meta/types"
+	"github.com/xxtea/xxtea-go/xxtea"
 )
 
 func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *Object, err error) {
 	var ibucketname, iname, customattributes, acl, lastModifiedTime string
 	var iversion uint64
-	var sqltext string
+
 	var row *sql.Row
+	sqltext := "select bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag,contenttype," +
+		"customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass from objects where bucketname=? and name=? "
 	if version == "" {
-		sqltext = "select * from objects where bucketname=? and name=? order by bucketname,name,version limit 1;"
+		sqltext += "order by bucketname,name,version limit 1;"
 		row = t.Client.QueryRow(sqltext, bucketName, objectName)
 	} else {
-		sqltext = "select * from objects where bucketname=? and name=? and version=?;"
+		sqltext += "and version=?;"
 		row = t.Client.QueryRow(sqltext, bucketName, objectName, version)
 	}
 	object = &Object{}

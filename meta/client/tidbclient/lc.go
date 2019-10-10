@@ -2,6 +2,7 @@ package tidbclient
 
 import (
 	"database/sql"
+
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
 )
@@ -16,7 +17,6 @@ func (t *TidbClient) PutBucketToLifeCycle(lifeCycle LifeCycle) error {
 	return nil
 }
 
-
 func (t *TidbClient) RemoveBucketFromLifeCycle(bucket Bucket) error {
 	sqltext := "delete from lifecycle where bucketname=?;"
 	_, err := t.Client.Exec(sqltext, bucket.Name)
@@ -29,7 +29,7 @@ func (t *TidbClient) RemoveBucketFromLifeCycle(bucket Bucket) error {
 
 func (t *TidbClient) ScanLifeCycle(limit int, marker string) (result ScanLifeCycleResult, err error) {
 	result.Truncated = false
-	sqltext := "select * from lifecycle where bucketname > ? limit ?;"
+	sqltext := "select bucketname,status from lifecycle where bucketname > ? limit ?;"
 	rows, err := t.Client.Query(sqltext, marker, limit)
 	if err == sql.ErrNoRows {
 		helper.Logger.Error("Failed in sql.ErrNoRows:", sqltext, "err:", err)
@@ -52,8 +52,8 @@ func (t *TidbClient) ScanLifeCycle(limit int, marker string) (result ScanLifeCyc
 		result.Lcs = append(result.Lcs, lc)
 	}
 	result.NextMarker = lc.BucketName
-	if len(result.Lcs) == limit{
+	if len(result.Lcs) == limit {
 		result.Truncated = true
 	}
-	return result,nil
+	return result, nil
 }
