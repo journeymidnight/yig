@@ -18,7 +18,6 @@ package api
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -254,8 +253,7 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 			IsBucketDomain: isBucketDomain,
 			VersionId:      version,
 		})
-	logger.Info(fmt.Sprintf("BucketName: %s, ObjectName: %s, BucketInfo: %+v, ObjectInfo: %+v, AuthType: %d, VersionId: %s",
-		bucketName, objectName, bucketInfo, objectInfo, authType, version))
+	logger.Info("BucketName:", bucketName, "ObjectName:", objectName, "BucketExist:", bucketInfo != nil, "ObjectExist:", objectInfo != nil, "AuthType:", authType)
 	h.handler.ServeHTTP(w, r.WithContext(reqCtx))
 }
 
