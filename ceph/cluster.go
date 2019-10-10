@@ -112,7 +112,7 @@ func pending_has_completed(p *list.List) bool {
 		return false
 	}
 	e := p.Front()
-	c := e.Value.(*rados.AioCompletion)
+	c := e.Value.(AioCompletion)
 	ret := c.IsComplete()
 	if ret == 0 {
 		return false
@@ -125,7 +125,7 @@ func wait_pending_front(p *list.List) int {
 	/* remove AioCompletion from list */
 	e := p.Front()
 	p.Remove(e)
-	c := e.Value.(*rados.AioCompletion)
+	c := e.Value.(AioCompletion)
 	c.WaitForComplete()
 	ret := c.GetReturnValue()
 	c.Release()
