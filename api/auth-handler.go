@@ -21,9 +21,9 @@ import (
 // returns APIErrorCode if any to be replied to the client.
 func checkRequestAuth(r *http.Request, action policy.Action) (c common.Credential, err error) {
 	// TODO:Location constraint
-	ctx := getRequestContext(r)
-	logger := ctx.Logger
-	authType := ctx.AuthType
+	reqCtx := getRequestContext(r)
+	logger := reqCtx.Logger
+	authType := reqCtx.AuthType
 	switch authType {
 	case signature.AuthTypeUnknown:
 		logger.Info("ErrAccessDenied: AuthTypeUnknown")
@@ -37,12 +37,12 @@ func checkRequestAuth(r *http.Request, action policy.Action) (c common.Credentia
 		} else {
 			helper.Logger.Info("Credential:", c)
 			// check bucket policy
-			isAllow, err := IsBucketPolicyAllowed(c.UserId, ctx.BucketInfo, r, action, ctx.ObjectName)
+			isAllow, err := IsBucketPolicyAllowed(c.UserId, reqCtx.BucketInfo, r, action, reqCtx.ObjectName)
 			c.AllowOtherUserAccess = isAllow
 			return c, err
 		}
 	case signature.AuthTypeAnonymous:
-		isAllow, err := IsBucketPolicyAllowed(c.UserId, ctx.BucketInfo, r, action, ctx.ObjectName)
+		isAllow, err := IsBucketPolicyAllowed(c.UserId, reqCtx.BucketInfo, r, action, reqCtx.ObjectName)
 		c.AllowOtherUserAccess = isAllow
 		return c, err
 	}

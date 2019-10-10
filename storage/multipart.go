@@ -514,11 +514,11 @@ func (yig *YigStorage) AbortMultipartUpload(credential common.Credential,
 	return nil
 }
 
-func (yig *YigStorage) CompleteMultipartUpload(ctx api.RequestContext, credential common.Credential, uploadId string,
+func (yig *YigStorage) CompleteMultipartUpload(reqCtx api.RequestContext, credential common.Credential, uploadId string,
 	uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult, err error) {
 
-	bucketName, objectName := ctx.BucketName, ctx.ObjectName
-	bucket := ctx.BucketInfo
+	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
+	bucket := reqCtx.BucketInfo
 	if bucket == nil {
 		return result, ErrNoSuchBucket
 	}
@@ -540,17 +540,17 @@ func (yig *YigStorage) CompleteMultipartUpload(ctx api.RequestContext, credentia
 
 	md5Writer := md5.New()
 	var totalSize int64 = 0
-	ctx.Logger.Info("Upload parts:", uploadedParts, "uploadId:", uploadId)
+	reqCtx.Logger.Info("Upload parts:", uploadedParts, "uploadId:", uploadId)
 	for i := 0; i < len(uploadedParts); i++ {
 		if uploadedParts[i].PartNumber != i+1 {
-			ctx.Logger.Error("uploadedParts[i].PartNumber != i+1; i:", i,
+			reqCtx.Logger.Error("uploadedParts[i].PartNumber != i+1; i:", i,
 				"uploadId:", uploadId)
 			err = ErrInvalidPart
 			return
 		}
 		part, ok := multipart.Parts[i+1]
 		if !ok {
-			ctx.Logger.Error("multipart.Parts[i+1] does not exist; i:", i,
+			reqCtx.Logger.Error("multipart.Parts[i+1] does not exist; i:", i,
 				"uploadId:", uploadId)
 			err = ErrInvalidPart
 			return
@@ -564,7 +564,7 @@ func (yig *YigStorage) CompleteMultipartUpload(ctx api.RequestContext, credentia
 			return
 		}
 		if part.Etag != uploadedParts[i].ETag {
-			ctx.Logger.Error("part.Etag != uploadedParts[i].ETag;",
+			reqCtx.Logger.Error("part.Etag != uploadedParts[i].ETag;",
 				"i:", i, "Etag:", part.Etag, "reqEtag:",
 				uploadedParts[i].ETag, "uploadId:", uploadId)
 			err = ErrInvalidPart
@@ -573,7 +573,7 @@ func (yig *YigStorage) CompleteMultipartUpload(ctx api.RequestContext, credentia
 		var etagBytes []byte
 		etagBytes, err = hex.DecodeString(part.Etag)
 		if err != nil {
-			ctx.Logger.Error("hex.DecodeString(part.Etag) err:", err,
+			reqCtx.Logger.Error("hex.DecodeString(part.Etag) err:", err,
 				"uploadId:", uploadId)
 			err = ErrInvalidPart
 			return
@@ -611,7 +611,7 @@ func (yig *YigStorage) CompleteMultipartUpload(ctx api.RequestContext, credentia
 	}
 
 	var nullVerNum uint64
-	nullVerNum, err = yig.checkOldObject(ctx)
+	nullVerNum, err = yig.checkOldObject(reqCtx)
 	if err != nil {
 		return
 	}

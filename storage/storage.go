@@ -5,6 +5,11 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"io"
+	"path"
+	"sync"
+	"time"
+
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/backend"
 	"github.com/journeymidnight/yig/circuitbreak"
@@ -13,10 +18,6 @@ import (
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/meta"
 	"github.com/journeymidnight/yig/redis"
-	"io"
-	"path"
-	"sync"
-	"time"
 )
 
 const (
@@ -50,8 +51,8 @@ func (y *YigStorage) PingCache(interval time.Duration) {
 		case <-tick.C:
 			redis.CacheCircuit.Execute(
 				context.Background(),
-				func(ctx context.Context) (err error) {
-					c, err := redis.GetClient(ctx)
+				func(reqCtx context.Context) (err error) {
+					c, err := redis.GetClient(reqCtx)
 					if err != nil {
 						return err
 					}

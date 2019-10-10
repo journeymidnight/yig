@@ -352,17 +352,17 @@ func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 	return
 }
 
-func (yig *YigStorage) GetObjectInfoByCtx(ctx api.RequestContext, credential common.Credential) (object *meta.Object, err error) {
-	bucket, version := ctx.BucketInfo, ctx.VersionId
+func (yig *YigStorage) GetObjectInfoByCtx(reqCtx api.RequestContext, credential common.Credential) (object *meta.Object, err error) {
+	bucket, version := reqCtx.BucketInfo, reqCtx.VersionId
 	if bucket == nil {
 		return nil, ErrNoSuchBucket
 	}
-	object = ctx.ObjectInfo
+	object = reqCtx.ObjectInfo
 	if object == nil {
 		return nil, ErrNoSuchKey
 	}
 	if version != "" {
-		object, err = yig.getObjWithVersion(ctx.BucketName, ctx.ObjectName, version)
+		object, err = yig.getObjWithVersion(reqCtx.BucketName, reqCtx.ObjectName, version)
 		if err != nil {
 			return
 		}
@@ -495,19 +495,19 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, versio
 //
 // SHA256 is calculated only for v4 signed authentication
 // Encryptor is enabled when user set SSE headers
-func (yig *YigStorage) PutObject(ctx api.RequestContext, credential common.Credential,
+func (yig *YigStorage) PutObject(reqCtx api.RequestContext, credential common.Credential,
 	size int64, data io.ReadCloser, metadata map[string]string, acl datatype.Acl,
 	sseRequest datatype.SseRequest, storageClass meta.StorageClass) (result datatype.PutObjectResult, err error) {
-	bucketName, objectName := ctx.BucketName, ctx.ObjectName
+	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
 
 	defer data.Close()
 	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, bucketName, objectName)
-	ctx.Logger.Info("get encryptionKey:", encryptionKey, "cipherKey:", cipherKey, "err:", err)
+	reqCtx.Logger.Info("get encryptionKey:", encryptionKey, "cipherKey:", cipherKey, "err:", err)
 	if err != nil {
 		return
 	}
 
-	bucket := ctx.BucketInfo
+	bucket := reqCtx.BucketInfo
 	if bucket == nil {
 		return result, ErrNoSuchBucket
 	}
@@ -563,13 +563,13 @@ func (yig *YigStorage) PutObject(ctx api.RequestContext, credential common.Crede
 	}
 	if int64(bytesWritten) < size {
 		RecycleQueue <- maybeObjectToRecycle
-		ctx.Logger.Error("Failed to write objects, already written",
+		reqCtx.Logger.Error("Failed to write objects, already written",
 			bytesWritten, "total size", size)
 		return result, ErrIncompleteBody
 	}
 
 	calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
-	ctx.Logger.Info("CalculatedMd5:", calculatedMd5, "userMd5:", metadata["md5Sum"])
+	reqCtx.Logger.Info("CalculatedMd5:", calculatedMd5, "userMd5:", metadata["md5Sum"])
 	if userMd5, ok := metadata["md5Sum"]; ok {
 		if userMd5 != "" && userMd5 != calculatedMd5 {
 			RecycleQueue <- maybeObjectToRecycle
@@ -612,7 +612,7 @@ func (yig *YigStorage) PutObject(ctx api.RequestContext, credential common.Crede
 
 	result.LastModified = object.LastModifiedTime
 	var nullVerNum uint64
-	nullVerNum, err = yig.checkOldObject(ctx)
+	nullVerNum, err = yig.checkOldObject(reqCtx)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
@@ -683,7 +683,7 @@ func (yig *YigStorage) RenameObject(targetObject *meta.Object, sourceObject stri
 	return result, nil
 }
 
-func (yig *YigStorage) CopyObject(ctx api.RequestContext, targetObject *meta.Object, source io.Reader, credential common.Credential,
+func (yig *YigStorage) CopyObject(reqCtx api.RequestContext, targetObject *meta.Object, source io.Reader, credential common.Credential,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
 
 	var oid string
@@ -837,7 +837,7 @@ func (yig *YigStorage) CopyObject(ctx api.RequestContext, targetObject *meta.Obj
 	result.LastModified = targetObject.LastModifiedTime
 
 	var nullVerNum uint64
-	nullVerNum, err = yig.checkOldObject(ctx)
+	nullVerNum, err = yig.checkOldObject(reqCtx)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
@@ -896,15 +896,15 @@ func (yig *YigStorage) getObjWithVersion(bucketName, objectName, version string)
 
 }
 
-func (yig *YigStorage) checkOldObject(ctx api.RequestContext) (version uint64, err error) {
-	bucketName, objectName := ctx.BucketName, ctx.ObjectName
-	bucket := ctx.BucketInfo
+func (yig *YigStorage) checkOldObject(reqCtx api.RequestContext) (version uint64, err error) {
+	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
+	bucket := reqCtx.BucketInfo
 	if bucket == nil {
 		return 0, ErrNoSuchBucket
 	}
 	versioning := bucket.Versioning
 	if versioning == meta.VersionDisabled {
-		err = yig.removeByObject(ctx.ObjectInfo, nil)
+		err = yig.removeByObject(reqCtx.ObjectInfo, nil)
 		return
 	}
 
@@ -943,14 +943,14 @@ func (yig *YigStorage) checkOldObject(ctx api.RequestContext) (version uint64, e
 			if !objMapExist && objectExist && object.NullVersion {
 				version, err = object.GetVersionNumber()
 				if err != nil {
-					ctx.Logger.Error("GetVersionNumber error:", err)
+					reqCtx.Logger.Error("GetVersionNumber error:", err)
 					return 0, err
 				}
-				ctx.Logger.Info("Old object version:", version)
+				reqCtx.Logger.Info("Old object version:", version)
 				return
 			}
 		} else {
-			ctx.Logger.Info("object.NullVersion:", object.NullVersion)
+			reqCtx.Logger.Info("object.NullVersion:", object.NullVersion)
 			if objectExist && object.NullVersion {
 				err = yig.MetaStorage.DeleteObject(object, object.DeleteMarker, nil)
 				if err != nil {
@@ -1023,13 +1023,13 @@ func (yig *YigStorage) addDeleteMarker(bucket meta.Bucket, objectName string,
 // |           |                              | null version delete marker                             |
 //
 // See http://docs.aws.amazon.com/AmazonS3/latest/dev/Versioning.html
-func (yig *YigStorage) DeleteObject(ctx api.RequestContext,
+func (yig *YigStorage) DeleteObject(reqCtx api.RequestContext,
 	credential common.Credential) (result datatype.DeleteObjectResult, err error) {
-	bucket := ctx.BucketInfo
+	bucket := reqCtx.BucketInfo
 	if bucket == nil {
 		return result, ErrNoSuchBucket
 	}
-	bucketName, objectName, version := ctx.BucketName, ctx.ObjectName, ctx.VersionId
+	bucketName, objectName, version := reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId
 	switch bucket.ACL.CannedAcl {
 	case "public-read-write":
 		break
@@ -1044,7 +1044,7 @@ func (yig *YigStorage) DeleteObject(ctx api.RequestContext,
 		if version != "" && version != "null" {
 			return result, ErrNoSuchVersion
 		}
-		err = yig.removeByObject(ctx.ObjectInfo, nil)
+		err = yig.removeByObject(reqCtx.ObjectInfo, nil)
 		if err != nil {
 			return
 		}
@@ -1081,7 +1081,7 @@ func (yig *YigStorage) DeleteObject(ctx api.RequestContext,
 			result.VersionId = version
 		}
 	default:
-		ctx.Logger.Error("Invalid bucket versioning:", bucketName)
+		reqCtx.Logger.Error("Invalid bucket versioning:", bucketName)
 		return result, ErrInternalError
 	}
 

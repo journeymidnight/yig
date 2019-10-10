@@ -73,8 +73,8 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Expose-Headers", strings.Join(CommonS3ResponseHeaders, ","))
 	}
 
-	ctx := getRequestContext(r)
-	bucket := ctx.BucketInfo
+	reqCtx := getRequestContext(r)
+	bucket := reqCtx.BucketInfo
 
 	// If bucket CORS exists, overwrite the in-reserved CORS Headers
 	if bucket != nil {
@@ -111,9 +111,9 @@ type resourceHandler struct {
 // Resource handler ServeHTTP() wrapper
 func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Skip the first element which is usually '/' and split the rest.
-	ctx := getRequestContext(r)
-	logger := ctx.Logger
-	bucketName, objectName := ctx.BucketName, ctx.ObjectName
+	reqCtx := getRequestContext(r)
+	logger := reqCtx.Logger
+	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
 	// If bucketName is present and not objectName check for bucket
 	// level resource queries.
 	if bucketName != "" && objectName == "" {
@@ -193,9 +193,9 @@ type RequestIdHandler struct {
 func (h RequestIdHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	requestID := string(helper.GenerateRandomId())
 	logger := helper.Logger.NewWithRequestID(requestID)
-	ctx := context.WithValue(r.Context(), RequestIdKey, requestID)
-	ctx = context.WithValue(ctx, ContextLoggerKey, logger)
-	h.handler.ServeHTTP(w, r.WithContext(ctx))
+	reqCtx := context.WithValue(r.Context(), RequestIdKey, requestID)
+	reqCtx = context.WithValue(reqCtx, ContextLoggerKey, logger)
+	h.handler.ServeHTTP(w, r.WithContext(reqCtx))
 }
 
 func SetRequestIdHandler(h http.Handler, _ *meta.Meta) http.Handler {
@@ -240,7 +240,7 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 
 	version := r.URL.Query().Get("versionId")
 
-	ctx := context.WithValue(
+	reqCtx := context.WithValue(
 		r.Context(),
 		RequestContextKey,
 		RequestContext{
@@ -256,7 +256,7 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		})
 	logger.Info(fmt.Sprintf("BucketName: %s, ObjectName: %s, BucketInfo: %+v, ObjectInfo: %+v, AuthType: %d, VersionId: %s",
 		bucketName, objectName, bucketInfo, objectInfo, authType, version))
-	h.handler.ServeHTTP(w, r.WithContext(ctx))
+	h.handler.ServeHTTP(w, r.WithContext(reqCtx))
 }
 
 // setAuthHandler to validate authorization header for the incoming request.
@@ -299,9 +299,9 @@ func GetBucketAndObjectInfoFromRequest(r *http.Request) (bucketName string, obje
 }
 
 func getRequestContext(r *http.Request) RequestContext {
-	ctx, ok := r.Context().Value(RequestContextKey).(RequestContext)
+	reqCtx, ok := r.Context().Value(RequestContextKey).(RequestContext)
 	if ok {
-		return ctx
+		return reqCtx
 	}
 	return RequestContext{
 		Logger:    r.Context().Value(ContextLoggerKey).(log.Logger),

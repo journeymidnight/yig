@@ -142,19 +142,19 @@ func retrieveBucket(lc types.LifeCycle) error {
 					if object.NullVersion {
 						object.VersionId = ""
 					}
-					ctx := api.RequestContext{
+					reqCtx := api.RequestContext{
 						BucketInfo: bucket,
 						BucketName: object.BucketName,
 						ObjectName: object.Name,
 						VersionId:  object.VersionId,
 						Logger:     helper.Logger,
 					}
-					ctx.ObjectInfo, err = yig.GetObjectInfo(bucket.Name, object.Name, object.VersionId, credential)
+					reqCtx.ObjectInfo, err = yig.GetObjectInfo(bucket.Name, object.Name, object.VersionId, credential)
 					if err != nil && err != ErrNoSuchKey {
 						helper.Logger.Error(object.BucketName, object.Name, object.VersionId, err)
 						continue
 					}
-					_, err = yig.DeleteObject(ctx, credential)
+					_, err = yig.DeleteObject(reqCtx, credential)
 					if err != nil {
 						helper.Logger.Error(object.BucketName, object.Name, object.VersionId, err)
 						continue
@@ -186,19 +186,19 @@ func retrieveBucket(lc types.LifeCycle) error {
 				}
 				for _, object := range retObjects {
 					if checkIfExpiration(object.LastModifiedTime, days) {
-						ctx := api.RequestContext{
+						reqCtx := api.RequestContext{
 							BucketInfo: bucket,
 							BucketName: object.BucketName,
 							ObjectName: object.Name,
 							VersionId:  object.VersionId,
 							Logger:     helper.Logger,
 						}
-						ctx.ObjectInfo, err = yig.GetObjectInfo(bucket.Name, object.Name, object.VersionId, credential)
+						reqCtx.ObjectInfo, err = yig.GetObjectInfo(bucket.Name, object.Name, object.VersionId, credential)
 						if err != nil && err != ErrNoSuchKey {
 							helper.Logger.Error(object.BucketName, object.Name, object.VersionId, err)
 							continue
 						}
-						_, err = yig.DeleteObject(ctx, common.Credential{})
+						_, err = yig.DeleteObject(reqCtx, common.Credential{})
 						if err != nil {
 							helper.Logger.Error(object.BucketName, object.Name, object.VersionId, "failed:", err)
 							continue

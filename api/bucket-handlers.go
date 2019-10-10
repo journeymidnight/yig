@@ -255,9 +255,9 @@ func (api ObjectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.R
 
 // DeleteMultipleObjectsHandler - deletes multiple objects.
 func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := getRequestContext(r)
-	logger := ctx.Logger
-	bucket := ctx.BucketName
+	reqCtx := getRequestContext(r)
+	logger := reqCtx.Logger
+	bucket := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
@@ -316,9 +316,9 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	// Loop through all the objects and delete them sequentially.
 	for _, object := range deleteObjects.Objects {
 		// TODO: Delete all objects in one transaction
-		ctx.ObjectName = object.ObjectName
-		ctx.VersionId = object.VersionId
-		ctx.ObjectInfo, err = api.ObjectAPI.GetObjectInfo(bucket, object.ObjectName, object.VersionId, credential)
+		reqCtx.ObjectName = object.ObjectName
+		reqCtx.VersionId = object.VersionId
+		reqCtx.ObjectInfo, err = api.ObjectAPI.GetObjectInfo(bucket, object.ObjectName, object.VersionId, credential)
 		if err != nil {
 			if err == ErrNoSuchKey {
 				continue
@@ -341,7 +341,7 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 				})
 			}
 		}
-		result, err := api.ObjectAPI.DeleteObject(ctx, credential)
+		result, err := api.ObjectAPI.DeleteObject(reqCtx, credential)
 		if err == nil {
 			deletedObjects = append(deletedObjects, ObjectIdentifier{
 				ObjectName:   object.ObjectName,

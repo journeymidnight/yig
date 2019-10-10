@@ -43,7 +43,7 @@ type ObjectLayer interface {
 	GetBucketCors(bucket string, credential common.Credential) (datatype.Cors, error)
 	GetBucket(bucketName string) (bucket *meta.Bucket, err error) // For INTERNAL USE ONLY
 	GetBucketInfo(bucket string, credential common.Credential) (bucketInfo *meta.Bucket, err error)
-	GetBucketInfoByCtx(ctx RequestContext, credential common.Credential) (bucket *meta.Bucket, err error)
+	GetBucketInfoByCtx(reqCtx RequestContext, credential common.Credential) (bucket *meta.Bucket, err error)
 	ListBuckets(credential common.Credential) (buckets []meta.Bucket, err error)
 	DeleteBucket(bucket string, credential common.Credential) error
 	ListObjects(credential common.Credential, bucket string,
@@ -65,22 +65,22 @@ type ObjectLayer interface {
 	GetObject(object *meta.Object, startOffset int64, length int64, writer io.Writer,
 		sse datatype.SseRequest) (err error)
 	GetObjectInfo(bucket, object, version string, credential common.Credential) (objInfo *meta.Object, err error)
-	GetObjectInfoByCtx(ctx RequestContext, credential common.Credential) (objInfo *meta.Object, err error)
-	PutObject(ctx RequestContext, credential common.Credential, size int64, data io.ReadCloser,
+	GetObjectInfoByCtx(reqCtx RequestContext, credential common.Credential) (objInfo *meta.Object, err error)
+	PutObject(reqCtx RequestContext, credential common.Credential, size int64, data io.ReadCloser,
 		metadata map[string]string, acl datatype.Acl,
 		sse datatype.SseRequest, storageClass meta.StorageClass) (result datatype.PutObjectResult, err error)
 	AppendObject(bucket, object string, credential common.Credential, offset uint64, size int64, data io.ReadCloser,
 		metadata map[string]string, acl datatype.Acl,
 		sse datatype.SseRequest, storageClass meta.StorageClass, objInfo *meta.Object) (result datatype.AppendObjectResult, err error)
 
-	CopyObject(ctx RequestContext, targetObject *meta.Object, source io.Reader, credential common.Credential,
+	CopyObject(reqCtx RequestContext, targetObject *meta.Object, source io.Reader, credential common.Credential,
 		sse datatype.SseRequest) (result datatype.PutObjectResult, err error)
 	RenameObject(targetObject *meta.Object, sourceObject string, credential common.Credential) (result datatype.RenameObjectResult, err error)
 	SetObjectAcl(bucket string, object string, version string, policy datatype.AccessControlPolicy,
 		acl datatype.Acl, credential common.Credential) error
 	GetObjectAcl(bucket string, object string, version string, credential common.Credential) (
 		policy datatype.AccessControlPolicyResponse, err error)
-	DeleteObject(ctx RequestContext, credential common.Credential) (datatype.DeleteObjectResult,
+	DeleteObject(reqCtx RequestContext, credential common.Credential) (datatype.DeleteObjectResult,
 		error)
 
 	// Multipart operations.
@@ -98,6 +98,6 @@ type ObjectLayer interface {
 	ListObjectParts(credential common.Credential, bucket, object string,
 		request datatype.ListPartsRequest) (result datatype.ListPartsResponse, err error)
 	AbortMultipartUpload(credential common.Credential, bucket, object, uploadID string) error
-	CompleteMultipartUpload(ctx RequestContext, credential common.Credential, uploadID string,
+	CompleteMultipartUpload(reqCtx RequestContext, credential common.Credential, uploadID string,
 		uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult, err error)
 }

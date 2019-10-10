@@ -245,8 +245,8 @@ func WriteErrorResponseWithResource(w http.ResponseWriter, r *http.Request, err 
 }
 
 func WriteErrorResponseHeaders(w http.ResponseWriter, r *http.Request, err error) (handled bool) {
-	ctx := getRequestContext(r)
-	logger := ctx.Logger
+	reqCtx := getRequestContext(r)
+	logger := reqCtx.Logger
 
 	var status int
 	apiErrorCode, ok := err.(ApiError)
@@ -261,17 +261,17 @@ func WriteErrorResponseHeaders(w http.ResponseWriter, r *http.Request, err error
 	w.(*ResponseRecorder).status = status
 
 	// check website routing rules
-	if ctx.BucketInfo == nil {
+	if reqCtx.BucketInfo == nil {
 		w.WriteHeader(status)
 		return false
 	}
-	website := ctx.BucketInfo.Website
+	website := reqCtx.BucketInfo.Website
 	// match routing rules
 	if len(website.RoutingRules) != 0 {
 		for _, rule := range website.RoutingRules {
 			// If the condition matches, handle redirect
-			if rule.Match(ctx.ObjectName, strconv.Itoa(status)) {
-				rule.DoRedirect(w, r, ctx.ObjectName)
+			if rule.Match(reqCtx.ObjectName, strconv.Itoa(status)) {
+				rule.DoRedirect(w, r, reqCtx.ObjectName)
 				return true
 			}
 		}

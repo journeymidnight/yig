@@ -88,21 +88,21 @@ func (api ObjectAPIHandlers) errAllowableObjectNotFound(w http.ResponseWriter, r
 	// * if you don’t have the s3:ListBucket
 	//   permission, Amazon S3 will return an HTTP
 	//   status code 403 ("access denied") error.`
-	ctx := getRequestContext(r)
-	if ctx.BucketInfo == nil {
+	reqCtx := getRequestContext(r)
+	if reqCtx.BucketInfo == nil {
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return
 	}
 	var err error
-	if ctx.BucketInfo.Policy.IsAllowed(policy.Args{
+	if reqCtx.BucketInfo.Policy.IsAllowed(policy.Args{
 		Action:          policy.ListBucketAction,
-		BucketName:      ctx.BucketName,
+		BucketName:      reqCtx.BucketName,
 		ConditionValues: getConditionValues(r, ""),
 		IsOwner:         false,
 	}) == policy.PolicyAllow {
 		err = ErrNoSuchKey
 	} else {
-		switch ctx.BucketInfo.ACL.CannedAcl {
+		switch reqCtx.BucketInfo.ACL.CannedAcl {
 		case "public-read", "public-read-write":
 			err = ErrNoSuchKey
 		case "authenticated-read":
@@ -112,7 +112,7 @@ func (api ObjectAPIHandlers) errAllowableObjectNotFound(w http.ResponseWriter, r
 				err = ErrAccessDenied
 			}
 		default:
-			if ctx.BucketInfo.OwnerId == credential.UserId {
+			if reqCtx.BucketInfo.OwnerId == credential.UserId {
 				err = ErrNoSuchKey
 			} else {
 				err = ErrAccessDenied
@@ -120,7 +120,7 @@ func (api ObjectAPIHandlers) errAllowableObjectNotFound(w http.ResponseWriter, r
 		}
 	}
 	var status int
-	website := ctx.BucketInfo.Website
+	website := reqCtx.BucketInfo.Website
 	apiErrorCode, ok := err.(ApiError)
 	if ok {
 		status = apiErrorCode.HttpStatusCode()
@@ -131,8 +131,8 @@ func (api ObjectAPIHandlers) errAllowableObjectNotFound(w http.ResponseWriter, r
 	if len(website.RoutingRules) != 0 {
 		for _, rule := range website.RoutingRules {
 			// If the condition matches, handle redirect
-			if rule.Match(ctx.ObjectName, strconv.Itoa(status)) {
-				rule.DoRedirect(w, r, ctx.ObjectName)
+			if rule.Match(reqCtx.ObjectName, strconv.Itoa(status)) {
+				rule.DoRedirect(w, r, reqCtx.ObjectName)
 				return
 			}
 		}
@@ -186,8 +186,8 @@ func (o *GetObjectResponseWriter) Write(p []byte) (int, error) {
 // This implementation of the GET operation retrieves object. To use GET,
 // you must have READ access to the object.
 func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := getRequestContext(r)
-	logger := ctx.Logger
+	reqCtx := getRequestContext(r)
+	logger := reqCtx.Logger
 	var credential common.Credential
 	var err error
 	if api.HandledByWebsite(w, r) {
@@ -200,7 +200,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	// Fetch object stat info.
-	object, err := api.ObjectAPI.GetObjectInfoByCtx(ctx, credential)
+	object, err := api.ObjectAPI.GetObjectInfoByCtx(reqCtx, credential)
 	if err != nil {
 		logger.Error("Unable to fetch object info:", err)
 		if err == ErrNoSuchKey {
@@ -269,7 +269,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	// io.Writer type which keeps track if any data was written.
-	writer := newGetObjectResponseWriter(w, r, object, hrange, http.StatusOK, ctx.VersionId)
+	writer := newGetObjectResponseWriter(w, r, object, hrange, http.StatusOK, reqCtx.VersionId)
 
 	switch object.SseType {
 	case "":
@@ -314,8 +314,8 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 // The HEAD operation retrieves metadata from an object without returning the object itself.
 // TODO refactor HEAD and GET
 func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := getRequestContext(r)
-	logger := ctx.Logger
+	reqCtx := getRequestContext(r)
+	logger := reqCtx.Logger
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.GetObjectAction); err != nil {
@@ -323,7 +323,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	object, err := api.ObjectAPI.GetObjectInfoByCtx(ctx, credential)
+	object, err := api.ObjectAPI.GetObjectInfoByCtx(reqCtx, credential)
 	if err != nil {
 		logger.Error("Unable to fetch object info:", err)
 		if err == ErrNoSuchKey {
@@ -405,9 +405,9 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 // This implementation of the PUT operation adds an object to a bucket
 // while reading the object from another source.
 func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := getRequestContext(r)
-	logger := ctx.Logger
-	targetBucketName, targetObjectName := ctx.BucketName, ctx.ObjectName
+	reqCtx := getRequestContext(r)
+	logger := reqCtx.Logger
+	targetBucketName, targetObjectName := reqCtx.BucketName, reqCtx.ObjectName
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.PutObjectAction); err != nil {
@@ -551,7 +551,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	// Create the object.
-	result, err := api.ObjectAPI.CopyObject(ctx, targetObject, pipeReader, credential, sseRequest)
+	result, err := api.ObjectAPI.CopyObject(reqCtx, targetObject, pipeReader, credential, sseRequest)
 	if err != nil {
 		logger.Error("CopyObject failed:", err)
 		WriteErrorResponse(w, r, err)
@@ -596,13 +596,13 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 // Do not support bucket to enable multiVersion renaming;
 // Folder renaming operation is not supported.
 func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := getRequestContext(r)
-	logger := ctx.Logger
-	bucketName := ctx.BucketName
-	targetObjectName := ctx.ObjectName
+	reqCtx := getRequestContext(r)
+	logger := reqCtx.Logger
+	bucketName := reqCtx.BucketName
+	targetObjectName := reqCtx.ObjectName
 
 	// Determine if the renamed object is legal
-	if hasSuffix(ctx.ObjectName, "/") || ctx.ObjectName == "" {
+	if hasSuffix(reqCtx.ObjectName, "/") || reqCtx.ObjectName == "" {
 		WriteErrorResponse(w, r, ErrInvalidRenameTarget)
 		return
 	}
@@ -614,14 +614,14 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if ctx.ObjectInfo != nil {
+	if reqCtx.ObjectInfo != nil {
 		WriteErrorResponse(w, r, ErrInvalidRenameTarget)
 		return
 	}
 
 	sourceObjectName := r.Header.Get("X-Amz-Rename-Source-Key")
 
-	if sourceObjectName == ctx.ObjectName {
+	if sourceObjectName == reqCtx.ObjectName {
 		WriteErrorResponse(w, r, ErrInvalidRenameTarget)
 		return
 	}
@@ -642,7 +642,7 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 		"to", targetObjectName)
 
 	//TODO: Supplement Object MultiVersion Judge.
-	bucket := ctx.BucketInfo
+	bucket := reqCtx.BucketInfo
 	if bucket.Versioning != meta.VersionDisabled {
 		WriteErrorResponse(w, r, ErrNotSupportBucketEnabledVersion)
 		return
@@ -650,7 +650,7 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 	logger.Info("Bucket Multi-version is:", bucket.Versioning)
 
 	var sourceVersion string
-	sourceObject, err := api.ObjectAPI.GetObjectInfo(ctx.BucketName, sourceObjectName,
+	sourceObject, err := api.ObjectAPI.GetObjectInfo(reqCtx.BucketName, sourceObjectName,
 		sourceVersion, credential)
 	if err != nil {
 		WriteErrorResponseWithResource(w, r, err, sourceObjectName)
@@ -658,7 +658,7 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 	}
 
 	targetObject := sourceObject
-	targetObject.Name = ctx.ObjectName
+	targetObject.Name = reqCtx.ObjectName
 	result, err := api.ObjectAPI.RenameObject(targetObject, sourceObjectName, credential)
 	if err != nil {
 		logger.Error("Unable to update object meta for", targetObject.ObjectId,
@@ -678,8 +678,8 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 // ----------
 // This implementation of the PUT operation adds an object to a bucket.
 func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := getRequestContext(r)
-	logger := ctx.Logger
+	reqCtx := getRequestContext(r)
+	logger := reqCtx.Logger
 	// If the matching failed, it means that the X-Amz-Copy-Source was
 	// wrong, fail right here.
 	if _, ok := r.Header["X-Amz-Copy-Source"]; ok {
@@ -687,7 +687,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	objectName := ctx.ObjectName
+	objectName := reqCtx.ObjectName
 	var authType = signature.GetRequestAuthType(r)
 	var err error
 	if !isValidObjectName(objectName) {
@@ -794,7 +794,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	var result PutObjectResult
-	result, err = api.ObjectAPI.PutObject(ctx, credential, size, dataReadCloser,
+	result, err = api.ObjectAPI.PutObject(reqCtx, credential, size, dataReadCloser,
 		metadata, acl, sseRequest, storageClass)
 	if err != nil {
 		logger.Error("Unable to create object", objectName, "error:", err)
@@ -830,8 +830,8 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 // ----------
 // This implementation of the POST operation append an object in a bucket.
 func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := getRequestContext(r)
-	logger := ctx.Logger
+	reqCtx := getRequestContext(r)
+	logger := reqCtx.Logger
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 	objectName := vars["object"]
@@ -940,7 +940,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 
 	// Check whether the object is exist or not
 	// Check whether the bucket is owned by the specified user
-	objInfo, err := api.ObjectAPI.GetObjectInfoByCtx(ctx, credential)
+	objInfo, err := api.ObjectAPI.GetObjectInfoByCtx(reqCtx, credential)
 	if err != nil && err != ErrNoSuchKey {
 		WriteErrorResponse(w, r, err)
 		return
@@ -1592,9 +1592,9 @@ func (api ObjectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 
 // CompleteMultipartUploadHandler - Complete multipart upload
 func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := getRequestContext(r)
-	logger := ctx.Logger
-	bucketName, objectName := ctx.BucketName, ctx.ObjectName
+	reqCtx := getRequestContext(r)
+	logger := reqCtx.Logger
+	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
 	// Get upload id.
 	uploadId := r.URL.Query().Get("uploadId")
 
@@ -1649,7 +1649,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	}
 
 	var result CompleteMultipartResult
-	result, err = api.ObjectAPI.CompleteMultipartUpload(ctx, credential, uploadId, completeParts)
+	result, err = api.ObjectAPI.CompleteMultipartUpload(reqCtx, credential, uploadId, completeParts)
 
 	if err != nil {
 		logger.Error("Unable to complete multipart upload:", err)
@@ -1705,7 +1705,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 
 // DeleteObjectHandler - delete an object
 func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := getRequestContext(r)
+	reqCtx := getRequestContext(r)
 	var credential common.Credential
 	var err error
 	switch signature.GetRequestAuthType(r) {
@@ -1725,7 +1725,7 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 
 	// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectDELETE.html
 	// Ignore delete object errors, since we are supposed to reply only 204.
-	result, err := api.ObjectAPI.DeleteObject(ctx, credential)
+	result, err := api.ObjectAPI.DeleteObject(reqCtx, credential)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -1751,8 +1751,8 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 var ValidSuccessActionStatus = []string{"200", "201", "204"}
 
 func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := getRequestContext(r)
-	logger := ctx.Logger
+	reqCtx := getRequestContext(r)
+	logger := reqCtx.Logger
 	var err error
 	// Here the parameter is the size of the form data that should
 	// be loaded in memory, the remaining being put in temporary files.
@@ -1770,9 +1770,9 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	bucketName := ctx.BucketName
+	bucketName := reqCtx.BucketName
 	formValues["Bucket"] = bucketName
-	bucket := ctx.BucketInfo
+	bucket := reqCtx.BucketInfo
 	if bucket == nil {
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return
@@ -1807,12 +1807,12 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		WriteErrorResponse(w, r, ErrInvalidObjectName)
 		return
 	}
-	ctx.ObjectInfo, err = api.ObjectAPI.GetObjectInfo(bucketName, objectName, "", credential)
+	reqCtx.ObjectInfo, err = api.ObjectAPI.GetObjectInfo(bucketName, objectName, "", credential)
 	if err != nil && err != ErrNoSuchKey {
 		WriteErrorResponse(w, r, err)
 		return
 	}
-	ctx.ObjectName = objectName
+	reqCtx.ObjectName = objectName
 
 	if err = signature.CheckPostPolicy(formValues, postPolicyType); err != nil {
 		WriteErrorResponse(w, r, err)
@@ -1851,7 +1851,7 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	result, err := api.ObjectAPI.PutObject(ctx, credential, -1, fileBody,
+	result, err := api.ObjectAPI.PutObject(reqCtx, credential, -1, fileBody,
 		metadata, acl, sseRequest, storageClass)
 	if err != nil {
 		logger.Error("Unable to create object", objectName, "error:", err)
