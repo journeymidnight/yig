@@ -163,6 +163,7 @@ func Get(table RedisDatabase, key string,
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 			hashkey,err := HashSum(key)
 			if err != nil {
 				return err
@@ -200,6 +201,7 @@ func GetBytes(key string, start int64, end int64) ([]byte, error) {
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 			hashkey,err := HashSum(key)
 			if err != nil {
 				return err
@@ -231,6 +233,7 @@ func SetBytes(key string, value []byte) (err error) {
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 			hashkey,err := HashSum(key)
 			if err != nil {
 				return err
@@ -259,6 +262,7 @@ func Invalid(table RedisDatabase, key string) (err error) {
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 			hashkey,err := HashSum(key)
 			if err != nil {
 				return err
