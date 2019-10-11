@@ -2,6 +2,9 @@ package meta
 
 import (
 	"database/sql"
+	"math"
+	"strconv"
+
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
@@ -155,7 +158,9 @@ func (m *Meta) DeleteObject(object *Object, DeleteMarker bool, objMap *ObjMap) (
 		}
 	}()
 
-	err = m.Client.DeleteObject(object, tx)
+	v := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
+	version := strconv.FormatUint(v, 10)
+	err = m.Client.DeleteObject(object.BucketName, object.Name, version, tx)
 	if err != nil {
 		return err
 	}
@@ -203,4 +208,3 @@ func (m *Meta) AppendObject(object *Object, isExist bool) error {
 	}
 	return m.Client.CommitTrans(tx)
 }
-

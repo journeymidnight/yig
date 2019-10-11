@@ -168,7 +168,7 @@ func (t *TidbClient) PutObject(object *Object, tx DB) (err error) {
 	return err
 }
 
-func (t *TidbClient) DeleteObject(object *Object, tx DB) (err error) {
+func (t *TidbClient) DeleteObject(bucketName, objectName, version string, tx DB) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		if err != nil {
@@ -184,15 +184,13 @@ func (t *TidbClient) DeleteObject(object *Object, tx DB) (err error) {
 		}()
 	}
 
-	v := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
-	version := strconv.FormatUint(v, 10)
-	sqltext := "delete from objects where name=? and bucketname=? and version=?;"
-	_, err = tx.Exec(sqltext, object.Name, object.BucketName, version)
+	sqltext := "delete from objects where bucketname=? and name=? and version=?;"
+	_, err = tx.Exec(sqltext, bucketName, objectName, version)
 	if err != nil {
 		return err
 	}
-	sqltext = "delete from objectpart where objectname=? and bucketname=? and version=?;"
-	_, err = tx.Exec(sqltext, object.Name, object.BucketName, version)
+	sqltext = "delete from objectpart where bucketname=? and objectname=? and version=?;"
+	_, err = tx.Exec(sqltext, bucketName, objectName, version)
 	if err != nil {
 		return err
 	}
