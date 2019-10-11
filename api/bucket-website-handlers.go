@@ -143,6 +143,7 @@ func (api ObjectAPIHandlers) DeleteBucketWebsiteHandler(w http.ResponseWriter, r
 		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
 		return
 	}
+
 	if err := api.ObjectAPI.DeleteBucketWebsite(ctx.BucketInfo); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
