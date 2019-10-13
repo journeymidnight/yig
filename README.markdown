@@ -68,36 +68,53 @@ Before running Yig, requirments below are needed:
 
 ## Config files
 
-Main config file of Yig is located at ```/etc/yig/yig.json ``` by default
+Main config file of Yig is located at ```/etc/yig/yig.toml ``` by default
 
 ```
-{
-    "S3Domain": "s3.test.com",
-    "Region": "cn-bj-1",
-    "IamEndpoint": "http://10.11.144.11:9006",
-    "IamKey": "key",
-    "IamSecret": "secret",
-    "LogPath": "/var/log/yig/yig.log",
-    "PanicLogPath":"/var/log/yig/panic.log",
-    "PidFile": "/var/run/yig/yig.pid",
-    "BindApiAddress": "0.0.0.0:80",
-    "BindAdminAddress": "0.0.0.0:9000",
-    "SSLKeyPath": "",
-    "SSLCertPath": "",
-    "ZookeeperAddress": "10.110.95.56:2181,10.110.95.62:2181",
-    "RedisAddress": "localhost:6379",
-    "RedisConnectionNumber": 10,
-    "InMemoryCacheMaxEntryCount": 100000,
-    "DebugMode": false,
-    "AdminKey": "secret",
-    "MetaCacheType": 2,
-    "EnableDataCache": true,
-    "CephConfigPattern": "/etc/yig/conf/*.conf",
-    "GcThread": 1,
-    "LogLevel": 5,
-    "ReservedOrigins":"sample.abc.com",
-    "TidbInfo"
-}
+s3domain = ["s3.test.com","s3-internal.test.com"]
+region = "cn-bj-1"
+log_path = "/var/log/yig/yig.log"
+access_log_path = "/var/log/yig/access.log"
+access_log_format = "{combined}"
+panic_log_path = "/var/log/yig/panic.log"
+log_level = 20
+pid_file = "/var/run/yig/yig.pid"
+api_listener = "0.0.0.0:8080"
+admin_listener = "0.0.0.0:9000"
+admin_key = "secret"
+ssl_key_path = ""
+ssl_cert_path = ""
+
+# DebugMode
+lcdebug = true
+debug_mode = true
+reserved_origins = "s3.test.com,s3-internal.test.com"
+
+# Meta Config
+meta_cache_type = 2
+meta_store = "tidb"
+tidb_info = "root:@tcp(10.5.0.17:4000)/yig"
+keepalive = true
+zk_address = "hbase:2181"
+redis_address = "redis:6379"
+redis_password = "hehehehe"
+redis_connection_number = 10
+memory_cache_max_entry_count = 100000
+enable_data_cache = true
+redis_connect_timeout = 1
+redis_read_timeout = 1
+redis_write_timeout = 1
+redis_keepalive = 60
+redis_pool_max_idle = 3
+redis_pool_idle_timeout = 30
+cache_circuit_check_interval = 3
+cache_circuit_close_sleep_window = 1
+cache_circuit_close_required_count = 3
+cache_circuit_open_threshold = 1
+
+
+# Ceph Config
+ceph_config_pattern = "/etc/ceph/*.conf"
 ```
 
 ### Meanings of options above:
