@@ -330,6 +330,11 @@ type DeleteObjectResult struct {
 	VersionId    string
 }
 
+type DeleteMultipleObjectsResult struct {
+	DeleteErrors   []DeleteError
+	DeletedObjects []ObjectIdentifier
+}
+
 type PutObjectPartResult struct {
 	ETag                    string
 	SseType                 string

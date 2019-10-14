@@ -82,7 +82,8 @@ type ObjectLayer interface {
 		policy datatype.AccessControlPolicyResponse, err error)
 	DeleteObject(reqCtx RequestContext, credential common.Credential) (datatype.DeleteObjectResult,
 		error)
-
+	DeleteMultipleObjects(reqCtx RequestContext, objects []datatype.ObjectIdentifier, credential common.Credential) (datatype.DeleteMultipleObjectsResult,
+		error)
 	// Multipart operations.
 	ListMultipartUploads(credential common.Credential, bucket string,
 		request datatype.ListUploadsRequest) (result datatype.ListMultipartUploadsResponse, err error)

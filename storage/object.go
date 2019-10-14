@@ -1097,3 +1097,71 @@ func (yig *YigStorage) DeleteObject(reqCtx api.RequestContext,
 	}
 	return result, nil
 }
+
+func (yig *YigStorage) DeleteMultipleObjects(reqCtx api.RequestContext, objects []datatype.ObjectIdentifier,
+	credential common.Credential) (result datatype.DeleteMultipleObjectsResult, err error) {
+
+	bucket := reqCtx.BucketInfo
+	if bucket == nil {
+		return result, ErrNoSuchBucket
+	}
+	var deleteObjects []datatype.ObjectIdentifier
+	var deleteObjectsWithVersion []datatype.ObjectIdentifier
+
+	yig.MetaStorage.GetAllObject()
+	//	reqCtx.ObjectName = object.ObjectName
+	//	reqCtx.VersionId = object.VersionId
+	//	reqCtx.ObjectInfo, err = api.ObjectAPI.GetObjectInfo(bucket, object.ObjectName, object.VersionId, credential)
+	//	if err != nil {
+	//		if err == ErrNoSuchKey {
+	//			continue
+	//		}
+	//		logger.Error("Unable to delete object:", err)
+	//		apiErrorCode, ok := err.(ApiErrorCode)
+	//		if ok {
+	//			deleteErrors = append(deleteErrors, DeleteError{
+	//				Code:      ErrorCodeResponse[apiErrorCode].AwsErrorCode,
+	//				Message:   ErrorCodeResponse[apiErrorCode].Description,
+	//				Key:       object.ObjectName,
+	//				VersionId: object.VersionId,
+	//			})
+	//		} else {
+	//			deleteErrors = append(deleteErrors, DeleteError{
+	//				Code:      "InternalError",
+	//				Message:   "We encountered an internal error, please try again.",
+	//				Key:       object.ObjectName,
+	//				VersionId: object.VersionId,
+	//			})
+	//		}
+	//	}
+	//	result, err := api.ObjectAPI.DeleteObject(reqCtx, credential)
+	//	if err == nil {
+	//		deletedObjects = append(deletedObjects, ObjectIdentifier{
+	//			ObjectName:   object.ObjectName,
+	//			VersionId:    object.VersionId,
+	//			DeleteMarker: result.DeleteMarker,
+	//			DeleteMarkerVersionId: helper.Ternary(result.DeleteMarker,
+	//				result.VersionId, "").(string),
+	//		})
+	//	} else {
+	//		logger.Error("Unable to delete object:", err)
+	//		apiErrorCode, ok := err.(ApiErrorCode)
+	//		if ok {
+	//			deleteErrors = append(deleteErrors, DeleteError{
+	//				Code:      ErrorCodeResponse[apiErrorCode].AwsErrorCode,
+	//				Message:   ErrorCodeResponse[apiErrorCode].Description,
+	//				Key:       object.ObjectName,
+	//				VersionId: object.VersionId,
+	//			})
+	//		} else {
+	//			deleteErrors = append(deleteErrors, DeleteError{
+	//				Code:      "InternalError",
+	//				Message:   "We encountered an internal error, please try again.",
+	//				Key:       object.ObjectName,
+	//				VersionId: object.VersionId,
+	//			})
+	//		}
+	//	}
+	//}
+	return
+}

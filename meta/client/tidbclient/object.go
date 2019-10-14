@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	. "github.com/journeymidnight/yig/meta/types"
 	"github.com/xxtea/xxtea-go/xxtea"
@@ -86,10 +87,19 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 	return
 }
 
-func (t *TidbClient) GetAllObject(bucketName, objectName, version string) (object []*Object, err error) {
-	sqltext := "select version from objects where bucketname=? and name=?;"
+func (t *TidbClient) GetDeleteObjects(bucketName string, objects []datatype.ObjectIdentifier, versioned bool) (object []*Object, err error) {
+
+	sqltext := "select bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag,contenttype," +
+		"customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass " +
+		"from objects where bucketname=? "
+
+	if versioned {
+		sqltext += " and (name, version) in (?) "
+	} else {
+		sqltext += " and name in (?) "
+	}
 	var versions []string
-	rows, err := t.Client.Query(sqltext, bucketName, objectName)
+	rows, err := t.Client.Query(sqltext, bucketName, objects...)
 	if err != nil {
 		return
 	}
@@ -112,6 +122,8 @@ func (t *TidbClient) GetAllObject(bucketName, objectName, version string) (objec
 	}
 	return
 }
+
+func gen
 
 func (t *TidbClient) UpdateObjectAcl(object *Object) error {
 	sql, args := object.GetUpdateAclSql()
