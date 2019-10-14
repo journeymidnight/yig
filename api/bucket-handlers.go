@@ -311,6 +311,11 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 		return
 	}
 
+	if len(deleteObjects.Objects) > 1000 {
+		WriteErrorResponse(w, r, ErrExceededDeleteKeysLimit)
+		return
+	}
+
 	var deleteErrors []DeleteError
 	var deletedObjects []ObjectIdentifier
 	// Loop through all the objects and delete them sequentially.

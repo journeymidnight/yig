@@ -164,6 +164,7 @@ const (
 	ErrIndexDocumentNotAllowed
 	ErrInvalidIndexDocumentSuffix
 	ErrInvalidErrorDocumentKey
+	ErrExceededDeleteKeysLimit
 )
 
 // error code to APIError structure, these fields carry respective
@@ -753,6 +754,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidErrorDocumentKey: {
 		AwsErrorCode:   "InvalidErrorDocumentKey",
 		Description:    "The key is required when ErrorDocument is specified.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrExceededDeleteKeysLimit: {
+		AwsErrorCode:   "ExceededDeleteKeysLimit",
+		Description:    "The quantity of the delete keys is exceeded.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 }
