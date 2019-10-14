@@ -2,6 +2,7 @@ package client
 
 import (
 	"database/sql"
+
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/meta/types"
 )
@@ -41,7 +42,7 @@ type Client interface {
 	PutObjectMap(objMap *ObjMap, tx DB) error
 	DeleteObjectMap(objMap *ObjMap, tx DB) error
 	//cluster
-	GetClusters() (cluster []Cluster, err error)
+	GetClusters(pool string) (cluster []Cluster, err error)
 	//lc
 	PutBucketToLifeCycle(lifeCycle LifeCycle) error
 	RemoveBucketFromLifeCycle(bucket Bucket) error

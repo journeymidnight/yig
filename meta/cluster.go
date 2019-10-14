@@ -7,11 +7,11 @@ import (
 	"github.com/journeymidnight/yig/redis"
 )
 
-func (m *Meta) GetClusters() (cluster []Cluster, err error) {
+func (m *Meta) GetClusters(pool string) (cluster []Cluster, err error) {
 	rowKey := "cephClusters"
 	getCluster := func() (c interface{}, err error) {
 		helper.Logger.Info("GetClusters CacheMiss")
-		return m.Client.GetClusters()
+		return m.Client.GetClusters(pool)
 	}
 	unmarshaller := func(in []byte) (interface{}, error) {
 		var cluster Cluster

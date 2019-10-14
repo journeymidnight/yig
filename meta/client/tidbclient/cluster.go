@@ -4,9 +4,9 @@ import (
 	. "github.com/journeymidnight/yig/meta/types"
 )
 
-func (t *TidbClient) GetClusters() (cluster []Cluster, err error) {
-	sqltext := "select fsid,pool,weight from cluster"
-	rows, err := t.Client.Query(sqltext)
+func (t *TidbClient) GetClusters(pool string) (cluster []Cluster, err error) {
+	sqltext := "select fsid,pool,weight from cluster where pool=? "
+	rows, err := t.Client.Query(sqltext, pool)
 	if err != nil {
 		return nil, err
 	}

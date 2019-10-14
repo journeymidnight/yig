@@ -30,8 +30,8 @@ const (
 )
 
 func (yig *YigStorage) pickRandomCluster() (cluster backend.Cluster) {
-	helper.Logger.Warn("Error picking cluster from table cluster in DB, "+
-			"use first cluster in config to write.")
+	helper.Logger.Warn("Error picking cluster from table cluster in DB, " +
+		"use first cluster in config to write.")
 	for _, c := range yig.DataStorage {
 		cluster = c
 		break
@@ -64,7 +64,7 @@ func (yig *YigStorage) pickClusterAndPool(bucket string, object string,
 	}
 	var totalWeight int
 	clusterWeights := make(map[string]int, len(yig.DataStorage))
-	metaClusters, err := yig.MetaStorage.GetClusters()
+	metaClusters, err := yig.MetaStorage.GetClusters(poolName)
 	if err != nil {
 		cluster = yig.pickRandomCluster()
 		return
@@ -1109,4 +1109,3 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 	}
 	return result, nil
 }
-
