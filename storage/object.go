@@ -884,6 +884,26 @@ func (yig *YigStorage) removeByObject(object *meta.Object, objMap *meta.ObjMap) 
 	return nil
 }
 
+func (yig *YigStorage) removeObject(bucket *meta.Bucket, object *meta.Object, version string) (result datatype.DeleteObjectResult, err error) {
+	if bucket.Versioning == meta.VersionDisabled {
+		return result, yig.MetaStorage.DeleteObject(object, object.DeleteMarker, nil)
+	} else if version == "" {
+		result.VersionId, err = yig.addDeleteMarker(*bucket, object.Name, false)
+		if err != nil {
+			return result, err
+		}
+		result.DeleteMarker = true
+		return result, nil
+	} else if object.DeleteMarker {
+		result.DeleteMarker = true
+		result.VersionId = object.VersionId
+		return result, nil
+	} else {
+		result.VersionId = version
+		return result, yig.removeObjectVersion(bucket.Name, object.Name, version)
+	}
+}
+
 func (yig *YigStorage) getObjWithVersion(bucketName, objectName, version string) (object *meta.Object, err error) {
 	if version == "null" {
 		objMap, err := yig.MetaStorage.GetObjectMap(bucketName, objectName)
@@ -1100,68 +1120,99 @@ func (yig *YigStorage) DeleteObject(reqCtx api.RequestContext,
 
 func (yig *YigStorage) DeleteMultipleObjects(reqCtx api.RequestContext, objects []datatype.ObjectIdentifier,
 	credential common.Credential) (result datatype.DeleteMultipleObjectsResult, err error) {
-
+	logger := reqCtx.Logger
+	logger.Info("Enter DeleteMultipleObjects")
 	bucket := reqCtx.BucketInfo
 	if bucket == nil {
 		return result, ErrNoSuchBucket
 	}
+	switch bucket.ACL.CannedAcl {
+	case "public-read-write":
+		break
+	default:
+		if bucket.OwnerId != credential.UserId && credential.UserId != "" {
+			return result, ErrBucketAccessForbidden
+		}
+	} // TODO policy and fancy ACL
+
 	var deleteObjects []datatype.ObjectIdentifier
 	var deleteObjectsWithVersion []datatype.ObjectIdentifier
+	for _, o := range objects {
+		if o.VersionId != "" {
+			deleteObjectsWithVersion = append(deleteObjectsWithVersion, o)
+		} else {
+			deleteObjects = append(deleteObjects, o)
+		}
+	}
+	if bucket.Versioning == meta.VersionDisabled && len(deleteObjectsWithVersion) != 0 {
+		return result, ErrNotSupportBucketEnabledVersion
+	}
 
-	yig.MetaStorage.GetAllObject()
-	//	reqCtx.ObjectName = object.ObjectName
-	//	reqCtx.VersionId = object.VersionId
-	//	reqCtx.ObjectInfo, err = api.ObjectAPI.GetObjectInfo(bucket, object.ObjectName, object.VersionId, credential)
-	//	if err != nil {
-	//		if err == ErrNoSuchKey {
-	//			continue
-	//		}
-	//		logger.Error("Unable to delete object:", err)
-	//		apiErrorCode, ok := err.(ApiErrorCode)
-	//		if ok {
-	//			deleteErrors = append(deleteErrors, DeleteError{
-	//				Code:      ErrorCodeResponse[apiErrorCode].AwsErrorCode,
-	//				Message:   ErrorCodeResponse[apiErrorCode].Description,
-	//				Key:       object.ObjectName,
-	//				VersionId: object.VersionId,
-	//			})
-	//		} else {
-	//			deleteErrors = append(deleteErrors, DeleteError{
-	//				Code:      "InternalError",
-	//				Message:   "We encountered an internal error, please try again.",
-	//				Key:       object.ObjectName,
-	//				VersionId: object.VersionId,
-	//			})
-	//		}
-	//	}
-	//	result, err := api.ObjectAPI.DeleteObject(reqCtx, credential)
-	//	if err == nil {
-	//		deletedObjects = append(deletedObjects, ObjectIdentifier{
-	//			ObjectName:   object.ObjectName,
-	//			VersionId:    object.VersionId,
-	//			DeleteMarker: result.DeleteMarker,
-	//			DeleteMarkerVersionId: helper.Ternary(result.DeleteMarker,
-	//				result.VersionId, "").(string),
-	//		})
-	//	} else {
-	//		logger.Error("Unable to delete object:", err)
-	//		apiErrorCode, ok := err.(ApiErrorCode)
-	//		if ok {
-	//			deleteErrors = append(deleteErrors, DeleteError{
-	//				Code:      ErrorCodeResponse[apiErrorCode].AwsErrorCode,
-	//				Message:   ErrorCodeResponse[apiErrorCode].Description,
-	//				Key:       object.ObjectName,
-	//				VersionId: object.VersionId,
-	//			})
-	//		} else {
-	//			deleteErrors = append(deleteErrors, DeleteError{
-	//				Code:      "InternalError",
-	//				Message:   "We encountered an internal error, please try again.",
-	//				Key:       object.ObjectName,
-	//				VersionId: object.VersionId,
-	//			})
-	//		}
-	//	}
-	//}
+	// WARNING: Suppose the all objects in the request exists,
+	// otherwise the result of the object will not be returned if the object does not exist.
+	objs, err := yig.MetaStorage.GetDeleteObjects(*bucket, deleteObjects, false)
+	if err != nil {
+		return result, err
+	}
+	objsWithVersion, err := yig.MetaStorage.GetDeleteObjects(*bucket, deleteObjectsWithVersion, true)
+	if err != nil {
+		return result, err
+	}
+	for _, o := range objs {
+		r, err := yig.removeObject(bucket, o, "")
+		if err == nil {
+			result.DeletedObjects = append(result.DeletedObjects, datatype.ObjectIdentifier{
+				ObjectName:            o.Name,
+				DeleteMarker:          r.DeleteMarker,
+				DeleteMarkerVersionId: r.VersionId,
+			})
+		} else {
+			logger.Error("Unable to delete object:", err)
+			apiErrorCode, ok := err.(ApiErrorCode)
+			if ok {
+				result.DeleteErrors = append(result.DeleteErrors, datatype.DeleteError{
+					Code:    ErrorCodeResponse[apiErrorCode].AwsErrorCode,
+					Message: ErrorCodeResponse[apiErrorCode].Description,
+					Key:     o.Name,
+				})
+			} else {
+				result.DeleteErrors = append(result.DeleteErrors, datatype.DeleteError{
+					Code:    "InternalError",
+					Message: "We encountered an internal error, please try again.",
+					Key:     o.Name,
+				})
+			}
+		}
+	}
+
+	for _, o := range objsWithVersion {
+		r, err := yig.removeObject(bucket, o, o.VersionId)
+		if err == nil {
+			result.DeletedObjects = append(result.DeletedObjects, datatype.ObjectIdentifier{
+				ObjectName:            o.Name,
+				VersionId:             o.VersionId,
+				DeleteMarker:          r.DeleteMarker,
+				DeleteMarkerVersionId: r.VersionId,
+			})
+		} else {
+			logger.Error("Unable to delete object:", err)
+			apiErrorCode, ok := err.(ApiErrorCode)
+			if ok {
+				result.DeleteErrors = append(result.DeleteErrors, datatype.DeleteError{
+					Code:      ErrorCodeResponse[apiErrorCode].AwsErrorCode,
+					Message:   ErrorCodeResponse[apiErrorCode].Description,
+					Key:       o.Name,
+					VersionId: o.VersionId,
+				})
+			} else {
+				result.DeleteErrors = append(result.DeleteErrors, datatype.DeleteError{
+					Code:      "InternalError",
+					Message:   "We encountered an internal error, please try again.",
+					Key:       o.Name,
+					VersionId: o.VersionId,
+				})
+			}
+		}
+	}
 	return
 }

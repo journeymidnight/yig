@@ -34,3 +34,14 @@ func (s3client *S3Client) HeadBucket(bucketName string) (err error) {
 	}
 	return
 }
+
+func (s3client *S3Client) DeleteObjects(bucketName string, delete *s3.Delete) (result *s3.DeleteObjectsOutput, err error) {
+	params := &s3.DeleteObjectsInput{
+		Bucket: aws.String(bucketName),
+		Delete: delete,
+	}
+	if result, err = s3client.Client.DeleteObjects(params); err != nil {
+		return
+	}
+	return
+}

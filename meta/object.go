@@ -5,6 +5,7 @@ import (
 	"math"
 	"strconv"
 
+	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
@@ -45,8 +46,8 @@ func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (o
 	return object, nil
 }
 
-func (m *Meta) GetAllObject(bucketName string, objectName string) (object []*Object, err error) {
-	return m.Client.GetAllObject(bucketName, objectName, "")
+func (m *Meta) GetDeleteObjects(bucket Bucket, objects []datatype.ObjectIdentifier, versioned bool) (object []*Object, err error) {
+	return m.Client.GetDeleteObjects(bucket, objects, versioned)
 }
 
 func (m *Meta) GetObjectMap(bucketName, objectName string) (objMap *ObjMap, err error) {

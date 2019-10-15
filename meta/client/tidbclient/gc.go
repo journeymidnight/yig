@@ -2,10 +2,11 @@ package tidbclient
 
 import (
 	"database/sql"
-	. "github.com/journeymidnight/yig/meta/types"
 	"math"
 	"strings"
 	"time"
+
+	. "github.com/journeymidnight/yig/meta/types"
 )
 
 //gc

@@ -318,7 +318,10 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	// Loop through all the objects and delete them sequentially.
 	//for _, object := range deleteObjects.Objects {
 	result, err := api.ObjectAPI.DeleteMultipleObjects(reqCtx, deleteObjects.Objects, credential)
-
+	if err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
 	// Generate response
 	response := GenerateMultiDeleteResponse(deleteObjects.Quiet, result.DeletedObjects, result.DeleteErrors)
 	encodedSuccessResponse := EncodeResponse(response)

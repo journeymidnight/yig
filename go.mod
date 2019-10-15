@@ -29,6 +29,7 @@ replace (
 require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/DATA-DOG/go-sqlmock v1.3.3
+	github.com/aws/aws-sdk-go v1.25.12
 	github.com/cep21/circuit v0.0.0-20181030180945-e893c027dc21
 	github.com/confluentinc/confluent-kafka-go v1.0.0 //indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
@@ -39,6 +40,7 @@ require (
 	github.com/hashicorp/vault/api v1.0.2
 	github.com/journeymidnight/aws-sdk-go v0.0.0-20190905144850-21150785b32d
 	github.com/journeymidnight/radoshttpd v0.0.0-20190617133011-609666b51136
+	github.com/magiconair/properties v1.8.1
 	github.com/minio/highwayhash v1.0.0
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
 	github.com/stretchr/testify v1.3.0

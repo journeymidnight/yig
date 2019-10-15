@@ -3,10 +3,11 @@ package types
 import (
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/dustin/go-humanize"
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/policy"
-	"time"
 )
 
 const (
@@ -14,6 +15,8 @@ const (
 	VersionDisabled  = "Disabled"
 	VersionSuspended = "Suspended"
 )
+
+const NullVersion = "null"
 
 type Bucket struct {
 	Name string
