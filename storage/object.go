@@ -73,6 +73,9 @@ func (yig *YigStorage) pickClusterAndPool(bucket string, object string,
 		if cluster.Weight == 0 {
 			continue
 		}
+		if cluster.Pool != poolName {
+			continue
+		}
 		if needCheck {
 			usage, err := yig.DataStorage[cluster.Fsid].GetUsage()
 			if err != nil {
