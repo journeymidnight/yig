@@ -63,7 +63,7 @@ const (
 	ErrInvalidCopyRequest
 	ErrInvalidRenameSourceKey
 	ErrInvalidRenameTarget
-	ErrNotSupportBucketEnabledVersion
+	ErrNotSupportEnabledBucketVersion
 	ErrInvalidPrecondition
 	ErrInvalidPolicyDocument
 	ErrInvalidCorsDocument
@@ -200,9 +200,9 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		Description:    "Rename Target must not be a folder and addition target have not already created.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
-	ErrNotSupportBucketEnabledVersion: {
-		AwsErrorCode:   "InvalidBucketVersion",
-		Description:    "Renaming objects in multi-version enabled buckets is not supported.",
+	ErrNotSupportEnabledBucketVersion: {
+		AwsErrorCode:   "NotSupportEnabledBucketVersion",
+		Description:    "This operation is not supported when bucket version enabled.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidPrecondition: {

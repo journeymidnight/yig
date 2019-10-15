@@ -644,7 +644,7 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 	//TODO: Supplement Object MultiVersion Judge.
 	bucket := reqCtx.BucketInfo
 	if bucket.Versioning != meta.VersionDisabled {
-		WriteErrorResponse(w, r, ErrNotSupportBucketEnabledVersion)
+		WriteErrorResponse(w, r, ErrNotSupportEnabledBucketVersion)
 		return
 	}
 	logger.Info("Bucket Multi-version is:", bucket.Versioning)

@@ -1145,7 +1145,7 @@ func (yig *YigStorage) DeleteMultipleObjects(reqCtx api.RequestContext, objects 
 		}
 	}
 	if bucket.Versioning == meta.VersionDisabled && len(deleteObjectsWithVersion) != 0 {
-		return result, ErrNotSupportBucketEnabledVersion
+		return result, ErrNotSupportEnabledBucketVersion
 	}
 
 	// WARNING: Suppose the all objects in the request exists,

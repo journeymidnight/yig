@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"math"
 	"strconv"
 	"time"
@@ -93,7 +92,7 @@ func (t *TidbClient) GetDeleteObjects(bucket Bucket, objects []datatype.ObjectId
 		return nil, nil
 	}
 	if versioned && bucket.Versioning == VersionDisabled {
-		return nil, ErrNotSupportBucketEnabledVersion
+		return nil, ErrNotSupportEnabledBucketVersion
 	}
 	sqltext := "select bucketname,name,version,location,pool,ownerid,size,objectid," +
 		"nullversion,deletemarker,type,storageclass " +
@@ -104,93 +103,11 @@ func (t *TidbClient) GetDeleteObjects(bucket Bucket, objects []datatype.ObjectId
 
 	// If bucket version is enabled, batch query the delete objects,
 	// else execute the single row query by loop.
+	// TODO: Implement these codes when versioning is redesigned
 	if bucket.Versioning == VersionEnabled {
-		if versioned {
-			sqltext += fmt.Sprintf("and (name, version) in (%s); ", getPlaceHolders(len(objects), 2))
-			for _, o := range objects {
-				args = append(args, o.ObjectName, o.VersionId)
-			}
-		} else {
-			sqltext += fmt.Sprintf("and name in (%s); ", getPlaceHolders(len(objects), 1))
-			for _, o := range objects {
-				args = append(args, o.ObjectName)
-			}
-		}
-		rows, err := t.Client.Query(sqltext, args...)
-		if err != nil {
-			return nil, err
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var iversion uint64
-			object := &Object{}
-			err = rows.Scan(
-				&object.BucketName,
-				&object.Name,
-				&iversion,
-				&object.Location,
-				&object.Pool,
-				&object.OwnerId,
-				&object.Size,
-				&object.ObjectId,
-				&object.NullVersion,
-				&object.DeleteMarker,
-				&object.Type,
-				&object.StorageClass,
-			)
-			if err != nil {
-				return nil, err
-			}
-			rversion := math.MaxUint64 - iversion
-			s := int64(rversion) / 1e9
-			ns := int64(rversion) % 1e9
-			object.LastModifiedTime = time.Unix(s, ns)
-			deleteObjects = append(deleteObjects, object)
-		}
+		return nil, ErrNotSupportEnabledBucketVersion
 	} else if bucket.Versioning == VersionSuspended {
-		if versioned {
-			sqltext += fmt.Sprintf("and (name, version) in (%s); ", getPlaceHolders(len(objects), 2))
-			for _, o := range objects {
-				args = append(args, o.ObjectName, o.VersionId)
-			}
-		} else {
-			sqltext += fmt.Sprintf("and (name, version) in (%s); ", getPlaceHolders(len(objects), 2))
-			for _, o := range objects {
-				// FIXME: Currently not considered `suspended`
-				args = append(args, o.ObjectName, NullVersion)
-			}
-		}
-		rows, err := t.Client.Query(sqltext, args...)
-		if err != nil {
-			return nil, err
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var iversion uint64
-			object := &Object{}
-			err = rows.Scan(
-				&object.BucketName,
-				&object.Name,
-				&iversion,
-				&object.Location,
-				&object.Pool,
-				&object.OwnerId,
-				&object.Size,
-				&object.ObjectId,
-				&object.NullVersion,
-				&object.DeleteMarker,
-				&object.Type,
-				&object.StorageClass,
-			)
-			if err != nil {
-				return nil, err
-			}
-			rversion := math.MaxUint64 - iversion
-			s := int64(rversion) / 1e9
-			ns := int64(rversion) % 1e9
-			object.LastModifiedTime = time.Unix(s, ns)
-			deleteObjects = append(deleteObjects, object)
-		}
+		return nil, ErrNotSupportEnabledBucketVersion
 	} else {
 		for _, o := range objects {
 			var iversion uint64
