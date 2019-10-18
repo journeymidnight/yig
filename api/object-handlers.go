@@ -1025,6 +1025,79 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	WriteSuccessResponse(w, nil)
 }
 
+func (api ObjectAPIHandlers) PutObjectCustomAttributes(w http.ResponseWriter, r *http.Request) {
+	ctx := getRequestContext(r)
+	logger := ctx.Logger
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+	objectName := vars["object"]
+
+	logger.Info("Put object attributes:", bucketName, objectName)
+
+	var credential common.Credential
+	var err error
+	if credential, err = checkRequestAuth(r, policy.PutObjectAction); err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+
+	sourceObject, err := api.ObjectAPI.GetObjectInfo(ctx.BucketName, ctx.ObjectName,
+		ctx.ObjectInfo.VersionId, credential)
+	if err != nil {
+		WriteErrorResponseWithResource(w, r, err, ctx.ObjectName)
+		return
+	}
+
+	targetObject := sourceObject
+
+	r.ParseForm()
+	if r.PostForm != nil {
+		targetCustomAttrs := sourceObject.CustomAttributes
+		CustomAttrs := r.PostForm
+		for key, value := range CustomAttrs {
+			targetCustomAttrs[key] = value[0]
+		}
+		targetObject.CustomAttributes = targetCustomAttrs
+	}
+
+	result, err := api.ObjectAPI.PutObjectAttrs(targetObject, credential)
+	if err != nil {
+		logger.Error("Unable to update object meta for", targetObject.ObjectId,
+			"error:", err)
+		WriteErrorResponse(w, r, err)
+		return
+	}
+
+	response := GeneratePostObjectAttrsResponse(result.Md5, result.LastModified)
+	encodedSuccessResponse := EncodeResponse(response)
+	// write headers
+	if result.Md5 != "" {
+		w.Header()["ETag"] = []string{"\"" + result.Md5 + "\""}
+	}
+	if sourceObject.VersionId != "" {
+		w.Header().Set("x-amz-copy-source-version-id", sourceObject.VersionId)
+	}
+	if result.VersionId != "" {
+		w.Header().Set("x-amz-version-id", result.VersionId)
+	}
+	// Set SSE related headers
+	for _, headerName := range []string{
+		"X-Amz-Server-Side-Encryption",
+		"X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id",
+		"X-Amz-Server-Side-Encryption-Customer-Algorithm",
+		"X-Amz-Server-Side-Encryption-Customer-Key-Md5",
+	} {
+		if header := r.Header.Get(headerName); header != "" {
+			w.Header().Set(headerName, header)
+		}
+	}
+
+	// ResponseRecorder
+	w.(*ResponseRecorder).operationName = "PostObjectCustomAttributes"
+
+	WriteSuccessResponse(w, encodedSuccessResponse)
+}
+
 func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.Request) {
 	logger := ContextLogger(r)
 	vars := mux.Vars(r)
