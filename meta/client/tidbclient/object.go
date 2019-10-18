@@ -113,6 +113,12 @@ func (t *TidbClient) GetAllObject(bucketName, objectName, version string) (objec
 	return
 }
 
+func (t *TidbClient) UpdateObjectAttrs(object *Object) error {
+	sql, args := object.GetUpdateAttrsSql()
+	_, err := t.Client.Exec(sql, args...)
+	return err
+}
+
 func (t *TidbClient) UpdateObjectAcl(object *Object) error {
 	sql, args := object.GetUpdateAclSql()
 	_, err := t.Client.Exec(sql, args...)

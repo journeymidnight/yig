@@ -130,6 +130,11 @@ func (m *Meta) UpdateObjectAcl(object *Object) error {
 	return err
 }
 
+func (m *Meta) UpdateObjectAttrs(object *Object) error {
+	err := m.Client.UpdateObjectAttrs(object)
+	return err
+}
+
 func (m *Meta) RenameObject(object *Object, sourceObject string) error {
 	err := m.Client.RenameObject(object, sourceObject, nil)
 	return err
@@ -203,4 +208,3 @@ func (m *Meta) AppendObject(object *Object, isExist bool) error {
 	}
 	return m.Client.CommitTrans(tx)
 }
-
