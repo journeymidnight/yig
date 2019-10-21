@@ -147,6 +147,14 @@ const (
 	ErrInvalidLc
 	ErrNoSuchBucketLc
 	ErrInvalidStorageClass
+
+	// Add new glacier error codes here.
+	ErrResourceNotFound
+	ErrInvalidParameterValue
+	ErrMissingParameterValue
+	ErrRequestTimeout
+	ErrServiceUnavailable
+	ErrLimitExceeded
 )
 
 // error code to APIError structure, these fields carry respective
@@ -651,6 +659,36 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidStorageClass: {
 		AwsErrorCode:   "InvalidStorageClass",
 		Description:    "The storage class you specified in header is invalid.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrResourceNotFound: {
+		AwsErrorCode:   "ResourceNotFoundException",
+		Description:    "The specified resource (such as a vault, upload ID, or job ID) doesn't exist.",
+		HttpStatusCode: http.StatusNotFound,
+	},
+	ErrInvalidParameterValue: {
+		AwsErrorCode:   "InvalidArgument",
+		Description:    "A parameter of the request is incorrectly specified.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMissingParameterValue: {
+		AwsErrorCode:   "InvalidArgument",
+		Description:    "A required header or parameter is missing from the request.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrRequestTimeout: {
+		AwsErrorCode:   "RequestTimeoutException",
+		Description:    "when uploading an archive, Amazon S3 Glacier times out while receiving the upload.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrServiceUnavailable: {
+		AwsErrorCode:   "ServiceUnavailableException",
+		Description:    "The service cannot complete the request.",
+		HttpStatusCode: http.StatusNotImplemented,
+	},
+	ErrLimitExceeded: {
+		AwsErrorCode:   "LimitExceededException",
+		Description:    "The request results in a vault or account limit being exceeded.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 }
