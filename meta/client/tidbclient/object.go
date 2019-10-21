@@ -98,9 +98,6 @@ func (t *TidbClient) GetDeleteObjects(bucket Bucket, objects []datatype.ObjectId
 		"nullversion,deletemarker,type,storageclass " +
 		"from objects where bucketname=? "
 
-	var args []interface{}
-	args = append(args, bucket.Name)
-
 	// If bucket version is enabled, batch query the delete objects,
 	// else execute the single row query by loop.
 	// TODO: Implement these codes when versioning is redesigned

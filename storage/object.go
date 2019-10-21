@@ -1154,10 +1154,7 @@ func (yig *YigStorage) DeleteMultipleObjects(reqCtx api.RequestContext, objects 
 	if err != nil {
 		return result, err
 	}
-	objsWithVersion, err := yig.MetaStorage.GetDeleteObjects(*bucket, deleteObjectsWithVersion, true)
-	if err != nil {
-		return result, err
-	}
+
 	for _, o := range objs {
 		r, err := yig.removeObject(bucket, o, "")
 		if err == nil {
@@ -1180,36 +1177,6 @@ func (yig *YigStorage) DeleteMultipleObjects(reqCtx api.RequestContext, objects 
 					Code:    "InternalError",
 					Message: "We encountered an internal error, please try again.",
 					Key:     o.Name,
-				})
-			}
-		}
-	}
-
-	for _, o := range objsWithVersion {
-		r, err := yig.removeObject(bucket, o, o.VersionId)
-		if err == nil {
-			result.DeletedObjects = append(result.DeletedObjects, datatype.ObjectIdentifier{
-				ObjectName:            o.Name,
-				VersionId:             o.VersionId,
-				DeleteMarker:          r.DeleteMarker,
-				DeleteMarkerVersionId: r.VersionId,
-			})
-		} else {
-			logger.Error("Unable to delete object:", err)
-			apiErrorCode, ok := err.(ApiErrorCode)
-			if ok {
-				result.DeleteErrors = append(result.DeleteErrors, datatype.DeleteError{
-					Code:      ErrorCodeResponse[apiErrorCode].AwsErrorCode,
-					Message:   ErrorCodeResponse[apiErrorCode].Description,
-					Key:       o.Name,
-					VersionId: o.VersionId,
-				})
-			} else {
-				result.DeleteErrors = append(result.DeleteErrors, datatype.DeleteError{
-					Code:      "InternalError",
-					Message:   "We encountered an internal error, please try again.",
-					Key:       o.Name,
-					VersionId: o.VersionId,
 				})
 			}
 		}
