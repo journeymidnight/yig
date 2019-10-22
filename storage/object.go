@@ -651,7 +651,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	return result, nil
 }
 
-func (yig *YigStorage) PutObjectAttrs(targetObject *meta.Object, credential common.Credential) (result datatype.PutObjectAttrsResult, err error) {
+func (yig *YigStorage) PutObjectMeta(targetObject *meta.Object, credential common.Credential) (err error) {
 	bucket, err := yig.MetaStorage.GetBucket(targetObject.BucketName, true)
 	if err != nil {
 		return
@@ -662,23 +662,20 @@ func (yig *YigStorage) PutObjectAttrs(targetObject *meta.Object, credential comm
 		break
 	default:
 		if bucket.OwnerId != credential.UserId {
-			return result, ErrBucketAccessForbidden
+			return ErrBucketAccessForbidden
 		}
 	}
 
 	err = yig.MetaStorage.UpdateObjectAttrs(targetObject)
 	if err != nil {
 		helper.Logger.Error("Update Object Attrs, sql fails:", err)
-		return result, ErrInternalError
+		return ErrInternalError
 	}
 
-	result.LastModified = targetObject.LastModifiedTime
-	result.Md5 = targetObject.Etag
-	result.VersionId = targetObject.GetVersionId()
 	yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
 	yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
 
-	return result, nil
+	return nil
 }
 
 func (yig *YigStorage) RenameObject(targetObject *meta.Object, sourceObject string, credential common.Credential) (result datatype.RenameObjectResult, err error) {

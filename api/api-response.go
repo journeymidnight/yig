@@ -172,13 +172,6 @@ func GenerateCopyObjectPartResponse(etag string, lastModified time.Time) CopyObj
 	}
 }
 
-func GeneratePostObjectAttrsResponse(etag string, lastModified time.Time) PostObjectAttrsResponse {
-	return PostObjectAttrsResponse{
-		ETag:         "\"" + etag + "\"",
-		LastModified: lastModified.UTC().Format(timeFormatAMZ),
-	}
-}
-
 // GenerateRenameObjectResponse
 func GenerateRenameObjectResponse(lastModified time.Time) RenameObjectResponse {
 	return RenameObjectResponse{
