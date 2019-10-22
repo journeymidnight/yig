@@ -651,12 +651,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	return result, nil
 }
 
-func (yig *YigStorage) PutObjectMeta(targetObject *meta.Object, credential common.Credential) (err error) {
-	bucket, err := yig.MetaStorage.GetBucket(targetObject.BucketName, true)
-	if err != nil {
-		return
-	}
-
+func (yig *YigStorage) PutObjectMeta(bucket *meta.Bucket, targetObject *meta.Object, credential common.Credential) (err error) {
 	switch bucket.ACL.CannedAcl {
 	case "public-read-write":
 		break
