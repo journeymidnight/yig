@@ -2,18 +2,21 @@ package datatype
 
 import (
 	"encoding/xml"
-	. "github.com/journeymidnight/yig/error"
 	"github.com/dustin/go-humanize"
+	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"io"
 	"io/ioutil"
+	"strings"
 )
 
 const (
-	MaxObjectMetaConfigurationSize = 20 * humanize.KiByte
+	MaxObjectMetaConfigurationSize = 2 * humanize.KiByte
+	CustomizeMetadataHead          = "X-Amz-Meta-"
 )
 
-var supportedGetReqParams = map[string]string{
+// supportedGetReqParams - supported request parameters for GET presigned request.
+var SupportedGetReqParams = map[string]string{
 	"response-expires":             "Expires",
 	"response-content-type":        "Content-Type",
 	"response-cache-control":       "Cache-Control",
@@ -25,23 +28,12 @@ var supportedGetReqParams = map[string]string{
 type MetaConfiguration struct {
 	XMLName   xml.Name `xml:"MetaConfiguration"`
 	Xmlns     string   `xml:"Xmlns,attr,omitempty"`
-	VersionID string   `xml:"VersionID"`
-	Headers   Headers  `xml:"Headers,omitempty"`
+	VersionID string   `xml:"VersionID,omitempty"`
+	Headers   *Headers `xml:"Headers,omitempty"`
 }
 
 type Headers struct {
-	XMLName         xml.Name        `xml:"Headers"`
-	HeaderCommon    HeaderCommon    `xml:"HeaderCommon"`
-	HeaderCustomize HeaderCustomize `xml:"HeaderCustomize"`
-}
-
-type HeaderCommon struct {
-	XMLName  xml.Name `xml:"HeaderCommon"`
-	MetaData []Meta   `xml:"MetaData,omitempty"`
-}
-
-type HeaderCustomize struct {
-	XMLName  xml.Name `xml:"HeaderCustomize"`
+	XMLName  xml.Name `xml:"Headers"`
 	MetaData []Meta   `xml:"MetaData,omitempty"`
 }
 
@@ -60,19 +52,17 @@ func (w *MetaConfiguration) Validate() (metaData MetaData, error error) {
 	if w == nil {
 		return metaData, ErrEmptyEntity
 	}
-	metaData.VersionId = w.VersionID
-	if w.Headers.HeaderCommon.MetaData != nil {
-		for _, reqHead := range w.Headers.HeaderCommon.MetaData {
-			for _, supportHead := range supportedGetReqParams {
-				if reqHead.Key != supportHead {
-					return metaData, ErrMetaCommonHead
+
+	if w.Headers.MetaData != nil {
+		for _, reqHead := range w.Headers.MetaData {
+			validMeta := strings.HasPrefix(reqHead.Key, CustomizeMetadataHead)
+			if !validMeta {
+				for _, supportHead := range SupportedGetReqParams {
+					if reqHead.Key != supportHead {
+						return metaData, ErrMetadataHead
+					}
 				}
-				metaData.Data[reqHead.Key] = reqHead.Value
 			}
-		}
-	}
-	if w.Headers.HeaderCustomize.MetaData != nil {
-		for _, reqHead := range w.Headers.HeaderCustomize.MetaData {
 			metaData.Data[reqHead.Key] = reqHead.Value
 		}
 	}
@@ -83,7 +73,7 @@ func ParseMetaConfig(reader io.Reader) (metaData MetaData, err error) {
 	metaConfig := new(MetaConfiguration)
 	metaBuffer, err := ioutil.ReadAll(reader)
 	if err != nil {
-		helper.Logger.Error("Unable to read website config body:", err)
+		helper.Logger.Error("Unable to read metadata setting body:", err)
 		return metaData, err
 	}
 	size := len(metaBuffer)
@@ -92,7 +82,7 @@ func ParseMetaConfig(reader io.Reader) (metaData MetaData, err error) {
 	}
 	err = xml.Unmarshal(metaBuffer, metaConfig)
 	if err != nil {
-		helper.Logger.Error("Unable to parse website config XML body:", err)
+		helper.Logger.Error("Unable to parse metadata setting XML body:", err)
 		return metaData, ErrMalformedWebsiteConfiguration
 	}
 	metaData, err = metaConfig.Validate()

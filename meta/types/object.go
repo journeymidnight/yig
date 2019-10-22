@@ -171,10 +171,9 @@ func (o *Object) GetUpdateAclSql() (string, []interface{}) {
 }
 
 func (o *Object) GetUpdateAttrsSql() (string, []interface{}) {
-	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
 	customAttributes, _ := json.Marshal(o.CustomAttributes)
-	sql := "update objects set customattributes=? where bucketname=? and name=? and version=?"
-	args := []interface{}{customAttributes, o.BucketName, o.Name, version}
+	sql := "update objects set customattributes=? where bucketname=? and name=?"
+	args := []interface{}{customAttributes, o.BucketName, o.Name}
 	return sql, args
 }
 

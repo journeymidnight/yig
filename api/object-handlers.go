@@ -38,20 +38,10 @@ import (
 	"github.com/journeymidnight/yig/signature"
 )
 
-// supportedGetReqParams - supported request parameters for GET presigned request.
-var supportedGetReqParams = map[string]string{
-	"response-expires":             "Expires",
-	"response-content-type":        "Content-Type",
-	"response-cache-control":       "Cache-Control",
-	"response-content-disposition": "Content-Disposition",
-	"response-content-language":    "Content-Language",
-	"response-content-encoding":    "Content-Encoding",
-}
-
 // setGetRespHeaders - set any requested parameters as response headers.
 func setGetRespHeaders(w http.ResponseWriter, reqParams url.Values) {
 	for k, v := range reqParams {
-		if header, ok := supportedGetReqParams[k]; ok {
+		if header, ok := SupportedGetReqParams[k]; ok {
 			w.Header()[header] = v
 		}
 	}
@@ -1041,13 +1031,6 @@ func (api ObjectAPIHandlers) PutObjectMeta(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	sourceObject, err := api.ObjectAPI.GetObjectInfo(ctx.BucketName, ctx.ObjectName,
-		ctx.ObjectInfo.VersionId, credential)
-	if err != nil {
-		WriteErrorResponseWithResource(w, r, err, ctx.ObjectName)
-		return
-	}
-
 	if r.ContentLength <= 0 {
 		WriteErrorResponse(w, r, ErrMissingContentLength)
 		return
@@ -1057,13 +1040,11 @@ func (api ObjectAPIHandlers) PutObjectMeta(w http.ResponseWriter, r *http.Reques
 		WriteErrorResponse(w, r, err)
 		return
 	}
+	sourceObject:= ctx.ObjectInfo
 	targetObject := sourceObject
 	targetObject.CustomAttributes = metaData.Data
-	if metaData.VersionId != "" {
-		targetObject.VersionId = metaData.VersionId
-	}
 
-	err = api.ObjectAPI.PutObjectMeta(targetObject, credential)
+	err = api.ObjectAPI.PutObjectMeta(ctx.BucketInfo, targetObject, credential)
 	if err != nil {
 		logger.Error("Unable to update object meta for", targetObject.ObjectId,
 			"error:", err)
