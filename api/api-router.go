@@ -88,7 +88,7 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 		// DeleteObject
 		bucket.Methods("DELETE").Path("/{object:.+}").HandlerFunc(api.DeleteObjectHandler)
 		// POSTObjectCustomAttributes
-		bucket.Methods("POST").Path("/{object:.+}").Queries("meta", "").HandlerFunc(api.PutObjectCustomAttributes)
+		bucket.Methods("PUT").Path("/{object:.+}").Queries("meta", "").HandlerFunc(api.PutObjectMeta)
 
 		/// Bucket operations
 

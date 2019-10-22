@@ -327,7 +327,7 @@ func Test_RenameObjectWithSameName(t *testing.T) {
 	if err != nil {
 		t.Fatal("Copy Object err:", err)
 	}
-	
+
 	input2 := &s3.RenameObjectInput{
 		Bucket:          aws.String(TEST_BUCKET),
 		RenameSourceKey: aws.String(TEST_KEY),
@@ -568,3 +568,69 @@ func Test_GetObjectByAnonymous(t *testing.T) {
 	sc.CleanEnv()
 
 }
+
+//func Test_PutObjectMeta(t *testing.T) {
+//	sc := NewS3()
+//	defer sc.CleanEnv()
+//	err := sc.MakeBucket(TEST_BUCKET)
+//	if err != nil {
+//		t.Fatal("MakeBucket err:", err)
+//		panic(err)
+//	}
+//
+//	err = sc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+//	if err != nil {
+//		t.Fatal("PutObject err:", err)
+//		panic(err)
+//	}
+//
+//	input := &s3.PutObjectMetaInput{
+//		Bucket:             aws.String(TEST_BUCKET),
+//		CacheControl:       aws.String("hehehehe"),
+//		ContentDisposition: aws.String("hehehehe"),
+//		ContentEncoding:    aws.String("utf-8"),
+//		ContentLanguage:    aws.String("golang"),
+//		ContentType:        aws.String("image/jpeg"),
+//		Key:                aws.String(TEST_KEY),
+//		Metadata:           map[string]*string{
+//			"merry":     aws.String("christmas"), //in
+//			"happy":     aws.String("new year"),  //in
+//			"Christmas": aws.String("EVE"),       //in
+//			"hello":     aws.String("world"),     //out
+//		},
+//	}
+//	_, err = sc.Client.PutObjectMeta(input)
+//	if err == nil {
+//		t.Fatal("Put Object MetaData with :", err)
+//	}
+//
+//	params := &s3.HeadObjectInput{
+//		Bucket: aws.String(TEST_BUCKET),
+//		Key:    aws.String(TEST_KEY),
+//	}
+//
+//
+//	headResult, err := sc.Client.HeadObject(params)
+//	if err != nil {
+//		t.Fatal("Head object failed")
+//	}
+//
+//	//if *headResult.ContentType != "image/jpeg"{
+//	//	t.Fatal("failed to set content type")
+//	//}
+//
+//	for k, v := range headResult.Metadata {
+//		switch k {
+//		case "merry":
+//			if *v != "christmas" {
+//				t.Fatal("failed to set user defined type")
+//			}
+//		case "hello":
+//			if *v != "world" {
+//				t.Fatal("failed to set user defined type")
+//			}
+//		default:
+//			break
+//		}
+//	}
+//}

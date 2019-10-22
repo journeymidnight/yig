@@ -116,6 +116,7 @@ const (
 	ErrInvalidPosition
 	ErrObjectNotAppendable
 	ErrPositionNotEqualToLength
+	ErrMetaCommonHead
 	// Add new error codes here.
 
 	// SSE-S3 related API errors
@@ -753,6 +754,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidErrorDocumentKey: {
 		AwsErrorCode:   "InvalidErrorDocumentKey",
 		Description:    "The key is required when ErrorDocument is specified.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMetaCommonHead: {
+		AwsErrorCode:   "InvalidMetaCommonHead",
+		Description:    "The head is no a common head key can be set.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 }

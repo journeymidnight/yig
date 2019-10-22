@@ -1025,7 +1025,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	WriteSuccessResponse(w, nil)
 }
 
-func (api ObjectAPIHandlers) PutObjectCustomAttributes(w http.ResponseWriter, r *http.Request) {
+func (api ObjectAPIHandlers) PutObjectMeta(w http.ResponseWriter, r *http.Request) {
 	ctx := getRequestContext(r)
 	logger := ctx.Logger
 	vars := mux.Vars(r)
@@ -1048,19 +1048,22 @@ func (api ObjectAPIHandlers) PutObjectCustomAttributes(w http.ResponseWriter, r 
 		return
 	}
 
+	if r.ContentLength <= 0 {
+		WriteErrorResponse(w, r, ErrMissingContentLength)
+		return
+	}
+	metaData, err := ParseMetaConfig(io.LimitReader(r.Body, r.ContentLength))
+	if err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
 	targetObject := sourceObject
-
-	r.ParseForm()
-	if r.PostForm != nil {
-		targetCustomAttrs := sourceObject.CustomAttributes
-		CustomAttrs := r.PostForm
-		for key, value := range CustomAttrs {
-			targetCustomAttrs[key] = value[0]
-		}
-		targetObject.CustomAttributes = targetCustomAttrs
+	targetObject.CustomAttributes = metaData.Data
+	if metaData.VersionId != "" {
+		targetObject.VersionId = metaData.VersionId
 	}
 
-	result, err := api.ObjectAPI.PutObjectAttrs(targetObject, credential)
+	err = api.ObjectAPI.PutObjectMeta(targetObject, credential)
 	if err != nil {
 		logger.Error("Unable to update object meta for", targetObject.ObjectId,
 			"error:", err)
@@ -1068,34 +1071,10 @@ func (api ObjectAPIHandlers) PutObjectCustomAttributes(w http.ResponseWriter, r 
 		return
 	}
 
-	response := GeneratePostObjectAttrsResponse(result.Md5, result.LastModified)
-	encodedSuccessResponse := EncodeResponse(response)
-	// write headers
-	if result.Md5 != "" {
-		w.Header()["ETag"] = []string{"\"" + result.Md5 + "\""}
-	}
-	if sourceObject.VersionId != "" {
-		w.Header().Set("x-amz-copy-source-version-id", sourceObject.VersionId)
-	}
-	if result.VersionId != "" {
-		w.Header().Set("x-amz-version-id", result.VersionId)
-	}
-	// Set SSE related headers
-	for _, headerName := range []string{
-		"X-Amz-Server-Side-Encryption",
-		"X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id",
-		"X-Amz-Server-Side-Encryption-Customer-Algorithm",
-		"X-Amz-Server-Side-Encryption-Customer-Key-Md5",
-	} {
-		if header := r.Header.Get(headerName); header != "" {
-			w.Header().Set(headerName, header)
-		}
-	}
-
 	// ResponseRecorder
-	w.(*ResponseRecorder).operationName = "PostObjectCustomAttributes"
+	w.(*ResponseRecorder).operationName = "PutObjectMeta"
 
-	WriteSuccessResponse(w, encodedSuccessResponse)
+	WriteSuccessResponse(w, nil)
 }
 
 func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.Request) {
@@ -1709,7 +1688,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 		return
 	}
 	if len(complMultipartUpload.Parts) == 0 {
-		logger.Error( "Unable to complete multipart upload: " +
+		logger.Error("Unable to complete multipart upload: " +
 			"len(complMultipartUpload.Parts) == 0")
 		WriteErrorResponse(w, r, ErrMalformedXML)
 		return
