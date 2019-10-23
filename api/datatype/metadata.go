@@ -59,7 +59,7 @@ func (w *MetaConfiguration) Validate() (metaData MetaData, error error) {
 			if !validMeta {
 				for _, supportHead := range SupportedGetReqParams {
 					if reqHead.Key != supportHead {
-						return metaData, ErrMetadataHead
+						return metaData, ErrMetadataHeader
 					}
 				}
 			}
