@@ -19,6 +19,7 @@ package api
 import (
 	"encoding/hex"
 	"encoding/xml"
+	"github.com/opentracing/opentracing-go"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -555,7 +556,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	// Create the object.
-	result, err := api.ObjectAPI.CopyObject(targetObject, pipeReader, credential, sseRequest)
+	result, err := api.ObjectAPI.CopyObject(targetObject, pipeReader, credential, sseRequest, r.Context())
 	if err != nil {
 		logger.Error("CopyObject failed:", err)
 		WriteErrorResponse(w, r, err)
@@ -682,6 +683,8 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 // ----------
 // This implementation of the PUT operation adds an object to a bucket.
 func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Request) {
+	span, ctx := opentracing.StartSpanFromContext(r.Context(), "PutObjectHandler")
+	defer span.Finish()
 	logger := ContextLogger(r)
 	// If the matching failed, it means that the X-Amz-Copy-Source was
 	// wrong, fail right here.
@@ -689,13 +692,12 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		WriteErrorResponse(w, r, ErrInvalidCopySource)
 		return
 	}
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
-	objectName := vars["object"]
-
+	requestCtx := getRequestContext(r)
+	requestCtx.SpanContext = ctx
+	helper.Logger.Info("ctx", ctx)
 	var authType = signature.GetRequestAuthType(r)
 	var err error
-	if !isValidObjectName(objectName) {
+	if !isValidObjectName(requestCtx.ObjectName) {
 		WriteErrorResponse(w, r, ErrInvalidObjectName)
 		return
 	}
@@ -778,7 +780,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	// Support SSE-S3 and SSE-C now
 	var sseRequest SseRequest
 
-	if hasServerSideEncryptionHeader(r.Header) && !hasSuffix(objectName, "/") { // handle SSE requests
+	if hasServerSideEncryptionHeader(r.Header) && !hasSuffix(requestCtx.ObjectName, "/") { // handle SSE requests
 		sseRequest, err = parseSseHeader(r.Header)
 		if err != nil {
 			WriteErrorResponse(w, r, err)
@@ -799,10 +801,10 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	var result PutObjectResult
-	result, err = api.ObjectAPI.PutObject(bucketName, objectName, credential, size, dataReadCloser,
+	result, err = api.ObjectAPI.PutObject(requestCtx, credential, size, dataReadCloser,
 		metadata, acl, sseRequest, storageClass)
 	if err != nil {
-		logger.Error("Unable to create object", objectName, "error:", err)
+		logger.Error("Unable to create object", requestCtx.ObjectName, "error:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -836,17 +838,20 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 // This implementation of the POST operation append an object in a bucket.
 func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := getRequestContext(r)
-	logger := ctx.Logger
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
-	objectName := vars["object"]
 
-	logger.Info("Appending object:", bucketName, objectName)
+	span, spanCtx := opentracing.StartSpanFromContext(ctx.SpanContext, "AppendObjectHandler")
+	defer func() {
+		span.Finish()
+	}()
+	ctx.SpanContext = spanCtx
+	logger := ctx.Logger
+
+	logger.Info("Appending object:", ctx.BucketName, ctx.ObjectName)
 
 	var authType = signature.GetRequestAuthType(r)
 	var err error
 
-	if !isValidObjectName(objectName) {
+	if !isValidObjectName(ctx.ObjectName) {
 		WriteErrorResponse(w, r, ErrInvalidObjectName)
 		return
 	}
@@ -979,7 +984,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 		acl = objInfo.ACL
 	}
 
-	if hasServerSideEncryptionHeader(r.Header) && !hasSuffix(objectName, "/") { // handle SSE requests
+	if hasServerSideEncryptionHeader(r.Header) && !hasSuffix(ctx.ObjectName, "/") { // handle SSE requests
 		sseRequest, err = parseSseHeader(r.Header)
 		if err != nil {
 			WriteErrorResponse(w, r, err)
@@ -992,10 +997,10 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	}
 
 	var result AppendObjectResult
-	result, err = api.ObjectAPI.AppendObject(bucketName, objectName, credential, position, size, dataReadCloser,
+	result, err = api.ObjectAPI.AppendObject(ctx, credential, position, size, dataReadCloser,
 		metadata, acl, sseRequest, storageClass, objInfo)
 	if err != nil {
-		logger.Error("Unable to append object", objectName, "error:", err)
+		logger.Error("Unable to append object", ctx.ObjectName, "error:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -1297,7 +1302,7 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 	var result PutObjectPartResult
 	// No need to verify signature, anonymous request access is already allowed.
 	result, err = api.ObjectAPI.PutObjectPart(bucketName, objectName, credential,
-		uploadID, partID, size, dataReadCloser, incomingMd5, sseRequest)
+		uploadID, partID, size, dataReadCloser, incomingMd5, sseRequest, r.Context())
 	if err != nil {
 		logger.Error("Unable to create object part for", objectName, "error:", err)
 		// Verify if the underlying error is signature mismatch.
@@ -1475,7 +1480,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 
 	// Create the object.
 	result, err := api.ObjectAPI.CopyObjectPart(targetBucketName, targetObjectName, targetUploadId,
-		targetPartId, readLength, pipeReader, credential, sseRequest)
+		targetPartId, readLength, pipeReader, credential, sseRequest, r.Context())
 	if err != nil {
 		logger.Error("Unable to copy object part from", sourceObjectName,
 			"to", targetObjectName, "error:", err)
@@ -1597,6 +1602,8 @@ func (api ObjectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 
 // CompleteMultipartUploadHandler - Complete multipart upload
 func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWriter, r *http.Request) {
+	span, ctx := opentracing.StartSpanFromContext(r.Context(), "CompleteMultipartUploadHandler")
+	defer span.Context()
 	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
@@ -1636,7 +1643,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 		return
 	}
 	if len(complMultipartUpload.Parts) == 0 {
-		logger.Error( "Unable to complete multipart upload: " +
+		logger.Error("Unable to complete multipart upload: " +
 			"len(complMultipartUpload.Parts) == 0")
 		WriteErrorResponse(w, r, ErrMalformedXML)
 		return
@@ -1657,7 +1664,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 
 	var result CompleteMultipartResult
 	result, err = api.ObjectAPI.CompleteMultipartUpload(credential, bucketName,
-		objectName, uploadId, completeParts)
+		objectName, uploadId, completeParts, ctx)
 
 	if err != nil {
 		logger.Error("Unable to complete multipart upload:", err)
@@ -1736,7 +1743,7 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 	version := r.URL.Query().Get("versionId")
 	// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectDELETE.html
 	// Ignore delete object errors, since we are supposed to reply only 204.
-	result, err := api.ObjectAPI.DeleteObject(bucketName, objectName, version, credential)
+	result, err := api.ObjectAPI.DeleteObject(bucketName, objectName, version, credential, r.Context())
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -1854,7 +1861,12 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	result, err := api.ObjectAPI.PutObject(bucketName, objectName, credential, -1, fileBody,
+	requestCtx := getRequestContext(r)
+	requestCtx.BucketName = bucketName
+	requestCtx.ObjectName = objectName
+	requestCtx.SpanContext = r.Context()
+
+	result, err := api.ObjectAPI.PutObject(requestCtx, credential, -1, fileBody,
 		metadata, acl, sseRequest, storageClass)
 	if err != nil {
 		logger.Error("Unable to create object", objectName, "error:", err)

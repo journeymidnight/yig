@@ -2,6 +2,8 @@ package api
 
 import (
 	"fmt"
+	"github.com/opentracing/opentracing-go"
+	"go.uber.org/zap"
 	"net/http"
 	"strings"
 	"time"
@@ -45,10 +47,14 @@ type AccessLogHandler struct {
 }
 
 func (a AccessLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	span, ctx := opentracing.StartSpanFromContext(r.Context(), "AccessLogHandler")
+	defer func() {
+		span.Finish()
+	}()
 	a.responseRecorder = NewResponseRecorder(w)
 
 	startTime := time.Now()
-	a.handler.ServeHTTP(a.responseRecorder, r)
+	a.handler.ServeHTTP(a.responseRecorder, r.WithContext(ctx))
 	finishTime := time.Now()
 	a.responseRecorder.requestTime = finishTime.Sub(startTime)
 
@@ -59,6 +65,8 @@ func (a AccessLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// send the entries in access logger to message bus.
 	elems := newReplacer.GetReplacedValues()
 	a.notify(elems)
+	helper.TracerLogger.For(ctx).TracerInfo("HTTP request received", zap.String("method", r.Method),
+		zap.String("responseRecorder", response))
 }
 
 func (a AccessLogHandler) notify(elems map[string]string) {

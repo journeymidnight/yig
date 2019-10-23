@@ -1,11 +1,13 @@
 package meta
 
 import (
+	"context"
 	"database/sql"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
+	"github.com/opentracing/opentracing-go"
 )
 
 func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (object *Object, err error) {
@@ -81,7 +83,12 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed
 	return object, nil
 }
 
-func (m *Meta) PutObject(object *Object, multipart *Multipart, objMap *ObjMap, updateUsage bool) error {
+func (m *Meta) PutObject(object *Object, multipart *Multipart, objMap *ObjMap, updateUsage bool, ctx context.Context) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "tidbPut")
+	defer func() {
+		span.Finish()
+	}()
+
 	tx, err := m.Client.NewTrans()
 	if err != nil {
 		return err
@@ -179,7 +186,9 @@ func (m *Meta) DeleteObject(object *Object, DeleteMarker bool, objMap *ObjMap) (
 	return m.Client.UpdateUsage(object.BucketName, -object.Size, tx)
 }
 
-func (m *Meta) AppendObject(object *Object, isExist bool) error {
+func (m *Meta) AppendObject(object *Object, isExist bool, ctx context.Context) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "tidbAppend")
+	defer span.Finish()
 	tx, err := m.Client.NewTrans()
 	if err != nil {
 		return err
@@ -203,4 +212,3 @@ func (m *Meta) AppendObject(object *Object, isExist bool) error {
 	}
 	return m.Client.CommitTrans(tx)
 }
-

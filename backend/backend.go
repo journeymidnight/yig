@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"context"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
 	"io"
@@ -21,11 +22,11 @@ type Cluster interface {
 	// get cluster usage statistics
 	GetUsage() (Usage, error)
 	// put new object to storage Cluster
-	Put(poolName string, object io.Reader) (objectName string,
+	Put(poolName string, object io.Reader, ctx context.Context) (objectName string,
 		bytesWritten uint64, err error)
 	// append a new chunk to object, empty existName means new object
 	Append(poolName, existName string, objectChunk io.Reader,
-		offset int64) (objectName string, bytesWritten uint64, err error)
+		offset int64, ctx context.Context) (objectName string, bytesWritten uint64, err error)
 	// get a ReadCloser for object, length == 0 means get the whole object
 	GetReader(poolName, objectName string,
 		offset int64, length uint64) (io.ReadCloser, error)

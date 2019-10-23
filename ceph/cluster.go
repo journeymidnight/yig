@@ -2,11 +2,13 @@ package ceph
 
 import (
 	"container/list"
+	"context"
 	"errors"
 	"fmt"
 	"github.com/journeymidnight/radoshttpd/rados"
 	"github.com/journeymidnight/yig/backend"
 	"github.com/journeymidnight/yig/helper"
+	"github.com/opentracing/opentracing-go"
 	"io"
 	"io/ioutil"
 	"path/filepath"
@@ -210,8 +212,12 @@ func (rd *RadosSmallDownloader) Close() error {
 	return nil
 }
 
-func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
+func (cluster *CephCluster) Put(poolname string, data io.Reader, ctx context.Context) (oid string,
 	size uint64, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "cephPut")
+	defer func() {
+		span.Finish()
+	}()
 
 	oid = cluster.getUniqUploadName()
 	if poolname == backend.SMALL_FILE_POOLNAME {
@@ -343,7 +349,9 @@ func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
 }
 
 func (cluster *CephCluster) Append(poolname string, existName string, data io.Reader,
-	offset int64) (oid string, size uint64, err error) {
+	offset int64, ctx context.Context) (oid string, size uint64, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "cephAppend")
+	defer span.Finish()
 
 	oid = existName
 	if len(oid) == 0 {

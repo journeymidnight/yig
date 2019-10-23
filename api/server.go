@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/meta/types"
@@ -26,6 +27,7 @@ type RequestContext struct {
 	ObjectInfo     *types.Object
 	AuthType       signature.AuthType
 	IsBucketDomain bool
+	SpanContext    context.Context
 }
 
 type Server struct {

@@ -1,6 +1,10 @@
 package main
 
 import (
+	"github.com/journeymidnight/yig/tracing"
+	"github.com/opentracing/opentracing-go"
+	"github.com/uber/jaeger-lib/metrics/prometheus"
+	"go.uber.org/zap"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -70,7 +74,7 @@ func main() {
 			helper.Logger.Error("Failed to create message bus sender, sender is nil.")
 			panic("failed to create message bus sender, sender is nil.")
 		}
-		helper.Logger.Info( "Succeed to create message bus sender.")
+		helper.Logger.Info("Succeed to create message bus sender.")
 	}
 
 	// Read all *.so from plugins directory, and fill the variable allPlugins
@@ -80,12 +84,28 @@ func main() {
 
 	startAdminServer(adminServerConfig)
 
+	metricsFactory := prometheus.New()
+	var zapLogger, err = zap.NewDevelopment()
+	if err != nil {
+		helper.Logger.Error("Failed to create zapLogger, err:", err)
+		panic("failed to create zapLogger")
+	}
+	helper.TracerLogger = log.NewFactory(zapLogger.With(zap.String("service", "YigServer")))
+	tracer, closer, err := tracing.Init("Yig", metricsFactory, helper.TracerLogger)
+	defer closer.Close()
+	if err != nil {
+		helper.Logger.Info("TRACER INIT FAILED! err:", err)
+	}
+
+	opentracing.SetGlobalTracer(tracer)
+
 	apiServerConfig := &ServerConfig{
 		Address:      helper.CONFIG.BindApiAddress,
 		KeyFilePath:  helper.CONFIG.SSLKeyPath,
 		CertFilePath: helper.CONFIG.SSLCertPath,
 		Logger:       helper.Logger,
 		ObjectLayer:  yig,
+		Tracer:       tracer,
 	}
 	startApiServer(apiServerConfig)
 

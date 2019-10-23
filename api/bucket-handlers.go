@@ -316,7 +316,7 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	// Loop through all the objects and delete them sequentially.
 	for _, object := range deleteObjects.Objects {
 		result, err := api.ObjectAPI.DeleteObject(bucket, object.ObjectName,
-			object.VersionId, credential)
+			object.VersionId, credential, r.Context())
 		if err == nil {
 			deletedObjects = append(deletedObjects, ObjectIdentifier{
 				ObjectName:   object.ObjectName,

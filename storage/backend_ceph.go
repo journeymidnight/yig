@@ -3,6 +3,7 @@ package storage
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"github.com/journeymidnight/yig/api"
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/backend"
 	"github.com/journeymidnight/yig/ceph"
@@ -14,6 +15,7 @@ import (
 	"github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/signature"
+	"github.com/opentracing/opentracing-go"
 	"io"
 	"sync"
 	"time"
@@ -40,12 +42,18 @@ func New(metaCacheType int, enableDataCache bool) *YigStorage {
 }
 
 //TODO: Append Support Encryption
-func (yig *YigStorage) AppendObject(bucketName string, objectName string, credential common.Credential,
+func (yig *YigStorage) AppendObject(requestCtx api.RequestContext, credential common.Credential,
 	offset uint64, size int64, data io.ReadCloser, metadata map[string]string, acl datatype.Acl,
-	sseRequest datatype.SseRequest, storageClass types.StorageClass, objInfo *types.Object) (result datatype.AppendObjectResult, err error) {
+	sseRequest datatype.SseRequest, storageClass types.StorageClass,
+	objInfo *types.Object) (result datatype.AppendObjectResult, err error) {
+
+	span, ctx := opentracing.StartSpanFromContext(requestCtx.SpanContext, "AppendObject")
+	defer func() {
+		span.Finish()
+	}()
 
 	defer data.Close()
-	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, bucketName, objectName)
+	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, requestCtx.BucketName, requestCtx.ObjectName)
 	helper.Logger.Println(10, "get encryptionKey:", encryptionKey, "cipherKey:", cipherKey, "err:", err)
 	if err != nil {
 		return
@@ -79,7 +87,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 		helper.Logger.Println(20, "request append oid:", oid, "iv:", initializationVector, "size:", objSize)
 	} else {
 		// New appendable object
-		cephCluster, poolName = yig.pickClusterAndPool(bucketName, objectName, size, true)
+		cephCluster, poolName = yig.pickClusterAndPool(requestCtx.BucketName, requestCtx.ObjectName, size, true)
 		if cephCluster == nil || poolName != backend.BIG_FILE_POOLNAME {
 			helper.Logger.Warn("PickOneClusterAndPool error")
 			return result, ErrInternalError
@@ -99,7 +107,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 	if err != nil {
 		return
 	}
-	oid, bytesWritten, err := cephCluster.Append(poolName, oid, storageReader, int64(offset))
+	oid, bytesWritten, err := cephCluster.Append(poolName, oid, storageReader, int64(offset), ctx)
 	if err != nil {
 		helper.Logger.Error("cephCluster.Append err:", err, poolName, oid, offset)
 		return
@@ -127,8 +135,8 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 
 	// TODO validate bucket policy and fancy ACL
 	object := &types.Object{
-		Name:                 objectName,
-		BucketName:           bucketName,
+		Name:                 requestCtx.BucketName,
+		BucketName:           requestCtx.ObjectName,
 		Location:             cephCluster.ID(),
 		Pool:                 poolName,
 		OwnerId:              credential.UserId,
@@ -150,16 +158,18 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 
 	result.LastModified = object.LastModifiedTime
 	result.NextPosition = object.Size
-	helper.Logger.Println(20, "Append info.", "bucket:", bucketName, "objName:", objectName, "oid:", oid,
+	helper.Logger.Println(20, "Append info.", "bucket:", requestCtx.BucketName, "objName:", requestCtx.ObjectName, "oid:", oid,
 		"objSize:", object.Size, "bytesWritten:", bytesWritten, "storageClass:", storageClass)
-	err = yig.MetaStorage.AppendObject(object, objInfo != nil)
+	err = yig.MetaStorage.AppendObject(object, objInfo != nil, ctx)
 	if err != nil {
 		return
 	}
 
 	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
-		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
+		redisSpan, _ := opentracing.StartSpanFromContext(ctx, "redis start")
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable, requestCtx.BucketName+":"+requestCtx.ObjectName+":")
+		yig.DataCache.Remove(requestCtx.BucketName + ":" + requestCtx.ObjectName + ":" + object.GetVersionId())
+		redisSpan.Finish()
 	}
 	return result, nil
 }

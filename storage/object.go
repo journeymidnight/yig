@@ -1,9 +1,12 @@
 package storage
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
+	"github.com/opentracing/opentracing-go"
+	"go.uber.org/zap"
 	"io"
 	"math/rand"
 	"path"
@@ -30,8 +33,8 @@ const (
 )
 
 func (yig *YigStorage) pickRandomCluster() (cluster backend.Cluster) {
-	helper.Logger.Warn("Error picking cluster from table cluster in DB, "+
-			"use first cluster in config to write.")
+	helper.Logger.Warn("Error picking cluster from table cluster in DB, " +
+		"use first cluster in config to write.")
 	for _, c := range yig.DataStorage {
 		cluster = c
 		break
@@ -496,18 +499,21 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, versio
 //
 // SHA256 is calculated only for v4 signed authentication
 // Encryptor is enabled when user set SSE headers
-func (yig *YigStorage) PutObject(bucketName string, objectName string, credential common.Credential,
-	size int64, data io.ReadCloser, metadata map[string]string, acl datatype.Acl,
-	sseRequest datatype.SseRequest, storageClass meta.StorageClass) (result datatype.PutObjectResult, err error) {
-
+func (yig *YigStorage) PutObject(requestCtx api.RequestContext, credential common.Credential,
+	size int64, data io.ReadCloser, metadata map[string]string, acl datatype.Acl, sseRequest datatype.SseRequest,
+	storageClass meta.StorageClass) (result datatype.PutObjectResult, err error) {
+	span, ctx := opentracing.StartSpanFromContext(requestCtx.SpanContext, "PutObject")
+	defer func() {
+		span.Finish()
+	}()
 	defer data.Close()
-	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, bucketName, objectName)
+	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, requestCtx.BucketName, requestCtx.ObjectName)
 	helper.Logger.Info("get encryptionKey:", encryptionKey, "cipherKey:", cipherKey, "err:", err)
 	if err != nil {
 		return
 	}
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
+	bucket, err := yig.MetaStorage.GetBucket(requestCtx.BucketName, true)
 	if err != nil {
 		helper.Logger.Info("get bucket", bucket, "err:", err)
 		return
@@ -532,7 +538,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		limitedDataReader = data
 	}
 
-	cluster, poolName := yig.pickClusterAndPool(bucketName, objectName, size, false)
+	cluster, poolName := yig.pickClusterAndPool(requestCtx.BucketName, requestCtx.ObjectName, size, false)
 	if cluster == nil {
 		return result, ErrInternalError
 	}
@@ -551,7 +557,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	if err != nil {
 		return
 	}
-	objectId, bytesWritten, err := cluster.Put(poolName, storageReader)
+	objectId, bytesWritten, err := cluster.Put(poolName, storageReader, ctx)
 	if err != nil {
 		return
 	}
@@ -570,6 +576,8 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	}
 
 	calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
+	helper.TracerLogger.For(ctx).TracerInfo("after put to ceph", zap.String("CalculatedMd5:", calculatedMd5),
+		zap.String("userMd5:", metadata["md5Sum"]))
 	helper.Logger.Info("CalculatedMd5:", calculatedMd5, "userMd5:", metadata["md5Sum"])
 	if userMd5, ok := metadata["md5Sum"]; ok {
 		if userMd5 != "" && userMd5 != calculatedMd5 {
@@ -589,8 +597,8 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	}
 	// TODO validate bucket policy and fancy ACL
 	object := &meta.Object{
-		Name:             objectName,
-		BucketName:       bucketName,
+		Name:             requestCtx.ObjectName,
+		BucketName:       requestCtx.BucketName,
 		Location:         cluster.ID(),
 		Pool:             poolName,
 		OwnerId:          credential.UserId,
@@ -613,7 +621,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 
 	result.LastModified = object.LastModifiedTime
 	var nullVerNum uint64
-	nullVerNum, err = yig.checkOldObject(bucketName, objectName, bucket.Versioning)
+	nullVerNum, err = yig.checkOldObject(requestCtx.ObjectName, requestCtx.BucketName, bucket.Versioning)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
@@ -628,12 +636,12 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 
 	if nullVerNum != 0 {
 		objMap := &meta.ObjMap{
-			Name:       objectName,
-			BucketName: bucketName,
+			Name:       requestCtx.ObjectName,
+			BucketName: requestCtx.BucketName,
 		}
-		err = yig.MetaStorage.PutObject(object, nil, objMap, true)
+		err = yig.MetaStorage.PutObject(object, nil, objMap, true, ctx)
 	} else {
-		err = yig.MetaStorage.PutObject(object, nil, nil, true)
+		err = yig.MetaStorage.PutObject(object, nil, nil, true, ctx)
 	}
 
 	if err != nil {
@@ -642,8 +650,10 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	}
 
 	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
-		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
+		redisSpan, _ := opentracing.StartSpanFromContext(ctx, "redis start")
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable, requestCtx.BucketName+":"+requestCtx.ObjectName+":")
+		yig.DataCache.Remove(requestCtx.BucketName + ":" + requestCtx.ObjectName + ":" + object.GetVersionId())
+		redisSpan.Finish()
 	}
 	return result, nil
 }
@@ -685,8 +695,9 @@ func (yig *YigStorage) RenameObject(targetObject *meta.Object, sourceObject stri
 }
 
 func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, credential common.Credential,
-	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
-
+	sseRequest datatype.SseRequest, ctx context.Context) (result datatype.PutObjectResult, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "CopyObject")
+	defer span.Finish()
 	var oid string
 	var maybeObjectToRecycle objectToRecycle
 	var encryptionKey []byte
@@ -745,7 +756,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 					}
 				}
 				storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
-				oid, bytesW, err = cephCluster.Put(poolName, storageReader)
+				oid, bytesW, err = cephCluster.Put(poolName, storageReader, ctx)
 				maybeObjectToRecycle = objectToRecycle{
 					location: cephCluster.ID(),
 					pool:     poolName,
@@ -796,7 +807,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 			return
 		}
 		var bytesWritten uint64
-		oid, bytesWritten, err = cephCluster.Put(poolName, storageReader)
+		oid, bytesWritten, err = cephCluster.Put(poolName, storageReader, ctx)
 		if err != nil {
 			return
 		}
@@ -858,9 +869,9 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 
 	if nullVerNum != 0 {
 		objMap.NullVerNum = nullVerNum
-		err = yig.MetaStorage.PutObject(targetObject, nil, objMap, true)
+		err = yig.MetaStorage.PutObject(targetObject, nil, objMap, true, ctx)
 	} else {
-		err = yig.MetaStorage.PutObject(targetObject, nil, nil, true)
+		err = yig.MetaStorage.PutObject(targetObject, nil, nil, true, ctx)
 	}
 
 	if err != nil {
@@ -999,7 +1010,7 @@ func (yig *YigStorage) removeObjectVersion(bucketName, objectName, version strin
 }
 
 func (yig *YigStorage) addDeleteMarker(bucket meta.Bucket, objectName string,
-	nullVersion bool) (versionId string, err error) {
+	nullVersion bool, ctx context.Context) (versionId string, err error) {
 
 	deleteMarker := &meta.Object{
 		Name:             objectName,
@@ -1017,9 +1028,9 @@ func (yig *YigStorage) addDeleteMarker(bucket meta.Bucket, objectName string,
 	}
 
 	if nullVersion {
-		err = yig.MetaStorage.PutObject(deleteMarker, nil, objMap, false)
+		err = yig.MetaStorage.PutObject(deleteMarker, nil, objMap, false, ctx)
 	} else {
-		err = yig.MetaStorage.PutObject(deleteMarker, nil, nil, false)
+		err = yig.MetaStorage.PutObject(deleteMarker, nil, nil, false, ctx)
 	}
 
 	return
@@ -1036,7 +1047,10 @@ func (yig *YigStorage) addDeleteMarker(bucket meta.Bucket, objectName string,
 //
 // See http://docs.aws.amazon.com/AmazonS3/latest/dev/Versioning.html
 func (yig *YigStorage) DeleteObject(bucketName string, objectName string, version string,
-	credential common.Credential) (result datatype.DeleteObjectResult, err error) {
+	credential common.Credential, ctx context.Context) (result datatype.DeleteObjectResult, err error) {
+
+	span, ctx := opentracing.StartSpanFromContext(ctx, "DeleteObject")
+	defer span.Finish()
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
@@ -1062,7 +1076,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 		}
 	case meta.VersionEnabled:
 		if version == "" {
-			result.VersionId, err = yig.addDeleteMarker(*bucket, objectName, false)
+			result.VersionId, err = yig.addDeleteMarker(*bucket, objectName, false, ctx)
 			if err != nil {
 				return
 			}
@@ -1080,7 +1094,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 			if err != nil {
 				return
 			}
-			result.VersionId, err = yig.addDeleteMarker(*bucket, objectName, true)
+			result.VersionId, err = yig.addDeleteMarker(*bucket, objectName, true, ctx)
 			if err != nil {
 				return
 			}
@@ -1109,4 +1123,3 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 	}
 	return result, nil
 }
-

@@ -19,6 +19,8 @@ package api
 import (
 	"context"
 	"fmt"
+	"github.com/opentracing/opentracing-go"
+	"go.uber.org/zap"
 	"net/http"
 	"strings"
 
@@ -50,8 +52,12 @@ type commonHeaderHandler struct {
 }
 
 func (h commonHeaderHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	span, ctx := opentracing.StartSpanFromContext(r.Context(), "commonHeaderHandler")
+	defer func() {
+		span.Finish()
+	}()
 	w.Header().Set("Accept-Ranges", "bytes")
-	h.handler.ServeHTTP(w, r)
+	h.handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
 func SetCommonHeaderHandler(h http.Handler, _ *meta.Meta) http.Handler {
@@ -63,6 +69,10 @@ type corsHandler struct {
 }
 
 func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	span, spanCtx := opentracing.StartSpanFromContext(r.Context(), "corsHandler")
+	defer func() {
+		span.Finish()
+	}()
 	w.Header().Add("Vary", "Origin")
 	origin := r.Header.Get("Origin")
 
@@ -95,7 +105,7 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.handler.ServeHTTP(w, r)
+	h.handler.ServeHTTP(w, r.WithContext(spanCtx))
 	return
 }
 
@@ -110,6 +120,10 @@ type resourceHandler struct {
 
 // Resource handler ServeHTTP() wrapper
 func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	span, spanCtx := opentracing.StartSpanFromContext(r.Context(), "resourceHandler")
+	defer func() {
+		span.Finish()
+	}()
 	// Skip the first element which is usually '/' and split the rest.
 	ctx := getRequestContext(r)
 	logger := ctx.Logger
@@ -135,7 +149,7 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		WriteErrorResponse(w, r, ErrMethodNotAllowed)
 		return
 	}
-	h.handler.ServeHTTP(w, r)
+	h.handler.ServeHTTP(w, r.WithContext(spanCtx))
 }
 
 // setIgnoreResourcesHandler -
@@ -191,10 +205,16 @@ type RequestIdHandler struct {
 }
 
 func (h RequestIdHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	span, ctx := opentracing.StartSpanFromContext(r.Context(), "RequestIdHandler")
+	defer func() {
+		span.Finish()
+	}()
 	requestID := string(helper.GenerateRandomId())
 	logger := helper.Logger.NewWithRequestID(requestID)
-	ctx := context.WithValue(r.Context(), RequestIdKey, requestID)
+	ctx = context.WithValue(ctx, RequestIdKey, requestID)
 	ctx = context.WithValue(ctx, ContextLoggerKey, logger)
+	helper.TracerLogger.For(ctx).TracerInfo("HTTP request ID", zap.String("requestID", requestID),
+		zap.String("method", r.Method), zap.String("host", r.Host), zap.String("RequestUrl", r.RequestURI))
 	h.handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
@@ -214,6 +234,11 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	var bucketInfo *types.Bucket
 	var objectInfo *types.Object
 	var err error
+	span, ctx := opentracing.StartSpanFromContext(r.Context(), "GenerateContextHandler")
+	defer func() {
+		span.Finish()
+	}()
+	helper.TracerLogger.For(ctx).TracerInfo("HTTP request received", zap.String("method", r.Method))
 	requestId := r.Context().Value(RequestIdKey).(string)
 	logger := r.Context().Value(ContextLoggerKey).(log.Logger)
 	bucketName, objectName, isBucketDomain := GetBucketAndObjectInfoFromRequest(r)
@@ -238,8 +263,8 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	ctx := context.WithValue(
-		r.Context(),
+	ctx = context.WithValue(
+		ctx,
 		RequestContextKey,
 		RequestContext{
 			RequestID:      requestId,
@@ -301,7 +326,7 @@ func getRequestContext(r *http.Request) RequestContext {
 		return ctx
 	}
 	return RequestContext{
-		Logger: r.Context().Value(ContextLoggerKey).(log.Logger),
+		Logger:    r.Context().Value(ContextLoggerKey).(log.Logger),
 		RequestID: r.Context().Value(RequestIdKey).(string),
 	}
 }

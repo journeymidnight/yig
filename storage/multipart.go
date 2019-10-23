@@ -1,9 +1,11 @@
 package storage
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
+	"github.com/opentracing/opentracing-go"
 	"io"
 	"net/url"
 	"sort"
@@ -143,7 +145,9 @@ func (yig *YigStorage) NewMultipartUpload(credential common.Credential, bucketNa
 
 func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential common.Credential,
 	uploadId string, partId int, size int64, data io.ReadCloser, md5Hex string,
-	sseRequest datatype.SseRequest) (result datatype.PutObjectPartResult, err error) {
+	sseRequest datatype.SseRequest, ctx context.Context) (result datatype.PutObjectPartResult, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "PutObjectPart")
+	defer span.Finish()
 
 	defer data.Close()
 	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
@@ -194,7 +198,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 	if err != nil {
 		return
 	}
-	objectId, bytesWritten, err := cluster.Put(poolName, storageReader)
+	objectId, bytesWritten, err := cluster.Put(poolName, storageReader, ctx)
 	if err != nil {
 		return
 	}
@@ -273,7 +277,9 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 
 func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, partId int,
 	size int64, data io.Reader, credential common.Credential,
-	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
+	sseRequest datatype.SseRequest, ctx context.Context) (result datatype.PutObjectResult, err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "CopyObjectPart")
+	defer span.Finish()
 
 	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
 	if err != nil {
@@ -323,7 +329,7 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	if err != nil {
 		return
 	}
-	objectId, bytesWritten, err := cephCluster.Put(poolName, storageReader)
+	objectId, bytesWritten, err := cephCluster.Put(poolName, storageReader, ctx)
 	if err != nil {
 		return
 	}
@@ -515,8 +521,11 @@ func (yig *YigStorage) AbortMultipartUpload(credential common.Credential,
 }
 
 func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, bucketName,
-	objectName, uploadId string, uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult,
+	objectName, uploadId string, uploadedParts []meta.CompletePart, ctx context.Context) (result datatype.CompleteMultipartResult,
 	err error) {
+
+	span, ctx := opentracing.StartSpanFromContext(ctx, "CompleteMultipartUpload")
+	defer span.Finish()
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
@@ -629,9 +638,9 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 	}
 
 	if nullVerNum != 0 {
-		err = yig.MetaStorage.PutObject(object, &multipart, objMap, false)
+		err = yig.MetaStorage.PutObject(object, &multipart, objMap, false, ctx)
 	} else {
-		err = yig.MetaStorage.PutObject(object, &multipart, nil, false)
+		err = yig.MetaStorage.PutObject(object, &multipart, nil, false, ctx)
 	}
 
 	sseRequest := multipart.Metadata.SseRequest
