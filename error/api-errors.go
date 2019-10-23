@@ -688,7 +688,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrLimitExceeded: {
 		AwsErrorCode:   "LimitExceededException",
-		Description:    "The request results in a vault or account limit being exceeded.",
+		Description:    "Either the request results in a vault or account limit being exceeded or a retrieval job would exceed the current data policy's retrieval rate limit.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 }

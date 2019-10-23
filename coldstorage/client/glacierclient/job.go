@@ -7,24 +7,30 @@ import (
 	"github.com/aws/aws-sdk-go/service/glacier"
 	. "github.com/journeymidnight/yig/coldstorage/types/glaciertype"
 	. "github.com/journeymidnight/yig/error"
+	"io"
 )
 
-//To create a new vault with the specified name.
-func (c GlacierClient) CreatVault(accountid string, vaultname string) error {
-	input := &glacier.CreateVaultInput{
-		AccountId: aws.String(accountid),
-		VaultName: aws.String(vaultname),
+//To initiates a job of the specified type, which can be a select, an archival retrieval, or a vault retrieval.
+func (c GlacierClient) PostJob(accountid string, jobpara *glacier.JobParameters, vaultname string) (*string, error) {
+	input := &glacier.InitiateJobInput{
+		AccountId:     aws.String(accountid),
+		JobParameters: jobpara,
+		VaultName:     aws.String(vaultname),
 	}
-	_, err := c.Client.CreateVault(input)
+	result, err := c.Client.InitiateJob(input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
-			case glacier.ErrCodeInvalidParameterValueException:
-				err = ErrInvalidParameterValue
-			case glacier.ErrCodeMissingParameterValueException:
-				err = ErrMissingParameterValue
-			case glacier.ErrCodeLimitExceededException:
+			case glacier.ErrCodeResourceNotFoundException:
+				err = ErrResourceNotFound
+			case glacier.ErrCodePolicyEnforcedException:
 				err = ErrLimitExceeded
+			case glacier.ErrCodeInvalidParameterValueException:
+				err = ErrInvalidParameterValue
+			case glacier.ErrCodeMissingParameterValueException:
+				err = ErrMissingParameterValue
+			case glacier.ErrCodeInsufficientCapacityException:
+				err = ErrInternalError
 			case glacier.ErrCodeServiceUnavailableException:
 				err = ErrServiceUnavailable
 			default:
@@ -35,16 +41,18 @@ func (c GlacierClient) CreatVault(accountid string, vaultname string) error {
 			fmt.Println(err.Error())
 		}
 	}
-	return err
+	jobid := result.JobId
+	return jobid, err
 }
 
-//To return information about a vault.
-func (c GlacierClient) GetVaultInfo(accountid string, vaultname string) (*VaultInfo, error) {
-	input := &glacier.DescribeVaultInput{
+//To check the status of your job.
+func (c GlacierClient) GetJobStatus(accountid string, jobid string, vaultname string) (*JobStatus, error) {
+	input := &glacier.DescribeJobInput{
 		AccountId: aws.String(accountid),
+		JobId:     aws.String(jobid),
 		VaultName: aws.String(vaultname),
 	}
-	result, err := c.Client.DescribeVault(input)
+	result, err := c.Client.DescribeJob(input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -64,19 +72,21 @@ func (c GlacierClient) GetVaultInfo(accountid string, vaultname string) (*VaultI
 			fmt.Println(err.Error())
 		}
 	}
-	vaultinfo := &VaultInfo{
-		NumberOfArchives: result.NumberOfArchives,
+	jobstatus := &JobStatus{
+		Completed:  result.Completed,
+		StatusCode: result.StatusCode,
 	}
-	return vaultinfo, err
+	return jobstatus, err
 }
 
-//To deletes a vault with the specified name.
-func (c GlacierClient) DelVault(accountid string, vaultname string) error {
-	input := &glacier.DeleteVaultInput{
+//To download the output of the job you initiated using InitiateJob.
+func (c GlacierClient) GetOutput(accountid string, jobid string, vaultname string) (io.ReadCloser, error) {
+	input := &glacier.GetJobOutputInput{
 		AccountId: aws.String(accountid),
+		JobId:     aws.String(jobid),
 		VaultName: aws.String(vaultname),
 	}
-	_, err := c.Client.DeleteVault(input)
+	result, err := c.Client.GetJobOutput(input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -96,5 +106,6 @@ func (c GlacierClient) DelVault(accountid string, vaultname string) error {
 			fmt.Println(err.Error())
 		}
 	}
-	return err
+	body := result.Body
+	return body, err
 }

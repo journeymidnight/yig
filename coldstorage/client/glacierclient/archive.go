@@ -4,18 +4,13 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/glacier"
-	. "github.com/journeymidnight/yig/coldstorage/conf"
 	. "github.com/journeymidnight/yig/error"
 	"io"
 )
 
 // To upload an archive to a vault.
-func (c GlacierClient) PutArchive(gc GlacierConf, accountid string, ioreadseeker io.ReadSeeker, vaultname string) (*glacier.ArchiveCreationOutput, error) {
-	s3Config := Tos3Config(gc)
-	newSession, _ := session.NewSession(s3Config)
-	svc := glacier.New(newSession)
+func (c GlacierClient) PutArchive(accountid, vaultname string, ioreadseeker io.ReadSeeker) (*string, error) {
 	input := &glacier.UploadArchiveInput{
 		AccountId:          aws.String(accountid),
 		ArchiveDescription: aws.String("-"),
@@ -23,7 +18,7 @@ func (c GlacierClient) PutArchive(gc GlacierConf, accountid string, ioreadseeker
 		Checksum:           aws.String(""),
 		VaultName:          aws.String(vaultname),
 	}
-	result, err := svc.UploadArchive(input)
+	result, err := c.Client.UploadArchive(input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -45,20 +40,18 @@ func (c GlacierClient) PutArchive(gc GlacierConf, accountid string, ioreadseeker
 			fmt.Println(err.Error())
 		}
 	}
-	return result, err
+	archiveid := result.ArchiveId
+	return archiveid, err
 }
 
 //To delete an archive from a vault.
-func (c GlacierClient) DelArchive(gc GlacierConf, accountid string, archiveid string, vaultname string) (*glacier.DeleteArchiveOutput, error) {
-	s3Config := Tos3Config(gc)
-	newSession, _ := session.NewSession(s3Config)
-	svc := glacier.New(newSession)
+func (c GlacierClient) DelArchive(accountid string, archiveid string, vaultname string) error {
 	input := &glacier.DeleteArchiveInput{
 		AccountId: aws.String(accountid),
 		ArchiveId: aws.String(archiveid),
 		VaultName: aws.String(vaultname),
 	}
-	result, err := svc.DeleteArchive(input)
+	_, err := c.Client.DeleteArchive(input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
@@ -78,5 +71,5 @@ func (c GlacierClient) DelArchive(gc GlacierConf, accountid string, archiveid st
 			fmt.Println(err.Error())
 		}
 	}
-	return result, err
+	return err
 }
