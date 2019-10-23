@@ -16,17 +16,17 @@ const (
 )
 
 var supportedCommonMetaHeaders = []string{
-	"cache-control",
-	"content-disposition",
-	"content-encoding",
-	"content-language",
-	"content-type",
-	"expires",
+	"Cache-Control",
+	"Content-Disposition",
+	"Content-Encoding",
+	"Content-Language",
+	"Content-Type",
+	"Expires",
 }
 
 type MetaConfiguration struct {
 	XMLName   xml.Name `xml:"MetaConfiguration"`
-	Xmlns     string   `xml:"Xmlns,attr,omitempty"`
+	Xmlns     string   `xml:"xmlns,attr,omitempty"`
 	VersionID string   `xml:"VersionID,omitempty"`
 	Headers   *Headers `xml:"Headers,omitempty"`
 }
@@ -37,9 +37,8 @@ type Headers struct {
 }
 
 type MetaData struct {
-	XMLName xml.Name `xml:"MetaData"`
-	Key     string   `xml:"Key"`
-	Value   string   `xml:"Value"`
+	Key     string   `xml:"key"`
+	Value   string   `xml:"value"`
 }
 
 type MetaDataReq struct {
@@ -47,29 +46,34 @@ type MetaDataReq struct {
 	Data      map[string]string
 }
 
-func (w *MetaConfiguration) parse() (metaData MetaDataReq, error error) {
+func (w *MetaConfiguration) parse() (MetaDataReq, error) {
+	metaDataReq := MetaDataReq{}
+	metaDataReq.Data = map[string]string{}
 	if w == nil {
-		return metaData, ErrEmptyEntity
+		return metaDataReq, ErrEmptyEntity
 	}
 
 	if w.Headers == nil {
-		return metaData, ErrEmptyEntity
+		return metaDataReq, ErrEmptyEntity
 	}
 
 	if len(w.Headers.MetaData) != 0 {
 		for _, reqHeader := range w.Headers.MetaData {
 			validMeta := strings.HasPrefix(reqHeader.Key, CustomizeMetadataHead)
 			if !validMeta {
-				for _, supportHeader := range supportedCommonMetaHeaders {
-					if reqHeader.Key != supportHeader {
-						return metaData, ErrMetadataHeader
+				for n, supportHeader := range supportedCommonMetaHeaders {
+					if reqHeader.Key == supportHeader{
+						break
+					}
+					if reqHeader.Key != supportHeader && n == len(supportedCommonMetaHeaders)  {
+						return metaDataReq, ErrMetadataHeader
 					}
 				}
 			}
-			metaData.Data[reqHeader.Key] = reqHeader.Value
+			metaDataReq.Data[reqHeader.Key] = reqHeader.Value
 		}
 	}
-	return
+	return metaDataReq,nil
 }
 
 func ParseMetaConfig(reader io.Reader) (metaDataReq MetaDataReq, err error) {
