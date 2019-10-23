@@ -615,11 +615,11 @@ var testMetaUnits = []MetaTestUnit{
 					Value: aws.String("800"),
 				},
 				{
-					Key:   aws.String("X-Amz-Meta-hehehehe"),
+					Key:   aws.String("X-Amz-Meta-Hehehehe"),
 					Value: aws.String("hehehehe"),
 				},
 				{
-					Key:   aws.String("X-Amz-Meta-hello"),
+					Key:   aws.String("X-Amz-Meta-Hello"),
 					Value: aws.String("world"),
 				},
 			},
@@ -638,8 +638,9 @@ var testMetaUnits = []MetaTestUnit{
 				"Content-Encoding":    "utf-8",
 				"Content-Language":    "golang",
 				"Expires":             "800",
-				"X-Amz-Meta-hehehehe": "hehehehe",
-				"X-Amz-Meta-hello":    "world",
+				// The SDK will automatically erase the previous Amazon standard headers.
+				"Hehehehe": "hehehehe",
+				"Hello":    "world",
 				},
 			},
 		},
@@ -677,7 +678,7 @@ func Test_PutObjectMeta(t *testing.T) {
 					t.Fatal("PutObject err:", err)
 				}
 				input := &s3.PutObjectMetaInput{
-					Bucket:             aws.String(b),
+					Bucket:             aws.String(o.Bucket),
 					Key:                aws.String(o.Key),
 					MetaConfiguration: unit.WebsiteConfiguration,
 				}
@@ -694,6 +695,7 @@ func Test_PutObjectMeta(t *testing.T) {
 					t.Fatal("Head object failed")
 				}
 
+				t.Log("ResultMetadata:", headResult.Metadata)
 				for _, c := range unit.Cases{
 					for k, v := range headResult.Metadata {
 						if *v != c.ExpectedMeta[k] {
