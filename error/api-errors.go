@@ -165,6 +165,7 @@ const (
 	ErrIndexDocumentNotAllowed
 	ErrInvalidIndexDocumentSuffix
 	ErrInvalidErrorDocumentKey
+	ErrMalformedMetadataConfiguration
 )
 
 // error code to APIError structure, these fields carry respective
@@ -759,6 +760,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrMetadataHeader: {
 		AwsErrorCode:   "InvalidMetaCommonHead",
 		Description:    "The head is no a valid head key can be set.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMalformedMetadataConfiguration:{
+		AwsErrorCode:   "InvalidMetaConfiguration",
+		Description:    "Parsing meta XML data failed",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 }

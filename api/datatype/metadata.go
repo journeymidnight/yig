@@ -15,14 +15,13 @@ const (
 	CustomizeMetadataHead          = "X-Amz-Meta-"
 )
 
-// supportedGetReqParams - supported request parameters for GET presigned request.
-var SupportedGetReqParams = map[string]string{
-	"response-expires":             "Expires",
-	"response-content-type":        "Content-Type",
-	"response-cache-control":       "Cache-Control",
-	"response-content-disposition": "Content-Disposition",
-	"response-content-language":    "Content-Language",
-	"response-content-encoding":    "Content-Encoding",
+var supportedCommonMetaHeaders = []string{
+	"cache-control",
+	"content-disposition",
+	"content-encoding",
+	"content-language",
+	"content-type",
+	"expires",
 }
 
 type MetaConfiguration struct {
@@ -34,60 +33,64 @@ type MetaConfiguration struct {
 
 type Headers struct {
 	XMLName  xml.Name `xml:"Headers"`
-	MetaData []Meta   `xml:"MetaData,omitempty"`
+	MetaData []MetaData   `xml:"MetaData,omitempty"`
 }
 
-type Meta struct {
+type MetaData struct {
 	XMLName xml.Name `xml:"MetaData"`
 	Key     string   `xml:"Key"`
 	Value   string   `xml:"Value"`
 }
 
-type MetaData struct {
+type MetaDataReq struct {
 	VersionId string
 	Data      map[string]string
 }
 
-func (w *MetaConfiguration) Validate() (metaData MetaData, error error) {
+func (w *MetaConfiguration) parse() (metaData MetaDataReq, error error) {
 	if w == nil {
 		return metaData, ErrEmptyEntity
 	}
 
-	if w.Headers.MetaData != nil {
-		for _, reqHead := range w.Headers.MetaData {
-			validMeta := strings.HasPrefix(reqHead.Key, CustomizeMetadataHead)
+	if w.Headers == nil {
+		return metaData, ErrEmptyEntity
+	}
+
+	if len(w.Headers.MetaData) != 0 {
+		for _, reqHeader := range w.Headers.MetaData {
+			validMeta := strings.HasPrefix(reqHeader.Key, CustomizeMetadataHead)
 			if !validMeta {
-				for _, supportHead := range SupportedGetReqParams {
-					if reqHead.Key != supportHead {
+				for _, supportHeader := range supportedCommonMetaHeaders {
+					if reqHeader.Key != supportHeader {
 						return metaData, ErrMetadataHeader
 					}
 				}
 			}
-			metaData.Data[reqHead.Key] = reqHead.Value
+			metaData.Data[reqHeader.Key] = reqHeader.Value
 		}
 	}
 	return
 }
 
-func ParseMetaConfig(reader io.Reader) (metaData MetaData, err error) {
+func ParseMetaConfig(reader io.Reader) (metaDataReq MetaDataReq, err error) {
 	metaConfig := new(MetaConfiguration)
 	metaBuffer, err := ioutil.ReadAll(reader)
 	if err != nil {
 		helper.Logger.Error("Unable to read metadata setting body:", err)
-		return metaData, err
+		return metaDataReq, err
 	}
 	size := len(metaBuffer)
 	if size > MaxObjectMetaConfigurationSize {
-		return metaData, ErrEntityTooLarge
+		return metaDataReq, ErrEntityTooLarge
 	}
 	err = xml.Unmarshal(metaBuffer, metaConfig)
 	if err != nil {
-		helper.Logger.Error("Unable to parse metadata setting XML body:", err)
-		return metaData, ErrMalformedWebsiteConfiguration
+		helper.Logger.Error("Unable to parse metadata XML body:", err)
+		return metaDataReq, ErrMalformedMetadataConfiguration
 	}
-	metaData, err = metaConfig.Validate()
+	metaDataReq, err = metaConfig.parse()
 	if err != nil {
-		return metaData, err
+		return metaDataReq, err
 	}
-	return metaData, nil
+	return metaDataReq, nil
 }
