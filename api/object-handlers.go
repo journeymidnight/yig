@@ -1045,6 +1045,12 @@ func (api ObjectAPIHandlers) PutObjectMeta(w http.ResponseWriter, r *http.Reques
 		WriteErrorResponse(w, r, ErrMissingContentLength)
 		return
 	}
+
+	if r.ContentLength > MaxObjectMetaConfigurationSize {
+		WriteErrorResponse(w, r, ErrEntityTooLarge)
+		return
+	}
+
 	metaData, err := ParseMetaConfig(io.LimitReader(r.Body, r.ContentLength))
 	if err != nil {
 		WriteErrorResponse(w, r, err)
