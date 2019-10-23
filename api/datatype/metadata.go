@@ -83,10 +83,6 @@ func ParseMetaConfig(reader io.Reader) (metaDataReq MetaDataReq, err error) {
 		helper.Logger.Error("Unable to read metadata setting body:", err)
 		return metaDataReq, err
 	}
-	size := len(metaBuffer)
-	if size > MaxObjectMetaConfigurationSize {
-		return metaDataReq, ErrEntityTooLarge
-	}
 	err = xml.Unmarshal(metaBuffer, metaConfig)
 	if err != nil {
 		helper.Logger.Error("Unable to parse metadata XML body:", err)
