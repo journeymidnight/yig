@@ -1022,7 +1022,7 @@ func (api ObjectAPIHandlers) PutObjectMeta(w http.ResponseWriter, r *http.Reques
 	bucketName := vars["bucket"]
 	objectName := vars["object"]
 
-	logger.Info("Put object attributes:", bucketName, objectName)
+	logger.Info("Put object meta:", bucketName, objectName)
 
 	var credential common.Credential
 	var err error
