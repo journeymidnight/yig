@@ -12,7 +12,7 @@ import (
 
 const (
 	MaxObjectMetaConfigurationSize = 2 * humanize.KiByte
-	CustomizeMetadataHead          = "X-Amz-Meta-"
+	CustomizeMetadataHeader          = "X-Amz-Meta-"
 )
 
 var supportedCommonMetaHeaders = []string{
@@ -53,14 +53,14 @@ func (w *MetaConfiguration) parse() (MetaDataReq, error) {
 		return metaDataReq, ErrEmptyEntity
 	}
 
-	if w.Headers == nil {
+	if w.Headers != nil && len(w.Headers.MetaData) == 0 {
 		return metaDataReq, ErrEmptyEntity
 	}
 
 	if len(w.Headers.MetaData) != 0 {
 		for _, reqHeader := range w.Headers.MetaData {
-			validMeta := strings.HasPrefix(reqHeader.Key, CustomizeMetadataHead)
-			if !validMeta {
+			CustomizeMeta := strings.HasPrefix(reqHeader.Key, CustomizeMetadataHeader)
+			if !CustomizeMeta {
 				for n, supportHeader := range supportedCommonMetaHeaders {
 					if reqHeader.Key == supportHeader{
 						break
