@@ -2,11 +2,13 @@ package glacierclient
 
 import (
 	"fmt"
+	"io"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/glacier"
 	. "github.com/journeymidnight/yig/error"
-	"io"
+	"github.com/journeymidnight/yig/helper"
 )
 
 // To upload an archive to a vault.
@@ -36,8 +38,7 @@ func (c GlacierClient) PutArchive(accountid, vaultname string, ioreadseeker io.R
 				fmt.Println(aerr.Error())
 			}
 		} else {
-			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
-			fmt.Println(err.Error())
+			helper.Logger.Println(5, "Internal error!")
 		}
 	}
 	archiveid := result.ArchiveId
@@ -45,7 +46,7 @@ func (c GlacierClient) PutArchive(accountid, vaultname string, ioreadseeker io.R
 }
 
 //To delete an archive from a vault.
-func (c GlacierClient) DelArchive(accountid string, archiveid string, vaultname string) error {
+func (c GlacierClient) DeleteArchive(accountid string, archiveid string, vaultname string) error {
 	input := &glacier.DeleteArchiveInput{
 		AccountId: aws.String(accountid),
 		ArchiveId: aws.String(archiveid),
@@ -67,8 +68,7 @@ func (c GlacierClient) DelArchive(accountid string, archiveid string, vaultname 
 				fmt.Println(aerr.Error())
 			}
 		} else {
-			// Print the error, cast err to awserr. Error to get the Code and Message from an error.
-			fmt.Println(err.Error())
+			helper.Logger.Println(5, "Internal error!")
 		}
 	}
 	return err

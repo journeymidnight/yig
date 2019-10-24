@@ -2,15 +2,17 @@ package glacierclient
 
 import (
 	"fmt"
+	"io"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/glacier"
 	. "github.com/journeymidnight/yig/coldstorage/types/glaciertype"
 	. "github.com/journeymidnight/yig/error"
-	"io"
+	"github.com/journeymidnight/yig/helper"
 )
 
-//To initiates a job of the specified type, which can be a select, an archival retrieval, or a vault retrieval.
+//To initiate a job of the specified type, which can be a select, an archival retrieval, or a vault retrieval.
 func (c GlacierClient) PostJob(accountid string, jobpara *glacier.JobParameters, vaultname string) (*string, error) {
 	input := &glacier.InitiateJobInput{
 		AccountId:     aws.String(accountid),
@@ -37,8 +39,7 @@ func (c GlacierClient) PostJob(accountid string, jobpara *glacier.JobParameters,
 				fmt.Println(aerr.Error())
 			}
 		} else {
-			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
-			fmt.Println(err.Error())
+			helper.Logger.Println(5, "Internal error!")
 		}
 	}
 	jobid := result.JobId
@@ -68,8 +69,7 @@ func (c GlacierClient) GetJobStatus(accountid string, jobid string, vaultname st
 				fmt.Println(aerr.Error())
 			}
 		} else {
-			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
-			fmt.Println(err.Error())
+			helper.Logger.Println(5, "Internal error!")
 		}
 	}
 	jobstatus := &JobStatus{
@@ -80,7 +80,7 @@ func (c GlacierClient) GetJobStatus(accountid string, jobid string, vaultname st
 }
 
 //To download the output of the job you initiated using InitiateJob.
-func (c GlacierClient) GetOutput(accountid string, jobid string, vaultname string) (io.ReadCloser, error) {
+func (c GlacierClient) GetJobOutput(accountid string, jobid string, vaultname string) (io.ReadCloser, error) {
 	input := &glacier.GetJobOutputInput{
 		AccountId: aws.String(accountid),
 		JobId:     aws.String(jobid),
@@ -102,8 +102,7 @@ func (c GlacierClient) GetOutput(accountid string, jobid string, vaultname strin
 				fmt.Println(aerr.Error())
 			}
 		} else {
-			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
-			fmt.Println(err.Error())
+			helper.Logger.Println(5, "Internal error!")
 		}
 	}
 	body := result.Body

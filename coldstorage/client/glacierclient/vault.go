@@ -2,15 +2,17 @@ package glacierclient
 
 import (
 	"fmt"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/glacier"
 	. "github.com/journeymidnight/yig/coldstorage/types/glaciertype"
 	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/helper"
 )
 
 //To create a new vault with the specified name.
-func (c GlacierClient) CreatVault(accountid string, vaultname string) error {
+func (c GlacierClient) CreateVault(accountid string, vaultname string) error {
 	input := &glacier.CreateVaultInput{
 		AccountId: aws.String(accountid),
 		VaultName: aws.String(vaultname),
@@ -31,8 +33,7 @@ func (c GlacierClient) CreatVault(accountid string, vaultname string) error {
 				fmt.Println(aerr.Error())
 			}
 		} else {
-			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
-			fmt.Println(err.Error())
+			helper.Logger.Println(5, "Internal error!")
 		}
 	}
 	return err
@@ -60,8 +61,7 @@ func (c GlacierClient) GetVaultInfo(accountid string, vaultname string) (*VaultI
 				fmt.Println(aerr.Error())
 			}
 		} else {
-			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
-			fmt.Println(err.Error())
+			helper.Logger.Println(5, "Internal error!")
 		}
 	}
 	vaultinfo := &VaultInfo{
@@ -71,7 +71,7 @@ func (c GlacierClient) GetVaultInfo(accountid string, vaultname string) (*VaultI
 }
 
 //To deletes a vault with the specified name.
-func (c GlacierClient) DelVault(accountid string, vaultname string) error {
+func (c GlacierClient) DeleteVault(accountid string, vaultname string) error {
 	input := &glacier.DeleteVaultInput{
 		AccountId: aws.String(accountid),
 		VaultName: aws.String(vaultname),
@@ -92,8 +92,7 @@ func (c GlacierClient) DelVault(accountid string, vaultname string) error {
 				fmt.Println(aerr.Error())
 			}
 		} else {
-			// Print the error, cast err to awserr.Error to get the Code and Message from an error.
-			fmt.Println(err.Error())
+			helper.Logger.Println(5, "Internal error!")
 		}
 	}
 	return err
