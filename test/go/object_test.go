@@ -366,7 +366,7 @@ func Test_RenameObjectErrFolder(t *testing.T) {
 	svc.DeleteObject(TEST_BUCKET, TEST_RENAME_KEY)
 }
 
-func Test_Object_Append(t *testing.T) {
+/*func Test_Object_Append(t *testing.T) {
 	sc := NewS3()
 	sc.DeleteObject(TEST_BUCKET, TEST_KEY)
 	sc.DeleteBucket(TEST_BUCKET)
@@ -397,7 +397,7 @@ func Test_Object_Append(t *testing.T) {
 	if err != nil {
 		t.Log("DeleteObject err:", err)
 	}
-}
+}*/
 
 func Test_Object_End(t *testing.T) {
 	sc := NewS3()
