@@ -59,8 +59,8 @@ func (w *MetaConfiguration) parse() (MetaDataReq, error) {
 
 	if len(w.Headers.MetaData) != 0 {
 		for _, reqHeader := range w.Headers.MetaData {
-			CustomizeMeta := strings.HasPrefix(reqHeader.Key, CustomizeMetadataHeader)
-			if !CustomizeMeta {
+			customizeMeta := strings.HasPrefix(reqHeader.Key, CustomizeMetadataHeader)
+			if !customizeMeta {
 				for n, supportHeader := range supportedCommonMetaHeaders {
 					if reqHeader.Key == supportHeader{
 						break
