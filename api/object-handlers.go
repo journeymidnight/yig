@@ -665,7 +665,7 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 	targetObject.Name = ctx.ObjectName
 	result, err := api.ObjectAPI.RenameObject(targetObject, sourceObjectName, credential)
 	if err != nil {
-		logger.Error("Unable to update object meta for", targetObject.ObjectId,
+		logger.Error("Unable to update object meta for", targetObject.Name,
 			"error:", err)
 		WriteErrorResponse(w, r, err)
 		return
@@ -1061,7 +1061,7 @@ func (api ObjectAPIHandlers) PutObjectMeta(w http.ResponseWriter, r *http.Reques
 
 	err = api.ObjectAPI.PutObjectMeta(ctx.BucketInfo, object, credential)
 	if err != nil {
-		logger.Error("Unable to update object meta for", object.ObjectId,
+		logger.Error("Unable to update object meta for", object.Name,
 			"error:", err)
 		WriteErrorResponse(w, r, err)
 		return
