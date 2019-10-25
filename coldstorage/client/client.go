@@ -5,7 +5,14 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/glacier"
 	. "github.com/journeymidnight/yig/coldstorage/types/glaciertype"
+	"github.com/journeymidnight/yig/log"
 )
+
+var Logger *log.Logger
+
+func InitiateColdstorageClient(logger *log.Logger) {
+	Logger = logger
+}
 
 //Cold storage Client Interface
 type Client interface {

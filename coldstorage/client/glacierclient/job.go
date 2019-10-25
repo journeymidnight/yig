@@ -1,15 +1,14 @@
 package glacierclient
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/glacier"
+	. "github.com/journeymidnight/yig/coldstorage/client"
 	. "github.com/journeymidnight/yig/coldstorage/types/glaciertype"
 	. "github.com/journeymidnight/yig/error"
-	"github.com/journeymidnight/yig/helper"
 )
 
 //To initiate a job of the specified type, which can be a select, an archival retrieval, or a vault retrieval.
@@ -36,10 +35,10 @@ func (c GlacierClient) PostJob(accountid string, jobpara *glacier.JobParameters,
 			case glacier.ErrCodeServiceUnavailableException:
 				err = ErrServiceUnavailable
 			default:
-				fmt.Println(aerr.Error())
+				Logger.Println(5, "With error: ", aerr.Error())
 			}
 		} else {
-			helper.Logger.Println(5, "Internal error!")
+			Logger.Println(5, "With error: ", aerr.Error())
 		}
 	}
 	jobid := result.JobId
@@ -66,10 +65,10 @@ func (c GlacierClient) GetJobStatus(accountid string, jobid string, vaultname st
 			case glacier.ErrCodeServiceUnavailableException:
 				err = ErrServiceUnavailable
 			default:
-				fmt.Println(aerr.Error())
+				Logger.Println(5, "With error: ", aerr.Error())
 			}
 		} else {
-			helper.Logger.Println(5, "Internal error!")
+			Logger.Println(5, "With error: ", aerr.Error())
 		}
 	}
 	jobstatus := &JobStatus{
@@ -99,10 +98,10 @@ func (c GlacierClient) GetJobOutput(accountid string, jobid string, vaultname st
 			case glacier.ErrCodeServiceUnavailableException:
 				err = ErrServiceUnavailable
 			default:
-				fmt.Println(aerr.Error())
+				Logger.Println(5, "With error: ", aerr.Error())
 			}
 		} else {
-			helper.Logger.Println(5, "Internal error!")
+			Logger.Println(5, "With error: ", aerr.Error())
 		}
 	}
 	body := result.Body

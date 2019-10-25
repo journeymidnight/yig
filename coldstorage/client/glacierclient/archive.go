@@ -1,14 +1,13 @@
 package glacierclient
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/glacier"
+	. "github.com/journeymidnight/yig/coldstorage/client"
 	. "github.com/journeymidnight/yig/error"
-	"github.com/journeymidnight/yig/helper"
 )
 
 // To upload an archive to a vault.
@@ -35,10 +34,10 @@ func (c GlacierClient) PutArchive(accountid, vaultname string, ioreadseeker io.R
 			case glacier.ErrCodeServiceUnavailableException:
 				err = ErrServiceUnavailable
 			default:
-				fmt.Println(aerr.Error())
+				Logger.Println(5, "With error: ", aerr.Error())
 			}
 		} else {
-			helper.Logger.Println(5, "Internal error!")
+			Logger.Println(5, "With error: ", aerr.Error())
 		}
 	}
 	archiveid := result.ArchiveId
@@ -65,10 +64,10 @@ func (c GlacierClient) DeleteArchive(accountid string, archiveid string, vaultna
 			case glacier.ErrCodeServiceUnavailableException:
 				err = ErrServiceUnavailable
 			default:
-				fmt.Println(aerr.Error())
+				Logger.Println(5, "With error: ", aerr.Error())
 			}
 		} else {
-			helper.Logger.Println(5, "Internal error!")
+			Logger.Println(5, "With error: ", aerr.Error())
 		}
 	}
 	return err

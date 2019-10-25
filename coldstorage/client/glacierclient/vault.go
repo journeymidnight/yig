@@ -1,14 +1,12 @@
 package glacierclient
 
 import (
-	"fmt"
-
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/glacier"
+	. "github.com/journeymidnight/yig/coldstorage/client"
 	. "github.com/journeymidnight/yig/coldstorage/types/glaciertype"
 	. "github.com/journeymidnight/yig/error"
-	"github.com/journeymidnight/yig/helper"
 )
 
 //To create a new vault with the specified name.
@@ -30,10 +28,10 @@ func (c GlacierClient) CreateVault(accountid string, vaultname string) error {
 			case glacier.ErrCodeServiceUnavailableException:
 				err = ErrServiceUnavailable
 			default:
-				fmt.Println(aerr.Error())
+				Logger.Println(5, "With error: ", aerr.Error())
 			}
 		} else {
-			helper.Logger.Println(5, "Internal error!")
+			Logger.Println(5, "With error: ", aerr.Error())
 		}
 	}
 	return err
@@ -58,10 +56,10 @@ func (c GlacierClient) GetVaultInfo(accountid string, vaultname string) (*VaultI
 			case glacier.ErrCodeServiceUnavailableException:
 				err = ErrServiceUnavailable
 			default:
-				fmt.Println(aerr.Error())
+				Logger.Println(5, "With error: ", aerr.Error())
 			}
 		} else {
-			helper.Logger.Println(5, "Internal error!")
+			Logger.Println(5, "With error: ", aerr.Error())
 		}
 	}
 	vaultinfo := &VaultInfo{
@@ -89,10 +87,10 @@ func (c GlacierClient) DeleteVault(accountid string, vaultname string) error {
 			case glacier.ErrCodeServiceUnavailableException:
 				err = ErrServiceUnavailable
 			default:
-				fmt.Println(aerr.Error())
+				Logger.Println(5, "With error: ", aerr.Error())
 			}
 		} else {
-			helper.Logger.Println(5, "Internal error!")
+			Logger.Println(5, "With error: ", aerr.Error())
 		}
 	}
 	return err
