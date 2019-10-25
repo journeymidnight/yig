@@ -114,6 +114,16 @@ services:
       vpcbr:
         ipv4_address: "10.5.0.21"
 
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: jaeger
+    ports:
+      - "6831:6831/udp"
+      - "16686:16686"
+    networks:
+      vpcbr:
+        ipv4_address: "10.5.0.30"
+
 
 networks:
   vpcbr:
