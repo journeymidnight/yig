@@ -154,6 +154,7 @@ func (t *TidbClient) CheckAndPutBucket(bucket *Bucket) (bool, error) {
 }
 
 func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimiter string, versioned bool, maxKeys int) (retObjects []*Object, prefixes []string, truncated bool, nextMarker, nextVerIdMarker string, err error) {
+	const MaxObjectList = 1000
 	if versioned {
 		return
 	}
@@ -167,16 +168,26 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 		var loopcount int
 		var sqltext string
 		var rows *sql.Rows
-		if marker == "" {
-			sqltext = "select bucketname,name,version,nullversion,deletemarker from objects where bucketName=? order by bucketname,name,version limit ?;"
-			rows, err = t.Client.Query(sqltext, bucketName, maxKeys)
-		} else {
-			sqltext = "select bucketname,name,version,nullversion,deletemarker from objects where bucketName=? and name >=? order by bucketname,name,version limit ?,?;"
-			rows, err = t.Client.Query(sqltext, bucketName, marker, objectNum[marker], objectNum[marker]+maxKeys)
+		args := make([]interface{}, 0)
+		sqltext = "select bucketname,name,version,nullversion,deletemarker from objects where bucketName=?"
+		args = append(args, bucketName)
+		if prefix != "" {
+			sqltext += " and name like ?"
+			args = append(args, prefix+"%")
+			helper.Debugln("query prefix:", prefix)
 		}
+		if marker != "" {
+			sqltext += " and name >= ?"
+			args = append(args, marker)
+			helper.Debugln("query marker:", marker)
+		}
+		sqltext += " order by bucketname,name,version limit ?"
+		args = append(args, MaxObjectList)
+		rows, err = t.Client.Query(sqltext, args...)
 		if err != nil {
 			return
 		}
+		helper.Debugln("query sql:", sqltext)
 		defer rows.Close()
 		for rows.Next() {
 			loopcount += 1
@@ -201,13 +212,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 			}
 			objectNum[name] += 1
 			marker = name
-			//filte row
-			//filte by prefix
-			hasPrefix := strings.HasPrefix(name, prefix)
-			if !hasPrefix {
-				continue
-			}
-			//filte by objectname
+
 			if _, ok := objectMap[name]; !ok {
 				objectMap[name] = struct{}{}
 			} else {
@@ -226,6 +231,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 				n := strings.Index(subStr, delimiter)
 				if n != -1 {
 					prefixKey := prefix + string([]byte(subStr)[0:(n+1)])
+					marker = prefixKey[0:(len(prefixKey) - 1)] + string(delimiter[len(delimiter) - 1] + 1)
 					if prefixKey == omarker {
 						continue
 					}
@@ -252,9 +258,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 			if count == maxKeys {
 				nextMarker = name
 			}
-			if count == 0 {
-				continue
-			}
+
 			if count > maxKeys {
 				truncated = true
 				exit = true
@@ -262,7 +266,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 			}
 			retObjects = append(retObjects, o)
 		}
-		if loopcount == 0 {
+		if loopcount < MaxObjectList {
 			exit = true
 		}
 		if exit {
