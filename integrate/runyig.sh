@@ -5,7 +5,8 @@ sudo docker rm --force yig
 if [ -x "$BASEDIR/yig" ]; then 
     sudo docker run -d --name yig \
 			 -p 8080:8080 \
-	                 -p 9000:9000 \
+			 -p 9000:9000 \
+			 -p 8730:8730 \
 			 -v ${BASEDIR}/integrate/cephconf:/etc/ceph/ \
 			 -v ${BASEDIR}/integrate/yigconf:/etc/yig/ \
 			 -v ${BASEDIR}:/var/log/yig \
@@ -17,7 +18,8 @@ if [ -x "$BASEDIR/yig" ]; then
 else
     sudo docker run -d --name yig \
 			 -p 8080:8080 \
-	                 -p 9000:9000 \
+			 -p 9000:9000 \
+			 -p 8730:8730 \
 			 -v ${BASEDIR}/integrate/cephconf:/etc/ceph/ \
 			 -v ${BASEDIR}/integrate/yigconf:/etc/yig/ \
 			 -v ${BASEDIR}:/var/log/yig \

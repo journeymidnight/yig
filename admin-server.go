@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
-	"net/http/pprof"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
@@ -156,11 +155,6 @@ func configureAdminHandler() http.Handler {
 	registry.MustRegister(metrics)
 
 	apiRouter.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
-	apiRouter.Path("/debug/cmdline").HandlerFunc(pprof.Cmdline)
-	apiRouter.Path("/debug/profile").HandlerFunc(pprof.Profile)
-	apiRouter.Path("/debug/symbol").HandlerFunc(pprof.Symbol)
-	apiRouter.Path("/debug/trace").HandlerFunc(pprof.Trace)
-	apiRouter.PathPrefix("/debug/pprof/").HandlerFunc(pprof.Index)
 
 	handle := RegisterHandlers(mux, handlerFns...)
 	return handle

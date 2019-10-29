@@ -138,6 +138,12 @@ func (t *TidbClient) GetDeleteObjects(bucket Bucket, objects []datatype.ObjectId
 	return deleteObjects, nil
 }
 
+func (t *TidbClient) UpdateObjectAttrs(object *Object) error {
+	sql, args := object.GetUpdateAttrsSql()
+	_, err := t.Client.Exec(sql, args...)
+	return err
+}
+
 func (t *TidbClient) UpdateObjectAcl(object *Object) error {
 	sql, args := object.GetUpdateAclSql()
 	_, err := t.Client.Exec(sql, args...)

@@ -1,8 +1,9 @@
 package helper
 
 import (
-	"github.com/BurntSushi/toml"
 	"io/ioutil"
+
+	"github.com/BurntSushi/toml"
 )
 
 const (
@@ -29,16 +30,18 @@ type Config struct {
 
 	InstanceId             string // if empty, generated one at server startup
 	ConcurrentRequestLimit int
-	DebugMode              bool          `toml:"debug_mode"`
-	AdminKey               string        `toml:"admin_key"` //used for tools/admin to communicate with yig
-	GcThread               int           `toml:"gc_thread"`
-	LcThread               int           //used for tools/lc only, set worker numbers to do lc
-	LogLevel               string        `toml:"log_level"` // "info", "warn", "error"
-	CephConfigPattern      string        `toml:"ceph_config_pattern"`
-	ReservedOrigins        string        `toml:"reserved_origins"` // www.ccc.com,www.bbb.com,127.0.0.1
-	MetaStore              string        `toml:"meta_store"`
-	TidbInfo               string        `toml:"tidb_info"`
-	KeepAlive              bool          `toml:"keepalive"`
+	DebugMode              bool   `toml:"debug_mode"`
+	EnablePProf            bool   `toml:"enable_pprof"`
+	BindPProfAddress       string `toml:"pprof_listener"`
+	AdminKey               string `toml:"admin_key"` //used for tools/admin to communicate with yig
+	GcThread               int    `toml:"gc_thread"`
+	LcThread               int    //used for tools/lc only, set worker numbers to do lc
+	LogLevel               string `toml:"log_level"` // "info", "warn", "error"
+	CephConfigPattern      string `toml:"ceph_config_pattern"`
+	ReservedOrigins        string `toml:"reserved_origins"` // www.ccc.com,www.bbb.com,127.0.0.1
+	MetaStore              string `toml:"meta_store"`
+	TidbInfo               string `toml:"tidb_info"`
+	KeepAlive              bool   `toml:"keepalive"`
 
 	//About cache
 	RedisAddress          string `toml:"redis_address"`           // redis connection string, e.g localhost:1234
@@ -148,6 +151,8 @@ func MarshalTOMLConfig() error {
 	CONFIG.SSLCertPath = c.SSLCertPath
 	CONFIG.ZookeeperAddress = c.ZookeeperAddress
 	CONFIG.DebugMode = c.DebugMode
+	CONFIG.EnablePProf = c.EnablePProf
+	CONFIG.BindPProfAddress = c.BindPProfAddress
 	CONFIG.AdminKey = c.AdminKey
 	CONFIG.CephConfigPattern = c.CephConfigPattern
 	CONFIG.ReservedOrigins = c.ReservedOrigins

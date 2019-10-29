@@ -14,6 +14,8 @@ ssl_cert_path = ""
 piggyback_update_usage = true
 
 debug_mode = true
+enable_pprof = false
+pprof_listener = "0.0.0.0:8730"
 reserved_origins = "s3.test.com,s3-internal.test.com"
 
 # Meta Config

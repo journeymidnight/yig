@@ -2,6 +2,8 @@ package main
 
 import (
 	"math/rand"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"runtime"
@@ -70,13 +72,21 @@ func main() {
 			helper.Logger.Error("Failed to create message bus sender, sender is nil.")
 			panic("failed to create message bus sender, sender is nil.")
 		}
-		helper.Logger.Info( "Succeed to create message bus sender.")
+		helper.Logger.Info("Succeed to create message bus sender.")
 	}
 
 	// Read all *.so from plugins directory, and fill the variable allPlugins
 	allPluginMap := mods.InitialPlugins()
 
 	iam.InitializeIamClient(allPluginMap)
+
+	// Add pprof handler
+	if helper.CONFIG.EnablePProf {
+		go func() {
+			err := http.ListenAndServe("0.0.0.0:8730", nil)
+			helper.Logger.Error("Start ppof err:", err)
+		}()
+	}
 
 	startAdminServer(adminServerConfig)
 

@@ -73,6 +73,9 @@ func (yig *YigStorage) pickClusterAndPool(bucket string, object string,
 		if cluster.Weight == 0 {
 			continue
 		}
+		if cluster.Pool != poolName {
+			continue
+		}
 		if needCheck {
 			usage, err := yig.DataStorage[cluster.Fsid].GetUsage()
 			if err != nil {
@@ -645,6 +648,28 @@ func (yig *YigStorage) PutObject(reqCtx api.RequestContext, credential common.Cr
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
 	}
 	return result, nil
+}
+
+func (yig *YigStorage) PutObjectMeta(bucket *meta.Bucket, targetObject *meta.Object, credential common.Credential) (err error) {
+	switch bucket.ACL.CannedAcl {
+	case "public-read-write":
+		break
+	default:
+		if bucket.OwnerId != credential.UserId {
+			return ErrBucketAccessForbidden
+		}
+	}
+
+	err = yig.MetaStorage.UpdateObjectAttrs(targetObject)
+	if err != nil {
+		helper.Logger.Error("Update Object Attrs, sql fails:", err)
+		return ErrInternalError
+	}
+
+	yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
+	yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
+
+	return nil
 }
 
 func (yig *YigStorage) RenameObject(targetObject *meta.Object, sourceObject string, credential common.Credential) (result datatype.RenameObjectResult, err error) {

@@ -116,6 +116,7 @@ const (
 	ErrInvalidPosition
 	ErrObjectNotAppendable
 	ErrPositionNotEqualToLength
+	ErrMetadataHeader
 	// Add new error codes here.
 
 	// SSE-S3 related API errors
@@ -165,6 +166,7 @@ const (
 	ErrInvalidIndexDocumentSuffix
 	ErrInvalidErrorDocumentKey
 	ErrExceededDeleteKeysLimit
+	ErrMalformedMetadataConfiguration
 )
 
 // error code to APIError structure, these fields carry respective
@@ -759,6 +761,16 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrExceededDeleteKeysLimit: {
 		AwsErrorCode:   "ExceededDeleteKeysLimit",
 		Description:    "The quantity of the delete keys is exceeded.",
+    HttpStatusCode: http.StatusBadRequest,
+  },  
+	ErrMetadataHeader: {
+		AwsErrorCode:   "InvalidMetaCommonHead",
+		Description:    "The head is no a valid head key can be set.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMalformedMetadataConfiguration:{
+		AwsErrorCode:   "InvalidMetaConfiguration",
+		Description:    "Parsing meta XML data failed",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 }

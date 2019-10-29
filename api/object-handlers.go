@@ -661,7 +661,7 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 	targetObject.Name = reqCtx.ObjectName
 	result, err := api.ObjectAPI.RenameObject(targetObject, sourceObjectName, credential)
 	if err != nil {
-		logger.Error("Unable to update object meta for", targetObject.ObjectId,
+		logger.Error("Unable to update object meta for", targetObject.Name,
 			"error:", err)
 		WriteErrorResponse(w, r, err)
 		return
@@ -1016,6 +1016,54 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "AppendObject"
+
+	WriteSuccessResponse(w, nil)
+}
+
+func (api ObjectAPIHandlers) PutObjectMeta(w http.ResponseWriter, r *http.Request) {
+	ctx := getRequestContext(r)
+	logger := ctx.Logger
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+	objectName := vars["object"]
+
+	logger.Info("Put object meta:", bucketName, objectName)
+
+	var credential common.Credential
+	var err error
+	if credential, err = checkRequestAuth(r, policy.PutObjectAction); err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+
+	if r.ContentLength <= 0 {
+		WriteErrorResponse(w, r, ErrMissingContentLength)
+		return
+	}
+
+	if r.ContentLength > MaxObjectMetaConfigurationSize {
+		WriteErrorResponse(w, r, ErrEntityTooLarge)
+		return
+	}
+
+	metaData, err := ParseMetaConfig(io.LimitReader(r.Body, r.ContentLength))
+	if err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+	object:= ctx.ObjectInfo
+	object.CustomAttributes = metaData.Data
+
+	err = api.ObjectAPI.PutObjectMeta(ctx.BucketInfo, object, credential)
+	if err != nil {
+		logger.Error("Unable to update object meta for", object.Name,
+			"error:", err)
+		WriteErrorResponse(w, r, err)
+		return
+	}
+
+	// ResponseRecorder
+	w.(*ResponseRecorder).operationName = "PutObjectMeta"
 
 	WriteSuccessResponse(w, nil)
 }
