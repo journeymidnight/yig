@@ -15,8 +15,6 @@
 package api
 
 import (
-	"bytes"
-	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -296,21 +294,6 @@ func (r *replacer) getSubstitution(key string) string {
 // Set sets key to value in the r.customReplacements map.
 func (r *replacer) Set(key, value string) {
 	r.customReplacements["{"+key+"}"] = value
-}
-
-//ipRange - a structure that holds the start and end of a range of ip addresses
-type ipRange struct {
-	start net.IP
-	end   net.IP
-}
-
-// inRange - check to see if a given ip address is within a range given
-func inRange(r ipRange, ipAddress net.IP) bool {
-	// strcmp type byte comparison
-	if bytes.Compare(ipAddress, r.start) >= 0 && bytes.Compare(ipAddress, r.end) < 0 {
-		return true
-	}
-	return false
 }
 
 type JudgeCdnRequest func(r *http.Request) bool
