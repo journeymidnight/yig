@@ -39,7 +39,6 @@ func InitializeIamClient(plugins map[string]*mods.YigPlugin) {
 		}
 	}
 	panic("Failed to initialize any IAM plugin, quiting...\n")
-	return
 }
 
 func GetCredential(accessKey string) (credential common.Credential, err error) {
