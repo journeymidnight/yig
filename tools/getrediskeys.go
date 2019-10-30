@@ -15,7 +15,6 @@ func main() {
 
 	if len(os.Args) != 3 {
 		panic("Usage: getrediskey redis_address:port key")
-		return
 	}
 
 	var err error
