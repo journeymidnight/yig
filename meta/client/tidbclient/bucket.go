@@ -154,7 +154,7 @@ func (t *TidbClient) CheckAndPutBucket(bucket *Bucket) (bool, error) {
 }
 
 func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimiter string, versioned bool, maxKeys int) (retObjects []*Object, prefixes []string, truncated bool, nextMarker, nextVerIdMarker string, err error) {
-	const MaxObjectList = 1000
+	const MaxObjectList = 10000
 	if versioned {
 		return
 	}
