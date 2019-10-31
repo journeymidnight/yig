@@ -181,8 +181,17 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 			args = append(args, marker)
 			helper.Debugln("query marker:", marker)
 		}
-		sqltext += " order by bucketname,name,version limit ?"
-		args = append(args, MaxObjectList)
+		if delimiter == "" {
+			sqltext += " order by bucketname,name,version limit ?"
+			args = append(args, MaxObjectList)
+		} else {
+			num := len(strings.Split(prefix, delimiter))
+			if prefix == "" {
+				num += 1
+			}
+			args = append(args, delimiter, num, MaxObjectList)
+			sqltext += " group by SUBSTRING_INDEX(name, ?, ?) limit ?"
+		}
 		rows, err = t.Client.Query(sqltext, args...)
 		if err != nil {
 			return
