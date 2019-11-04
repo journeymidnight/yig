@@ -197,7 +197,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 		tqueryend := time.Now()
 		tdur := tqueryend.Sub(tstart).Nanoseconds()
 		if tdur/1000000 > 5000 {
-			helper.Logger.Printf(5, "slow list objects query: %s, takes %d", sqltext, tdur)
+			helper.Logger.Printf(5, "slow list objects query: %s,args: %v, takes %d", sqltext, args, tdur)
 		}
 		helper.Logger.Printf(20, "query sql: %s", sqltext)
 		defer rows.Close()
