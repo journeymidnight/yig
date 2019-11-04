@@ -169,47 +169,47 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 		var sqltext string
 		var rows *sql.Rows
 		args := make([]interface{}, 0)
-		sqltext = "select bucketname,name,version,nullversion,deletemarker from objects where bucketName=?"
+		sqltext = "select bucketname,name,version from objects where bucketName=?"
 		args = append(args, bucketName)
 		if prefix != "" {
 			sqltext += " and name like ?"
 			args = append(args, prefix+"%")
-			helper.Debugln("query prefix:", prefix)
+			helper.Logger.Printf(20, "query prefix: %s", prefix)
 		}
 		if marker != "" {
 			sqltext += " and name >= ?"
 			args = append(args, marker)
-			helper.Debugln("query marker:", marker)
+			helper.Logger.Printf(20, "query marker: %s", marker)
 		}
 		if delimiter == "" {
 			sqltext += " order by bucketname,name,version limit ?"
 			args = append(args, MaxObjectList)
 		} else {
 			num := len(strings.Split(prefix, delimiter))
-			if prefix == "" {
-				num += 1
-			}
 			args = append(args, delimiter, num, MaxObjectList)
-			sqltext += " group by SUBSTRING_INDEX(name, ?, ?) limit ?"
+			sqltext += " group by SUBSTRING_INDEX(name, ?, ?) order by bucketname, name,version limit ?"
 		}
+		tstart := time.Now()
 		rows, err = t.Client.Query(sqltext, args...)
 		if err != nil {
 			return
 		}
-		helper.Debugln("query sql:", sqltext)
+		tqueryend := time.Now()
+		tdur := tqueryend.Sub(tstart).Nanoseconds()
+		if tdur/1000000 > 5000 {
+			helper.Logger.Printf(5, "slow list objects query: %s,args: %v, takes %d", sqltext, args, tdur)
+		}
+		helper.Logger.Printf(20, "query sql: %s", sqltext)
 		defer rows.Close()
 		for rows.Next() {
 			loopcount += 1
 			//fetch related date
 			var bucketname, name string
 			var version uint64
-			var nullversion, deletemarker bool
 			err = rows.Scan(
 				&bucketname,
 				&name,
 				&version,
-				&nullversion,
-				&deletemarker,
 			)
 			if err != nil {
 				return
@@ -228,9 +228,9 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 				continue
 			}
 			//filte by deletemarker
-			if deletemarker {
+			/*if deletemarker {
 				continue
-			}
+			}*/
 			if name == omarker {
 				continue
 			}
@@ -240,7 +240,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 				n := strings.Index(subStr, delimiter)
 				if n != -1 {
 					prefixKey := prefix + string([]byte(subStr)[0:(n+1)])
-					marker = prefixKey[0:(len(prefixKey) - 1)] + string(delimiter[len(delimiter) - 1] + 1)
+					marker = prefixKey[0:(len(prefixKey)-1)] + string(delimiter[len(delimiter)-1]+1)
 					if prefixKey == omarker {
 						continue
 					}
@@ -261,6 +261,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 			Strver := strconv.FormatUint(version, 10)
 			o, err = t.GetObject(bucketname, name, Strver)
 			if err != nil {
+				helper.Logger.Printf(2, "ListObjects: failed to GetObject(%s, %s, %s), err: %v", bucketname, name, Strver, err)
 				return
 			}
 			count += 1
@@ -274,6 +275,11 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 				break
 			}
 			retObjects = append(retObjects, o)
+		}
+		tfor := time.Now()
+		tdur = tfor.Sub(tqueryend).Nanoseconds()
+		if tdur/1000000 > 5000 {
+			helper.Logger.Printf(5, "slow list get objects, takes %d", tdur)
 		}
 		if loopcount < MaxObjectList {
 			exit = true
