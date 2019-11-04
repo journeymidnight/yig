@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"context"
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
@@ -143,14 +142,14 @@ func (yig *YigStorage) NewMultipartUpload(credential common.Credential, bucketNa
 	return
 }
 
-func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential common.Credential,
+func (yig *YigStorage) PutObjectPart(requestCtx api.RequestContext, credential common.Credential,
 	uploadId string, partId int, size int64, data io.ReadCloser, md5Hex string,
-	sseRequest datatype.SseRequest, ctx context.Context) (result datatype.PutObjectPartResult, err error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "PutObjectPart")
+	sseRequest datatype.SseRequest) (result datatype.PutObjectPartResult, err error) {
+	span, ctx := opentracing.StartSpanFromContext(requestCtx.SpanContext, "PutObjectPart")
 	defer span.Finish()
 
 	defer data.Close()
-	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
+	multipart, err := yig.MetaStorage.GetMultipart(requestCtx.BucketName, requestCtx.ObjectName, uploadId)
 	if err != nil {
 		return
 	}
@@ -198,7 +197,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 	if err != nil {
 		return
 	}
-	objectId, bytesWritten, err := cluster.Put(poolName, storageReader, ctx)
+	objectId, bytesWritten, err := cluster.Put(ctx, poolName, storageReader)
 	if err != nil {
 		return
 	}
@@ -230,7 +229,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 		}
 	}
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
+	bucket, err := yig.MetaStorage.GetBucket(requestCtx.BucketName, true)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
@@ -253,7 +252,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 		LastModified:         time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT),
 		InitializationVector: initializationVector,
 	}
-	err = yig.MetaStorage.PutObjectPart(multipart, part)
+	err = yig.MetaStorage.PutObjectPart(multipart, part, ctx)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
@@ -275,13 +274,13 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 	return result, nil
 }
 
-func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, partId int,
+func (yig *YigStorage) CopyObjectPart(requestCtx api.RequestContext, uploadId string, partId int,
 	size int64, data io.Reader, credential common.Credential,
-	sseRequest datatype.SseRequest, ctx context.Context) (result datatype.PutObjectResult, err error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "CopyObjectPart")
+	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
+	span, ctx := opentracing.StartSpanFromContext(requestCtx.SpanContext, "CopyObjectPart")
 	defer span.Finish()
 
-	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
+	multipart, err := yig.MetaStorage.GetMultipart(requestCtx.BucketName, requestCtx.ObjectName, uploadId)
 	if err != nil {
 		return
 	}
@@ -329,7 +328,7 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	if err != nil {
 		return
 	}
-	objectId, bytesWritten, err := cephCluster.Put(poolName, storageReader, ctx)
+	objectId, bytesWritten, err := cephCluster.Put(ctx, poolName, storageReader)
 	if err != nil {
 		return
 	}
@@ -349,7 +348,7 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 
 	result.Md5 = hex.EncodeToString(md5Writer.Sum(nil))
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
+	bucket, err := yig.MetaStorage.GetBucket(requestCtx.BucketName, true)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
@@ -379,7 +378,7 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	}
 	result.LastModified = now
 
-	err = yig.MetaStorage.PutObjectPart(multipart, part)
+	err = yig.MetaStorage.PutObjectPart(multipart, part, ctx)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
@@ -520,14 +519,14 @@ func (yig *YigStorage) AbortMultipartUpload(credential common.Credential,
 	return nil
 }
 
-func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, bucketName,
-	objectName, uploadId string, uploadedParts []meta.CompletePart, ctx context.Context) (result datatype.CompleteMultipartResult,
+func (yig *YigStorage) CompleteMultipartUpload(requestCtx api.RequestContext, credential common.Credential,
+	uploadId string, uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult,
 	err error) {
 
-	span, ctx := opentracing.StartSpanFromContext(ctx, "CompleteMultipartUpload")
+	span, ctx := opentracing.StartSpanFromContext(requestCtx.SpanContext, "CompleteMultipartUpload")
 	defer span.Finish()
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
+	bucket, err := yig.MetaStorage.GetBucket(requestCtx.BucketName, true)
 	if err != nil {
 		return
 	}
@@ -542,7 +541,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 	}
 	// TODO policy and fancy ACL
 
-	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
+	multipart, err := yig.MetaStorage.GetMultipart(requestCtx.BucketName, requestCtx.ObjectName, uploadId)
 	if err != nil {
 		return
 	}
@@ -599,8 +598,8 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 	// Add to objects table
 	contentType := multipart.Metadata.ContentType
 	object := &meta.Object{
-		Name:             objectName,
-		BucketName:       bucketName,
+		Name:             requestCtx.ObjectName,
+		BucketName:       requestCtx.BucketName,
 		OwnerId:          multipart.Metadata.OwnerId,
 		Pool:             multipart.Metadata.Pool,
 		Location:         multipart.Metadata.Location,
@@ -620,7 +619,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 	}
 
 	var nullVerNum uint64
-	nullVerNum, err = yig.checkOldObject(bucketName, objectName, bucket.Versioning)
+	nullVerNum, err = yig.checkOldObject(ctx, requestCtx.BucketName, requestCtx.ObjectName, bucket.Versioning)
 	if err != nil {
 		return
 	}
@@ -633,14 +632,14 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 	}
 
 	objMap := &meta.ObjMap{
-		Name:       objectName,
-		BucketName: bucketName,
+		Name:       requestCtx.ObjectName,
+		BucketName: requestCtx.BucketName,
 	}
 
 	if nullVerNum != 0 {
-		err = yig.MetaStorage.PutObject(object, &multipart, objMap, false, ctx)
+		err = yig.MetaStorage.PutObject(ctx, object, &multipart, objMap, false)
 	} else {
-		err = yig.MetaStorage.PutObject(object, &multipart, nil, false, ctx)
+		err = yig.MetaStorage.PutObject(ctx, object, &multipart, nil, false)
 	}
 
 	sseRequest := multipart.Metadata.SseRequest
@@ -650,8 +649,10 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 	result.SseCustomerKeyMd5Base64 = base64.StdEncoding.EncodeToString(sseRequest.SseCustomerKey)
 
 	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
-		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
+		redisSpan, _ := opentracing.StartSpanFromContext(ctx, "redis start")
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable, requestCtx.BucketName+":"+requestCtx.ObjectName+":")
+		yig.DataCache.Remove(requestCtx.BucketName + ":" + requestCtx.ObjectName + ":" + object.GetVersionId())
+		redisSpan.Finish()
 	}
 
 	return

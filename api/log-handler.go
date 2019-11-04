@@ -13,9 +13,7 @@ type logHandler struct {
 
 func (l logHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	span, ctx := opentracing.StartSpanFromContext(r.Context(), "logHandler")
-	defer func() {
-		span.Finish()
-	}()
+	defer span.Finish()
 	// Serves the request.
 	logger := ContextLogger(r)
 	logger.Info("Start serving", r.Method, r.Host, r.URL)

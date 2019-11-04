@@ -53,9 +53,7 @@ type commonHeaderHandler struct {
 
 func (h commonHeaderHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	span, ctx := opentracing.StartSpanFromContext(r.Context(), "commonHeaderHandler")
-	defer func() {
-		span.Finish()
-	}()
+	defer span.Finish()
 	w.Header().Set("Accept-Ranges", "bytes")
 	h.handler.ServeHTTP(w, r.WithContext(ctx))
 }
@@ -70,9 +68,8 @@ type corsHandler struct {
 
 func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	span, spanCtx := opentracing.StartSpanFromContext(r.Context(), "corsHandler")
-	defer func() {
-		span.Finish()
-	}()
+	defer span.Finish()
+
 	w.Header().Add("Vary", "Origin")
 	origin := r.Header.Get("Origin")
 
@@ -121,9 +118,8 @@ type resourceHandler struct {
 // Resource handler ServeHTTP() wrapper
 func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	span, spanCtx := opentracing.StartSpanFromContext(r.Context(), "resourceHandler")
-	defer func() {
-		span.Finish()
-	}()
+	defer span.Finish()
+
 	// Skip the first element which is usually '/' and split the rest.
 	ctx := getRequestContext(r)
 	logger := ctx.Logger
@@ -206,9 +202,8 @@ type RequestIdHandler struct {
 
 func (h RequestIdHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	span, ctx := opentracing.StartSpanFromContext(r.Context(), "RequestIdHandler")
-	defer func() {
-		span.Finish()
-	}()
+	defer span.Finish()
+
 	requestID := string(helper.GenerateRandomId())
 	logger := helper.Logger.NewWithRequestID(requestID)
 	ctx = context.WithValue(ctx, RequestIdKey, requestID)
@@ -235,9 +230,7 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	var objectInfo *types.Object
 	var err error
 	span, ctx := opentracing.StartSpanFromContext(r.Context(), "GenerateContextHandler")
-	defer func() {
-		span.Finish()
-	}()
+	defer span.Finish()
 	helper.TracerLogger.For(ctx).TracerInfo("HTTP request received", zap.String("method", r.Method))
 	requestId := r.Context().Value(RequestIdKey).(string)
 	logger := r.Context().Value(ContextLoggerKey).(log.Logger)

@@ -83,11 +83,9 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed
 	return object, nil
 }
 
-func (m *Meta) PutObject(object *Object, multipart *Multipart, objMap *ObjMap, updateUsage bool, ctx context.Context) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "tidbPut")
-	defer func() {
-		span.Finish()
-	}()
+func (m *Meta) PutObject(ctx context.Context, object *Object, multipart *Multipart, objMap *ObjMap, updateUsage bool) error {
+	span, _ := opentracing.StartSpanFromContext(ctx, "tidbPut")
+	defer span.Finish()
 
 	tx, err := m.Client.NewTrans()
 	if err != nil {

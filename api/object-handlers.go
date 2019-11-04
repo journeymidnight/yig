@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"encoding/xml"
 	"github.com/opentracing/opentracing-go"
+	"go.uber.org/zap"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -408,6 +409,8 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 // This implementation of the PUT operation adds an object to a bucket
 // while reading the object from another source.
 func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Request) {
+	span, ctx := opentracing.StartSpanFromContext(r.Context(),"CopyObjectHandler")
+	defer span.Finish()
 	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	targetBucketName := vars["bucket"]
@@ -538,10 +541,12 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	targetObject.Type = sourceObject.Type
 
 	if r.Header.Get("X-Amz-Metadata-Directive") == "COPY" || r.Header.Get("X-Amz-Metadata-Directive") == "" {
+		helper.TracerLogger.For(ctx).TracerInfo("COPY")
 		targetObject.CustomAttributes = sourceObject.CustomAttributes
 		targetObject.StorageClass = sourceObject.StorageClass
 		targetObject.ContentType = sourceObject.ContentType
 	} else if r.Header.Get("X-Amz-Metadata-Directive") == "REPLACE" {
+		helper.TracerLogger.For(ctx).TracerInfo("REPLACE")
 		newMetadata := extractMetadataFromHeader(r.Header)
 		if c, ok := newMetadata["content-type"]; ok {
 			targetObject.ContentType = c
@@ -556,7 +561,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	// Create the object.
-	result, err := api.ObjectAPI.CopyObject(targetObject, pipeReader, credential, sseRequest, r.Context())
+	result, err := api.ObjectAPI.CopyObject(targetObject, pipeReader, credential, sseRequest, ctx)
 	if err != nil {
 		logger.Error("CopyObject failed:", err)
 		WriteErrorResponse(w, r, err)
@@ -694,7 +699,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 	requestCtx := getRequestContext(r)
 	requestCtx.SpanContext = ctx
-	helper.Logger.Info("ctx", ctx)
+	helper.TracerLogger.For(ctx).TracerInfo("HTTP request ID", zap.String("ObjectName", requestCtx.ObjectName))
 	var authType = signature.GetRequestAuthType(r)
 	var err error
 	if !isValidObjectName(requestCtx.ObjectName) {
@@ -840,9 +845,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	ctx := getRequestContext(r)
 
 	span, spanCtx := opentracing.StartSpanFromContext(ctx.SpanContext, "AppendObjectHandler")
-	defer func() {
-		span.Finish()
-	}()
+	defer span.Finish()
 	ctx.SpanContext = spanCtx
 	logger := ctx.Logger
 
@@ -1230,10 +1233,11 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 
 // PutObjectPartHandler - Upload part
 func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http.Request) {
+	span, ctx := opentracing.StartSpanFromContext(r.Context(), "PutObjectPartHandler")
+	defer span.Finish()
 	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
-	objectName := vars["object"]
+	requestCtx := getRequestContext(r)
+	requestCtx.SpanContext = ctx
 
 	authType := signature.GetRequestAuthType(r)
 
@@ -1301,10 +1305,10 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 
 	var result PutObjectPartResult
 	// No need to verify signature, anonymous request access is already allowed.
-	result, err = api.ObjectAPI.PutObjectPart(bucketName, objectName, credential,
-		uploadID, partID, size, dataReadCloser, incomingMd5, sseRequest, r.Context())
+	result, err = api.ObjectAPI.PutObjectPart(requestCtx, credential,
+		uploadID, partID, size, dataReadCloser, incomingMd5, sseRequest)
 	if err != nil {
-		logger.Error("Unable to create object part for", objectName, "error:", err)
+		logger.Error("Unable to create object part for", requestCtx.ObjectName, "error:", err)
 		// Verify if the underlying error is signature mismatch.
 		WriteErrorResponse(w, r, err)
 		return
@@ -1336,12 +1340,14 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 
 // Upload part - copy
 func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *http.Request) {
+	span, ctx := opentracing.StartSpanFromContext(r.Context(), "CopyObjectPartHandler")
+	defer span.Finish()
 	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	targetBucketName := vars["bucket"]
-	targetObjectName := vars["object"]
 
-	if !isValidObjectName(targetObjectName) {
+	requestCtx := getRequestContext(r)
+	requestCtx.SpanContext = ctx
+
+	if !isValidObjectName(requestCtx.ObjectName) {
 		WriteErrorResponse(w, r, ErrInvalidObjectName)
 		return
 	}
@@ -1479,11 +1485,11 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 	}()
 
 	// Create the object.
-	result, err := api.ObjectAPI.CopyObjectPart(targetBucketName, targetObjectName, targetUploadId,
-		targetPartId, readLength, pipeReader, credential, sseRequest, r.Context())
+	result, err := api.ObjectAPI.CopyObjectPart(requestCtx, targetUploadId,
+		targetPartId, readLength, pipeReader, credential, sseRequest)
 	if err != nil {
 		logger.Error("Unable to copy object part from", sourceObjectName,
-			"to", targetObjectName, "error:", err)
+			"to", requestCtx.ObjectName, "error:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -1605,9 +1611,9 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	span, ctx := opentracing.StartSpanFromContext(r.Context(), "CompleteMultipartUploadHandler")
 	defer span.Context()
 	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
-	objectName := vars["object"]
+
+	requestCtx := getRequestContext(r)
+	requestCtx.SpanContext = ctx
 
 	// Get upload id.
 	uploadId := r.URL.Query().Get("uploadId")
@@ -1663,8 +1669,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	}
 
 	var result CompleteMultipartResult
-	result, err = api.ObjectAPI.CompleteMultipartUpload(credential, bucketName,
-		objectName, uploadId, completeParts, ctx)
+	result, err = api.ObjectAPI.CompleteMultipartUpload(requestCtx, credential, uploadId, completeParts)
 
 	if err != nil {
 		logger.Error("Unable to complete multipart upload:", err)
@@ -1682,7 +1687,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	// Get object location.
 	location := GetLocation(r)
 	// Generate complete multipart response.
-	response := GenerateCompleteMultpartUploadResponse(bucketName, objectName, location, result.ETag)
+	response := GenerateCompleteMultpartUploadResponse(requestCtx.BucketName, requestCtx.ObjectName, location, result.ETag)
 	encodedSuccessResponse, err := xmlFormat(response)
 	if err != nil {
 		logger.Error("Unable to parse CompleteMultipartUpload response:", err)
@@ -1720,9 +1725,11 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 
 // DeleteObjectHandler - delete an object
 func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
-	objectName := vars["object"]
+	span, ctx := opentracing.StartSpanFromContext(r.Context(), "DeleteObjectHandler")
+	defer span.Finish()
+
+	requestCtx := getRequestContext(r)
+	requestCtx.SpanContext = ctx
 
 	var credential common.Credential
 	var err error
@@ -1743,7 +1750,7 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 	version := r.URL.Query().Get("versionId")
 	// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectDELETE.html
 	// Ignore delete object errors, since we are supposed to reply only 204.
-	result, err := api.ObjectAPI.DeleteObject(bucketName, objectName, version, credential, r.Context())
+	result, err := api.ObjectAPI.DeleteObject(requestCtx, version, credential)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return

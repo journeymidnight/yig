@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"github.com/journeymidnight/yig/api"
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
@@ -87,7 +88,7 @@ func checkIfExpiration(updateTime time.Time, days int) bool {
 func retrieveBucket(lc types.LifeCycle) error {
 	defaultConfig := false
 	defaultDays := 0
-	ctx := context.Background()
+
 	bucket, err := yig.MetaStorage.GetBucket(lc.BucketName, false)
 	if err != nil {
 		return err
@@ -103,6 +104,7 @@ func retrieveBucket(lc types.LifeCycle) error {
 		}
 	}
 	var request datatype.ListObjectsRequest
+	var requestCtx api.RequestContext
 	request.Versioned = false
 	request.MaxKeys = 1000
 	if defaultConfig == true {
@@ -140,7 +142,10 @@ func retrieveBucket(lc types.LifeCycle) error {
 					if object.NullVersion {
 						object.VersionId = ""
 					}
-					_, err = yig.DeleteObject(object.BucketName, object.Name, object.VersionId, common.Credential{}, ctx)
+					requestCtx.BucketName = object.BucketName
+					requestCtx.ObjectName = object.Name
+					requestCtx.SpanContext = context.Background()
+					_, err = yig.DeleteObject(requestCtx, object.VersionId, common.Credential{})
 					if err != nil {
 						helper.Logger.Error(object.BucketName, object.Name, object.VersionId, err)
 						continue
@@ -173,7 +178,10 @@ func retrieveBucket(lc types.LifeCycle) error {
 				}
 				for _, object := range retObjects {
 					if checkIfExpiration(object.LastModifiedTime, days) {
-						_, err = yig.DeleteObject(object.BucketName, object.Name, object.VersionId, common.Credential{}, ctx)
+						requestCtx.BucketName = object.BucketName
+						requestCtx.ObjectName = object.Name
+						requestCtx.SpanContext = context.Background()
+						_, err = yig.DeleteObject(requestCtx, object.VersionId, common.Credential{})
 						if err != nil {
 							helper.Logger.Error(object.BucketName, object.Name, object.VersionId, "failed:", err)
 							continue

@@ -74,14 +74,14 @@ type ObjectLayer interface {
 		metadata map[string]string, acl datatype.Acl, sse datatype.SseRequest,
 		storageClass meta.StorageClass, objInfo *meta.Object) (result datatype.AppendObjectResult, err error)
 
-	CopyObject(targetObject *meta.Object, source io.Reader, credential common.Credential,
-		sse datatype.SseRequest, ctx context.Context) (result datatype.PutObjectResult, err error)
+	CopyObject(ctx context.Context, targetObject *meta.Object, source io.Reader, credential common.Credential,
+		sse datatype.SseRequest) (result datatype.PutObjectResult, err error)
 	RenameObject(targetObject *meta.Object, sourceObject string, credential common.Credential) (result datatype.RenameObjectResult, err error)
 	SetObjectAcl(bucket string, object string, version string, policy datatype.AccessControlPolicy,
 		acl datatype.Acl, credential common.Credential) error
 	GetObjectAcl(bucket string, object string, version string, credential common.Credential) (
 		policy datatype.AccessControlPolicyResponse, err error)
-	DeleteObject(bucket, object, version string, credential common.Credential, ctx context.Context) (datatype.DeleteObjectResult,
+	DeleteObject(ctx RequestContext, version string, credential common.Credential) (datatype.DeleteObjectResult,
 		error)
 
 	// Multipart operations.
@@ -90,15 +90,14 @@ type ObjectLayer interface {
 	NewMultipartUpload(credential common.Credential, bucket, object string,
 		metadata map[string]string, acl datatype.Acl,
 		sse datatype.SseRequest, storageClass meta.StorageClass) (uploadID string, err error)
-	PutObjectPart(bucket, object string, credential common.Credential, uploadID string, partID int,
-		size int64, data io.ReadCloser, md5Hex string,
-		sse datatype.SseRequest, ctx context.Context) (result datatype.PutObjectPartResult, err error)
-	CopyObjectPart(bucketName, objectName, uploadId string, partId int, size int64, data io.Reader,
-		credential common.Credential, sse datatype.SseRequest, ctx context.Context) (result datatype.PutObjectResult,
+	PutObjectPart(ctx RequestContext, credential common.Credential, uploadID string, partID int,
+		size int64, data io.ReadCloser, md5Hex string, sse datatype.SseRequest) (result datatype.PutObjectPartResult, err error)
+	CopyObjectPart(ctx RequestContext, uploadId string, partId int, size int64, data io.Reader,
+		credential common.Credential, sse datatype.SseRequest) (result datatype.PutObjectResult,
 		err error)
 	ListObjectParts(credential common.Credential, bucket, object string,
 		request datatype.ListPartsRequest) (result datatype.ListPartsResponse, err error)
 	AbortMultipartUpload(credential common.Credential, bucket, object, uploadID string) error
-	CompleteMultipartUpload(credential common.Credential, bucket, object, uploadID string,
-		uploadedParts []meta.CompletePart, ctx context.Context) (result datatype.CompleteMultipartResult, err error)
+	CompleteMultipartUpload(ctx RequestContext, credential common.Credential, uploadID string,
+		uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult, err error)
 }

@@ -32,7 +32,6 @@ func Init(serviceName string, metricsFactory metrics.Factory, logger log.Factory
 	)
 	helper.Logger.Info( cfg.Sampler, cfg.Reporter, err)
 	if err != nil {
-		//logger.Bg().Fatal("cannot initialize Jaeger Tracer", zap.Error(err))
 		helper.Logger.Error("cannot initialize Jaeger Tracer", err)
 	}
 

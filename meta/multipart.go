@@ -1,8 +1,10 @@
 package meta
 
 import (
+	"context"
 	"database/sql"
 	. "github.com/journeymidnight/yig/meta/types"
+	"github.com/opentracing/opentracing-go"
 )
 
 func (m *Meta) GetMultipart(bucketName, objectName, uploadId string) (multipart Multipart, err error) {
@@ -35,7 +37,9 @@ func (m *Meta) DeleteMultipart(multipart Multipart) (err error) {
 	return
 }
 
-func (m *Meta) PutObjectPart(multipart Multipart, part Part) (err error) {
+func (m *Meta) PutObjectPart(multipart Multipart, part Part, ctx context.Context) (err error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "tidbPutObjectPart")
+	defer span.Finish()
 	tx, err := m.Client.NewTrans()
 	if err != nil {
 		return err

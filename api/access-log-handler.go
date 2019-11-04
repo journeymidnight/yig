@@ -48,9 +48,8 @@ type AccessLogHandler struct {
 
 func (a AccessLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	span, ctx := opentracing.StartSpanFromContext(r.Context(), "AccessLogHandler")
-	defer func() {
-		span.Finish()
-	}()
+	defer span.Finish()
+
 	a.responseRecorder = NewResponseRecorder(w)
 
 	startTime := time.Now()

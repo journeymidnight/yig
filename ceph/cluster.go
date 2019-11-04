@@ -212,12 +212,10 @@ func (rd *RadosSmallDownloader) Close() error {
 	return nil
 }
 
-func (cluster *CephCluster) Put(poolname string, data io.Reader, ctx context.Context) (oid string,
+func (cluster *CephCluster) Put(ctx context.Context, poolname string, data io.Reader) (oid string,
 	size uint64, err error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "cephPut")
-	defer func() {
-		span.Finish()
-	}()
+	defer span.Finish()
 
 	oid = cluster.getUniqUploadName()
 	if poolname == backend.SMALL_FILE_POOLNAME {
@@ -348,8 +346,8 @@ func (cluster *CephCluster) Put(poolname string, data io.Reader, ctx context.Con
 	return oid, size, nil
 }
 
-func (cluster *CephCluster) Append(poolname string, existName string, data io.Reader,
-	offset int64, ctx context.Context) (oid string, size uint64, err error) {
+func (cluster *CephCluster) Append(ctx context.Context, poolname string, existName string, data io.Reader,
+	offset int64) (oid string, size uint64, err error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "cephAppend")
 	defer span.Finish()
 

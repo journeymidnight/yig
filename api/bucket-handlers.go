@@ -18,6 +18,7 @@ package api
 
 import (
 	"encoding/xml"
+	"github.com/opentracing/opentracing-go"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -255,9 +256,13 @@ func (api ObjectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.R
 
 // DeleteMultipleObjectsHandler - deletes multiple objects.
 func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter, r *http.Request) {
+	span, ctx := opentracing.StartSpanFromContext(r.Context(), "DeleteMultipleObjectsHandler")
+	defer span.Finish()
+
 	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucket := vars["bucket"]
+	requestCtx := getRequestContext(r)
+	requestCtx.SpanContext = ctx
+
 
 	var credential common.Credential
 	var err error
@@ -315,8 +320,8 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	var deletedObjects []ObjectIdentifier
 	// Loop through all the objects and delete them sequentially.
 	for _, object := range deleteObjects.Objects {
-		result, err := api.ObjectAPI.DeleteObject(bucket, object.ObjectName,
-			object.VersionId, credential, r.Context())
+		requestCtx.ObjectName = object.ObjectName
+		result, err := api.ObjectAPI.DeleteObject(requestCtx, object.VersionId, credential)
 		if err == nil {
 			deletedObjects = append(deletedObjects, ObjectIdentifier{
 				ObjectName:   object.ObjectName,

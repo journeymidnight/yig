@@ -26,6 +26,7 @@ type Config struct {
 	SSLKeyPath           string                  `toml:"ssl_key_path"`
 	SSLCertPath          string                  `toml:"ssl_cert_path"`
 	ZookeeperAddress     string                  `toml:"zk_address"`
+	OpentracingSwitch    bool					 `toml:"opentracing_switch"`
 
 	InstanceId             string // if empty, generated one at server startup
 	ConcurrentRequestLimit int
@@ -137,6 +138,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.Region = c.Region
 	CONFIG.Plugins = c.Plugins
 	CONFIG.PiggybackUpdateUsage = c.PiggybackUpdateUsage
+	CONFIG.OpentracingSwitch = c.OpentracingSwitch
 	CONFIG.LogPath = c.LogPath
 	CONFIG.AccessLogPath = c.AccessLogPath
 	CONFIG.AccessLogFormat = c.AccessLogFormat

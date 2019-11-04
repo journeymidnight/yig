@@ -48,9 +48,7 @@ func (yig *YigStorage) AppendObject(requestCtx api.RequestContext, credential co
 	objInfo *types.Object) (result datatype.AppendObjectResult, err error) {
 
 	span, ctx := opentracing.StartSpanFromContext(requestCtx.SpanContext, "AppendObject")
-	defer func() {
-		span.Finish()
-	}()
+	defer span.Finish()
 
 	defer data.Close()
 	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, requestCtx.BucketName, requestCtx.ObjectName)
@@ -107,7 +105,7 @@ func (yig *YigStorage) AppendObject(requestCtx api.RequestContext, credential co
 	if err != nil {
 		return
 	}
-	oid, bytesWritten, err := cephCluster.Append(poolName, oid, storageReader, int64(offset), ctx)
+	oid, bytesWritten, err := cephCluster.Append(ctx, poolName, oid, storageReader, int64(offset))
 	if err != nil {
 		helper.Logger.Error("cephCluster.Append err:", err, poolName, oid, offset)
 		return
