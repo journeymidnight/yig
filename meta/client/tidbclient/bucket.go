@@ -174,29 +174,32 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 		if prefix != "" {
 			sqltext += " and name like ?"
 			args = append(args, prefix+"%")
-			helper.Debugln("query prefix:", prefix)
+			helper.Logger.Printf(20, "query prefix: %s", prefix)
 		}
 		if marker != "" {
 			sqltext += " and name >= ?"
 			args = append(args, marker)
-			helper.Debugln("query marker:", marker)
+			helper.Logger.Printf(20, "query marker: %s", marker)
 		}
 		if delimiter == "" {
 			sqltext += " order by bucketname,name,version limit ?"
 			args = append(args, MaxObjectList)
 		} else {
 			num := len(strings.Split(prefix, delimiter))
-			if prefix == "" {
-				num += 1
-			}
 			args = append(args, delimiter, num, MaxObjectList)
 			sqltext += " group by SUBSTRING_INDEX(name, ?, ?) limit ?"
 		}
+		tstart := time.Now()
 		rows, err = t.Client.Query(sqltext, args...)
 		if err != nil {
 			return
 		}
-		helper.Debugln("query sql:", sqltext)
+		tqueryend := time.Now()
+		tdur := tqueryend.Sub(tstart).Nanoseconds()
+		if tdur/1000000 > 5000 {
+			helper.Logger.Printf(5, "slow list objects query: %s, takes %d", sqltext, tdur)
+		}
+		helper.Logger.Printf(20, "query sql: %s", sqltext)
 		defer rows.Close()
 		for rows.Next() {
 			loopcount += 1
@@ -240,7 +243,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 				n := strings.Index(subStr, delimiter)
 				if n != -1 {
 					prefixKey := prefix + string([]byte(subStr)[0:(n+1)])
-					marker = prefixKey[0:(len(prefixKey) - 1)] + string(delimiter[len(delimiter) - 1] + 1)
+					marker = prefixKey[0:(len(prefixKey)-1)] + string(delimiter[len(delimiter)-1]+1)
 					if prefixKey == omarker {
 						continue
 					}
@@ -274,6 +277,11 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 				break
 			}
 			retObjects = append(retObjects, o)
+		}
+		tfor := time.Now()
+		tdur = tfor.Sub(tqueryend).Nanoseconds()
+		if tdur/1000000 > 5000 {
+			helper.Logger.Printf(5, "slow list get objects, takes %d", tdur)
 		}
 		if loopcount < MaxObjectList {
 			exit = true
