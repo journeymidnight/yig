@@ -169,7 +169,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 		var sqltext string
 		var rows *sql.Rows
 		args := make([]interface{}, 0)
-		sqltext = "select bucketname,name,version,nullversion,deletemarker from objects where bucketName=?"
+		sqltext = "select bucketname,name,version from objects where bucketName=?"
 		args = append(args, bucketName)
 		if prefix != "" {
 			sqltext += " and name like ?"
@@ -206,13 +206,10 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 			//fetch related date
 			var bucketname, name string
 			var version uint64
-			var nullversion, deletemarker bool
 			err = rows.Scan(
 				&bucketname,
 				&name,
 				&version,
-				&nullversion,
-				&deletemarker,
 			)
 			if err != nil {
 				return
@@ -231,9 +228,9 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 				continue
 			}
 			//filte by deletemarker
-			if deletemarker {
+			/*if deletemarker {
 				continue
-			}
+			}*/
 			if name == omarker {
 				continue
 			}
