@@ -187,7 +187,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 		} else {
 			num := len(strings.Split(prefix, delimiter))
 			args = append(args, delimiter, num, MaxObjectList)
-			sqltext += " group by SUBSTRING_INDEX(name, ?, ?) limit ?"
+			sqltext += " group by SUBSTRING_INDEX(name, ?, ?) order by bucketname, name,version limit ?"
 		}
 		tstart := time.Now()
 		rows, err = t.Client.Query(sqltext, args...)
@@ -261,6 +261,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 			Strver := strconv.FormatUint(version, 10)
 			o, err = t.GetObject(bucketname, name, Strver)
 			if err != nil {
+				helper.Logger.Printf(2, "ListObjects: failed to GetObject(%s, %s, %s), err: %v", bucketname, name, Strver, err)
 				return
 			}
 			count += 1
