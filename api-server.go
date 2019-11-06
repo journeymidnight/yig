@@ -18,8 +18,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/opentracing-contrib/go-stdlib/nethttp"
-	"github.com/opentracing/opentracing-go"
 	"net"
 	"net/http"
 	"os"
@@ -41,7 +39,6 @@ type ServerConfig struct {
 	CertFilePath string     // path for SSL certificate file
 	Logger       log.Logger // global logger
 	ObjectLayer  *storage.YigStorage
-	Tracer       opentracing.Tracer
 }
 
 // configureServer handler returns final handler for the http server.
@@ -85,16 +82,13 @@ func configureServerHandler(c *ServerConfig) http.Handler {
 
 // configureServer configure a new server instance
 func configureServer(c *ServerConfig) *api.Server {
-	middleware := nethttp.Middleware(
-		c.Tracer,
-		configureServerHandler(c))
 	apiServer := &api.Server{
 		Server: &http.Server{
 			Addr: c.Address,
 			// Adding timeout of 10 minutes for unresponsive client connections.
 			ReadTimeout:    10 * time.Minute,
 			WriteTimeout:   10 * time.Minute,
-			Handler:        middleware,
+			Handler:        configureServerHandler(c),
 			MaxHeaderBytes: 1 << 20,
 		},
 	}

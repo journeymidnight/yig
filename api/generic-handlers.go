@@ -19,8 +19,8 @@ package api
 import (
 	"context"
 	"fmt"
+	"github.com/journeymidnight/yig/tracing"
 	"github.com/opentracing/opentracing-go"
-	"go.uber.org/zap"
 	"net/http"
 	"strings"
 
@@ -201,15 +201,21 @@ type RequestIdHandler struct {
 }
 
 func (h RequestIdHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	span, ctx := opentracing.StartSpanFromContext(r.Context(), "RequestIdHandler")
-	defer span.Finish()
+	if helper.CONFIG.OpentracingSwitch {
+		tracer, closer, err := tracing.Init("Yig")
+		defer closer.Close()
+		if err != nil {
+			helper.Logger.Info("TRACER INIT FAILED! err:", err)
+		}
+		opentracing.SetGlobalTracer(tracer)
+	}
 
+	span, ctx := opentracing.StartSpanFromContext(r.Context(), "HTTP "+r.Method)
+	defer span.Finish()
 	requestID := string(helper.GenerateRandomId())
 	logger := helper.Logger.NewWithRequestID(requestID)
 	ctx = context.WithValue(ctx, RequestIdKey, requestID)
 	ctx = context.WithValue(ctx, ContextLoggerKey, logger)
-	helper.TracerLogger.For(ctx).TracerInfo("HTTP request ID", zap.String("requestID", requestID),
-		zap.String("method", r.Method), zap.String("host", r.Host), zap.String("RequestUrl", r.RequestURI))
 	h.handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
@@ -231,7 +237,6 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	var err error
 	span, ctx := opentracing.StartSpanFromContext(r.Context(), "GenerateContextHandler")
 	defer span.Finish()
-	helper.TracerLogger.For(ctx).TracerInfo("HTTP request received", zap.String("method", r.Method))
 	requestId := r.Context().Value(RequestIdKey).(string)
 	logger := r.Context().Value(ContextLoggerKey).(log.Logger)
 	bucketName, objectName, isBucketDomain := GetBucketAndObjectInfoFromRequest(r)

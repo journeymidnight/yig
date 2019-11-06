@@ -3,7 +3,6 @@ package api
 import (
 	"fmt"
 	"github.com/opentracing/opentracing-go"
-	"go.uber.org/zap"
 	"net/http"
 	"strings"
 	"time"
@@ -64,8 +63,6 @@ func (a AccessLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// send the entries in access logger to message bus.
 	elems := newReplacer.GetReplacedValues()
 	a.notify(elems)
-	helper.TracerLogger.For(ctx).TracerInfo("HTTP request received", zap.String("method", r.Method),
-		zap.String("responseRecorder", response))
 }
 
 func (a AccessLogHandler) notify(elems map[string]string) {

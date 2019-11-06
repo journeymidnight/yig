@@ -20,7 +20,6 @@ import (
 	"encoding/hex"
 	"encoding/xml"
 	"github.com/opentracing/opentracing-go"
-	"go.uber.org/zap"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -541,12 +540,10 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	targetObject.Type = sourceObject.Type
 
 	if r.Header.Get("X-Amz-Metadata-Directive") == "COPY" || r.Header.Get("X-Amz-Metadata-Directive") == "" {
-		helper.TracerLogger.For(ctx).TracerInfo("COPY")
 		targetObject.CustomAttributes = sourceObject.CustomAttributes
 		targetObject.StorageClass = sourceObject.StorageClass
 		targetObject.ContentType = sourceObject.ContentType
 	} else if r.Header.Get("X-Amz-Metadata-Directive") == "REPLACE" {
-		helper.TracerLogger.For(ctx).TracerInfo("REPLACE")
 		newMetadata := extractMetadataFromHeader(r.Header)
 		if c, ok := newMetadata["content-type"]; ok {
 			targetObject.ContentType = c
@@ -561,7 +558,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	// Create the object.
-	result, err := api.ObjectAPI.CopyObject(targetObject, pipeReader, credential, sseRequest, ctx)
+	result, err := api.ObjectAPI.CopyObject(ctx, targetObject, pipeReader, credential, sseRequest)
 	if err != nil {
 		logger.Error("CopyObject failed:", err)
 		WriteErrorResponse(w, r, err)
@@ -699,7 +696,6 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 	requestCtx := getRequestContext(r)
 	requestCtx.SpanContext = ctx
-	helper.TracerLogger.For(ctx).TracerInfo("HTTP request ID", zap.String("ObjectName", requestCtx.ObjectName))
 	var authType = signature.GetRequestAuthType(r)
 	var err error
 	if !isValidObjectName(requestCtx.ObjectName) {

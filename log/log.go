@@ -2,8 +2,6 @@ package log
 
 import (
 	"fmt"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"io"
 	"log"
 	"os"
@@ -33,19 +31,10 @@ func ParseLevel(levelString string) Level {
 }
 
 type Logger struct {
-	out          io.WriteCloser
-	level        Level
-	logger       *log.Logger
-	requestID    string
-	tracerLogger *zap.Logger
-}
-
-// Logger is a simplified abstraction of the zap.Logger
-type TracerLogger interface {
-	TracerInfo(msg string, fields ...zapcore.Field)
-	TracerError(msg string, fields ...zapcore.Field)
-	Fatal(msg string, fields ...zapcore.Field)
-	With(fields ...zapcore.Field) TracerLogger
+	out       io.WriteCloser
+	level     Level
+	logger    *log.Logger
+	requestID string
 }
 
 var logFlags = log.Ldate | log.Ltime | log.Lmicroseconds
@@ -133,24 +122,4 @@ func (l Logger) Println(args ...interface{}) {
 
 func (l Logger) Close() error {
 	return l.out.Close()
-}
-
-// Info logs an info msg with fields for tracer
-func (l Logger) TracerInfo(msg string, fields ...zapcore.Field) {
-	l.tracerLogger.Info(msg, fields...)
-}
-
-// Error logs an error msg with fields
-func (l Logger) TracerError(msg string, fields ...zapcore.Field) {
-	l.tracerLogger.Error(msg, fields...)
-}
-
-// Fatal logs a fatal error msg with fields
-func (l Logger) Fatal(msg string, fields ...zapcore.Field) {
-	l.tracerLogger.Fatal(msg, fields...)
-}
-
-// With creates a child logger, and optionally adds some context fields to that logger.
-func (l Logger) With(fields ...zapcore.Field) TracerLogger {
-	return Logger{tracerLogger: l.tracerLogger.With(fields...)}
 }

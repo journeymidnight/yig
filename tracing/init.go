@@ -1,51 +1,27 @@
 package tracing
 
 import (
-	"fmt"
 	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/log"
 	"github.com/opentracing/opentracing-go"
+	"github.com/uber/jaeger-client-go"
 	"github.com/uber/jaeger-client-go/config"
-	"github.com/uber/jaeger-client-go/rpcmetrics"
-	"github.com/uber/jaeger-lib/metrics"
-	"go.uber.org/zap"
 	"io"
 )
 
-func Init(serviceName string, metricsFactory metrics.Factory, logger log.Factory) (opentracing.Tracer, io.Closer, error) {
+func Init(serviceName string) (opentracing.Tracer, io.Closer, error) {
 	cfg, err := config.FromEnv()
 	if err != nil {
-		logger.Bg().Fatal("cannot parse Jaeger env vars", zap.Error(err))
+		helper.Logger.Info("cannot parse Jaeger env vars", err)
 	}
 	cfg.ServiceName = serviceName
 	cfg.Sampler.Type = "const"
 	cfg.Sampler.Param = 1
 	cfg.Reporter.LocalAgentHostPort = "jaeger:6831"
 
-	jaegerLogger := jaegerLoggerAdapter{logger.Bg()}
-
-	metricsFactory = metricsFactory.Namespace(metrics.NSOptions{Name: serviceName, Tags: nil})
-	tracer, closer, err := cfg.NewTracer(
-		config.Logger(jaegerLogger),
-		config.Metrics(metricsFactory),
-		config.Observer(rpcmetrics.NewObserver(metricsFactory, rpcmetrics.DefaultNameNormalizer)),
-	)
-	helper.Logger.Info( cfg.Sampler, cfg.Reporter, err)
+	tracer, closer, err := cfg.New(serviceName, config.Logger(jaeger.StdLogger))
 	if err != nil {
-		helper.Logger.Error("cannot initialize Jaeger Tracer", err)
+		helper.Logger.Info("ERROR: cannot init Jaeger: ", err)
+		helper.CONFIG.OpentracingSwitch = false
 	}
-
 	return tracer, closer, err
-}
-
-type jaegerLoggerAdapter struct {
-	logger log.Logger
-}
-
-func (l jaegerLoggerAdapter) Error(msg string) {
-	l.logger.Error(msg)
-}
-
-func (l jaegerLoggerAdapter) Infof(msg string, args ...interface{}) {
-	l.logger.Info(fmt.Sprintf(msg, args...))
 }

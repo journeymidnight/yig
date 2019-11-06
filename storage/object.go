@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"github.com/opentracing/opentracing-go"
-	"go.uber.org/zap"
 	"io"
 	"math/rand"
 	"path"
@@ -574,8 +573,6 @@ func (yig *YigStorage) PutObject(requestCtx api.RequestContext, credential commo
 	}
 
 	calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
-	helper.TracerLogger.For(ctx).TracerInfo("after put to ceph", zap.String("CalculatedMd5:", calculatedMd5),
-		zap.String("userMd5:", metadata["md5Sum"]))
 	helper.Logger.Info("CalculatedMd5:", calculatedMd5, "userMd5:", metadata["md5Sum"])
 	if userMd5, ok := metadata["md5Sum"]; ok {
 		if userMd5 != "" && userMd5 != calculatedMd5 {
