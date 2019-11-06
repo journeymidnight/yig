@@ -26,7 +26,12 @@ type Config struct {
 	SSLKeyPath           string                  `toml:"ssl_key_path"`
 	SSLCertPath          string                  `toml:"ssl_cert_path"`
 	ZookeeperAddress     string                  `toml:"zk_address"`
-	OpentracingSwitch    bool					 `toml:"opentracing_switch"`
+
+	OpentracingEnable         bool              `toml:"opentracing_enabled"`
+	OpentracingSamplerType    string            `toml:"opentracing_sampler_type"`
+	OpentracingSamplerParam   float64           `toml:"opentracing_sampler_param"`
+	OpentracingJaegerPort     string            `toml:"opentracing_jaeger_port"`
+
 
 	InstanceId             string // if empty, generated one at server startup
 	ConcurrentRequestLimit int
@@ -138,7 +143,6 @@ func MarshalTOMLConfig() error {
 	CONFIG.Region = c.Region
 	CONFIG.Plugins = c.Plugins
 	CONFIG.PiggybackUpdateUsage = c.PiggybackUpdateUsage
-	CONFIG.OpentracingSwitch = c.OpentracingSwitch
 	CONFIG.LogPath = c.LogPath
 	CONFIG.AccessLogPath = c.AccessLogPath
 	CONFIG.AccessLogFormat = c.AccessLogFormat
@@ -165,6 +169,11 @@ func MarshalTOMLConfig() error {
 		1, c.LcThread).(int)
 	CONFIG.LogLevel = Ternary(len(c.LogLevel) == 0, "info", c.LogLevel).(string)
 	CONFIG.MetaStore = Ternary(c.MetaStore == "", "tidb", c.MetaStore).(string)
+
+	CONFIG.OpentracingEnable = c.OpentracingEnable
+	CONFIG.OpentracingSamplerType = c.OpentracingSamplerType
+	CONFIG.OpentracingSamplerParam = c.OpentracingSamplerParam
+	CONFIG.OpentracingJaegerPort = c.OpentracingJaegerPort
 
 	CONFIG.RedisAddress = c.RedisAddress
 	CONFIG.RedisPassword = c.RedisPassword

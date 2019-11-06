@@ -201,21 +201,23 @@ type RequestIdHandler struct {
 }
 
 func (h RequestIdHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if helper.CONFIG.OpentracingSwitch {
+	if helper.CONFIG.OpentracingEnable {
 		tracer, closer, err := tracing.Init("Yig")
-		defer closer.Close()
 		if err != nil {
 			helper.Logger.Info("TRACER INIT FAILED! err:", err)
 		}
+		defer closer.Close()
 		opentracing.SetGlobalTracer(tracer)
 	}
 
-	span, ctx := opentracing.StartSpanFromContext(r.Context(), "HTTP "+r.Method)
-	defer span.Finish()
 	requestID := string(helper.GenerateRandomId())
 	logger := helper.Logger.NewWithRequestID(requestID)
-	ctx = context.WithValue(ctx, RequestIdKey, requestID)
+	ctx := context.WithValue(r.Context(), RequestIdKey, requestID)
 	ctx = context.WithValue(ctx, ContextLoggerKey, logger)
+
+	span, ctx := opentracing.StartSpanFromContext(ctx, "RequestIdHandler "+requestID)
+	defer span.Finish()
+
 	h.handler.ServeHTTP(w, r.WithContext(ctx))
 }
 

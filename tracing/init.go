@@ -3,7 +3,6 @@ package tracing
 import (
 	"github.com/journeymidnight/yig/helper"
 	"github.com/opentracing/opentracing-go"
-	"github.com/uber/jaeger-client-go"
 	"github.com/uber/jaeger-client-go/config"
 	"io"
 )
@@ -13,15 +12,14 @@ func Init(serviceName string) (opentracing.Tracer, io.Closer, error) {
 	if err != nil {
 		helper.Logger.Info("cannot parse Jaeger env vars", err)
 	}
-	cfg.ServiceName = serviceName
-	cfg.Sampler.Type = "const"
-	cfg.Sampler.Param = 1
-	cfg.Reporter.LocalAgentHostPort = "jaeger:6831"
+	cfg.Sampler.Type = helper.CONFIG.OpentracingSamplerType
+	cfg.Sampler.Param = helper.CONFIG.OpentracingSamplerParam
+	cfg.Reporter.LocalAgentHostPort = helper.CONFIG.OpentracingJaegerPort
 
-	tracer, closer, err := cfg.New(serviceName, config.Logger(jaeger.StdLogger))
+	tracer, closer, err := cfg.New(serviceName)
 	if err != nil {
 		helper.Logger.Info("ERROR: cannot init Jaeger: ", err)
-		helper.CONFIG.OpentracingSwitch = false
+		helper.CONFIG.OpentracingEnable = false
 	}
 	return tracer, closer, err
 }
