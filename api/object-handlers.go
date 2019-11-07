@@ -187,7 +187,11 @@ func (o *GetObjectResponseWriter) Write(p []byte) (int, error) {
 // This implementation of the GET operation retrieves object. To use GET,
 // you must have READ access to the object.
 func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Request) {
+	span, spanCtx := opentracing.StartSpanFromContext(r.Context(), "GetObjectHandler")
+	defer span.Finish()
+
 	ctx := getRequestContext(r)
+	ctx.SpanContext = spanCtx
 	logger := ctx.Logger
 	var credential common.Credential
 	var err error
@@ -838,10 +842,10 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 // ----------
 // This implementation of the POST operation append an object in a bucket.
 func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := getRequestContext(r)
-
-	span, spanCtx := opentracing.StartSpanFromContext(ctx.SpanContext, "AppendObjectHandler")
+	span, spanCtx := opentracing.StartSpanFromContext(r.Context(), "AppendObjectHandler")
 	defer span.Finish()
+
+	ctx := getRequestContext(r)
 	ctx.SpanContext = spanCtx
 	logger := ctx.Logger
 

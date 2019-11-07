@@ -366,6 +366,39 @@ func Test_RenameObjectErrFolder(t *testing.T) {
 	svc.DeleteObject(TEST_BUCKET, TEST_RENAME_KEY)
 }
 
+func Test_Object_Append(t *testing.T) {
+	sc := NewS3()
+	sc.DeleteObject(TEST_BUCKET, TEST_KEY)
+	sc.DeleteBucket(TEST_BUCKET)
+	sc.MakeBucket(TEST_BUCKET)
+	var nextPos int64
+	var err error
+	nextPos, err = sc.AppendObject(TEST_BUCKET, TEST_KEY, TEST_VALUE, nextPos)
+	if err != nil {
+		t.Fatal("AppendObject err:", err)
+	}
+	t.Log("First AppendObject Success! Next position:", nextPos)
+	v, err := sc.GetObject(TEST_BUCKET, TEST_KEY)
+	t.Log("First Append Value:", v)
+	if v != TEST_VALUE {
+		t.Fatal("GetObject err: value is:", v, ", but should be:", TEST_VALUE)
+	}
+
+	nextPos, err = sc.AppendObject(TEST_BUCKET, TEST_KEY, TEST_VALUE+"APPEND", nextPos)
+	if err != nil {
+		t.Fatal("AppendObject err:", err)
+	}
+	v, err = sc.GetObject(TEST_BUCKET, TEST_KEY)
+	if v != TEST_VALUE+TEST_VALUE+"APPEND" {
+		t.Fatal("GetObject err: value is:", v, ", but should be:", TEST_VALUE+TEST_VALUE+"APPEND")
+	}
+	t.Log("AppendObject success!")
+	err = sc.DeleteObject(TEST_BUCKET, TEST_KEY)
+	if err != nil {
+		t.Log("DeleteObject err:", err)
+	}
+}
+
 func Test_Object_End(t *testing.T) {
 	sc := NewS3()
 	err := sc.DeleteObject(TEST_BUCKET, TEST_KEY)

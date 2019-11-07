@@ -184,7 +184,7 @@ func (m *Meta) DeleteObject(object *Object, DeleteMarker bool, objMap *ObjMap) (
 	return m.Client.UpdateUsage(object.BucketName, -object.Size, tx)
 }
 
-func (m *Meta) AppendObject(object *Object, isExist bool, ctx context.Context) error {
+func (m *Meta) AppendObject(ctx context.Context, object *Object, isExist bool) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "tidbAppend")
 	defer span.Finish()
 	tx, err := m.Client.NewTrans()

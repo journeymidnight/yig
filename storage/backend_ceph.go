@@ -133,8 +133,8 @@ func (yig *YigStorage) AppendObject(requestCtx api.RequestContext, credential co
 
 	// TODO validate bucket policy and fancy ACL
 	object := &types.Object{
-		Name:                 requestCtx.BucketName,
-		BucketName:           requestCtx.ObjectName,
+		Name:                 requestCtx.ObjectName,
+		BucketName:           requestCtx.BucketName,
 		Location:             cephCluster.ID(),
 		Pool:                 poolName,
 		OwnerId:              credential.UserId,
@@ -158,7 +158,7 @@ func (yig *YigStorage) AppendObject(requestCtx api.RequestContext, credential co
 	result.NextPosition = object.Size
 	helper.Logger.Println(20, "Append info.", "bucket:", requestCtx.BucketName, "objName:", requestCtx.ObjectName, "oid:", oid,
 		"objSize:", object.Size, "bytesWritten:", bytesWritten, "storageClass:", storageClass)
-	err = yig.MetaStorage.AppendObject(object, objInfo != nil, ctx)
+	err = yig.MetaStorage.AppendObject(ctx, object, objInfo != nil)
 	if err != nil {
 		return
 	}

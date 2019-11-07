@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"github.com/journeymidnight/yig/api"
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/helper"
@@ -143,6 +144,7 @@ func retrieveBucket(lc types.LifeCycle) error {
 					}
 					requestCtx.BucketName = object.BucketName
 					requestCtx.ObjectName = object.Name
+					requestCtx.SpanContext = context.Background()
 					_, err = yig.DeleteObject(requestCtx, object.VersionId, common.Credential{})
 					if err != nil {
 						helper.Logger.Error(object.BucketName, object.Name, object.VersionId, err)
@@ -178,6 +180,7 @@ func retrieveBucket(lc types.LifeCycle) error {
 					if checkIfExpiration(object.LastModifiedTime, days) {
 						requestCtx.BucketName = object.BucketName
 						requestCtx.ObjectName = object.Name
+						requestCtx.SpanContext = context.Background()
 						_, err = yig.DeleteObject(requestCtx, object.VersionId, common.Credential{})
 						if err != nil {
 							helper.Logger.Error(object.BucketName, object.Name, object.VersionId, "failed:", err)

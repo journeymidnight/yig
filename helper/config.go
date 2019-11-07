@@ -27,7 +27,7 @@ type Config struct {
 	SSLCertPath          string                  `toml:"ssl_cert_path"`
 	ZookeeperAddress     string                  `toml:"zk_address"`
 
-	OpentracingEnable         bool              `toml:"opentracing_enabled"`
+	OpentracingEnabled        bool              `toml:"opentracing_enabled"`
 	OpentracingSamplerType    string            `toml:"opentracing_sampler_type"`
 	OpentracingSamplerParam   float64           `toml:"opentracing_sampler_param"`
 	OpentracingJaegerPort     string            `toml:"opentracing_jaeger_port"`
@@ -170,7 +170,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.LogLevel = Ternary(len(c.LogLevel) == 0, "info", c.LogLevel).(string)
 	CONFIG.MetaStore = Ternary(c.MetaStore == "", "tidb", c.MetaStore).(string)
 
-	CONFIG.OpentracingEnable = c.OpentracingEnable
+	CONFIG.OpentracingEnabled = c.OpentracingEnabled
 	CONFIG.OpentracingSamplerType = c.OpentracingSamplerType
 	CONFIG.OpentracingSamplerParam = c.OpentracingSamplerParam
 	CONFIG.OpentracingJaegerPort = c.OpentracingJaegerPort

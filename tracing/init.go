@@ -11,6 +11,8 @@ func Init(serviceName string) (opentracing.Tracer, io.Closer, error) {
 	cfg, err := config.FromEnv()
 	if err != nil {
 		helper.Logger.Info("cannot parse Jaeger env vars", err)
+		helper.CONFIG.OpentracingEnabled = false
+		return nil, nil, err
 	}
 	cfg.Sampler.Type = helper.CONFIG.OpentracingSamplerType
 	cfg.Sampler.Param = helper.CONFIG.OpentracingSamplerParam
@@ -19,7 +21,8 @@ func Init(serviceName string) (opentracing.Tracer, io.Closer, error) {
 	tracer, closer, err := cfg.New(serviceName)
 	if err != nil {
 		helper.Logger.Info("ERROR: cannot init Jaeger: ", err)
-		helper.CONFIG.OpentracingEnable = false
+		helper.CONFIG.OpentracingEnabled = false
+		return nil, nil, err
 	}
 	return tracer, closer, err
 }

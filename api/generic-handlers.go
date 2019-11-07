@@ -67,9 +67,6 @@ type corsHandler struct {
 }
 
 func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	span, spanCtx := opentracing.StartSpanFromContext(r.Context(), "corsHandler")
-	defer span.Finish()
-
 	w.Header().Add("Vary", "Origin")
 	origin := r.Header.Get("Origin")
 
@@ -102,7 +99,7 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.handler.ServeHTTP(w, r.WithContext(spanCtx))
+	h.handler.ServeHTTP(w, r)
 	return
 }
 
@@ -117,9 +114,6 @@ type resourceHandler struct {
 
 // Resource handler ServeHTTP() wrapper
 func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	span, spanCtx := opentracing.StartSpanFromContext(r.Context(), "resourceHandler")
-	defer span.Finish()
-
 	// Skip the first element which is usually '/' and split the rest.
 	ctx := getRequestContext(r)
 	logger := ctx.Logger
@@ -145,7 +139,7 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		WriteErrorResponse(w, r, ErrMethodNotAllowed)
 		return
 	}
-	h.handler.ServeHTTP(w, r.WithContext(spanCtx))
+	h.handler.ServeHTTP(w, r)
 }
 
 // setIgnoreResourcesHandler -
@@ -201,7 +195,7 @@ type RequestIdHandler struct {
 }
 
 func (h RequestIdHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if helper.CONFIG.OpentracingEnable {
+	if helper.CONFIG.OpentracingEnabled {
 		tracer, closer, err := tracing.Init("Yig")
 		if err != nil {
 			helper.Logger.Info("TRACER INIT FAILED! err:", err)
