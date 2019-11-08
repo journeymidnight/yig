@@ -37,7 +37,7 @@ func (m *Meta) DeleteMultipart(multipart Multipart) (err error) {
 	return
 }
 
-func (m *Meta) PutObjectPart(multipart Multipart, part Part, ctx context.Context) (err error) {
+func (m *Meta) PutObjectPart(ctx context.Context, multipart Multipart, part Part) (err error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "tidbPutObjectPart")
 	defer span.Finish()
 	tx, err := m.Client.NewTrans()

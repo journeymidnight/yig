@@ -645,7 +645,7 @@ func (yig *YigStorage) PutObject(requestCtx api.RequestContext, credential commo
 	}
 
 	if err == nil {
-		redisSpan, _ := opentracing.StartSpanFromContext(ctx, "redis start")
+		redisSpan, _ := opentracing.StartSpanFromContext(ctx, "redisCache")
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, requestCtx.BucketName+":"+requestCtx.ObjectName+":")
 		yig.DataCache.Remove(requestCtx.BucketName + ":" + requestCtx.ObjectName + ":" + object.GetVersionId())
 		redisSpan.Finish()
@@ -874,7 +874,7 @@ func (yig *YigStorage) CopyObject(ctx context.Context, targetObject *meta.Object
 		return
 	}
 
-	redisSpan, _ := opentracing.StartSpanFromContext(ctx, "redis start")
+	redisSpan, _ := opentracing.StartSpanFromContext(ctx, "redisCache")
 	yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
 	yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
 	defer redisSpan.Finish()

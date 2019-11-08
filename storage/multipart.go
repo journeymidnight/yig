@@ -252,7 +252,7 @@ func (yig *YigStorage) PutObjectPart(requestCtx api.RequestContext, credential c
 		LastModified:         time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT),
 		InitializationVector: initializationVector,
 	}
-	err = yig.MetaStorage.PutObjectPart(multipart, part, ctx)
+	err = yig.MetaStorage.PutObjectPart(ctx, multipart, part)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
@@ -378,7 +378,7 @@ func (yig *YigStorage) CopyObjectPart(requestCtx api.RequestContext, uploadId st
 	}
 	result.LastModified = now
 
-	err = yig.MetaStorage.PutObjectPart(multipart, part, ctx)
+	err = yig.MetaStorage.PutObjectPart(ctx, multipart, part)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
@@ -649,7 +649,7 @@ func (yig *YigStorage) CompleteMultipartUpload(requestCtx api.RequestContext, cr
 	result.SseCustomerKeyMd5Base64 = base64.StdEncoding.EncodeToString(sseRequest.SseCustomerKey)
 
 	if err == nil {
-		redisSpan, _ := opentracing.StartSpanFromContext(ctx, "redis start")
+		redisSpan, _ := opentracing.StartSpanFromContext(ctx, "redisCache")
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, requestCtx.BucketName+":"+requestCtx.ObjectName+":")
 		yig.DataCache.Remove(requestCtx.BucketName + ":" + requestCtx.ObjectName + ":" + object.GetVersionId())
 		redisSpan.Finish()
