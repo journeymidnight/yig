@@ -66,7 +66,7 @@ type ObjectLayer interface {
 		sse datatype.SseRequest) (err error)
 	GetObjectInfo(bucket, object, version string, credential common.Credential) (objInfo *meta.Object, err error)
 	GetObjectInfoByCtx(ctx RequestContext, version string, credential common.Credential) (objInfo *meta.Object, err error)
-	PutObject(bucket, object string, credential common.Credential, size int64, data io.ReadCloser,
+	PutObject(reqCtx RequestContext, credential common.Credential, size int64, data io.ReadCloser,
 		metadata map[string]string, acl datatype.Acl,
 		sse datatype.SseRequest, storageClass meta.StorageClass) (result datatype.PutObjectResult, err error)
 	AppendObject(bucket, object string, credential common.Credential, offset uint64, size int64, data io.ReadCloser,

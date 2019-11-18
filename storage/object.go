@@ -30,8 +30,8 @@ const (
 )
 
 func (yig *YigStorage) pickRandomCluster() (cluster backend.Cluster) {
-	helper.Logger.Warn("Error picking cluster from table cluster in DB, "+
-			"use first cluster in config to write.")
+	helper.Logger.Warn("Error picking cluster from table cluster in DB, " +
+		"use first cluster in config to write.")
 	for _, c := range yig.DataStorage {
 		cluster = c
 		break
@@ -499,11 +499,13 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, versio
 //
 // SHA256 is calculated only for v4 signed authentication
 // Encryptor is enabled when user set SSE headers
-func (yig *YigStorage) PutObject(bucketName string, objectName string, credential common.Credential,
+func (yig *YigStorage) PutObject(reqCtx api.RequestContext, credential common.Credential,
 	size int64, data io.ReadCloser, metadata map[string]string, acl datatype.Acl,
 	sseRequest datatype.SseRequest, storageClass meta.StorageClass) (result datatype.PutObjectResult, err error) {
 
 	defer data.Close()
+	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
+	start := time.Now().UnixNano() / 1000
 	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, bucketName, objectName)
 	helper.Logger.Info("get encryptionKey:", encryptionKey, "cipherKey:", cipherKey, "err:", err)
 	if err != nil {
@@ -524,7 +526,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 			return result, ErrBucketAccessForbidden
 		}
 	}
-
+	end_get_bucket := time.Now().UnixNano() / 1000
 	md5Writer := md5.New()
 
 	// Limit the reader to its provided size if specified.
@@ -540,6 +542,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		return result, ErrInternalError
 	}
 
+	end_get_cluster := time.Now().UnixNano() / 1000
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
 
 	var initializationVector []byte
@@ -554,10 +557,12 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	if err != nil {
 		return
 	}
+	before_put := time.Now().UnixNano() / 1000
 	objectId, bytesWritten, err := cluster.Put(poolName, storageReader)
 	if err != nil {
 		return
 	}
+	end_put := time.Now().UnixNano() / 1000
 	// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
 	// so the object in Ceph could be removed asynchronously
 	maybeObjectToRecycle := objectToRecycle{
@@ -580,7 +585,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 			return result, ErrBadDigest
 		}
 	}
-
+	end_md5 := time.Now().UnixNano() / 1000
 	result.Md5 = calculatedMd5
 
 	if signVerifyReader, ok := data.(*signature.SignVerifyReadCloser); ok {
@@ -591,6 +596,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		}
 	}
 	// TODO validate bucket policy and fancy ACL
+	end_verify := time.Now().UnixNano() / 1000
 	object := &meta.Object{
 		Name:             objectName,
 		BucketName:       bucketName,
@@ -621,6 +627,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
+	end_check_old := time.Now().UnixNano() / 1000
 	if bucket.Versioning == meta.VersionEnabled {
 		result.VersionId = object.GetVersionId()
 	}
@@ -638,7 +645,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	} else {
 		err = yig.MetaStorage.PutObject(object, nil, nil, true)
 	}
-
+	end_put_meta := time.Now().UnixNano() / 1000
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
@@ -648,6 +655,18 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
 	}
+	end_remove := time.Now().UnixNano() / 1000
+	logger := reqCtx.Logger
+	logger.Error("-_-ObjectAPI: RequestId:", reqCtx.RequestID,
+		"GetBucket:", end_get_bucket-start,
+		"GetCluster:", end_get_cluster-end_get_bucket,
+		"BeforePut:", before_put-end_get_cluster,
+		"EndPut:", end_put-before_put,
+		"EndMD5:", end_md5-end_put,
+		"EndVerify:", end_verify-end_md5,
+		"EndCheckOld:", end_check_old-end_verify,
+		"EndPutMeta:", end_put_meta-end_check_old,
+		"EndRemove:", end_remove-end_put_meta)
 	return result, nil
 }
 

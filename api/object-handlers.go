@@ -26,6 +26,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	. "github.com/journeymidnight/yig/api/datatype"
@@ -683,6 +684,8 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 // This implementation of the PUT operation adds an object to a bucket.
 func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Request) {
 	logger := ContextLogger(r)
+	reqCtx := getRequestContext(r)
+	start := time.Now().UnixNano() / 1000
 	// If the matching failed, it means that the X-Amz-Copy-Source was
 	// wrong, fail right here.
 	if _, ok := r.Header["X-Amz-Copy-Source"]; ok {
@@ -690,7 +693,6 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
 	objectName := vars["object"]
 
 	var authType = signature.GetRequestAuthType(r)
@@ -797,16 +799,16 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		WriteErrorResponse(w, r, err)
 		return
 	}
-
+	start_before := time.Now().UnixNano() / 1000
 	var result PutObjectResult
-	result, err = api.ObjectAPI.PutObject(bucketName, objectName, credential, size, dataReadCloser,
+	result, err = api.ObjectAPI.PutObject(reqCtx, credential, size, dataReadCloser,
 		metadata, acl, sseRequest, storageClass)
 	if err != nil {
 		logger.Error("Unable to create object", objectName, "error:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
-
+	start_after := time.Now().UnixNano() / 1000
 	if result.Md5 != "" {
 		w.Header()["ETag"] = []string{"\"" + result.Md5 + "\""}
 	}
@@ -827,7 +829,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "PutObject"
-
+	logger.Error("-_-Handler: RequestId:", reqCtx.RequestID, "BeforePutUse:", start_before-start, "PutUse:", start_after-start_before)
 	WriteSuccessResponse(w, nil)
 }
 
@@ -1056,7 +1058,7 @@ func (api ObjectAPIHandlers) PutObjectMeta(w http.ResponseWriter, r *http.Reques
 		WriteErrorResponse(w, r, err)
 		return
 	}
-	object:= ctx.ObjectInfo
+	object := ctx.ObjectInfo
 	object.CustomAttributes = metaData.Data
 
 	err = api.ObjectAPI.PutObjectMeta(ctx.BucketInfo, object, credential)
@@ -1902,7 +1904,7 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	result, err := api.ObjectAPI.PutObject(bucketName, objectName, credential, -1, fileBody,
+	result, err := api.ObjectAPI.PutObject(getRequestContext(r), credential, -1, fileBody,
 		metadata, acl, sseRequest, storageClass)
 	if err != nil {
 		logger.Error("Unable to create object", objectName, "error:", err)
