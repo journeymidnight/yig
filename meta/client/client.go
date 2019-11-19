@@ -20,6 +20,8 @@ type Client interface {
 	PutObject(object *Object, tx DB) error
 	UpdateAppendObject(object *Object, tx DB) error
 	PutObjectWithCtx(reqCtx log.Logger, object *Object, tx DB) (err error)
+	PutCommonObjectWithCtx(logger log.Logger, object *Object) (err error)
+	UpdateCommonObjectWithCtx(logger log.Logger, o *Object) (err error)
 	RenameObjectPart(object *Object, sourceObject string, tx DB) (err error)
 	RenameObject(object *Object, sourceObject string, tx DB) (err error)
 	DeleteObject(object *Object, tx DB) error

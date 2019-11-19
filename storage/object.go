@@ -621,29 +621,15 @@ func (yig *YigStorage) PutObject(reqCtx api.RequestContext, credential common.Cr
 	}
 
 	result.LastModified = object.LastModifiedTime
-	var nullVerNum uint64
-	nullVerNum, err = yig.checkOldObject(bucketName, objectName, bucket.Versioning)
-	if err != nil {
-		RecycleQueue <- maybeObjectToRecycle
-		return
-	}
+
 	end_check_old := time.Now().UnixNano() / 1000
-	if bucket.Versioning == meta.VersionEnabled {
-		result.VersionId = object.GetVersionId()
-	}
-	// update null version number
-	if bucket.Versioning == meta.VersionSuspended {
-		nullVerNum = uint64(object.LastModifiedTime.UnixNano())
-	}
+
 	logger := reqCtx.Logger
-	if nullVerNum != 0 {
-		objMap := &meta.ObjMap{
-			Name:       objectName,
-			BucketName: bucketName,
-		}
-		err = yig.MetaStorage.PutObjectWithLogger(logger, object, nil, objMap, true)
-	} else {
+
+	if reqCtx.ObjectInfo == nil {
 		err = yig.MetaStorage.PutObjectWithLogger(logger, object, nil, nil, true)
+	} else {
+		err = yig.MetaStorage.UpdateObjectWithLogger(logger, object, nil, nil, true)
 	}
 	end_put_meta := time.Now().UnixNano() / 1000
 	if err != nil {
