@@ -422,7 +422,7 @@ func (yig *YigStorage) DeleteBucket(ctx context.Context, bucketName string, cred
 	}
 
 	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.UserTable, meta.USER_CACHE_PREFIX, credential.UserId)
+		yig.MetaStorage.Cache.Remove(redis.UserTable, meta.BUCKET_CACHE_PREFIX, credential.UserId)
 		yig.MetaStorage.Cache.Remove(redis.BucketTable, meta.BUCKET_CACHE_PREFIX, bucketName)
 	}
 
