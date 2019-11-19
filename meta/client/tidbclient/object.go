@@ -9,6 +9,7 @@ import (
 	"time"
 
 	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/log"
 	. "github.com/journeymidnight/yig/meta/types"
 	"github.com/xxtea/xxtea-go/xxtea"
 )
@@ -171,6 +172,45 @@ func (t *TidbClient) PutObject(object *Object, tx DB) (err error) {
 			}
 		}
 	}
+	return err
+}
+
+func (t *TidbClient) PutObjectWithCtx(logger log.Logger, object *Object, tx DB) (err error) {
+	start := time.Now().UnixNano() / 1000
+	if tx == nil {
+		tx, err = t.Client.Begin()
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err == nil {
+				err = tx.(*sql.Tx).Commit()
+			}
+			if err != nil {
+				tx.(*sql.Tx).Rollback()
+			}
+		}()
+	}
+	start_begin := time.Now().UnixNano() / 1000
+	sql, args := object.GetCreateSql()
+	create_sql := time.Now().UnixNano() / 1000
+	_, err = tx.Exec(sql, args...)
+	exec := time.Now().UnixNano() / 1000
+	if object.Parts != nil {
+		v := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
+		version := strconv.FormatUint(v, 10)
+		for _, p := range object.Parts {
+			psql, args := p.GetCreateSql(object.BucketName, object.Name, version)
+			_, err = tx.Exec(psql, args...)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	logger.Error("-_-TiDB:",
+		"Begin:", start_begin-start,
+		"CreateSql:", create_sql-start_begin,
+		"Exec:", exec-create_sql)
 	return err
 }
 

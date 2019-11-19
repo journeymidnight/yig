@@ -512,8 +512,8 @@ func (yig *YigStorage) PutObject(reqCtx api.RequestContext, credential common.Cr
 		return
 	}
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
-	if err != nil {
+	bucket := reqCtx.BucketInfo
+	if bucket == nil {
 		helper.Logger.Info("get bucket", bucket, "err:", err)
 		return
 	}
@@ -635,15 +635,15 @@ func (yig *YigStorage) PutObject(reqCtx api.RequestContext, credential common.Cr
 	if bucket.Versioning == meta.VersionSuspended {
 		nullVerNum = uint64(object.LastModifiedTime.UnixNano())
 	}
-
+	logger := reqCtx.Logger
 	if nullVerNum != 0 {
 		objMap := &meta.ObjMap{
 			Name:       objectName,
 			BucketName: bucketName,
 		}
-		err = yig.MetaStorage.PutObject(object, nil, objMap, true)
+		err = yig.MetaStorage.PutObjectWithLogger(logger, object, nil, objMap, true)
 	} else {
-		err = yig.MetaStorage.PutObject(object, nil, nil, true)
+		err = yig.MetaStorage.PutObjectWithLogger(logger, object, nil, nil, true)
 	}
 	end_put_meta := time.Now().UnixNano() / 1000
 	if err != nil {
@@ -656,7 +656,7 @@ func (yig *YigStorage) PutObject(reqCtx api.RequestContext, credential common.Cr
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
 	}
 	end_remove := time.Now().UnixNano() / 1000
-	logger := reqCtx.Logger
+
 	logger.Error("-_-ObjectAPI: RequestId:", reqCtx.RequestID,
 		"GetBucket:", end_get_bucket-start,
 		"GetCluster:", end_get_cluster-end_get_bucket,

@@ -2,8 +2,11 @@ package meta
 
 import (
 	"database/sql"
+	"time"
+
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/log"
 	. "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
 )
@@ -79,6 +82,59 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed
 		return
 	}
 	return object, nil
+}
+
+func (m *Meta) PutObjectWithLogger(logger log.Logger, object *Object, multipart *Multipart, objMap *ObjMap, updateUsage bool) error {
+	start := time.Now().UnixNano() / 1000
+	tx, err := m.Client.NewTrans()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			m.Client.AbortTrans(tx)
+		}
+	}()
+
+	before_put := time.Now().UnixNano() / 1000
+	err = m.Client.PutObjectWithCtx(logger, object, tx)
+	if err != nil {
+		return err
+	}
+	end_put := time.Now().UnixNano() / 1000
+	if objMap != nil {
+		err = m.Client.PutObjectMap(objMap, tx)
+		if err != nil {
+			return err
+		}
+	}
+
+	if multipart != nil {
+		err = m.Client.DeleteMultipart(multipart, tx)
+		if err != nil {
+			return err
+		}
+	}
+
+	if updateUsage {
+		err = m.Client.UpdateUsage(object.BucketName, object.Size, tx)
+		if err != nil {
+			return err
+		}
+	}
+	before_commit := time.Now().UnixNano() / 1000
+
+	err = m.Client.CommitTrans(tx)
+	if err != nil {
+		return err
+	}
+	end_commit := time.Now().UnixNano() / 1000
+	logger.Error("-_-Meta:",
+		"BeforePut:", before_put-start,
+		"EndPut:", end_put-before_put,
+		"BeforeCommit:", before_commit-end_put,
+		"EndCommit:", end_commit-before_commit)
+	return nil
 }
 
 func (m *Meta) PutObject(object *Object, multipart *Multipart, objMap *ObjMap, updateUsage bool) error {
