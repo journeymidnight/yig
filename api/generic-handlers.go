@@ -18,9 +18,9 @@ package api
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	. "github.com/journeymidnight/yig/error"
@@ -216,6 +216,7 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	var err error
 	requestId := r.Context().Value(RequestIdKey).(string)
 	logger := r.Context().Value(ContextLoggerKey).(log.Logger)
+	start := time.Now().UnixNano() / 1000
 	bucketName, objectName, isBucketDomain := GetBucketAndObjectInfoFromRequest(r)
 	if bucketName != "" {
 		bucketInfo, err = h.meta.GetBucket(bucketName, true)
@@ -232,6 +233,7 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		}
 	}
 
+	end_get := time.Now().UnixNano() / 1000
 	authType := signature.GetRequestAuthType(r)
 	if authType == signature.AuthTypeUnknown {
 		WriteErrorResponse(w, r, ErrSignatureVersionNotSupported)
@@ -251,8 +253,11 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 			AuthType:       authType,
 			IsBucketDomain: isBucketDomain,
 		})
-	logger.Info(fmt.Sprintf("BucketName: %s, ObjectName: %s, BucketInfo: %+v, ObjectInfo: %+v, AuthType: %d",
-		bucketName, objectName, bucketInfo, objectInfo, authType))
+	//logger.Info(fmt.Sprintf("BucketName: %s, ObjectName: %s, BucketInfo: %+v, ObjectInfo: %+v, AuthType: %d",
+	//	bucketName, objectName, bucketInfo, objectInfo, authType))
+	end_gener := time.Now().UnixNano() / 1000
+	logger.Error("-_-Generic:", "GetBucketAndObject:", end_get-start,
+		"EndGener", end_gener-end_get)
 	h.handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
@@ -301,7 +306,7 @@ func getRequestContext(r *http.Request) RequestContext {
 		return ctx
 	}
 	return RequestContext{
-		Logger: r.Context().Value(ContextLoggerKey).(log.Logger),
+		Logger:    r.Context().Value(ContextLoggerKey).(log.Logger),
 		RequestID: r.Context().Value(RequestIdKey).(string),
 	}
 }
