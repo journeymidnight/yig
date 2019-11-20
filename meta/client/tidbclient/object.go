@@ -22,7 +22,7 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 	sqltext := "select bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag,contenttype," +
 		"customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass from objects where bucketname=? and name=? "
 	if version == "" {
-		sqltext += "order by bucketname,name,version limit 1;"
+		sqltext += "and version=0;"
 		row = t.Client.QueryRow(sqltext, bucketName, objectName)
 	} else {
 		sqltext += "and version=?;"
@@ -203,14 +203,14 @@ func (t *TidbClient) PutObjectWithCtx(logger log.Logger, object *Object, tx DB) 
 func (t *TidbClient) PutCommonObjectWithCtx(logger log.Logger, o *Object) (err error) {
 	start := time.Now().UnixNano() / 1000
 	start_begin := time.Now().UnixNano() / 1000
-	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
+
 	customAttributes, _ := json.Marshal(o.CustomAttributes)
 	acl, _ := json.Marshal(o.ACL)
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
 	sql := "insert into objects(bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag," +
 		"contenttype,customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass) " +
 		"values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-	args := []interface{}{o.BucketName, o.Name, version, o.Location, o.Pool, o.OwnerId, o.Size, o.ObjectId,
+	args := []interface{}{o.BucketName, o.Name, o.VersionId, o.Location, o.Pool, o.OwnerId, o.Size, o.ObjectId,
 		lastModifiedTime, o.Etag, o.ContentType, customAttributes, acl, o.NullVersion, o.DeleteMarker,
 		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass}
 	create_sql := time.Now().UnixNano() / 1000

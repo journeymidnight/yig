@@ -5,8 +5,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
+	"math"
 	"math/rand"
 	"path"
+	"strconv"
 	"sync"
 	"time"
 
@@ -630,7 +632,13 @@ func (yig *YigStorage) PutObject(reqCtx api.RequestContext, credential common.Cr
 	}
 
 	result.LastModified = object.LastModifiedTime
-
+	var version uint64
+	if bucket.Versioning == meta.VersionEnabled {
+		version = math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
+	} else {
+		version = 0
+	}
+	object.VersionId = strconv.FormatUint(version, 10)
 	end_check_old := time.Now().UnixNano() / 1000
 
 	logger := reqCtx.Logger
