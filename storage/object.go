@@ -24,6 +24,8 @@ import (
 )
 
 var latestQueryTime [2]time.Time // 0 is for SMALL_FILE_POOLNAME, 1 is for BIG_FILE_POOLNAME
+var cMap map[string]backend.Cluster
+
 const (
 	CLUSTER_MAX_USED_SPACE_PERCENT = 85
 	BIG_FILE_THRESHOLD             = 128 << 10 /* 128K */
@@ -56,6 +58,11 @@ func (yig *YigStorage) pickClusterAndPool(bucket string, object string,
 		poolName = backend.BIG_FILE_POOLNAME
 		idx = 1
 	}
+
+	if v, ok := cMap[poolName]; ok {
+		return v, poolName
+	}
+
 	var needCheck bool
 	queryTime := latestQueryTime[idx]
 	if time.Since(queryTime).Hours() > 24 { // check used space every 24 hours
@@ -105,6 +112,8 @@ func (yig *YigStorage) pickClusterAndPool(bucket string, object string,
 			break
 		}
 	}
+
+	cMap[poolName] = cluster
 	return
 }
 
