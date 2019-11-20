@@ -24,7 +24,7 @@ import (
 )
 
 var latestQueryTime [2]time.Time // 0 is for SMALL_FILE_POOLNAME, 1 is for BIG_FILE_POOLNAME
-var cMap map[string]backend.Cluster
+var cMap sync.Map
 
 const (
 	CLUSTER_MAX_USED_SPACE_PERCENT = 85
@@ -59,8 +59,8 @@ func (yig *YigStorage) pickClusterAndPool(bucket string, object string,
 		idx = 1
 	}
 
-	if v, ok := cMap[poolName]; ok {
-		return v, poolName
+	if v, ok := cMap.Load(poolName); ok {
+		return v.(backend.Cluster), poolName
 	}
 
 	var needCheck bool
@@ -113,7 +113,7 @@ func (yig *YigStorage) pickClusterAndPool(bucket string, object string,
 		}
 	}
 
-	cMap[poolName] = cluster
+	cMap.Store(poolName, cluster)
 	return
 }
 
