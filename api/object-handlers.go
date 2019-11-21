@@ -189,6 +189,7 @@ func (o *GetObjectResponseWriter) Write(p []byte) (int, error) {
 func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := getRequestContext(r)
 	logger := ctx.Logger
+	start := time.Now().UnixNano() / 1000
 	var credential common.Credential
 	var err error
 	if api.HandledByWebsite(w, r) {
@@ -212,7 +213,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		WriteErrorResponse(w, r, err)
 		return
 	}
-
+	end_get_info := time.Now().UnixNano() / 1000
 	if object.DeleteMarker {
 		w.Header().Set("x-amz-delete-marker", "true")
 		WriteErrorResponse(w, r, ErrNoSuchKey)
@@ -235,7 +236,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			logger.Error("Invalid request range", err)
 		}
 	}
-
+	end_parse_range := time.Now().UnixNano() / 1000
 	// Validate pre-conditions if any.
 	if err = checkPreconditions(r.Header, object); err != nil {
 		// set object-related metadata headers
@@ -287,6 +288,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			r.Header.Get("X-Amz-Server-Side-Encryption-Customer-Key-Md5"))
 	}
 
+	end_get_reader := time.Now().UnixNano() / 1000
 	//ResponseRecorder
 	w.(*ResponseRecorder).operationName = "GetObject"
 
@@ -303,6 +305,12 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		}
 		return
 	}
+	end_get_handler := time.Now().UnixNano() / 1000
+	logger.Error("-_- GetObject Handler:",
+		"GetObjectInfo:", end_get_info-start,
+		"ParseRange:", end_parse_range-end_get_info,
+		"GetReader:", end_get_reader-end_parse_range,
+		"GetHandler:", end_get_handler-end_get_reader)
 	if !writer.dataWritten {
 		// If ObjectAPI.GetObject did not return error and no data has
 		// been written it would mean that it is a 0-byte object.
