@@ -229,14 +229,13 @@ func (t *TidbClient) PutCommonObjectWithCtx(logger log.Logger, o *Object) (err e
 func (t *TidbClient) UpdateCommonObjectWithCtx(logger log.Logger, o *Object) (err error) {
 	start := time.Now().UnixNano() / 1000
 	start_begin := time.Now().UnixNano() / 1000
-	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
 	customAttributes, _ := json.Marshal(o.CustomAttributes)
 	acl, _ := json.Marshal(o.ACL)
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
-	sql := "update objects set version=?,location=?,pool=?,size=?,objectid=?,lastmodifiedtime=?,etag=?," +
+	sql := "update objects set location=?,pool=?,size=?,objectid=?,lastmodifiedtime=?,etag=?," +
 		"contenttype=?,customattributes=?,acl=?,ssetype=?,encryptionkey=?,initializationvector=?,type=?,storageclass=? " +
 		"where bucketname=? and name=?"
-	args := []interface{}{version, o.Location, o.Pool, o.Size, o.ObjectId,
+	args := []interface{}{o.Location, o.Pool, o.Size, o.ObjectId,
 		lastModifiedTime, o.Etag, o.ContentType, customAttributes, acl,
 		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass, o.BucketName, o.Name}
 	create_sql := time.Now().UnixNano() / 1000
