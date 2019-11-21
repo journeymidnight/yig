@@ -24,6 +24,7 @@ meta_store = "tidb"
 tidb_info = "root:@tcp(10.5.0.17:4000)/yig"
 keepalive = true
 redis_address = "redis:6379"
+redis_group = ["redis:6379"]
 redis_password = "hehehehe"
 redis_connection_number = 10
 memory_cache_max_entry_count = 100000

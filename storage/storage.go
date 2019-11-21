@@ -5,6 +5,11 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"io"
+	"path"
+	"sync"
+	"time"
+
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/backend"
 	"github.com/journeymidnight/yig/circuitbreak"
@@ -13,10 +18,6 @@ import (
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/meta"
 	"github.com/journeymidnight/yig/redis"
-	"io"
-	"path"
-	"sync"
-	"time"
 )
 
 const (
@@ -43,15 +44,15 @@ func (y *YigStorage) Stop() {
 }
 
 // check cache health per one second if enable cache
-func (y *YigStorage) PingCache(interval time.Duration) {
+func (y *YigStorage) PingCache(interval time.Duration, i int) {
 	tick := time.NewTicker(interval)
 	for {
 		select {
 		case <-tick.C:
-			redis.CacheCircuit.Execute(
+			redis.Circuits[i].Execute(
 				context.Background(),
 				func(ctx context.Context) (err error) {
-					c, err := redis.GetClient(ctx)
+					c, err := redis.GetClient(ctx, i)
 					if err != nil {
 						return err
 					}
@@ -65,7 +66,7 @@ func (y *YigStorage) PingCache(interval time.Duration) {
 				},
 				nil,
 			)
-			if redis.CacheCircuit.IsOpen() {
+			if redis.Circuits[i].IsOpen() {
 				helper.Logger.Warn(circuitbreak.CacheCircuitIsOpenErr)
 			}
 		}

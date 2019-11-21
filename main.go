@@ -47,7 +47,7 @@ func main() {
 
 	if helper.CONFIG.MetaCacheType > 0 || helper.CONFIG.EnableDataCache {
 		redis.Initialize()
-		defer redis.Close()
+		defer redis.CloseAll()
 	}
 
 	yig := storage.New(helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache)
@@ -56,9 +56,10 @@ func main() {
 		Logger:  helper.Logger,
 		Yig:     yig,
 	}
-	if redis.Pool() != nil && helper.CONFIG.CacheCircuitCheckInterval != 0 {
-		go yig.PingCache(time.Duration(helper.CONFIG.CacheCircuitCheckInterval) * time.Second)
-	}
+
+	//if redis.Pool() != nil && helper.CONFIG.CacheCircuitCheckInterval != 0 {
+	//	go yig.PingCache(time.Duration(helper.CONFIG.CacheCircuitCheckInterval) * time.Second)
+	//}
 
 	// try to create message bus sender if message bus is enabled.
 	// message bus sender is singleton so create it beforehand.

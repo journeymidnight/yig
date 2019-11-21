@@ -1,29 +1,34 @@
 package redis
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
-	"github.com/minio/highwayhash"
 	"io"
 	"strconv"
 	"strings"
+	"time"
 
-	"context"
+	"github.com/minio/highwayhash"
+	"github.com/spaolacci/murmur3"
+
+	"github.com/cep21/circuit"
 	redigo "github.com/gomodule/redigo/redis"
 	"github.com/journeymidnight/yig/circuitbreak"
 	"github.com/journeymidnight/yig/helper"
-	"time"
-	"github.com/cep21/circuit"
 )
 
 var (
-	redisPool *redigo.Pool
-	CacheCircuit *circuit.Circuit
+	redisPoolHR *HashRing
+	redisPools  []*redigo.Pool
+	Circuits    []*circuit.Circuit
 )
 
 const InvalidQueueName = "InvalidQueue"
 
 const keyvalue = "000102030405060708090A0B0C0D0E0FF0E0D0C0B0A090807060504030201000" // This is the key for hash sum !
+
+const hashReplicationCount = 4096
 
 type RedisDatabase int
 
@@ -36,18 +41,17 @@ func (r RedisDatabase) InvalidQueue() string {
 }
 
 const (
-	UserTable    RedisDatabase = iota
-	BucketTable  
-	ObjectTable  
-	FileTable    
-	ClusterTable 
+	UserTable RedisDatabase = iota
+	BucketTable
+	ObjectTable
+	FileTable
+	ClusterTable
 )
 
 var MetadataTables = []RedisDatabase{UserTable, BucketTable, ObjectTable, ClusterTable}
 var DataTables = []RedisDatabase{FileTable}
 
 func Initialize() {
-
 	options := []redigo.DialOption{
 		redigo.DialReadTimeout(time.Duration(helper.CONFIG.RedisReadTimeout) * time.Second),
 		redigo.DialConnectTimeout(time.Duration(helper.CONFIG.RedisConnectTimeout) * time.Second),
@@ -59,48 +63,77 @@ func Initialize() {
 		options = append(options, redigo.DialPassword(helper.CONFIG.RedisPassword))
 	}
 
-	df := func() (redigo.Conn, error) {
-		c, err := redigo.Dial("tcp", helper.CONFIG.RedisAddress, options...)
-		if err != nil {
-			return nil, err
+	redisPoolHR = NewHashRing(hashReplicationCount, murmur3.New32())
+	for i, addr := range helper.CONFIG.RedisGroup {
+		df := func() (redigo.Conn, error) {
+			c, err := redigo.Dial("tcp", addr, options...)
+			if err != nil {
+				return nil, err
+			}
+			return c, nil
 		}
-		return c, nil
-	}
 
-	CacheCircuit = circuitbreak.NewCacheCircuit()
-	redisPool = &redigo.Pool{
+		cb := circuitbreak.NewCacheCircuit()
+		pool := &redigo.Pool{
 			MaxIdle:     helper.CONFIG.RedisPoolMaxIdle,
 			IdleTimeout: time.Duration(helper.CONFIG.RedisPoolIdleTimeout) * time.Second,
 			// Other pool configuration not shown in this example.
 			Dial: df,
+		}
+		Circuits = append(Circuits, cb)
+		redisPools = append(redisPools, pool)
+		err := redisPoolHR.Add(i)
+		if err != nil {
+			panic(err)
+		}
 	}
 }
 
-func Pool() *redigo.Pool {
-	return redisPool
-}
-
-func Close() {
-	err := redisPool.Close()
+func Close(i int) {
+	if i > len(helper.CONFIG.RedisGroup) {
+		return
+	}
+	err := redisPools[i].Close()
 	if err != nil {
 		helper.Logger.Error("Cannot close redis pool:", err)
 	}
 }
 
-func GetClient(ctx context.Context) (redigo.Conn, error) {
-	return redisPool.GetContext(ctx)
+func CloseAll() {
+	for i := 0; i < len(helper.CONFIG.RedisGroup); i++ {
+		err := redisPools[i].Close()
+		if err != nil {
+			helper.Logger.Error("Cannot close redis pool:", err)
+		}
+	}
+}
+
+func GetLocate(key string) (int, error) {
+	n, err := redisPoolHR.Locate(key)
+	if err != nil {
+		return 0, err
+	}
+	return n.(int), nil
+}
+
+func GetClient(ctx context.Context, i int) (redigo.Conn, error) {
+	return redisPools[i].GetContext(ctx)
 }
 
 func Remove(table RedisDatabase, key string) (err error) {
-	return CacheCircuit.Execute(
+	i, err := GetLocate(key)
+	if err != nil {
+		return
+	}
+	return Circuits[i].Execute(
 		context.Background(),
 		func(ctx context.Context) (err error) {
-			c, err := GetClient(ctx)
+			c, err := GetClient(ctx, i)
 			if err != nil {
 				return err
 			}
 			defer c.Close()
-			hashkey,err := HashSum(key)
+			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
 			}
@@ -120,10 +153,14 @@ func Remove(table RedisDatabase, key string) (err error) {
 }
 
 func Set(table RedisDatabase, key string, value interface{}) (err error) {
-	return CacheCircuit.Execute(
+	i, err := GetLocate(key)
+	if err != nil {
+		return
+	}
+	return Circuits[i].Execute(
 		context.Background(),
 		func(ctx context.Context) (err error) {
-			c, err := GetClient(ctx)
+			c, err := GetClient(ctx, i)
 			if err != nil {
 				return err
 			}
@@ -132,7 +169,7 @@ func Set(table RedisDatabase, key string, value interface{}) (err error) {
 			if err != nil {
 				return err
 			}
-			hashkey,err := HashSum(key)
+			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
 			}
@@ -155,16 +192,20 @@ func Set(table RedisDatabase, key string, value interface{}) (err error) {
 
 func Get(table RedisDatabase, key string,
 	unmarshal func([]byte) (interface{}, error)) (value interface{}, err error) {
+	i, err := GetLocate(key)
+	if err != nil {
+		return
+	}
 	var encodedValue []byte
-	err = CacheCircuit.Execute(
+	err = Circuits[i].Execute(
 		context.Background(),
 		func(ctx context.Context) (err error) {
-			c, err := GetClient(ctx)
+			c, err := GetClient(ctx, i)
 			if err != nil {
 				return err
 			}
 			defer c.Close()
-			hashkey,err := HashSum(key)
+			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
 			}
@@ -192,17 +233,21 @@ func Get(table RedisDatabase, key string,
 // Get file bytes
 // `start` and `end` are inclusive
 // FIXME: this API causes an extra memory copy, need to patch radix to fix it
-func GetBytes(key string, start int64, end int64) ([]byte, error) {
+func GetBytes(key string, start int64, end int64) (b []byte, err error) {
 	var value []byte
-	err := CacheCircuit.Execute(
+	i, err := GetLocate(key)
+	if err != nil {
+		return
+	}
+	err = Circuits[i].Execute(
 		context.Background(),
 		func(ctx context.Context) (err error) {
-			c, err := GetClient(ctx)
+			c, err := GetClient(ctx, i)
 			if err != nil {
 				return err
 			}
 			defer c.Close()
-			hashkey,err := HashSum(key)
+			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
 			}
@@ -226,15 +271,19 @@ func GetBytes(key string, start int64, end int64) ([]byte, error) {
 
 // Set file bytes
 func SetBytes(key string, value []byte) (err error) {
-	return CacheCircuit.Execute(
+	i, err := GetLocate(key)
+	if err != nil {
+		return
+	}
+	return Circuits[i].Execute(
 		context.Background(),
 		func(ctx context.Context) (err error) {
-			c, err := GetClient(ctx)
+			c, err := GetClient(ctx, i)
 			if err != nil {
 				return err
 			}
 			defer c.Close()
-			hashkey,err := HashSum(key)
+			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
 			}
@@ -255,15 +304,16 @@ func SetBytes(key string, value []byte) (err error) {
 
 // Publish the invalid message to other YIG instances through Redis
 func Invalid(table RedisDatabase, key string) (err error) {
-	return CacheCircuit.Execute(
+	i, err := GetLocate(key)
+	return Circuits[i].Execute(
 		context.Background(),
 		func(ctx context.Context) (err error) {
-			c, err := GetClient(ctx)
+			c, err := GetClient(ctx, i)
 			if err != nil {
 				return err
 			}
 			defer c.Close()
-			hashkey,err := HashSum(key)
+			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
 			}
@@ -283,24 +333,24 @@ func Invalid(table RedisDatabase, key string) (err error) {
 }
 
 // Get Object to HighWayHash for redis
-func HashSum(ObjectName string) (string,error) {
+func HashSum(ObjectName string) (string, error) {
 	key, err := hex.DecodeString(keyvalue)
 	if err != nil {
-		return "",err
+		return "", err
 	}
 
 	ObjectNameString := strings.NewReader(ObjectName)
 
 	hash, err := highwayhash.New(key)
 	if err != nil {
-		return "",err
+		return "", err
 	}
 
 	if _, err = io.Copy(hash, ObjectNameString); err != nil {
-		return "",err
+		return "", err
 	}
 
 	sumresult := hex.EncodeToString(hash.Sum(nil))
 
-	return sumresult,nil
+	return sumresult, nil
 }

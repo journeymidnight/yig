@@ -1,13 +1,6 @@
 package main
 
 import (
-	"github.com/journeymidnight/yig/api/datatype"
-	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/iam/common"
-	"github.com/journeymidnight/yig/log"
-	"github.com/journeymidnight/yig/meta/types"
-	"github.com/journeymidnight/yig/redis"
-	"github.com/journeymidnight/yig/storage"
 	"os"
 	"os/signal"
 	"strconv"
@@ -15,6 +8,14 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/iam/common"
+	"github.com/journeymidnight/yig/log"
+	"github.com/journeymidnight/yig/meta/types"
+	"github.com/journeymidnight/yig/redis"
+	"github.com/journeymidnight/yig/storage"
 )
 
 const (
@@ -232,7 +233,7 @@ func main() {
 	defer helper.Logger.Close()
 	if helper.CONFIG.MetaCacheType > 0 || helper.CONFIG.EnableDataCache {
 		redis.Initialize()
-		defer redis.Close()
+		defer redis.CloseAll()
 	}
 	yig = storage.New(helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache)
 	taskQ = make(chan types.LifeCycle, SCAN_LIMIT)
