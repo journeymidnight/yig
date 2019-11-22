@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/minio/highwayhash"
-	"github.com/spaolacci/murmur3"
 
 	"github.com/cep21/circuit"
 	redigo "github.com/gomodule/redigo/redis"
@@ -63,7 +62,7 @@ func Initialize() {
 		options = append(options, redigo.DialPassword(helper.CONFIG.RedisPassword))
 	}
 
-	redisPoolHR = NewHashRing(hashReplicationCount, murmur3.New32())
+	redisPoolHR = NewHashRing(hashReplicationCount, New32())
 	for i, addr := range helper.CONFIG.RedisGroup {
 		df := func() (redigo.Conn, error) {
 			c, err := redigo.Dial("tcp", addr, options...)
@@ -193,6 +192,7 @@ func Set(table RedisDatabase, key string, value interface{}) (err error) {
 func Get(table RedisDatabase, key string,
 	unmarshal func([]byte) (interface{}, error)) (value interface{}, err error) {
 	i, err := GetLocate(key)
+	helper.Logger.Info()
 	if err != nil {
 		return
 	}

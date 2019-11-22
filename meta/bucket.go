@@ -12,6 +12,9 @@ import (
 func (m *Meta) GetBucket(bucketName string, willNeed bool) (bucket *Bucket, err error) {
 	getBucket := func() (b interface{}, err error) {
 		b, err = m.Client.GetBucket(bucketName)
+		if err != nil {
+			helper.Logger.Info("GetBucket CacheMiss err. bucket:", bucketName)
+		}
 		helper.Logger.Info("GetBucket CacheMiss. bucket:", bucketName)
 		return b, err
 	}
