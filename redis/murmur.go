@@ -33,7 +33,6 @@ func (d *digest) BlockSize() int { return 1 }
 func (d *digest) Write(p []byte) (n int, err error) {
 	n = len(p)
 	d.clen += n
-
 	if len(d.tail) > 0 {
 		// Stick back pending bytes.
 		nfree := d.Size() - len(d.tail) // nfree ∈ [1, d.Size()-1].
@@ -59,6 +58,6 @@ func (d *digest) Write(p []byte) (n int, err error) {
 
 func (d *digest) Reset() {
 	d.clen = 0
-	d.tail = nil
+	d.tail = []byte{}
 	d.bmixer.reset()
 }
