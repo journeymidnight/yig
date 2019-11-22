@@ -192,7 +192,6 @@ func Set(table RedisDatabase, key string, value interface{}) (err error) {
 func Get(table RedisDatabase, key string,
 	unmarshal func([]byte) (interface{}, error)) (value interface{}, err error) {
 	i, err := GetLocate(key)
-	helper.Logger.Info()
 	if err != nil {
 		return
 	}
