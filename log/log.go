@@ -118,7 +118,7 @@ func (l Logger) Error(args ...interface{}) {
 }
 
 func (l Logger) Debug(flag string, args ...interface{}) {
-	if l.level < ErrorLevel {
+	if l.level < DebugLevel {
 		return
 	}
 	if flag == "" {
