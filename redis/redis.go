@@ -64,27 +64,31 @@ func Initialize() {
 
 	redisPoolHR = NewHashRing(hashReplicationCount, New32())
 	for i, addr := range helper.CONFIG.RedisGroup {
-		df := func() (redigo.Conn, error) {
-			c, err := redigo.Dial("tcp", addr, options...)
-			if err != nil {
-				return nil, err
-			}
-			return c, nil
-		}
+		initPool(i, addr, options...)
+	}
+}
 
-		cb := circuitbreak.NewCacheCircuit()
-		pool := &redigo.Pool{
-			MaxIdle:     helper.CONFIG.RedisPoolMaxIdle,
-			IdleTimeout: time.Duration(helper.CONFIG.RedisPoolIdleTimeout) * time.Second,
-			// Other pool configuration not shown in this example.
-			Dial: df,
-		}
-		Circuits = append(Circuits, cb)
-		redisPools = append(redisPools, pool)
-		err := redisPoolHR.Add(i)
+func initPool(i int, addr string, options ...redigo.DialOption) {
+	df := func() (redigo.Conn, error) {
+		c, err := redigo.Dial("tcp", addr, options...)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
+		return c, nil
+	}
+
+	cb := circuitbreak.NewCacheCircuit()
+	pool := &redigo.Pool{
+		MaxIdle:     helper.CONFIG.RedisPoolMaxIdle,
+		IdleTimeout: time.Duration(helper.CONFIG.RedisPoolIdleTimeout) * time.Second,
+		// Other pool configuration not shown in this example.
+		Dial: df,
+	}
+	Circuits = append(Circuits, cb)
+	redisPools = append(redisPools, pool)
+	err := redisPoolHR.Add(i)
+	if err != nil {
+		panic(err)
 	}
 }
 
