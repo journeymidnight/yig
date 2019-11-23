@@ -207,6 +207,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	if err != nil {
 		logger.Error("Unable to fetch object info:", err)
 		if err == ErrNoSuchKey {
+			logger.Debug("GETOBJECT", "NoSuchKey:", ctx.ObjectName)
 			api.errAllowableObjectNotFound(w, r, credential)
 			return
 		}
@@ -306,7 +307,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 	end_get_handler := time.Now().UnixNano() / 1000
-	logger.Error("-_- GetObject Handler:",
+	logger.Debug("GETOBJECT",
 		"GetObjectInfo:", end_get_info-start,
 		"ParseRange:", end_parse_range-end_get_info,
 		"GetReader:", end_get_reader-end_parse_range,

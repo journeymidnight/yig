@@ -256,7 +256,7 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	//logger.Info(fmt.Sprintf("BucketName: %s, ObjectName: %s, BucketInfo: %+v, ObjectInfo: %+v, AuthType: %d",
 	//	bucketName, objectName, bucketInfo, objectInfo, authType))
 	end_gener := time.Now().UnixNano() / 1000
-	logger.Error("-_-Generic:", "GetBucketAndObject:", end_get-start,
+	logger.Debug("GENERIC", "GetBucketAndObject:", end_get-start,
 		"EndGener", end_gener-end_get)
 	h.handler.ServeHTTP(w, r.WithContext(ctx))
 }
