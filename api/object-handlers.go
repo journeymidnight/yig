@@ -295,7 +295,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 
 	// Reads the object at startOffset and writes to mw.
 	if err := api.ObjectAPI.GetObject(object, startOffset, length, writer, sseRequest); err != nil {
-		logger.Error("GetObject error:", err)
+		logger.Debug("GETERROR", "GetObject error:", err)
 		if !writer.dataWritten {
 			// Error response only if no data has been written to client yet. i.e if
 			// partial data has already been written before an error
