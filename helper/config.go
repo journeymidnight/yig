@@ -55,6 +55,7 @@ type Config struct {
 	RedisKeepAlive        int      `toml:"redis_keepalive"`
 	RedisPoolMaxIdle      int      `toml:"redis_pool_max_idle"`
 	RedisPoolIdleTimeout  int      `toml:"redis_pool_idle_timeout"`
+	RedisKeyExpire        int      `toml:"redis_key_expire"`
 
 	// DB Connection parameters
 	DbMaxOpenConns       int `toml:"db_max_open_conns"`
@@ -181,6 +182,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.RedisKeepAlive = Ternary(c.RedisKeepAlive < 0, 0, c.RedisKeepAlive).(int)
 	CONFIG.RedisPoolMaxIdle = Ternary(c.RedisPoolMaxIdle < 0, 0, c.RedisPoolMaxIdle).(int)
 	CONFIG.RedisPoolIdleTimeout = Ternary(c.RedisPoolIdleTimeout < 0, 0, c.RedisPoolIdleTimeout).(int)
+	CONFIG.RedisKeyExpire = Ternary(c.RedisKeyExpire <= 0, 30, c.RedisKeyExpire).(int)
 
 	CONFIG.DbMaxOpenConns = Ternary(c.DbMaxOpenConns < 0, 0, c.DbMaxOpenConns).(int)
 	CONFIG.DbMaxIdleConns = Ternary(c.DbMaxIdleConns < 0, 0, c.DbMaxIdleConns).(int)

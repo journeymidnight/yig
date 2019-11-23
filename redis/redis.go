@@ -177,7 +177,7 @@ func Set(table RedisDatabase, key string, value interface{}) (err error) {
 				return err
 			}
 			// Use table.String() + hashkey as Redis key. Set expire time to 30s.
-			r, err := redigo.String(c.Do("SET", table.String()+hashkey, string(encodedValue), "EX", 30))
+			r, err := redigo.String(c.Do("SET", table.String()+hashkey, string(encodedValue), "EX", helper.CONFIG.RedisKeyExpire))
 			if err == redigo.ErrNil {
 				return nil
 			}
