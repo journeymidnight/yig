@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/journeymidnight/yig/api"
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/backend"
+	"github.com/journeymidnight/yig/context"
 	"github.com/journeymidnight/yig/crypto"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
@@ -30,8 +30,8 @@ const (
 )
 
 func (yig *YigStorage) pickRandomCluster() (cluster backend.Cluster) {
-	helper.Logger.Warn("Error picking cluster from table cluster in DB, "+
-			"use first cluster in config to write.")
+	helper.Logger.Warn("Error picking cluster from table cluster in DB, " +
+		"use first cluster in config to write.")
 	for _, c := range yig.DataStorage {
 		cluster = c
 		break
@@ -355,7 +355,7 @@ func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 	return
 }
 
-func (yig *YigStorage) GetObjectInfoByCtx(ctx api.RequestContext,
+func (yig *YigStorage) GetObjectInfoByCtx(ctx context.RequestContext,
 	version string, credential common.Credential) (object *meta.Object, err error) {
 	bucket := ctx.BucketInfo
 	if bucket == nil {
