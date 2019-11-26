@@ -17,18 +17,20 @@
 package api
 
 import (
+	"github.com/gorilla/mux"
+	"github.com/journeymidnight/yig/meta"
+	"github.com/journeymidnight/yig/signature"
+
 	"context"
 	"fmt"
 	"net/http"
 	"strings"
 
-	"github.com/gorilla/mux"
+	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
-	"github.com/journeymidnight/yig/meta"
 	"github.com/journeymidnight/yig/meta/types"
-	"github.com/journeymidnight/yig/signature"
 )
 
 // HandlerFunc - useful to chain different middleware http.Handler
@@ -73,7 +75,7 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Expose-Headers", strings.Join(CommonS3ResponseHeaders, ","))
 	}
 
-	ctx := getRequestContext(r)
+	ctx := GetRequestContext(r)
 	bucket := ctx.BucketInfo
 
 	// If bucket CORS exists, overwrite the in-reserved CORS Headers
@@ -111,7 +113,7 @@ type resourceHandler struct {
 // Resource handler ServeHTTP() wrapper
 func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Skip the first element which is usually '/' and split the rest.
-	ctx := getRequestContext(r)
+	ctx := GetRequestContext(r)
 	logger := ctx.Logger
 	bucketName, objectName := ctx.BucketName, ctx.ObjectName
 	// If bucketName is present and not objectName check for bucket
@@ -293,15 +295,4 @@ func GetBucketAndObjectInfoFromRequest(r *http.Request) (bucketName string, obje
 		}
 	}
 	return bucketName, objectName, isBucketDomain
-}
-
-func getRequestContext(r *http.Request) RequestContext {
-	ctx, ok := r.Context().Value(RequestContextKey).(RequestContext)
-	if ok {
-		return ctx
-	}
-	return RequestContext{
-		Logger: r.Context().Value(ContextLoggerKey).(log.Logger),
-		RequestID: r.Context().Value(RequestIdKey).(string),
-	}
 }

@@ -1,9 +1,8 @@
-package api
+package context
 
 import (
 	"net/http"
 
-	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/signature"
@@ -32,10 +31,13 @@ type RequestContext struct {
 	IsBucketDomain bool
 }
 
-type Server struct {
-	Server *http.Server
-}
-
-func (s *Server) Stop() {
-	helper.Logger.Info("Server stopped")
+func GetRequestContext(r *http.Request) RequestContext {
+	ctx, ok := r.Context().Value(RequestContextKey).(RequestContext)
+	if ok {
+		return ctx
+	}
+	return RequestContext{
+		Logger:    r.Context().Value(ContextLoggerKey).(log.Logger),
+		RequestID: r.Context().Value(RequestIdKey).(string),
+	}
 }

@@ -21,6 +21,7 @@ import (
 
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/policy"
+	"github.com/journeymidnight/yig/context"
 	"github.com/journeymidnight/yig/iam/common"
 	meta "github.com/journeymidnight/yig/meta/types"
 )
@@ -43,7 +44,7 @@ type ObjectLayer interface {
 	GetBucketCors(bucket string, credential common.Credential) (datatype.Cors, error)
 	GetBucket(bucketName string) (bucket *meta.Bucket, err error) // For INTERNAL USE ONLY
 	GetBucketInfo(bucket string, credential common.Credential) (bucketInfo *meta.Bucket, err error)
-	GetBucketInfoByCtx(ctx RequestContext, credential common.Credential) (bucket *meta.Bucket, err error)
+	GetBucketInfoByCtx(ctx context.RequestContext, credential common.Credential) (bucket *meta.Bucket, err error)
 	ListBuckets(credential common.Credential) (buckets []meta.Bucket, err error)
 	DeleteBucket(reqCtx RequestContext, credential common.Credential) error
 	ListObjects(credential common.Credential, bucket string,
@@ -65,7 +66,6 @@ type ObjectLayer interface {
 	GetObject(object *meta.Object, startOffset int64, length int64, writer io.Writer,
 		sse datatype.SseRequest) (err error)
 	GetObjectInfo(bucket, object, version string, credential common.Credential) (objInfo *meta.Object, err error)
-
 	GetObjectInfoByCtx(reqCtx RequestContext, version string, credential common.Credential) (objInfo *meta.Object, err error)
 	PutObject(reqCtx RequestContext, credential common.Credential, size int64, data io.ReadCloser,
 		metadata map[string]string, acl datatype.Acl,

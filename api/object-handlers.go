@@ -30,6 +30,7 @@ import (
 	"github.com/gorilla/mux"
 	. "github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/policy"
+	. "github.com/journeymidnight/yig/context"
 	"github.com/journeymidnight/yig/crypto"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
@@ -88,7 +89,7 @@ func (api ObjectAPIHandlers) errAllowableObjectNotFound(w http.ResponseWriter, r
 	// * if you don’t have the s3:ListBucket
 	//   permission, Amazon S3 will return an HTTP
 	//   status code 403 ("access denied") error.`
-	ctx := getRequestContext(r)
+	ctx := GetRequestContext(r)
 	if ctx.BucketInfo == nil {
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return
@@ -186,7 +187,7 @@ func (o *GetObjectResponseWriter) Write(p []byte) (int, error) {
 // This implementation of the GET operation retrieves object. To use GET,
 // you must have READ access to the object.
 func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := getRequestContext(r)
+	ctx := GetRequestContext(r)
 	logger := ctx.Logger
 	var credential common.Credential
 	var err error
@@ -315,7 +316,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 // The HEAD operation retrieves metadata from an object without returning the object itself.
 // TODO refactor HEAD and GET
 func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := getRequestContext(r)
+	ctx := GetRequestContext(r)
 	logger := ctx.Logger
 	var credential common.Credential
 	var err error
@@ -600,7 +601,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 // Do not support bucket to enable multiVersion renaming;
 // Folder renaming operation is not supported.
 func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := getRequestContext(r)
+	ctx := GetRequestContext(r)
 	logger := ctx.Logger
 	bucketName := ctx.BucketName
 	targetObjectName := ctx.ObjectName
@@ -835,7 +836,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 // ----------
 // This implementation of the POST operation append an object in a bucket.
 func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := getRequestContext(r)
+	ctx := GetRequestContext(r)
 	logger := ctx.Logger
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
@@ -1026,7 +1027,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 }
 
 func (api ObjectAPIHandlers) PutObjectMeta(w http.ResponseWriter, r *http.Request) {
-	ctx := getRequestContext(r)
+	ctx := GetRequestContext(r)
 	logger := ctx.Logger
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
@@ -1056,7 +1057,7 @@ func (api ObjectAPIHandlers) PutObjectMeta(w http.ResponseWriter, r *http.Reques
 		WriteErrorResponse(w, r, err)
 		return
 	}
-	object:= ctx.ObjectInfo
+	object := ctx.ObjectInfo
 	object.CustomAttributes = metaData.Data
 
 	err = api.ObjectAPI.PutObjectMeta(ctx.BucketInfo, object, credential)
