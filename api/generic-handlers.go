@@ -29,7 +29,6 @@ import (
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
-	"github.com/journeymidnight/yig/meta/types"
 )
 
 // HandlerFunc - useful to chain different middleware http.Handler
@@ -212,25 +211,17 @@ type GenerateContextHandler struct {
 
 // handler for validating incoming authorization headers.
 func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var bucketInfo *types.Bucket
-	var objectInfo *types.Object
-	var err error
+	var reqCtx RequestContext
 	requestId := r.Context().Value(RequestIdKey).(string)
+	reqCtx.RequestID = requestId
+
 	logger := r.Context().Value(ContextLoggerKey).(log.Logger)
-	bucketName, objectName, isBucketDomain := GetBucketAndObjectInfoFromRequest(r)
-	if bucketName != "" {
-		bucketInfo, err = h.meta.GetBucket(bucketName, true)
-		if err != nil && err != ErrNoSuchBucket {
-			WriteErrorResponse(w, r, err)
-			return
-		}
-		if bucketInfo != nil && objectName != "" {
-			objectInfo, err = h.meta.GetObject(bucketInfo.Name, objectName, true)
-			if err != nil && err != ErrNoSuchKey {
-				WriteErrorResponse(w, r, err)
-				return
-			}
-		}
+	reqCtx.Logger = logger
+
+	err := reqCtx.FillBucketAndObjectInfo(r, h.meta)
+	if err != nil {
+		WriteErrorResponse(w, r, err)
+		return
 	}
 
 	authType := signature.GetRequestAuthType(r)
@@ -238,22 +229,11 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		WriteErrorResponse(w, r, ErrSignatureVersionNotSupported)
 		return
 	}
+	reqCtx.AuthType = authType
 
-	ctx := context.WithValue(
-		r.Context(),
-		RequestContextKey,
-		RequestContext{
-			RequestID:      requestId,
-			Logger:         logger,
-			BucketName:     bucketName,
-			ObjectName:     objectName,
-			BucketInfo:     bucketInfo,
-			ObjectInfo:     objectInfo,
-			AuthType:       authType,
-			IsBucketDomain: isBucketDomain,
-		})
-	logger.Info("BucketName:", bucketName, "ObjectName:", objectName, "BucketExist:",
-		bucketInfo != nil, "ObjectExist:", objectInfo != nil, "AuthType:", authType)
+	ctx := context.WithValue(r.Context(), RequestContextKey, reqCtx)
+	logger.Info("BucketName:", reqCtx.BucketName, "ObjectName:", reqCtx.ObjectName, "BucketExist:",
+		reqCtx.BucketInfo != nil, "ObjectExist:", reqCtx.ObjectInfo != nil, "AuthType:", authType)
 	h.handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
@@ -273,25 +253,4 @@ func InReservedOrigins(origin string) bool {
 		}
 	}
 	return false
-}
-
-//// helpers
-
-func GetBucketAndObjectInfoFromRequest(r *http.Request) (bucketName string, objectName string, isBucketDomain bool) {
-	splits := strings.SplitN(r.URL.Path[1:], "/", 2)
-	v := strings.Split(r.Host, ":")
-	hostWithOutPort := v[0]
-	isBucketDomain, bucketName = helper.HasBucketInDomain(hostWithOutPort, ".", helper.CONFIG.S3Domain)
-	if isBucketDomain {
-		objectName = r.URL.Path[1:]
-	} else {
-		if len(splits) == 1 {
-			bucketName = splits[0]
-		}
-		if len(splits) == 2 {
-			bucketName = splits[0]
-			objectName = splits[1]
-		}
-	}
-	return bucketName, objectName, isBucketDomain
 }
