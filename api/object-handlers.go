@@ -683,27 +683,24 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 // ----------
 // This implementation of the PUT operation adds an object to a bucket.
 func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 	// If the matching failed, it means that the X-Amz-Copy-Source was
 	// wrong, fail right here.
 	if _, ok := r.Header["X-Amz-Copy-Source"]; ok {
 		WriteErrorResponse(w, r, ErrInvalidCopySource)
 		return
 	}
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
-	objectName := vars["object"]
 
-	var authType = signature.GetRequestAuthType(r)
 	var err error
-	if !isValidObjectName(objectName) {
+	if !isValidObjectName(reqCtx.ObjectName) {
 		WriteErrorResponse(w, r, ErrInvalidObjectName)
 		return
 	}
 
 	// if Content-Length is unknown/missing, deny the request
 	size := r.ContentLength
-	if authType == signature.AuthTypeStreamingSigned {
+	if reqCtx.AuthType == signature.AuthTypeStreamingSigned {
 		if sizeStr, ok := r.Header["X-Amz-Decoded-Content-Length"]; ok {
 			if sizeStr[0] == "" {
 				WriteErrorResponse(w, r, ErrMissingContentLength)
@@ -755,7 +752,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		}
 	}
 
-	if authType == signature.AuthTypeStreamingSigned {
+	if reqCtx.AuthType == signature.AuthTypeStreamingSigned {
 		if contentEncoding, ok := metadata["content-encoding"]; ok {
 			contentEncoding = signature.TrimAwsChunkedContentEncoding(contentEncoding)
 			if contentEncoding != "" {
@@ -779,7 +776,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	// Support SSE-S3 and SSE-C now
 	var sseRequest SseRequest
 
-	if hasServerSideEncryptionHeader(r.Header) && !hasSuffix(objectName, "/") { // handle SSE requests
+	if hasServerSideEncryptionHeader(r.Header) && !hasSuffix(reqCtx.ObjectName, "/") { // handle SSE requests
 		sseRequest, err = parseSseHeader(r.Header)
 		if err != nil {
 			WriteErrorResponse(w, r, err)
@@ -800,10 +797,10 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	var result PutObjectResult
-	result, err = api.ObjectAPI.PutObject(bucketName, objectName, credential, size, dataReadCloser,
+	result, err = api.ObjectAPI.PutObject(reqCtx, credential, size, dataReadCloser,
 		metadata, acl, sseRequest, storageClass)
 	if err != nil {
-		logger.Error("Unable to create object", objectName, "error:", err)
+		logger.Error("Unable to create object", reqCtx.ObjectName, "error:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -1192,6 +1189,7 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 
 // NewMultipartUploadHandler - New multipart upload
 func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r *http.Request) {
+	reqCtx := GetRequestContext(r)
 	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
@@ -1243,8 +1241,7 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 		return
 	}
 
-	uploadID, err := api.ObjectAPI.NewMultipartUpload(credential, bucketName, objectName,
-		metadata, acl, sseRequest, storageClass)
+	uploadID, err := api.ObjectAPI.NewMultipartUpload(reqCtx, credential, metadata, acl, sseRequest, storageClass)
 	if err != nil {
 		logger.Error("Unable to initiate new multipart upload id:", err)
 		WriteErrorResponse(w, r, err)
@@ -1274,12 +1271,10 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 
 // PutObjectPartHandler - Upload part
 func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http.Request) {
+	reqCtx := GetRequestContext(r)
 	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
-	objectName := vars["object"]
 
-	authType := signature.GetRequestAuthType(r)
+	authType := reqCtx.AuthType
 
 	var incomingMd5 string
 	// get Content-Md5 sent by client and verify if valid
@@ -1345,10 +1340,10 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 
 	var result PutObjectPartResult
 	// No need to verify signature, anonymous request access is already allowed.
-	result, err = api.ObjectAPI.PutObjectPart(bucketName, objectName, credential,
+	result, err = api.ObjectAPI.PutObjectPart(reqCtx, credential,
 		uploadID, partID, size, dataReadCloser, incomingMd5, sseRequest)
 	if err != nil {
-		logger.Error("Unable to create object part for", objectName, "error:", err)
+		logger.Error("Unable to create object part for", reqCtx.ObjectName, "error:", err)
 		// Verify if the underlying error is signature mismatch.
 		WriteErrorResponse(w, r, err)
 		return
@@ -1646,10 +1641,8 @@ func (api ObjectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 
 // CompleteMultipartUploadHandler - Complete multipart upload
 func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWriter, r *http.Request) {
+	reqCtx := GetRequestContext(r)
 	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
-	objectName := vars["object"]
 
 	// Get upload id.
 	uploadId := r.URL.Query().Get("uploadId")
@@ -1705,8 +1698,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	}
 
 	var result CompleteMultipartResult
-	result, err = api.ObjectAPI.CompleteMultipartUpload(credential, bucketName,
-		objectName, uploadId, completeParts)
+	result, err = api.ObjectAPI.CompleteMultipartUpload(reqCtx, credential, uploadId, completeParts)
 
 	if err != nil {
 		logger.Error("Unable to complete multipart upload:", err)
@@ -1724,7 +1716,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	// Get object location.
 	location := GetLocation(r)
 	// Generate complete multipart response.
-	response := GenerateCompleteMultpartUploadResponse(bucketName, objectName, location, result.ETag)
+	response := GenerateCompleteMultpartUploadResponse(reqCtx.BucketName, reqCtx.ObjectName, location, result.ETag)
 	encodedSuccessResponse, err := xmlFormat(response)
 	if err != nil {
 		logger.Error("Unable to parse CompleteMultipartUpload response:", err)
@@ -1811,37 +1803,26 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 var ValidSuccessActionStatus = []string{"200", "201", "204"}
 
 func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 	var err error
 	// Here the parameter is the size of the form data that should
 	// be loaded in memory, the remaining being put in temporary files.
-	reader, err := r.MultipartReader()
-	if err != nil {
-		logger.Error("Unable to initialize multipart reader:", err)
-		WriteErrorResponse(w, r, ErrMalformedPOSTRequest)
-		return
-	}
 
-	fileBody, formValues, err := extractHTTPFormValues(reader)
+	fileBody, formValues := reqCtx.Body, reqCtx.FormValues
 	if err != nil {
 		logger.Error("Unable to parse form values:", err)
 		WriteErrorResponse(w, r, ErrMalformedPOSTRequest)
 		return
 	}
-	objectName := formValues["Key"]
+	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
+	formValues["Bucket"] = bucketName
 	if !isValidObjectName(objectName) {
 		WriteErrorResponse(w, r, ErrInvalidObjectName)
 		return
 	}
 
-	bucketName := mux.Vars(r)["bucket"]
-	formValues["Bucket"] = bucketName
-	bucket, err := api.ObjectAPI.GetBucket(bucketName)
-	if err != nil {
-		WriteErrorResponse(w, r, err)
-		return
-	}
-
+	bucket := reqCtx.BucketInfo
 	logger.Info("PostObjectHandler formValues", formValues)
 
 	var credential common.Credential
@@ -1903,7 +1884,7 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	result, err := api.ObjectAPI.PutObject(bucketName, objectName, credential, -1, fileBody,
+	result, err := api.ObjectAPI.PutObject(reqCtx, credential, -1, fileBody,
 		metadata, acl, sseRequest, storageClass)
 	if err != nil {
 		logger.Error("Unable to create object", objectName, "error:", err)
