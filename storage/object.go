@@ -1022,33 +1022,6 @@ func (yig *YigStorage) removeObjectVersion(bucketName, objectName, version strin
 	return nil
 }
 
-func (yig *YigStorage) addDeleteMarker(bucket meta.Bucket, objectName string,
-	nullVersion bool) (versionId string, err error) {
-
-	deleteMarker := &meta.Object{
-		Name:             objectName,
-		BucketName:       bucket.Name,
-		OwnerId:          bucket.OwnerId,
-		LastModifiedTime: time.Now().UTC(),
-		NullVersion:      nullVersion,
-		DeleteMarker:     true,
-	}
-
-	versionId = deleteMarker.GetVersionId()
-	objMap := &meta.ObjMap{
-		Name:       objectName,
-		BucketName: bucket.Name,
-	}
-
-	if nullVersion {
-		err = yig.MetaStorage.PutObject(deleteMarker, nil, objMap, false)
-	} else {
-		err = yig.MetaStorage.PutObject(deleteMarker, nil, nil, false)
-	}
-
-	return
-}
-
 // When bucket versioning is Disabled/Enabled/Suspended, and request versionId is set/unset:
 //
 // |           |        with versionId        |                   without versionId                    |
@@ -1085,37 +1058,9 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 			return
 		}
 	case meta.VersionEnabled:
-		if version == "" {
-			result.VersionId, err = yig.addDeleteMarker(*bucket, objectName, false)
-			if err != nil {
-				return
-			}
-			result.DeleteMarker = true
-		} else {
-			err = yig.removeObjectVersion(bucketName, objectName, version)
-			if err != nil {
-				return
-			}
-			result.VersionId = version
-		}
+		return result, ErrNotImplemented
 	case meta.VersionSuspended:
-		if version == "" {
-			err = yig.removeObjectVersion(bucketName, objectName, "null")
-			if err != nil {
-				return
-			}
-			result.VersionId, err = yig.addDeleteMarker(*bucket, objectName, true)
-			if err != nil {
-				return
-			}
-			result.DeleteMarker = true
-		} else {
-			err = yig.removeObjectVersion(bucketName, objectName, version)
-			if err != nil {
-				return
-			}
-			result.VersionId = version
-		}
+		return result, ErrNotImplemented
 	default:
 		helper.Logger.Error("Invalid bucket versioning:", bucketName)
 		return result, ErrInternalError
