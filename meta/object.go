@@ -2,6 +2,7 @@ package meta
 
 import (
 	"database/sql"
+
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
