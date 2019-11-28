@@ -2,7 +2,10 @@ package meta
 
 import (
 	"database/sql"
+	"math"
+	"strconv"
 
+	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
@@ -82,7 +85,21 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed
 	return object, nil
 }
 
-func (m *Meta) PutObject(object *Object, multipart *Multipart, objMap *ObjMap, updateUsage bool) error {
+func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multipart, objMap *ObjMap, updateUsage bool) error {
+	if reqCtx.BucketInfo == nil {
+		return ErrNoSuchBucket
+	}
+	if reqCtx.BucketInfo.Versioning == VersionDisabled {
+		version := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
+		object.VersionId = strconv.FormatUint(version, 10)
+	} else {
+		return ErrNotImplemented
+	}
+
+	if multipart == nil && object.Parts == nil {
+		return m.Client.PutObjectWithoutMultiPart(object)
+	}
+
 	tx, err := m.Client.NewTrans()
 	if err != nil {
 		return err
