@@ -5,8 +5,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
+	"math"
 	"math/rand"
 	"path"
+	"strconv"
 	"sync"
 	"time"
 
@@ -614,34 +616,19 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 	}
 
 	result.LastModified = object.LastModifiedTime
-	var nullVerNum uint64
-	nullVerNum, err = yig.checkOldObject(bucketName, objectName, bucket.Versioning)
+	object.VersionId = strconv.FormatUint(math.MaxUint64-uint64(object.LastModifiedTime.UnixNano()), 10)
+	err = yig.MetaStorage.PutObject(reqCtx, object, nil, nil, true)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
-	if bucket.Versioning == meta.VersionEnabled {
-		result.VersionId = object.GetVersionId()
-	}
-	// update null version number
-	if bucket.Versioning == meta.VersionSuspended {
-		nullVerNum = uint64(object.LastModifiedTime.UnixNano())
-	}
-
-	if nullVerNum != 0 {
-		objMap := &meta.ObjMap{
-			Name:       objectName,
-			BucketName: bucketName,
+	go func() {
+		err = yig.checkOldObject(bucketName, objectName, object.VersionId)
+		if err != nil {
+			RecycleQueue <- maybeObjectToRecycle
+			return
 		}
-		err = yig.MetaStorage.PutObject(reqCtx, object, nil, objMap, true)
-	} else {
-		err = yig.MetaStorage.PutObject(reqCtx, object, nil, nil, true)
-	}
-
-	if err != nil {
-		RecycleQueue <- maybeObjectToRecycle
-		return
-	}
+	}()
 
 	if err == nil {
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
@@ -860,36 +847,19 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 
 	result.LastModified = targetObject.LastModifiedTime
 
-	var nullVerNum uint64
-	nullVerNum, err = yig.checkOldObject(targetObject.BucketName, targetObject.Name, bucket.Versioning)
+	targetObject.VersionId = strconv.FormatUint(math.MaxUint64-uint64(targetObject.LastModifiedTime.UnixNano()), 10)
+	err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, nil, true)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
-	if bucket.Versioning == "Enabled" {
-		result.VersionId = targetObject.GetVersionId()
-	}
-	// update null version number
-	if bucket.Versioning == "Suspended" {
-		nullVerNum = uint64(targetObject.LastModifiedTime.UnixNano())
-	}
-
-	objMap := &meta.ObjMap{
-		Name:       targetObject.Name,
-		BucketName: targetObject.BucketName,
-	}
-
-	if nullVerNum != 0 {
-		objMap.NullVerNum = nullVerNum
-		err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, objMap, true)
-	} else {
-		err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, nil, true)
-	}
-
-	if err != nil {
-		RecycleQueue <- maybeObjectToRecycle
-		return
-	}
+	go func() {
+		err = yig.checkOldObject(targetObject.BucketName, targetObject.Name, targetObject.VersionId)
+		if err != nil {
+			RecycleQueue <- maybeObjectToRecycle
+			return
+		}
+	}()
 
 	yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
 	yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
@@ -898,8 +868,7 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 }
 
 func (yig *YigStorage) removeByObject(object *meta.Object, objMap *meta.ObjMap) (err error) {
-
-	err = yig.MetaStorage.DeleteObject(object, object.DeleteMarker, objMap)
+	err = yig.MetaStorage.DeleteObject(object)
 	if err != nil {
 		return
 	}
@@ -919,7 +888,6 @@ func (yig *YigStorage) getObjWithVersion(bucketName, objectName, version string)
 }
 
 func (yig *YigStorage) removeAllObjectsEntryByName(bucketName, objectName string) (err error) {
-
 	objs, err := yig.MetaStorage.GetAllObject(bucketName, objectName)
 	if err == ErrNoSuchKey {
 		return nil
@@ -936,67 +904,25 @@ func (yig *YigStorage) removeAllObjectsEntryByName(bucketName, objectName string
 	return
 }
 
-func (yig *YigStorage) checkOldObject(bucketName, objectName, versioning string) (version uint64, err error) {
-
-	if versioning == meta.VersionDisabled {
-		err = yig.removeAllObjectsEntryByName(bucketName, objectName)
-		return
+func (yig *YigStorage) removeAllOldObjectsByVersion(bucketName, objectName, latestVersion string) (err error) {
+	objs, err := yig.MetaStorage.GetAllOldObjects(bucketName, objectName, latestVersion)
+	if err == ErrNoSuchKey {
+		return nil
 	}
-
-	if versioning == meta.VersionEnabled || versioning == meta.VersionSuspended {
-		objMapExist := true
-		objectExist := true
-
-		var objMap *meta.ObjMap
-		objMap, err = yig.MetaStorage.GetObjectMap(bucketName, objectName)
-		if err == ErrNoSuchKey {
-			err = nil
-			objMapExist = false
-		} else if err != nil {
-			return 0, err
-		}
-		var object *meta.Object
-		if objMapExist {
-			object, err = yig.MetaStorage.GetObjectVersion(bucketName, objectName, objMap.NullVerId, false)
-			if err == ErrNoSuchKey {
-				err = nil
-				objectExist = false
-			} else if err != nil {
-				return 0, err
-			}
-		} else {
-			object, err = yig.MetaStorage.GetObject(bucketName, objectName, false)
-			if err == ErrNoSuchKey {
-				err = nil
-				objectExist = false
-			} else if err != nil {
-				return 0, err
-			}
-		}
-
-		if versioning == "Enabled" {
-			if !objMapExist && objectExist && object.NullVersion {
-				version, err = object.GetVersionNumber()
-				if err != nil {
-					helper.Logger.Error("GetVersionNumber error:", err)
-					return 0, err
-				}
-				helper.Logger.Info("Old object version:", version)
-				return
-			}
-		} else {
-			helper.Logger.Info("object.NullVersion:", object.NullVersion)
-			if objectExist && object.NullVersion {
-				err = yig.MetaStorage.DeleteObject(object, object.DeleteMarker, nil)
-				if err != nil {
-					return
-				}
-			}
-		}
-		return
+	if err != nil {
+		return err
 	}
+	for _, obj := range objs {
+		err = yig.removeByObject(obj, nil)
+		if err != nil {
+			return err
+		}
+	}
+	return
+}
 
-	return 0, errors.New("No Such versioning status!")
+func (yig *YigStorage) checkOldObject(bucketName, objectName, version string) (err error) {
+	return yig.removeAllOldObjectsByVersion(bucketName, objectName, version)
 }
 
 func (yig *YigStorage) removeObjectVersion(bucketName, objectName, version string) error {

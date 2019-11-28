@@ -2,8 +2,6 @@ package meta
 
 import (
 	"database/sql"
-	"math"
-	"strconv"
 
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
@@ -50,6 +48,10 @@ func (m *Meta) GetAllObject(bucketName string, objectName string) (object []*Obj
 	return m.Client.GetAllObject(bucketName, objectName, "")
 }
 
+func (m *Meta) GetAllOldObjects(bucketName string, objectName string, latestVersion string) (objects []*Object, err error) {
+	return m.Client.GetAllOldObjects(bucketName, objectName, latestVersion)
+}
+
 func (m *Meta) GetObjectMap(bucketName, objectName string) (objMap *ObjMap, err error) {
 	m.Client.GetObjectMap(bucketName, objectName)
 	return
@@ -88,12 +90,6 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed
 func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multipart, objMap *ObjMap, updateUsage bool) error {
 	if reqCtx.BucketInfo == nil {
 		return ErrNoSuchBucket
-	}
-	if reqCtx.BucketInfo.Versioning == VersionDisabled {
-		version := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
-		object.VersionId = strconv.FormatUint(version, 10)
-	} else {
-		return ErrNotImplemented
 	}
 
 	if multipart == nil && object.Parts == nil {
@@ -163,7 +159,25 @@ func (m *Meta) PutObjMapEntry(objMap *ObjMap) error {
 	return err
 }
 
-func (m *Meta) DeleteObject(object *Object, DeleteMarker bool, objMap *ObjMap) (err error) {
+func (m *Meta) DeleteOldObject(object *Object) (err error) {
+	var tx *sql.Tx
+	tx, err = m.Client.NewTrans()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = m.Client.CommitTrans(tx)
+		}
+		if err != nil {
+			m.Client.AbortTrans(tx)
+		}
+	}()
+
+	return m.Client.UpdateUsage(object.BucketName, -object.Size, tx)
+}
+
+func (m *Meta) DeleteObject(object *Object) (err error) {
 	var tx *sql.Tx
 	tx, err = m.Client.NewTrans()
 	if err != nil {
@@ -181,17 +195,6 @@ func (m *Meta) DeleteObject(object *Object, DeleteMarker bool, objMap *ObjMap) (
 	err = m.Client.DeleteObject(object, tx)
 	if err != nil {
 		return err
-	}
-
-	if objMap != nil {
-		err = m.Client.DeleteObjectMap(objMap, tx)
-		if err != nil {
-			return err
-		}
-	}
-
-	if DeleteMarker {
-		return nil
 	}
 
 	err = m.Client.PutObjectToGarbageCollection(object, tx)

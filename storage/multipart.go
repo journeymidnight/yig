@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"io"
+	"math"
 	"net/url"
 	"sort"
 	"strconv"
@@ -611,29 +612,15 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 		StorageClass:     multipart.Metadata.StorageClass,
 	}
 
-	var nullVerNum uint64
-	nullVerNum, err = yig.checkOldObject(bucketName, objectName, bucket.Versioning)
+	object.VersionId = strconv.FormatUint(math.MaxUint64-uint64(object.LastModifiedTime.UnixNano()), 10)
+	err = yig.MetaStorage.PutObject(reqCtx, object, &multipart, nil, false)
 	if err != nil {
 		return
 	}
-	if bucket.Versioning == "Enabled" {
-		result.VersionId = object.GetVersionId()
-	}
-	// update null version number
-	if bucket.Versioning == "Suspended" {
-		nullVerNum = uint64(object.LastModifiedTime.UnixNano())
-	}
 
-	objMap := &meta.ObjMap{
-		Name:       objectName,
-		BucketName: bucketName,
-	}
-
-	if nullVerNum != 0 {
-		err = yig.MetaStorage.PutObject(reqCtx, object, &multipart, objMap, false)
-	} else {
-		err = yig.MetaStorage.PutObject(reqCtx, object, &multipart, nil, false)
-	}
+	go func() {
+		yig.checkOldObject(bucketName, objectName, object.VersionId)
+	}()
 
 	sseRequest := multipart.Metadata.SseRequest
 	result.SseType = sseRequest.Type

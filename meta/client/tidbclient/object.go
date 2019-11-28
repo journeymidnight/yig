@@ -86,6 +86,35 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 	return
 }
 
+func (t *TidbClient) GetAllOldObjects(bucketName, objectName, latestVersion string) (object []*Object, err error) {
+	sqltext := "select bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag,contenttype," +
+		"customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass from " +
+		"objects where bucketname=? and name=? and version<?"
+	var versions []string
+	rows, err := t.Client.Query(sqltext, bucketName, objectName, latestVersion)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var sversion string
+		err = rows.Scan(&sversion)
+		if err != nil {
+			return
+		}
+		versions = append(versions, sversion)
+	}
+	for _, v := range versions {
+		var obj *Object
+		obj, err = t.GetObject(bucketName, objectName, v)
+		if err != nil {
+			return
+		}
+		object = append(object, obj)
+	}
+	return
+}
+
 func (t *TidbClient) GetAllObject(bucketName, objectName, version string) (object []*Object, err error) {
 	sqltext := "select version from objects where bucketname=? and name=?;"
 	var versions []string
@@ -205,6 +234,35 @@ func (t *TidbClient) DeleteObject(object *Object, tx DB) (err error) {
 	}
 	sqltext = "delete from objectpart where objectname=? and bucketname=? and version=?;"
 	_, err = tx.Exec(sqltext, object.Name, object.BucketName, version)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (t *TidbClient) DeleteOldObjects(latestObject *Object, tx DB) (err error) {
+	if tx == nil {
+		tx, err = t.Client.Begin()
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err == nil {
+				err = tx.(*sql.Tx).Commit()
+			}
+			if err != nil {
+				tx.(*sql.Tx).Rollback()
+			}
+		}()
+	}
+
+	sqltext := "delete from objects where bucketname=? and name=? and version<?;"
+	_, err = tx.Exec(sqltext, latestObject.Name, latestObject.BucketName, latestObject.VersionId)
+	if err != nil {
+		return err
+	}
+	sqltext = "delete from objectpart where bucketname=? and objectname=? and version<?;"
+	_, err = tx.Exec(sqltext, latestObject.Name, latestObject.BucketName, latestObject.VersionId)
 	if err != nil {
 		return err
 	}

@@ -111,9 +111,6 @@ func (hr *HashRing) Delete(node interface{}) error {
 
 // Locate returns the node for a given key
 func (hr *HashRing) Locate(key string) (node interface{}, err error) {
-	hr.mu.RLock()
-	defer hr.mu.RUnlock()
-
 	if len(hr.idx) < 1 {
 		return node, fmt.Errorf("no available nodes")
 	}
