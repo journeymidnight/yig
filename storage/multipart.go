@@ -630,9 +630,9 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 	}
 
 	if nullVerNum != 0 {
-		err = yig.MetaStorage.PutObject(object, &multipart, objMap, false)
+		err = yig.MetaStorage.PutObject(reqCtx, object, &multipart, objMap, false)
 	} else {
-		err = yig.MetaStorage.PutObject(object, &multipart, nil, false)
+		err = yig.MetaStorage.PutObject(reqCtx, object, &multipart, nil, false)
 	}
 
 	sseRequest := multipart.Metadata.SseRequest
