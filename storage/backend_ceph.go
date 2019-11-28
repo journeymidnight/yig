@@ -3,6 +3,10 @@ package storage
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"io"
+	"sync"
+	"time"
+
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/backend"
 	"github.com/journeymidnight/yig/ceph"
@@ -14,9 +18,6 @@ import (
 	"github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/signature"
-	"io"
-	"sync"
-	"time"
 )
 
 func New(metaCacheType int, enableDataCache bool) *YigStorage {
@@ -146,6 +147,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 		CustomAttributes:     metadata,
 		Type:                 types.ObjectTypeAppendable,
 		StorageClass:         storageClass,
+		VersionId:            "0",
 	}
 
 	result.LastModified = object.LastModifiedTime

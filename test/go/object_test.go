@@ -368,8 +368,12 @@ func Test_RenameObjectErrFolder(t *testing.T) {
 
 func Test_Object_Append(t *testing.T) {
 	sc := NewS3()
-	sc.DeleteObject(TEST_BUCKET, TEST_KEY)
-	sc.DeleteBucket(TEST_BUCKET)
+	delFn := func(sc *S3Client) {
+		sc.DeleteObject(TEST_BUCKET, TEST_KEY)
+		sc.DeleteBucket(TEST_BUCKET)
+	}
+	delFn(sc)
+	defer delFn(sc)
 	sc.MakeBucket(TEST_BUCKET)
 	var nextPos int64
 	var err error
@@ -393,24 +397,6 @@ func Test_Object_Append(t *testing.T) {
 		t.Fatal("GetObject err: value is:", v, ", but should be:", TEST_VALUE+TEST_VALUE+"APPEND")
 	}
 	t.Log("AppendObject success!")
-	err = sc.DeleteObject(TEST_BUCKET, TEST_KEY)
-	if err != nil {
-		t.Log("DeleteObject err:", err)
-	}
-}
-
-func Test_Object_End(t *testing.T) {
-	sc := NewS3()
-	err := sc.DeleteObject(TEST_BUCKET, TEST_KEY)
-	if err != nil {
-		t.Log("DeleteObject err:", err)
-	}
-	err = sc.DeleteBucket(TEST_BUCKET)
-	if err != nil {
-		t.Fatal("DeleteBucket err:", err)
-		panic(err)
-	}
-
 }
 
 var (
@@ -583,7 +569,7 @@ type MetaObjectInput struct {
 }
 
 type MetaCase struct {
-	ExpectedMeta          map[string]string
+	ExpectedMeta map[string]string
 }
 
 var testMetaUnits = []MetaTestUnit{
@@ -632,15 +618,15 @@ var testMetaUnits = []MetaTestUnit{
 		Cases: []MetaCase{
 			{
 				ExpectedMeta: map[string]string{
-				"Content-Type":        "image/jpeg",
-				"Cache-Control":       "noCache",
-				"Content-Disposition": "TestContentDisposition",
-				"Content-Encoding":    "utf-8",
-				"Content-Language":    "golang",
-				"Expires":             "800",
-				// The SDK will automatically erase the previous Amazon standard headers.
-				"Hehehehe": "hehehehe",
-				"Hello":    "world",
+					"Content-Type":        "image/jpeg",
+					"Cache-Control":       "noCache",
+					"Content-Disposition": "TestContentDisposition",
+					"Content-Encoding":    "utf-8",
+					"Content-Language":    "golang",
+					"Expires":             "800",
+					// The SDK will automatically erase the previous Amazon standard headers.
+					"Hehehehe": "hehehehe",
+					"Hello":    "world",
 				},
 			},
 		},
@@ -678,8 +664,8 @@ func Test_PutObjectMeta(t *testing.T) {
 					t.Fatal("PutObject err:", err)
 				}
 				input := &s3.PutObjectMetaInput{
-					Bucket:             aws.String(o.Bucket),
-					Key:                aws.String(o.Key),
+					Bucket:            aws.String(o.Bucket),
+					Key:               aws.String(o.Key),
 					MetaConfiguration: unit.WebsiteConfiguration,
 				}
 				_, err = sc.Client.PutObjectMeta(input)
@@ -687,8 +673,8 @@ func Test_PutObjectMeta(t *testing.T) {
 					t.Fatal("Put Object MetaData with :", err)
 				}
 				params := &s3.HeadObjectInput{
-						Bucket: aws.String(b),
-						Key:    aws.String(o.Key),
+					Bucket: aws.String(b),
+					Key:    aws.String(o.Key),
 				}
 				headResult, err := sc.Client.HeadObject(params)
 				if err != nil {
@@ -696,10 +682,10 @@ func Test_PutObjectMeta(t *testing.T) {
 				}
 
 				t.Log("ResultMetadata:", headResult.Metadata)
-				for _, c := range unit.Cases{
+				for _, c := range unit.Cases {
 					for k, v := range headResult.Metadata {
 						if *v != c.ExpectedMeta[k] {
-							t.Fatal("failed to set",k)
+							t.Fatal("failed to set", k)
 						}
 					}
 				}

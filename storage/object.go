@@ -633,9 +633,9 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 			Name:       objectName,
 			BucketName: bucketName,
 		}
-		err = yig.MetaStorage.PutObject(object, nil, objMap, true)
+		err = yig.MetaStorage.PutObject(reqCtx, object, nil, objMap, true)
 	} else {
-		err = yig.MetaStorage.PutObject(object, nil, nil, true)
+		err = yig.MetaStorage.PutObject(reqCtx, object, nil, nil, true)
 	}
 
 	if err != nil {
@@ -708,9 +708,8 @@ func (yig *YigStorage) RenameObject(targetObject *meta.Object, sourceObject stri
 	return result, nil
 }
 
-func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, credential common.Credential,
+func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Object, source io.Reader, credential common.Credential,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
-
 	var oid string
 	var maybeObjectToRecycle objectToRecycle
 	var encryptionKey []byte
@@ -719,9 +718,9 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		return
 	}
 
-	bucket, err := yig.MetaStorage.GetBucket(targetObject.BucketName, true)
-	if err != nil {
-		return
+	bucket := reqCtx.BucketInfo
+	if bucket == nil {
+		return result, ErrNoSuchBucket
 	}
 
 	switch bucket.ACL.CannedAcl {
@@ -882,9 +881,9 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 
 	if nullVerNum != 0 {
 		objMap.NullVerNum = nullVerNum
-		err = yig.MetaStorage.PutObject(targetObject, nil, objMap, true)
+		err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, objMap, true)
 	} else {
-		err = yig.MetaStorage.PutObject(targetObject, nil, nil, true)
+		err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, nil, true)
 	}
 
 	if err != nil {
