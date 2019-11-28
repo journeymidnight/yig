@@ -143,6 +143,12 @@ func (t *TidbClient) UpdateAppendObject(object *Object, tx DB) (err error) {
 	return err
 }
 
+func (t *TidbClient) PutObjectWithoutMultiPart(object *Object) error {
+	sql, args := object.GetCreateSql()
+	_, err := t.Client.Exec(sql, args...)
+	return err
+}
+
 func (t *TidbClient) PutObject(object *Object, tx DB) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()

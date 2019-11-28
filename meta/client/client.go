@@ -2,6 +2,7 @@ package client
 
 import (
 	"database/sql"
+
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/meta/types"
 )
@@ -16,6 +17,7 @@ type Client interface {
 	GetObject(bucketName, objectName, version string) (object *Object, err error)
 	GetAllObject(bucketName, objectName, version string) (object []*Object, err error)
 	PutObject(object *Object, tx DB) error
+	PutObjectWithoutMultiPart(object *Object) error
 	UpdateAppendObject(object *Object, tx DB) error
 	RenameObjectPart(object *Object, sourceObject string, tx DB) (err error)
 	RenameObject(object *Object, sourceObject string, tx DB) (err error)
