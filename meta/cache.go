@@ -1,15 +1,16 @@
 package meta
 
 import (
+	"database/sql"
+
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/redis"
-	"database/sql"
 )
 
 type CacheType int
 
 const (
-	NoCache     CacheType = iota
+	NoCache CacheType = iota
 	EnableCache
 	SimpleCache
 )
@@ -83,9 +84,9 @@ func (m *enabledSimpleMetaCache) Get(table redis.RedisDatabase, key string,
 	// if redis doesn't have the entry
 	if onCacheMiss != nil {
 		value, err = onCacheMiss()
-		if err != nil{
+		if err != nil {
 			if err != sql.ErrNoRows {
-				helper.Logger.Error("exec onCacheMiss() err:", err)
+				helper.Logger.Warn("exec onCacheMiss() err:", err)
 			}
 			return
 		}
