@@ -19,6 +19,8 @@ type Client interface {
 	GetAllOldObjects(bucketName, objectName, latestVersion string) (object []*Object, err error)
 	PutObject(object *Object, tx DB) error
 	PutObjectWithoutMultiPart(object *Object) error
+	UpdateObject(object *Object, tx DB) (err error)
+	UpdateObjectWithoutMultiPart(object *Object) error
 	UpdateAppendObject(object *Object, tx DB) error
 	RenameObjectPart(object *Object, sourceObject string, tx DB) (err error)
 	RenameObject(object *Object, sourceObject string, tx DB) (err error)

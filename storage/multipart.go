@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"io"
-	"math"
 	"net/url"
 	"sort"
 	"strconv"
@@ -612,7 +611,6 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 		StorageClass:     multipart.Metadata.StorageClass,
 	}
 
-	object.VersionId = strconv.FormatUint(math.MaxUint64-uint64(object.LastModifiedTime.UnixNano()), 10)
 	err = yig.MetaStorage.PutObject(reqCtx, object, &multipart, nil, false)
 	if err != nil {
 		return

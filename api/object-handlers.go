@@ -453,7 +453,9 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		}
 		sourceVersion = strings.TrimPrefix(splits[1], "versionId=")
 	}
-
+	if sourceVersion == "" {
+		sourceVersion = "0"
+	}
 	// X-Amz-Copy-Source should be URL-encoded
 	sourceBucketName, err = url.QueryUnescape(sourceBucketName)
 	if err != nil {
@@ -471,6 +473,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 
 	sourceObject, err := api.ObjectAPI.GetObjectInfo(sourceBucketName, sourceObjectName,
 		sourceVersion, credential)
+
 	if err != nil {
 		logger.Error("Unable to fetch object info:", err)
 		WriteErrorResponseWithResource(w, r, err, copySource)
@@ -602,13 +605,13 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 // Do not support bucket to enable multiVersion renaming;
 // Folder renaming operation is not supported.
 func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := GetRequestContext(r)
-	logger := ctx.Logger
-	bucketName := ctx.BucketName
-	targetObjectName := ctx.ObjectName
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
+	bucketName := reqCtx.BucketName
+	targetObjectName := reqCtx.ObjectName
 
 	// Determine if the renamed object is legal
-	if hasSuffix(ctx.ObjectName, "/") || ctx.ObjectName == "" {
+	if hasSuffix(reqCtx.ObjectName, "/") || reqCtx.ObjectName == "" {
 		WriteErrorResponse(w, r, ErrInvalidRenameTarget)
 		return
 	}
@@ -620,14 +623,14 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if ctx.ObjectInfo != nil {
+	if reqCtx.ObjectInfo != nil {
 		WriteErrorResponse(w, r, ErrInvalidRenameTarget)
 		return
 	}
 
 	sourceObjectName := r.Header.Get("X-Amz-Rename-Source-Key")
 
-	if sourceObjectName == ctx.ObjectName {
+	if sourceObjectName == reqCtx.ObjectName {
 		WriteErrorResponse(w, r, ErrInvalidRenameTarget)
 		return
 	}
@@ -648,7 +651,7 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 		"to", targetObjectName)
 
 	//TODO: Supplement Object MultiVersion Judge.
-	bucket := ctx.BucketInfo
+	bucket := reqCtx.BucketInfo
 	if bucket.Versioning != meta.VersionDisabled {
 		WriteErrorResponse(w, r, ErrNotSupportBucketEnabledVersion)
 		return
@@ -656,7 +659,7 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 	logger.Info("Bucket Multi-version is:", bucket.Versioning)
 
 	var sourceVersion string
-	sourceObject, err := api.ObjectAPI.GetObjectInfo(ctx.BucketName, sourceObjectName,
+	sourceObject, err := api.ObjectAPI.GetObjectInfo(reqCtx.BucketName, sourceObjectName,
 		sourceVersion, credential)
 	if err != nil {
 		WriteErrorResponseWithResource(w, r, err, sourceObjectName)
@@ -664,8 +667,8 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 	}
 
 	targetObject := sourceObject
-	targetObject.Name = ctx.ObjectName
-	result, err := api.ObjectAPI.RenameObject(targetObject, sourceObjectName, credential)
+	targetObject.Name = reqCtx.ObjectName
+	result, err := api.ObjectAPI.RenameObject(reqCtx, targetObject, sourceObjectName, credential)
 	if err != nil {
 		logger.Error("Unable to update object meta for", targetObject.Name,
 			"error:", err)
@@ -1448,7 +1451,9 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 		}
 		sourceVersion = strings.TrimPrefix(splits[1], "versionId=")
 	}
-
+	if sourceVersion == "" {
+		sourceVersion = "0"
+	}
 	// X-Amz-Copy-Source should be URL-encoded
 	sourceBucketName, err = url.QueryUnescape(sourceBucketName)
 	if err != nil {

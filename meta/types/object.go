@@ -154,6 +154,19 @@ func (o *Object) GetCreateSql() (string, []interface{}) {
 	return sql, args
 }
 
+func (o *Object) GetUpdateSql() (string, []interface{}) {
+	customAttributes, _ := json.Marshal(o.CustomAttributes)
+	acl, _ := json.Marshal(o.ACL)
+	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
+	sql := "update objects set location=?,pool=?,size=?,objectid=?,lastmodifiedtime=?,etag=?," +
+		"contenttype=?,customattributes=?,acl=?,ssetype=?,encryptionkey=?,initializationvector=?,type=?,storageclass=? " +
+		"where bucketname=? and name=? and version=?"
+	args := []interface{}{o.Location, o.Pool, o.Size, o.ObjectId,
+		lastModifiedTime, o.Etag, o.ContentType, customAttributes, acl,
+		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass, o.BucketName, o.Name, o.VersionId}
+	return sql, args
+}
+
 func (o *Object) GetAppendSql() (string, []interface{}) {
 	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
@@ -178,9 +191,8 @@ func (o *Object) GetUpdateAttrsSql() (string, []interface{}) {
 }
 
 func (o *Object) GetUpdateNameSql(sourceObject string) (string, []interface{}) {
-	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
-	sql := "update objects set name=? where bucketname=? and name=? and version=?"
-	args := []interface{}{o.Name, o.BucketName, sourceObject, version}
+	sql := "update objects set name=? where bucketname=? and name=? and version=0"
+	args := []interface{}{o.Name, o.BucketName, sourceObject}
 	return sql, args
 }
 

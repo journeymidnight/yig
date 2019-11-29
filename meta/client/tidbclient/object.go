@@ -21,7 +21,7 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 	sqltext := "select bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag,contenttype," +
 		"customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass from objects where bucketname=? and name=? "
 	if version == "" {
-		sqltext += "order by bucketname,name,version limit 1;"
+		sqltext += "and version=0"
 		row = t.Client.QueryRow(sqltext, bucketName, objectName)
 	} else {
 		sqltext += "and version=?;"
@@ -70,19 +70,23 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 	if err != nil {
 		return
 	}
-	object.Parts, err = getParts(object.BucketName, object.Name, iversion, t.Client)
-	//build simple index for multipart
-	if len(object.Parts) != 0 {
-		var sortedPartNum = make([]int64, len(object.Parts))
-		for k, v := range object.Parts {
-			sortedPartNum[k-1] = v.Offset
+	if object.Type == ObjectTypeMultipart {
+		iversion = math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
+		object.Parts, err = getParts(object.BucketName, object.Name, iversion, t.Client)
+		//build simple index for multipart
+		if len(object.Parts) != 0 {
+			var sortedPartNum = make([]int64, len(object.Parts))
+			for k, v := range object.Parts {
+				sortedPartNum[k-1] = v.Offset
+			}
+			object.PartsIndex = &SimpleIndex{Index: sortedPartNum}
 		}
-		object.PartsIndex = &SimpleIndex{Index: sortedPartNum}
+		var reversedTime uint64
+		timestamp := math.MaxUint64 - reversedTime
+		timeData := []byte(strconv.FormatUint(timestamp, 10))
+		object.VersionId = hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
+		return
 	}
-	var reversedTime uint64
-	timestamp := math.MaxUint64 - reversedTime
-	timeData := []byte(strconv.FormatUint(timestamp, 10))
-	object.VersionId = hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
 	return
 }
 
@@ -178,6 +182,12 @@ func (t *TidbClient) PutObjectWithoutMultiPart(object *Object) error {
 	return err
 }
 
+func (t *TidbClient) UpdateObjectWithoutMultiPart(object *Object) error {
+	sql, args := object.GetUpdateSql()
+	_, err := t.Client.Exec(sql, args...)
+	return err
+}
+
 func (t *TidbClient) PutObject(object *Object, tx DB) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()
@@ -194,6 +204,37 @@ func (t *TidbClient) PutObject(object *Object, tx DB) (err error) {
 		}()
 	}
 	sql, args := object.GetCreateSql()
+	_, err = tx.Exec(sql, args...)
+	if object.Parts != nil {
+		v := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
+		version := strconv.FormatUint(v, 10)
+		for _, p := range object.Parts {
+			psql, args := p.GetCreateSql(object.BucketName, object.Name, version)
+			_, err = tx.Exec(psql, args...)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return err
+}
+
+func (t *TidbClient) UpdateObject(object *Object, tx DB) (err error) {
+	if tx == nil {
+		tx, err = t.Client.Begin()
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err == nil {
+				err = tx.(*sql.Tx).Commit()
+			}
+			if err != nil {
+				tx.(*sql.Tx).Rollback()
+			}
+		}()
+	}
+	sql, args := object.GetUpdateSql()
 	_, err = tx.Exec(sql, args...)
 	if object.Parts != nil {
 		v := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())

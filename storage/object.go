@@ -5,10 +5,8 @@ import (
 	"encoding/hex"
 	"errors"
 	"io"
-	"math"
 	"math/rand"
 	"path"
-	"strconv"
 	"sync"
 	"time"
 
@@ -624,7 +622,6 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 	}
 
 	result.LastModified = object.LastModifiedTime
-	object.VersionId = strconv.FormatUint(math.MaxUint64-uint64(object.LastModifiedTime.UnixNano()), 10)
 	err = yig.MetaStorage.PutObject(reqCtx, object, nil, nil, true)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
@@ -667,11 +664,10 @@ func (yig *YigStorage) PutObjectMeta(bucket *meta.Bucket, targetObject *meta.Obj
 	return nil
 }
 
-func (yig *YigStorage) RenameObject(targetObject *meta.Object, sourceObject string, credential common.Credential) (result datatype.RenameObjectResult, err error) {
-
-	bucket, err := yig.MetaStorage.GetBucket(targetObject.BucketName, true)
-	if err != nil {
-		return
+func (yig *YigStorage) RenameObject(reqCtx RequestContext, targetObject *meta.Object, sourceObject string, credential common.Credential) (result datatype.RenameObjectResult, err error) {
+	bucket := reqCtx.BucketInfo
+	if bucket == nil {
+		return result, ErrNoSuchBucket
 	}
 	switch bucket.ACL.CannedAcl {
 	case "public-read-write":
@@ -771,6 +767,7 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 				}
 				if bytesW < uint64(part.Size) {
 					RecycleQueue <- maybeObjectToRecycle
+					helper.Logger.Error("Copy part", i, "error:", bytesW, part.Size)
 					return result, ErrIncompleteBody
 				}
 				if err != nil {
@@ -827,6 +824,7 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 		}
 		if int64(bytesWritten) < targetObject.Size {
 			RecycleQueue <- maybeObjectToRecycle
+			helper.Logger.Error("Copy ", "error:", bytesWritten, targetObject.Size)
 			return result, ErrIncompleteBody
 		}
 
@@ -855,7 +853,6 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 
 	result.LastModified = targetObject.LastModifiedTime
 
-	targetObject.VersionId = strconv.FormatUint(math.MaxUint64-uint64(targetObject.LastModifiedTime.UnixNano()), 10)
 	err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, nil, true)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle

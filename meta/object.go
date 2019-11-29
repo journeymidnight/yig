@@ -91,9 +91,21 @@ func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multi
 	if reqCtx.BucketInfo == nil {
 		return ErrNoSuchBucket
 	}
+	if reqCtx.BucketInfo.Versioning == VersionDisabled {
+		object.VersionId = "0"
+	} else {
+		return ErrNotImplemented
+		// TODO: object.VersionId = strconv.FormatUint(math.MaxUint64-uint64(object.LastModifiedTime.UnixNano()), 10)
+	}
 
+	needUpdate := (reqCtx.ObjectInfo != nil)
 	if multipart == nil && object.Parts == nil {
-		return m.Client.PutObjectWithoutMultiPart(object)
+		if needUpdate {
+			return m.Client.UpdateObjectWithoutMultiPart(object)
+		} else {
+			return m.Client.PutObjectWithoutMultiPart(object)
+		}
+
 	}
 
 	tx, err := m.Client.NewTrans()
@@ -106,13 +118,13 @@ func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multi
 		}
 	}()
 
-	err = m.Client.PutObject(object, tx)
-	if err != nil {
-		return err
-	}
-
-	if objMap != nil {
-		err = m.Client.PutObjectMap(objMap, tx)
+	if needUpdate {
+		err = m.Client.UpdateObject(object, tx)
+		if err != nil {
+			return err
+		}
+	} else {
+		err = m.Client.PutObject(object, tx)
 		if err != nil {
 			return err
 		}
