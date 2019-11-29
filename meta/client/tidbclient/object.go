@@ -89,7 +89,7 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 func (t *TidbClient) GetAllOldObjects(bucketName, objectName, latestVersion string) (object []*Object, err error) {
 	sqltext := "select bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag,contenttype," +
 		"customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass from " +
-		"objects where bucketname=? and name=? and version<?"
+		"objects where bucketname=? and name=? and version>?"
 	var versions []string
 	rows, err := t.Client.Query(sqltext, bucketName, objectName, latestVersion)
 	if err != nil {
@@ -256,12 +256,12 @@ func (t *TidbClient) DeleteOldObjects(latestObject *Object, tx DB) (err error) {
 		}()
 	}
 
-	sqltext := "delete from objects where bucketname=? and name=? and version<?;"
+	sqltext := "delete from objects where bucketname=? and name=? and version>?;"
 	_, err = tx.Exec(sqltext, latestObject.Name, latestObject.BucketName, latestObject.VersionId)
 	if err != nil {
 		return err
 	}
-	sqltext = "delete from objectpart where bucketname=? and objectname=? and version<?;"
+	sqltext = "delete from objectpart where bucketname=? and objectname=? and version>?;"
 	_, err = tx.Exec(sqltext, latestObject.Name, latestObject.BucketName, latestObject.VersionId)
 	if err != nil {
 		return err
