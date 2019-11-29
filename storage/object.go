@@ -25,6 +25,7 @@ import (
 	"github.com/journeymidnight/yig/signature"
 )
 
+var cMap sync.Map
 var latestQueryTime [2]time.Time // 0 is for SMALL_FILE_POOLNAME, 1 is for BIG_FILE_POOLNAME
 const (
 	CLUSTER_MAX_USED_SPACE_PERCENT = 85
@@ -58,6 +59,12 @@ func (yig *YigStorage) pickClusterAndPool(bucket string, object string,
 		poolName = backend.BIG_FILE_POOLNAME
 		idx = 1
 	}
+
+	if v, ok := cMap.Load(poolName); ok {
+		return v.(backend.Cluster), poolName
+	}
+
+	// TODO: Add Ticker to change Map
 	var needCheck bool
 	queryTime := latestQueryTime[idx]
 	if time.Since(queryTime).Hours() > 24 { // check used space every 24 hours
@@ -107,6 +114,7 @@ func (yig *YigStorage) pickClusterAndPool(bucket string, object string,
 			break
 		}
 	}
+	cMap.Store(poolName, cluster)
 	return
 }
 
