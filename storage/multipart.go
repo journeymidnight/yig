@@ -616,10 +616,6 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 		return
 	}
 
-	go func() {
-		yig.checkOldObject(bucketName, objectName, object.VersionId)
-	}()
-
 	sseRequest := multipart.Metadata.SseRequest
 	result.SseType = sseRequest.Type
 	result.SseAwsKmsKeyIdBase64 = base64.StdEncoding.EncodeToString([]byte(sseRequest.SseAwsKmsKeyId))

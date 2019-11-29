@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"strconv"
 	"time"
 
@@ -46,7 +45,7 @@ type Object struct {
 	// ObjectType include `Normal`, `Appendable`, 'Multipart'
 	Type         ObjectType
 	StorageClass StorageClass
-	CreateTime   uint64
+	CreateTime   uint64 // Timestamp(nanosecond)
 }
 
 type ObjectType int
@@ -160,27 +159,25 @@ func (o *Object) GetUpdateSql() (string, []interface{}) {
 	acl, _ := json.Marshal(o.ACL)
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
 	sql := "update objects set location=?,pool=?,size=?,objectid=?,lastmodifiedtime=?,etag=?," +
-		"contenttype=?,customattributes=?,acl=?,ssetype=?,encryptionkey=?,initializationvector=?,type=?,storageclass=? " +
+		"contenttype=?,customattributes=?,acl=?,ssetype=?,encryptionkey=?,initializationvector=?,type=?, storageclass=?, createtime=? " +
 		"where bucketname=? and name=? and version=?"
 	args := []interface{}{o.Location, o.Pool, o.Size, o.ObjectId,
 		lastModifiedTime, o.Etag, o.ContentType, customAttributes, acl,
-		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass, o.BucketName, o.Name, o.VersionId}
+		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass, o.LastModifiedTime.UnixNano(), o.BucketName, o.Name, o.VersionId}
 	return sql, args
 }
 
 func (o *Object) GetAppendSql() (string, []interface{}) {
-	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
-	sql := "update objects set lastmodifiedtime=?, size=?, version=? where bucketname=? and name=?"
-	args := []interface{}{lastModifiedTime, o.Size, version, o.BucketName, o.Name}
+	sql := "update objects set lastmodifiedtime=?, size=? where bucketname=? and name=?"
+	args := []interface{}{lastModifiedTime, o.Size, o.BucketName, o.Name}
 	return sql, args
 }
 
 func (o *Object) GetUpdateAclSql() (string, []interface{}) {
-	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
 	acl, _ := json.Marshal(o.ACL)
 	sql := "update objects set acl=? where bucketname=? and name=? and version=?"
-	args := []interface{}{acl, o.BucketName, o.Name, version}
+	args := []interface{}{acl, o.BucketName, o.Name, o.VersionId}
 	return sql, args
 }
 

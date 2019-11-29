@@ -620,20 +620,12 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 		Type:                 meta.ObjectTypeNormal,
 		StorageClass:         storageClass,
 	}
-
 	result.LastModified = object.LastModifiedTime
 	err = yig.MetaStorage.PutObject(reqCtx, object, nil, nil, true)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
-	go func() {
-		err = yig.checkOldObject(bucketName, objectName, object.VersionId)
-		if err != nil {
-			helper.Logger.Warn("Delete old object err:", err, "Bucket:", bucketName, "Object:", objectName)
-			return
-		}
-	}()
 
 	if err == nil {
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
@@ -858,13 +850,6 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
-	go func() {
-		err = yig.checkOldObject(targetObject.BucketName, targetObject.Name, targetObject.VersionId)
-		if err != nil {
-			helper.Logger.Warn("Delete old object err:", err, "Bucket:", targetObject.BucketName, "Object:", targetObject.Name)
-			return
-		}
-	}()
 
 	yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
 	yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
