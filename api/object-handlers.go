@@ -474,6 +474,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	sourceObject, err := api.ObjectAPI.GetObjectInfo(sourceBucketName, sourceObjectName,
 		sourceVersion, credential)
 
+	helper.Logger.Error("### SRC:", sourceObject == nil, sourceObject.VersionId)
 	if err != nil {
 		logger.Error("Unable to fetch object info:", err)
 		WriteErrorResponseWithResource(w, r, err, copySource)

@@ -2,15 +2,14 @@ package tidbclient
 
 import (
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"math"
 	"strconv"
 	"time"
 
 	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
-	"github.com/xxtea/xxtea-go/xxtea"
 )
 
 func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *Object, err error) {
@@ -20,7 +19,7 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 	var row *sql.Row
 	sqltext := "select bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag,contenttype," +
 		"customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass from objects where bucketname=? and name=? "
-	if version == "" {
+	if version == "" || version == "0" {
 		sqltext += "and version=0"
 		row = t.Client.QueryRow(sqltext, bucketName, objectName)
 	} else {
@@ -56,10 +55,8 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 	} else if err != nil {
 		return
 	}
-	rversion := math.MaxUint64 - iversion
-	s := int64(rversion) / 1e9
-	ns := int64(rversion) % 1e9
-	object.LastModifiedTime = time.Unix(s, ns)
+	helper.Logger.Error("##### lastModifiedTime:", lastModifiedTime)
+	object.LastModifiedTime = time.Unix(0, 0)
 	object.Name = objectName
 	object.BucketName = bucketName
 	err = json.Unmarshal([]byte(acl), &object.ACL)
@@ -81,12 +78,10 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 			}
 			object.PartsIndex = &SimpleIndex{Index: sortedPartNum}
 		}
-		var reversedTime uint64
-		timestamp := math.MaxUint64 - reversedTime
-		timeData := []byte(strconv.FormatUint(timestamp, 10))
-		object.VersionId = hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
-		return
 	}
+	var reversedTime uint64
+	timestamp := math.MaxUint64 - reversedTime
+	object.VersionId = strconv.FormatUint(timestamp, 10)
 	return
 }
 

@@ -46,6 +46,7 @@ type Object struct {
 	// ObjectType include `Normal`, `Appendable`, 'Multipart'
 	Type         ObjectType
 	StorageClass StorageClass
+	CreateTime   uint64
 }
 
 type ObjectType int
@@ -146,11 +147,11 @@ func (o *Object) GetCreateSql() (string, []interface{}) {
 	acl, _ := json.Marshal(o.ACL)
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
 	sql := "insert into objects(bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag," +
-		"contenttype,customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass) " +
-		"values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+		"contenttype,customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass,createtime) " +
+		"values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
 	args := []interface{}{o.BucketName, o.Name, o.VersionId, o.Location, o.Pool, o.OwnerId, o.Size, o.ObjectId,
 		lastModifiedTime, o.Etag, o.ContentType, customAttributes, acl, o.NullVersion, o.DeleteMarker,
-		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass}
+		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass, o.LastModifiedTime.UnixNano()}
 	return sql, args
 }
 

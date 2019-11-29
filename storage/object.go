@@ -329,7 +329,7 @@ func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 		return
 	}
 
-	if version == "" {
+	if version == "" || version == "0" {
 		object, err = yig.MetaStorage.GetObject(bucketName, objectName, true)
 	} else {
 		object, err = yig.getObjWithVersion(bucketName, objectName, version)
@@ -414,7 +414,7 @@ func (yig *YigStorage) GetObjectAcl(bucketName string, objectName string,
 	}
 
 	var object *meta.Object
-	if version == "" {
+	if version == "" || version == "0" {
 		object, err = yig.MetaStorage.GetObject(bucketName, objectName, true)
 	} else {
 		object, err = yig.getObjWithVersion(bucketName, objectName, version)
@@ -476,7 +476,7 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, versio
 		}
 	} // TODO policy and fancy ACL
 	var object *meta.Object
-	if version == "" {
+	if version == "" || version == "0" {
 		object, err = yig.MetaStorage.GetObject(bucketName, objectName, false)
 	} else {
 		object, err = yig.getObjWithVersion(bucketName, objectName, version)
