@@ -160,7 +160,7 @@ CREATE TABLE `objectpart` (
   `initializationvector` blob DEFAULT NULL,
   `bucketname` varchar(255) DEFAULT NULL,
   `objectname` varchar(255) DEFAULT NULL,
-  `version` varchar(255) DEFAULT NULL,
+  `version` bigint(20) UNSIGNED DEFAULT NULL,
    KEY `rowkey` (`bucketname`,`objectname`,`version`)
 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
