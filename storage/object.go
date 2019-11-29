@@ -625,7 +625,7 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 	go func() {
 		err = yig.checkOldObject(bucketName, objectName, object.VersionId)
 		if err != nil {
-			RecycleQueue <- maybeObjectToRecycle
+			helper.Logger.Warn("Delete old object err:", err, "Bucket:", bucketName, "Object:", objectName)
 			return
 		}
 	}()
@@ -856,7 +856,7 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 	go func() {
 		err = yig.checkOldObject(targetObject.BucketName, targetObject.Name, targetObject.VersionId)
 		if err != nil {
-			RecycleQueue <- maybeObjectToRecycle
+			helper.Logger.Warn("Delete old object err:", err, "Bucket:", targetObject.BucketName, "Object:", targetObject.Name)
 			return
 		}
 	}()
