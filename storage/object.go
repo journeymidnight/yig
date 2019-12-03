@@ -625,12 +625,14 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
-	}
-
-	if err == nil {
+	} else {
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
+		if reqCtx.ObjectInfo != nil && reqCtx.BucketInfo.Versioning == meta.VersionDisabled {
+			go yig.removeOldObject(reqCtx.ObjectInfo)
+		}
 	}
+
 	return result, nil
 }
 
@@ -849,10 +851,13 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
+	} else {
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
+		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
+		if reqCtx.ObjectInfo != nil && reqCtx.BucketInfo.Versioning == meta.VersionDisabled {
+			go yig.removeOldObject(reqCtx.ObjectInfo)
+		}
 	}
-
-	yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
-	yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
 
 	return result, nil
 }
@@ -894,6 +899,14 @@ func (yig *YigStorage) removeAllObjectsEntryByName(bucketName, objectName string
 	return
 }
 
+func (yig *YigStorage) removeOldObject(object *meta.Object) (err error) {
+	err = yig.MetaStorage.PutObjectToGarbageCollection(object)
+	if err != nil {
+		return err
+	}
+	return
+}
+
 func (yig *YigStorage) removeAllOldObjectsByVersion(bucketName, objectName, latestVersion string) (err error) {
 	objs, err := yig.MetaStorage.GetAllOldObjects(bucketName, objectName, latestVersion)
 	if err == ErrNoSuchKey {
@@ -909,10 +922,6 @@ func (yig *YigStorage) removeAllOldObjectsByVersion(bucketName, objectName, late
 		}
 	}
 	return
-}
-
-func (yig *YigStorage) checkOldObject(bucketName, objectName, version string) (err error) {
-	return yig.removeAllOldObjectsByVersion(bucketName, objectName, version)
 }
 
 func (yig *YigStorage) removeObjectVersion(bucketName, objectName, version string) error {

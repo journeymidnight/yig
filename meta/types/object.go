@@ -169,8 +169,8 @@ func (o *Object) GetUpdateSql() (string, []interface{}) {
 
 func (o *Object) GetAppendSql() (string, []interface{}) {
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
-	sql := "update objects set lastmodifiedtime=?, size=? where bucketname=? and name=?"
-	args := []interface{}{lastModifiedTime, o.Size, o.BucketName, o.Name}
+	sql := "update objects set lastmodifiedtime=?, size=? where bucketname=? and name=? and version=?"
+	args := []interface{}{lastModifiedTime, o.Size, o.BucketName, o.Name, o.VersionId}
 	return sql, args
 }
 

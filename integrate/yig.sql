@@ -70,7 +70,7 @@ CREATE TABLE `gc` (
   `mtime` datetime DEFAULT NULL,
   `part` tinyint(1) DEFAULT NULL,
   `triedtimes` int(11) DEFAULT NULL,
-   UNIQUE KEY `rowkey` (`bucketname`,`objectname`,`version`)
+   UNIQUE KEY `rowkey` (`bucketname`,`objectname`,`objectid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
@@ -92,7 +92,7 @@ CREATE TABLE `gcpart` (
   `bucketname` varchar(255) DEFAULT NULL,
   `objectname` varchar(255) DEFAULT NULL,
   `version` bigint(20) UNSIGNED DEFAULT NULL,
-   KEY `rowkey` (`bucketname`,`objectname`,`version`)
+   KEY `rowkey` (`bucketname`,`objectname`,`objectid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
