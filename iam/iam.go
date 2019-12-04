@@ -44,10 +44,10 @@ func InitializeIamClient(plugins map[string]*mods.YigPlugin) {
 
 func GetCredential(accessKey string) (credential common.Credential, err error) {
 	c, hit := iamCache.Load(accessKey)
-	credential = c.(common.Credential)
 	if hit {
-		return credential, nil
+		return c.(common.Credential), nil
 	}
+
 	credential, err = iamClient.GetCredential(accessKey)
 	if err != nil {
 		return credential, err
