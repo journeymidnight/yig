@@ -46,6 +46,7 @@ install -D -m 644 package/yig.service   %{buildroot}/usr/lib/systemd/system/yig.
 install -D -m 644 package/yig_delete.service   %{buildroot}/usr/lib/systemd/system/yig_delete.service
 install -D -m 644 package/yig_lc.service   %{buildroot}/usr/lib/systemd/system/yig_lc.service
 install -D -m 644 conf/yig.toml %{buildroot}%{_sysconfdir}/yig/yig.toml
+install -D -m 644 integrate/yig.sql  %{buildroot}/usr/local/yig/yig.sql
 install -d %{buildroot}/var/log/yig/
 
 #ceph confs ?
@@ -78,6 +79,7 @@ rm -rf %{buildroot}
 /usr/lib/systemd/system/yig.service
 /usr/lib/systemd/system/yig_delete.service
 /usr/lib/systemd/system/yig_lc.service
+/usr/local/yig/yig.sql
 
 
 %changelog
