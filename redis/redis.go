@@ -9,15 +9,15 @@ import (
 	"strings"
 
 	"context"
+	"github.com/cep21/circuit"
 	redigo "github.com/gomodule/redigo/redis"
 	"github.com/journeymidnight/yig/circuitbreak"
 	"github.com/journeymidnight/yig/helper"
 	"time"
-	"github.com/cep21/circuit"
 )
 
 var (
-	redisPool *redigo.Pool
+	redisPool    *redigo.Pool
 	CacheCircuit *circuit.Circuit
 )
 
@@ -36,11 +36,11 @@ func (r RedisDatabase) InvalidQueue() string {
 }
 
 const (
-	UserTable    RedisDatabase = iota
-	BucketTable  
-	ObjectTable  
-	FileTable    
-	ClusterTable 
+	UserTable RedisDatabase = iota
+	BucketTable
+	ObjectTable
+	FileTable
+	ClusterTable
 )
 
 var MetadataTables = []RedisDatabase{UserTable, BucketTable, ObjectTable, ClusterTable}
@@ -69,10 +69,10 @@ func Initialize() {
 
 	CacheCircuit = circuitbreak.NewCacheCircuit()
 	redisPool = &redigo.Pool{
-			MaxIdle:     helper.CONFIG.RedisPoolMaxIdle,
-			IdleTimeout: time.Duration(helper.CONFIG.RedisPoolIdleTimeout) * time.Second,
-			// Other pool configuration not shown in this example.
-			Dial: df,
+		MaxIdle:     helper.CONFIG.RedisPoolMaxIdle,
+		IdleTimeout: time.Duration(helper.CONFIG.RedisPoolIdleTimeout) * time.Second,
+		// Other pool configuration not shown in this example.
+		Dial: df,
 	}
 }
 
@@ -100,7 +100,7 @@ func Remove(table RedisDatabase, key string) (err error) {
 				return err
 			}
 			defer c.Close()
-			hashkey,err := HashSum(key)
+			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
 			}
@@ -132,7 +132,7 @@ func Set(table RedisDatabase, key string, value interface{}) (err error) {
 			if err != nil {
 				return err
 			}
-			hashkey,err := HashSum(key)
+			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
 			}
@@ -164,7 +164,7 @@ func Get(table RedisDatabase, key string,
 				return err
 			}
 			defer c.Close()
-			hashkey,err := HashSum(key)
+			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
 			}
@@ -189,6 +189,35 @@ func Get(table RedisDatabase, key string,
 	return unmarshal(encodedValue)
 }
 
+func GetUsage(key string) (value string, err error) {
+	err = CacheCircuit.Execute(
+		context.Background(),
+		func(ctx context.Context) (err error) {
+			c, err := GetClient(ctx)
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			value, err = redigo.String(c.Do("GET", key))
+			if err != nil {
+				if err == redigo.ErrNil {
+					return nil
+				}
+				return err
+			}
+			return nil
+		},
+		nil,
+	)
+	if err != nil {
+		return "", err
+	}
+	if len(value) == 0 {
+		return "", nil
+	}
+	return value, nil
+}
+
 // Get file bytes
 // `start` and `end` are inclusive
 // FIXME: this API causes an extra memory copy, need to patch radix to fix it
@@ -202,7 +231,7 @@ func GetBytes(key string, start int64, end int64) ([]byte, error) {
 				return err
 			}
 			defer c.Close()
-			hashkey,err := HashSum(key)
+			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
 			}
@@ -234,7 +263,7 @@ func SetBytes(key string, value []byte) (err error) {
 				return err
 			}
 			defer c.Close()
-			hashkey,err := HashSum(key)
+			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
 			}
@@ -263,7 +292,7 @@ func Invalid(table RedisDatabase, key string) (err error) {
 				return err
 			}
 			defer c.Close()
-			hashkey,err := HashSum(key)
+			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
 			}
@@ -283,24 +312,24 @@ func Invalid(table RedisDatabase, key string) (err error) {
 }
 
 // Get Object to HighWayHash for redis
-func HashSum(ObjectName string) (string,error) {
+func HashSum(ObjectName string) (string, error) {
 	key, err := hex.DecodeString(keyvalue)
 	if err != nil {
-		return "",err
+		return "", err
 	}
 
 	ObjectNameString := strings.NewReader(ObjectName)
 
 	hash, err := highwayhash.New(key)
 	if err != nil {
-		return "",err
+		return "", err
 	}
 
 	if _, err = io.Copy(hash, ObjectNameString); err != nil {
-		return "",err
+		return "", err
 	}
 
 	sumresult := hex.EncodeToString(hash.Sum(nil))
 
-	return sumresult,nil
+	return sumresult, nil
 }
