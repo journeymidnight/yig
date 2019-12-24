@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	PidUsagePrefix    = "u_p_"
-	BucketUsagePrefix = "u_b_"
+	PidUsagePrefix    = "u_p_" // User usage redis key prefix ,eg. u_p_hehehehe
+	BucketUsagePrefix = "u_b_" // Bucket usage redis ket prefix ,eg u_b_test
 )
 
 type Metrics struct {
@@ -64,6 +64,7 @@ func (c *Metrics) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
+// Get bucket usage cache which like <u_b_test>{STANDARD 233333}
 func (c *Metrics) GenerateBucketUsageData() (GaugeMetricData map[string]UsageDataWithBucket) {
 	buckets, err := adminServer.Yig.MetaStorage.GetBuckets()
 	if err != nil {
@@ -93,6 +94,7 @@ func (c *Metrics) GenerateBucketUsageData() (GaugeMetricData map[string]UsageDat
 	return
 }
 
+// Get bucket usage cache which like <u_p_hehehehe>{STANDARD 233333}
 func (c *Metrics) GenerateUserUsageData() (GaugeMetricData map[string]UsageData) {
 	buckets, err := adminServer.Yig.MetaStorage.GetBuckets()
 	if err != nil {
@@ -124,6 +126,9 @@ func (c *Metrics) GenerateUserUsageData() (GaugeMetricData map[string]UsageData)
 	return
 }
 
+//  get usage from redis
+//  {<Storage-Class> <usagenumber>}
+//  eg. {STANDARD 2222}
 func parseUsage(value string) (*UsageData, error) {
 	var err error
 	data := new(UsageData)
