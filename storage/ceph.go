@@ -590,6 +590,8 @@ func (cluster *CephStorage) Remove(poolname string, oid string) error {
 	}
 	defer striper.Destroy()
 
+	setStripeLayout(&striper)
+
 	return striper.Delete(oid)
 }
 
