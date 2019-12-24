@@ -64,7 +64,7 @@ func (c *Metrics) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
-// Get bucket usage cache which like <u_b_test>{STANDARD 233333}
+// Get bucket usage cache which like <key><value> = <u_b_test><STANDARD:233333>
 func (c *Metrics) GenerateBucketUsageData() (GaugeMetricData map[string]UsageDataWithBucket) {
 	buckets, err := adminServer.Yig.MetaStorage.GetBuckets()
 	if err != nil {
@@ -94,7 +94,7 @@ func (c *Metrics) GenerateBucketUsageData() (GaugeMetricData map[string]UsageDat
 	return
 }
 
-// Get bucket usage cache which like <u_p_hehehehe>{STANDARD 233333}
+// Get bucket usage cache which like <key><value> = <u_p_hehehehe><STANDARD 233333>
 func (c *Metrics) GenerateUserUsageData() (GaugeMetricData map[string]UsageData) {
 	buckets, err := adminServer.Yig.MetaStorage.GetBuckets()
 	if err != nil {
@@ -127,21 +127,19 @@ func (c *Metrics) GenerateUserUsageData() (GaugeMetricData map[string]UsageData)
 }
 
 //  get usage from redis
-//  {<Storage-Class> <usagenumber>}
-//  eg. {STANDARD 2222}
+//  <Storage-Class>:<usagenumber>
+//  eg. STANDARD:2222
 func parseUsage(value string) (*UsageData, error) {
 	var err error
 	data := new(UsageData)
 	if value == "" {
 		return data, nil
 	}
-	allParams := strings.Split(value, " ")
-	values := strings.Split(allParams[1], "}")
-	storageClass := strings.Split(allParams[0], "{")
-	data.value, err = strconv.ParseInt(values[0], 10, 64)
+	allParams := strings.Split(value, ":")
+	data.value, err = strconv.ParseInt(allParams[1], 10, 64)
 	if err != nil {
 		return data, err
 	}
-	data.storageClass = storageClass[1]
+	data.storageClass = allParams[0]
 	return data, nil
 }
