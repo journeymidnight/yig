@@ -234,6 +234,43 @@ func Get(table RedisDatabase, key string,
 	return unmarshal(encodedValue)
 }
 
+// Get Usages
+// `start` and `end` are inclusive
+func GetUsage(key string) (value string, err error) {
+	i, err := GetLocate(key)
+	if err != nil {
+		return
+	}
+	var encodedValue string
+	err = Circuits[i].Execute(
+		context.Background(),
+		func(ctx context.Context) (err error) {
+			c, err := GetClient(ctx, i)
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			// Use table.String() + hashkey as Redis key
+			encodedValue, err = redigo.String(c.Do("GET", key))
+			if err != nil {
+				if err == redigo.ErrNil {
+					return nil
+				}
+				return err
+			}
+			return nil
+		},
+		nil,
+	)
+	if err != nil {
+		return "", err
+	}
+	if len(encodedValue) == 0 {
+		return "", nil
+	}
+	return encodedValue, nil
+}
+
 // Get file bytes
 // `start` and `end` are inclusive
 // FIXME: this API causes an extra memory copy, need to patch radix to fix it
