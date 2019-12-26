@@ -44,6 +44,7 @@ type Config struct {
 	KeepAlive              bool   `toml:"keepalive"`
 
 	//About cache
+	EnableUsagePush       bool   `toml:"enable_usage_push"`
 	RedisAddress          string `toml:"redis_address"`           // redis connection string, e.g localhost:1234
 	RedisConnectionNumber int    `toml:"redis_connection_number"` // number of connections to redis(i.e max concurrent request number)
 	RedisPassword         string `toml:"redis_password"`          // redis auth password
@@ -169,6 +170,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.LogLevel = Ternary(len(c.LogLevel) == 0, "info", c.LogLevel).(string)
 	CONFIG.MetaStore = Ternary(c.MetaStore == "", "tidb", c.MetaStore).(string)
 
+	CONFIG.EnableUsagePush = c.EnableUsagePush
 	CONFIG.RedisAddress = c.RedisAddress
 	CONFIG.RedisPassword = c.RedisPassword
 	CONFIG.RedisConnectionNumber = Ternary(c.RedisConnectionNumber == 0,
