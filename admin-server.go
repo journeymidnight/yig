@@ -154,7 +154,9 @@ func configureAdminHandler() http.Handler {
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(metrics)
 
-	apiRouter.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
+	if helper.CONFIG.EnableUsagePush {
+		apiRouter.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
+	}
 
 	handle := RegisterHandlers(mux, handlerFns...)
 	return handle
