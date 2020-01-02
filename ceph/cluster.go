@@ -4,14 +4,15 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
-	"github.com/journeymidnight/radoshttpd/rados"
-	"github.com/journeymidnight/yig/backend"
-	"github.com/journeymidnight/yig/helper"
 	"io"
 	"io/ioutil"
 	"path/filepath"
 	"sync/atomic"
 	"time"
+
+	"github.com/journeymidnight/radoshttpd/rados"
+	"github.com/journeymidnight/yig/backend"
+	"github.com/journeymidnight/yig/helper"
 )
 
 const (
@@ -554,6 +555,7 @@ func (cluster *CephCluster) Remove(poolname string, oid string) error {
 	}
 	defer striper.Destroy()
 
+	setStripeLayout(striper)
 	return striper.Delete(oid)
 }
 
