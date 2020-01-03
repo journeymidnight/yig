@@ -22,10 +22,10 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
-	"strings"
 
 	"github.com/gorilla/mux"
 	. "github.com/journeymidnight/yig/api/datatype"
+	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
@@ -358,13 +358,15 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 // ----------
 // This implementation of the PUT operation creates a new bucket for authenticated request
 func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucketName := strings.ToLower(vars["bucket"])
-	if !isValidBucketName(bucketName) {
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
+
+	bucketName := reqCtx.BucketName
+	if err := CheckValidBucketName(bucketName); err != nil {
 		WriteErrorResponse(w, r, ErrInvalidBucketName)
 		return
 	}
+
 	var credential common.Credential
 	var err error
 	if credential, err = signature.IsReqAuthenticated(r); err != nil {
@@ -387,7 +389,7 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 	// TODO:the location value in the request body should match the Region in serverConfig.
 
 	// Make bucket.
-	err = api.ObjectAPI.MakeBucket(bucketName, acl, credential)
+	err = api.ObjectAPI.MakeBucket(reqCtx, acl, credential)
 	if err != nil {
 		logger.Error("Unable to create bucket", bucketName, "error:", err)
 		WriteErrorResponse(w, r, err)
@@ -397,6 +399,7 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 	w.Header().Set("Location", GetLocation(r))
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "PutBucket"
+	helper.Logger.Info("############2")
 	WriteSuccessResponse(w, nil)
 }
 

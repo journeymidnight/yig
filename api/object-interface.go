@@ -28,7 +28,7 @@ import (
 // ObjectLayer implements primitives for object API layer.
 type ObjectLayer interface {
 	// Bucket operations.
-	MakeBucket(bucket string, acl datatype.Acl, credential common.Credential) error
+	MakeBucket(reqCtx RequestContext, acl datatype.Acl, credential common.Credential) error
 	SetBucketLifecycle(bucket string, config datatype.Lifecycle,
 		credential common.Credential) error
 	GetBucketLifecycle(bucket string, credential common.Credential) (datatype.Lifecycle, error)

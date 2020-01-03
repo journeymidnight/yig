@@ -129,6 +129,26 @@ func (t *TidbClient) PutBucket(bucket Bucket) error {
 	return nil
 }
 
+func (t *TidbClient) PutNewBucket(bucket Bucket) error {
+	tx, err := t.Client.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		}
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+	sql, args := bucket.GetCreateSql()
+	_, err = tx.Exec(sql, args...)
+	user_sql := "insert into users(userid,bucketname) values(?,?)"
+	_, err = t.Client.Exec(user_sql, bucket.OwnerId, bucket.Name)
+	return err
+}
+
 func (t *TidbClient) CheckAndPutBucket(bucket Bucket) (bool, error) {
 	var processed bool
 	_, err := t.GetBucket(bucket.Name)

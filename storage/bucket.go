@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/journeymidnight/yig/api"
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/policy"
 	. "github.com/journeymidnight/yig/error"
@@ -17,48 +16,41 @@ import (
 	"github.com/journeymidnight/yig/redis"
 )
 
-func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
+const (
+	BUCKET_NUMBER_LIMIT = 100
+)
+
+func (yig *YigStorage) MakeBucket(reqCtx RequestContext, acl datatype.Acl,
 	credential common.Credential) error {
 	// Input validation.
-	if err := api.CheckValidBucketName(bucketName); err != nil {
+
+	if reqCtx.BucketInfo != nil {
+		helper.Logger.Info("Error get bucket:", reqCtx.BucketName, "with error:", ErrBucketAlreadyExists)
+		return ErrBucketAlreadyExists
+	}
+
+	buckets, err := yig.MetaStorage.GetUserBuckets(credential.UserId, false)
+	if err != nil {
 		return err
+	}
+	if len(buckets)+1 > BUCKET_NUMBER_LIMIT {
+		return ErrTooManyBuckets
 	}
 
 	now := time.Now().UTC()
 	bucket := meta.Bucket{
-		Name:       bucketName,
+		Name:       reqCtx.BucketName,
 		CreateTime: now,
 		OwnerId:    credential.UserId,
 		ACL:        acl,
 		Versioning: meta.VersionDisabled, // it's the default
 	}
-	processed, err := yig.MetaStorage.Client.CheckAndPutBucket(bucket)
+	err = yig.MetaStorage.Client.PutNewBucket(bucket)
 	if err != nil {
-		helper.Logger.Error("Error making CheckAndPut:", err)
+		helper.Logger.Error("Error Put New Bucket:", err)
 		return err
 	}
-	if !processed { // bucket already exists, return accurate message
-		bucket, err := yig.MetaStorage.GetBucket(bucketName, false)
-		if err != nil {
-			helper.Logger.Info("Error get bucket:", bucketName, "with error:", err)
-			return ErrBucketAlreadyExists
-		}
-		if bucket.OwnerId == credential.UserId {
-			return ErrBucketAlreadyOwnedByYou
-		} else {
-			return ErrBucketAlreadyExists
-		}
-	}
-	err = yig.MetaStorage.AddBucketForUser(bucketName, credential.UserId)
-	if err != nil { // roll back bucket table, i.e. remove inserted bucket
-		helper.Logger.Error("Error AddBucketForUser:", err)
-		err = yig.MetaStorage.Client.DeleteBucket(bucket)
-		if err != nil {
-			helper.Logger.Error("Error deleting:", bucketName, "error:", err,
-				"leaving junk bucket unremoved")
-			return err
-		}
-	}
+
 	yig.MetaStorage.Cache.Remove(redis.UserTable, credential.UserId)
 	return err
 }
