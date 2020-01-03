@@ -32,6 +32,7 @@ type Client interface {
 	GetBucket(bucketName string) (bucket *Bucket, err error)
 	GetBuckets() (buckets []Bucket, err error)
 	PutBucket(bucket Bucket) error
+	PutNewBucket(bucket Bucket) error
 	CheckAndPutBucket(bucket Bucket) (bool, error)
 	DeleteBucket(bucket Bucket) error
 	ListObjects(bucketName, marker, verIdMarker, prefix, delimiter string, versioned bool, maxKeys int) (retObjects []*Object, prefixes []string, truncated bool, nextMarker, nextVerIdMarker string, err error)
