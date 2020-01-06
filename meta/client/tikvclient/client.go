@@ -10,14 +10,17 @@ import (
 )
 
 const (
-	TableSeparator    byte = 92 // "\"
-	TableMaxKeySuffix byte = 0xFF
-
 	TableClusterPrefix    = "c"
 	TableBucketPrefix     = "b"
 	TableUserBucketPrefix = "u"
 	TableMultipartPrefix  = "m"
 	TableObjectPartPrefix = "p"
+	TableLifeCyclePrefix  = "l"
+)
+
+var (
+	TableMaxKeySuffix = string(0xFF)
+	TableSeparator    = string(92) // "\"
 )
 
 type TiKVClient struct {
@@ -65,4 +68,52 @@ func (c *TiKVClient) Scan(startKey []byte, endKey []byte, limit int) ([]KV, erro
 		ret = append(ret, KV{K: k, V: vs[i]})
 	}
 	return ret, nil
+}
+
+func (c *TiKVClient) TxPut(args ...interface{}) error {
+	tx, err := c.txnCli.Begin(context.TODO())
+	if err != nil {
+		return err
+	}
+
+	for i := 0; i < len(args); i += 2 {
+		key := args[i].([]byte)
+		val := args[i+1]
+		v, err := helper.MsgPackMarshal(val)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+		err = tx.Set(key, v)
+		if err != nil {
+			return err
+		}
+	}
+	return tx.Commit(context.Background())
+}
+
+func (c *TiKVClient) TxGet(k []byte) (KV, error) {
+	tx, err := c.txnCli.Begin(context.TODO())
+	if err != nil {
+		return KV{}, err
+	}
+	v, err := tx.Get(context.TODO(), k)
+	if err != nil {
+		return KV{}, err
+	}
+	return KV{K: k, V: v}, nil
+}
+
+func (c *TiKVClient) TxDelete(keys ...[]byte) error {
+	tx, err := c.txnCli.Begin(context.TODO())
+	if err != nil {
+		return err
+	}
+	for _, key := range keys {
+		err := tx.Delete(key)
+		if err != nil {
+			return err
+		}
+	}
+	return tx.Commit(context.Background())
 }

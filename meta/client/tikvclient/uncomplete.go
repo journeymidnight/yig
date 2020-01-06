@@ -28,19 +28,6 @@ func (c *TiKVClient) DeleteObject(object *Object, tx DB) error                  
 func (c *TiKVClient) UpdateObjectAcl(object *Object) error                                { return nil }
 func (c *TiKVClient) UpdateObjectAttrs(object *Object) error                              { return nil }
 
-//bucket
-func (c *TiKVClient) GetBucket(bucketName string) (bucket *Bucket, err error) { return nil, nil }
-func (c *TiKVClient) GetBuckets() (buckets []Bucket, err error)               { return nil, nil }
-func (c *TiKVClient) PutBucket(bucket Bucket) error                           { return nil }
-func (c *TiKVClient) PutNewBucket(bucket Bucket) error                        { return nil }
-func (c *TiKVClient) DeleteBucket(bucket Bucket) error                        { return nil }
-func (c *TiKVClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimiter string, versioned bool,
-	maxKeys int) (retObjects []*Object, prefixes []string, truncated bool, nextMarker, nextVerIdMarker string, err error) {
-	return
-}
-func (c *TiKVClient) UpdateUsage(bucketName string, size int64, tx DB) error  { return nil }
-func (c *TiKVClient) IsEmptyBucket(bucketName string) (exist bool, err error) { return false, nil }
-
 //multipart
 func (c *TiKVClient) GetMultipart(bucketName, objectName, uploadId string) (multipart Multipart, err error) {
 	return
@@ -51,13 +38,6 @@ func (c *TiKVClient) PutObjectPart(multipart *Multipart, part *Part, tx DB) (err
 }
 func (c *TiKVClient) DeleteMultipart(multipart *Multipart, tx DB) (err error) { return nil }
 func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker, prefix, delimiter, encodingType string, maxUploads int) (uploads []datatype.Upload, prefixs []string, isTruncated bool, nextKeyMarker, nextUploadIdMarker string, err error) {
-	return
-}
-
-//lc
-func (c *TiKVClient) PutBucketToLifeCycle(lifeCycle LifeCycle) error { return nil }
-func (c *TiKVClient) RemoveBucketFromLifeCycle(bucket Bucket) error  { return nil }
-func (c *TiKVClient) ScanLifeCycle(limit int, marker string) (result ScanLifeCycleResult, err error) {
 	return
 }
 

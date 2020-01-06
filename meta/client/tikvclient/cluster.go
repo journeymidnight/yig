@@ -2,7 +2,6 @@ package tikvclient
 
 import (
 	"errors"
-	"strconv"
 	"strings"
 
 	"github.com/journeymidnight/yig/helper"
@@ -16,15 +15,13 @@ const (
 //cluster
 func (c *TiKVClient) GetClusters() (clusters []Cluster, err error) {
 	startKey := GenKey(true, TableClusterPrefix)
-	endKey := GenKey(false, TableClusterPrefix, string(TableMaxKeySuffix))
+	endKey := GenKey(false, TableClusterPrefix, TableMaxKeySuffix)
 	kvs, err := c.Scan(startKey, endKey, MaxClusterKeyLimit)
 	if err != nil {
 		return nil, err
 	}
 	for _, kv := range kvs {
-		kStr := string(kv.K)
-		vStr := string(kv.V)
-		cluster, err := getCluster(kStr, vStr)
+		cluster, err := getCluster(kv.K, kv.V)
 		if err != nil {
 			helper.Logger.Warn("get cluster err:", err)
 			continue
@@ -35,12 +32,14 @@ func (c *TiKVClient) GetClusters() (clusters []Cluster, err error) {
 }
 
 // Key: c\{PoolName}\{Fsid}\{Backend}
-func getCluster(k, v string) (c Cluster, err error) {
-	sp := strings.Split(k, string(TableSeparator))
+func getCluster(k, v []byte) (c Cluster, err error) {
+	kStr := string(k)
+	sp := strings.Split(kStr, TableSeparator)
 	if len(sp) != 4 {
-		return c, errors.New("invalid cluster key:" + k)
+		return c, errors.New("invalid cluster key:" + kStr)
 	}
-	w, err := strconv.Atoi(v)
+	var w int
+	err = helper.MsgPackUnMarshal(v, &w)
 	if err != nil {
 		return c, err
 	}

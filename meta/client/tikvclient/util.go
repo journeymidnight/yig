@@ -6,7 +6,7 @@ func GenKey(delemiter bool, args ...string) []byte {
 	buf := bufio.NewBuffer([]byte{})
 	for _, arg := range args {
 		buf.WriteString(arg)
-		buf.WriteByte(TableSeparator)
+		buf.WriteString(TableSeparator)
 	}
 	key := buf.Bytes()
 	if delemiter {
