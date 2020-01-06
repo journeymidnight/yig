@@ -154,6 +154,9 @@ func (t *TidbClient) PutNewBucket(bucket Bucket) error {
 	}()
 	sql, args := bucket.GetCreateSql()
 	_, err = tx.Exec(sql, args...)
+	if err != nil {
+		return err
+	}
 	user_sql := "insert into users(userid,bucketname) values(?,?)"
 	_, err = t.Client.Exec(user_sql, bucket.OwnerId, bucket.Name)
 	return err
@@ -297,12 +300,56 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 }
 
 func (t *TidbClient) DeleteBucket(bucket Bucket) error {
-	sqltext := "delete from buckets where bucketname=?;"
-	_, err := t.Client.Exec(sqltext, bucket.Name)
+	tx, err := t.Client.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		}
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+	sql_delete_bucket := "delete from buckets where bucketname=?;"
+	_, err = tx.Exec(sql_delete_bucket, bucket.Name)
+	if err != nil {
+		return err
+	}
+
+	sql_delete_user := "delete from users where userid=? and bucketname=?;"
+	_, err = tx.Exec(sql_delete_user, bucket.OwnerId, bucket.Name)
+	if err != nil {
+		return err
+	}
+
+	sql_delete_lifecycle := "delete from lifecycle where bucketname=?;"
+	_, err = tx.Exec(sql_delete_lifecycle, bucket.Name)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+//TODO: Only find one object
+func (t *TidbClient) IsEmptyBucket(bucketName string) (bool, error) {
+	objs, _, _, _, _, err := t.ListObjects(bucketName, "", "", "", "", false, 1)
+	if err != nil {
+		return false, err
+	}
+	if len(objs) != 0 {
+		return false, nil
+	}
+	// Check if object part is empty
+	objparts, _, _, _, _, err := t.ListMultipartUploads(bucketName, "", "", "", "", "", 1)
+	if err != nil {
+		return false, err
+	}
+	if len(objparts) != 0 {
+		return false, nil
+	}
+	return true, nil
 }
 
 func (t *TidbClient) UpdateUsage(bucketName string, size int64, tx DB) (err error) {
