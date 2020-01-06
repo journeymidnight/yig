@@ -430,43 +430,28 @@ func (yig *YigStorage) ListBuckets(credential common.Credential) (buckets []meta
 	return
 }
 
-func (yig *YigStorage) DeleteBucket(bucketName string, credential common.Credential) (err error) {
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, false)
-	if err != nil {
-		return err
+func (yig *YigStorage) DeleteBucket(reqCtx RequestContext, credential common.Credential) (err error) {
+	bucket := reqCtx.BucketInfo
+	if bucket == nil {
+		return ErrNoSuchBucket
 	}
 	if bucket.OwnerId != credential.UserId {
 		return ErrBucketAccessForbidden
 		// TODO validate bucket policy
 	}
 
-	// Check if bucket is empty
-	objs, _, _, _, _, err := yig.MetaStorage.Client.ListObjects(bucketName, "", "", "", "", false, 1)
+	bucketName := reqCtx.BucketName
+
+	isEmpty, err := yig.MetaStorage.Client.IsEmptyBucket(bucketName)
 	if err != nil {
 		return err
 	}
-	if len(objs) != 0 {
-		return ErrBucketNotEmpty
-	}
-	// Check if object part is empty
-	objparts, _, _, _, _, err := yig.MetaStorage.Client.ListMultipartUploads(bucketName, "", "", "", "", "", 1)
-	if err != nil {
-		return err
-	}
-	if len(objparts) != 0 {
+	if !isEmpty {
 		return ErrBucketNotEmpty
 	}
 	err = yig.MetaStorage.Client.DeleteBucket(*bucket)
 	if err != nil {
 		return err
-	}
-
-	err = yig.MetaStorage.RemoveBucketForUser(bucketName, credential.UserId)
-	if err != nil { // roll back bucket table, i.e. re-add removed bucket entry
-		err = yig.MetaStorage.Client.AddBucketForUser(bucketName, credential.UserId)
-		if err != nil {
-			return err
-		}
 	}
 
 	if err == nil {

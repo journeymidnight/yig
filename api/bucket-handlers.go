@@ -818,9 +818,8 @@ func (api ObjectAPIHandlers) HeadBucketHandler(w http.ResponseWriter, r *http.Re
 
 // DeleteBucketHandler - Delete bucket
 func (api ObjectAPIHandlers) DeleteBucketHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucket := vars["bucket"]
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 
 	var credential common.Credential
 	var err error
@@ -829,7 +828,7 @@ func (api ObjectAPIHandlers) DeleteBucketHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if err = api.ObjectAPI.DeleteBucket(bucket, credential); err != nil {
+	if err = api.ObjectAPI.DeleteBucket(reqCtx, credential); err != nil {
 		logger.Error("Unable to delete a bucket:", err)
 		WriteErrorResponse(w, r, err)
 		return
