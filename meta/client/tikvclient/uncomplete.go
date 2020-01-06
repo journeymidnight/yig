@@ -1,15 +1,9 @@
 package tikvclient
 
 import (
-	"database/sql"
-
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/meta/types"
 )
-
-func (c *TiKVClient) NewTrans() (tx *sql.Tx, err error) { return nil, nil }
-func (c *TiKVClient) AbortTrans(tx *sql.Tx) error       { return nil }
-func (c *TiKVClient) CommitTrans(tx *sql.Tx) error      { return nil }
 
 //object
 func (c *TiKVClient) GetObject(bucketName, objectName, version string) (object *Object, err error) {
@@ -59,9 +53,6 @@ func (c *TiKVClient) DeleteMultipart(multipart *Multipart, tx DB) (err error) { 
 func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker, prefix, delimiter, encodingType string, maxUploads int) (uploads []datatype.Upload, prefixs []string, isTruncated bool, nextKeyMarker, nextUploadIdMarker string, err error) {
 	return
 }
-
-//cluster
-func (c *TiKVClient) GetClusters() (cluster []Cluster, err error) { return nil, nil }
 
 //lc
 func (c *TiKVClient) PutBucketToLifeCycle(lifeCycle LifeCycle) error { return nil }

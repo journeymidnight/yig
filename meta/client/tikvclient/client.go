@@ -9,6 +9,17 @@ import (
 	"github.com/tikv/client-go/txnkv"
 )
 
+const (
+	TableSeparator    byte = 92 // "\"
+	TableMaxKeySuffix byte = 0xFF
+
+	TableClusterPrefix    = "c"
+	TableBucketPrefix     = "b"
+	TableUserBucketPrefix = "u"
+	TableMultipartPrefix  = "m"
+	TableObjectPartPrefix = "p"
+)
+
 type TiKVClient struct {
 	rawCli *rawkv.Client
 	txnCli *txnkv.Client
@@ -42,4 +53,16 @@ func (c *TiKVClient) Put(k []byte, v interface{}) error {
 
 func (c *TiKVClient) Get(k []byte) ([]byte, error) {
 	return c.rawCli.Get(context.TODO(), k)
+}
+
+func (c *TiKVClient) Scan(startKey []byte, endKey []byte, limit int) ([]KV, error) {
+	ks, vs, err := c.rawCli.Scan(context.TODO(), startKey, endKey, limit)
+	if err != nil {
+		return nil, err
+	}
+	var ret []KV
+	for i, k := range ks {
+		ret = append(ret, KV{K: k, V: vs[i]})
+	}
+	return ret, nil
 }

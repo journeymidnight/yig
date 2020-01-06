@@ -1,8 +1,8 @@
 package types
 
 type Cluster struct {
-	Fsid   string
-	Pool   string
-	Weight int
+	Backend string
+	Fsid    string
+	Pool    string
+	Weight  int
 }
-
