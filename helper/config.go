@@ -43,6 +43,8 @@ type Config struct {
 	TidbInfo               string `toml:"tidb_info"`
 	KeepAlive              bool   `toml:"keepalive"`
 
+	PdAddress string `toml:"pd_address"`
+
 	//About cache
 	EnableUsagePush       bool     `toml:"enable_usage_push"`
 	RedisAddress          string   `toml:"redis_address"` // redis connection string, e.g localhost:1234
@@ -170,6 +172,7 @@ func MarshalTOMLConfig() error {
 		1, c.LcThread).(int)
 	CONFIG.LogLevel = Ternary(len(c.LogLevel) == 0, "info", c.LogLevel).(string)
 	CONFIG.MetaStore = Ternary(c.MetaStore == "", "tidb", c.MetaStore).(string)
+	CONFIG.PdAddress = c.PdAddress
 
 	CONFIG.RedisAddress = c.RedisAddress
 	CONFIG.EnableUsagePush = c.EnableUsagePush

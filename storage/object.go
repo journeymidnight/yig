@@ -871,13 +871,6 @@ func (yig *YigStorage) removeByObject(object *meta.Object, objMap *meta.ObjMap) 
 }
 
 func (yig *YigStorage) getObjWithVersion(bucketName, objectName, version string) (object *meta.Object, err error) {
-	if version == "null" {
-		objMap, err := yig.MetaStorage.GetObjectMap(bucketName, objectName)
-		if err != nil {
-			return nil, err
-		}
-		version = objMap.NullVerId
-	}
 	return yig.MetaStorage.GetObjectVersion(bucketName, objectName, version, true)
 
 }
