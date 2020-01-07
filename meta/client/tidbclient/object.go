@@ -84,33 +84,6 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 	return
 }
 
-func (t *TidbClient) GetAllObject(bucketName, objectName string) (object []*Object, err error) {
-	sqltext := "select version from objects where bucketname=? and name=?;"
-	var versions []string
-	rows, err := t.Client.Query(sqltext, bucketName, objectName)
-	if err != nil {
-		return
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var sversion string
-		err = rows.Scan(&sversion)
-		if err != nil {
-			return
-		}
-		versions = append(versions, sversion)
-	}
-	for _, v := range versions {
-		var obj *Object
-		obj, err = t.GetObject(bucketName, objectName, v)
-		if err != nil {
-			return
-		}
-		object = append(object, obj)
-	}
-	return
-}
-
 func (t *TidbClient) UpdateObjectAttrs(object *Object) error {
 	sql, args := object.GetUpdateAttrsSql()
 	_, err := t.Client.Exec(sql, args...)

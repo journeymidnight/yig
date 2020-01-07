@@ -44,10 +44,6 @@ func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (o
 	return object, nil
 }
 
-func (m *Meta) GetAllObject(bucketName string, objectName string) (object []*Object, err error) {
-	return m.Client.GetAllObject(bucketName, objectName)
-}
-
 func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed bool) (object *Object, err error) {
 	getObjectVersion := func() (o interface{}, err error) {
 		object, err := m.Client.GetObject(bucketName, objectName, version)
@@ -83,7 +79,7 @@ func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multi
 		return ErrNoSuchBucket
 	}
 	if reqCtx.BucketInfo.Versioning == VersionDisabled {
-		object.VersionId = "0"
+		object.VersionId = "null"
 	} else {
 		return ErrNotImplemented
 		// TODO: object.VersionId = strconv.FormatUint(math.MaxUint64-uint64(object.LastModifiedTime.UnixNano()), 10)

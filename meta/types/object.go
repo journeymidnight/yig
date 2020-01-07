@@ -189,7 +189,7 @@ func (o *Object) GetUpdateAttrsSql() (string, []interface{}) {
 }
 
 func (o *Object) GetUpdateNameSql(sourceObject string) (string, []interface{}) {
-	sql := "update objects set name=? where bucketname=? and name=? and version=0"
+	sql := "update objects set name=? where bucketname=? and name=? and version='null'"
 	args := []interface{}{o.Name, o.BucketName, sourceObject}
 	return sql, args
 }

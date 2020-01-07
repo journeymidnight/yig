@@ -454,7 +454,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		sourceVersion = strings.TrimPrefix(splits[1], "versionId=")
 	}
 	if sourceVersion == "" {
-		sourceVersion = "0"
+		sourceVersion = "null"
 	}
 	// X-Amz-Copy-Source should be URL-encoded
 	sourceBucketName, err = url.QueryUnescape(sourceBucketName)
@@ -1452,7 +1452,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 		sourceVersion = strings.TrimPrefix(splits[1], "versionId=")
 	}
 	if sourceVersion == "" {
-		sourceVersion = "0"
+		sourceVersion = "null"
 	}
 	// X-Amz-Copy-Source should be URL-encoded
 	sourceBucketName, err = url.QueryUnescape(sourceBucketName)

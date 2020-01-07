@@ -62,7 +62,7 @@ DROP TABLE IF EXISTS `gc`;
 CREATE TABLE `gc` (
   `bucketname` varchar(255) DEFAULT NULL,
   `objectname` varchar(255) DEFAULT NULL,
-  `version` bigint(20) UNSIGNED DEFAULT NULL,
+  `version` varchar(255) DEFAULT NULL,
   `location` varchar(255) DEFAULT NULL,
   `pool` varchar(255) DEFAULT NULL,
   `objectid` varchar(255) DEFAULT NULL,
@@ -91,7 +91,7 @@ CREATE TABLE `gcpart` (
   `initializationvector` blob DEFAULT NULL,
   `bucketname` varchar(255) DEFAULT NULL,
   `objectname` varchar(255) DEFAULT NULL,
-  `version` bigint(20) UNSIGNED DEFAULT NULL,
+  `version` varchar(255) DEFAULT NULL,
    KEY `rowkey` (`bucketname`,`objectname`,`objectid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -176,7 +176,7 @@ DROP TABLE IF EXISTS `objects`;
 CREATE TABLE `objects` (
   `bucketname` varchar(255) DEFAULT NULL,
   `name` varchar(255) DEFAULT NULL,
-  `version` bigint(20) UNSIGNED DEFAULT NULL,
+  `version` varchar(255) DEFAULT NULL,
   `location` varchar(255) DEFAULT NULL,
   `pool` varchar(255) DEFAULT NULL,
   `ownerid` varchar(255) DEFAULT NULL,

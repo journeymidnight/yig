@@ -15,7 +15,6 @@ type Client interface {
 	CommitTrans(tx *sql.Tx) error
 	//object
 	GetObject(bucketName, objectName, version string) (object *Object, err error)
-	GetAllObject(bucketName, objectName string) (object []*Object, err error)
 	PutObject(object *Object, tx DB) error
 	PutObjectWithoutMultiPart(object *Object) error
 	UpdateObject(object *Object, tx DB) (err error)
