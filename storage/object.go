@@ -900,23 +900,6 @@ func (yig *YigStorage) removeOldObject(object *meta.Object) (err error) {
 	return
 }
 
-func (yig *YigStorage) removeAllOldObjectsByVersion(bucketName, objectName, latestVersion string) (err error) {
-	objs, err := yig.MetaStorage.GetAllOldObjects(bucketName, objectName, latestVersion)
-	if err == ErrNoSuchKey {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	for _, obj := range objs {
-		err = yig.removeByObject(obj, nil)
-		if err != nil {
-			return err
-		}
-	}
-	return
-}
-
 func (yig *YigStorage) removeObjectVersion(bucketName, objectName, version string) error {
 	object, err := yig.getObjWithVersion(bucketName, objectName, version)
 	if err == ErrNoSuchKey {
@@ -949,13 +932,20 @@ func (yig *YigStorage) removeObjectVersion(bucketName, objectName, version strin
 // |           |                              | null version delete marker                             |
 //
 // See http://docs.aws.amazon.com/AmazonS3/latest/dev/Versioning.html
-func (yig *YigStorage) DeleteObject(bucketName string, objectName string, version string,
+func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 	credential common.Credential) (result datatype.DeleteObjectResult, err error) {
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
-	if err != nil {
-		return
+	bucket, object := reqCtx.BucketInfo, reqCtx.ObjectInfo
+	if bucket == nil {
+		return result, ErrNoSuchBucket
 	}
+	if object == nil {
+		result.DeleteMarker = object.DeleteMarker
+		result.VersionId = object.VersionId
+		return result, nil
+	}
+
+	bucketName, objectName, version := reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId
 	switch bucket.ACL.CannedAcl {
 	case "public-read-write":
 		break
@@ -970,7 +960,7 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 		if version != "" && version != "null" {
 			return result, ErrNoSuchVersion
 		}
-		err = yig.removeAllObjectsEntryByName(bucketName, objectName)
+		err = yig.MetaStorage.DeleteObject(object)
 		if err != nil {
 			return
 		}

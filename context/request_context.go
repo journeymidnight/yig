@@ -32,6 +32,7 @@ type RequestContext struct {
 	IsBucketDomain bool
 	Body           io.ReadCloser
 	FormValues     map[string]string
+	VersionId      string
 }
 
 func GetRequestContext(r *http.Request) RequestContext {

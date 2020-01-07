@@ -1760,10 +1760,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 
 // DeleteObjectHandler - delete an object
 func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
-	objectName := vars["object"]
-
+	reqCtx := GetRequestContext(r)
 	var credential common.Credential
 	var err error
 	switch signature.GetRequestAuthType(r) {
@@ -1780,10 +1777,10 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 			return
 		}
 	}
-	version := r.URL.Query().Get("versionId")
+
 	// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectDELETE.html
 	// Ignore delete object errors, since we are supposed to reply only 204.
-	result, err := api.ObjectAPI.DeleteObject(bucketName, objectName, version, credential)
+	result, err := api.ObjectAPI.DeleteObject(reqCtx, credential)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return

@@ -82,7 +82,7 @@ type ObjectLayer interface {
 		acl datatype.Acl, credential common.Credential) error
 	GetObjectAcl(bucket string, object string, version string, credential common.Credential) (
 		policy datatype.AccessControlPolicyResponse, err error)
-	DeleteObject(bucket, object, version string, credential common.Credential) (datatype.DeleteObjectResult,
+	DeleteObject(reqCtx RequestContext, credential common.Credential) (datatype.DeleteObjectResult,
 		error)
 
 	// Multipart operations.
