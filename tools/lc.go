@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/context"
 	"github.com/journeymidnight/yig/crypto"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
@@ -141,7 +142,14 @@ func retrieveBucket(lc types.LifeCycle) error {
 					if object.NullVersion {
 						object.VersionId = ""
 					}
-					_, err = yig.DeleteObject(object.BucketName, object.Name, object.VersionId, common.Credential{})
+					reqCtx := context.RequestContext{
+						BucketInfo: bucket,
+						ObjectInfo: object,
+						BucketName: object.BucketName,
+						ObjectName: object.Name,
+						VersionId:  object.VersionId,
+					}
+					_, err = yig.DeleteObject(reqCtx, common.Credential{})
 					if err != nil {
 						helper.Logger.Error(object.BucketName, object.Name, object.VersionId, err)
 						continue
@@ -174,7 +182,14 @@ func retrieveBucket(lc types.LifeCycle) error {
 				}
 				for _, object := range retObjects {
 					if checkIfExpiration(object.LastModifiedTime, days) {
-						_, err = yig.DeleteObject(object.BucketName, object.Name, object.VersionId, common.Credential{})
+						reqCtx := context.RequestContext{
+							BucketInfo: bucket,
+							ObjectInfo: object,
+							BucketName: object.BucketName,
+							ObjectName: object.Name,
+							VersionId:  object.VersionId,
+						}
+						_, err = yig.DeleteObject(reqCtx, common.Credential{})
 						if err != nil {
 							helper.Logger.Error(object.BucketName, object.Name, object.VersionId, "failed:", err)
 							continue

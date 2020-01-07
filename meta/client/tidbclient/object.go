@@ -18,8 +18,8 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 	var row *sql.Row
 	sqltext := "select bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag,contenttype," +
 		"customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass,createtime from objects where bucketname=? and name=? "
-	if version == "" || version == "0" {
-		sqltext += "and version=0"
+	if version == "" || version == NullVersion {
+		sqltext += "and version='0'"
 		row = t.Client.QueryRow(sqltext, bucketName, objectName)
 	} else {
 		sqltext += "and version=?;"
@@ -84,36 +84,7 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 	return
 }
 
-func (t *TidbClient) GetAllOldObjects(bucketName, objectName, latestVersion string) (object []*Object, err error) {
-	sqltext := "select bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag,contenttype," +
-		"customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass from " +
-		"objects where bucketname=? and name=? and version>?"
-	var versions []string
-	rows, err := t.Client.Query(sqltext, bucketName, objectName, latestVersion)
-	if err != nil {
-		return
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var sversion string
-		err = rows.Scan(&sversion)
-		if err != nil {
-			return
-		}
-		versions = append(versions, sversion)
-	}
-	for _, v := range versions {
-		var obj *Object
-		obj, err = t.GetObject(bucketName, objectName, v)
-		if err != nil {
-			return
-		}
-		object = append(object, obj)
-	}
-	return
-}
-
-func (t *TidbClient) GetAllObject(bucketName, objectName, version string) (object []*Object, err error) {
+func (t *TidbClient) GetAllObject(bucketName, objectName string) (object []*Object, err error) {
 	sqltext := "select version from objects where bucketname=? and name=?;"
 	var versions []string
 	rows, err := t.Client.Query(sqltext, bucketName, objectName)

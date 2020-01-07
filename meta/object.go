@@ -45,11 +45,7 @@ func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (o
 }
 
 func (m *Meta) GetAllObject(bucketName string, objectName string) (object []*Object, err error) {
-	return m.Client.GetAllObject(bucketName, objectName, "")
-}
-
-func (m *Meta) GetAllOldObjects(bucketName string, objectName string, latestVersion string) (objects []*Object, err error) {
-	return m.Client.GetAllOldObjects(bucketName, objectName, latestVersion)
+	return m.Client.GetAllObject(bucketName, objectName)
 }
 
 func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed bool) (object *Object, err error) {

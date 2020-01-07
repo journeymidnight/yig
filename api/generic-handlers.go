@@ -233,10 +233,10 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		return
 	}
 	reqCtx.AuthType = authType
-
+	reqCtx.VersionId = r.URL.Query().Get("versionId")
 	ctx := context.WithValue(r.Context(), RequestContextKey, reqCtx)
 	logger.Info("BucketName:", reqCtx.BucketName, "ObjectName:", reqCtx.ObjectName, "BucketExist:",
-		reqCtx.BucketInfo != nil, "ObjectExist:", reqCtx.ObjectInfo != nil, "AuthType:", authType)
+		reqCtx.BucketInfo != nil, "ObjectExist:", reqCtx.ObjectInfo != nil, "AuthType:", authType, "VersionId:", reqCtx.VersionId)
 	h.handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
