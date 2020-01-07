@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/journeymidnight/yig/messagebus/types"
 	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
@@ -14,7 +15,6 @@ import (
 	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/log"
 	bus "github.com/journeymidnight/yig/messagebus"
-	_ "github.com/journeymidnight/yig/messagebus/kafka"
 	"github.com/journeymidnight/yig/mods"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/storage"
@@ -62,7 +62,7 @@ func main() {
 
 	// try to create message bus sender if message bus is enabled.
 	// message bus sender is singleton so create it beforehand.
-	if helper.CONFIG.MsgBus.Enabled {
+	if helper.CONFIG.Plugins[types.MESSAGEBUS_KAFKA].Enable {
 		messageBusSender, err := bus.GetMessageSender()
 		if err != nil {
 			helper.Logger.Error("Failed to create message bus sender, err:", err)

@@ -62,7 +62,7 @@ func (a AccessLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a AccessLogHandler) notify(elems map[string]string) {
-	if !helper.CONFIG.MsgBus.Enabled {
+	if !helper.CONFIG.Plugins[types.MESSAGEBUS_KAFKA].Enable {
 		return
 	}
 	if len(elems) == 0 {
@@ -71,12 +71,6 @@ func (a AccessLogHandler) notify(elems map[string]string) {
 	val, err := helper.MsgPackMarshal(elems)
 	if err != nil {
 		helper.Logger.Error("Failed to pack", elems, "err:", err)
-		return
-	}
-
-	sender, err := bus.GetMessageSender()
-	if err != nil {
-		helper.Logger.Error("Failed to get message bus sender, err:", err)
 		return
 	}
 
@@ -89,7 +83,7 @@ func (a AccessLogHandler) notify(elems map[string]string) {
 		Value:   val,
 	}
 
-	err = sender.AsyncSend(msg)
+	err = bus.MsgSender.AsyncSend(msg)
 	if err != nil {
 		helper.Logger.Error(
 			fmt.Sprintf("Failed to send message [%v] to message bus, err: %v",
