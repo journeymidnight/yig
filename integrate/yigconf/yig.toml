@@ -71,7 +71,7 @@ topic = "testTopic2"
 request_timeout_ms = "3000"
 message_timeout_ms = "5000"
 send_max_retries = "2"
-broker_list = "192.168.218.133:9093"
+broker_list = "kafka:29092"
 
 [plugins.dummy_iam]
 path = "/etc/yig/plugins/dummy_iam_plugin.so"
