@@ -114,8 +114,7 @@ func (m *Meta) UpdateObjectAttrs(object *Object) error {
 }
 
 func (m *Meta) RenameObject(object *Object, sourceObject string) error {
-	err := m.Client.RenameObject(object, sourceObject, nil)
-	return err
+	return m.Client.RenameObject(object, sourceObject)
 }
 
 func (m *Meta) DeleteOldObject(object *Object) (err error) {
@@ -126,10 +125,10 @@ func (m *Meta) DeleteOldObject(object *Object) (err error) {
 	}
 	defer func() {
 		if err == nil {
-			err = m.Client.CommitTrans(tx)
+			err = tx.Commit()
 		}
 		if err != nil {
-			m.Client.AbortTrans(tx)
+			tx.Rollback()
 		}
 	}()
 
@@ -165,22 +164,9 @@ func (m *Meta) DeleteObject(object *Object) (err error) {
 }
 
 func (m *Meta) AppendObject(object *Object, isExist bool) error {
-	tx, err := m.Client.NewTrans()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err != nil {
-			m.Client.AbortTrans(tx)
-		}
-	}()
 	if !isExist {
-		err = m.Client.PutObject(object, nil, true)
+		return m.Client.PutObject(object, nil, true)
 	} else {
-		err = m.Client.UpdateAppendObject(object, tx)
+		return m.Client.UpdateAppendObject(object)
 	}
-	if err != nil {
-		return err
-	}
-	return m.Client.CommitTrans(tx)
 }

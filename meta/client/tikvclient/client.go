@@ -75,13 +75,19 @@ func (c *TiKVClient) TxPut(args ...interface{}) error {
 	if err != nil {
 		return err
 	}
-
+	defer func() {
+		if err == nil {
+			err = tx.Commit(context.Background())
+		}
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
 	for i := 0; i < len(args); i += 2 {
 		key := args[i].([]byte)
 		val := args[i+1]
 		v, err := helper.MsgPackMarshal(val)
 		if err != nil {
-			tx.Rollback()
 			return err
 		}
 		err = tx.Set(key, v)
@@ -89,19 +95,7 @@ func (c *TiKVClient) TxPut(args ...interface{}) error {
 			return err
 		}
 	}
-	return tx.Commit(context.Background())
-}
-
-func (c *TiKVClient) TxGet(k []byte) (KV, error) {
-	tx, err := c.txnCli.Begin(context.TODO())
-	if err != nil {
-		return KV{}, err
-	}
-	v, err := tx.Get(context.TODO(), k)
-	if err != nil {
-		return KV{}, err
-	}
-	return KV{K: k, V: v}, nil
+	return nil
 }
 
 func (c *TiKVClient) TxDelete(keys ...[]byte) error {
@@ -109,11 +103,20 @@ func (c *TiKVClient) TxDelete(keys ...[]byte) error {
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err == nil {
+			err = tx.Commit(context.Background())
+		}
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
 	for _, key := range keys {
 		err := tx.Delete(key)
 		if err != nil {
 			return err
 		}
 	}
-	return tx.Commit(context.Background())
+	return nil
 }

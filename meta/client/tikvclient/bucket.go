@@ -3,6 +3,7 @@ package tikvclient
 import (
 	"math"
 
+	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
 )
@@ -21,6 +22,9 @@ func (c *TiKVClient) GetBucket(bucketName string) (*Bucket, error) {
 	v, err := c.Get(key)
 	if err != nil {
 		return nil, err
+	}
+	if v == nil {
+		return nil, ErrNoSuchBucket
 	}
 	var b Bucket
 	err = helper.MsgPackUnMarshal(v, &b)
@@ -69,8 +73,8 @@ func (c *TiKVClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 	return
 }
 
-// TODO: TBD
 func (c *TiKVClient) UpdateUsage(bucketName string, size int64, _ DB) error {
+	// TODO: TBD
 	return nil
 }
 
