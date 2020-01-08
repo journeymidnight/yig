@@ -6,7 +6,6 @@ import (
 	"github.com/journeymidnight/yig/backend"
 	"github.com/journeymidnight/yig/ceph"
 	"github.com/journeymidnight/yig/crypto"
-	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/meta"
 )
