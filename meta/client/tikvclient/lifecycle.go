@@ -5,7 +5,7 @@ import (
 )
 
 func genLifecycleKey() []byte {
-	return GenKey(false, TableLifeCyclePrefix)
+	return GenKey(TableLifeCyclePrefix)
 }
 
 //lc

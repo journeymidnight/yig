@@ -278,35 +278,6 @@ func (t *TidbClient) DeleteObject(object *Object, tx Tx) (err error) {
 	return nil
 }
 
-func (t *TidbClient) DeleteOldObjects(latestObject *Object, tx Tx) (err error) {
-	if tx == nil {
-		tx, err = t.Client.Begin()
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err == nil {
-				err = tx.(*sql.Tx).Commit()
-			}
-			if err != nil {
-				tx.(*sql.Tx).Rollback()
-			}
-		}()
-	}
-
-	sqltext := "delete from objects where bucketname=? and name=? and version>?;"
-	_, err = tx.(*sql.Tx).Exec(sqltext, latestObject.Name, latestObject.BucketName, latestObject.VersionId)
-	if err != nil {
-		return err
-	}
-	sqltext = "delete from objectpart where bucketname=? and objectname=? and version>?;"
-	_, err = tx.(*sql.Tx).Exec(sqltext, latestObject.Name, latestObject.BucketName, latestObject.VersionId)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 //util function
 func getParts(bucketName, objectName string, version uint64, cli *sql.DB) (parts map[int]*Part, err error) {
 	parts = make(map[int]*Part)

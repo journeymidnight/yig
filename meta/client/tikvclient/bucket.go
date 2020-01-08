@@ -1,6 +1,8 @@
 package tikvclient
 
 import (
+	"context"
+	. "database/sql/driver"
 	"math"
 
 	. "github.com/journeymidnight/yig/error"
@@ -9,35 +11,27 @@ import (
 )
 
 func genBucketKey(bucketName string) []byte {
-	return GenKey(false, TableBucketPrefix, bucketName)
-}
-
-func genUserBucketKey(ownerId, bucketName string) []byte {
-	return GenKey(false, TableUserBucketPrefix, ownerId, bucketName)
+	return GenKey(TableBucketPrefix, bucketName)
 }
 
 //bucket
 func (c *TiKVClient) GetBucket(bucketName string) (*Bucket, error) {
 	key := genBucketKey(bucketName)
-	v, err := c.Get(key)
-	if err != nil {
-		return nil, err
-	}
-	if v == nil {
-		return nil, ErrNoSuchBucket
-	}
 	var b Bucket
-	err = helper.MsgPackUnMarshal(v, &b)
+	ok, err := c.Get(key, &b)
 	if err != nil {
 		return nil, err
+	}
+	if !ok {
+		return nil, ErrNoSuchBucket
 	}
 	return &b, nil
 }
 
 // TODO: To be deprecated
 func (c *TiKVClient) GetBuckets() (buckets []Bucket, err error) {
-	startKey := GenKey(true, TableBucketPrefix)
-	endKey := GenKey(false, TableBucketPrefix, TableMaxKeySuffix)
+	startKey := GenKey(TableBucketPrefix, TableMinKeySuffix)
+	endKey := GenKey(TableBucketPrefix, TableMaxKeySuffix)
 	kvs, err := c.Scan(startKey, endKey, math.MaxUint64)
 	for _, kv := range kvs {
 		var b Bucket
@@ -73,16 +67,55 @@ func (c *TiKVClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 	return
 }
 
-func (c *TiKVClient) UpdateUsage(bucketName string, size int64, _ DB) error {
-	// TODO: TBD
-	return nil
+func (c *TiKVClient) UpdateUsage(bucketName string, size int64, tx Tx) error {
+	if !helper.CONFIG.PiggybackUpdateUsage {
+		return nil
+	}
+
+	bucket, err := c.GetBucket(bucketName)
+	if err != nil {
+		return err
+	}
+
+	userBucketKey := genUserBucketKey(bucket.OwnerId, bucket.Name)
+	var usage int64
+
+	if tx == nil {
+		ok, err := c.Get(userBucketKey, &usage)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return ErrNoSuchBucket
+		}
+		usage += size
+		return c.Put(userBucketKey, usage)
+	}
+
+	v, err := tx.(*TikvTx).tx.Get(context.TODO(), userBucketKey)
+	if err != nil {
+		return err
+	}
+
+	err = helper.MsgPackUnMarshal(v, &usage)
+	if err != nil {
+		return err
+	}
+
+	usage += size
+
+	v, err = helper.MsgPackMarshal(usage)
+	if err != nil {
+		return err
+	}
+	return tx.(*TikvTx).tx.Set(userBucketKey, v)
 }
 
 func (c *TiKVClient) IsEmptyBucket(bucketName string) (isEmpty bool, err error) {
-	bucketStartKey := GenKey(true, bucketName)
-	bucketEndKey := GenKey(false, bucketName, TableMaxKeySuffix)
-	partStartKey := GenKey(true, TableObjectPartPrefix, bucketName)
-	partEndKey := GenKey(false, bucketName, TableMaxKeySuffix)
+	bucketStartKey := GenKey(bucketName, TableMinKeySuffix)
+	bucketEndKey := GenKey(bucketName, TableMaxKeySuffix)
+	partStartKey := GenKey(TableObjectPartPrefix, bucketName, TableMinKeySuffix)
+	partEndKey := GenKey(TableObjectPartPrefix, bucketName, TableMaxKeySuffix)
 	r, err := c.Scan(bucketStartKey, bucketEndKey, 1)
 	if err != nil {
 		return false, err

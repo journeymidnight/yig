@@ -115,23 +115,6 @@ func (m *Meta) RenameObject(object *Object, sourceObject string) error {
 	return m.Client.RenameObject(object, sourceObject)
 }
 
-func (m *Meta) DeleteOldObject(object *Object) (err error) {
-	tx, err := m.Client.NewTrans()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err == nil {
-			err = m.Client.CommitTrans(tx)
-		}
-		if err != nil {
-			m.Client.AbortTrans(tx)
-		}
-	}()
-
-	return m.Client.UpdateUsage(object.BucketName, -object.Size, tx)
-}
-
 func (m *Meta) DeleteObject(object *Object) (err error) {
 	tx, err := m.Client.NewTrans()
 	if err != nil {

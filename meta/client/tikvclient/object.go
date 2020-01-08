@@ -2,6 +2,7 @@ package tikvclient
 
 import (
 	"context"
+	. "database/sql/driver"
 
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
@@ -12,42 +13,38 @@ const NullVersion = "null"
 
 func genObjectKey(bucketName, objectName, version string) []byte {
 	if version == NullVersion {
-		return GenKey(false, bucketName, objectName)
+		return GenKey(bucketName, objectName)
 	} else {
-		return GenKey(false, bucketName, objectName, version)
+		return GenKey(bucketName, objectName, version)
 	}
 }
 
 //object
 func (c *TiKVClient) GetObject(bucketName, objectName, version string) (*Object, error) {
 	key := genObjectKey(bucketName, objectName, version)
-	v, err := c.Get(key)
-	if err != nil {
-		return nil, err
-	}
-	if v == nil {
-		return nil, ErrNoSuchKey
-	}
 	var o Object
-	err = helper.MsgPackUnMarshal(v, &o)
+	ok, err := c.Get(key, &o)
 	if err != nil {
 		return nil, err
+	}
+	if !ok {
+		return nil, ErrNoSuchKey
 	}
 	return &o, nil
 }
 
 func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage bool) error {
 	objectKey := genObjectKey(object.BucketName, object.Name, object.VersionId)
-	tx, err := c.txnCli.Begin(context.TODO())
+	tx, err := c.NewTrans()
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if err == nil {
-			err = tx.Commit(context.Background())
+			err = c.CommitTrans(tx)
 		}
 		if err != nil {
-			tx.Rollback()
+			c.AbortTrans(tx)
 		}
 	}()
 
@@ -56,18 +53,20 @@ func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage
 		return err
 	}
 
-	err = tx.Set(objectKey, objectVal)
+	txn := tx.(*TikvTx).tx
+
+	err = txn.Set(objectKey, objectVal)
 	if err != nil {
 		return err
 	}
 
 	if multipart != nil {
 		multipartKey := genMultipartKey(object.BucketName, object.Name, multipart.UploadId)
-		tx.Delete(multipartKey)
+		txn.Delete(multipartKey)
 	}
 
 	if updateUsage {
-		// TODO: TBD
+		return c.UpdateUsage(object.BucketName, object.Size, tx)
 	}
 
 	return nil
@@ -123,7 +122,29 @@ func (c *TiKVClient) RenameObject(object *Object, sourceObject string) (err erro
 	return nil
 }
 
-func (c *TiKVClient) DeleteObject(object *Object, tx DB) error {
+func (c *TiKVClient) DeleteObject(object *Object, tx Tx) error {
+	key := genObjectKey(object.BucketName, object.Name, object.VersionId)
+	if tx == nil {
+		tx, err := c.NewTrans()
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err == nil {
+				err = c.CommitTrans(tx)
+			}
+			if err != nil {
+				c.AbortTrans(tx)
+			}
+		}()
+	}
+
+	err := tx.(*TikvTx).tx.Delete(key)
+	if err != nil {
+		return err
+	}
+
+	//TODO: GC
 	return nil
 }
 

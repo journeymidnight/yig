@@ -14,8 +14,8 @@ const (
 
 //cluster
 func (c *TiKVClient) GetClusters() (clusters []Cluster, err error) {
-	startKey := GenKey(true, TableClusterPrefix)
-	endKey := GenKey(false, TableClusterPrefix, TableMaxKeySuffix)
+	startKey := GenKey(TableClusterPrefix, TableMinKeySuffix)
+	endKey := GenKey(TableClusterPrefix, TableMaxKeySuffix)
 	kvs, err := c.Scan(startKey, endKey, MaxClusterKeyLimit)
 	if err != nil {
 		return nil, err

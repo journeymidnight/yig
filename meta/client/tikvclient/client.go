@@ -19,6 +19,7 @@ const (
 )
 
 var (
+	TableMinKeySuffix = string(0x00)
 	TableMaxKeySuffix = string(0xFF)
 	TableSeparator    = string(92) // "\"
 )
@@ -54,8 +55,16 @@ func (c *TiKVClient) Put(k []byte, v interface{}) error {
 	return c.rawCli.Put(context.TODO(), k, b)
 }
 
-func (c *TiKVClient) Get(k []byte) ([]byte, error) {
-	return c.rawCli.Get(context.TODO(), k)
+func (c *TiKVClient) Get(k []byte, ref interface{}) (bool, error) {
+	v, err := c.rawCli.Get(context.TODO(), k)
+	if err != nil {
+		return false, err
+	}
+
+	if v == nil {
+		return false, nil
+	}
+	return true, helper.MsgPackUnMarshal(v, ref)
 }
 
 func (c *TiKVClient) Scan(startKey []byte, endKey []byte, limit int) ([]KV, error) {
