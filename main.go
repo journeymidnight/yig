@@ -60,10 +60,13 @@ func main() {
 		go yig.PingCache(time.Duration(helper.CONFIG.CacheCircuitCheckInterval) * time.Second)
 	}
 
+	// Read all *.so from plugins directory, and fill the variable allPlugins
+	allPluginMap := mods.InitialPlugins()
+
 	// try to create message bus sender if message bus is enabled.
 	// message bus sender is singleton so create it beforehand.
 	if helper.CONFIG.Plugins[types.MESSAGEBUS_KAFKA].Enable {
-		messageBusSender, err := bus.GetMessageSender()
+		messageBusSender, err := bus.GetMessageSender(allPluginMap)
 		if err != nil {
 			helper.Logger.Error("Failed to create message bus sender, err:", err)
 			panic("failed to create message bus sender")
@@ -74,9 +77,6 @@ func main() {
 		}
 		helper.Logger.Info("Succeed to create message bus sender.")
 	}
-
-	// Read all *.so from plugins directory, and fill the variable allPlugins
-	allPluginMap := mods.InitialPlugins()
 
 	iam.InitializeIamClient(allPluginMap)
 
