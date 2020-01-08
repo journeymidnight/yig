@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -69,22 +68,13 @@ func (a AccessLogHandler) notify(elems map[string]string) {
 	if len(elems) == 0 {
 		return
 	}
-	val, err := json.Marshal(elems)
+	val, err := helper.MsgPackMarshal(elems)
 	if err != nil {
 		helper.Logger.Error("Failed to pack", elems, "err:", err)
 		return
 	}
 
-	// send the message to message bus async.
-	// don't set the ErrChan.
-	msg := &types.Message{
-		Topic:   "",
-		Key:     "",
-		ErrChan: nil,
-		Value:   val,
-	}
-
-	err = bus.MsgSender.AsyncSend(msg)
+	err = bus.MsgSender.AsyncSend(val)
 	if err != nil {
 		helper.Logger.Error(
 			fmt.Sprintf("Failed to send message [%v] to message bus, err: %v",

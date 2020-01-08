@@ -130,18 +130,13 @@ func (kf *Kafka) Close() {
 	_ = <-kf.doneChan
 }
 
-func (kf *Kafka) AsyncSend(msg *types.Message) error {
-	msg.Topic = kf.Topic
+func (kf *Kafka) AsyncSend(value []byte) error {
 	if nil == kf.producer {
 		return errors.New("Kafka is not created correctly yet.")
 	}
-	if nil == msg.Value || "" == msg.Topic {
-		return errors.New(fmt.Sprintf("input message[%v] is invalid.", msg))
+	if nil == value || "" == kf.Topic {
+		return errors.New(fmt.Sprintf("input message[%v] is invalid.", value))
 	}
-	var key []byte
-	if msg.Key != "" {
-		key = []byte(msg.Key)
-	}
-	kf.producer.ProduceChannel() <- &kafka.Message{TopicPartition: kafka.TopicPartition{Topic: &msg.Topic, Partition: kafka.PartitionAny}, Key: key, Value: msg.Value, Opaque: msg.ErrChan}
+	kf.producer.ProduceChannel() <- &kafka.Message{TopicPartition: kafka.TopicPartition{Topic: &kf.Topic, Partition: kafka.PartitionAny}, Key: []byte(""), Value: value, Opaque: nil}
 	return nil
 }

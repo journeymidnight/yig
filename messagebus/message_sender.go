@@ -2,13 +2,12 @@ package messagebus
 
 import (
 	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/messagebus/types"
 	"github.com/journeymidnight/yig/mods"
 )
 
 type MessageSender interface {
 	// send the message async
-	AsyncSend(msg *types.Message) error
+	AsyncSend(value []byte) error
 	// flush all the messages, timeout is in ms.
 	Flush(timeout int) error
 	// free this instance.
