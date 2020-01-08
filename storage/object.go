@@ -923,8 +923,6 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 		return result, ErrNoSuchBucket
 	}
 	if object == nil {
-		result.DeleteMarker = object.DeleteMarker
-		result.VersionId = object.VersionId
 		return result, nil
 	}
 
