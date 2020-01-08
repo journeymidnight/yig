@@ -15,10 +15,10 @@ type Client interface {
 	CommitTrans(tx *sql.Tx) error
 	//object
 	GetObject(bucketName, objectName, version string) (object *Object, err error)
-	GetAllObject(bucketName, objectName string) (object []*Object, err error)
-	PutObject(object *Object, tx DB) error
+
+	PutObject(object *Object, multipart *Multipart, updateUsage bool) error
 	PutObjectWithoutMultiPart(object *Object) error
-	UpdateObject(object *Object, tx DB) (err error)
+	UpdateObject(object *Object, multipart *Multipart, updateUsage bool) (err error)
 	UpdateObjectWithoutMultiPart(object *Object) error
 	UpdateAppendObject(object *Object, tx DB) error
 	RenameObjectPart(object *Object, sourceObject string, tx DB) (err error)

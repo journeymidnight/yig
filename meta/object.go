@@ -44,10 +44,6 @@ func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (o
 	return object, nil
 }
 
-func (m *Meta) GetAllObject(bucketName string, objectName string) (object []*Object, err error) {
-	return m.Client.GetAllObject(bucketName, objectName)
-}
-
 func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed bool) (object *Object, err error) {
 	getObjectVersion := func() (o interface{}, err error) {
 		object, err := m.Client.GetObject(bucketName, objectName, version)
@@ -96,50 +92,15 @@ func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multi
 		} else {
 			return m.Client.PutObjectWithoutMultiPart(object)
 		}
-
 	}
-
-	tx, err := m.Client.NewTrans()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err != nil {
-			m.Client.AbortTrans(tx)
-		}
-	}()
 
 	if needUpdate {
-		err = m.Client.UpdateObject(object, tx)
-		if err != nil {
-			return err
-		}
+		return m.Client.UpdateObject(object, multipart, updateUsage)
 	} else {
-		err = m.Client.PutObject(object, tx)
-		if err != nil {
-			return err
-		}
+		return m.Client.PutObject(object, multipart, updateUsage)
 	}
 
-	if multipart != nil {
-		err = m.Client.DeleteMultipart(multipart, tx)
-		if err != nil {
-			return err
-		}
-	}
-
-	if updateUsage {
-		err = m.Client.UpdateUsage(object.BucketName, object.Size, tx)
-		if err != nil {
-			return err
-		}
-	}
-	return m.Client.CommitTrans(tx)
-}
-
-func (m *Meta) PutObjectEntry(object *Object) error {
-	err := m.Client.PutObject(object, nil)
-	return err
+	return nil
 }
 
 func (m *Meta) UpdateObjectAcl(object *Object) error {
@@ -219,14 +180,10 @@ func (m *Meta) AppendObject(object *Object, isExist bool) error {
 		}
 	}()
 	if !isExist {
-		err = m.Client.PutObject(object, tx)
+		err = m.Client.PutObject(object, nil, true)
 	} else {
 		err = m.Client.UpdateAppendObject(object, tx)
 	}
-	if err != nil {
-		return err
-	}
-	err = m.Client.UpdateUsage(object.BucketName, object.Size, tx)
 	if err != nil {
 		return err
 	}

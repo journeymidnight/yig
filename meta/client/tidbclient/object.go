@@ -162,21 +162,20 @@ func (t *TidbClient) UpdateObjectWithoutMultiPart(object *Object) error {
 	return err
 }
 
-func (t *TidbClient) PutObject(object *Object, tx DB) (err error) {
-	if tx == nil {
-		tx, err = t.Client.Begin()
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err == nil {
-				err = tx.(*sql.Tx).Commit()
-			}
-			if err != nil {
-				tx.(*sql.Tx).Rollback()
-			}
-		}()
+func (t *TidbClient) PutObject(object *Object, multipart *Multipart, updateUsage bool) (err error) {
+	tx, err := t.Client.Begin()
+	if err != nil {
+		return err
 	}
+	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		}
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
 	sql, args := object.GetCreateSql()
 	_, err = tx.Exec(sql, args...)
 	if object.Parts != nil {
@@ -190,24 +189,33 @@ func (t *TidbClient) PutObject(object *Object, tx DB) (err error) {
 			}
 		}
 	}
-	return err
+
+	if multipart != nil {
+		return t.DeleteMultipart(multipart, tx)
+	}
+
+	if updateUsage {
+		return t.UpdateUsage(object.BucketName, object.Size, tx)
+	}
+
+	return nil
 }
 
-func (t *TidbClient) UpdateObject(object *Object, tx DB) (err error) {
-	if tx == nil {
-		tx, err = t.Client.Begin()
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err == nil {
-				err = tx.(*sql.Tx).Commit()
-			}
-			if err != nil {
-				tx.(*sql.Tx).Rollback()
-			}
-		}()
+func (t *TidbClient) UpdateObject(object *Object, multipart *Multipart, updateUsage bool) (err error) {
+
+	tx, err := t.Client.Begin()
+	if err != nil {
+		return err
 	}
+	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		}
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
 	sql, args := object.GetUpdateSql()
 	_, err = tx.Exec(sql, args...)
 	if object.Parts != nil {
@@ -221,6 +229,21 @@ func (t *TidbClient) UpdateObject(object *Object, tx DB) (err error) {
 			}
 		}
 	}
+
+	if multipart != nil {
+		err = t.DeleteMultipart(multipart, tx)
+		if err != nil {
+			return err
+		}
+	}
+
+	if updateUsage {
+		err = t.UpdateUsage(object.BucketName, object.Size, tx)
+		if err != nil {
+			return err
+		}
+	}
+
 	return err
 }
 
