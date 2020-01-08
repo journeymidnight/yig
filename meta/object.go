@@ -1,8 +1,6 @@
 package meta
 
 import (
-	"database/sql"
-
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
@@ -124,8 +122,7 @@ func (m *Meta) ReplaceObjectMetas(object *Object) error {
 }
 
 func (m *Meta) DeleteOldObject(object *Object) (err error) {
-	var tx *sql.Tx
-	tx, err = m.Client.NewTrans()
+	tx, err := m.Client.NewTrans()
 	if err != nil {
 		return err
 	}
@@ -142,8 +139,7 @@ func (m *Meta) DeleteOldObject(object *Object) (err error) {
 }
 
 func (m *Meta) DeleteObject(object *Object) (err error) {
-	var tx *sql.Tx
-	tx, err = m.Client.NewTrans()
+	tx, err := m.Client.NewTrans()
 	if err != nil {
 		return err
 	}

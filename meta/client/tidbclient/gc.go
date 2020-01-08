@@ -2,6 +2,7 @@ package tidbclient
 
 import (
 	"database/sql"
+	. "database/sql/driver"
 	"math"
 	"strings"
 	"time"
@@ -10,7 +11,7 @@ import (
 )
 
 //gc
-func (t *TidbClient) PutObjectToGarbageCollection(object *Object, tx DB) (err error) {
+func (t *TidbClient) PutObjectToGarbageCollection(object *Object, tx Tx) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		if err != nil {
@@ -33,14 +34,14 @@ func (t *TidbClient) PutObjectToGarbageCollection(object *Object, tx DB) (err er
 	}
 	mtime := o.MTime.Format(TIME_LAYOUT_TIDB)
 	sqltext := "insert ignore into gc(bucketname,objectname,version,location,pool,objectid,status,mtime,part,triedtimes) values(?,?,?,?,?,?,?,?,?,?);"
-	_, err = tx.Exec(sqltext, o.BucketName, o.ObjectName, object.VersionId, o.Location, o.Pool, o.ObjectId, o.Status, mtime, hasPart, o.TriedTimes)
+	_, err = tx.(*sql.Tx).Exec(sqltext, o.BucketName, o.ObjectName, object.VersionId, o.Location, o.Pool, o.ObjectId, o.Status, mtime, hasPart, o.TriedTimes)
 	if err != nil {
 		return err
 	}
 	version := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
 	for _, p := range object.Parts {
 		psql, args := p.GetCreateGcSql(o.BucketName, o.ObjectName, version)
-		_, err = tx.Exec(psql, args...)
+		_, err = tx.(*sql.Tx).Exec(psql, args...)
 		if err != nil {
 			return err
 		}

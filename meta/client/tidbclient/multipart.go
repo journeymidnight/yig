@@ -2,6 +2,7 @@ package tidbclient
 
 import (
 	"database/sql"
+	. "database/sql/driver"
 	"encoding/json"
 	"math"
 	"net/url"
@@ -114,11 +115,7 @@ func (t *TidbClient) CreateMultipart(multipart Multipart) (err error) {
 	return
 }
 
-func (t *TidbClient) PutObjectPart(multipart *Multipart, part *Part, tx DB) (err error) {
-	if tx == nil {
-		tx = t.Client
-	}
-
+func (t *TidbClient) PutObjectPart(multipart *Multipart, part *Part, tx Tx) (err error) {
 	uploadtime := math.MaxUint64 - uint64(multipart.InitialTime.UnixNano())
 	lastt, err := time.Parse(CREATE_TIME_LAYOUT, part.LastModified)
 	if err != nil {
@@ -127,11 +124,16 @@ func (t *TidbClient) PutObjectPart(multipart *Multipart, part *Part, tx DB) (err
 	lastModified := lastt.Format(TIME_LAYOUT_TIDB)
 	sqltext := "insert into multipartpart(partnumber,size,objectid,offset,etag,lastmodified,initializationvector,bucketname,objectname,uploadtime) " +
 		"values(?,?,?,?,?,?,?,?,?,?)"
-	_, err = tx.Exec(sqltext, part.PartNumber, part.Size, part.ObjectId, part.Offset, part.Etag, lastModified, part.InitializationVector, multipart.BucketName, multipart.ObjectName, uploadtime)
+	if tx == nil {
+		_, err = t.Client.Exec(sqltext, part.PartNumber, part.Size, part.ObjectId, part.Offset, part.Etag, lastModified, part.InitializationVector, multipart.BucketName, multipart.ObjectName, uploadtime)
+		return err
+	}
+
+	_, err = tx.(*sql.Tx).Exec(sqltext, part.PartNumber, part.Size, part.ObjectId, part.Offset, part.Etag, lastModified, part.InitializationVector, multipart.BucketName, multipart.ObjectName, uploadtime)
 	return
 }
 
-func (t *TidbClient) DeleteMultipart(multipart *Multipart, tx DB) (err error) {
+func (t *TidbClient) DeleteMultipart(multipart *Multipart, tx Tx) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		if err != nil {
@@ -148,12 +150,12 @@ func (t *TidbClient) DeleteMultipart(multipart *Multipart, tx DB) (err error) {
 	}
 	uploadtime := math.MaxUint64 - uint64(multipart.InitialTime.UnixNano())
 	sqltext := "delete from multiparts where bucketname=? and objectname=? and uploadtime=?;"
-	_, err = tx.Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime)
+	_, err = tx.(*sql.Tx).Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime)
 	if err != nil {
 		return
 	}
 	sqltext = "delete from multipartpart where bucketname=? and objectname=? and uploadtime=?;"
-	_, err = tx.Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime)
+	_, err = tx.(*sql.Tx).Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime)
 	return err
 }
 
