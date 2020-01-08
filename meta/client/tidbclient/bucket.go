@@ -2,12 +2,12 @@ package tidbclient
 
 import (
 	"database/sql"
+	. "database/sql/driver"
 	"encoding/json"
 	"strconv"
 	"strings"
 	"time"
 
-	_ "github.com/go-sql-driver/mysql"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
@@ -325,15 +325,15 @@ func (t *TidbClient) IsEmptyBucket(bucketName string) (bool, error) {
 	return true, nil
 }
 
-func (t *TidbClient) UpdateUsage(bucketName string, size int64, tx DB) (err error) {
+func (t *TidbClient) UpdateUsage(bucketName string, size int64, tx Tx) (err error) {
 	if !helper.CONFIG.PiggybackUpdateUsage {
 		return nil
 	}
-
+	sqlStr := "update buckets set usages= usages + ? where bucketname=?;"
 	if tx == nil {
-		tx = t.Client
+		_, err = t.Client.Exec(sqlStr, size, bucketName)
+		return err
 	}
-	sql := "update buckets set usages= usages + ? where bucketname=?;"
-	_, err = tx.Exec(sql, size, bucketName)
-	return
+	_, err = tx.(*sql.Tx).Exec(sqlStr, size, bucketName)
+	return err
 }

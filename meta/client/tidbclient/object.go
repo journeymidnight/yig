@@ -2,6 +2,7 @@ package tidbclient
 
 import (
 	"database/sql"
+	. "database/sql/driver"
 	"encoding/json"
 	"math"
 	"strconv"
@@ -100,16 +101,16 @@ func (t *TidbClient) RenameObject(object *Object, sourceObject string) (err erro
 	sql, args := object.GetUpdateNameSql(sourceObject)
 
 	if len(object.Parts) != 0 {
-		tx, err := t.NewTrans()
+		tx, err := t.Client.Begin()
 		if err != nil {
 			return err
 		}
 		defer func() {
 			if err == nil {
-				err = t.CommitTrans(tx)
+				err = tx.Commit()
 			}
 			if err != nil {
-				t.AbortTrans(tx)
+				tx.Rollback()
 			}
 		}()
 		_, err = tx.Exec(sql, args...)
@@ -127,16 +128,16 @@ func (t *TidbClient) RenameObject(object *Object, sourceObject string) (err erro
 }
 
 func (t *TidbClient) UpdateAppendObject(object *Object) (err error) {
-	tx, err := t.NewTrans()
+	tx, err := t.Client.Begin()
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if err == nil {
-			err = t.CommitTrans(tx)
+			err = tx.Commit()
 		}
 		if err != nil {
-			t.AbortTrans(tx)
+			tx.Rollback()
 		}
 	}()
 
@@ -245,7 +246,7 @@ func (t *TidbClient) UpdateObject(object *Object, multipart *Multipart, updateUs
 	return err
 }
 
-func (t *TidbClient) DeleteObject(object *Object, tx DB) (err error) {
+func (t *TidbClient) DeleteObject(object *Object, tx Tx) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		if err != nil {
@@ -262,7 +263,7 @@ func (t *TidbClient) DeleteObject(object *Object, tx DB) (err error) {
 	}
 
 	sqltext := "delete from objects where name=? and bucketname=? and version=?;"
-	_, err = tx.Exec(sqltext, object.Name, object.BucketName, object.VersionId)
+	_, err = tx.(*sql.Tx).Exec(sqltext, object.Name, object.BucketName, object.VersionId)
 	if err != nil {
 		return err
 	}
@@ -270,14 +271,14 @@ func (t *TidbClient) DeleteObject(object *Object, tx DB) (err error) {
 	v := math.MaxUint64 - object.CreateTime
 	version := strconv.FormatUint(v, 10)
 	sqltext = "delete from objectpart where objectname=? and bucketname=? and version=?;"
-	_, err = tx.Exec(sqltext, object.Name, object.BucketName, version)
+	_, err = tx.(*sql.Tx).Exec(sqltext, object.Name, object.BucketName, version)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (t *TidbClient) DeleteOldObjects(latestObject *Object, tx DB) (err error) {
+func (t *TidbClient) DeleteOldObjects(latestObject *Object, tx Tx) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		if err != nil {
@@ -294,12 +295,12 @@ func (t *TidbClient) DeleteOldObjects(latestObject *Object, tx DB) (err error) {
 	}
 
 	sqltext := "delete from objects where bucketname=? and name=? and version>?;"
-	_, err = tx.Exec(sqltext, latestObject.Name, latestObject.BucketName, latestObject.VersionId)
+	_, err = tx.(*sql.Tx).Exec(sqltext, latestObject.Name, latestObject.BucketName, latestObject.VersionId)
 	if err != nil {
 		return err
 	}
 	sqltext = "delete from objectpart where bucketname=? and objectname=? and version>?;"
-	_, err = tx.Exec(sqltext, latestObject.Name, latestObject.BucketName, latestObject.VersionId)
+	_, err = tx.(*sql.Tx).Exec(sqltext, latestObject.Name, latestObject.BucketName, latestObject.VersionId)
 	if err != nil {
 		return err
 	}

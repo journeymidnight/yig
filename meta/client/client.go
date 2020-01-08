@@ -1,7 +1,7 @@
 package client
 
 import (
-	"database/sql"
+	. "database/sql/driver"
 
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/meta/types"
@@ -10,9 +10,9 @@ import (
 //DB Client Interface
 type Client interface {
 	//Transaction
-	NewTrans() (tx *sql.Tx, err error)
-	AbortTrans(tx *sql.Tx) error
-	CommitTrans(tx *sql.Tx) error
+	NewTrans() (tx Tx, err error)
+	AbortTrans(tx Tx) error
+	CommitTrans(tx Tx) error
 	//object
 	GetObject(bucketName, objectName, version string) (object *Object, err error)
 	PutObject(object *Object, multipart *Multipart, updateUsage bool) error
@@ -21,7 +21,7 @@ type Client interface {
 	UpdateObjectWithoutMultiPart(object *Object) error
 	UpdateAppendObject(object *Object) error
 	RenameObject(object *Object, sourceObject string) (err error)
-	DeleteObject(object *Object, tx DB) error
+	DeleteObject(object *Object, tx Tx) error
 	UpdateObjectAcl(object *Object) error
 	UpdateObjectAttrs(object *Object) error
 	//bucket
@@ -31,14 +31,14 @@ type Client interface {
 	PutNewBucket(bucket Bucket) error
 	DeleteBucket(bucket Bucket) error
 	ListObjects(bucketName, marker, verIdMarker, prefix, delimiter string, versioned bool, maxKeys int) (retObjects []*Object, prefixes []string, truncated bool, nextMarker, nextVerIdMarker string, err error)
-	UpdateUsage(bucketName string, size int64, tx DB) error
+	UpdateUsage(bucketName string, size int64, tx Tx) error
 	IsEmptyBucket(bucketName string) (isEmpty bool, err error)
 
 	//multipart
 	GetMultipart(bucketName, objectName, uploadId string) (multipart Multipart, err error)
 	CreateMultipart(multipart Multipart) (err error)
-	PutObjectPart(multipart *Multipart, part *Part, tx DB) (err error)
-	DeleteMultipart(multipart *Multipart, tx DB) (err error)
+	PutObjectPart(multipart *Multipart, part *Part, tx Tx) (err error)
+	DeleteMultipart(multipart *Multipart, tx Tx) (err error)
 	ListMultipartUploads(bucketName, keyMarker, uploadIdMarker, prefix, delimiter, encodingType string, maxUploads int) (uploads []datatype.Upload, prefixs []string, isTruncated bool, nextKeyMarker, nextUploadIdMarker string, err error)
 
 	//cluster
@@ -50,7 +50,7 @@ type Client interface {
 	//user
 	GetUserBuckets(userId string) (buckets []string, err error)
 	//gc
-	PutObjectToGarbageCollection(object *Object, tx DB) error
+	PutObjectToGarbageCollection(object *Object, tx Tx) error
 	ScanGarbageCollection(limit int, startRowKey string) ([]GarbageCollection, error)
 	RemoveGarbageCollection(garbage GarbageCollection) error
 }

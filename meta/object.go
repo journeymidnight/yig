@@ -1,8 +1,6 @@
 package meta
 
 import (
-	"database/sql"
-
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
@@ -118,17 +116,16 @@ func (m *Meta) RenameObject(object *Object, sourceObject string) error {
 }
 
 func (m *Meta) DeleteOldObject(object *Object) (err error) {
-	var tx *sql.Tx
-	tx, err = m.Client.NewTrans()
+	tx, err := m.Client.NewTrans()
 	if err != nil {
 		return err
 	}
 	defer func() {
 		if err == nil {
-			err = tx.Commit()
+			err = m.Client.CommitTrans(tx)
 		}
 		if err != nil {
-			tx.Rollback()
+			m.Client.AbortTrans(tx)
 		}
 	}()
 
@@ -136,8 +133,7 @@ func (m *Meta) DeleteOldObject(object *Object) (err error) {
 }
 
 func (m *Meta) DeleteObject(object *Object) (err error) {
-	var tx *sql.Tx
-	tx, err = m.Client.NewTrans()
+	tx, err := m.Client.NewTrans()
 	if err != nil {
 		return err
 	}
