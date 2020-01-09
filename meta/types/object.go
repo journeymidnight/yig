@@ -43,6 +43,7 @@ type Object struct {
 	CreateTime   uint64 // Timestamp(nanosecond)
 
 	Backend BackendType
+	PartNum int
 }
 
 type ObjectType int

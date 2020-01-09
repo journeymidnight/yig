@@ -130,7 +130,7 @@ func (yig *YigStorage) NewMultipartUpload(reqCtx RequestContext, credential comm
 	multipart := meta.Multipart{
 		BucketName:  bucketName,
 		ObjectName:  objectName,
-		InitialTime: time.Now().UTC(),
+		InitialTime: uint64(time.Now().UTC().UnixNano()),
 		Metadata:    multipartMetadata,
 	}
 
