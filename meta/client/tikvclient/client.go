@@ -16,6 +16,7 @@ const (
 	TableMultipartPrefix  = "m"
 	TableObjectPartPrefix = "p"
 	TableLifeCyclePrefix  = "l"
+	TableGcPrefix         = "g"
 )
 
 var (
@@ -77,6 +78,10 @@ func (c *TiKVClient) Scan(startKey []byte, endKey []byte, limit int) ([]KV, erro
 		ret = append(ret, KV{K: k, V: vs[i]})
 	}
 	return ret, nil
+}
+
+func (c *TiKVClient) Delete(k []byte) error {
+	return c.rawCli.Delete(context.TODO(), k)
 }
 
 func (c *TiKVClient) TxPut(args ...interface{}) error {

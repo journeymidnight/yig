@@ -2,17 +2,18 @@ package main
 
 import (
 	"context"
-	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/log"
-	"github.com/journeymidnight/yig/meta"
-	"github.com/journeymidnight/yig/meta/types"
-	"github.com/journeymidnight/yig/storage"
 	"os"
 	"os/signal"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/log"
+	"github.com/journeymidnight/yig/meta"
+	"github.com/journeymidnight/yig/meta/types"
+	"github.com/journeymidnight/yig/storage"
 )
 
 const (
@@ -77,7 +78,6 @@ func deleteFromCeph(index int) {
 
 func removeDeleted() {
 	time.Sleep(time.Duration(1000) * time.Millisecond)
-	var startRowKey string
 	var garbages []types.GarbageCollection
 	var err error
 	for {
@@ -93,7 +93,7 @@ func removeDeleted() {
 
 		if len(gcTaskQ) < WATER_LOW {
 			garbages = garbages[:0]
-			garbages, err = yigs[0].MetaStorage.ScanGarbageCollection(SCAN_LIMIT, startRowKey)
+			garbages, err = yigs[0].MetaStorage.ScanGarbageCollection(SCAN_LIMIT)
 			if err != nil {
 				continue
 			}
@@ -101,21 +101,13 @@ func removeDeleted() {
 
 		if len(garbages) == 0 {
 			time.Sleep(time.Duration(10000) * time.Millisecond)
-			startRowKey = ""
-			continue
-		} else if len(garbages) == 1 {
-			for _, garbage := range garbages {
-				gcTaskQ <- garbage
-			}
-			startRowKey = ""
-			time.Sleep(time.Duration(5000) * time.Millisecond)
 			continue
 		} else {
-			startRowKey = garbages[len(garbages)-1].Rowkey
-			garbages = garbages[:len(garbages)-1]
 			for _, garbage := range garbages {
 				gcTaskQ <- garbage
 			}
+			time.Sleep(time.Duration(5000) * time.Millisecond)
+			continue
 		}
 	}
 }

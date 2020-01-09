@@ -139,13 +139,8 @@ func (c *TiKVClient) DeleteObject(object *Object, tx Tx) error {
 		}()
 	}
 
-	err := tx.(*TikvTx).tx.Delete(key)
-	if err != nil {
-		return err
-	}
-
-	//TODO: GC
-	return nil
+	txn := tx.(*TikvTx).tx
+	return txn.Delete(key)
 }
 
 func (c *TiKVClient) UpdateObjectAcl(object *Object) error {

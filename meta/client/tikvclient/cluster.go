@@ -2,6 +2,7 @@ package tikvclient
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 
 	"github.com/journeymidnight/yig/helper"
@@ -45,7 +46,11 @@ func getCluster(k, v []byte) (c Cluster, err error) {
 	}
 	c.Pool = sp[1]
 	c.Fsid = sp[2]
-	c.Backend = sp[3]
+	backend, err := strconv.Atoi(sp[3])
+	if err != nil {
+		return c, err
+	}
+	c.Backend = BackendType(backend)
 	c.Weight = w
 	return
 }
