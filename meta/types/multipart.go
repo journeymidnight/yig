@@ -2,11 +2,9 @@ package types
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"math"
 	"strconv"
-	"time"
 
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/xxtea/xxtea-go/xxtea"
@@ -42,7 +40,7 @@ type MultipartMetadata struct {
 type Multipart struct {
 	BucketName  string
 	ObjectName  string
-	InitialTime time.Time
+	InitialTime uint64
 	UploadId    string // upload id cache
 	Metadata    MultipartMetadata
 	Parts       map[int]*Part
@@ -52,36 +50,21 @@ func (m *Multipart) GetUploadId() (string, error) {
 	if m.UploadId != "" {
 		return m.UploadId, nil
 	}
-	if m.InitialTime.IsZero() {
+	if m.InitialTime == 0 {
 		return "", errors.New("Zero value InitialTime for Multipart")
 	}
 	m.UploadId = getMultipartUploadId(m.InitialTime)
 	return m.UploadId, nil
 }
-func getMultipartUploadId(t time.Time) string {
-	timeData := []byte(strconv.FormatUint(uint64(t.UnixNano()), 10))
+
+func getMultipartUploadId(initialTime uint64) string {
+	timeData := []byte(strconv.FormatUint(initialTime, 10))
 	return hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
 }
 
-func GetMultipartUploadIdForTidb(uploadtime uint64) string {
-	realUploadTime := math.MaxUint64 - uploadtime
-	timeData := []byte(strconv.FormatUint(realUploadTime, 10))
-	return hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
-}
-
-func valuesForParts(parts map[int]*Part) (values map[string][]byte, err error) {
-	for partNumber, part := range parts {
-		var marshaled []byte
-		marshaled, err = json.Marshal(part)
-		if err != nil {
-			return
-		}
-		if values == nil {
-			values = make(map[string][]byte)
-		}
-		values[strconv.Itoa(partNumber)] = marshaled
-	}
-	return
+func GetMultipartUploadIdByDbTime(uploadtime uint64) string {
+	initialTime := math.MaxUint64 - uploadtime
+	return getMultipartUploadId(initialTime)
 }
 
 func (p *Part) GetCreateSql(bucketname, objectname, version string) (string, []interface{}) {
