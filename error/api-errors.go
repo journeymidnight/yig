@@ -61,6 +61,7 @@ const (
 	ErrInvalidCopySourceStorageClass
 	ErrInvalidCopyDest
 	ErrInvalidCopyRequest
+	ErrInvalidCopyRequestWithSameObject
 	ErrInvalidRenameSourceKey
 	ErrInvalidRenameTarget
 	ErrNotSupportBucketEnabledVersion
@@ -189,6 +190,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidCopyRequest: {
 		AwsErrorCode:   "InvalidCopyRequest",
 		Description:    "X-Amz-Metadata-Directive can only be COPY or REPLACE",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidCopyRequestWithSameObject: {
+		AwsErrorCode:   "InvalidCopyRequestWithSameObject",
+		Description:    "X-Amz-Metadata-Directive can only be REPLACE，If you use the same source and destination objects and want to modify the object metadata",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidRenameSourceKey: {
@@ -762,7 +768,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		Description:    "The head is no a valid head key can be set.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
-	ErrMalformedMetadataConfiguration:{
+	ErrMalformedMetadataConfiguration: {
 		AwsErrorCode:   "InvalidMetaConfiguration",
 		Description:    "Parsing meta XML data failed",
 		HttpStatusCode: http.StatusBadRequest,

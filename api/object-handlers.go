@@ -487,19 +487,6 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// TODO: In a versioning-enabled bucket, you cannot change the storage class
-	//  of a specific version of an object. When you copy it, Amazon S3 gives it
-	//  a new version ID.
-	storageClassFromHeader, err := getStorageClassFromHeader(r)
-	if err != nil {
-		WriteErrorResponse(w, r, err)
-		return
-	}
-	if storageClassFromHeader == meta.ObjectStorageClassGlacier || storageClassFromHeader == meta.ObjectStorageClassDeepArchive {
-		WriteErrorResponse(w, r, ErrInvalidCopySourceStorageClass)
-		return
-	}
-
 	// maximum Upload size for object in a single CopyObject operation.
 	if isMaxObjectSize(sourceObject.Size) {
 		WriteErrorResponseWithResource(w, r, ErrEntityTooLarge, copySource)
@@ -536,11 +523,24 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	targetObject.Parts = sourceObject.Parts
 	targetObject.Type = sourceObject.Type
 
-	if r.Header.Get("X-Amz-Metadata-Directive") == "COPY" || r.Header.Get("X-Amz-Metadata-Directive") == "" {
+	directive := r.Header.Get("X-Amz-Metadata-Directive")
+	if directive == "COPY" || directive == "" {
 		targetObject.CustomAttributes = sourceObject.CustomAttributes
 		targetObject.StorageClass = sourceObject.StorageClass
 		targetObject.ContentType = sourceObject.ContentType
-	} else if r.Header.Get("X-Amz-Metadata-Directive") == "REPLACE" {
+	} else if directive == "REPLACE" {
+		// TODO: In a versioning-enabled bucket, you cannot change the storage class
+		//  of a specific version of an object. When you copy it, Amazon S3 gives it
+		//  a new version ID.
+		storageClassFromHeader, err := getStorageClassFromHeader(r)
+		if err != nil {
+			WriteErrorResponse(w, r, err)
+			return
+		}
+		if storageClassFromHeader == meta.ObjectStorageClassGlacier || storageClassFromHeader == meta.ObjectStorageClassDeepArchive {
+			WriteErrorResponse(w, r, ErrInvalidCopySourceStorageClass)
+			return
+		}
 		newMetadata := extractMetadataFromHeader(r.Header)
 		if c, ok := newMetadata["content-type"]; ok {
 			targetObject.ContentType = c
@@ -554,8 +554,27 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	var isMetadataOnly bool
+	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName {
+		isMetadataOnly = true
+	} else {
+		isMetadataOnly = false
+	}
+
+	// Check if x-amz-metadata-directive was not set to REPLACE and source,
+	// desination are same objects. Apply this restriction also when
+	// metadataOnly is true indicating that we are not overwriting the object.
+	// if encryption is enabled we do not need explicit "REPLACE" metadata to
+	// be enabled as well - this is to allow for key-rotation.
+	// TODO: something need to Encrypted with SSE
+	//if directive != "REPLACE" && isMetadataOnly && !IsEncrypted(targetObject.CustomAttributes) {
+	if directive != "REPLACE" && isMetadataOnly {
+		WriteErrorResponse(w, r, ErrInvalidCopyRequestWithSameObject)
+		return
+	}
+
 	// Create the object.
-	result, err := api.ObjectAPI.CopyObject(targetObject, pipeReader, credential, sseRequest)
+	result, err := api.ObjectAPI.CopyObject(targetObject, pipeReader, credential, sseRequest, isMetadataOnly)
 	if err != nil {
 		logger.Error("CopyObject failed:", err)
 		WriteErrorResponse(w, r, err)
@@ -1056,7 +1075,7 @@ func (api ObjectAPIHandlers) PutObjectMeta(w http.ResponseWriter, r *http.Reques
 		WriteErrorResponse(w, r, err)
 		return
 	}
-	object:= ctx.ObjectInfo
+	object := ctx.ObjectInfo
 	object.CustomAttributes = metaData.Data
 
 	err = api.ObjectAPI.PutObjectMeta(ctx.BucketInfo, object, credential)

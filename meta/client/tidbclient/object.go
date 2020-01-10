@@ -134,6 +134,15 @@ func (t *TidbClient) RenameObject(object *Object, sourceObject string, tx DB) (e
 	return
 }
 
+func (t *TidbClient) ReplaceObjectMetas(object *Object, tx DB) (err error) {
+	if tx == nil {
+		tx = t.Client
+	}
+	sql, args := object.GetReplaceObjectMetasSql()
+	_, err = tx.Exec(sql, args...)
+	return
+}
+
 func (t *TidbClient) UpdateAppendObject(object *Object, tx DB) (err error) {
 	if tx == nil {
 		tx = t.Client

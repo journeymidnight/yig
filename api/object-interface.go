@@ -74,7 +74,7 @@ type ObjectLayer interface {
 		sse datatype.SseRequest, storageClass meta.StorageClass, objInfo *meta.Object) (result datatype.AppendObjectResult, err error)
 
 	CopyObject(targetObject *meta.Object, source io.Reader, credential common.Credential,
-		sse datatype.SseRequest) (result datatype.PutObjectResult, err error)
+		sse datatype.SseRequest, isMetadataOnly bool) (result datatype.PutObjectResult, err error)
 	RenameObject(targetObject *meta.Object, sourceObject string, credential common.Credential) (result datatype.RenameObjectResult, err error)
 	PutObjectMeta(bucket *meta.Bucket, targetObject *meta.Object, credential common.Credential) (err error)
 	SetObjectAcl(bucket string, object string, version string, policy datatype.AccessControlPolicy,
