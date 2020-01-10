@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"strconv"
 	"time"
 
@@ -203,5 +204,13 @@ func (o *Object) GetAddUsageSql() (string, []interface{}) {
 func (o *Object) GetSubUsageSql() (string, []interface{}) {
 	sql := "update buckets set usages= usages + ? where bucketname=?"
 	args := []interface{}{-o.Size, o.BucketName}
+	return sql, args
+}
+
+func (o *Object) GetReplaceObjectMetasSql() (string, []interface{}) {
+	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
+	customAttributes, _ := json.Marshal(o.CustomAttributes)
+	sql := "update objects set contenttype=? and customattributes=? and storageclass=? where bucketname=? and name=? and version=?"
+	args := []interface{}{o.ContentType, customAttributes, o.StorageClass, o.BucketName, o.Name, version}
 	return sql, args
 }

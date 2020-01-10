@@ -61,6 +61,7 @@ const (
 	ErrInvalidCopySourceStorageClass
 	ErrInvalidCopyDest
 	ErrInvalidCopyRequest
+	ErrInvalidCopyRequestWithSameObject
 	ErrInvalidRenameSourceKey
 	ErrInvalidRenameTarget
 	ErrNotSupportBucketEnabledVersion
@@ -189,6 +190,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidCopyRequest: {
 		AwsErrorCode:   "InvalidCopyRequest",
 		Description:    "X-Amz-Metadata-Directive can only be COPY or REPLACE",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidCopyRequestWithSameObject: {
+		AwsErrorCode:   "InvalidCopyRequestWithSameObject",
+		Description:    "This copy request is illegal because it is trying to copy an object to itself without changing the object's metadata, storage class, website redirect location or encryption attributes.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidRenameSourceKey: {
