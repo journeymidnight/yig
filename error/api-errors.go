@@ -194,7 +194,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrInvalidCopyRequestWithSameObject: {
 		AwsErrorCode:   "InvalidCopyRequestWithSameObject",
-		Description:    "X-Amz-Metadata-Directive can only be REPLACE，If you use the same source and destination objects and want to modify the object metadata",
+		Description:    "This copy request is illegal because it is trying to copy an object to itself without changing the object's metadata, storage class, website redirect location or encryption attributes.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidRenameSourceKey: {

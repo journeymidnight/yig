@@ -557,8 +557,6 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	var isMetadataOnly bool
 	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName {
 		isMetadataOnly = true
-	} else {
-		isMetadataOnly = false
 	}
 
 	// Check if x-amz-metadata-directive was not set to REPLACE and source,
