@@ -694,7 +694,7 @@ func (yig *YigStorage) RenameObject(reqCtx RequestContext, targetObject *meta.Ob
 }
 
 func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Object, source io.Reader, credential common.Credential,
-	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
+	sseRequest datatype.SseRequest, isMetadataOnly bool) (result datatype.PutObjectResult, err error) {
 	var oid string
 	var maybeObjectToRecycle objectToRecycle
 	var encryptionKey []byte
@@ -714,6 +714,14 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 	default:
 		if bucket.OwnerId != credential.UserId {
 			return result, ErrBucketAccessForbidden
+		}
+	}
+
+	if isMetadataOnly {
+		err = yig.MetaStorage.ReplaceObjectMetas(targetObject)
+		if err != nil {
+			helper.Logger.Error("Copy Object with same source and target, sql fails:", err)
+			return result, ErrInternalError
 		}
 	}
 
