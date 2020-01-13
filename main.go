@@ -66,7 +66,7 @@ func main() {
 	// try to create message bus sender if message bus is enabled.
 	// message bus sender is singleton so create it beforehand.
 	if helper.CONFIG.Plugins[types.MESSAGEBUS_KAFKA].Enable {
-		messageBusSender, err := bus.GetMessageSender(allPluginMap)
+		messageBusSender, err := bus.InitMessageSender(allPluginMap)
 		if err != nil {
 			helper.Logger.Error("Failed to create message bus sender, err:", err)
 			panic("failed to create message bus sender")

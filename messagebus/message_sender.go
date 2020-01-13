@@ -17,7 +17,7 @@ type MessageSender interface {
 var MsgSender MessageSender
 
 // create the singleton MessageSender
-func GetMessageSender(plugins map[string]*mods.YigPlugin) (MessageSender, error) {
+func InitMessageSender(plugins map[string]*mods.YigPlugin) (MessageSender, error) {
 	name := "kafka"
 	p := plugins[name]
 	c, err := p.Create(helper.CONFIG.Plugins[name].Args)
