@@ -1,13 +1,12 @@
 package types
 
 import (
-	"encoding/hex"
+	"encoding/binary"
 	"errors"
 	"math"
-	"strconv"
 
 	"github.com/journeymidnight/yig/api/datatype"
-	"github.com/xxtea/xxtea-go/xxtea"
+	"github.com/journeymidnight/yig/meta/util"
 )
 
 type Part struct {
@@ -46,20 +45,41 @@ type Multipart struct {
 	Parts       map[int]*Part
 }
 
-func (m *Multipart) GetUploadId() (string, error) {
+func (m *Multipart) GenUploadId() error {
 	if m.UploadId != "" {
-		return m.UploadId, nil
+		return nil
 	}
 	if m.InitialTime == 0 {
-		return "", errors.New("Zero value InitialTime for Multipart")
+		return errors.New("Zero value InitialTime for Multipart")
 	}
+
 	m.UploadId = getMultipartUploadId(m.InitialTime)
-	return m.UploadId, nil
+	return nil
+}
+
+//UploadId = xxtea.Encrypt(BigEndian(MaxUint64 - UTC.Nano()), "hehehehe")
+func EncodeTime(initialTime uint64) []byte {
+	var bin [8]byte
+	binary.BigEndian.PutUint64(bin[:], math.MaxUint64-initialTime)
+	return bin[:]
+}
+
+//UploadId = xxtea.Encrypt(BigEndian(MaxUint64 - UTC.Nano()), "hehehehe")
+func DecodeTime(bin []byte) uint64 {
+	t := binary.BigEndian.Uint64(bin)
+	return math.MaxUint64 - t
 }
 
 func getMultipartUploadId(initialTime uint64) string {
-	timeData := []byte(strconv.FormatUint(initialTime, 10))
-	return hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
+	return util.Encrypt(EncodeTime(initialTime))
+}
+
+func GetInitialTimeFromUploadId(uploadId string) (uint64, error) {
+	bin, err := util.Decrypt(uploadId)
+	if err != nil {
+		return 0, err
+	}
+	return DecodeTime(bin), nil
 }
 
 func GetMultipartUploadIdByDbTime(uploadtime uint64) string {

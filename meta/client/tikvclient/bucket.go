@@ -63,7 +63,8 @@ func (c *TiKVClient) DeleteBucket(bucket Bucket) error {
 }
 
 func (c *TiKVClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimiter string, versioned bool,
-	maxKeys int) (retObjects []*Object, prefixes []string, truncated bool, nextMarker, nextVerIdMarker string, err error) {
+	maxKeys int) (info ListObjectsInfo, err error) {
+
 	return
 }
 

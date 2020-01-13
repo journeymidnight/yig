@@ -1,6 +1,8 @@
 package tikvclient
 
-import "gopkg.in/bufio.v1"
+import (
+	"gopkg.in/bufio.v1"
+)
 
 func GenKey(args ...string) []byte {
 	buf := bufio.NewBuffer([]byte{})

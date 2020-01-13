@@ -200,7 +200,7 @@ type Object struct {
 	Key          string
 	LastModified string // time string of format "2006-01-02T15:04:05.000Z"
 	ETag         string
-	Size         int64
+	Size         uint64
 
 	Owner Owner
 
@@ -218,6 +218,7 @@ type VersionedObject struct {
 	ETag         string
 	Size         int64
 	StorageClass string
+	DeleteMarker bool
 	Owner        Owner
 }
 

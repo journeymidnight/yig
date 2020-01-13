@@ -127,9 +127,8 @@ func (api ObjectAPIHandlers) ListMultipartUploadsHandler(w http.ResponseWriter, 
 // criteria to return a subset of the objects in a bucket.
 //
 func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 
 	var credential common.Credential
 	var err error
@@ -159,14 +158,14 @@ func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	listObjectsInfo, err := api.ObjectAPI.ListObjects(credential, bucketName, request)
+	listObjectsInfo, err := api.ObjectAPI.ListObjects(reqCtx, credential, request)
 	if err != nil {
 		logger.Error("Unable to list objects:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
 
-	response := GenerateListObjectsResponse(bucketName, request, listObjectsInfo)
+	response := GenerateListObjectsResponse(reqCtx.BucketName, request, listObjectsInfo)
 	encodedSuccessResponse := EncodeResponse(response)
 
 	// ResponseRecorder
@@ -177,9 +176,8 @@ func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 }
 
 func (api ObjectAPIHandlers) ListVersionedObjectsHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 
 	var credential common.Credential
 	var err error
@@ -205,14 +203,14 @@ func (api ObjectAPIHandlers) ListVersionedObjectsHandler(w http.ResponseWriter, 
 	}
 	request.Versioned = true
 
-	listObjectsInfo, err := api.ObjectAPI.ListVersionedObjects(credential, bucketName, request)
+	listObjectsInfo, err := api.ObjectAPI.ListVersionedObjects(reqCtx, credential, request)
 	if err != nil {
 		logger.Error("Unable to list objects:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
 
-	response := GenerateVersionedListObjectResponse(bucketName, request, listObjectsInfo)
+	response := GenerateVersionedListObjectResponse(reqCtx.BucketName, request, listObjectsInfo)
 	encodedSuccessResponse := EncodeResponse(response)
 
 	// ResponseRecorder
@@ -396,7 +394,6 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 	w.Header().Set("Location", GetLocation(r))
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "PutBucket"
-	helper.Logger.Info("############2")
 	WriteSuccessResponse(w, nil)
 }
 

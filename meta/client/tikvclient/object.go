@@ -48,12 +48,11 @@ func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage
 		}
 	}()
 
+	txn := tx.(*TikvTx).tx
 	objectVal, err := helper.MsgPackMarshal(object)
 	if err != nil {
 		return err
 	}
-
-	txn := tx.(*TikvTx).tx
 
 	err = txn.Set(objectKey, objectVal)
 	if err != nil {
@@ -61,7 +60,7 @@ func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage
 	}
 
 	if multipart != nil {
-		multipartKey := genMultipartKey(object.BucketName, object.Name, multipart.UploadId)
+		multipartKey := genMultipartKey(object.BucketName, object.Name, multipart.InitialTime)
 		txn.Delete(multipartKey)
 	}
 
@@ -75,7 +74,30 @@ func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage
 
 func (c *TiKVClient) PutObjectWithoutMultiPart(object *Object) error {
 	objectKey := genObjectKey(object.BucketName, object.Name, object.VersionId)
-	return c.Put(objectKey, object)
+	tx, err := c.NewTrans()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = c.CommitTrans(tx)
+		}
+		if err != nil {
+			c.AbortTrans(tx)
+		}
+	}()
+
+	txn := tx.(*TikvTx).tx
+	objectVal, err := helper.MsgPackMarshal(object)
+	if err != nil {
+		return err
+	}
+
+	err = txn.Set(objectKey, objectVal)
+	if err != nil {
+		return err
+	}
+	return c.UpdateUsage(object.BucketName, object.Size, tx)
 }
 
 func (c *TiKVClient) UpdateObject(object *Object, multipart *Multipart, updateUsage bool) (err error) {

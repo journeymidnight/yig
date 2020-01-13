@@ -4,10 +4,10 @@ import (
 	"database/sql"
 	. "database/sql/driver"
 	"encoding/json"
-	"strconv"
 	"strings"
 	"time"
 
+	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
@@ -152,10 +152,7 @@ func (t *TidbClient) PutNewBucket(bucket Bucket) error {
 	return err
 }
 
-func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimiter string, versioned bool, maxKeys int) (retObjects []*Object, prefixes []string, truncated bool, nextMarker, nextVerIdMarker string, err error) {
-	if versioned {
-		return
-	}
+func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (listInfo ListObjectsInfo, err error) {
 	var count int
 	var exit bool
 	objectMap := make(map[string]struct{})
@@ -167,10 +164,12 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 		var sqltext string
 		var rows *sql.Rows
 		if marker == "" {
-			sqltext = "select bucketname,name,version,nullversion,deletemarker from objects where bucketName=? order by bucketname,name,version limit ?;"
+			sqltext = "select bucketname,name,version,nullversion,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size" +
+				" from objects where bucketName=? order by bucketname,name,version limit ?;"
 			rows, err = t.Client.Query(sqltext, bucketName, maxKeys)
 		} else {
-			sqltext = "select bucketname,name,version,nullversion,deletemarker from objects where bucketName=? and name >=? order by bucketname,name,version limit ?,?;"
+			sqltext = "select bucketname,name,version,nullversion,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size" +
+				" from objects where bucketName=? and name >=? order by bucketname,name,version limit ?,?;"
 			rows, err = t.Client.Query(sqltext, bucketName, marker, objectNum[marker], objectNum[marker]+maxKeys)
 		}
 		if err != nil {
@@ -180,15 +179,21 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 		for rows.Next() {
 			loopcount += 1
 			//fetch related date
-			var bucketname, name string
-			var version uint64
+			var bucketname, name, ownerid string
+			var version, etag, lastModified, storageClass string
 			var nullversion, deletemarker bool
+			var size uint64
 			err = rows.Scan(
 				&bucketname,
 				&name,
 				&version,
 				&nullversion,
 				&deletemarker,
+				&ownerid,
+				&etag,
+				&lastModified,
+				&storageClass,
+				&size,
 			)
 			if err != nil {
 				return
@@ -230,36 +235,43 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 					}
 					if _, ok := commonPrefixes[prefixKey]; !ok {
 						if count == maxKeys {
-							truncated = true
+							listInfo.IsTruncated = true
 							exit = true
 							break
 						}
 						commonPrefixes[prefixKey] = struct{}{}
-						nextMarker = prefixKey
+						listInfo.NextMarker = prefixKey
 						count += 1
 					}
 					continue
 				}
 			}
-			var o *Object
-			Strver := strconv.FormatUint(version, 10)
-			o, err = t.GetObject(bucketname, name, Strver)
+			var o datatype.Object
+			o.Key = name
+			o.Owner = datatype.Owner{ID: ownerid}
+			o.ETag = etag
+			lastt, _ := time.Parse(TIME_LAYOUT_TIDB, lastModified)
 			if err != nil {
 				return
 			}
+			o.LastModified = lastt.UTC().Format(CREATE_TIME_LAYOUT)
+			o.Size = size
+			o.StorageClass = storageClass
+
 			count += 1
 			if count == maxKeys {
-				nextMarker = name
+				listInfo.NextMarker = name
 			}
 			if count == 0 {
 				continue
 			}
 			if count > maxKeys {
-				truncated = true
+				listInfo.IsTruncated = true
 				exit = true
 				break
 			}
-			retObjects = append(retObjects, o)
+
+			listInfo.Objects = append(listInfo.Objects, o)
 		}
 		if loopcount == 0 {
 			exit = true
@@ -268,7 +280,11 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 			break
 		}
 	}
-	prefixes = helper.Keys(commonPrefixes)
+	listInfo.Prefixes = helper.Keys(commonPrefixes)
+	return
+}
+
+func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefix, delimiter string, maxKeys int) (listInfo VersionedListObjectsInfo, err error) {
 	return
 }
 
@@ -307,11 +323,11 @@ func (t *TidbClient) DeleteBucket(bucket Bucket) error {
 
 //TODO: Only find one object
 func (t *TidbClient) IsEmptyBucket(bucketName string) (bool, error) {
-	objs, _, _, _, _, err := t.ListObjects(bucketName, "", "", "", "", false, 1)
+	listInfo, err := t.ListObjects(bucketName, "", "", "", 1)
 	if err != nil {
 		return false, err
 	}
-	if len(objs) != 0 {
+	if len(listInfo.Objects) != 0 {
 		return false, nil
 	}
 	// Check if object part is empty

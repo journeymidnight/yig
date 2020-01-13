@@ -30,14 +30,15 @@ type Client interface {
 	PutBucket(bucket Bucket) error
 	PutNewBucket(bucket Bucket) error
 	DeleteBucket(bucket Bucket) error
-	ListObjects(bucketName, marker, verIdMarker, prefix, delimiter string, versioned bool, maxKeys int) (retObjects []*Object, prefixes []string, truncated bool, nextMarker, nextVerIdMarker string, err error)
+	ListObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (listInfo ListObjectsInfo, err error)
+	ListVersionedObjects(bucketName, marker, verIdMarker, prefix, delimiter string, maxKeys int) (listInfo VersionedListObjectsInfo, err error)
 	UpdateUsage(bucketName string, size int64, tx Tx) error
 	IsEmptyBucket(bucketName string) (isEmpty bool, err error)
 
 	//multipart
 	GetMultipart(bucketName, objectName, uploadId string) (multipart Multipart, err error)
 	CreateMultipart(multipart Multipart) (err error)
-	PutObjectPart(multipart *Multipart, part *Part, tx Tx) (err error)
+	PutObjectPart(multipart *Multipart, part *Part) (err error)
 	DeleteMultipart(multipart *Multipart, tx Tx) (err error)
 	ListMultipartUploads(bucketName, keyMarker, uploadIdMarker, prefix, delimiter, encodingType string, maxUploads int) (uploads []datatype.Upload, prefixs []string, isTruncated bool, nextKeyMarker, nextUploadIdMarker string, err error)
 

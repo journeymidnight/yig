@@ -470,17 +470,14 @@ func (yig *YigStorage) DeleteBucket(reqCtx RequestContext, credential common.Cre
 }
 
 func (yig *YigStorage) ListObjectsInternal(bucketName string,
-	request datatype.ListObjectsRequest) (retObjects []*meta.Object, prefixes []string, truncated bool,
-	nextMarker, nextVerIdMarker string, err error) {
+	request datatype.ListObjectsRequest) (info meta.ListObjectsInfo, err error) {
 
 	var marker string
-	var verIdMarker string
 	if request.Versioned {
 		marker = request.KeyMarker
-		verIdMarker = request.VersionIdMarker
 	} else if request.Version == 2 {
 		if request.ContinuationToken != "" {
-			marker, err = util.Decrypt(request.ContinuationToken)
+			marker, err = util.DecryptToString(request.ContinuationToken)
 			if err != nil {
 				err = ErrInvalidContinuationToken
 				return
@@ -494,16 +491,42 @@ func (yig *YigStorage) ListObjectsInternal(bucketName string,
 	helper.Logger.Info("Prefix:", request.Prefix, "Marker:", request.Marker, "MaxKeys:",
 		request.MaxKeys, "Delimiter:", request.Delimiter, "Version:", request.Version,
 		"keyMarker:", request.KeyMarker, "versionIdMarker:", request.VersionIdMarker)
-	return yig.MetaStorage.Client.ListObjects(bucketName, marker, verIdMarker, request.Prefix, request.Delimiter, request.Versioned, request.MaxKeys)
+	return yig.MetaStorage.Client.ListObjects(bucketName, marker, request.Prefix, request.Delimiter, request.MaxKeys)
 }
 
-func (yig *YigStorage) ListObjects(credential common.Credential, bucketName string,
+func (yig *YigStorage) ListVersionedObjectsInternal(bucketName string,
+	request datatype.ListObjectsRequest) (info meta.VersionedListObjectsInfo, err error) {
+
+	var marker string
+	var verIdMarker string
+	if request.Versioned {
+		marker = request.KeyMarker
+		verIdMarker = request.VersionIdMarker
+	} else if request.Version == 2 {
+		if request.ContinuationToken != "" {
+			marker, err = util.DecryptToString(request.ContinuationToken)
+			if err != nil {
+				err = ErrInvalidContinuationToken
+				return
+			}
+		} else {
+			marker = request.StartAfter
+		}
+	} else { // version 1
+		marker = request.Marker
+	}
+	helper.Logger.Info("Prefix:", request.Prefix, "Marker:", request.Marker, "MaxKeys:",
+		request.MaxKeys, "Delimiter:", request.Delimiter, "Version:", request.Version,
+		"keyMarker:", request.KeyMarker, "versionIdMarker:", request.VersionIdMarker)
+	return yig.MetaStorage.Client.ListVersionedObjects(bucketName, marker, verIdMarker, request.Prefix, request.Delimiter, request.MaxKeys)
+}
+
+func (yig *YigStorage) ListObjects(reqCtx RequestContext, credential common.Credential,
 	request datatype.ListObjectsRequest) (result meta.ListObjectsInfo, err error) {
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
-	helper.Logger.Info("GetBucket", bucket)
-	if err != nil {
-		return
+	bucket := reqCtx.BucketInfo
+	if bucket == nil {
+		return result, ErrNoSuchBucket
 	}
 
 	switch bucket.ACL.CannedAcl {
@@ -522,31 +545,31 @@ func (yig *YigStorage) ListObjects(credential common.Credential, bucketName stri
 	}
 	// TODO validate user policy and ACL
 
-	retObjects, prefixes, truncated, nextMarker, _, err := yig.ListObjectsInternal(bucketName, request)
-	if truncated && len(nextMarker) != 0 {
-		result.NextMarker = nextMarker
+	info, err := yig.ListObjectsInternal(bucket.Name, request)
+	if info.IsTruncated && len(info.NextMarker) != 0 {
+		result.NextMarker = info.NextMarker
 	}
 	if request.Version == 2 {
-		result.NextMarker = util.Encrypt(result.NextMarker)
+		result.NextMarker = util.Encrypt([]byte(result.NextMarker))
 	}
-	objects := make([]datatype.Object, 0, len(retObjects))
-	for _, obj := range retObjects {
-		helper.Logger.Info("result:", obj.Name)
+	objects := make([]datatype.Object, 0, len(info.Objects))
+	for _, obj := range info.Objects {
+		helper.Logger.Info("result:", obj)
 		object := datatype.Object{
-			LastModified: obj.LastModifiedTime.UTC().Format(meta.CREATE_TIME_LAYOUT),
-			ETag:         "\"" + obj.Etag + "\"",
+			LastModified: obj.LastModified,
+			ETag:         "\"" + obj.ETag + "\"",
 			Size:         obj.Size,
 			StorageClass: "STANDARD",
 		}
 		if request.EncodingType != "" { // only support "url" encoding for now
-			object.Key = url.QueryEscape(obj.Name)
+			object.Key = url.QueryEscape(obj.Key)
 		} else {
-			object.Key = obj.Name
+			object.Key = obj.Key
 		}
 
 		if request.FetchOwner {
 			var owner common.Credential
-			owner, err = iam.GetCredentialByUserId(obj.OwnerId)
+			owner, err = iam.GetCredentialByUserId(obj.Owner.ID)
 			if err != nil {
 				return
 			}
@@ -558,8 +581,8 @@ func (yig *YigStorage) ListObjects(credential common.Credential, bucketName stri
 		objects = append(objects, object)
 	}
 	result.Objects = objects
-	result.Prefixes = prefixes
-	result.IsTruncated = truncated
+	result.Prefixes = info.Prefixes
+	result.IsTruncated = info.IsTruncated
 
 	if request.EncodingType != "" { // only support "url" encoding for now
 		result.Prefixes = helper.Map(result.Prefixes, func(s string) string {
@@ -572,12 +595,12 @@ func (yig *YigStorage) ListObjects(credential common.Credential, bucketName stri
 
 // TODO: refactor, similar to ListObjects
 // or not?
-func (yig *YigStorage) ListVersionedObjects(credential common.Credential, bucketName string,
+func (yig *YigStorage) ListVersionedObjects(reqCtx RequestContext, credential common.Credential,
 	request datatype.ListObjectsRequest) (result meta.VersionedListObjectsInfo, err error) {
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
-	if err != nil {
-		return
+	bucket := reqCtx.BucketInfo
+	if bucket == nil {
+		return result, ErrNoSuchBucket
 	}
 
 	switch bucket.ACL.CannedAcl {
@@ -595,26 +618,26 @@ func (yig *YigStorage) ListVersionedObjects(credential common.Credential, bucket
 		}
 	}
 
-	retObjects, prefixes, truncated, nextMarker, nextVerIdMarker, err := yig.ListObjectsInternal(bucketName, request)
-	if truncated && len(nextMarker) != 0 {
-		result.NextKeyMarker = nextMarker
-		result.NextVersionIdMarker = nextVerIdMarker
+	info, err := yig.ListVersionedObjectsInternal(bucket.Name, request)
+	if info.IsTruncated && len(info.NextKeyMarker) != 0 {
+		result.NextKeyMarker = info.NextKeyMarker
+		result.NextVersionIdMarker = info.NextVersionIdMarker
 	}
 
-	objects := make([]datatype.VersionedObject, 0, len(retObjects))
-	for _, o := range retObjects {
+	objects := make([]datatype.VersionedObject, 0, len(info.Objects))
+	for _, o := range info.Objects {
 		// TODO: IsLatest
 		object := datatype.VersionedObject{
-			LastModified: o.LastModifiedTime.UTC().Format(meta.CREATE_TIME_LAYOUT),
-			ETag:         "\"" + o.Etag + "\"",
+			LastModified: o.LastModified,
+			ETag:         "\"" + o.ETag + "\"",
 			Size:         o.Size,
 			StorageClass: "STANDARD",
-			Key:          o.Name,
+			Key:          o.Key,
 		}
 		if request.EncodingType != "" { // only support "url" encoding for now
 			object.Key = url.QueryEscape(object.Key)
 		}
-		object.VersionId = o.GetVersionId()
+		object.VersionId = o.VersionId
 		if o.DeleteMarker {
 			object.XMLName.Local = "DeleteMarker"
 		} else {
@@ -622,7 +645,7 @@ func (yig *YigStorage) ListVersionedObjects(credential common.Credential, bucket
 		}
 		if request.FetchOwner {
 			var owner common.Credential
-			owner, err = iam.GetCredentialByUserId(o.OwnerId)
+			owner, err = iam.GetCredentialByUserId(o.Owner.ID)
 			if err != nil {
 				return
 			}
@@ -634,8 +657,8 @@ func (yig *YigStorage) ListVersionedObjects(credential common.Credential, bucket
 		objects = append(objects, object)
 	}
 	result.Objects = objects
-	result.Prefixes = prefixes
-	result.IsTruncated = truncated
+	result.Prefixes = info.Prefixes
+	result.IsTruncated = info.IsTruncated
 
 	if request.EncodingType != "" { // only support "url" encoding for now
 		result.Prefixes = helper.Map(result.Prefixes, func(s string) string {

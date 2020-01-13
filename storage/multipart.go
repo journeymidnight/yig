@@ -134,12 +134,16 @@ func (yig *YigStorage) NewMultipartUpload(reqCtx RequestContext, credential comm
 		Metadata:    multipartMetadata,
 	}
 
-	uploadId, err = multipart.GetUploadId()
+	err = multipart.GenUploadId()
 	if err != nil {
 		return
 	}
+
 	err = yig.MetaStorage.Client.CreateMultipart(multipart)
-	return
+	if err != nil {
+		return
+	}
+	return multipart.UploadId, nil
 }
 
 func (yig *YigStorage) PutObjectPart(reqCtx RequestContext, credential common.Credential,
@@ -148,6 +152,7 @@ func (yig *YigStorage) PutObjectPart(reqCtx RequestContext, credential common.Cr
 
 	defer data.Close()
 	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
+	helper.Logger.Info("##############", uploadId)
 	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
 	if err != nil {
 		return
@@ -227,21 +232,6 @@ func (yig *YigStorage) PutObjectPart(reqCtx RequestContext, credential common.Cr
 			return
 		}
 	}
-
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
-	if err != nil {
-		RecycleQueue <- maybeObjectToRecycle
-		return
-	}
-	switch bucket.ACL.CannedAcl {
-	case "public-read-write":
-		break
-	default:
-		if bucket.OwnerId != credential.UserId {
-			RecycleQueue <- maybeObjectToRecycle
-			return result, ErrBucketAccessForbidden
-		}
-	} // TODO policy and fancy ACL
 
 	part := meta.Part{
 		PartNumber:           partId,

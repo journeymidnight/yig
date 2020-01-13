@@ -47,9 +47,9 @@ type ObjectLayer interface {
 	GetBucketInfoByCtx(ctx RequestContext, credential common.Credential) (bucket *meta.Bucket, err error)
 	ListBuckets(credential common.Credential) (buckets []meta.Bucket, err error)
 	DeleteBucket(reqCtx RequestContext, credential common.Credential) error
-	ListObjects(credential common.Credential, bucket string,
+	ListObjects(reqCtx RequestContext, credential common.Credential,
 		request datatype.ListObjectsRequest) (result meta.ListObjectsInfo, err error)
-	ListVersionedObjects(credential common.Credential, bucket string,
+	ListVersionedObjects(reqCtx RequestContext, credential common.Credential,
 		request datatype.ListObjectsRequest) (result meta.VersionedListObjectsInfo, err error)
 
 	SetBucketPolicy(credential common.Credential, bucket string, policy policy.Policy) error

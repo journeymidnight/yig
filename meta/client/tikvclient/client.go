@@ -5,6 +5,7 @@ import (
 
 	"github.com/journeymidnight/yig/helper"
 	"github.com/tikv/client-go/config"
+	"github.com/tikv/client-go/key"
 	"github.com/tikv/client-go/rawkv"
 	"github.com/tikv/client-go/txnkv"
 )
@@ -20,7 +21,7 @@ const (
 )
 
 var (
-	TableMinKeySuffix = string(0x00)
+	TableMinKeySuffix = ""
 	TableMaxKeySuffix = string(0xFF)
 	TableSeparator    = string(92) // "\"
 )
@@ -131,6 +132,28 @@ func (c *TiKVClient) TxDelete(keys ...[]byte) error {
 		if err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (c *TiKVClient) TxScanWithDelete(keyPrefix []byte, limit int) error {
+	tx, err := c.txnCli.Begin(context.TODO())
+	if err != nil {
+		return err
+	}
+	it, err := tx.Iter(context.TODO(), key.Key(keyPrefix), nil)
+	if err != nil {
+		return err
+	}
+	defer it.Close()
+	for it.Valid() && limit > 0 {
+		err := tx.Delete(it.Key()[:])
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+		limit--
+		it.Next(context.TODO())
 	}
 	return nil
 }
