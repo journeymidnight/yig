@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/journeymidnight/yig/messagebus/types"
 	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
@@ -14,7 +15,6 @@ import (
 	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/log"
 	bus "github.com/journeymidnight/yig/messagebus"
-	_ "github.com/journeymidnight/yig/messagebus/kafka"
 	"github.com/journeymidnight/yig/mods"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/storage"
@@ -64,10 +64,13 @@ func main() {
 		}
 	}
 
+	// Read all *.so from plugins directory, and fill the variable allPlugins
+	allPluginMap := mods.InitialPlugins()
+
 	// try to create message bus sender if message bus is enabled.
 	// message bus sender is singleton so create it beforehand.
-	if helper.CONFIG.MsgBus.Enabled {
-		messageBusSender, err := bus.GetMessageSender()
+	if helper.CONFIG.Plugins[types.MESSAGEBUS_KAFKA].Enable {
+		messageBusSender, err := bus.InitMessageSender(allPluginMap)
 		if err != nil {
 			helper.Logger.Error("Failed to create message bus sender, err:", err)
 			panic("failed to create message bus sender")
@@ -78,9 +81,6 @@ func main() {
 		}
 		helper.Logger.Info("Succeed to create message bus sender.")
 	}
-
-	// Read all *.so from plugins directory, and fill the variable allPlugins
-	allPluginMap := mods.InitialPlugins()
 
 	iam.InitializeIamClient(allPluginMap)
 

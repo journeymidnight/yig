@@ -62,7 +62,7 @@ func (a AccessLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a AccessLogHandler) notify(elems map[string]string) {
-	if !helper.CONFIG.MsgBus.Enabled {
+	if !helper.CONFIG.Plugins[types.MESSAGEBUS_KAFKA].Enable {
 		return
 	}
 	if len(elems) == 0 {
@@ -74,22 +74,7 @@ func (a AccessLogHandler) notify(elems map[string]string) {
 		return
 	}
 
-	sender, err := bus.GetMessageSender()
-	if err != nil {
-		helper.Logger.Error("Failed to get message bus sender, err:", err)
-		return
-	}
-
-	// send the message to message bus async.
-	// don't set the ErrChan.
-	msg := &types.Message{
-		Topic:   helper.CONFIG.MsgBus.Topic,
-		Key:     "",
-		ErrChan: nil,
-		Value:   val,
-	}
-
-	err = sender.AsyncSend(msg)
+	err = bus.MsgSender.AsyncSend(val)
 	if err != nil {
 		helper.Logger.Error(
 			fmt.Sprintf("Failed to send message [%v] to message bus, err: %v",

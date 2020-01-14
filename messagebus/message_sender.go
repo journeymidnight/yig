@@ -1,18 +1,13 @@
 package messagebus
 
 import (
-	"errors"
-	"fmt"
-	"sync"
-	"sync/atomic"
-
 	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/messagebus/types"
+	"github.com/journeymidnight/yig/mods"
 )
 
 type MessageSender interface {
 	// send the message async
-	AsyncSend(msg *types.Message) error
+	AsyncSend(value []byte) error
 	// flush all the messages, timeout is in ms.
 	Flush(timeout int) error
 	// free this instance.
@@ -20,33 +15,17 @@ type MessageSender interface {
 }
 
 var MsgSender MessageSender
-var initialized uint32
-var mu sync.Mutex
 
 // create the singleton MessageSender
-func GetMessageSender() (MessageSender, error) {
-	var err error
-	if atomic.LoadUint32(&initialized) == 1 {
-		return MsgSender, nil
+func InitMessageSender(plugins map[string]*mods.YigPlugin) (MessageSender, error) {
+	name := "kafka"
+	p := plugins[name]
+	c, err := p.Create(helper.CONFIG.Plugins[name].Args)
+	if err != nil {
+		helper.Logger.Error("failed to initial message bus plugin:", name, "\nerr:", err)
+		return nil, err
 	}
-	mu.Lock()
-	defer mu.Unlock()
-	if initialized == 0 {
-		builder, ok := MsgBuilders[helper.CONFIG.MsgBus.Type]
-		if !ok {
-			return nil, errors.New("msg_bus config is invalidate.")
-		}
-		MsgSender, err = builder.Create(helper.CONFIG.MsgBus)
-		if err != nil || nil == MsgSender {
-			return nil, errors.New(fmt.Sprintf("failed to create message_sender with err: %v", err))
-		}
-
-		atomic.StoreUint32(&initialized, 1)
-	}
+	helper.Logger.Println("Message bus plugin is", name)
+	MsgSender = c.(MessageSender)
 	return MsgSender, nil
-}
-
-// this func is just for testing. Don't use it in other place.
-func ClearInit() {
-	atomic.StoreUint32(&initialized, 0)
 }

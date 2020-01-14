@@ -62,15 +62,16 @@ kms_secret = "your_secret"
 version = 0
 keyname = "yig"
 
-[msg_bus]
-msg_bus_enable = true
-msg_bus_type = 1
-msg_bus_topic = "testTopic2"
-[msg_bus.msg_bus_server]
-broker_list = "kafka:29092"
-
-
 # Plugin Config
+[plugins.kafka]
+path = "/etc/yig/plugins/kafka_plugin.so"
+enable = true
+[plugins.kafka.args]
+topic = "testTopic2"
+request_timeout_ms = "3000"
+message_timeout_ms = "5000"
+send_max_retries = "2"
+broker_list = "kafka:29092"
 
 [plugins.dummy_iam]
 path = "/etc/yig/plugins/dummy_iam_plugin.so"
