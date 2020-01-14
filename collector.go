@@ -92,11 +92,7 @@ func (c *Metrics) GenerateBucketUsageData() (GaugeMetricData map[string][]UsageD
 			return
 		}
 		for _, data := range datas {
-			if len(GaugeMetricData[bucket.Name]) == 0 {
-				GaugeMetricData[bucket.Name] = []UsageDataWithBucket{{data.value, bucket.OwnerId, data.storageClass}}
-			} else {
-				GaugeMetricData[bucket.Name] = append(GaugeMetricData[bucket.Name], UsageDataWithBucket{data.value, bucket.OwnerId, data.storageClass})
-			}
+			GaugeMetricData[bucket.Name] = append(GaugeMetricData[bucket.Name], UsageDataWithBucket{data.value, bucket.OwnerId, data.storageClass})
 		}
 	}
 	return
@@ -127,11 +123,7 @@ func (c *Metrics) GenerateUserUsageData() (GaugeMetricData map[string][]UsageDat
 				return
 			}
 			for _, data := range datas {
-				if len(GaugeMetricData[bucket.OwnerId]) == 0 {
-					GaugeMetricData[bucket.OwnerId] = []UsageData{{value: data.value, storageClass: data.storageClass}}
-				} else {
-					GaugeMetricData[bucket.OwnerId] = append(GaugeMetricData[bucket.OwnerId], UsageData{value: data.value, storageClass: data.storageClass})
-				}
+				GaugeMetricData[bucket.OwnerId] = append(GaugeMetricData[bucket.OwnerId], UsageData{value: data.value, storageClass: data.storageClass})
 			}
 		}
 	}
