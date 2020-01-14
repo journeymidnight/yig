@@ -55,24 +55,28 @@ func (c *Metrics) Collect(ch chan<- prometheus.Metric) {
 
 	GaugeMetricDataForBucket := c.GenerateBucketUsageData()
 	for bucket, data := range GaugeMetricDataForBucket {
-		ch <- prometheus.MustNewConstMetric(c.metrics["bucket_usage_byte_metric"], prometheus.GaugeValue, float64(data.value), bucket, data.owner, data.storageClass)
+		for _, v := range data {
+			ch <- prometheus.MustNewConstMetric(c.metrics["bucket_usage_byte_metric"], prometheus.GaugeValue, float64(v.value), bucket, v.owner, v.storageClass)
+		}
 	}
 
 	GaugeMetricDataForUid := c.GenerateUserUsageData()
 	for uid, data := range GaugeMetricDataForUid {
-		ch <- prometheus.MustNewConstMetric(c.metrics["user_usage_byte_metric"], prometheus.GaugeValue, float64(data.value), uid, data.storageClass)
+		for _, v := range data {
+			ch <- prometheus.MustNewConstMetric(c.metrics["user_usage_byte_metric"], prometheus.GaugeValue, float64(v.value), uid, v.storageClass)
+		}
 	}
 }
 
 // Get bucket usage cache which like <key><value> = <u_b_test><STANDARD:233333>
-func (c *Metrics) GenerateBucketUsageData() (GaugeMetricData map[string]UsageDataWithBucket) {
+func (c *Metrics) GenerateBucketUsageData() (GaugeMetricData map[string][]UsageDataWithBucket) {
 	buckets, err := adminServer.Yig.MetaStorage.GetBuckets()
 	if err != nil {
 		helper.Logger.Error("Get usage data for prometheus failed:",
 			err.Error())
 		return
 	}
-	GaugeMetricData = make(map[string]UsageDataWithBucket)
+	GaugeMetricData = make(map[string][]UsageDataWithBucket)
 	for _, bucket := range buckets {
 		key := BucketUsagePrefix + bucket.Name
 		usageCache, err := redis.GetUsage(key)
@@ -81,30 +85,34 @@ func (c *Metrics) GenerateBucketUsageData() (GaugeMetricData map[string]UsageDat
 				err.Error())
 			return
 		}
-		data, err := parseUsage(usageCache)
+		datas, err := parseUsage(usageCache)
 		if err != nil {
 			helper.Logger.Error("Parse usage data from redis for prometheus failed:",
 				err.Error())
 			return
 		}
-		if data.storageClass != "" {
-			GaugeMetricData[bucket.Name] = UsageDataWithBucket{data.value, bucket.OwnerId, data.storageClass}
+		for _, data := range datas {
+			if len(GaugeMetricData[bucket.Name]) == 0 {
+				GaugeMetricData[bucket.Name] = []UsageDataWithBucket{{data.value, bucket.OwnerId, data.storageClass}}
+			} else {
+				GaugeMetricData[bucket.Name] = append(GaugeMetricData[bucket.Name], UsageDataWithBucket{data.value, bucket.OwnerId, data.storageClass})
+			}
 		}
 	}
 	return
 }
 
 // Get bucket usage cache which like <key><value> = <u_p_hehehehe><STANDARD 233333>
-func (c *Metrics) GenerateUserUsageData() (GaugeMetricData map[string]UsageData) {
+func (c *Metrics) GenerateUserUsageData() (GaugeMetricData map[string][]UsageData) {
 	buckets, err := adminServer.Yig.MetaStorage.GetBuckets()
 	if err != nil {
 		helper.Logger.Error("Get usage data for prometheus failed:",
 			err.Error())
 		return
 	}
-	GaugeMetricData = make(map[string]UsageData)
+	GaugeMetricData = make(map[string][]UsageData)
 	for _, bucket := range buckets {
-		if GaugeMetricData[bucket.OwnerId].storageClass == "" {
+		if len(GaugeMetricData[bucket.OwnerId]) == 0 {
 			key := PidUsagePrefix + bucket.OwnerId
 			usageCache, err := redis.GetUsage(key)
 			if err != nil {
@@ -112,14 +120,18 @@ func (c *Metrics) GenerateUserUsageData() (GaugeMetricData map[string]UsageData)
 					err.Error())
 				return
 			}
-			data, err := parseUsage(usageCache)
+			datas, err := parseUsage(usageCache)
 			if err != nil {
 				helper.Logger.Error("Parse usage data from redis for prometheus failed:",
 					err.Error())
 				return
 			}
-			if data.storageClass != "" {
-				GaugeMetricData[bucket.OwnerId] = UsageData{value: data.value, storageClass: data.storageClass}
+			for _, data := range datas {
+				if len(GaugeMetricData[bucket.OwnerId]) == 0 {
+					GaugeMetricData[bucket.OwnerId] = []UsageData{{value: data.value, storageClass: data.storageClass}}
+				} else {
+					GaugeMetricData[bucket.OwnerId] = append(GaugeMetricData[bucket.OwnerId], UsageData{value: data.value, storageClass: data.storageClass})
+				}
 			}
 		}
 	}
@@ -127,19 +139,22 @@ func (c *Metrics) GenerateUserUsageData() (GaugeMetricData map[string]UsageData)
 }
 
 //  get usage from redis
-//  <Storage-Class>:<usagenumber>
+//  <Storage-Class1>:<usagenumber>,<Storage-Class2>:<usagenumber>
 //  eg. STANDARD:2222
-func parseUsage(value string) (*UsageData, error) {
-	var err error
-	data := new(UsageData)
+func parseUsage(value string) (datas []*UsageData, err error) {
 	if value == "" {
-		return data, nil
+		return
 	}
-	allParams := strings.Split(value, ":")
-	data.value, err = strconv.ParseInt(allParams[1], 10, 64)
-	if err != nil {
-		return data, err
+	storageClass := strings.Split(value, ",")
+	for _, v := range storageClass {
+		data := new(UsageData)
+		allParams := strings.Split(v, ":")
+		data.value, err = strconv.ParseInt(allParams[1], 10, 64)
+		if err != nil {
+			return
+		}
+		data.storageClass = allParams[0]
+		datas = append(datas, data)
 	}
-	data.storageClass = allParams[0]
-	return data, nil
+	return
 }
