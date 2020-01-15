@@ -262,9 +262,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 			if count == maxKeys {
 				listInfo.NextMarker = name
 			}
-			if count == 0 {
-				continue
-			}
+
 			if count > maxKeys {
 				listInfo.IsTruncated = true
 				exit = true

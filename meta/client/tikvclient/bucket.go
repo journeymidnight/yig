@@ -4,10 +4,13 @@ import (
 	"context"
 	. "database/sql/driver"
 	"math"
+	"strings"
 
+	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
+	"github.com/tikv/client-go/key"
 )
 
 func genBucketKey(bucketName string) []byte {
@@ -62,8 +65,79 @@ func (c *TiKVClient) DeleteBucket(bucket Bucket) error {
 	return c.TxDelete(bucketKey, userBucketKey, lifeCycleKey)
 }
 
-func (c *TiKVClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimiter string, versioned bool,
-	maxKeys int) (info ListObjectsInfo, err error) {
+func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (info ListObjectsInfo, err error) {
+	startKey := genObjectKey(bucketName, marker, NullVersion)
+	endKey := genObjectKey(bucketName, TableMaxKeySuffix, NullVersion)
+
+	tx, err := c.txnCli.Begin(context.TODO())
+	if err != nil {
+		return info, err
+	}
+	it, err := tx.Iter(context.TODO(), key.Key(startKey), key.Key(endKey))
+	if err != nil {
+		return info, err
+	}
+	defer it.Close()
+	var commonPrefixes []string
+
+	count := 0
+	lastKey := ""
+	for it.Valid() {
+		k, v := string(it.Key()[:]), it.Value()
+		if k == string(startKey) {
+			continue
+		}
+		if !strings.HasPrefix(k, prefix) {
+			continue
+		}
+		if delimiter != "" {
+			subKey := strings.TrimPrefix(k, prefix)
+			sp := strings.Split(subKey, delimiter)
+			if len(sp) > 2 {
+				continue
+			} else if len(sp) == 2 {
+				if sp[1] == "" {
+					commonPrefixes = append(commonPrefixes, subKey)
+					lastKey = k
+					count++
+					continue
+				} else {
+					continue
+				}
+			}
+		}
+		var o Object
+		var info_o datatype.Object
+		err = helper.MsgPackUnMarshal(v, &o)
+		if err != nil {
+			return info, err
+		}
+		info_o.Key = o.Name
+		info_o.Owner = datatype.Owner{ID: o.OwnerId}
+		info_o.ETag = o.Etag
+		info_o.LastModified = o.LastModifiedTime.UTC().Format(CREATE_TIME_LAYOUT)
+		info_o.Size = uint64(o.Size)
+		info_o.StorageClass = o.StorageClass.ToString()
+		lastKey = k
+		count++
+		info.Objects = append(info.Objects, info_o)
+
+		if count == maxKeys {
+			break
+		}
+		it.Next(context.TODO())
+	}
+	info.Prefixes = commonPrefixes
+	it.Next(context.TODO())
+	if it.Valid() {
+		info.NextMarker = lastKey
+		info.IsTruncated = true
+	}
+	return
+}
+
+func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefix, delimiter string,
+	maxKeys int) (info VersionedListObjectsInfo, err error) {
 
 	return
 }

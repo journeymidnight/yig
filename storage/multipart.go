@@ -152,7 +152,6 @@ func (yig *YigStorage) PutObjectPart(reqCtx RequestContext, credential common.Cr
 
 	defer data.Close()
 	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
-	helper.Logger.Info("##############", uploadId)
 	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
 	if err != nil {
 		return
