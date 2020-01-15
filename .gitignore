@@ -16,3 +16,5 @@ yig
 *.rpm
 rpm-build/
 *.so
+integrate/data/
+integrate/logs/
