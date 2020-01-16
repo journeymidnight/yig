@@ -34,3 +34,16 @@ func (s3client *S3Client) HeadBucket(bucketName string) (err error) {
 	}
 	return
 }
+
+func (s3client *S3Client) ListBuckets() (buckets []string, err error) {
+	params := &s3.ListBucketsInput{}
+	out, err := s3client.Client.ListBuckets(params)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, bucket := range out.Buckets {
+		buckets = append(buckets, *bucket.Name)
+	}
+	return
+}
