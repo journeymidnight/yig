@@ -20,7 +20,7 @@ func (t *TikvTx) Rollback() error {
 }
 
 func (c *TiKVClient) NewTrans() (tx Tx, err error) {
-	t, err := c.txnCli.Begin(context.Background())
+	t, err := c.TxnCli.Begin(context.Background())
 	if err != nil {
 		return nil, err
 	}

@@ -19,9 +19,9 @@ func genBucketKey(bucketName string) []byte {
 
 //bucket
 func (c *TiKVClient) GetBucket(bucketName string) (*Bucket, error) {
-	key := genBucketKey(bucketName)
+	bucketKey := genBucketKey(bucketName)
 	var b Bucket
-	ok, err := c.Get(key, &b)
+	ok, err := c.TxGet(bucketKey, &b)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +35,7 @@ func (c *TiKVClient) GetBucket(bucketName string) (*Bucket, error) {
 func (c *TiKVClient) GetBuckets() (buckets []Bucket, err error) {
 	startKey := GenKey(TableBucketPrefix, TableMinKeySuffix)
 	endKey := GenKey(TableBucketPrefix, TableMaxKeySuffix)
-	kvs, err := c.Scan(startKey, endKey, math.MaxUint64)
+	kvs, err := c.TxScan(startKey, endKey, math.MaxInt64)
 	for _, kv := range kvs {
 		var b Bucket
 		err = helper.MsgPackUnMarshal(kv.V, &b)
@@ -49,13 +49,25 @@ func (c *TiKVClient) GetBuckets() (buckets []Bucket, err error) {
 
 func (c *TiKVClient) PutBucket(bucket Bucket) error {
 	key := genBucketKey(bucket.Name)
-	return c.Put(key, bucket)
+	return c.TxPut(key, bucket)
 }
 
 func (c *TiKVClient) PutNewBucket(bucket Bucket) error {
 	bucketKey := genBucketKey(bucket.Name)
 	userBucketKey := genUserBucketKey(bucket.OwnerId, bucket.Name)
-	return c.TxPut(bucketKey, bucketKey, userBucketKey, 0)
+	existBucket, err := c.TxExist(bucketKey)
+	if err != nil {
+		return err
+	}
+	existUserBucket, err := c.TxExist(userBucketKey)
+	if err != nil {
+		return err
+	}
+	if existBucket && existUserBucket {
+		return ErrBucketAlreadyExists
+	}
+
+	return c.TxPut(bucketKey, bucket, userBucketKey, 0)
 }
 
 func (c *TiKVClient) DeleteBucket(bucket Bucket) error {
@@ -69,7 +81,7 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 	startKey := genObjectKey(bucketName, marker, NullVersion)
 	endKey := genObjectKey(bucketName, TableMaxKeySuffix, NullVersion)
 
-	tx, err := c.txnCli.Begin(context.TODO())
+	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
 		return info, err
 	}
@@ -156,7 +168,7 @@ func (c *TiKVClient) UpdateUsage(bucketName string, size int64, tx Tx) error {
 	var usage int64
 
 	if tx == nil {
-		ok, err := c.Get(userBucketKey, &usage)
+		ok, err := c.TxGet(userBucketKey, &usage)
 		if err != nil {
 			return err
 		}
@@ -164,7 +176,7 @@ func (c *TiKVClient) UpdateUsage(bucketName string, size int64, tx Tx) error {
 			return ErrNoSuchBucket
 		}
 		usage += size
-		return c.Put(userBucketKey, usage)
+		return c.TxPut(userBucketKey, usage)
 	}
 
 	v, err := tx.(*TikvTx).tx.Get(context.TODO(), userBucketKey)
@@ -191,14 +203,14 @@ func (c *TiKVClient) IsEmptyBucket(bucketName string) (isEmpty bool, err error) 
 	bucketEndKey := GenKey(bucketName, TableMaxKeySuffix)
 	partStartKey := GenKey(TableObjectPartPrefix, bucketName, TableMinKeySuffix)
 	partEndKey := GenKey(TableObjectPartPrefix, bucketName, TableMaxKeySuffix)
-	r, err := c.Scan(bucketStartKey, bucketEndKey, 1)
+	r, err := c.TxScan(bucketStartKey, bucketEndKey, 1)
 	if err != nil {
 		return false, err
 	}
 	if len(r) > 0 {
 		return false, nil
 	}
-	r, err = c.Scan(partStartKey, partEndKey, 1)
+	r, err = c.TxScan(partStartKey, partEndKey, 1)
 	if err != nil {
 		return false, err
 	}
@@ -206,5 +218,4 @@ func (c *TiKVClient) IsEmptyBucket(bucketName string) (isEmpty bool, err error) 
 		return false, nil
 	}
 	return true, nil
-
 }

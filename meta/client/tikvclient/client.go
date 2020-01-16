@@ -6,8 +6,8 @@ import (
 	"github.com/journeymidnight/yig/helper"
 	"github.com/tikv/client-go/config"
 	"github.com/tikv/client-go/key"
-	"github.com/tikv/client-go/rawkv"
 	"github.com/tikv/client-go/txnkv"
+	"github.com/tikv/client-go/txnkv/kv"
 )
 
 const (
@@ -27,8 +27,7 @@ var (
 )
 
 type TiKVClient struct {
-	rawCli *rawkv.Client
-	txnCli *txnkv.Client
+	TxnCli *txnkv.Client
 }
 
 // KV represents a Key-Value pair.
@@ -36,57 +35,46 @@ type KV struct {
 	K, V []byte
 }
 
-func NewClient() TiKVClient {
-	rawCli, err := rawkv.NewClient(context.TODO(), []string{helper.CONFIG.PdAddress}, config.Default())
+func NewClient() *TiKVClient {
+	TxnCli, err := txnkv.NewClient(context.TODO(), helper.CONFIG.PdAddress, config.Default())
 	if err != nil {
 		panic(err)
 	}
-
-	txnCli, err := txnkv.NewClient(context.TODO(), []string{helper.CONFIG.PdAddress}, config.Default())
-	if err != nil {
-		panic(err)
-	}
-	return TiKVClient{rawCli, txnCli}
+	return &TiKVClient{TxnCli}
 }
 
-func (c *TiKVClient) Put(k []byte, v interface{}) error {
-	b, err := helper.MsgPackMarshal(v)
-	if err != nil {
-		return err
-	}
-	return c.rawCli.Put(context.TODO(), k, b)
-}
-
-func (c *TiKVClient) Get(k []byte, ref interface{}) (bool, error) {
-	v, err := c.rawCli.Get(context.TODO(), k)
+func (c *TiKVClient) TxGet(k []byte, ref interface{}) (bool, error) {
+	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
 		return false, err
 	}
-
-	if v == nil {
+	v, err := tx.Get(context.TODO(), k)
+	if err != nil && !kv.IsErrNotFound(err) {
+		return false, err
+	}
+	if kv.IsErrNotFound(err) {
 		return false, nil
 	}
 	return true, helper.MsgPackUnMarshal(v, ref)
 }
 
-func (c *TiKVClient) Scan(startKey []byte, endKey []byte, limit int) ([]KV, error) {
-	ks, vs, err := c.rawCli.Scan(context.TODO(), startKey, endKey, limit)
+func (c *TiKVClient) TxExist(k []byte) (bool, error) {
+	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-	var ret []KV
-	for i, k := range ks {
-		ret = append(ret, KV{K: k, V: vs[i]})
+	_, err = tx.Get(context.TODO(), k)
+	if err != nil && !kv.IsErrNotFound(err) {
+		return false, err
 	}
-	return ret, nil
-}
-
-func (c *TiKVClient) Delete(k []byte) error {
-	return c.rawCli.Delete(context.TODO(), k)
+	if kv.IsErrNotFound(err) {
+		return false, nil
+	}
+	return true, nil
 }
 
 func (c *TiKVClient) TxPut(args ...interface{}) error {
-	tx, err := c.txnCli.Begin(context.TODO())
+	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
 		return err
 	}
@@ -99,13 +87,14 @@ func (c *TiKVClient) TxPut(args ...interface{}) error {
 		}
 	}()
 	for i := 0; i < len(args); i += 2 {
-		key := args[i].([]byte)
+		rowKey := args[i].([]byte)
 		val := args[i+1]
 		v, err := helper.MsgPackMarshal(val)
 		if err != nil {
 			return err
 		}
-		err = tx.Set(key, v)
+
+		err = tx.Set(rowKey, v)
 		if err != nil {
 			return err
 		}
@@ -114,7 +103,7 @@ func (c *TiKVClient) TxPut(args ...interface{}) error {
 }
 
 func (c *TiKVClient) TxDelete(keys ...[]byte) error {
-	tx, err := c.txnCli.Begin(context.TODO())
+	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
 		return err
 	}
@@ -136,8 +125,27 @@ func (c *TiKVClient) TxDelete(keys ...[]byte) error {
 	return nil
 }
 
+func (c *TiKVClient) TxScan(keyPrefix []byte, upperBound []byte, limit int) ([]KV, error) {
+	tx, err := c.TxnCli.Begin(context.TODO())
+	if err != nil {
+		return nil, err
+	}
+	it, err := tx.Iter(context.TODO(), key.Key(keyPrefix), key.Key(upperBound))
+	if err != nil {
+		return nil, err
+	}
+	defer it.Close()
+	var ret []KV
+	for it.Valid() && limit > 0 {
+		ret = append(ret, KV{K: it.Key()[:], V: it.Value()[:]})
+		limit--
+		it.Next(context.TODO())
+	}
+	return ret, nil
+}
+
 func (c *TiKVClient) TxScanWithDelete(keyPrefix []byte, limit int) error {
-	tx, err := c.txnCli.Begin(context.TODO())
+	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
 		return err
 	}

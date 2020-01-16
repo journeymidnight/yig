@@ -8,7 +8,7 @@ export GO111MODULE=on
 export GOPROXY=https://goproxy.cn
 
 build:
-	cd integrate && bash buildyig.sh $(BUILDDIR)
+	pushd integrate && docker-compose kill tikv0 tikv1 tikv2 && bash buildyig.sh $(BUILDDIR) && docker-compose start tikv0 tikv1 tikv2
 
 build_internal:
 	go build $(URL)/$(REPO)
@@ -17,6 +17,7 @@ build_internal:
 	go build $(PWD)/tools/delete.go
 	go build $(PWD)/tools/getrediskeys.go
 	go build $(PWD)/tools/lc.go
+	go build $(PWD)/tools/kvtool.go
 	cp -f $(PWD)/plugins/*.so $(PWD)/integrate/yigconf/plugins/
 
 pkg:

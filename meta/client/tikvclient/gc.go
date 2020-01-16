@@ -20,7 +20,7 @@ func (c *TiKVClient) PutObjectToGarbageCollection(object *Object, tx Tx) error {
 	key := genGcKey(object.Backend, object.Location, object.Pool, object.ObjectId)
 	gc := GetGcInfoFromObject(object)
 	if tx == nil {
-		return c.Put(key, gc)
+		return c.TxPut(key, gc)
 	}
 	txn := tx.(*TikvTx).tx
 	v, err := helper.MsgPackMarshal(gc)
@@ -34,7 +34,7 @@ func (c *TiKVClient) PutObjectToGarbageCollection(object *Object, tx Tx) error {
 func (c *TiKVClient) ScanGarbageCollection(limit int) (gcs []GarbageCollection, err error) {
 	startKey := GenKey(TableGcPrefix, TableMinKeySuffix)
 	endKey := GenKey(TableGcPrefix, TableMaxKeySuffix)
-	kvs, err := c.Scan(startKey, endKey, limit)
+	kvs, err := c.TxScan(startKey, endKey, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -55,5 +55,5 @@ func (c *TiKVClient) ScanGarbageCollection(limit int) (gcs []GarbageCollection, 
 
 func (c *TiKVClient) RemoveGarbageCollection(garbage GarbageCollection) error {
 	key := genGcKey(garbage.Backend, garbage.Location, garbage.Pool, garbage.ObjectId)
-	return c.Delete(key)
+	return c.TxDelete(key)
 }

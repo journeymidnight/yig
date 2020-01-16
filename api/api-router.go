@@ -33,6 +33,8 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 
 	var routers []*router.Router
 	for _, domain := range helper.CONFIG.S3Domain {
+		// If mux version >= 1.7.0, Route.Host() must add port
+		domain = domain + ":" + helper.CONFIG.DomainPort
 		// Bucket router, matches domain.name/bucket_name/object_name
 		bucket := apiRouter.Host(domain).PathPrefix("/{bucket}").Subrouter()
 		// Host router, matches bucket_name.domain.name/object_name

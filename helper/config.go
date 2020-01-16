@@ -14,6 +14,7 @@ const (
 
 type Config struct {
 	S3Domain             []string                `toml:"s3domain"` // Domain name of YIG
+	DomainPort           string                  `toml:"port"`     //
 	Region               string                  `toml:"region"`   // Region name this instance belongs to, e.g cn-bj-1
 	Plugins              map[string]PluginConfig `toml:"plugins"`
 	PiggybackUpdateUsage bool                    `toml:"piggyback_update_usage"`
@@ -43,7 +44,7 @@ type Config struct {
 	TidbInfo               string `toml:"tidb_info"`
 	KeepAlive              bool   `toml:"keepalive"`
 
-	PdAddress string `toml:"pd_address"`
+	PdAddress []string `toml:"pd_address"`
 
 	//About cache
 	EnableUsagePush       bool     `toml:"enable_usage_push"`
@@ -141,6 +142,7 @@ func MarshalTOMLConfig() error {
 	}
 	// setup CONFIG with defaults
 	CONFIG.S3Domain = c.S3Domain
+	CONFIG.DomainPort = Ternary(c.DomainPort != "", c.DomainPort, "80").(string)
 	CONFIG.Region = c.Region
 	CONFIG.Plugins = c.Plugins
 	CONFIG.PiggybackUpdateUsage = c.PiggybackUpdateUsage

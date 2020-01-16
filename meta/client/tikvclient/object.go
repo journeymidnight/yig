@@ -23,7 +23,7 @@ func genObjectKey(bucketName, objectName, version string) []byte {
 func (c *TiKVClient) GetObject(bucketName, objectName, version string) (*Object, error) {
 	key := genObjectKey(bucketName, objectName, version)
 	var o Object
-	ok, err := c.Get(key, &o)
+	ok, err := c.TxGet(key, &o)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func (c *TiKVClient) RenameObject(object *Object, sourceObject string) (err erro
 	oldKey := genObjectKey(object.BucketName, sourceObject, NullVersion)
 	newKey := genObjectKey(object.BucketName, object.Name, NullVersion)
 
-	tx, err := c.txnCli.Begin(context.TODO())
+	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
 		return err
 	}

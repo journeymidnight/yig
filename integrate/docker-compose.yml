@@ -54,7 +54,7 @@ services:
       - --initial-cluster=pd0=http://pd0:2380,pd1=http://pd1:2380,pd2=http://pd2:2380
       - --data-dir=/data/pd0
       - --config=/pd.toml
-      - --log-file=/logs/pd0.log
+#      - --log-file=/logs/pd0.log
     networks:
       vpcbr:
         ipv4_address: "10.5.0.100"
@@ -77,7 +77,7 @@ services:
       - --initial-cluster=pd0=http://pd0:2380,pd1=http://pd1:2380,pd2=http://pd2:2380
       - --data-dir=/data/pd1
       - --config=/pd.toml
-      - --log-file=/logs/pd1.log
+#      - --log-file=/logs/pd1.log
     networks:
       vpcbr:
         ipv4_address: "10.5.0.101"
@@ -100,7 +100,7 @@ services:
       - --initial-cluster=pd0=http://pd0:2380,pd1=http://pd1:2380,pd2=http://pd2:2380
       - --data-dir=/data/pd2
       - --config=/pd.toml
-      - --log-file=/logs/pd2.log
+#      - --log-file=/logs/pd2.log
     networks:
       vpcbr:
         ipv4_address: "10.5.0.102"
@@ -120,7 +120,7 @@ services:
       - --data-dir=/data/tikv0
       - --pd=pd0:2379,pd1:2378,pd2:2377
       - --config=/tikv.toml
-      - --log-file=/logs/tikv0.log
+#      - --log-file=/logs/tikv0.log
     depends_on:
       - "pd0"
       - "pd1"
@@ -145,7 +145,7 @@ services:
       - --data-dir=/data/tikv1
       - --pd=pd0:2379,pd1:2378,pd2:2377
       - --config=/tikv.toml
-      - --log-file=/logs/tikv1.log
+#      - --log-file=/logs/tikv1.log
     depends_on:
       - "pd0"
       - "pd1"
@@ -170,7 +170,7 @@ services:
       - --data-dir=/data/tikv2
       - --pd=pd0:2379,pd1:2378,pd2:2377
       - --config=/tikv.toml
-      - --log-file=/logs/tikv2.log
+#      - --log-file=/logs/tikv2.log
     depends_on:
       - "pd0"
       - "pd1"

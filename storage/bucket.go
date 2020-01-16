@@ -420,7 +420,9 @@ func (yig *YigStorage) ListBuckets(credential common.Credential) (buckets []meta
 	if err != nil {
 		return
 	}
+
 	for _, bucketName := range bucketNames {
+		helper.Logger.Info("@@@@@@@@ range bucketNames:", bucketName)
 		bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 		if err != nil {
 			return buckets, err
@@ -559,7 +561,7 @@ func (yig *YigStorage) ListObjects(reqCtx RequestContext, credential common.Cred
 			LastModified: obj.LastModified,
 			ETag:         "\"" + obj.ETag + "\"",
 			Size:         obj.Size,
-			StorageClass: "STANDARD",
+			StorageClass: obj.StorageClass,
 		}
 		if request.EncodingType != "" { // only support "url" encoding for now
 			object.Key = url.QueryEscape(obj.Key)
@@ -631,7 +633,7 @@ func (yig *YigStorage) ListVersionedObjects(reqCtx RequestContext, credential co
 			LastModified: o.LastModified,
 			ETag:         "\"" + o.ETag + "\"",
 			Size:         o.Size,
-			StorageClass: "STANDARD",
+			StorageClass: o.StorageClass,
 			Key:          o.Key,
 		}
 		if request.EncodingType != "" { // only support "url" encoding for now

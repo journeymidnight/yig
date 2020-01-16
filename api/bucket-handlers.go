@@ -238,10 +238,15 @@ func (api ObjectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.R
 	if err != nil {
 		logger.Error("Unable to list buckets:", err)
 		WriteErrorResponse(w, r, err)
+		return
 	}
 
+	for _, b := range bucketsInfo {
+		helper.Logger.Info("@@@@@@@@@ List bucket:", b.Name)
+	}
 	// generate response
 	response := GenerateListBucketsResponse(bucketsInfo, credential)
+	helper.Logger.Info("@@@@@@@@@@@@@ Response:", response)
 	encodedSuccessResponse := EncodeResponse(response)
 	// write response
 	WriteSuccessResponse(w, encodedSuccessResponse)

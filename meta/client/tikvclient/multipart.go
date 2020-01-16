@@ -36,7 +36,7 @@ func (c *TiKVClient) GetMultipart(bucketName, objectName, uploadId string) (Mult
 		return multipart, err
 	}
 	multipartKey := genMultipartKey(bucketName, objectName, initialTime)
-	ok, err := c.Get(multipartKey, &multipart)
+	ok, err := c.TxGet(multipartKey, &multipart)
 	if err != nil {
 		return multipart, err
 	}
@@ -47,7 +47,7 @@ func (c *TiKVClient) GetMultipart(bucketName, objectName, uploadId string) (Mult
 	objectPartStartKey := genObjectPartKey(bucketName, objectName, uploadId, 0)
 	objectPartEndKey := genObjectPartKey(bucketName, objectName, uploadId, MaxPartLimit)
 
-	kvs, err := c.Scan(objectPartStartKey, objectPartEndKey, MaxPartLimit)
+	kvs, err := c.TxScan(objectPartStartKey, objectPartEndKey, MaxPartLimit)
 	if err != nil {
 		return multipart, err
 	}
@@ -70,7 +70,7 @@ func (c *TiKVClient) GetMultipart(bucketName, objectName, uploadId string) (Mult
 
 func (c *TiKVClient) CreateMultipart(multipart Multipart) (err error) {
 	key := genMultipartKey(multipart.BucketName, multipart.ObjectName, multipart.InitialTime)
-	return c.Put(key, multipart)
+	return c.TxPut(key, multipart)
 }
 
 func (c *TiKVClient) PutObjectPart(multipart *Multipart, part *Part) (err error) {

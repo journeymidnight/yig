@@ -18,7 +18,7 @@ const (
 func (c *TiKVClient) GetUserBuckets(userId string) (buckets []string, err error) {
 	startKey := genUserBucketKey(userId, TableMinKeySuffix)
 	endKey := genUserBucketKey(userId, TableMaxKeySuffix)
-	kvs, err := c.Scan(startKey, endKey, MaxUserBucketKey)
+	kvs, err := c.TxScan(startKey, endKey, MaxUserBucketKey)
 	if err != nil {
 		return nil, err
 	}

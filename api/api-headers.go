@@ -23,6 +23,7 @@ import (
 	"strconv"
 
 	. "github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/helper"
 	meta "github.com/journeymidnight/yig/meta/types"
 )
 
@@ -35,7 +36,10 @@ func EncodeResponse(response interface{}) []byte {
 	var bytesBuffer bytes.Buffer
 	bytesBuffer.WriteString(xml.Header)
 	e := xml.NewEncoder(&bytesBuffer)
-	e.Encode(response)
+	err := e.Encode(response)
+	if err != nil {
+		helper.Logger.Error("@@@@@@@@@@@@ EncodeResponse err:", err)
+	}
 	return bytesBuffer.Bytes()
 }
 

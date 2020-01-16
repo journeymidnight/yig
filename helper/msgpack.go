@@ -12,6 +12,7 @@ func MsgPackMarshal(v interface{}) ([]byte, error) {
 	err := enc.Encode(v)
 	return buf.Bytes(), err
 }
+
 func MsgPackUnMarshal(data []byte, v interface{}) error {
 	var buf = bytes.NewBuffer(data)
 	dec := codec.NewDecoder(buf, new(codec.MsgpackHandle))
