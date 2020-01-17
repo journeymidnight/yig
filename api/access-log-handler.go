@@ -57,7 +57,7 @@ func (a AccessLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	response := newReplacer.Replace(a.format)
 
 	helper.AccessLogger.Println(response)
-	// send the entries in access logger to message bus.
+	// send the entries in access logger to message queue.
 	elems := newReplacer.GetReplacedValues()
 	ctx := getRequestContext(r)
 	if ctx.ObjectInfo != nil {
@@ -80,11 +80,11 @@ func (a AccessLogHandler) notify(elems map[string]string) {
 	err = bus.MsgSender.AsyncSend(val)
 	if err != nil {
 		helper.Logger.Error(
-			fmt.Sprintf("Failed to send message [%v] to message bus, err: %v",
+			fmt.Sprintf("Failed to send message [%v] to message queue, err: %v",
 				elems, err))
 		return
 	}
-	helper.Logger.Info(fmt.Sprintf("Succeed to send message [%v] to message bus.",
+	helper.Logger.Info(fmt.Sprintf("Succeed to send message [%v] to message queue.",
 		elems))
 }
 

@@ -62,18 +62,18 @@ func main() {
 	// Read all *.so from plugins directory, and fill the variable allPlugins
 	allPluginMap := mods.InitialPlugins()
 
-	// try to create message bus sender if message bus is enabled.
-	// message bus sender is singleton so create it beforehand.
-	messageBusSender, err := bus.InitMessageSender(allPluginMap)
+	// try to create message queue sender if message bus is enabled.
+	// message queue sender is singleton so create it beforehand.
+	messageQueueSender, err := bus.InitMessageSender(allPluginMap)
 	if err != nil {
-		helper.Logger.Error("Failed to create message bus sender, err:", err)
+		helper.Logger.Error("Failed to create message queue sender, err:", err)
 		panic("failed to create message bus sender")
 	}
-	if messageBusSender == nil {
-		helper.Logger.Error("Failed to create message bus sender, sender is nil.")
-		panic("failed to create message bus sender, sender is nil.")
+	if messageQueueSender == nil {
+		helper.Logger.Error("Failed to create message queue sender, sender is nil.")
+		panic("failed to create message queue sender, sender is nil.")
 	}
-	helper.Logger.Info("Succeed to create message bus sender.")
+	helper.Logger.Info("Succeed to create message queue sender.")
 
 	iam.InitializeIamClient(allPluginMap)
 

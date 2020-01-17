@@ -24,7 +24,7 @@ const EXPORTED_PLUGIN = "Exported"
 
 const (
 	IAM_PLUGIN = iota //IamClient interface
-	MESSAGEBUS_PLUGIN
+	MQ_PLUGIN
 	NUMS_PLUGIN
 )
 
