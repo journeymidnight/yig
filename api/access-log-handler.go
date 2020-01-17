@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/journeymidnight/yig/helper"
-	bus "github.com/journeymidnight/yig/messagequeue"
 	"github.com/journeymidnight/yig/meta"
+	bus "github.com/journeymidnight/yig/mq"
 )
 
 type ResponseRecorder struct {

@@ -5,7 +5,7 @@ import (
 	"github.com/journeymidnight/yig/mods"
 )
 
-const pluginName = "dummy_msgqueue"
+const pluginName = "dummy_mq"
 
 //The variable MUST be named as Exported.
 //the code in yig-plugin will lookup this symbol

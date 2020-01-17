@@ -13,7 +13,7 @@ import (
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/log"
-	bus "github.com/journeymidnight/yig/messagequeue"
+	bus "github.com/journeymidnight/yig/mq"
 	"github.com/journeymidnight/yig/mods"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/storage"
@@ -68,12 +68,12 @@ func main() {
 
 	// try to create message queue sender if message bus is enabled.
 	// message queue sender is singleton so create it beforehand.
-	messageQueueSender, err := bus.InitMessageSender(allPluginMap)
+	mqSender, err := bus.InitMessageSender(allPluginMap)
 	if err != nil {
 		helper.Logger.Error("Failed to create message queue sender, err:", err)
 		panic("failed to create message queue sender")
 	}
-	if messageQueueSender ==  nil {
+	if mqSender ==  nil {
 		helper.Logger.Error("Failed to create message queue sender, sender is nil.")
 		panic("failed to create message queue sender, sender is nil.")
 	}
