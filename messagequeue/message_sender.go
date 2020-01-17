@@ -19,16 +19,16 @@ var MsgSender MessageSender
 // create the singleton MessageSender
 func InitMessageSender(plugins map[string]*mods.YigPlugin) (MessageSender, error) {
 	for name, p := range plugins {
-		if p.PluginType == mods.MESSAGEBUS_PLUGIN {
+		if p.PluginType == mods.MQ_PLUGIN {
 			c, err := p.Create(helper.CONFIG.Plugins[name].Args)
 			if err != nil {
-				helper.Logger.Error("failed to initial message bus plugin:", name, "\nerr:", err)
+				helper.Logger.Error("failed to initial message queue plugin:", name, "\nerr:", err)
 				return nil, err
 			}
-			helper.Logger.Println("Message bus plugin is", name)
+			helper.Logger.Println("Message queue plugin is", name)
 			MsgSender = c.(MessageSender)
 			return MsgSender, nil
 		}
 	}
-	panic("Failed to initialize any Messagebus plugin, quiting...\n")
+	panic("Failed to initialize any message queue plugin, quiting...\n")
 }

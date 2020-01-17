@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/messagebus/types"
+	"github.com/journeymidnight/yig/messagequeue/types"
 	"github.com/journeymidnight/yig/mods"
 	"strconv"
 )
@@ -16,7 +16,7 @@ const pluginName = "kafka"
 //the code in yig-plugin will lookup this symbol
 var Exported = mods.YigPlugin{
 	Name:       pluginName,
-	PluginType: mods.MESSAGEBUS_PLUGIN,
+	PluginType: mods.MQ_PLUGIN,
 	Create:     GetKafkaClient,
 }
 
