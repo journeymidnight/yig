@@ -16,7 +16,7 @@ const pluginName = "kafka"
 //the code in yig-plugin will lookup this symbol
 var Exported = mods.YigPlugin{
 	Name:       pluginName,
-	PluginType: mods.KAFKA_PLUGIN,
+	PluginType: mods.MESSAGEBUS_PLUGIN,
 	Create:     GetKafkaClient,
 }
 

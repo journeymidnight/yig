@@ -18,14 +18,17 @@ var MsgSender MessageSender
 
 // create the singleton MessageSender
 func InitMessageSender(plugins map[string]*mods.YigPlugin) (MessageSender, error) {
-	name := "kafka"
-	p := plugins[name]
-	c, err := p.Create(helper.CONFIG.Plugins[name].Args)
-	if err != nil {
-		helper.Logger.Error("failed to initial message bus plugin:", name, "\nerr:", err)
-		return nil, err
+	for name, p := range plugins {
+		if p.PluginType == mods.MESSAGEBUS_PLUGIN {
+			c, err := p.Create(helper.CONFIG.Plugins[name].Args)
+			if err != nil {
+				helper.Logger.Error("failed to initial message bus plugin:", name, "\nerr:", err)
+				return nil, err
+			}
+			helper.Logger.Println("Message bus plugin is", name)
+			MsgSender = c.(MessageSender)
+			return MsgSender, nil
+		}
 	}
-	helper.Logger.Println("Message bus plugin is", name)
-	MsgSender = c.(MessageSender)
-	return MsgSender, nil
+	panic("Failed to initialize any Messagebus plugin, quiting...\n")
 }

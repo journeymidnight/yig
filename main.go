@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/journeymidnight/yig/messagebus/types"
 	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
@@ -65,18 +64,16 @@ func main() {
 
 	// try to create message bus sender if message bus is enabled.
 	// message bus sender is singleton so create it beforehand.
-	if helper.CONFIG.Plugins[types.MESSAGEBUS_KAFKA].Enable {
-		messageBusSender, err := bus.InitMessageSender(allPluginMap)
-		if err != nil {
-			helper.Logger.Error("Failed to create message bus sender, err:", err)
-			panic("failed to create message bus sender")
-		}
-		if nil == messageBusSender {
-			helper.Logger.Error("Failed to create message bus sender, sender is nil.")
-			panic("failed to create message bus sender, sender is nil.")
-		}
-		helper.Logger.Info("Succeed to create message bus sender.")
+	messageBusSender, err := bus.InitMessageSender(allPluginMap)
+	if err != nil {
+		helper.Logger.Error("Failed to create message bus sender, err:", err)
+		panic("failed to create message bus sender")
 	}
+	if messageBusSender == nil {
+		helper.Logger.Error("Failed to create message bus sender, sender is nil.")
+		panic("failed to create message bus sender, sender is nil.")
+	}
+	helper.Logger.Info("Succeed to create message bus sender.")
 
 	iam.InitializeIamClient(allPluginMap)
 

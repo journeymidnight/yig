@@ -8,7 +8,6 @@ import (
 
 	"github.com/journeymidnight/yig/helper"
 	bus "github.com/journeymidnight/yig/messagebus"
-	"github.com/journeymidnight/yig/messagebus/types"
 	"github.com/journeymidnight/yig/meta"
 )
 
@@ -26,6 +25,8 @@ type ResponseRecorder struct {
 	bucketLogging      bool
 	cdn_request        bool
 }
+
+const timeLayoutStr = "2006-01-02 15:04:05"
 
 func NewResponseRecorder(w http.ResponseWriter) *ResponseRecorder {
 	return &ResponseRecorder{
@@ -58,13 +59,15 @@ func (a AccessLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	helper.AccessLogger.Println(response)
 	// send the entries in access logger to message bus.
 	elems := newReplacer.GetReplacedValues()
+	ctx := getRequestContext(r)
+	if ctx.ObjectInfo != nil {
+		objectLastModifiedTime := ctx.ObjectInfo.LastModifiedTime.Format(timeLayoutStr)
+		elems["last_modified_time"] = objectLastModifiedTime
+	}
 	a.notify(elems)
 }
 
 func (a AccessLogHandler) notify(elems map[string]string) {
-	if !helper.CONFIG.Plugins[types.MESSAGEBUS_KAFKA].Enable {
-		return
-	}
 	if len(elems) == 0 {
 		return
 	}
