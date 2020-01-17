@@ -1,65 +1,60 @@
 package _go
 
 import (
-	. "github.com/journeymidnight/yig/test/go/lib"
 	"net/http"
 	"os"
 	"testing"
+
+	. "github.com/journeymidnight/yig/test/go/lib"
 )
 
-func Test_Bucket_Prepare(t *testing.T) {
+func Test_BucketPolicy(t *testing.T) {
 	sc := NewS3()
+	defer func() {
+		sc.DeleteBucket(TEST_BUCKET)
+	}()
 	err := sc.MakeBucket(TEST_BUCKET)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
-}
 
-func Test_PutBucketPolicy(t *testing.T) {
-	sc := NewS3()
-	err := sc.PutBucketPolicy(TEST_BUCKET, GetObjectPolicy_1)
+	//err = sc.PutBucketPolicy(TEST_BUCKET, GetObjectPolicy_1)
+	err = sc.PutBucketPolicy(TEST_BUCKET, SetBucketPolicyAllowStringLike)
 	if err != nil {
 		t.Fatal("PutBucketPolicy err:", err)
 	}
 	t.Log("PutBucketPolicy success.")
 
-}
-
-func Test_GetBucketPolicy(t *testing.T) {
-	sc := NewS3()
 	policy, err := sc.GetBucketPolicy(TEST_BUCKET)
 	if err != nil {
 		t.Fatal("GetBucketPolicy err:", err)
 	}
 	p_str := Format(policy)
-	origin_p_str := Format(GetObjectPolicy_1)
+	origin_p_str := Format(SetBucketPolicyAllowStringLike)
 
 	if p_str != origin_p_str {
 		t.Fatal("GetBucketPolicy is not correct! origin:", origin_p_str, "policy:", p_str)
 	}
-	t.Log("GetBucketPolicy success.")
-}
+	t.Log("GetBucketPolicy success.", p_str)
 
-func Test_DeleteBucketPolicy(t *testing.T) {
-	sc := NewS3()
-	err := sc.DeleteBucketPolicy(TEST_BUCKET)
+	err = sc.DeleteBucketPolicy(TEST_BUCKET)
 	if err != nil {
 		t.Fatal("DeleteBucketPolicy err:", err)
 	}
-	policy, err := sc.GetBucketPolicy(TEST_BUCKET)
+	policy, err = sc.GetBucketPolicy(TEST_BUCKET)
 	if err != nil {
 		t.Fatal("GetBucketPolicy err:", err)
 	}
 
-	p_str := Format(policy)
-	origin_p_str := Format(GetObjectPolicy_1)
+	p_str = Format(policy)
+	origin_p_str = Format(SetBucketPolicyAllowStringLike)
 
 	if p_str == origin_p_str {
 		t.Fatal("DeleteBucketPolicy not success:", policy)
 	}
 
-	t.Log("DeleteBucketPolicy success.")
+	t.Log("DeleteBucketPolicy success.", p_str)
 
 }
 
@@ -171,7 +166,13 @@ func Test_GetObjectByAnonymousWithPolicyCondition(t *testing.T) {
 	commonIP := "10.0.13.13"
 
 	// Situation 1:BucketPolicy Allow Gentlemen; BucketACL Private;	ObjectACL Private; legalRefererUrl GetObject should be OK; commonRefererUrl GetObject should be Failed;
-	PolicyWithRefererGroup1 := AccessPolicyGroup{BucketPolicy: SetBucketPolicyAllowStringLike, BucketACL: BucketCannedACLPrivate, ObjectACL: ObjectCannedACLPrivate}
+	PolicyWithRefererGroup1 := AccessPolicyGroup{
+		BucketPolicy: SetBucketPolicyAllowStringLike,
+		BucketACL:    BucketCannedACLPrivate,
+		ObjectACL:    ObjectCannedACLPrivate}
+	t.Log(sc.GetBucketPolicy(TEST_BUCKET))
+	t.Log(sc.GetBucketAcl(TEST_BUCKET))
+	t.Log(sc.GetObjectAcl(TEST_BUCKET, TEST_KEY))
 	err = sc.TestAnonymousAccessResultWithPolicyCondition(PolicyWithRefererGroup1, http.StatusOK, legalRefererUrl, HTTPRequestToGetObjectWithReferer)
 	if err != nil {
 		t.Log("Anonymous access situation 1: SetBucketPolicyAllowStringLike, BucketCannedACLPrivate, ObjectCannedACLPrivate Failed.")

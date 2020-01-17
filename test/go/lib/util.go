@@ -3,12 +3,13 @@ package lib
 import (
 	"errors"
 	"fmt"
-	"github.com/journeymidnight/aws-sdk-go/aws"
-	"github.com/journeymidnight/aws-sdk-go/service/s3"
-	"github.com/journeymidnight/yig/api/datatype"
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/journeymidnight/aws-sdk-go/aws"
+	"github.com/journeymidnight/aws-sdk-go/service/s3"
+	"github.com/journeymidnight/yig/api/datatype"
 )
 
 func GenTestObjectUrl(sc *S3Client) string {
@@ -82,16 +83,19 @@ func (sc *S3Client) TestAnonymousAccessResultWithPolicyCondition(policyGroup Acc
 	requestCondition string, HTTPRequestToGetObject HTTPRequestToGetObjectType) (err error) {
 	err = sc.PutBucketAcl(TEST_BUCKET, policyGroup.BucketACL)
 	if err != nil {
+		fmt.Println("@@@@@@ PutBucketAcl err:", err)
 		return
 	}
 
 	err = sc.PutObjectAcl(TEST_BUCKET, TEST_KEY, policyGroup.ObjectACL)
 	if err != nil {
+		fmt.Println("@@@@@@ PutObjectAcl err:", err)
 		return
 	}
 
 	err = sc.PutBucketPolicy(TEST_BUCKET, policyGroup.BucketPolicy)
 	if err != nil {
+		fmt.Println("@@@@@@ PutBucketPolicy err:", err)
 		return
 	}
 

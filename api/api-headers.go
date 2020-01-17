@@ -38,7 +38,7 @@ func EncodeResponse(response interface{}) []byte {
 	e := xml.NewEncoder(&bytesBuffer)
 	err := e.Encode(response)
 	if err != nil {
-		helper.Logger.Error("@@@@@@@@@@@@ EncodeResponse err:", err)
+		helper.Logger.Error("EncodeResponse err:", err)
 	}
 	return bytesBuffer.Bytes()
 }

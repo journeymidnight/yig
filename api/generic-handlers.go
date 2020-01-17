@@ -281,6 +281,7 @@ func FillBucketAndObjectInfo(reqCtx *RequestContext, r *http.Request, meta *meta
 			return err
 		}
 		if reqCtx.BucketInfo != nil && reqCtx.ObjectName != "" {
+			// TODO: Get Latest Object
 			reqCtx.ObjectInfo, err = meta.GetObject(reqCtx.BucketInfo.Name, reqCtx.ObjectName, true)
 			if err != nil && err != ErrNoSuchKey {
 				return err

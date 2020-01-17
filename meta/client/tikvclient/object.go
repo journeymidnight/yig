@@ -12,7 +12,8 @@ import (
 const NullVersion = "null"
 
 func genObjectKey(bucketName, objectName, version string) []byte {
-	if version == NullVersion {
+	// TODO: GetLatestObject
+	if version == NullVersion || version == "" {
 		return GenKey(bucketName, objectName)
 	} else {
 		return GenKey(bucketName, objectName, version)

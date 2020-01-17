@@ -48,8 +48,8 @@ func (c *TiKVClient) GetBuckets() (buckets []Bucket, err error) {
 }
 
 func (c *TiKVClient) PutBucket(bucket Bucket) error {
-	key := genBucketKey(bucket.Name)
-	return c.TxPut(key, bucket)
+	bucketKey := genBucketKey(bucket.Name)
+	return c.TxPut(bucketKey, bucket)
 }
 
 func (c *TiKVClient) PutNewBucket(bucket Bucket) error {

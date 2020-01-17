@@ -31,7 +31,7 @@ type Statement struct {
 	Principal  Principal           `json:"Principal"`
 	Actions    ActionSet           `json:"Action"`
 	Resources  ResourceSet         `json:"Resource"`
-	Conditions condition.Functions `json:"Condition,omitempty"`
+	Conditions condition.Functions `json:"Condition"`
 }
 
 // IsAllowed - checks given policy args is allowed to continue the Rest API.

@@ -327,9 +327,9 @@ func (yig *YigStorage) SetBucketPolicy(credential common.Credential, bucketName 
 	if err != nil {
 		return
 	}
-	p := string(data)
+
 	// If policy is empty then delete the bucket policy.
-	if p == "" {
+	if len(data) == 0 {
 		bucket.Policy = policy.Policy{}
 	} else {
 		bucket.Policy = bucketPolicy
@@ -422,7 +422,6 @@ func (yig *YigStorage) ListBuckets(credential common.Credential) (buckets []meta
 	}
 
 	for _, bucketName := range bucketNames {
-		helper.Logger.Info("@@@@@@@@ range bucketNames:", bucketName)
 		bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 		if err != nil {
 			return buckets, err
