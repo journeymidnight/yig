@@ -13,7 +13,7 @@ import (
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/log"
-	bus "github.com/journeymidnight/yig/messagebus"
+	bus "github.com/journeymidnight/yig/messagequeue"
 	"github.com/journeymidnight/yig/mods"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/storage"

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/journeymidnight/yig/helper"
-	bus "github.com/journeymidnight/yig/messagebus"
+	bus "github.com/journeymidnight/yig/messagequeue"
 	"github.com/journeymidnight/yig/meta"
 )
 

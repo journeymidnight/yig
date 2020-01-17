@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/messagebus/types"
+	"github.com/journeymidnight/yig/messagequeue/types"
 	"github.com/journeymidnight/yig/mods"
 	"strconv"
 )
