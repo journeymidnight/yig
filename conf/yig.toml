@@ -63,10 +63,10 @@ version = 0
 keyname = "yig"
 
 # Plugin Config
-[plugins.dummy_msgqueue]
-path = "/etc/yig/plugins/dummy_msgqueue_plugin.so"
+[plugins.dummy_mq]
+path = "/etc/yig/plugins/dummy_mq_plugin.so"
 enable = true
-[plugins.dummy_msgqueue.args]
+[plugins.dummy_mq.args]
 topic = "testTopic2"
 url = "kafka:29092"
 
