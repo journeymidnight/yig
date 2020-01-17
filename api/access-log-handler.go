@@ -8,7 +8,6 @@ import (
 
 	"github.com/journeymidnight/yig/helper"
 	bus "github.com/journeymidnight/yig/messagebus"
-	"github.com/journeymidnight/yig/messagebus/types"
 	"github.com/journeymidnight/yig/meta"
 )
 
@@ -62,9 +61,6 @@ func (a AccessLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a AccessLogHandler) notify(elems map[string]string) {
-	if !helper.CONFIG.Plugins[types.MESSAGEBUS_KAFKA].Enable {
-		return
-	}
 	if len(elems) == 0 {
 		return
 	}

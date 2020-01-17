@@ -63,15 +63,12 @@ version = 0
 keyname = "yig"
 
 # Plugin Config
-[plugins.kafka]
-path = "/etc/yig/plugins/kafka_plugin.so"
+[plugins.dummy_msgbus]
+path = "/etc/yig/plugins/dummy_msgbus_plugin.so"
 enable = true
-[plugins.kafka.args]
+[plugins.dummy_msgbus.args]
 topic = "testTopic2"
-request_timeout_ms = "3000"
-message_timeout_ms = "5000"
-send_max_retries = "2"
-broker_list = "kafka:29092"
+url = "kafka:29092"
 
 [plugins.dummy_iam]
 path = "/etc/yig/plugins/dummy_iam_plugin.so"
