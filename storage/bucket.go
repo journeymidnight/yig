@@ -630,7 +630,7 @@ func (yig *YigStorage) ListVersionedObjects(credential common.Credential, bucket
 			LastModified: o.LastModifiedTime.UTC().Format(meta.CREATE_TIME_LAYOUT),
 			ETag:         "\"" + o.Etag + "\"",
 			Size:         o.Size,
-			StorageClass: "STANDARD",
+			StorageClass: o.StorageClass.ToString(),
 			Key:          o.Name,
 		}
 		if request.EncodingType != "" { // only support "url" encoding for now
