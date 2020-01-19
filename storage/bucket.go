@@ -1,8 +1,8 @@
 package storage
 
 import (
+	"bytes"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/journeymidnight/yig/crypto"
@@ -39,7 +39,7 @@ func (yig *YigStorage) MakeBucket(reqCtx RequestContext, acl datatype.Acl,
 	if len(buckets)+1 > BUCKET_NUMBER_LIMIT {
 		return ErrTooManyBuckets
 	}
-
+	p, _ := policy.Policy{}.MarshalJSON()
 	now := time.Now().UTC()
 	bucket := meta.Bucket{
 		Name:       reqCtx.BucketName,
@@ -47,6 +47,7 @@ func (yig *YigStorage) MakeBucket(reqCtx RequestContext, acl datatype.Acl,
 		OwnerId:    credential.UserId,
 		ACL:        acl,
 		Versioning: meta.VersionDisabled, // it's the default
+		Policy:     p,
 	}
 	err = yig.MetaStorage.Client.PutNewBucket(bucket)
 	if err != nil {
@@ -364,13 +365,8 @@ func (yig *YigStorage) SetBucketPolicy(credential common.Credential, bucketName 
 	if err != nil {
 		return
 	}
-	p := string(data)
-	// If policy is empty then delete the bucket policy.
-	if p == "" {
-		bucket.Policy = policy.Policy{}
-	} else {
-		bucket.Policy = bucketPolicy
-	}
+
+	bucket.Policy = data
 
 	err = yig.MetaStorage.Client.PutBucket(*bucket)
 	if err != nil {
@@ -392,11 +388,7 @@ func (yig *YigStorage) GetBucketPolicy(credential common.Credential, bucketName 
 		return
 	}
 
-	policyBuf, err := bucket.Policy.MarshalJSON()
-	if err != nil {
-		return
-	}
-	p, err := policy.ParseConfig(strings.NewReader(string(policyBuf)), bucketName)
+	p, err := policy.ParseConfig(bytes.NewReader(bucket.Policy), bucketName)
 	if err != nil {
 		return bucketPolicy, ErrMalformedPolicy
 	}
@@ -413,7 +405,7 @@ func (yig *YigStorage) DeleteBucketPolicy(credential common.Credential, bucketNa
 	if bucket.OwnerId != credential.UserId {
 		return ErrBucketAccessForbidden
 	}
-	bucket.Policy = policy.Policy{}
+	bucket.Policy, _ = policy.Policy{}.MarshalJSON()
 	err = yig.MetaStorage.Client.PutBucket(*bucket)
 	if err != nil {
 		return err
