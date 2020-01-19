@@ -3,10 +3,10 @@ package types
 import (
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/dustin/go-humanize"
 	"github.com/journeymidnight/yig/api/datatype"
-	"github.com/journeymidnight/yig/api/datatype/policy"
-	"time"
 )
 
 const (
@@ -24,7 +24,7 @@ type Bucket struct {
 	CORS       datatype.Cors
 	ACL        datatype.Acl
 	Lifecycle  datatype.Lifecycle
-	Policy     policy.Policy
+	Policy     []byte // need to MarshalJSON
 	Website    datatype.WebsiteConfiguration
 	Versioning string // actually enum: Disabled/Enabled/Suspended
 	Usage      int64
@@ -49,10 +49,9 @@ func (b Bucket) GetUpdateSql() (string, []interface{}) {
 	acl, _ := json.Marshal(b.ACL)
 	cors, _ := json.Marshal(b.CORS)
 	lc, _ := json.Marshal(b.Lifecycle)
-	bucket_policy, _ := json.Marshal(b.Policy)
 	website, _ := json.Marshal(b.Website)
 	sql := "update buckets set bucketname=?,acl=?,policy=?,cors=?,lc=?,website=?,uid=?,versioning=? where bucketname=?"
-	args := []interface{}{b.Name, acl, bucket_policy, cors, lc, website, b.OwnerId, b.Versioning, b.Name}
+	args := []interface{}{b.Name, acl, b.Policy, cors, lc, website, b.OwnerId, b.Versioning, b.Name}
 	return sql, args
 }
 
@@ -60,12 +59,11 @@ func (b Bucket) GetCreateSql() (string, []interface{}) {
 	acl, _ := json.Marshal(b.ACL)
 	cors, _ := json.Marshal(b.CORS)
 	lc, _ := json.Marshal(b.Lifecycle)
-	bucket_policy, _ := json.Marshal(b.Policy)
 	website, _ := json.Marshal(b.Website)
 	createTime := b.CreateTime.Format(TIME_LAYOUT_TIDB)
 
 	sql := "insert into buckets(bucketname,acl,cors,lc,uid,policy,website,createtime,usages,versioning) " +
 		"values(?,?,?,?,?,?,?,?,?,?);"
-	args := []interface{}{b.Name, acl, cors, lc, b.OwnerId, bucket_policy, website, createTime, b.Usage, b.Versioning}
+	args := []interface{}{b.Name, acl, cors, lc, b.OwnerId, b.Policy, website, createTime, b.Usage, b.Versioning}
 	return sql, args
 }

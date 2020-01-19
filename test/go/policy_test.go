@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/journeymidnight/yig/api/datatype/policy"
 	. "github.com/journeymidnight/yig/test/go/lib"
 )
 
@@ -26,43 +27,53 @@ func Test_BucketPolicy(t *testing.T) {
 	}
 	t.Log("PutBucketPolicy success.")
 
-	policy, err := sc.GetBucketPolicy(TEST_BUCKET)
+	result, err := sc.GetBucketPolicy(TEST_BUCKET)
 	if err != nil {
-		t.Fatal("GetBucketPolicy err:", err)
+		t.Fatal("GetBucketPolicy err:", err, "policy:", result)
 	}
-	p_str := Format(policy)
-	origin_p_str := Format(SetBucketPolicyAllowStringLike)
 
-	if p_str != origin_p_str {
-		t.Fatal("GetBucketPolicy is not correct! origin:", origin_p_str, "policy:", p_str)
+	var p policy.Policy
+	err = p.UnmarshalJSON([]byte(result))
+	if err != nil {
+		t.Fatal("GetBucketPolicy err:", err, "policy:", result)
 	}
-	t.Log("GetBucketPolicy success.", p_str)
+	t.Log("GetBucketPolicy success.")
 
 	err = sc.DeleteBucketPolicy(TEST_BUCKET)
 	if err != nil {
 		t.Fatal("DeleteBucketPolicy err:", err)
 	}
-	policy, err = sc.GetBucketPolicy(TEST_BUCKET)
+	result, err = sc.GetBucketPolicy(TEST_BUCKET)
 	if err != nil {
 		t.Fatal("GetBucketPolicy err:", err)
 	}
 
-	p_str = Format(policy)
-	origin_p_str = Format(SetBucketPolicyAllowStringLike)
-
-	if p_str == origin_p_str {
-		t.Fatal("DeleteBucketPolicy not success:", policy)
+	var p2 policy.Policy
+	err = p2.UnmarshalJSON([]byte(result))
+	if err != nil {
+		t.Fatal("GetBucketPolicy err:", err, "policy:", result)
 	}
 
-	t.Log("DeleteBucketPolicy success.", p_str)
+	if len(p2.Statements) != 0 {
+		t.Fatal("DeleteBucketPolicy err:", "policy:", result)
+	}
+	t.Log("DeleteBucketPolicy success.")
 
 }
 
 // This test case is used to test whether the result of obtaining an Object by an external user is correct
 // before setting the bucket policy and setting the bucket policy.
-func Test_BucketPolicySample_1(t *testing.T) {
+func Test_BucketPolicySample(t *testing.T) {
 	sc := NewS3()
-	err := sc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	defer func() {
+		sc.DeleteObject(TEST_BUCKET, TEST_KEY)
+		sc.DeleteBucket(TEST_BUCKET)
+	}()
+	err := sc.MakeBucket(TEST_BUCKET)
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+	}
+	err = sc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
 	if err != nil {
 		t.Fatal("PutObject err:", err)
 	}
@@ -113,24 +124,6 @@ func Test_BucketPolicySample_1(t *testing.T) {
 	//StatusCode should be AccessDenied
 	if statusCode != http.StatusForbidden {
 		t.Fatal("StatusCode should be AccessDenied(403), but the code is:", statusCode)
-	}
-
-	err = sc.DeleteObject(TEST_BUCKET, TEST_KEY)
-	if err != nil {
-		t.Fatal("DeleteObject err:", err)
-	}
-}
-
-func Test_Bucket_End(t *testing.T) {
-	sc := NewS3()
-	err := sc.DeleteObject(TEST_BUCKET, TEST_KEY)
-	if err != nil {
-		t.Log("DeleteObject err:", err)
-	}
-	err = sc.DeleteBucket(TEST_BUCKET)
-	if err != nil {
-		t.Fatal("DeleteBucket err:", err)
-		panic(err)
 	}
 }
 

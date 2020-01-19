@@ -18,6 +18,7 @@ package api
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"encoding/xml"
 	"io"
 	"io/ioutil"
@@ -94,8 +95,14 @@ func (api ObjectAPIHandlers) errAllowableObjectNotFound(w http.ResponseWriter, r
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return
 	}
-	var err error
-	if ctx.BucketInfo.Policy.IsAllowed(policy.Args{
+
+	var p policy.Policy
+	err := json.Unmarshal(ctx.BucketInfo.Policy, &p)
+	if err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+	if p.IsAllowed(policy.Args{
 		Action:          policy.ListBucketAction,
 		BucketName:      ctx.BucketName,
 		ConditionValues: getConditionValues(r, ""),

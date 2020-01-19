@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"net"
 	"net/http"
 	"regexp"
@@ -57,7 +58,12 @@ func IsBucketPolicyAllowed(userId string, bucket *meta.Bucket, r *http.Request, 
 	if bucket.OwnerId == userId {
 		return false, nil
 	}
-	policyResult := bucket.Policy.IsAllowed(policy.Args{
+	var p policy.Policy
+	err = json.Unmarshal(bucket.Policy, &p)
+	if err != nil {
+		return false, err
+	}
+	policyResult := p.IsAllowed(policy.Args{
 		// TODO: Add IAM policy. Current account name is always useless.
 		AccountName:     userId,
 		Action:          action,

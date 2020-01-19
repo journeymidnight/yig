@@ -83,19 +83,16 @@ func (sc *S3Client) TestAnonymousAccessResultWithPolicyCondition(policyGroup Acc
 	requestCondition string, HTTPRequestToGetObject HTTPRequestToGetObjectType) (err error) {
 	err = sc.PutBucketAcl(TEST_BUCKET, policyGroup.BucketACL)
 	if err != nil {
-		fmt.Println("@@@@@@ PutBucketAcl err:", err)
 		return
 	}
 
 	err = sc.PutObjectAcl(TEST_BUCKET, TEST_KEY, policyGroup.ObjectACL)
 	if err != nil {
-		fmt.Println("@@@@@@ PutObjectAcl err:", err)
 		return
 	}
 
 	err = sc.PutBucketPolicy(TEST_BUCKET, policyGroup.BucketPolicy)
 	if err != nil {
-		fmt.Println("@@@@@@ PutBucketPolicy err:", err)
 		return
 	}
 
