@@ -19,6 +19,7 @@ type Client interface {
 	UpdateAppendObject(object *Object, tx DB) error
 	RenameObjectPart(object *Object, sourceObject string, tx DB) (err error)
 	RenameObject(object *Object, sourceObject string, tx DB) (err error)
+	ReplaceObjectMetas(object *Object, tx DB) (err error)
 	DeleteObject(object *Object, tx DB) error
 	UpdateObjectAcl(object *Object) error
 	UpdateObjectAttrs(object *Object) error

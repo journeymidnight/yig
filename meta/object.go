@@ -140,6 +140,11 @@ func (m *Meta) RenameObject(object *Object, sourceObject string) error {
 	return err
 }
 
+func (m *Meta) ReplaceObjectMetas(object *Object) error {
+	err := m.Client.ReplaceObjectMetas(object, nil)
+	return err
+}
+
 func (m *Meta) PutObjMapEntry(objMap *ObjMap) error {
 	err := m.Client.PutObjectMap(objMap, nil)
 	return err

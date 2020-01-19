@@ -490,12 +490,19 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	// TODO: In a versioning-enabled bucket, you cannot change the storage class
 	//  of a specific version of an object. When you copy it, Amazon S3 gives it
 	//  a new version ID.
-	storageClassFromHeader, err := getStorageClassFromHeader(r)
-	if err != nil {
-		WriteErrorResponse(w, r, err)
-		return
+	storageClassStr := r.Header.Get("X-Amz-Storage-Class")
+	var targetStorageClass meta.StorageClass
+	if storageClassStr != "" {
+		helper.Logger.Info("Get storage class header:", storageClassStr)
+		targetStorageClass, err = meta.MatchStorageClassIndex(storageClassStr)
+		if err != nil {
+			WriteErrorResponse(w, r, err)
+			return
+		}
+	} else {
+		targetStorageClass = sourceObject.StorageClass
 	}
-	if storageClassFromHeader == meta.ObjectStorageClassGlacier || storageClassFromHeader == meta.ObjectStorageClassDeepArchive {
+	if targetStorageClass == meta.ObjectStorageClassGlacier || targetStorageClass == meta.ObjectStorageClassDeepArchive {
 		WriteErrorResponse(w, r, ErrInvalidCopySourceStorageClass)
 		return
 	}
@@ -535,12 +542,13 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	targetObject.Etag = sourceObject.Etag
 	targetObject.Parts = sourceObject.Parts
 	targetObject.Type = sourceObject.Type
+	targetObject.StorageClass = targetStorageClass
 
-	if r.Header.Get("X-Amz-Metadata-Directive") == "COPY" || r.Header.Get("X-Amz-Metadata-Directive") == "" {
+	directive := r.Header.Get("X-Amz-Metadata-Directive")
+	if directive == "COPY" || directive == "" {
 		targetObject.CustomAttributes = sourceObject.CustomAttributes
-		targetObject.StorageClass = sourceObject.StorageClass
 		targetObject.ContentType = sourceObject.ContentType
-	} else if r.Header.Get("X-Amz-Metadata-Directive") == "REPLACE" {
+	} else if directive == "REPLACE" {
 		newMetadata := extractMetadataFromHeader(r.Header)
 		if c, ok := newMetadata["content-type"]; ok {
 			targetObject.ContentType = c
@@ -548,14 +556,18 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 			targetObject.ContentType = sourceObject.ContentType
 		}
 		targetObject.CustomAttributes = newMetadata
-		targetObject.StorageClass = storageClassFromHeader
 	} else {
 		WriteErrorResponse(w, r, ErrInvalidCopyRequest)
 		return
 	}
 
+	var isMetadataOnly bool
+	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName {
+		isMetadataOnly = true
+	}
+
 	// Create the object.
-	result, err := api.ObjectAPI.CopyObject(targetObject, pipeReader, credential, sseRequest)
+	result, err := api.ObjectAPI.CopyObject(targetObject, pipeReader, credential, sseRequest, isMetadataOnly)
 	if err != nil {
 		logger.Error("CopyObject failed:", err)
 		WriteErrorResponse(w, r, err)
@@ -1056,7 +1068,7 @@ func (api ObjectAPIHandlers) PutObjectMeta(w http.ResponseWriter, r *http.Reques
 		WriteErrorResponse(w, r, err)
 		return
 	}
-	object:= ctx.ObjectInfo
+	object := ctx.ObjectInfo
 	object.CustomAttributes = metaData.Data
 
 	err = api.ObjectAPI.PutObjectMeta(ctx.BucketInfo, object, credential)
