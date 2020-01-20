@@ -13,9 +13,8 @@ import (
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/log"
-	bus "github.com/journeymidnight/yig/messagebus"
-	_ "github.com/journeymidnight/yig/messagebus/kafka"
 	"github.com/journeymidnight/yig/mods"
+	bus "github.com/journeymidnight/yig/mq"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/storage"
 )
@@ -60,23 +59,21 @@ func main() {
 		go yig.PingCache(time.Duration(helper.CONFIG.CacheCircuitCheckInterval) * time.Second)
 	}
 
-	// try to create message bus sender if message bus is enabled.
-	// message bus sender is singleton so create it beforehand.
-	if helper.CONFIG.MsgBus.Enabled {
-		messageBusSender, err := bus.GetMessageSender()
-		if err != nil {
-			helper.Logger.Error("Failed to create message bus sender, err:", err)
-			panic("failed to create message bus sender")
-		}
-		if nil == messageBusSender {
-			helper.Logger.Error("Failed to create message bus sender, sender is nil.")
-			panic("failed to create message bus sender, sender is nil.")
-		}
-		helper.Logger.Info("Succeed to create message bus sender.")
-	}
-
 	// Read all *.so from plugins directory, and fill the variable allPlugins
 	allPluginMap := mods.InitialPlugins()
+
+	// try to create message queue sender if message bus is enabled.
+	// message queue sender is singleton so create it beforehand.
+	mqSender, err := bus.InitMessageSender(allPluginMap)
+	if err != nil {
+		helper.Logger.Error("Failed to create message queue sender, err:", err)
+		panic("failed to create message bus sender")
+	}
+	if mqSender == nil {
+		helper.Logger.Error("Failed to create message queue sender, sender is nil.")
+		panic("failed to create message queue sender, sender is nil.")
+	}
+	helper.Logger.Info("Succeed to create message queue sender.")
 
 	iam.InitializeIamClient(allPluginMap)
 

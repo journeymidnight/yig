@@ -23,6 +23,7 @@ meta_cache_type = 2
 meta_store = "tidb"
 tidb_info = "root:@tcp(10.5.0.17:4000)/yig"
 keepalive = true
+enable_usage_push = false
 redis_address = "redis:6379"
 redis_password = "hehehehe"
 redis_connection_number = 10
@@ -61,15 +62,13 @@ kms_secret = "your_secret"
 version = 0
 keyname = "yig"
 
-[msg_bus]
-msg_bus_enable = true
-msg_bus_type = 1
-msg_bus_topic = "testTopic2"
-[msg_bus.msg_bus_server]
-broker_list = "kafka:29092"
-
-
 # Plugin Config
+[plugins.dummy_mq]
+path = "/etc/yig/plugins/dummy_mq_plugin.so"
+enable = true
+[plugins.dummy_mq.args]
+topic = "testTopic2"
+url = "kafka:29092"
 
 [plugins.dummy_iam]
 path = "/etc/yig/plugins/dummy_iam_plugin.so"

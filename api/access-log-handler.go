@@ -7,8 +7,7 @@ import (
 	"time"
 
 	"github.com/journeymidnight/yig/helper"
-	bus "github.com/journeymidnight/yig/messagebus"
-	"github.com/journeymidnight/yig/messagebus/types"
+	bus "github.com/journeymidnight/yig/mq"
 	"github.com/journeymidnight/yig/meta"
 )
 
@@ -26,6 +25,8 @@ type ResponseRecorder struct {
 	bucketLogging      bool
 	cdn_request        bool
 }
+
+const timeLayoutStr = "2006-01-02 15:04:05"
 
 func NewResponseRecorder(w http.ResponseWriter) *ResponseRecorder {
 	return &ResponseRecorder{
@@ -56,15 +57,17 @@ func (a AccessLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	response := newReplacer.Replace(a.format)
 
 	helper.AccessLogger.Println(response)
-	// send the entries in access logger to message bus.
+	// send the entries in access logger to message queue.
 	elems := newReplacer.GetReplacedValues()
+	ctx := getRequestContext(r)
+	if ctx.ObjectInfo != nil {
+		objectLastModifiedTime := ctx.ObjectInfo.LastModifiedTime.Format(timeLayoutStr)
+		elems["last_modified_time"] = objectLastModifiedTime
+	}
 	a.notify(elems)
 }
 
 func (a AccessLogHandler) notify(elems map[string]string) {
-	if !helper.CONFIG.MsgBus.Enabled {
-		return
-	}
 	if len(elems) == 0 {
 		return
 	}
@@ -74,29 +77,14 @@ func (a AccessLogHandler) notify(elems map[string]string) {
 		return
 	}
 
-	sender, err := bus.GetMessageSender()
-	if err != nil {
-		helper.Logger.Error("Failed to get message bus sender, err:", err)
-		return
-	}
-
-	// send the message to message bus async.
-	// don't set the ErrChan.
-	msg := &types.Message{
-		Topic:   helper.CONFIG.MsgBus.Topic,
-		Key:     "",
-		ErrChan: nil,
-		Value:   val,
-	}
-
-	err = sender.AsyncSend(msg)
+	err = bus.MsgSender.AsyncSend(val)
 	if err != nil {
 		helper.Logger.Error(
-			fmt.Sprintf("Failed to send message [%v] to message bus, err: %v",
+			fmt.Sprintf("Failed to send message [%v] to message queue, err: %v",
 				elems, err))
 		return
 	}
-	helper.Logger.Info(fmt.Sprintf("Succeed to send message [%v] to message bus.",
+	helper.Logger.Info(fmt.Sprintf("Succeed to send message [%v] to message queue.",
 		elems))
 }
 

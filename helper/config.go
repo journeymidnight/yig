@@ -44,6 +44,7 @@ type Config struct {
 	KeepAlive              bool   `toml:"keepalive"`
 
 	//About cache
+	EnableUsagePush       bool   `toml:"enable_usage_push"`
 	RedisAddress          string `toml:"redis_address"`           // redis connection string, e.g localhost:1234
 	RedisConnectionNumber int    `toml:"redis_connection_number"` // number of connections to redis(i.e max concurrent request number)
 	RedisPassword         string `toml:"redis_password"`          // redis auth password
@@ -78,9 +79,6 @@ type Config struct {
 	UploadMaxChunkSize  int64 `toml:"upload_max_chunk_size"`
 
 	KMS KMSConfig `toml:"kms"`
-
-	// Message Bus
-	MsgBus MsgBusConfig `toml:"msg_bus"`
 }
 
 type PluginConfig struct {
@@ -96,25 +94,6 @@ type KMSConfig struct {
 	Secret   string `toml:"kms_secret"`
 	Version  int
 	Keyname  string
-}
-
-type MsgBusConfig struct {
-	// Controls whether to enable message bus when receive the request.
-	Enabled bool `toml:"msg_bus_enable"`
-	// Controls the under implementation of message bus: 1 for kafka.
-	Type int `toml:"msg_bus_type"`
-	// Controls the message topic used by message bus.
-	Topic string `toml:"msg_bus_topic"`
-	// Controls the request timeout for sending a req through message bus.
-	RequestTimeoutMs int `toml:"msg_bus_request_timeout_ms"`
-	// Controls the total timeout for sending a req through message bus.
-	// It will timeout if min(MessageTimeoutMs, SendMaxRetries * RequestTimeoutMs) meets.
-	MessageTimeoutMs int `toml:"msg_bus_message_timeout_ms"`
-	// Controls the retry time used by message bus if it fails to send a req.
-	SendMaxRetries int `toml:"msg_bus_send_max_retries"`
-	// Controls the settings for the implementation of message bus.
-	// For kafka, the 'broker_list' must be set, like 'broker_list = "kafka:29092"'
-	Server map[string]interface{} `toml:"msg_bus_server"`
 }
 
 var CONFIG Config
@@ -169,6 +148,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.LogLevel = Ternary(len(c.LogLevel) == 0, "info", c.LogLevel).(string)
 	CONFIG.MetaStore = Ternary(c.MetaStore == "", "tidb", c.MetaStore).(string)
 
+	CONFIG.EnableUsagePush = c.EnableUsagePush
 	CONFIG.RedisAddress = c.RedisAddress
 	CONFIG.RedisPassword = c.RedisPassword
 	CONFIG.RedisConnectionNumber = Ternary(c.RedisConnectionNumber == 0,
@@ -198,11 +178,6 @@ func MarshalTOMLConfig() error {
 	CONFIG.UploadMaxChunkSize = Ternary(c.UploadMaxChunkSize < CONFIG.UploadMinChunkSize || c.UploadMaxChunkSize > MAX_BUFEER_SIZE, MAX_BUFEER_SIZE, c.UploadMaxChunkSize).(int64)
 
 	CONFIG.KMS = c.KMS
-
-	CONFIG.MsgBus = c.MsgBus
-	CONFIG.MsgBus.RequestTimeoutMs = Ternary(c.MsgBus.RequestTimeoutMs == 0, 3000, c.MsgBus.RequestTimeoutMs).(int)
-	CONFIG.MsgBus.MessageTimeoutMs = Ternary(c.MsgBus.MessageTimeoutMs == 0, 5000, c.MsgBus.MessageTimeoutMs).(int)
-	CONFIG.MsgBus.SendMaxRetries = Ternary(c.MsgBus.SendMaxRetries == 0, 2, c.MsgBus.SendMaxRetries).(int)
 
 	return nil
 }
