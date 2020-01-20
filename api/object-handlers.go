@@ -518,19 +518,26 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	var isMetadataOnly bool
+	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName {
+		isMetadataOnly = true
+	}
+
 	pipeReader, pipeWriter := io.Pipe()
-	go func() {
-		startOffset := int64(0) // Read the whole file.
-		// Get the object.
-		err = api.ObjectAPI.GetObject(sourceObject, startOffset, sourceObject.Size,
-			pipeWriter, sseRequest)
-		if err != nil {
-			logger.Error("Unable to read an object:", err)
-			pipeWriter.CloseWithError(err)
-			return
-		}
-		pipeWriter.Close()
-	}()
+	if !isMetadataOnly {
+		go func() {
+			startOffset := int64(0) // Read the whole file.
+			// Get the object.
+			err = api.ObjectAPI.GetObject(sourceObject, startOffset, sourceObject.Size,
+				pipeWriter, sseRequest)
+			if err != nil {
+				logger.Error("Unable to read an object:", err)
+				pipeWriter.CloseWithError(err)
+				return
+			}
+			pipeWriter.Close()
+		}()
+	}
 
 	targetACL, err := getAclFromHeader(r.Header)
 	if err != nil {
@@ -564,11 +571,6 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	} else {
 		WriteErrorResponse(w, r, ErrInvalidCopyRequest)
 		return
-	}
-
-	var isMetadataOnly bool
-	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName {
-		isMetadataOnly = true
 	}
 
 	// Create the object.

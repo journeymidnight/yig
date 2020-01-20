@@ -179,10 +179,10 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 		var sqltext string
 		var rows *sql.Rows
 		if currentMarker == "" {
-			sqltext = "select objectname,uploadtime,initiatorid,ownerid from multiparts where bucketName=? order by bucketname,objectname,uploadtime limit ?,?;"
+			sqltext = "select objectname,uploadtime,initiatorid,ownerid,storageclass from multiparts where bucketName=? order by bucketname,objectname,uploadtime limit ?,?;"
 			rows, err = t.Client.Query(sqltext, bucketName, objnum[currentMarker], objnum[currentMarker]+maxUploads)
 		} else {
-			sqltext = "select objectname,uploadtime,initiatorid,ownerid from multiparts where bucketName=? and objectname>=? order by bucketname,objectname,uploadtime limit ?,?;"
+			sqltext = "select objectname,uploadtime,initiatorid,ownerid,storageclass from multiparts where bucketName=? and objectname>=? order by bucketname,objectname,uploadtime limit ?,?;"
 			rows, err = t.Client.Query(sqltext, bucketName, currentMarker, objnum[currentMarker], objnum[currentMarker]+maxUploads)
 		}
 		if err != nil {
@@ -193,11 +193,13 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 			loopnum += 1
 			var name, initiatorid, ownerid string
 			var uploadtime uint64
+			var storageClass StorageClass
 			err = rows.Scan(
 				&name,
 				&uploadtime,
 				&initiatorid,
 				&ownerid,
+				&storageClass,
 			)
 			if err != nil {
 				return
@@ -207,7 +209,7 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 			}
 			objnum[name] += 1
 			currentMarker = name
-			upload := datatype.Upload{StorageClass: "STANDARD"}
+			upload := datatype.Upload{StorageClass: storageClass.ToString()}
 			//filte by uploadtime and key
 			if first {
 				if uploadNum != 0 {
