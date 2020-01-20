@@ -52,22 +52,30 @@ func (m *Multipart) GenUploadId() error {
 	if m.InitialTime == 0 {
 		return errors.New("Zero value InitialTime for Multipart")
 	}
-
 	m.UploadId = getMultipartUploadId(m.InitialTime)
 	return nil
 }
 
 //UploadId = xxtea.Encrypt(BigEndian(MaxUint64 - UTC.Nano()), "hehehehe")
-func EncodeTime(initialTime uint64) []byte {
+func EncodeUint64(i uint64) []byte {
 	var bin [8]byte
-	binary.BigEndian.PutUint64(bin[:], math.MaxUint64-initialTime)
+	binary.BigEndian.PutUint64(bin[:], i)
 	return bin[:]
 }
 
 //UploadId = xxtea.Encrypt(BigEndian(MaxUint64 - UTC.Nano()), "hehehehe")
+func DecodeUint64(bin []byte) uint64 {
+	return binary.BigEndian.Uint64(bin)
+}
+
+//UploadId = xxtea.Encrypt(BigEndian(MaxUint64 - UTC.Nano()), "hehehehe")
+func EncodeTime(initialTime uint64) []byte {
+	return EncodeUint64(math.MaxUint64 - initialTime)
+}
+
+//UploadId = xxtea.Encrypt(BigEndian(MaxUint64 - UTC.Nano()), "hehehehe")
 func DecodeTime(bin []byte) uint64 {
-	t := binary.BigEndian.Uint64(bin)
-	return math.MaxUint64 - t
+	return math.MaxUint64 - DecodeUint64(bin)
 }
 
 func getMultipartUploadId(initialTime uint64) string {

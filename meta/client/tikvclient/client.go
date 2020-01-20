@@ -143,25 +143,3 @@ func (c *TiKVClient) TxScan(keyPrefix []byte, upperBound []byte, limit int) ([]K
 	}
 	return ret, nil
 }
-
-func (c *TiKVClient) TxScanWithDelete(keyPrefix []byte, limit int) error {
-	tx, err := c.TxnCli.Begin(context.TODO())
-	if err != nil {
-		return err
-	}
-	it, err := tx.Iter(context.TODO(), key.Key(keyPrefix), nil)
-	if err != nil {
-		return err
-	}
-	defer it.Close()
-	for it.Valid() && limit > 0 {
-		err := tx.Delete(it.Key()[:])
-		if err != nil {
-			tx.Rollback()
-			return err
-		}
-		limit--
-		it.Next(context.TODO())
-	}
-	return nil
-}

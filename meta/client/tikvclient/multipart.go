@@ -3,7 +3,7 @@ package tikvclient
 import (
 	"context"
 	. "database/sql/driver"
-	"strconv"
+	"encoding/hex"
 
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
@@ -16,13 +16,13 @@ import (
 // encodedTime = BigEndian(MaxUint64 - multipart.InitialTime)
 func genMultipartKey(bucketName, objectName string, initialTime uint64) []byte {
 	encodedTime := EncodeTime(initialTime)
-	return GenKey(TableMultipartPrefix, bucketName, objectName, string(encodedTime))
+
+	return GenKey(TableMultipartPrefix, bucketName, objectName, hex.EncodeToString(encodedTime))
 }
 
 // Key: p\{BucketName}\{ObjectName}\{UploadId}\{PartNumber}
 func genObjectPartKey(bucketName, objectName, uploadId string, partNumber int) []byte {
-	partStr := strconv.Itoa(partNumber)
-	return GenKey(TableObjectPartPrefix, bucketName, objectName, uploadId, partStr)
+	return GenKey(TableObjectPartPrefix, bucketName, objectName, uploadId, hex.EncodeToString(EncodeUint64(uint64(partNumber))))
 }
 
 const MaxPartLimit = 1000
@@ -30,7 +30,6 @@ const MaxPartLimit = 1000
 //multipart
 func (c *TiKVClient) GetMultipart(bucketName, objectName, uploadId string) (Multipart, error) {
 	var multipart Multipart
-
 	initialTime, err := GetInitialTimeFromUploadId(uploadId)
 	if err != nil {
 		return multipart, err
@@ -46,7 +45,6 @@ func (c *TiKVClient) GetMultipart(bucketName, objectName, uploadId string) (Mult
 
 	objectPartStartKey := genObjectPartKey(bucketName, objectName, uploadId, 0)
 	objectPartEndKey := genObjectPartKey(bucketName, objectName, uploadId, MaxPartLimit)
-
 	kvs, err := c.TxScan(objectPartStartKey, objectPartEndKey, MaxPartLimit)
 	if err != nil {
 		return multipart, err
@@ -87,14 +85,14 @@ func (c *TiKVClient) PutObjectPart(multipart *Multipart, part *Part) (err error)
 		}
 	}()
 
-	key := genObjectPartKey(multipart.BucketName, multipart.ObjectName, multipart.UploadId, part.PartNumber)
+	partKey := genObjectPartKey(multipart.BucketName, multipart.ObjectName, multipart.UploadId, part.PartNumber)
 	txn := tx.(*TikvTx).tx
 	partVal, err := helper.MsgPackMarshal(part)
 	if err != nil {
 		return err
 	}
 
-	err = txn.Set(key, partVal)
+	err = txn.Set(partKey, partVal)
 	if err != nil {
 		return err
 	}
@@ -108,7 +106,9 @@ func (c *TiKVClient) DeleteMultipart(multipart *Multipart, tx Tx) error {
 	if err != nil {
 		return err
 	}
-	keyPrefix := GenKey(TableObjectPartPrefix, multipart.BucketName, multipart.ObjectName, multipart.UploadId, "")
+
+	keyPrefix := genObjectPartKey(multipart.BucketName, multipart.ObjectName, multipart.UploadId, 0)
+	endKey := genObjectPartKey(multipart.BucketName, multipart.ObjectName, multipart.UploadId, MaxPartLimit)
 	if tx == nil {
 		tx, err := c.NewTrans()
 		defer func() {
@@ -121,19 +121,17 @@ func (c *TiKVClient) DeleteMultipart(multipart *Multipart, tx Tx) error {
 		}()
 	}
 	txn := tx.(*TikvTx).tx
-	it, err := txn.Iter(context.TODO(), key.Key(keyPrefix), nil)
+	it, err := txn.Iter(context.TODO(), key.Key(keyPrefix), key.Key(endKey))
 	if err != nil {
 		return err
 	}
 	defer it.Close()
-	limit := MaxPartLimit
-	for it.Valid() && limit > 0 {
+	for it.Valid() {
 		err := txn.Delete(it.Key()[:])
 		if err != nil {
 			txn.Rollback()
 			return err
 		}
-		limit--
 		it.Next(context.TODO())
 	}
 	return txn.Delete(multipartKey)

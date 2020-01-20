@@ -31,6 +31,14 @@ func (c *TiKVClient) GetObject(bucketName, objectName, version string) (*Object,
 	if !ok {
 		return nil, ErrNoSuchKey
 	}
+
+	if o.Parts != nil && len(o.Parts) != 0 {
+		var sortedPartNum = make([]int64, len(o.Parts))
+		for k, v := range o.Parts {
+			sortedPartNum[k-1] = v.Offset
+		}
+		o.PartsIndex = &SimpleIndex{Index: sortedPartNum}
+	}
 	return &o, nil
 }
 
@@ -50,6 +58,14 @@ func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage
 	}()
 
 	txn := tx.(*TikvTx).tx
+	if multipart != nil {
+		object.Parts = multipart.Parts
+		err = c.DeleteMultipart(multipart, tx)
+		if err != nil {
+			return err
+		}
+	}
+
 	objectVal, err := helper.MsgPackMarshal(object)
 	if err != nil {
 		return err
@@ -60,17 +76,10 @@ func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage
 		return err
 	}
 
-	if multipart != nil {
-		multipartKey := genMultipartKey(object.BucketName, object.Name, multipart.InitialTime)
-		txn.Delete(multipartKey)
-	}
-
 	if updateUsage {
 		return c.UpdateUsage(object.BucketName, object.Size, tx)
 	}
-
 	return nil
-
 }
 
 func (c *TiKVClient) PutObjectWithoutMultiPart(object *Object) error {
@@ -130,7 +139,7 @@ func (c *TiKVClient) RenameObject(object *Object, sourceObject string) (err erro
 		}
 	}()
 
-	v, err := helper.MsgPackMarshal(object)
+	v, err := helper.MsgPackMarshal(*object)
 	if err != nil {
 		return err
 	}
