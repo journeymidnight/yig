@@ -723,6 +723,14 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 			helper.Logger.Error("Copy Object with same source and target, sql fails:", err)
 			return result, ErrInternalError
 		}
+		targetObject.LastModifiedTime = time.Now().UTC()
+		result.LastModified = targetObject.LastModifiedTime
+		if bucket.Versioning == "Enabled" {
+			result.VersionId = targetObject.GetVersionId()
+		}
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
+		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
+		return result, nil
 	}
 
 	// Limit the reader to its provided size if specified.

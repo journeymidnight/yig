@@ -466,7 +466,7 @@ func (yig *YigStorage) ListObjectParts(credential common.Credential, bucketName,
 	result.Bucket = bucketName
 	result.Key = objectName
 	result.UploadId = request.UploadId
-	result.StorageClass = "STANDARD"
+	result.StorageClass = multipart.Metadata.StorageClass.ToString()
 	result.PartNumberMarker = request.PartNumberMarker
 	result.MaxParts = request.MaxParts
 	result.EncodingType = request.EncodingType

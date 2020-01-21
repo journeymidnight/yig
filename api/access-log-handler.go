@@ -7,9 +7,8 @@ import (
 	"time"
 
 	"github.com/journeymidnight/yig/helper"
-	bus "github.com/journeymidnight/yig/messagebus"
-	"github.com/journeymidnight/yig/messagebus/types"
 	"github.com/journeymidnight/yig/meta"
+	bus "github.com/journeymidnight/yig/mq"
 )
 
 type ResponseRecorder struct {
@@ -56,15 +55,12 @@ func (a AccessLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	response := newReplacer.Replace(a.format)
 
 	helper.AccessLogger.Println(response)
-	// send the entries in access logger to message bus.
+	// send the entries in access logger to message queue.
 	elems := newReplacer.GetReplacedValues()
 	a.notify(elems)
 }
 
 func (a AccessLogHandler) notify(elems map[string]string) {
-	if !helper.CONFIG.MsgBus.Enabled {
-		return
-	}
 	if len(elems) == 0 {
 		return
 	}
@@ -74,29 +70,14 @@ func (a AccessLogHandler) notify(elems map[string]string) {
 		return
 	}
 
-	sender, err := bus.GetMessageSender()
-	if err != nil {
-		helper.Logger.Error("Failed to get message bus sender, err:", err)
-		return
-	}
-
-	// send the message to message bus async.
-	// don't set the ErrChan.
-	msg := &types.Message{
-		Topic:   helper.CONFIG.MsgBus.Topic,
-		Key:     "",
-		ErrChan: nil,
-		Value:   val,
-	}
-
-	err = sender.AsyncSend(msg)
+	err = bus.MsgSender.AsyncSend(val)
 	if err != nil {
 		helper.Logger.Error(
-			fmt.Sprintf("Failed to send message [%v] to message bus, err: %v",
+			fmt.Sprintf("Failed to send message [%v] to message queue, err: %v",
 				elems, err))
 		return
 	}
-	helper.Logger.Info(fmt.Sprintf("Succeed to send message [%v] to message bus.",
+	helper.Logger.Info(fmt.Sprintf("Succeed to send message [%v] to message queue.",
 		elems))
 }
 
