@@ -96,24 +96,30 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 	lastKey := ""
 	for it.Valid() {
 		k, v := string(it.Key()[:]), it.Value()
+		k = strings.SplitN(k, TableSeparator, 2)[1]
 		if k == string(startKey) {
+			it.Next(context.TODO())
 			continue
 		}
 		if !strings.HasPrefix(k, prefix) {
+			it.Next(context.TODO())
 			continue
 		}
 		if delimiter != "" {
 			subKey := strings.TrimPrefix(k, prefix)
 			sp := strings.Split(subKey, delimiter)
 			if len(sp) > 2 {
+				it.Next(context.TODO())
 				continue
 			} else if len(sp) == 2 {
 				if sp[1] == "" {
 					commonPrefixes = append(commonPrefixes, subKey)
 					lastKey = k
 					count++
+					it.Next(context.TODO())
 					continue
 				} else {
+					it.Next(context.TODO())
 					continue
 				}
 			}
