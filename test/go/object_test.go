@@ -327,7 +327,7 @@ func Test_RenameObjectWithSameName(t *testing.T) {
 	if err != nil {
 		t.Fatal("Copy Object err:", err)
 	}
-	
+
 	input2 := &s3.RenameObjectInput{
 		Bucket:          aws.String(TEST_BUCKET),
 		RenameSourceKey: aws.String(TEST_KEY),
@@ -567,4 +567,143 @@ func Test_GetObjectByAnonymous(t *testing.T) {
 
 	sc.CleanEnv()
 
+}
+
+type MetaTestUnit struct {
+	WebsiteConfiguration *s3.MetaConfiguration
+	Buckets              []string
+	Objects              []MetaObjectInput
+	Cases                []MetaCase
+}
+
+type MetaObjectInput struct {
+	Bucket string
+	Key    string
+	value  string
+}
+
+type MetaCase struct {
+	ExpectedMeta          map[string]string
+}
+
+var testMetaUnits = []MetaTestUnit{
+	{
+		WebsiteConfiguration: &s3.MetaConfiguration{
+			Headers: []*s3.MetaData{
+				{
+					Key:   aws.String("Content-Type"),
+					Value: aws.String("image/jpeg"),
+				},
+				{
+					Key:   aws.String("Cache-Control"),
+					Value: aws.String("noCache"),
+				},
+				{
+					Key:   aws.String("Content-Disposition"),
+					Value: aws.String("TestContentDisposition"),
+				},
+				{
+					Key:   aws.String("Content-Encoding"),
+					Value: aws.String("utf-8"),
+				},
+				{
+					Key:   aws.String("Content-Language"),
+					Value: aws.String("golang"),
+				},
+				{
+					Key:   aws.String("Expires"),
+					Value: aws.String("800"),
+				},
+				{
+					Key:   aws.String("X-Amz-Meta-Hehehehe"),
+					Value: aws.String("hehehehe"),
+				},
+				{
+					Key:   aws.String("X-Amz-Meta-Hello"),
+					Value: aws.String("world"),
+				},
+			},
+			VersionID: aws.String("2019/10/22"),
+		},
+		Buckets: []string{TEST_BUCKET},
+		Objects: []MetaObjectInput{
+			{TEST_BUCKET, TEST_KEY, TEST_VALUE},
+		},
+		Cases: []MetaCase{
+			{
+				ExpectedMeta: map[string]string{
+				"Content-Type":        "image/jpeg",
+				"Cache-Control":       "noCache",
+				"Content-Disposition": "TestContentDisposition",
+				"Content-Encoding":    "utf-8",
+				"Content-Language":    "golang",
+				"Expires":             "800",
+				// The SDK will automatically erase the previous Amazon standard headers.
+				"Hehehehe": "hehehehe",
+				"Hello":    "world",
+				},
+			},
+		},
+	},
+}
+
+func CleanMetaUnits(sc *S3Client) {
+	for _, unit := range testMetaUnits {
+		cleanMeta(sc, unit)
+	}
+}
+
+func cleanMeta(sc *S3Client, unit MetaTestUnit) {
+	for _, o := range unit.Objects {
+		sc.DeleteObject(o.Bucket, o.Key)
+	}
+	for _, b := range unit.Buckets {
+		sc.DeleteBucket(b)
+	}
+}
+
+func Test_PutObjectMeta(t *testing.T) {
+	sc := NewS3()
+	CleanMetaUnits(sc)
+	defer CleanMetaUnits(sc)
+	for _, unit := range testMetaUnits {
+		for _, b := range unit.Buckets {
+			err := sc.MakeBucket(b)
+			if err != nil {
+				t.Fatal("MakeBucket err:", err)
+			}
+			for _, o := range unit.Objects {
+				err := sc.PutObject(o.Bucket, o.Key, o.value)
+				if err != nil {
+					t.Fatal("PutObject err:", err)
+				}
+				input := &s3.PutObjectMetaInput{
+					Bucket:             aws.String(o.Bucket),
+					Key:                aws.String(o.Key),
+					MetaConfiguration: unit.WebsiteConfiguration,
+				}
+				_, err = sc.Client.PutObjectMeta(input)
+				if err != nil {
+					t.Fatal("Put Object MetaData with :", err)
+				}
+				params := &s3.HeadObjectInput{
+						Bucket: aws.String(b),
+						Key:    aws.String(o.Key),
+				}
+				headResult, err := sc.Client.HeadObject(params)
+				if err != nil {
+					t.Fatal("Head object failed")
+				}
+
+				t.Log("ResultMetadata:", headResult.Metadata)
+				for _, c := range unit.Cases{
+					for k, v := range headResult.Metadata {
+						if *v != c.ExpectedMeta[k] {
+							t.Fatal("failed to set",k)
+						}
+					}
+				}
+			}
+		}
+	}
 }

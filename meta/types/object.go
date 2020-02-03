@@ -170,6 +170,13 @@ func (o *Object) GetUpdateAclSql() (string, []interface{}) {
 	return sql, args
 }
 
+func (o *Object) GetUpdateAttrsSql() (string, []interface{}) {
+	customAttributes, _ := json.Marshal(o.CustomAttributes)
+	sql := "update objects set customattributes=? where bucketname=? and name=?"
+	args := []interface{}{customAttributes, o.BucketName, o.Name}
+	return sql, args
+}
+
 func (o *Object) GetUpdateNameSql(sourceObject string) (string, []interface{}) {
 	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
 	sql := "update objects set name=? where bucketname=? and name=? and version=?"
@@ -186,5 +193,13 @@ func (o *Object) GetAddUsageSql() (string, []interface{}) {
 func (o *Object) GetSubUsageSql() (string, []interface{}) {
 	sql := "update buckets set usages= usages + ? where bucketname=?"
 	args := []interface{}{-o.Size, o.BucketName}
+	return sql, args
+}
+
+// TODO : with Version
+func (o *Object) GetReplaceObjectMetasSql() (string, []interface{}) {
+	customAttributes, _ := json.Marshal(o.CustomAttributes)
+	sql := "update objects set contenttype=?,customattributes=?,storageclass=? where bucketname=? and name=?"
+	args := []interface{}{o.ContentType, customAttributes, o.StorageClass, o.BucketName, o.Name}
 	return sql, args
 }

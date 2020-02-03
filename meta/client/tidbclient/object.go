@@ -113,6 +113,12 @@ func (t *TidbClient) GetAllObject(bucketName, objectName, version string) (objec
 	return
 }
 
+func (t *TidbClient) UpdateObjectAttrs(object *Object) error {
+	sql, args := object.GetUpdateAttrsSql()
+	_, err := t.Client.Exec(sql, args...)
+	return err
+}
+
 func (t *TidbClient) UpdateObjectAcl(object *Object) error {
 	sql, args := object.GetUpdateAclSql()
 	_, err := t.Client.Exec(sql, args...)
@@ -124,6 +130,15 @@ func (t *TidbClient) RenameObject(object *Object, sourceObject string, tx DB) (e
 		tx = t.Client
 	}
 	sql, args := object.GetUpdateNameSql(sourceObject)
+	_, err = tx.Exec(sql, args...)
+	return
+}
+
+func (t *TidbClient) ReplaceObjectMetas(object *Object, tx DB) (err error) {
+	if tx == nil {
+		tx = t.Client
+	}
+	sql, args := object.GetReplaceObjectMetasSql()
 	_, err = tx.Exec(sql, args...)
 	return
 }

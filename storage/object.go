@@ -30,8 +30,8 @@ const (
 )
 
 func (yig *YigStorage) pickRandomCluster() (cluster backend.Cluster) {
-	helper.Logger.Warn("Error picking cluster from table cluster in DB, "+
-			"use first cluster in config to write.")
+	helper.Logger.Warn("Error picking cluster from table cluster in DB, " +
+		"use first cluster in config to write.")
 	for _, c := range yig.DataStorage {
 		cluster = c
 		break
@@ -71,6 +71,9 @@ func (yig *YigStorage) pickClusterAndPool(bucket string, object string,
 	}
 	for _, cluster := range metaClusters {
 		if cluster.Weight == 0 {
+			continue
+		}
+		if cluster.Pool != poolName {
 			continue
 		}
 		if needCheck {
@@ -648,6 +651,28 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	return result, nil
 }
 
+func (yig *YigStorage) PutObjectMeta(bucket *meta.Bucket, targetObject *meta.Object, credential common.Credential) (err error) {
+	switch bucket.ACL.CannedAcl {
+	case "public-read-write":
+		break
+	default:
+		if bucket.OwnerId != credential.UserId {
+			return ErrBucketAccessForbidden
+		}
+	}
+
+	err = yig.MetaStorage.UpdateObjectAttrs(targetObject)
+	if err != nil {
+		helper.Logger.Error("Update Object Attrs, sql fails:", err)
+		return ErrInternalError
+	}
+
+	yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
+	yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
+
+	return nil
+}
+
 func (yig *YigStorage) RenameObject(targetObject *meta.Object, sourceObject string, credential common.Credential) (result datatype.RenameObjectResult, err error) {
 
 	bucket, err := yig.MetaStorage.GetBucket(targetObject.BucketName, true)
@@ -685,7 +710,7 @@ func (yig *YigStorage) RenameObject(targetObject *meta.Object, sourceObject stri
 }
 
 func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, credential common.Credential,
-	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
+	sseRequest datatype.SseRequest, isMetadataOnly bool) (result datatype.PutObjectResult, err error) {
 
 	var oid string
 	var maybeObjectToRecycle objectToRecycle
@@ -707,6 +732,22 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		if bucket.OwnerId != credential.UserId {
 			return result, ErrBucketAccessForbidden
 		}
+	}
+
+	if isMetadataOnly {
+		err = yig.MetaStorage.ReplaceObjectMetas(targetObject)
+		if err != nil {
+			helper.Logger.Error("Copy Object with same source and target, sql fails:", err)
+			return result, ErrInternalError
+		}
+		targetObject.LastModifiedTime = time.Now().UTC()
+		result.LastModified = targetObject.LastModifiedTime
+		if bucket.Versioning == "Enabled" {
+			result.VersionId = targetObject.GetVersionId()
+		}
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
+		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
+		return result, nil
 	}
 
 	// Limit the reader to its provided size if specified.
@@ -1109,4 +1150,3 @@ func (yig *YigStorage) DeleteObject(bucketName string, objectName string, versio
 	}
 	return result, nil
 }
-

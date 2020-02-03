@@ -4,11 +4,11 @@ ENV GOROOT=/usr/local/go
 ENV PATH=$GOROOT/bin:$PATH
 ADD . /work
 ADD ./integrate/resources/confluent.repo /etc/yum.repos.d/confluent.repo
-RUN rpm --import https://packages.confluent.io/rpm/5.2/archive.key && yum makecache && \
+RUN rpm --import https://packages.confluent.io/rpm/5.3/archive.key && yum makecache && \
 yum install -y epel-release && \
 rpm -ivh https://download.ceph.com/rpm-luminous/el7/noarch/ceph-release-1-1.el7.noarch.rpm && \
 yum --enablerepo=epel-testing install -y lttng-ust make gcc libradosstriper-devel librados2-devel git wget rpm-build net-tools librdkafka-devel && \
-wget https://dl.google.com/go/go1.12.linux-amd64.tar.gz && tar -C /usr/local -xzf go1.12.linux-amd64.tar.gz && rm -f go1.12.linux-amd64.tar.gz \
+wget https://dl.google.com/go/go1.13.linux-amd64.tar.gz && tar -C /usr/local -xzf go1.13.linux-amd64.tar.gz && rm -f go1.13.linux-amd64.tar.gz \
 make build_internal && \
 yum clean all && \
 rm -rf /var/cache/yum

@@ -61,6 +61,7 @@ const (
 	ErrInvalidCopySourceStorageClass
 	ErrInvalidCopyDest
 	ErrInvalidCopyRequest
+	ErrInvalidCopyRequestWithSameObject
 	ErrInvalidRenameSourceKey
 	ErrInvalidRenameTarget
 	ErrNotSupportBucketEnabledVersion
@@ -116,6 +117,7 @@ const (
 	ErrInvalidPosition
 	ErrObjectNotAppendable
 	ErrPositionNotEqualToLength
+	ErrMetadataHeader
 	// Add new error codes here.
 
 	// SSE-S3 related API errors
@@ -164,6 +166,7 @@ const (
 	ErrIndexDocumentNotAllowed
 	ErrInvalidIndexDocumentSuffix
 	ErrInvalidErrorDocumentKey
+	ErrMalformedMetadataConfiguration
 )
 
 // error code to APIError structure, these fields carry respective
@@ -187,6 +190,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidCopyRequest: {
 		AwsErrorCode:   "InvalidCopyRequest",
 		Description:    "X-Amz-Metadata-Directive can only be COPY or REPLACE",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidCopyRequestWithSameObject: {
+		AwsErrorCode:   "InvalidCopyRequestWithSameObject",
+		Description:    "This copy request is illegal because it is trying to copy an object to itself without changing the object's metadata, storage class, website redirect location or encryption attributes.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidRenameSourceKey: {
@@ -753,6 +761,16 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidErrorDocumentKey: {
 		AwsErrorCode:   "InvalidErrorDocumentKey",
 		Description:    "The key is required when ErrorDocument is specified.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMetadataHeader: {
+		AwsErrorCode:   "InvalidMetaCommonHead",
+		Description:    "The head is no a valid head key can be set.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMalformedMetadataConfiguration: {
+		AwsErrorCode:   "InvalidMetaConfiguration",
+		Description:    "Parsing meta XML data failed",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 }

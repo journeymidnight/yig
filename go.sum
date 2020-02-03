@@ -129,6 +129,10 @@ github.com/journeymidnight/aws-sdk-go v0.0.0-20190905144850-21150785b32d h1:o5A9
 github.com/journeymidnight/aws-sdk-go v0.0.0-20190905144850-21150785b32d/go.mod h1:bPAdbt/vJ+eG/DJ2q1rFWIAEF+VWvld83i27b/SFRJg=
 github.com/journeymidnight/aws-sdk-go v1.17.5 h1:fXF7G+rEq+I1cbtIhRgCVjqC5Zj46usmF8+7Waat8Zc=
 github.com/journeymidnight/aws-sdk-go v1.17.5/go.mod h1:bPAdbt/vJ+eG/DJ2q1rFWIAEF+VWvld83i27b/SFRJg=
+github.com/journeymidnight/aws-sdk-go v1.18.0 h1:YNO/siJC81lGk4zRJSBllSyHn9hh/syb2sfeOxf89g0=
+github.com/journeymidnight/aws-sdk-go v1.18.0/go.mod h1:on1A11DghtZvaybRzuiHW6fqTXv2RPjFTx6OhMc8sZc=
+github.com/journeymidnight/aws-sdk-go v1.18.1 h1:/dv12U8x+EHVEmW66rXtI00Do+ZMREGitokPGMpUalc=
+github.com/journeymidnight/aws-sdk-go v1.18.1/go.mod h1:on1A11DghtZvaybRzuiHW6fqTXv2RPjFTx6OhMc8sZc=
 github.com/journeymidnight/radoshttpd v0.0.0-20190617133011-609666b51136 h1:ioRwpqJIOz8DOhriRNkd2/DYXYLi44N61N9MnjozzuM=
 github.com/journeymidnight/radoshttpd v0.0.0-20190617133011-609666b51136/go.mod h1:crzxK1DDd3sNyFWzwbx/84lTNk4TO4wsvjl186nH+R4=
 github.com/jstemmer/go-junit-report v0.0.0-20190106144839-af01ea7f8024/go.mod h1:6v2b51hI/fHJwM22ozAgKL4VKDeJcHhJFhtBdhmNjmU=
