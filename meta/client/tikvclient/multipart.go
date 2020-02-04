@@ -137,7 +137,6 @@ func (c *TiKVClient) DeleteMultipart(multipart *Multipart, tx Tx) error {
 	return txn.Delete(multipartKey)
 }
 
-func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker, prefix, delimiter, encodingType string, maxUploads int) (uploads []datatype.Upload, prefixes []string, isTruncated bool, nextKeyMarker, nextUploadIdMarker string, err error) {
-
+func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker, prefix, delimiter, encodingType string, maxUploads int) (result datatype.ListMultipartUploadsResponse, err error) {
 	return
 }
