@@ -40,7 +40,7 @@ type Client interface {
 	CreateMultipart(multipart Multipart) (err error)
 	PutObjectPart(multipart *Multipart, part *Part) (err error)
 	DeleteMultipart(multipart *Multipart, tx Tx) (err error)
-	ListMultipartUploads(bucketName, keyMarker, uploadIdMarker, prefix, delimiter, encodingType string, maxUploads int) (uploads []datatype.Upload, prefixs []string, isTruncated bool, nextKeyMarker, nextUploadIdMarker string, err error)
+	ListMultipartUploads(bucketName, keyMarker, uploadIdMarker, prefix, delimiter, encodingType string, maxUploads int) (result datatype.ListMultipartUploadsResponse, err error)
 
 	//cluster
 	GetClusters() (cluster []Cluster, err error)

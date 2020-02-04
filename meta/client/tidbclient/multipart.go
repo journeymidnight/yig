@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"math"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -167,9 +168,12 @@ func (t *TidbClient) DeleteMultipart(multipart *Multipart, tx Tx) (err error) {
 	return err
 }
 
-func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker, prefix, delimiter, encodingType string, maxUploads int) (uploads []datatype.Upload, prefixs []string, isTruncated bool, nextKeyMarker, nextUploadIdMarker string, err error) {
+func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker, prefix, delimiter, encodingType string, maxUploads int) (result datatype.ListMultipartUploadsResponse, err error) {
 	var count int
-	var exit bool
+	var exit, isTruncated bool
+	var nextKeyMarker, nextUploadIdMarker string
+	var uploads []datatype.Upload
+	var prefixes []string
 	commonPrefixes := make(map[string]struct{})
 	var uploadNum uint64
 	if uploadIdMarker != "" {
@@ -285,6 +289,25 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 			break
 		}
 	}
-	prefixs = helper.Keys(commonPrefixes)
+	prefixes = helper.Keys(commonPrefixes)
+	result.IsTruncated = isTruncated
+	result.Uploads = uploads
+	result.NextKeyMarker = nextKeyMarker
+	result.NextUploadIdMarker = nextUploadIdMarker
+
+	sort.Strings(prefixes)
+	for _, prefix := range prefixes {
+		result.CommonPrefixes = append(result.CommonPrefixes, datatype.CommonPrefix{
+			Prefix: prefix,
+		})
+	}
+
+	result.Bucket = bucketName
+	result.Delimiter = delimiter
+	result.KeyMarker = keyMarker
+	result.UploadIdMarker = uploadIdMarker
+	result.MaxUploads = maxUploads
+	result.Prefix = prefix
+
 	return
 }

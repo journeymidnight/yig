@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"io"
 	"net/url"
-	"sort"
 	"strconv"
 	"time"
 
@@ -28,12 +27,12 @@ const (
 	MAX_PART_NUMBER = 10000
 )
 
-func (yig *YigStorage) ListMultipartUploads(credential common.Credential, bucketName string,
+func (yig *YigStorage) ListMultipartUploads(reqCtx RequestContext, credential common.Credential,
 	request datatype.ListUploadsRequest) (result datatype.ListMultipartUploadsResponse, err error) {
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
-	if err != nil {
-		return
+	bucket := reqCtx.BucketInfo
+	if bucket == nil {
+		return result, ErrNoSuchBucket
 	}
 	switch bucket.ACL.CannedAcl {
 	case "public-read", "public-read-write":
@@ -51,28 +50,11 @@ func (yig *YigStorage) ListMultipartUploads(credential common.Credential, bucket
 	}
 	// TODO policy and fancy ACL
 
-	uploads, prefixes, isTruncated, nextKeyMarker, nextUploadIdMarker, err := yig.MetaStorage.Client.ListMultipartUploads(bucketName, request.KeyMarker, request.UploadIdMarker, request.Prefix, request.Delimiter, request.EncodingType, request.MaxUploads)
+	result, err = yig.MetaStorage.Client.ListMultipartUploads(bucket.Name, request.KeyMarker, request.UploadIdMarker, request.Prefix, request.Delimiter, request.EncodingType, request.MaxUploads)
 	if err != nil {
 		return
 	}
-	result.IsTruncated = isTruncated
-	result.Uploads = uploads
-	result.NextKeyMarker = nextKeyMarker
-	result.NextUploadIdMarker = nextUploadIdMarker
 
-	sort.Strings(prefixes)
-	for _, prefix := range prefixes {
-		result.CommonPrefixes = append(result.CommonPrefixes, datatype.CommonPrefix{
-			Prefix: prefix,
-		})
-	}
-
-	result.Bucket = bucketName
-	result.KeyMarker = request.KeyMarker
-	result.UploadIdMarker = request.UploadIdMarker
-	result.MaxUploads = request.MaxUploads
-	result.Prefix = request.Prefix
-	result.Delimiter = request.Delimiter
 	result.EncodingType = request.EncodingType
 	if result.EncodingType != "" { // only support "url" encoding for now
 		result.Delimiter = url.QueryEscape(result.Delimiter)
