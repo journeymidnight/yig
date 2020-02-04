@@ -697,3 +697,43 @@ func Test_PutObjectMeta(t *testing.T) {
 		}
 	}
 }
+
+var ObjectKeys = []string{
+	TEST_KEY,
+	TEST_KEY_SPECIAL,
+	TEST_KEY + "/",
+	TEST_KEY + "/" + TEST_KEY,
+	TEST_KEY + "/" + TEST_KEY + "1",
+	TEST_KEY + "/" + TEST_VALUE,
+}
+
+func Test_ListObjects(t *testing.T) {
+	sc := NewS3()
+	delFn := func(sc *S3Client) {
+		for _, k := range ObjectKeys {
+			sc.DeleteObject(TEST_BUCKET, k)
+		}
+		sc.DeleteBucket(TEST_BUCKET)
+	}
+	delFn(sc)
+	defer delFn(sc)
+	err := sc.MakeBucket(TEST_BUCKET)
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+	}
+	for _, k := range ObjectKeys {
+		err = sc.PutObject(TEST_BUCKET, k, TEST_VALUE)
+		if err != nil {
+			t.Fatal("PutObject err:", err)
+		}
+	}
+	out, err := sc.ListObjects(TEST_BUCKET, "", "", 1000)
+	if len(out.Contents) != 2 {
+		t.Fatal("ListObjects err: result Content length should be 2 but not", len(out.Contents))
+	}
+	if len(out.CommonPrefixes) != 1 {
+		t.Fatal("ListObjects err: result CommonPrefixes length should be 1, but not", len(out.CommonPrefixes))
+	}
+
+	// TODO: Add more validation
+}
