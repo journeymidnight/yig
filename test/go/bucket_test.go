@@ -35,9 +35,7 @@ func Test_Bucket(t *testing.T) {
 	if err != nil {
 		t.Fatal("ListBuckets err:", err)
 	}
-	if len(buckets) != 2 {
-		t.Fatal("Buckets count is wrong", len(buckets))
-	}
+
 	if buckets[0] != TEST_BUCKET || buckets[1] != TEST_BUCKET+"2" {
 		t.Fatal("Buckets' name is wrong", buckets)
 	}
