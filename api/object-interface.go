@@ -96,7 +96,7 @@ type ObjectLayer interface {
 		error)
 
 	// Multipart operations.
-	ListMultipartUploads(credential common.Credential, bucket string,
+	ListMultipartUploads(reqCtx RequestContext, credential common.Credential,
 		request datatype.ListUploadsRequest) (result datatype.ListMultipartUploadsResponse, err error)
 	NewMultipartUpload(reqCtx RequestContext, credential common.Credential,
 		metadata map[string]string, acl datatype.Acl,

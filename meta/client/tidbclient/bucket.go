@@ -368,11 +368,11 @@ func (t *TidbClient) IsEmptyBucket(bucketName string) (bool, error) {
 		return false, nil
 	}
 	// Check if object part is empty
-	objparts, _, _, _, _, err := t.ListMultipartUploads(bucketName, "", "", "", "", "", 1)
+	result, err := t.ListMultipartUploads(bucketName, "", "", "", "", "", 1)
 	if err != nil {
 		return false, err
 	}
-	if len(objparts) != 0 {
+	if len(result.Uploads) != 0 {
 		return false, nil
 	}
 	return true, nil
