@@ -8,6 +8,8 @@ import (
 	"github.com/journeymidnight/yig/redis"
 )
 
+const NullVersion = "null"
+
 func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (object *Object, err error) {
 	getObject := func() (o interface{}, err error) {
 		helper.Logger.Info("GetObject CacheMiss. bucket:", bucketName,
@@ -77,7 +79,7 @@ func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multi
 		return ErrNoSuchBucket
 	}
 	if reqCtx.BucketInfo.Versioning == VersionDisabled {
-		object.VersionId = "null"
+		object.VersionId = NullVersion
 	} else {
 		return ErrNotImplemented
 		// TODO: object.VersionId = strconv.FormatUint(math.MaxUint64-uint64(object.LastModifiedTime.UnixNano()), 10)
