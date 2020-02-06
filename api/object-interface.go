@@ -99,7 +99,7 @@ type ObjectLayer interface {
 		err error)
 	ListObjectParts(credential common.Credential, bucket, object string,
 		request datatype.ListPartsRequest) (result datatype.ListPartsResponse, err error)
-	AbortMultipartUpload(credential common.Credential, bucket, object, uploadID string) error
+	AbortMultipartUpload(reqCtx RequestContext, credential common.Credential, uploadID string) error
 	CompleteMultipartUpload(reqCtx RequestContext, credential common.Credential, uploadID string,
 		uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult, err error)
 }
