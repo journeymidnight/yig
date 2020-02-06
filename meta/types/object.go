@@ -11,6 +11,8 @@ import (
 	"github.com/xxtea/xxtea-go/xxtea"
 )
 
+const NullVersion = "null"
+
 type Object struct {
 	Rowkey           []byte // Rowkey cache
 	Name             string

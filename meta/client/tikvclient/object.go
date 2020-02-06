@@ -6,13 +6,12 @@ import (
 
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/meta"
 	. "github.com/journeymidnight/yig/meta/types"
 )
 
 func genObjectKey(bucketName, objectName, version string) []byte {
 	// TODO: GetLatestObject
-	if version == meta.NullVersion || version == "" {
+	if version == NullVersion || version == "" {
 		return GenKey(bucketName, objectName)
 	} else {
 		return GenKey(bucketName, objectName, version)
@@ -122,8 +121,8 @@ func (c *TiKVClient) UpdateAppendObject(object *Object) error {
 }
 
 func (c *TiKVClient) RenameObject(object *Object, sourceObject string) (err error) {
-	oldKey := genObjectKey(object.BucketName, sourceObject, meta.NullVersion)
-	newKey := genObjectKey(object.BucketName, object.Name, meta.NullVersion)
+	oldKey := genObjectKey(object.BucketName, sourceObject, NullVersion)
+	newKey := genObjectKey(object.BucketName, object.Name, NullVersion)
 
 	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {

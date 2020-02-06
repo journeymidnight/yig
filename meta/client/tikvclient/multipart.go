@@ -150,6 +150,13 @@ func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 			return result, err
 		}
 	}
+
+	result.Prefix = prefix
+	result.Bucket = bucketName
+	result.KeyMarker = keyMarker
+	result.MaxUploads = maxUploads
+	result.Delimiter = delimiter
+
 	startKey := genMultipartKey(bucketName, keyMarker, initialTime)
 	endKey := genMultipartKey(bucketName, TableMaxKeySuffix, math.MaxUint64)
 
@@ -182,7 +189,6 @@ func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 			continue
 		}
 		objectName := sp[2]
-
 		if !strings.HasPrefix(objectName, prefix) {
 			it.Next(context.TODO())
 			continue
@@ -196,8 +202,8 @@ func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 				continue
 			} else if len(sp) == 2 {
 				if sp[1] == "" {
+					lastKey = objectName
 					commonPrefixes = append(commonPrefixes, subKey)
-					lastKey = k
 					count++
 					if count == maxUploads {
 						break
@@ -229,18 +235,18 @@ func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 		u.Initiated = time.Unix(s, ns).UTC().Format(CREATE_TIME_LAYOUT)
 		u.Initiator.ID = m.Metadata.InitiatorId
 		result.Uploads = append(result.Uploads, u)
-		result.Prefix = prefix
-		result.Bucket = bucketName
-		result.KeyMarker = keyMarker
-		result.MaxUploads = maxUploads
-		result.Delimiter = delimiter
-		sort.Strings(commonPrefixes)
-		for _, prefix := range commonPrefixes {
-			result.CommonPrefixes = append(result.CommonPrefixes, datatype.CommonPrefix{
-				Prefix: prefix,
-			})
+		count++
+		if count == maxUploads {
+			break
 		}
-
+		it.Next(context.TODO())
+		continue
+	}
+	sort.Strings(commonPrefixes)
+	for _, prefix := range commonPrefixes {
+		result.CommonPrefixes = append(result.CommonPrefixes, datatype.CommonPrefix{
+			Prefix: prefix,
+		})
 	}
 	it.Next(context.TODO())
 	if it.Valid() {

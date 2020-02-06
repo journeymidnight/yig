@@ -8,8 +8,6 @@ import (
 	"github.com/journeymidnight/yig/redis"
 )
 
-const NullVersion = "null"
-
 func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (object *Object, err error) {
 	getObject := func() (o interface{}, err error) {
 		helper.Logger.Info("GetObject CacheMiss. bucket:", bucketName,
