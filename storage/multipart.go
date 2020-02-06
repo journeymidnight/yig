@@ -447,12 +447,10 @@ func (yig *YigStorage) ListObjectParts(credential common.Credential, bucketName,
 	return
 }
 
-func (yig *YigStorage) AbortMultipartUpload(credential common.Credential,
-	bucketName, objectName, uploadId string) error {
-
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
-	if err != nil {
-		return err
+func (yig *YigStorage) AbortMultipartUpload(reqCtx RequestContext, credential common.Credential, uploadId string) error {
+	bucket := reqCtx.BucketInfo
+	if bucket == nil {
+		return ErrNoSuchBucket
 	}
 	switch bucket.ACL.CannedAcl {
 	case "public-read-write":
@@ -463,6 +461,7 @@ func (yig *YigStorage) AbortMultipartUpload(credential common.Credential,
 		}
 	} // TODO policy and fancy ACL
 
+	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
 	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
 	if err != nil {
 		return err
@@ -473,14 +472,13 @@ func (yig *YigStorage) AbortMultipartUpload(credential common.Credential,
 		return err
 	}
 	// remove parts in Ceph
-	var removedSize int64 = 0
+
 	for _, p := range multipart.Parts {
 		RecycleQueue <- objectToRecycle{
 			location: multipart.Metadata.Location,
 			pool:     multipart.Metadata.Pool,
 			objectId: p.ObjectId,
 		}
-		removedSize += p.Size
 	}
 
 	return nil
