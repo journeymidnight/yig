@@ -9,6 +9,7 @@ import (
 	"time"
 
 	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
 	"github.com/xxtea/xxtea-go/xxtea"
 )
@@ -23,9 +24,16 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 	if version == "" {
 		sqltext += "order by bucketname,name,version limit 1;"
 		row = t.Client.QueryRow(sqltext, bucketName, objectName)
+	} else if version == ObjectNullVersion {
+		sqltext += "and nullversion=1 limit 1;" // There should be only one NullVersion object.
+		row = t.Client.QueryRow(sqltext, bucketName, objectName)
 	} else {
 		sqltext += "and version=?;"
-		row = t.Client.QueryRow(sqltext, bucketName, objectName, version)
+		internalVersion, err := ConvertS3VersionToRawVersion(version)
+		if err != nil {
+			return nil, ErrInternalError
+		}
+		row = t.Client.QueryRow(sqltext, bucketName, objectName, internalVersion)
 	}
 	object = &Object{}
 	err = row.Scan(
@@ -79,32 +87,44 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 		}
 		object.PartsIndex = &SimpleIndex{Index: sortedPartNum}
 	}
-	var reversedTime uint64
-	timestamp := math.MaxUint64 - reversedTime
-	timeData := []byte(strconv.FormatUint(timestamp, 10))
-	object.VersionId = hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
+	object.VersionId = ConvertRawVersionToS3Version(iversion)
+
 	return
+}
+
+func ConvertRawVersionToS3Version(rawVersion uint64) string {
+	return hex.EncodeToString(xxtea.Encrypt([]byte(strconv.FormatUint(rawVersion, 10)), XXTEA_KEY))
+}
+
+func ConvertS3VersionToRawVersion(s3Version string) (string, error) {
+	versionEncryped, err := hex.DecodeString(s3Version)
+	if err != nil {
+		helper.Logger.Error("Err in DecodeString()", s3Version)
+		return "", ErrInternalError
+	}
+
+	return string(xxtea.Decrypt(versionEncryped, XXTEA_KEY)), nil
 }
 
 func (t *TidbClient) GetAllObject(bucketName, objectName, version string) (object []*Object, err error) {
 	sqltext := "select version from objects where bucketname=? and name=?;"
-	var versions []string
+	var versions []uint64
 	rows, err := t.Client.Query(sqltext, bucketName, objectName)
 	if err != nil {
 		return
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var sversion string
-		err = rows.Scan(&sversion)
+		var iversion uint64
+		err = rows.Scan(&iversion)
 		if err != nil {
 			return
 		}
-		versions = append(versions, sversion)
+		versions = append(versions, iversion)
 	}
 	for _, v := range versions {
 		var obj *Object
-		obj, err = t.GetObject(bucketName, objectName, v)
+		obj, err = t.GetObject(bucketName, objectName, ConvertRawVersionToS3Version(v))
 		if err != nil {
 			return
 		}
@@ -143,11 +163,15 @@ func (t *TidbClient) ReplaceObjectMetas(object *Object, tx DB) (err error) {
 	return
 }
 
-func (t *TidbClient) UpdateAppendObject(object *Object, tx DB) (err error) {
+func (t *TidbClient) UpdateAppendObject(object *Object, tx DB, versionId string) (err error) {
 	if tx == nil {
 		tx = t.Client
 	}
-	sql, args := object.GetAppendSql()
+	rawVersionId, err := ConvertS3VersionToRawVersion(versionId)
+	if err != nil {
+		return err
+	}
+	sql, args := object.GetAppendSql(rawVersionId)
 	_, err = tx.Exec(sql, args...)
 	return err
 }
@@ -167,7 +191,8 @@ func (t *TidbClient) PutObject(object *Object, tx DB) (err error) {
 			}
 		}()
 	}
-	sql, args := object.GetCreateSql()
+	sql, args, iversion := object.GetCreateSql()
+	object.VersionId = ConvertRawVersionToS3Version(iversion)
 	_, err = tx.Exec(sql, args...)
 	if object.Parts != nil {
 		v := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
@@ -204,11 +229,13 @@ func (t *TidbClient) DeleteObject(object *Object, tx DB) (err error) {
 	sqltext := "delete from objects where name=? and bucketname=? and version=?;"
 	_, err = tx.Exec(sqltext, object.Name, object.BucketName, version)
 	if err != nil {
+		helper.Logger.Error(object.Name, object.BucketName, version)
 		return err
 	}
 	sqltext = "delete from objectpart where objectname=? and bucketname=? and version=?;"
 	_, err = tx.Exec(sqltext, object.Name, object.BucketName, version)
 	if err != nil {
+		helper.Logger.Error(object.Name, object.BucketName, version)
 		return err
 	}
 	return nil
