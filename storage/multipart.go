@@ -610,28 +610,15 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 		StorageClass:     multipart.Metadata.StorageClass,
 	}
 
-	var nullVerNum uint64
-	nullVerNum, err = yig.checkOldObject(bucketName, objectName, bucket.Versioning)
+	err = yig.checkOldObject(bucketName, objectName, bucket.Versioning)
 	if err != nil {
 		return
 	}
+
+	err = yig.MetaStorage.PutObject(object, &multipart, false)
+
 	if bucket.Versioning == "Enabled" {
 		result.VersionId = object.GetVersionId()
-	}
-	// update null version number
-	if bucket.Versioning == "Suspended" {
-		nullVerNum = uint64(object.LastModifiedTime.UnixNano())
-	}
-
-	objMap := &meta.ObjMap{
-		Name:       objectName,
-		BucketName: bucketName,
-	}
-
-	if nullVerNum != 0 {
-		err = yig.MetaStorage.PutObject(object, &multipart, objMap, false)
-	} else {
-		err = yig.MetaStorage.PutObject(object, &multipart, nil, false)
 	}
 
 	sseRequest := multipart.Metadata.SseRequest

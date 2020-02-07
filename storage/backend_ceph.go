@@ -68,6 +68,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 	var poolName, oid string
 	var initializationVector []byte
 	var objSize int64
+	var oldVersionId string
 	if objInfo != nil {
 		cephCluster = yig.DataStorage[objInfo.Location]
 		// Every appendable file must be treated as a big file
@@ -76,6 +77,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 		initializationVector = objInfo.InitializationVector
 		objSize = objInfo.Size
 		storageClass = objInfo.StorageClass
+		oldVersionId = objInfo.VersionId
 		helper.Logger.Println(20, "request append oid:", oid, "iv:", initializationVector, "size:", objSize)
 	} else {
 		// New appendable object
@@ -152,7 +154,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 	result.NextPosition = object.Size
 	helper.Logger.Println(20, "Append info.", "bucket:", bucketName, "objName:", objectName, "oid:", oid,
 		"objSize:", object.Size, "bytesWritten:", bytesWritten, "storageClass:", storageClass)
-	err = yig.MetaStorage.AppendObject(object, objInfo != nil)
+	err = yig.MetaStorage.AppendObject(object, objInfo != nil, oldVersionId)
 	if err != nil {
 		return
 	}

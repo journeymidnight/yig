@@ -2,6 +2,7 @@ package client
 
 import (
 	"database/sql"
+
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/meta/types"
 )
@@ -16,7 +17,7 @@ type Client interface {
 	GetObject(bucketName, objectName, version string) (object *Object, err error)
 	GetAllObject(bucketName, objectName, version string) (object []*Object, err error)
 	PutObject(object *Object, tx DB) error
-	UpdateAppendObject(object *Object, tx DB) error
+	UpdateAppendObject(object *Object, tx DB, versionId string) error
 	RenameObjectPart(object *Object, sourceObject string, tx DB) (err error)
 	RenameObject(object *Object, sourceObject string, tx DB) (err error)
 	ReplaceObjectMetas(object *Object, tx DB) (err error)
@@ -29,7 +30,7 @@ type Client interface {
 	PutBucket(bucket Bucket) error
 	CheckAndPutBucket(bucket Bucket) (bool, error)
 	DeleteBucket(bucket Bucket) error
-	ListObjects(bucketName, marker, verIdMarker, prefix, delimiter string, versioned bool, maxKeys int) (retObjects []*Object, prefixes []string, truncated bool, nextMarker, nextVerIdMarker string, err error)
+	ListObjects(bucketName, marker, verIdMarker, prefix, delimiter string, versioned bool, maxKeys int, withDeleteMarker bool) (retObjects []*Object, prefixes []string, truncated bool, nextMarker, nextVerIdMarker string, err error)
 	UpdateUsage(bucketName string, size int64, tx DB) error
 
 	//multipart
@@ -38,10 +39,6 @@ type Client interface {
 	PutObjectPart(multipart *Multipart, part *Part, tx DB) (err error)
 	DeleteMultipart(multipart *Multipart, tx DB) (err error)
 	ListMultipartUploads(bucketName, keyMarker, uploadIdMarker, prefix, delimiter, encodingType string, maxUploads int) (uploads []datatype.Upload, prefixs []string, isTruncated bool, nextKeyMarker, nextUploadIdMarker string, err error)
-	//objmap
-	GetObjectMap(bucketName, objectName string) (objMap *ObjMap, err error)
-	PutObjectMap(objMap *ObjMap, tx DB) error
-	DeleteObjectMap(objMap *ObjMap, tx DB) error
 	//cluster
 	GetClusters() (cluster []Cluster, err error)
 	//lc
