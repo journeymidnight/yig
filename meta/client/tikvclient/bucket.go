@@ -90,41 +90,39 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 		return info, err
 	}
 	defer it.Close()
-	var commonPrefixes []string
+	commonPrefixes := make(map[string]interface{})
 
 	count := 0
-	lastKey := ""
 	for it.Valid() {
 		k, v := string(it.Key()[:]), it.Value()
 		if k == string(startKey) {
 			it.Next(context.TODO())
 			continue
 		}
-		k = strings.SplitN(k, TableSeparator, 2)[1]
-		if !strings.HasPrefix(k, prefix) {
+		// extract object key
+		objKey := strings.SplitN(k, TableSeparator, 2)[1]
+		if !strings.HasPrefix(objKey, prefix) {
 			it.Next(context.TODO())
 			continue
 		}
 		if delimiter != "" {
-			subKey := strings.TrimPrefix(k, prefix)
-			sp := strings.Split(subKey, delimiter)
-			if len(sp) > 2 {
-				it.Next(context.TODO())
-				continue
-			} else if len(sp) == 2 {
-				if sp[1] == "" {
-					commonPrefixes = append(commonPrefixes, subKey)
-					lastKey = k
+			subKey := strings.TrimPrefix(objKey, prefix)
+			sp := strings.SplitN(subKey, delimiter, 2)
+			if len(sp) == 2 {
+				prefixKey := prefix + sp[0] + delimiter
+				if _, ok := commonPrefixes[prefixKey]; !ok && prefixKey != marker {
 					count++
 					if count == maxKeys {
+						info.NextMarker = prefixKey
+					}
+					if count > maxKeys {
+						info.IsTruncated = true
 						break
 					}
-					it.Next(context.TODO())
-					continue
-				} else {
-					it.Next(context.TODO())
-					continue
+					commonPrefixes[prefixKey] = nil
 				}
+				it.Next(context.TODO())
+				continue
 			}
 		}
 		var o Object
@@ -139,21 +137,18 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 		info_o.LastModified = o.LastModifiedTime.UTC().Format(CREATE_TIME_LAYOUT)
 		info_o.Size = uint64(o.Size)
 		info_o.StorageClass = o.StorageClass.ToString()
-		lastKey = k
 		count++
-		info.Objects = append(info.Objects, info_o)
-
 		if count == maxKeys {
+			info.NextMarker = objKey
+		}
+		if count > maxKeys {
+			info.IsTruncated = true
 			break
 		}
+		info.Objects = append(info.Objects, info_o)
 		it.Next(context.TODO())
 	}
-	info.Prefixes = commonPrefixes
-	it.Next(context.TODO())
-	if it.Valid() {
-		info.NextMarker = lastKey
-		info.IsTruncated = true
-	}
+	info.Prefixes = helper.Keys(commonPrefixes)
 	return
 }
 

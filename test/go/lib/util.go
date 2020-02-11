@@ -113,3 +113,12 @@ func GenMinimalPart() []byte {
 func Format(s string) string {
 	return strings.Replace(strings.Replace(strings.Replace(s, " ", "", -1), "\n", "", -1), "\t", "", -1)
 }
+
+func HasStrInSlice(slice []string, str string) bool {
+	for _, s := range slice {
+		if s == str {
+			return true
+		}
+	}
+	return false
+}

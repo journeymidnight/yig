@@ -701,10 +701,10 @@ func Test_PutObjectMeta(t *testing.T) {
 var ObjectKeys = []string{
 	TEST_KEY,
 	TEST_KEY_SPECIAL,
-	TEST_KEY + "/",
 	TEST_KEY + "/" + TEST_KEY,
-	TEST_KEY + "/" + TEST_KEY + "1",
 	TEST_KEY + "/" + TEST_VALUE,
+	TEST_VALUE + "/" + TEST_KEY,
+	TEST_VALUE + "/" + TEST_VALUE,
 }
 
 func Test_ListObjects(t *testing.T) {
@@ -728,12 +728,54 @@ func Test_ListObjects(t *testing.T) {
 		}
 	}
 	out, err := sc.ListObjects(TEST_BUCKET, "", "", 1000)
+	if err != nil {
+		t.Fatal("ListObjects err:", err)
+	}
+	PrintListResult(t, out)
 	if len(out.Contents) != 2 {
 		t.Fatal("ListObjects err: result Content length should be 2 but not", len(out.Contents))
 	}
-	if len(out.CommonPrefixes) != 1 {
-		t.Fatal("ListObjects err: result CommonPrefixes length should be 1, but not", len(out.CommonPrefixes))
+	if len(out.CommonPrefixes) != 2 {
+		t.Fatal("ListObjects err: result CommonPrefixes length should be 2 but not", len(out.CommonPrefixes))
 	}
 
 	// TODO: Add more validation
+
+	out, err = sc.ListObjects(TEST_BUCKET, "", "", 1)
+	if err != nil {
+		t.Fatal("ListObjects err:", err)
+	}
+	PrintListResult(t, out)
+
+	out, err = sc.ListObjects(TEST_BUCKET, *out.NextMarker, "", 1)
+	if err != nil {
+		t.Fatal("ListObjects err:", err)
+	}
+	PrintListResult(t, out)
+}
+
+func PrintListResult(t *testing.T, out *s3.ListObjectsOutput) {
+	for i, o := range out.Contents {
+		if o.Key != nil {
+			t.Log("Object", i, ":", *o.Key)
+		}
+	}
+	for i, o := range out.CommonPrefixes {
+		if o.Prefix != nil {
+			t.Log("CommonPrefix", i, ":", *o.Prefix)
+		}
+	}
+
+	if out.IsTruncated == nil {
+		t.Log("IsTruncated:", nil)
+	} else {
+		t.Log("IsTruncated:", *out.IsTruncated)
+	}
+
+	if out.NextMarker == nil {
+		t.Log("NextMarker:", nil)
+	} else {
+		t.Log("NextMarker:", *out.NextMarker)
+	}
+
 }
