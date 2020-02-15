@@ -56,14 +56,12 @@ func (m *Multipart) GenUploadId() error {
 	return nil
 }
 
-//UploadId = xxtea.Encrypt(BigEndian(MaxUint64 - UTC.Nano()), "hehehehe")
 func EncodeUint64(i uint64) []byte {
 	var bin [8]byte
 	binary.BigEndian.PutUint64(bin[:], i)
 	return bin[:]
 }
 
-//UploadId = xxtea.Encrypt(BigEndian(MaxUint64 - UTC.Nano()), "hehehehe")
 func DecodeUint64(bin []byte) uint64 {
 	return binary.BigEndian.Uint64(bin)
 }

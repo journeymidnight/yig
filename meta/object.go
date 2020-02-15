@@ -42,11 +42,18 @@ func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (o
 	return object, nil
 }
 
-func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed bool) (object *Object, err error) {
+func (m *Meta) GetVersionedObject(bucketName, objectName, version string, willNeed bool) (object *Object, err error) {
 	getObjectVersion := func() (o interface{}, err error) {
-		object, err := m.Client.GetObject(bucketName, objectName, version)
-		if err != nil {
-			return
+		if version == "" {
+			object, err = m.Client.GetLatestVersionedObject(bucketName, objectName)
+			if err != nil {
+				return
+			}
+		} else {
+			object, err = m.Client.GetObject(bucketName, objectName, version)
+			if err != nil {
+				return
+			}
 		}
 		if object.Name != objectName {
 			err = ErrNoSuchKey
@@ -72,33 +79,32 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed
 	return object, nil
 }
 
-func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multipart, objMap *ObjMap, updateUsage bool) error {
+func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multipart, updateUsage bool) error {
 	if reqCtx.BucketInfo == nil {
 		return ErrNoSuchBucket
 	}
-	if reqCtx.BucketInfo.Versioning == VersionDisabled {
-		object.VersionId = NullVersion
-	} else {
-		return ErrNotImplemented
-		// TODO: object.VersionId = strconv.FormatUint(math.MaxUint64-uint64(object.LastModifiedTime.UnixNano()), 10)
-	}
-
-	needUpdate := (reqCtx.ObjectInfo != nil)
-	if multipart == nil && object.Parts == nil {
-		if needUpdate {
-			return m.Client.UpdateObjectWithoutMultiPart(object)
-		} else {
-			return m.Client.PutObjectWithoutMultiPart(object)
+	// TODO: Check SUSPEND Logic
+	if reqCtx.BucketInfo.Versioning != VersionEnabled {
+		needUpdate := (reqCtx.ObjectInfo != nil)
+		if multipart == nil && object.Parts == nil {
+			if needUpdate {
+				return m.Client.UpdateObjectWithoutMultiPart(object)
+			} else {
+				return m.Client.PutObjectWithoutMultiPart(object)
+			}
 		}
-	}
 
-	if needUpdate {
-		return m.Client.UpdateObject(object, multipart, updateUsage)
+		if needUpdate {
+			return m.Client.UpdateObject(object, multipart, updateUsage)
+		} else {
+			return m.Client.PutObject(object, multipart, updateUsage)
+		}
+
+		return nil
 	} else {
-		return m.Client.PutObject(object, multipart, updateUsage)
+		return m.Client.PutVersionedObject(object, multipart, updateUsage)
 	}
 
-	return nil
 }
 
 func (m *Meta) UpdateObjectAcl(object *Object) error {

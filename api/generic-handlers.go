@@ -26,6 +26,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/journeymidnight/yig/meta"
+	. "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/signature"
 
 	. "github.com/journeymidnight/yig/context"
@@ -220,6 +221,7 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 
 	logger := r.Context().Value(ContextLoggerKey).(log.Logger)
 	reqCtx.Logger = logger
+	reqCtx.VersionId = r.URL.Query().Get("versionId")
 
 	err := FillBucketAndObjectInfo(&reqCtx, r, h.meta)
 	if err != nil {
@@ -233,7 +235,7 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		return
 	}
 	reqCtx.AuthType = authType
-	reqCtx.VersionId = r.URL.Query().Get("versionId")
+
 	ctx := context.WithValue(r.Context(), RequestContextKey, reqCtx)
 	logger.Info("BucketName:", reqCtx.BucketName, "ObjectName:", reqCtx.ObjectName, "BucketExist:",
 		reqCtx.BucketInfo != nil, "ObjectExist:", reqCtx.ObjectInfo != nil, "AuthType:", authType, "VersionId:", reqCtx.VersionId)
@@ -282,10 +284,21 @@ func FillBucketAndObjectInfo(reqCtx *RequestContext, r *http.Request, meta *meta
 		}
 		if reqCtx.BucketInfo != nil && reqCtx.ObjectName != "" {
 			// TODO: Get Latest Object
-			reqCtx.ObjectInfo, err = meta.GetObject(reqCtx.BucketInfo.Name, reqCtx.ObjectName, true)
-			if err != nil && err != ErrNoSuchKey {
-				return err
+			if reqCtx.BucketInfo.Versioning == VersionDisabled {
+				if reqCtx.VersionId != "" {
+					return ErrInvalidVersioning
+				}
+				reqCtx.ObjectInfo, err = meta.GetObject(reqCtx.BucketInfo.Name, reqCtx.ObjectName, true)
+				if err != nil && err != ErrNoSuchKey {
+					return err
+				}
+			} else {
+				reqCtx.ObjectInfo, err = meta.GetVersionedObject(reqCtx.BucketInfo.Name, reqCtx.ObjectName, reqCtx.VersionId, true)
+				if err != nil && err != ErrNoSuchKey {
+					return err
+				}
 			}
+
 		}
 	}
 	return nil

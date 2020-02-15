@@ -580,7 +580,7 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 		StorageClass:     multipart.Metadata.StorageClass,
 	}
 
-	err = yig.MetaStorage.PutObject(reqCtx, object, &multipart, nil, false)
+	err = yig.MetaStorage.PutObject(reqCtx, object, &multipart, false)
 	if err != nil {
 		return
 	}

@@ -620,16 +620,25 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 		Type:                 meta.ObjectTypeNormal,
 		StorageClass:         storageClass,
 	}
+	if bucket.Versioning == meta.VersionEnabled {
+		object.VersionId = hex.EncodeToString(meta.EncodeTime(uint64(object.LastModifiedTime.UnixNano())))
+	} else {
+		object.VersionId = meta.NullVersion
+	}
+
 	result.LastModified = object.LastModifiedTime
-	err = yig.MetaStorage.PutObject(reqCtx, object, nil, nil, true)
+	err = yig.MetaStorage.PutObject(reqCtx, object, nil, true)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
 	} else {
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
-		if reqCtx.ObjectInfo != nil && reqCtx.BucketInfo.Versioning == meta.VersionDisabled {
+		if reqCtx.ObjectInfo != nil && reqCtx.BucketInfo.Versioning != meta.VersionEnabled {
 			go yig.removeOldObject(reqCtx.ObjectInfo)
+		}
+		if bucket.Versioning == meta.VersionEnabled {
+			result.VersionId = object.VersionId
 		}
 	}
 
@@ -839,7 +848,7 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 
 	result.LastModified = targetObject.LastModifiedTime
 
-	err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, nil, true)
+	err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, true)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
@@ -863,7 +872,7 @@ func (yig *YigStorage) removeByObject(object *meta.Object, objMap *meta.ObjMap) 
 }
 
 func (yig *YigStorage) getObjWithVersion(bucketName, objectName, version string) (object *meta.Object, err error) {
-	return yig.MetaStorage.GetObjectVersion(bucketName, objectName, version, true)
+	return yig.MetaStorage.GetVersionedObject(bucketName, objectName, version, true)
 
 }
 

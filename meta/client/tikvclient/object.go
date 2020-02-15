@@ -40,6 +40,10 @@ func (c *TiKVClient) GetObject(bucketName, objectName, version string) (*Object,
 	return &o, nil
 }
 
+func (t *TiKVClient) GetLatestVersionedObject(bucketName, objectName string) (object *Object, err error) {
+	return
+}
+
 func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage bool) error {
 	objectKey := genObjectKey(object.BucketName, object.Name, object.VersionId)
 	tx, err := c.NewTrans()
@@ -77,6 +81,10 @@ func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage
 	if updateUsage {
 		return c.UpdateUsage(object.BucketName, object.Size, tx)
 	}
+	return nil
+}
+
+func (c *TiKVClient) PutVersionedObject(object *Object, multipart *Multipart, updateUsage bool) error {
 	return nil
 }
 

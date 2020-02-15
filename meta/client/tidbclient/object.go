@@ -85,6 +85,10 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 	return
 }
 
+func (t *TidbClient) GetLatestVersionedObject(bucketName, objectName string) (object *Object, err error) {
+	return
+}
+
 func (t *TidbClient) UpdateObjectAttrs(object *Object) error {
 	sql, args := object.GetUpdateAttrsSql()
 	_, err := t.Client.Exec(sql, args...)
@@ -147,6 +151,10 @@ func (t *TidbClient) UpdateAppendObject(object *Object) (err error) {
 	_, err = tx.Exec(sql, args...)
 
 	return t.UpdateUsage(object.BucketName, object.Size, tx)
+}
+
+func (c *TidbClient) PutVersionedObject(object *Object, multipart *Multipart, updateUsage bool) error {
+	return nil
 }
 
 func (t *TidbClient) PutObjectWithoutMultiPart(object *Object) error {

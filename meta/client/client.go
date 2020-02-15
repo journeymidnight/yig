@@ -15,10 +15,12 @@ type Client interface {
 	CommitTrans(tx Tx) error
 	//object
 	GetObject(bucketName, objectName, version string) (object *Object, err error)
+	GetLatestVersionedObject(bucketName, objectName string) (object *Object, err error)
 	PutObject(object *Object, multipart *Multipart, updateUsage bool) error
 	PutObjectWithoutMultiPart(object *Object) error
 	UpdateObject(object *Object, multipart *Multipart, updateUsage bool) (err error)
 	UpdateObjectWithoutMultiPart(object *Object) error
+	PutVersionedObject(object *Object, multipart *Multipart, updateUsage bool) error
 	UpdateAppendObject(object *Object) error
 	RenameObject(object *Object, sourceObject string) (err error)
 	DeleteObject(object *Object, tx Tx) error
