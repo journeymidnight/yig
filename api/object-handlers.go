@@ -194,8 +194,8 @@ func (o *GetObjectResponseWriter) Write(p []byte) (int, error) {
 // This implementation of the GET operation retrieves object. To use GET,
 // you must have READ access to the object.
 func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := GetRequestContext(r)
-	logger := ctx.Logger
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 	var credential common.Credential
 	var err error
 	if api.HandledByWebsite(w, r) {
@@ -207,9 +207,9 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	version := r.URL.Query().Get("versionId")
+	version := reqCtx.VersionId
 	// Fetch object stat info.
-	object, err := api.ObjectAPI.GetObjectInfoByCtx(ctx, version, credential)
+	object, err := api.ObjectAPI.GetObjectInfoByCtx(reqCtx, version, credential)
 	if err != nil {
 		logger.Error("Unable to fetch object info:", err)
 		if err == ErrNoSuchKey {
@@ -323,8 +323,8 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 // The HEAD operation retrieves metadata from an object without returning the object itself.
 // TODO refactor HEAD and GET
 func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := GetRequestContext(r)
-	logger := ctx.Logger
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.GetObjectAction); err != nil {
@@ -332,8 +332,8 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	version := r.URL.Query().Get("versionId")
-	object, err := api.ObjectAPI.GetObjectInfoByCtx(ctx, version, credential)
+	version := reqCtx.VersionId
+	object, err := api.ObjectAPI.GetObjectInfoByCtx(reqCtx, version, credential)
 	if err != nil {
 		logger.Error("Unable to fetch object info:", err)
 		if err == ErrNoSuchKey {

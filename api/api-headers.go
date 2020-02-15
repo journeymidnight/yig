@@ -78,5 +78,12 @@ func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *
 		w.WriteHeader(http.StatusPartialContent)
 	}
 
+	if object.VersionId != meta.NullVersion {
+		w.Header()["x-amz-version-id"] = []string{object.VersionId}
+	}
+
+	if object.DeleteMarker {
+		w.Header()["x-amz-delete-marker"] = []string{"true"}
+	}
 	w.WriteHeader(statusCode)
 }

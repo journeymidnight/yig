@@ -373,12 +373,6 @@ func (yig *YigStorage) GetObjectInfoByCtx(ctx RequestContext,
 	if object == nil {
 		return nil, ErrNoSuchKey
 	}
-	if version != "" {
-		object, err = yig.getObjWithVersion(ctx.BucketName, ctx.ObjectName, version)
-		if err != nil {
-			return
-		}
-	}
 
 	if !credential.AllowOtherUserAccess {
 		switch object.ACL.CannedAcl {
