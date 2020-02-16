@@ -14,13 +14,14 @@ import (
 )
 
 func (t *TidbClient) GetBucket(bucketName string) (bucket *Bucket, err error) {
-	var acl, cors, lc, policy, website, createTime string
-	sqltext := "select bucketname,acl,cors,lc,uid,policy,website,createtime,usages,versioning from buckets where bucketname=?;"
+	var acl, cors, bl, lc, policy, website, createTime string
+	sqltext := "select bucketname,acl,cors,bl,lc,uid,policy,website,createtime,usages,versioning from buckets where bucketname=?;"
 	bucket = new(Bucket)
 	err = t.Client.QueryRow(sqltext, bucketName).Scan(
 		&bucket.Name,
 		&acl,
 		&cors,
+		&bl,
 		&lc,
 		&bucket.OwnerId,
 		&policy,
@@ -47,6 +48,10 @@ func (t *TidbClient) GetBucket(bucketName string) (bucket *Bucket, err error) {
 	if err != nil {
 		return
 	}
+	err = json.Unmarshal([]byte(bl), &bucket.BucketLogging)
+	if err != nil {
+		return
+	}
 	err = json.Unmarshal([]byte(lc), &bucket.Lifecycle)
 	if err != nil {
 		return
@@ -63,7 +68,7 @@ func (t *TidbClient) GetBucket(bucketName string) (bucket *Bucket, err error) {
 }
 
 func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
-	sqltext := "select bucketname,acl,cors,lc,uid,policy,website,createtime,usages,versioning from buckets;"
+	sqltext := "select bucketname,acl,cors,bl,lc,uid,policy,website,createtime,usages,versioning from buckets;"
 	rows, err := t.Client.Query(sqltext)
 	if err == sql.ErrNoRows {
 		err = nil
@@ -75,11 +80,12 @@ func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
 
 	for rows.Next() {
 		var tmp Bucket
-		var acl, cors, lc, policy, website, createTime string
+		var acl, cors, bl,lc, policy, website, createTime string
 		err = rows.Scan(
 			&tmp.Name,
 			&acl,
 			&cors,
+			&bl,
 			&lc,
 			&tmp.OwnerId,
 			&policy,
@@ -99,6 +105,10 @@ func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
 			return
 		}
 		err = json.Unmarshal([]byte(cors), &tmp.CORS)
+		if err != nil {
+			return
+		}
+		err = json.Unmarshal([]byte(bl), &tmp.BucketLogging)
 		if err != nil {
 			return
 		}

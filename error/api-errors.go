@@ -150,6 +150,7 @@ const (
 	ErrInvalidAcl
 	ErrUnsupportedAcl
 	ErrNonUTF8Encode
+	ErrInvalidBl
 	ErrInvalidLc
 	ErrNoSuchBucketLc
 	ErrInvalidStorageClass
