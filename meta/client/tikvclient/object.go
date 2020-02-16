@@ -7,8 +7,12 @@ import (
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
+	"github.com/tikv/client-go/key"
 )
 
+// **Key**: {BucketName}\\{ObjectName}
+// **Versioned Key**: {BucketName}\\{ObjectName}\\{Version}
+// Version = hex.EncodeToString(BigEndian(MaxUint64 - multipart.InitialTime))
 func genObjectKey(bucketName, objectName, version string) []byte {
 	// TODO: GetLatestObject
 	if version == NullVersion || version == "" {
@@ -40,8 +44,34 @@ func (c *TiKVClient) GetObject(bucketName, objectName, version string) (*Object,
 	return &o, nil
 }
 
-func (t *TiKVClient) GetLatestVersionedObject(bucketName, objectName string) (object *Object, err error) {
-	return
+func (c *TiKVClient) GetLatestVersionedObject(bucketName, objectName string) (object *Object, err error) {
+	objKey := genObjectKey(bucketName, objectName, NullVersion)
+	var o, vo Object
+	nullObjExist, err := c.TxGet(objKey, &o)
+	if err != nil {
+		return nil, err
+	}
+
+	versionStartKey := genObjectKey(bucketName, objectName, TableMinKeySuffix)
+	versionEndKey := genObjectKey(bucketName, objectName, TableMaxKeySuffix)
+	kvs, err := c.TxScan(key.Key(versionStartKey), key.Key(versionEndKey), 1)
+	if err != nil {
+		return nil, err
+	}
+	if !nullObjExist && len(kvs) == 0 {
+		return nil, ErrNoSuchKey
+	} else if !nullObjExist {
+		err = helper.MsgPackUnMarshal(kvs[0].V, &vo)
+		if err != nil {
+			return nil, err
+		}
+		return &vo, nil
+	} else if len(kvs) == 0 {
+		return &o, nil
+	} else {
+		reto := helper.Ternary(o.LastModifiedTime.After(vo.LastModifiedTime), &o, &vo)
+		return reto.(*Object), nil
+	}
 }
 
 func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage bool) error {
@@ -85,7 +115,7 @@ func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage
 }
 
 func (c *TiKVClient) PutVersionedObject(object *Object, multipart *Multipart, updateUsage bool) error {
-	return nil
+	return c.PutObject(object, multipart, updateUsage)
 }
 
 func (c *TiKVClient) PutObjectWithoutMultiPart(object *Object) error {

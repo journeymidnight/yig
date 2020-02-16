@@ -83,8 +83,11 @@ func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multi
 	if reqCtx.BucketInfo == nil {
 		return ErrNoSuchBucket
 	}
-	// TODO: Check SUSPEND Logic
-	if reqCtx.BucketInfo.Versioning != VersionEnabled {
+	switch reqCtx.BucketInfo.Versioning {
+	case VersionSuspended:
+		// TODO: Check SUSPEND Logic
+		fallthrough
+	case VersionDisabled:
 		needUpdate := (reqCtx.ObjectInfo != nil)
 		if multipart == nil && object.Parts == nil {
 			if needUpdate {
@@ -93,7 +96,6 @@ func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multi
 				return m.Client.PutObjectWithoutMultiPart(object)
 			}
 		}
-
 		if needUpdate {
 			return m.Client.UpdateObject(object, multipart, updateUsage)
 		} else {
@@ -101,10 +103,11 @@ func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multi
 		}
 
 		return nil
-	} else {
+	case VersionEnabled:
 		return m.Client.PutVersionedObject(object, multipart, updateUsage)
+	default:
+		return ErrInvalidVersioning
 	}
-
 }
 
 func (m *Meta) UpdateObjectAcl(object *Object) error {
