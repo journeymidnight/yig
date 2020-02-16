@@ -282,6 +282,10 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 	return
 }
 
+func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (listInfo ListObjectsInfo, err error) {
+	return
+}
+
 func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefix, delimiter string, maxKeys int) (listInfo VersionedListObjectsInfo, err error) {
 	return
 }

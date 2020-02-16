@@ -34,6 +34,7 @@ type Client interface {
 	PutNewBucket(bucket Bucket) error
 	DeleteBucket(bucket Bucket) error
 	ListObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (listInfo ListObjectsInfo, err error)
+	ListLatestObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (listInfo ListObjectsInfo, err error)
 	ListVersionedObjects(bucketName, marker, verIdMarker, prefix, delimiter string, maxKeys int) (listInfo VersionedListObjectsInfo, err error)
 	UpdateUsage(bucketName string, size int64, tx Tx) error
 	IsEmptyBucket(bucketName string) (isEmpty bool, err error)

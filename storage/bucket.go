@@ -463,7 +463,7 @@ func (yig *YigStorage) DeleteBucket(reqCtx RequestContext, credential common.Cre
 }
 
 func (yig *YigStorage) ListObjectsInternal(bucketName string,
-	request datatype.ListObjectsRequest) (info meta.ListObjectsInfo, err error) {
+	request datatype.ListObjectsRequest, bucketVersioning string) (info meta.ListObjectsInfo, err error) {
 
 	var marker string
 	if request.Versioned {
@@ -484,7 +484,11 @@ func (yig *YigStorage) ListObjectsInternal(bucketName string,
 	helper.Logger.Info("Prefix:", request.Prefix, "Marker:", request.Marker, "MaxKeys:",
 		request.MaxKeys, "Delimiter:", request.Delimiter, "Version:", request.Version,
 		"keyMarker:", request.KeyMarker, "versionIdMarker:", request.VersionIdMarker)
-	return yig.MetaStorage.Client.ListObjects(bucketName, marker, request.Prefix, request.Delimiter, request.MaxKeys)
+	if bucketVersioning == meta.VersionDisabled {
+		return yig.MetaStorage.Client.ListObjects(bucketName, marker, request.Prefix, request.Delimiter, request.MaxKeys)
+	} else {
+		return yig.MetaStorage.Client.ListLatestObjects(bucketName, marker, request.Prefix, request.Delimiter, request.MaxKeys)
+	}
 }
 
 func (yig *YigStorage) ListVersionedObjectsInternal(bucketName string,
@@ -538,7 +542,7 @@ func (yig *YigStorage) ListObjects(reqCtx RequestContext, credential common.Cred
 	}
 	// TODO validate user policy and ACL
 
-	info, err := yig.ListObjectsInternal(bucket.Name, request)
+	info, err := yig.ListObjectsInternal(bucket.Name, request, bucket.Versioning)
 	if info.IsTruncated && len(info.NextMarker) != 0 {
 		result.NextMarker = info.NextMarker
 	}

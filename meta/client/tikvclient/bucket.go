@@ -152,6 +152,10 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 	return
 }
 
+func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (listInfo ListObjectsInfo, err error) {
+	return
+}
+
 func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefix, delimiter string,
 	maxKeys int) (info VersionedListObjectsInfo, err error) {
 	return
