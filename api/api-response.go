@@ -172,6 +172,13 @@ func GenerateCopyObjectPartResponse(etag string, lastModified time.Time) CopyObj
 	}
 }
 
+// GenerateRenameObjectResponse
+func GenerateRenameObjectResponse(lastModified time.Time) RenameObjectResponse {
+	return RenameObjectResponse{
+		LastModified: lastModified.UTC().Format(timeFormatAMZ),
+	}
+}
+
 // GenerateInitiateMultipartUploadResponse
 func GenerateInitiateMultipartUploadResponse(bucket, key, uploadID string) InitiateMultipartUploadResponse {
 	return InitiateMultipartUploadResponse{
@@ -224,16 +231,23 @@ func WriteSuccessNoContent(w http.ResponseWriter) {
 
 // writeErrorResponse write error headers
 func WriteErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
-	WriteErrorResponseHeaders(w, err)
-	WriteErrorResponseNoHeader(w, r, err, r.URL.Path)
+	handled := WriteErrorResponseHeaders(w, r, err)
+	if !handled {
+		WriteErrorResponseNoHeader(w, r, err, r.URL.Path)
+	}
 }
 
 func WriteErrorResponseWithResource(w http.ResponseWriter, r *http.Request, err error, resource string) {
-	WriteErrorResponseHeaders(w, err)
-	WriteErrorResponseNoHeader(w, r, err, resource)
+	handled := WriteErrorResponseHeaders(w, r, err)
+	if !handled {
+		WriteErrorResponseNoHeader(w, r, err, resource)
+	}
 }
 
-func WriteErrorResponseHeaders(w http.ResponseWriter, err error) {
+func WriteErrorResponseHeaders(w http.ResponseWriter, r *http.Request, err error) (handled bool) {
+	ctx := getRequestContext(r)
+	logger := ctx.Logger
+
 	var status int
 	apiErrorCode, ok := err.(ApiError)
 	if ok {
@@ -241,12 +255,30 @@ func WriteErrorResponseHeaders(w http.ResponseWriter, err error) {
 	} else {
 		status = http.StatusInternalServerError
 	}
-	helper.Logger.Println(5, "Response status code:", status, "err:", err)
+	logger.Info("Response status code:", status, "err:", err)
 
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).status = status
 
+	// check website routing rules
+	if ctx.BucketInfo == nil {
+		w.WriteHeader(status)
+		return false
+	}
+	website := ctx.BucketInfo.Website
+	// match routing rules
+	if len(website.RoutingRules) != 0 {
+		for _, rule := range website.RoutingRules {
+			// If the condition matches, handle redirect
+			if rule.Match(ctx.ObjectName, strconv.Itoa(status)) {
+				rule.DoRedirect(w, r, ctx.ObjectName)
+				return true
+			}
+		}
+	}
+
 	w.WriteHeader(status)
+	return false
 }
 
 func WriteErrorResponseNoHeader(w http.ResponseWriter, req *http.Request, err error, resource string) {
@@ -266,12 +298,12 @@ func WriteErrorResponseNoHeader(w http.ResponseWriter, req *http.Request, err er
 		errorResponse.Message = "We encountered an internal error, please try again."
 	}
 	errorResponse.Resource = resource
-	errorResponse.RequestId = requestIdFromContext(req.Context())
+	errorResponse.RequestId = getRequestContext(req).RequestID
 	errorResponse.HostId = helper.CONFIG.InstanceId
 
 	encodedErrorResponse := EncodeResponse(errorResponse)
 
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).size = int64(len(encodedErrorResponse))
 
 	w.Write(encodedErrorResponse)

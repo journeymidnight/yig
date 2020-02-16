@@ -14,8 +14,8 @@ import (
 )
 
 func (t *TidbClient) GetBucket(bucketName string) (bucket *Bucket, err error) {
-	var acl, cors, lc, policy, createTime string
-	sqltext := "select * from buckets where bucketname=?;"
+	var acl, cors, lc, policy, website, createTime string
+	sqltext := "select bucketname,acl,cors,lc,uid,policy,website,createtime,usages,versioning from buckets where bucketname=?;"
 	bucket = new(Bucket)
 	err = t.Client.QueryRow(sqltext, bucketName).Scan(
 		&bucket.Name,
@@ -24,6 +24,7 @@ func (t *TidbClient) GetBucket(bucketName string) (bucket *Bucket, err error) {
 		&lc,
 		&bucket.OwnerId,
 		&policy,
+		&website,
 		&createTime,
 		&bucket.Usage,
 		&bucket.Versioning,
@@ -46,7 +47,7 @@ func (t *TidbClient) GetBucket(bucketName string) (bucket *Bucket, err error) {
 	if err != nil {
 		return
 	}
-	err = json.Unmarshal([]byte(lc), &bucket.LC)
+	err = json.Unmarshal([]byte(lc), &bucket.Lifecycle)
 	if err != nil {
 		return
 	}
@@ -54,11 +55,15 @@ func (t *TidbClient) GetBucket(bucketName string) (bucket *Bucket, err error) {
 	if err != nil {
 		return
 	}
+	err = json.Unmarshal([]byte(website), &bucket.Website)
+	if err != nil {
+		return
+	}
 	return
 }
 
 func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
-	sqltext := "select * from buckets;"
+	sqltext := "select bucketname,acl,cors,lc,uid,policy,website,createtime,usages,versioning from buckets;"
 	rows, err := t.Client.Query(sqltext)
 	if err == sql.ErrNoRows {
 		err = nil
@@ -70,7 +75,7 @@ func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
 
 	for rows.Next() {
 		var tmp Bucket
-		var acl, cors, lc, policy, createTime string
+		var acl, cors, lc, policy, website, createTime string
 		err = rows.Scan(
 			&tmp.Name,
 			&acl,
@@ -78,6 +83,7 @@ func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
 			&lc,
 			&tmp.OwnerId,
 			&policy,
+			&website,
 			&createTime,
 			&tmp.Usage,
 			&tmp.Versioning)
@@ -96,11 +102,15 @@ func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
 		if err != nil {
 			return
 		}
-		err = json.Unmarshal([]byte(lc), &tmp.LC)
+		err = json.Unmarshal([]byte(lc), &tmp.Lifecycle)
 		if err != nil {
 			return
 		}
 		err = json.Unmarshal([]byte(policy), &tmp.Policy)
+		if err != nil {
+			return
+		}
+		err = json.Unmarshal([]byte(website), &tmp.Website)
 		if err != nil {
 			return
 		}
@@ -265,27 +275,15 @@ func (t *TidbClient) DeleteBucket(bucket Bucket) error {
 	return nil
 }
 
-func (t *TidbClient) UpdateUsage(bucketName string, size int64, tx interface{}) (err error) {
+func (t *TidbClient) UpdateUsage(bucketName string, size int64, tx DB) (err error) {
 	if !helper.CONFIG.PiggybackUpdateUsage {
 		return nil
 	}
-	var sqlTx *sql.Tx
+
 	if tx == nil {
-		tx, err = t.Client.Begin()
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err == nil {
-				err = tx.(*sql.Tx).Commit()
-			}
-			if err != nil {
-				tx.(*sql.Tx).Rollback()
-			}
-		}()
+		tx = t.Client
 	}
-	sqlTx, _ = tx.(*sql.Tx)
 	sql := "update buckets set usages= usages + ? where bucketname=?;"
-	_, err = sqlTx.Exec(sql, size, bucketName)
+	_, err = tx.Exec(sql, size, bucketName)
 	return
 }

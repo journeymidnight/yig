@@ -60,6 +60,11 @@ const (
 	ErrInvalidCopySource
 	ErrInvalidCopySourceStorageClass
 	ErrInvalidCopyDest
+	ErrInvalidCopyRequest
+	ErrInvalidCopyRequestWithSameObject
+	ErrInvalidRenameSourceKey
+	ErrInvalidRenameTarget
+	ErrNotSupportBucketEnabledVersion
 	ErrInvalidPrecondition
 	ErrInvalidPolicyDocument
 	ErrInvalidCorsDocument
@@ -112,6 +117,7 @@ const (
 	ErrInvalidPosition
 	ErrObjectNotAppendable
 	ErrPositionNotEqualToLength
+	ErrMetadataHeader
 	// Add new error codes here.
 
 	// SSE-S3 related API errors
@@ -147,6 +153,20 @@ const (
 	ErrInvalidLc
 	ErrNoSuchBucketLc
 	ErrInvalidStorageClass
+	ErrInvalidWebsiteConfiguration
+	ErrMalformedWebsiteConfiguration
+	ErrInvalidWebsiteRedirectProtocol
+	ErrExceededWebsiteRoutingRulesLimit
+	ErrSecondLevelDomainForbidden
+	ErrMissingRoutingRuleInWebsiteRules
+	ErrMissingRedirectInWebsiteRoutingRule
+	ErrMissingRedirectElementInWebsiteRoutingRule
+	ErrDuplicateKeyReplaceTagInWebsiteRoutingRule
+	ErrInvalidHttpRedirectCodeInWebsiteRoutingRule
+	ErrIndexDocumentNotAllowed
+	ErrInvalidIndexDocumentSuffix
+	ErrInvalidErrorDocumentKey
+	ErrMalformedMetadataConfiguration
 )
 
 // error code to APIError structure, these fields carry respective
@@ -165,6 +185,31 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidCopySourceStorageClass: {
 		AwsErrorCode:   "InvalidCopySourceStorageClass",
 		Description:    "Storage class of copy source cannot be GLACIER or DEEP_ARCHIVE.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidCopyRequest: {
+		AwsErrorCode:   "InvalidCopyRequest",
+		Description:    "X-Amz-Metadata-Directive can only be COPY or REPLACE",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidCopyRequestWithSameObject: {
+		AwsErrorCode:   "InvalidCopyRequestWithSameObject",
+		Description:    "This copy request is illegal because it is trying to copy an object to itself without changing the object's metadata, storage class, website redirect location or encryption attributes.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidRenameSourceKey: {
+		AwsErrorCode:   "InvalidRenameSourceKey",
+		Description:    "X-Amz-Rename-Source-Key must be a valid URL-encoded object name, renaming folders is not supported.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidRenameTarget: {
+		AwsErrorCode:   "InvalidRenameTarget",
+		Description:    "Rename Target must not be a folder and addition target have not already created.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrNotSupportBucketEnabledVersion: {
+		AwsErrorCode:   "InvalidBucketVersion",
+		Description:    "Renaming objects in multi-version enabled buckets is not supported.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidPrecondition: {
@@ -630,7 +675,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrInvalidLc: {
 		AwsErrorCode:   "IllegalLcConfigurationException",
-		Description:    "The LC configuration specified in the request is invalid.",
+		Description:    "The Lifecycle configuration specified in the request is invalid.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidPosition: {
@@ -651,6 +696,81 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidStorageClass: {
 		AwsErrorCode:   "InvalidStorageClass",
 		Description:    "The storage class you specified in header is invalid.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidWebsiteConfiguration: {
+		AwsErrorCode:   "InvalidWebsiteConfiguration",
+		Description:    "If element RedirectAllRequestsTo is present, no other siblings are allowed.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMalformedWebsiteConfiguration: {
+		AwsErrorCode:   "MalformedWebsiteConfiguration",
+		Description:    "Cannot Marshal/Unmarshal XML of website configuration.",
+		HttpStatusCode: http.StatusConflict,
+	},
+	ErrInvalidWebsiteRedirectProtocol: {
+		AwsErrorCode:   "InvalidWebsiteRedirectProtocol",
+		Description:    "The protocol you specified in the website configuration is invalid.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrExceededWebsiteRoutingRulesLimit: {
+		AwsErrorCode:   "ExceededWebsiteRoutingRulesLimit",
+		Description:    "The quantity of the routing rules in the website configuration is exceeded.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrSecondLevelDomainForbidden: {
+		AwsErrorCode:   "SecondLevelDomainForbidden",
+		Description:    "The bucket you are attempting to access must be addressed using OSS third level domain.",
+		HttpStatusCode: http.StatusForbidden,
+	},
+	ErrMissingRoutingRuleInWebsiteRules: {
+		AwsErrorCode:   "MissingRoutingRuleInWebsiteRules",
+		Description:    "In a RoutingRules container, there must be at least one of RoutingRule element.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMissingRedirectInWebsiteRoutingRule: {
+		AwsErrorCode:   "MissingRedirectInWebsiteRoutingRule",
+		Description:    "In a RoutingRule container, there must be at least one of Redirect element.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMissingRedirectElementInWebsiteRoutingRule: {
+		AwsErrorCode:   "MissingRedirectElementInWebsiteRoutingRule",
+		Description:    "In a Redirect container, there must be at least one element.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrDuplicateKeyReplaceTagInWebsiteRoutingRule: {
+		AwsErrorCode:   "DuplicateKeyReplaceTagInWebsiteRoutingRule",
+		Description:    "In a Redirect container, element ReplaceKeyPrefixWith and ReplaceKeyWith can not appear at the same time.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidHttpRedirectCodeInWebsiteRoutingRule: {
+		AwsErrorCode:   "InvalidHttpRedirectCodeInWebsiteRoutingRule",
+		Description:    "Element HttpRedirectCode in Redirect container is invalid.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrIndexDocumentNotAllowed: {
+		AwsErrorCode:   "IndexDocumentNotAllowed",
+		Description:    "If element RedirectAllRequestsTo is present, no other siblings are allowed..",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidIndexDocumentSuffix: {
+		AwsErrorCode:   "InvalidIndexDocumentSuffix",
+		Description:    "The suffix must not be empty and must not include a slash character.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidErrorDocumentKey: {
+		AwsErrorCode:   "InvalidErrorDocumentKey",
+		Description:    "The key is required when ErrorDocument is specified.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMetadataHeader: {
+		AwsErrorCode:   "InvalidMetaCommonHead",
+		Description:    "The head is no a valid head key can be set.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMalformedMetadataConfiguration: {
+		AwsErrorCode:   "InvalidMetaConfiguration",
+		Description:    "Parsing meta XML data failed",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 }

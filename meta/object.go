@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"database/sql"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
@@ -9,12 +10,13 @@ import (
 
 func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (object *Object, err error) {
 	getObject := func() (o interface{}, err error) {
-		helper.Logger.Println(10, "GetObject CacheMiss. bucket:", bucketName, "object:", objectName)
+		helper.Logger.Info("GetObject CacheMiss. bucket:", bucketName,
+			"object:", objectName)
 		object, err := m.Client.GetObject(bucketName, objectName, "")
 		if err != nil {
 			return
 		}
-		helper.Debugln("GetObject object.Name:", object.Name)
+		helper.Logger.Info("GetObject object.Name:", object.Name)
 		if object.Name != objectName {
 			err = ErrNoSuchKey
 			return
@@ -81,6 +83,9 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed
 
 func (m *Meta) PutObject(object *Object, multipart *Multipart, objMap *ObjMap, updateUsage bool) error {
 	tx, err := m.Client.NewTrans()
+	if err != nil {
+		return err
+	}
 	defer func() {
 		if err != nil {
 			m.Client.AbortTrans(tx)
@@ -112,8 +117,7 @@ func (m *Meta) PutObject(object *Object, multipart *Multipart, objMap *ObjMap, u
 			return err
 		}
 	}
-	err = m.Client.CommitTrans(tx)
-	return nil
+	return m.Client.CommitTrans(tx)
 }
 
 func (m *Meta) PutObjectEntry(object *Object) error {
@@ -131,14 +135,31 @@ func (m *Meta) UpdateObjectAttrs(object *Object) error {
 	return err
 }
 
+func (m *Meta) RenameObject(object *Object, sourceObject string) error {
+	err := m.Client.RenameObject(object, sourceObject, nil)
+	return err
+}
+
+func (m *Meta) ReplaceObjectMetas(object *Object) error {
+	err := m.Client.ReplaceObjectMetas(object, nil)
+	return err
+}
+
 func (m *Meta) PutObjMapEntry(objMap *ObjMap) error {
 	err := m.Client.PutObjectMap(objMap, nil)
 	return err
 }
 
-func (m *Meta) DeleteObject(object *Object, DeleteMarker bool, objMap *ObjMap) error {
-	tx, err := m.Client.NewTrans()
+func (m *Meta) DeleteObject(object *Object, DeleteMarker bool, objMap *ObjMap) (err error) {
+	var tx *sql.Tx
+	tx, err = m.Client.NewTrans()
+	if err != nil {
+		return err
+	}
 	defer func() {
+		if err == nil {
+			err = m.Client.CommitTrans(tx)
+		}
 		if err != nil {
 			m.Client.AbortTrans(tx)
 		}
@@ -165,17 +186,14 @@ func (m *Meta) DeleteObject(object *Object, DeleteMarker bool, objMap *ObjMap) e
 		return err
 	}
 
-	err = m.Client.UpdateUsage(object.BucketName, -object.Size, tx)
-	if err != nil {
-		return err
-	}
-	err = m.Client.CommitTrans(tx)
-
-	return err
+	return m.Client.UpdateUsage(object.BucketName, -object.Size, tx)
 }
 
 func (m *Meta) AppendObject(object *Object, isExist bool) error {
 	tx, err := m.Client.NewTrans()
+	if err != nil {
+		return err
+	}
 	defer func() {
 		if err != nil {
 			m.Client.AbortTrans(tx)
@@ -195,13 +213,3 @@ func (m *Meta) AppendObject(object *Object, isExist bool) error {
 	}
 	return m.Client.CommitTrans(tx)
 }
-
-//func (m *Meta) DeleteObjectEntry(object *Object) error {
-//	err := m.Client.DeleteObject(object, nil)
-//	return err
-//}
-
-//func (m *Meta) DeleteObjMapEntry(objMap *ObjMap) error {
-//	err := m.Client.DeleteObjectMap(objMap, nil)
-//	return err
-//}

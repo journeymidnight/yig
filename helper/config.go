@@ -2,50 +2,49 @@ package helper
 
 import (
 	"io/ioutil"
-	"time"
 
 	"github.com/BurntSushi/toml"
 )
 
 const (
-	YIG_CONF_PATH = "/etc/yig/yig.toml"
-	MIN_DOWNLOAD_BUFPOOL_SIZE = 512 << 10  // 512k
-	MAX_DOWNLOAD_BUFPOOL_SIZE = 8 << 20    // 8M
+	YIG_CONF_PATH   = "/etc/yig/yig.toml"
+	MIN_BUFFER_SIZE = 512 << 10 // 512k
+	MAX_BUFEER_SIZE = 8 << 20   // 8M
 )
 
 type Config struct {
-	S3Domain         []string                `toml:"s3domain"` // Domain name of YIG
-	Region           string                  `toml:"region"`   // Region name this instance belongs to, e.g cn-bj-1
-	Plugins          map[string]PluginConfig          `toml:"plugins"`
-	PiggybackUpdateUsage		 bool					 `toml:"piggyback_update_usage"`
-	LogPath          string                  `toml:"log_path"`
-	AccessLogPath    string                  `toml:"access_log_path"`
-	AccessLogFormat  string                  `toml:"access_log_format"`
-	PanicLogPath     string                  `toml:"panic_log_path"`
-	PidFile          string                  `toml:"pid_file"`
-	BindApiAddress   string                  `toml:"api_listener"`
-	BindAdminAddress string                  `toml:"admin_listener"`
-	SSLKeyPath       string                  `toml:"ssl_key_path"`
-	SSLCertPath      string                  `toml:"ssl_cert_path"`
-	ZookeeperAddress string                  `toml:"zk_address"`
+	S3Domain             []string                `toml:"s3domain"` // Domain name of YIG
+	Region               string                  `toml:"region"`   // Region name this instance belongs to, e.g cn-bj-1
+	Plugins              map[string]PluginConfig `toml:"plugins"`
+	PiggybackUpdateUsage bool                    `toml:"piggyback_update_usage"`
+	LogPath              string                  `toml:"log_path"`
+	AccessLogPath        string                  `toml:"access_log_path"`
+	AccessLogFormat      string                  `toml:"access_log_format"`
+	PanicLogPath         string                  `toml:"panic_log_path"`
+	PidFile              string                  `toml:"pid_file"`
+	BindApiAddress       string                  `toml:"api_listener"`
+	BindAdminAddress     string                  `toml:"admin_listener"`
+	SSLKeyPath           string                  `toml:"ssl_key_path"`
+	SSLCertPath          string                  `toml:"ssl_cert_path"`
+	ZookeeperAddress     string                  `toml:"zk_address"`
 
 	InstanceId             string // if empty, generated one at server startup
 	ConcurrentRequestLimit int
-	HbaseZnodeParent       string        // won't change default("/hbase") if leave this option empty
-	HbaseTimeout           time.Duration // in seconds
-	DebugMode              bool          `toml:"debug_mode"`
-	AdminKey               string        `toml:"admin_key"` //used for tools/admin to communicate with yig
-	GcThread               int           `toml:"gc_thread"`
-	LcThread               int           //used for tools/lc only, set worker numbers to do lc
-	LcDebug                bool          //used for tools/lc only, if this was set true, will treat days as seconds
-	LogLevel               int           `toml:"log_level"` //1-20
-	CephConfigPattern      string        `toml:"ceph_config_pattern"`
-	ReservedOrigins        string        `toml:"reserved_origins"` // www.ccc.com,www.bbb.com,127.0.0.1
-	MetaStore              string        `toml:"meta_store"`
-	TidbInfo               string        `toml:"tidb_info"`
-	KeepAlive              bool          `toml:"keepalive"`
+	DebugMode              bool   `toml:"debug_mode"`
+	EnablePProf            bool   `toml:"enable_pprof"`
+	BindPProfAddress       string `toml:"pprof_listener"`
+	AdminKey               string `toml:"admin_key"` //used for tools/admin to communicate with yig
+	GcThread               int    `toml:"gc_thread"`
+	LcThread               int    //used for tools/lc only, set worker numbers to do lc
+	LogLevel               string `toml:"log_level"` // "info", "warn", "error"
+	CephConfigPattern      string `toml:"ceph_config_pattern"`
+	ReservedOrigins        string `toml:"reserved_origins"` // www.ccc.com,www.bbb.com,127.0.0.1
+	MetaStore              string `toml:"meta_store"`
+	TidbInfo               string `toml:"tidb_info"`
+	KeepAlive              bool   `toml:"keepalive"`
 
 	//About cache
+	EnableUsagePush       bool   `toml:"enable_usage_push"`
 	RedisAddress          string `toml:"redis_address"`           // redis connection string, e.g localhost:1234
 	RedisConnectionNumber int    `toml:"redis_connection_number"` // number of connections to redis(i.e max concurrent request number)
 	RedisPassword         string `toml:"redis_password"`          // redis auth password
@@ -58,6 +57,11 @@ type Config struct {
 	RedisPoolMaxIdle      int    `toml:"redis_pool_max_idle"`
 	RedisPoolIdleTimeout  int    `toml:"redis_pool_idle_timeout"`
 
+	// DB Connection parameters
+	DbMaxOpenConns       int `toml:"db_max_open_conns"`
+	DbMaxIdleConns       int `toml:"db_max_idle_conns"`
+	DbConnMaxLifeSeconds int `toml:"db_conn_max_life_seconds"`
+
 	// If the value is not 0, the cached ping detection will be turned on, and the interval is the number of seconds.
 	CacheCircuitCheckInterval int `toml:"cache_circuit_check_interval"`
 	// This property sets the amount of seconds, after tripping the circuit,
@@ -66,20 +70,21 @@ type Config struct {
 	// This value is how may consecutive passing requests are required before the circuit is closed
 	CacheCircuitCloseRequiredCount int `toml:"cache_circuit_close_required_count"`
 	// This property sets the minimum number of requests in a rolling window that will trip the circuit.
-	CacheCircuitOpenThreshold int `toml:"cache_circuit_open_threshold"`
+	CacheCircuitOpenThreshold     int   `toml:"cache_circuit_open_threshold"`
+	CacheCircuitExecTimeout       uint  `toml:"cache_circuit_exec_timeout"`
+	CacheCircuitExecMaxConcurrent int64 `toml:"cache_circuit_exec_max_concurrent"`
 
-	DownLoadBufPoolSize int `toml:"download_buf_pool_size"`
+	DownloadBufPoolSize int64 `toml:"download_buf_pool_size"`
+	UploadMinChunkSize  int64 `toml:"upload_min_chunk_size"`
+	UploadMaxChunkSize  int64 `toml:"upload_max_chunk_size"`
 
 	KMS KMSConfig `toml:"kms"`
-
-	// Message Bus
-	MsgBus MsgBusConfig `toml:"msg_bus"`
 }
 
 type PluginConfig struct {
-        Path string  `toml:"path"`
-        Enable bool  `toml:"enable"`
-        Args  map[string]interface{} `toml:"args"`
+	Path   string                 `toml:"path"`
+	Enable bool                   `toml:"enable"`
+	Args   map[string]interface{} `toml:"args"`
 }
 
 type KMSConfig struct {
@@ -89,25 +94,6 @@ type KMSConfig struct {
 	Secret   string `toml:"kms_secret"`
 	Version  int
 	Keyname  string
-}
-
-type MsgBusConfig struct {
-	// Controls whether to enable message bus when receive the request.
-	Enabled bool `toml:"msg_bus_enable"`
-	// Controls the under implementation of message bus: 1 for kafka.
-	Type int `toml:"msg_bus_type"`
-	// Controls the message topic used by message bus.
-	Topic string `toml:"msg_bus_topic"`
-	// Controls the request timeout for sending a req through message bus.
-	RequestTimeoutMs int `toml:"msg_bus_request_timeout_ms"`
-	// Controls the total timeout for sending a req through message bus.
-	// It will timeout if min(MessageTimeoutMs, SendMaxRetries * RequestTimeoutMs) meets.
-	MessageTimeoutMs int `toml:"msg_bus_message_timeout_ms"`
-	// Controls the retry time used by message bus if it fails to send a req.
-	SendMaxRetries int `toml:"msg_bus_send_max_retries"`
-	// Controls the settings for the implementation of message bus.
-	// For kafka, the 'broker_list' must be set, like 'broker_list = "kafka:29092"'
-	Server map[string]interface{} `toml:"msg_bus_server"`
 }
 
 var CONFIG Config
@@ -144,8 +130,9 @@ func MarshalTOMLConfig() error {
 	CONFIG.SSLCertPath = c.SSLCertPath
 	CONFIG.ZookeeperAddress = c.ZookeeperAddress
 	CONFIG.DebugMode = c.DebugMode
+	CONFIG.EnablePProf = c.EnablePProf
+	CONFIG.BindPProfAddress = c.BindPProfAddress
 	CONFIG.AdminKey = c.AdminKey
-	CONFIG.LcDebug = c.LcDebug
 	CONFIG.CephConfigPattern = c.CephConfigPattern
 	CONFIG.ReservedOrigins = c.ReservedOrigins
 	CONFIG.TidbInfo = c.TidbInfo
@@ -154,17 +141,14 @@ func MarshalTOMLConfig() error {
 		string(GenerateRandomId()), c.InstanceId).(string)
 	CONFIG.ConcurrentRequestLimit = Ternary(c.ConcurrentRequestLimit == 0,
 		10000, c.ConcurrentRequestLimit).(int)
-	CONFIG.HbaseZnodeParent = Ternary(c.HbaseZnodeParent == "",
-		"/hbase", c.HbaseZnodeParent).(string)
-	CONFIG.HbaseTimeout = Ternary(c.HbaseTimeout == 0, 30*time.Second,
-		c.HbaseTimeout).(time.Duration)
 	CONFIG.GcThread = Ternary(c.GcThread == 0,
 		1, c.GcThread).(int)
 	CONFIG.LcThread = Ternary(c.LcThread == 0,
 		1, c.LcThread).(int)
-	CONFIG.LogLevel = Ternary(c.LogLevel == 0, 5, c.LogLevel).(int)
+	CONFIG.LogLevel = Ternary(len(c.LogLevel) == 0, "info", c.LogLevel).(string)
 	CONFIG.MetaStore = Ternary(c.MetaStore == "", "tidb", c.MetaStore).(string)
 
+	CONFIG.EnableUsagePush = c.EnableUsagePush
 	CONFIG.RedisAddress = c.RedisAddress
 	CONFIG.RedisPassword = c.RedisPassword
 	CONFIG.RedisConnectionNumber = Ternary(c.RedisConnectionNumber == 0,
@@ -178,19 +162,22 @@ func MarshalTOMLConfig() error {
 	CONFIG.RedisPoolMaxIdle = Ternary(c.RedisPoolMaxIdle < 0, 0, c.RedisPoolMaxIdle).(int)
 	CONFIG.RedisPoolIdleTimeout = Ternary(c.RedisPoolIdleTimeout < 0, 0, c.RedisPoolIdleTimeout).(int)
 
+	CONFIG.DbMaxOpenConns = Ternary(c.DbMaxOpenConns < 0, 0, c.DbMaxOpenConns).(int)
+	CONFIG.DbMaxIdleConns = Ternary(c.DbMaxIdleConns < 0, 0, c.DbMaxIdleConns).(int)
+	CONFIG.DbConnMaxLifeSeconds = Ternary(c.DbConnMaxLifeSeconds < 0, 0, c.DbConnMaxLifeSeconds).(int)
+
 	CONFIG.CacheCircuitCheckInterval = Ternary(c.CacheCircuitCheckInterval < 0, 0, c.CacheCircuitCheckInterval).(int)
 	CONFIG.CacheCircuitCloseSleepWindow = Ternary(c.CacheCircuitCloseSleepWindow < 0, 0, c.CacheCircuitCloseSleepWindow).(int)
 	CONFIG.CacheCircuitCloseRequiredCount = Ternary(c.CacheCircuitCloseRequiredCount < 0, 0, c.CacheCircuitCloseRequiredCount).(int)
 	CONFIG.CacheCircuitOpenThreshold = Ternary(c.CacheCircuitOpenThreshold < 0, 0, c.CacheCircuitOpenThreshold).(int)
+	CONFIG.CacheCircuitExecTimeout = Ternary(c.CacheCircuitExecTimeout == 0, 1, c.CacheCircuitExecTimeout).(uint)
+	CONFIG.CacheCircuitExecMaxConcurrent = c.CacheCircuitExecMaxConcurrent
 
-	CONFIG.DownLoadBufPoolSize = Ternary(c.DownLoadBufPoolSize < MIN_DOWNLOAD_BUFPOOL_SIZE || c.DownLoadBufPoolSize > MAX_DOWNLOAD_BUFPOOL_SIZE, MIN_DOWNLOAD_BUFPOOL_SIZE, c.DownLoadBufPoolSize).(int)
+	CONFIG.DownloadBufPoolSize = Ternary(c.DownloadBufPoolSize < MIN_BUFFER_SIZE || c.DownloadBufPoolSize > MAX_BUFEER_SIZE, MIN_BUFFER_SIZE, c.DownloadBufPoolSize).(int64)
+	CONFIG.UploadMinChunkSize = Ternary(c.UploadMinChunkSize < MIN_BUFFER_SIZE || c.UploadMinChunkSize > MAX_BUFEER_SIZE, MIN_BUFFER_SIZE, c.UploadMinChunkSize).(int64)
+	CONFIG.UploadMaxChunkSize = Ternary(c.UploadMaxChunkSize < CONFIG.UploadMinChunkSize || c.UploadMaxChunkSize > MAX_BUFEER_SIZE, MAX_BUFEER_SIZE, c.UploadMaxChunkSize).(int64)
 
 	CONFIG.KMS = c.KMS
-
-	CONFIG.MsgBus = c.MsgBus
-	CONFIG.MsgBus.RequestTimeoutMs = Ternary(c.MsgBus.RequestTimeoutMs == 0, 3000, c.MsgBus.RequestTimeoutMs).(int)
-	CONFIG.MsgBus.MessageTimeoutMs = Ternary(c.MsgBus.MessageTimeoutMs == 0, 5000, c.MsgBus.MessageTimeoutMs).(int)
-	CONFIG.MsgBus.SendMaxRetries = Ternary(c.MsgBus.SendMaxRetries == 0, 2, c.MsgBus.SendMaxRetries).(int)
 
 	return nil
 }

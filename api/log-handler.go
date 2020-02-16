@@ -3,7 +3,6 @@ package api
 import (
 	"net/http"
 
-	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/meta"
 )
 
@@ -13,10 +12,10 @@ type logHandler struct {
 
 func (l logHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Serves the request.
-	requestId := r.Context().Value(RequestContextKey).(RequestContext).RequestId
-	helper.Logger.Printf(5, "STARTING %s %s%s RequestID:%s", r.Method, r.Host, r.URL, requestId)
+	logger := ContextLogger(r)
+	logger.Info("Start serving", r.Method, r.Host, r.URL)
 	l.handler.ServeHTTP(w, r)
-	helper.Logger.Printf(5, "COMPLETED %s %s%s RequestID:%s", r.Method, r.Host, r.URL, requestId)
+	logger.Info("Completed", r.Method, r.Host, r.URL)
 }
 
 func SetLogHandler(h http.Handler, _ *meta.Meta) http.Handler {

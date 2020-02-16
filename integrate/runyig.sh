@@ -1,14 +1,16 @@
 BASEDIR=$(dirname $(pwd))
 echo ${BASEDIR}
+WORKDIR=$1
 sudo docker rm --force yig
 if [ -x "$BASEDIR/yig" ]; then 
     sudo docker run -d --name yig \
 			 -p 8080:8080 \
-	                 -p 9000:9000 \
+			 -p 9000:9000 \
+			 -p 8730:8730 \
 			 -v ${BASEDIR}/integrate/cephconf:/etc/ceph/ \
 			 -v ${BASEDIR}/integrate/yigconf:/etc/yig/ \
 			 -v ${BASEDIR}:/var/log/yig \
-			 -v ${BASEDIR}:/work \
+			 -v ${BASEDIR}:${WORKDIR} \
                          --net=integrate_vpcbr \
                          --ip 10.5.0.18 \
 			 journeymidnight/yig /work/yig
@@ -16,7 +18,8 @@ if [ -x "$BASEDIR/yig" ]; then
 else
     sudo docker run -d --name yig \
 			 -p 8080:8080 \
-	                 -p 9000:9000 \
+			 -p 9000:9000 \
+			 -p 8730:8730 \
 			 -v ${BASEDIR}/integrate/cephconf:/etc/ceph/ \
 			 -v ${BASEDIR}/integrate/yigconf:/etc/yig/ \
 			 -v ${BASEDIR}:/var/log/yig \

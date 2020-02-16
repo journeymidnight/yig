@@ -19,7 +19,6 @@ package api
 import (
 	"encoding/hex"
 	"encoding/xml"
-	"errors"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -61,9 +60,8 @@ func setGetRespHeaders(w http.ResponseWriter, reqParams url.Values) {
 func getStorageClassFromHeader(r *http.Request) (meta.StorageClass, error) {
 	storageClassStr := r.Header.Get("X-Amz-Storage-Class")
 
-
 	if storageClassStr != "" {
-		helper.Logger.Println(20, "Get storage class header:", storageClassStr)
+		helper.Logger.Info("Get storage class header:", storageClassStr)
 		return meta.MatchStorageClassIndex(storageClassStr)
 	} else {
 		// If you don't specify this header, Amazon S3 uses STANDARD
@@ -75,8 +73,7 @@ func getStorageClassFromHeader(r *http.Request) (meta.StorageClass, error) {
 // this is in keeping with the permissions sections of the docs of both:
 //   HEAD Object: http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectHEAD.html
 //   GET Object: http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGET.html
-func (api ObjectAPIHandlers) errAllowableObjectNotFound(request *http.Request, bucketName string,
-	credential common.Credential) error {
+func (api ObjectAPIHandlers) errAllowableObjectNotFound(w http.ResponseWriter, r *http.Request, credential common.Credential) {
 
 	// As per "Permission" section in
 	// https://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectGET.html
@@ -91,43 +88,97 @@ func (api ObjectAPIHandlers) errAllowableObjectNotFound(request *http.Request, b
 	// * if you don’t have the s3:ListBucket
 	//   permission, Amazon S3 will return an HTTP
 	//   status code 403 ("access denied") error.`
-
-	bucket, err := api.ObjectAPI.GetBucket(bucketName)
-	if err != nil {
-		return err
+	ctx := getRequestContext(r)
+	if ctx.BucketInfo == nil {
+		WriteErrorResponse(w, r, ErrNoSuchBucket)
+		return
 	}
-
-	if bucket.Policy.IsAllowed(policy.Args{
+	var err error
+	if ctx.BucketInfo.Policy.IsAllowed(policy.Args{
 		Action:          policy.ListBucketAction,
-		BucketName:      bucketName,
-		ConditionValues: getConditionValues(request, ""),
+		BucketName:      ctx.BucketName,
+		ConditionValues: getConditionValues(r, ""),
 		IsOwner:         false,
 	}) == policy.PolicyAllow {
-		return ErrNoSuchKey
+		err = ErrNoSuchKey
 	} else {
-		switch bucket.ACL.CannedAcl {
+		switch ctx.BucketInfo.ACL.CannedAcl {
 		case "public-read", "public-read-write":
-			return ErrNoSuchKey
+			err = ErrNoSuchKey
 		case "authenticated-read":
 			if credential.AccessKeyID != "" {
-				return ErrNoSuchKey
+				err = ErrNoSuchKey
 			} else {
-				return ErrAccessDenied
+				err = ErrAccessDenied
 			}
 		default:
-			if bucket.OwnerId == credential.UserId {
-				return ErrNoSuchKey
+			if ctx.BucketInfo.OwnerId == credential.UserId {
+				err = ErrNoSuchKey
+			} else {
+				err = ErrAccessDenied
 			}
-			return ErrAccessDenied
 		}
 	}
+	var status int
+	website := ctx.BucketInfo.Website
+	apiErrorCode, ok := err.(ApiError)
+	if ok {
+		status = apiErrorCode.HttpStatusCode()
+	} else {
+		status = http.StatusInternalServerError
+	}
+	// match routing rules
+	if len(website.RoutingRules) != 0 {
+		for _, rule := range website.RoutingRules {
+			// If the condition matches, handle redirect
+			if rule.Match(ctx.ObjectName, strconv.Itoa(status)) {
+				rule.DoRedirect(w, r, ctx.ObjectName)
+				return
+			}
+		}
+	}
+	if api.ReturnWebsiteErrorDocument(w, r, status) {
+		return
+	}
+	WriteErrorResponse(w, r, err)
 }
 
-// Simple way to convert a func to io.Writer type.
-type funcToWriter func([]byte) (int, error)
+type GetObjectResponseWriter struct {
+	dataWritten bool
+	w           http.ResponseWriter
+	r           *http.Request
+	object      *meta.Object
+	hrange      *HttpRange
+	statusCode  int
+	version     string
+}
 
-func (f funcToWriter) Write(p []byte) (int, error) {
-	return f(p)
+func newGetObjectResponseWriter(w http.ResponseWriter, r *http.Request, object *meta.Object, hrange *HttpRange, statusCode int, version string) *GetObjectResponseWriter {
+	return &GetObjectResponseWriter{false, w, r, object, hrange, statusCode, version}
+}
+
+func (o *GetObjectResponseWriter) Write(p []byte) (int, error) {
+	if !o.dataWritten {
+		if o.version != "" {
+			o.w.Header().Set("x-amz-version-id", o.version)
+		}
+		// Set any additional requested response headers.
+		setGetRespHeaders(o.w, o.r.URL.Query())
+		// Set headers on the first write.
+		// Set standard object headers.
+		SetObjectHeaders(o.w, o.object, o.hrange, o.statusCode)
+
+		o.dataWritten = true
+	}
+	n, err := o.w.Write(p)
+	if n > 0 {
+		/*
+			If the whole write or only part of write is successfull,
+			n should be positive, so record this
+		*/
+		o.w.(*ResponseRecorder).size += int64(n)
+	}
+	return n, err
 }
 
 // GetObjectHandler - GET Object
@@ -135,25 +186,27 @@ func (f funcToWriter) Write(p []byte) (int, error) {
 // This implementation of the GET operation retrieves object. To use GET,
 // you must have READ access to the object.
 func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Request) {
-	var objectName, bucketName string
-	vars := mux.Vars(r)
-	bucketName = vars["bucket"]
-	objectName = vars["object"]
-
+	ctx := getRequestContext(r)
+	logger := ctx.Logger
 	var credential common.Credential
 	var err error
-	if credential, err = checkRequestAuth(api, r, policy.GetObjectAction, bucketName, objectName); err != nil {
+	if api.HandledByWebsite(w, r) {
+		return
+	}
+
+	if credential, err = checkRequestAuth(r, policy.GetObjectAction); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
 
 	version := r.URL.Query().Get("versionId")
 	// Fetch object stat info.
-	object, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName, version, credential)
+	object, err := api.ObjectAPI.GetObjectInfoByCtx(ctx, version, credential)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to fetch object info.")
+		logger.Error("Unable to fetch object info:", err)
 		if err == ErrNoSuchKey {
-			err = api.errAllowableObjectNotFound(r, bucketName, credential)
+			api.errAllowableObjectNotFound(w, r, credential)
+			return
 		}
 		WriteErrorResponse(w, r, err)
 		return
@@ -178,7 +231,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			}
 
 			// log the error.
-			helper.ErrorIf(err, "Invalid request range")
+			logger.Error("Invalid request range", err)
 		}
 	}
 
@@ -191,7 +244,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			w.Header()["ETag"] = []string{"\"" + object.Etag + "\""}
 		}
 		if err == ContentNotModified { // write only header if is a 304
-			WriteErrorResponseHeaders(w, err)
+			WriteErrorResponseHeaders(w, r, err)
 		} else {
 			WriteErrorResponse(w, r, err)
 		}
@@ -215,34 +268,9 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		startOffset = hrange.OffsetBegin
 		length = hrange.GetLength()
 	}
-	// Indicates if any data was written to the http.ResponseWriter
-	dataWritten := false
 
 	// io.Writer type which keeps track if any data was written.
-	writer := funcToWriter(func(p []byte) (int, error) {
-		if !dataWritten {
-			// Set headers on the first write.
-			// Set standard object headers.
-			SetObjectHeaders(w, object, hrange)
-
-			// Set any additional requested response headers.
-			setGetRespHeaders(w, r.URL.Query())
-
-			if version != "" {
-				w.Header().Set("x-amz-version-id", version)
-			}
-			dataWritten = true
-		}
-		n, err := w.Write(p)
-		if n > 0 {
-			/*
-				If the whole write or only part of write is successfull,
-				n should be positive, so record this
-			*/
-			w.(*ResponseRecorder).size += int64(n)
-		}
-		return n, err
-	})
+	writer := newGetObjectResponseWriter(w, r, object, hrange, http.StatusOK, version)
 
 	switch object.SseType {
 	case "":
@@ -258,27 +286,28 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			r.Header.Get("X-Amz-Server-Side-Encryption-Customer-Key-Md5"))
 	}
 
+	//ResponseRecorder
+	w.(*ResponseRecorder).operationName = "GetObject"
+
 	// Reads the object at startOffset and writes to mw.
 	if err := api.ObjectAPI.GetObject(object, startOffset, length, writer, sseRequest); err != nil {
-		helper.ErrorIf(err, "Unable to write to client.")
-		if !dataWritten {
+		logger.Error("GetObject error:", err)
+		if !writer.dataWritten {
 			// Error response only if no data has been written to client yet. i.e if
 			// partial data has already been written before an error
 			// occurred then no point in setting StatusCode and
 			// sending error XML.
 			WriteErrorResponse(w, r, err)
+			return
 		}
 		return
 	}
-	if !dataWritten {
+	if !writer.dataWritten {
 		// If ObjectAPI.GetObject did not return error and no data has
 		// been written it would mean that it is a 0-byte object.
 		// call wrter.Write(nil) to set appropriate headers.
 		writer.Write(nil)
 	}
-
-	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "GetObject"
 }
 
 // HeadObjectHandler - HEAD Object
@@ -286,24 +315,22 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 // The HEAD operation retrieves metadata from an object without returning the object itself.
 // TODO refactor HEAD and GET
 func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Request) {
-	var objectName, bucketName string
-	vars := mux.Vars(r)
-	bucketName = vars["bucket"]
-	objectName = vars["object"]
-
+	ctx := getRequestContext(r)
+	logger := ctx.Logger
 	var credential common.Credential
 	var err error
-	if credential, err = checkRequestAuth(api, r, policy.GetObjectAction, bucketName, objectName); err != nil {
+	if credential, err = checkRequestAuth(r, policy.GetObjectAction); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
 
 	version := r.URL.Query().Get("versionId")
-	object, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName, version, credential)
+	object, err := api.ObjectAPI.GetObjectInfoByCtx(ctx, version, credential)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to fetch object info.")
+		logger.Error("Unable to fetch object info:", err)
 		if err == ErrNoSuchKey {
-			err = api.errAllowableObjectNotFound(r, bucketName, credential)
+			api.errAllowableObjectNotFound(w, r, credential)
+			return
 		}
 		WriteErrorResponse(w, r, err)
 		return
@@ -327,7 +354,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 			}
 
 			// log the error.
-			helper.ErrorIf(err, "Invalid request range")
+			logger.Error("Invalid request range:", err)
 		}
 	}
 
@@ -340,7 +367,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 			w.Header()["ETag"] = []string{"\"" + object.Etag + "\""}
 		}
 		if err == ContentNotModified { // write only header if is a 304
-			WriteErrorResponseHeaders(w, err)
+			WriteErrorResponseHeaders(w, r, err)
 		} else {
 			WriteErrorResponse(w, r, err)
 		}
@@ -352,9 +379,6 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 		WriteErrorResponse(w, r, err)
 		return
 	}
-
-	// Set standard object headers.
-	SetObjectHeaders(w, object, nil)
 
 	switch object.SseType {
 	case "":
@@ -374,7 +398,8 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 	w.(*ResponseRecorder).operationName = "HeadObject"
 
 	// Successful response.
-	w.WriteHeader(http.StatusOK)
+	// Set standard object headers.
+	SetObjectHeaders(w, object, nil, http.StatusOK)
 }
 
 // CopyObjectHandler - Copy Object
@@ -382,14 +407,14 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 // This implementation of the PUT operation adds an object to a bucket
 // while reading the object from another source.
 func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Request) {
-	helper.Logger.Println(20, "CopyObjectHandler enter")
+	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	targetBucketName := vars["bucket"]
 	targetObjectName := vars["object"]
 
 	var credential common.Credential
 	var err error
-	if credential, err = checkRequestAuth(api, r, policy.PutObjectAction, targetBucketName, targetObjectName); err != nil {
+	if credential, err = checkRequestAuth(r, policy.PutObjectAction); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -439,27 +464,13 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var isOnlyUpdateMetadata = false
-
-	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName {
-		if r.Header.Get("X-Amz-Metadata-Directive") == "COPY" {
-			WriteErrorResponse(w, r, ErrInvalidCopyDest)
-			return
-		} else if r.Header.Get("X-Amz-Metadata-Directive") == "REPLACE" {
-			isOnlyUpdateMetadata = true
-		} else {
-			WriteErrorResponse(w, r, ErrInvalidRequestBody)
-			return
-		}
-	}
-
-	helper.Debugln("sourceBucketName", sourceBucketName, "sourceObjectName", sourceObjectName,
-		"sourceVersion", sourceVersion)
+	logger.Info("Copying object from", sourceBucketName, sourceObjectName,
+		sourceVersion, "to", targetBucketName, targetObjectName)
 
 	sourceObject, err := api.ObjectAPI.GetObjectInfo(sourceBucketName, sourceObjectName,
 		sourceVersion, credential)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to fetch object info.")
+		logger.Error("Unable to fetch object info:", err)
 		WriteErrorResponseWithResource(w, r, err, copySource)
 		return
 	}
@@ -476,66 +487,27 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	//TODO: In a versioning-enabled bucket, you cannot change the storage class of a specific version of an object. When you copy it, Amazon S3 gives it a new version ID.
-	storageClassFromHeader, err := getStorageClassFromHeader(r)
-	if err != nil {
-		WriteErrorResponse(w, r, err)
-		return
+	// TODO: In a versioning-enabled bucket, you cannot change the storage class
+	//  of a specific version of an object. When you copy it, Amazon S3 gives it
+	//  a new version ID.
+	storageClassStr := r.Header.Get("X-Amz-Storage-Class")
+	var targetStorageClass meta.StorageClass
+	if storageClassStr != "" {
+		helper.Logger.Info("Get storage class header:", storageClassStr)
+		targetStorageClass, err = meta.MatchStorageClassIndex(storageClassStr)
+		if err != nil {
+			WriteErrorResponse(w, r, err)
+			return
+		}
+	} else {
+		targetStorageClass = sourceObject.StorageClass
 	}
-	if storageClassFromHeader == meta.ObjectStorageClassGlacier || storageClassFromHeader == meta.ObjectStorageClassDeepArchive {
+	if targetStorageClass == meta.ObjectStorageClassGlacier || targetStorageClass == meta.ObjectStorageClassDeepArchive {
 		WriteErrorResponse(w, r, ErrInvalidCopySourceStorageClass)
 		return
 	}
 
-	//if source == dest and X-Amz-Metadata-Directive == REPLACE, only update the meta;
-	if isOnlyUpdateMetadata {
-		targetObject := sourceObject
-
-		//update custom attrs from headers
-		newMetadata := extractMetadataFromHeader(r.Header)
-		if c, ok := newMetadata["Content-Type"]; ok {
-			targetObject.ContentType = c
-		} else {
-			targetObject.ContentType = sourceObject.ContentType
-		}
-		targetObject.CustomAttributes = newMetadata
-		targetObject.StorageClass = storageClassFromHeader
-
-		result, err := api.ObjectAPI.UpdateObjectAttrs(targetObject, credential)
-		if err != nil {
-			helper.ErrorIf(err, "Unable to update object meta for "+targetObject.ObjectId)
-			WriteErrorResponse(w, r, err)
-			return
-		}
-		response := GenerateCopyObjectResponse(result.Md5, result.LastModified)
-		encodedSuccessResponse := EncodeResponse(response)
-		// write headers
-		if result.Md5 != "" {
-			w.Header()["ETag"] = []string{"\"" + result.Md5 + "\""}
-		}
-		if sourceVersion != "" {
-			w.Header().Set("x-amz-copy-source-version-id", sourceVersion)
-		}
-		if result.VersionId != "" {
-			w.Header().Set("x-amz-version-id", result.VersionId)
-		}
-		// Set SSE related headers
-		for _, headerName := range []string{
-			"X-Amz-Server-Side-Encryption",
-			"X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id",
-			"X-Amz-Server-Side-Encryption-Customer-Algorithm",
-			"X-Amz-Server-Side-Encryption-Customer-Key-Md5",
-		} {
-			if header := r.Header.Get(headerName); header != "" {
-				w.Header().Set(headerName, header)
-			}
-		}
-		// write success response.
-		WriteSuccessResponse(w, encodedSuccessResponse)
-		return
-	}
-
-	/// maximum Upload size for object in a single CopyObject operation.
+	// maximum Upload size for object in a single CopyObject operation.
 	if isMaxObjectSize(sourceObject.Size) {
 		WriteErrorResponseWithResource(w, r, ErrEntityTooLarge, copySource)
 		return
@@ -548,7 +520,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		err = api.ObjectAPI.GetObject(sourceObject, startOffset, sourceObject.Size,
 			pipeWriter, sseRequest)
 		if err != nil {
-			helper.ErrorIf(err, "Unable to read an object.")
+			logger.Error("Unable to read an object:", err)
 			pipeWriter.CloseWithError(err)
 			return
 		}
@@ -568,21 +540,36 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	targetObject.Name = targetObjectName
 	targetObject.Size = sourceObject.Size
 	targetObject.Etag = sourceObject.Etag
-	targetObject.ContentType = sourceObject.ContentType
-	targetObject.CustomAttributes = sourceObject.CustomAttributes
 	targetObject.Parts = sourceObject.Parts
+	targetObject.Type = sourceObject.Type
+	targetObject.StorageClass = targetStorageClass
 
-	if r.Header.Get("X-Amz-Storage-Class") != "" {
-		targetObject.StorageClass = storageClassFromHeader
+	directive := r.Header.Get("X-Amz-Metadata-Directive")
+	if directive == "COPY" || directive == "" {
+		targetObject.CustomAttributes = sourceObject.CustomAttributes
+		targetObject.ContentType = sourceObject.ContentType
+	} else if directive == "REPLACE" {
+		newMetadata := extractMetadataFromHeader(r.Header)
+		if c, ok := newMetadata["content-type"]; ok {
+			targetObject.ContentType = c
+		} else {
+			targetObject.ContentType = sourceObject.ContentType
+		}
+		targetObject.CustomAttributes = newMetadata
 	} else {
-		targetObject.StorageClass = sourceObject.StorageClass
+		WriteErrorResponse(w, r, ErrInvalidCopyRequest)
+		return
+	}
+
+	var isMetadataOnly bool
+	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName {
+		isMetadataOnly = true
 	}
 
 	// Create the object.
-	result, err := api.ObjectAPI.CopyObject(targetObject, pipeReader, credential, sseRequest)
+	result, err := api.ObjectAPI.CopyObject(targetObject, pipeReader, credential, sseRequest, isMetadataOnly)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to copy object from "+
-			sourceObjectName+" to "+targetObjectName)
+		logger.Error("CopyObject failed:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -620,11 +607,94 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	pipeReader.Close()
 }
 
+// RenameObjectHandler - Rename Object
+// ----------
+// Do not support bucket to enable multiVersion renaming;
+// Folder renaming operation is not supported.
+func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := getRequestContext(r)
+	logger := ctx.Logger
+	bucketName := ctx.BucketName
+	targetObjectName := ctx.ObjectName
+
+	// Determine if the renamed object is legal
+	if hasSuffix(ctx.ObjectName, "/") || ctx.ObjectName == "" {
+		WriteErrorResponse(w, r, ErrInvalidRenameTarget)
+		return
+	}
+
+	var credential common.Credential
+	var err error
+	if credential, err = checkRequestAuth(r, policy.PutObjectAction); err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+
+	if ctx.ObjectInfo != nil {
+		WriteErrorResponse(w, r, ErrInvalidRenameTarget)
+		return
+	}
+
+	sourceObjectName := r.Header.Get("X-Amz-Rename-Source-Key")
+
+	if sourceObjectName == ctx.ObjectName {
+		WriteErrorResponse(w, r, ErrInvalidRenameTarget)
+		return
+	}
+
+	// X-Amz-Copy-Source should be URL-encoded
+	sourceObjectName, err = url.QueryUnescape(sourceObjectName)
+	if err != nil {
+		WriteErrorResponse(w, r, ErrInvalidRenameSourceKey)
+		return
+	}
+
+	// Determine if the renamed object is a folder
+	if hasSuffix(sourceObjectName, "/") {
+		WriteErrorResponse(w, r, ErrInvalidRenameSourceKey)
+		return
+	}
+	logger.Info("Renaming object from", bucketName, sourceObjectName,
+		"to", targetObjectName)
+
+	//TODO: Supplement Object MultiVersion Judge.
+	bucket := ctx.BucketInfo
+	if bucket.Versioning != meta.VersionDisabled {
+		WriteErrorResponse(w, r, ErrNotSupportBucketEnabledVersion)
+		return
+	}
+	logger.Info("Bucket Multi-version is:", bucket.Versioning)
+
+	var sourceVersion string
+	sourceObject, err := api.ObjectAPI.GetObjectInfo(ctx.BucketName, sourceObjectName,
+		sourceVersion, credential)
+	if err != nil {
+		WriteErrorResponseWithResource(w, r, err, sourceObjectName)
+		return
+	}
+
+	targetObject := sourceObject
+	targetObject.Name = ctx.ObjectName
+	result, err := api.ObjectAPI.RenameObject(targetObject, sourceObjectName, credential)
+	if err != nil {
+		logger.Error("Unable to update object meta for", targetObject.Name,
+			"error:", err)
+		WriteErrorResponse(w, r, err)
+		return
+	}
+	response := GenerateRenameObjectResponse(result.LastModified)
+	encodedSuccessResponse := EncodeResponse(response)
+	// ResponseRecorder
+	w.(*ResponseRecorder).operationName = "RenameObject"
+	// write success response.
+	WriteSuccessResponse(w, encodedSuccessResponse)
+}
+
 // PutObjectHandler - PUT Object
 // ----------
 // This implementation of the PUT operation adds an object to a bucket.
 func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Request) {
-	helper.Debugln("PutObjectHandler", "enter")
+	logger := ContextLogger(r)
 	// If the matching failed, it means that the X-Amz-Copy-Source was
 	// wrong, fail right here.
 	if _, ok := r.Header["X-Amz-Copy-Source"]; ok {
@@ -682,13 +752,13 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		metadata["md5Sum"] = ""
 	} else {
 		if len(r.Header.Get("Content-Md5")) == 0 {
-			helper.Debugln("Content Md5 is null!")
+			logger.Info("Content Md5 is null")
 			WriteErrorResponse(w, r, ErrInvalidDigest)
 			return
 		}
 		md5Bytes, err := checkValidMD5(r.Header.Get("Content-Md5"))
 		if err != nil {
-			helper.Debugln("Content Md5 is invalid!")
+			logger.Info("Content Md5 is invalid")
 			WriteErrorResponse(w, r, ErrInvalidDigest)
 			return
 		} else {
@@ -717,7 +787,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	// Parse SSE related headers
-	// Suport SSE-S3 and SSE-C now
+	// Support SSE-S3 and SSE-C now
 	var sseRequest SseRequest
 
 	if hasServerSideEncryptionHeader(r.Header) && !hasSuffix(objectName, "/") { // handle SSE requests
@@ -734,17 +804,17 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	credential, dataReader, err := signature.VerifyUpload(r)
+	credential, dataReadCloser, err := signature.VerifyUpload(r)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
 
 	var result PutObjectResult
-	result, err = api.ObjectAPI.PutObject(bucketName, objectName, credential, size, dataReader,
+	result, err = api.ObjectAPI.PutObject(bucketName, objectName, credential, size, dataReadCloser,
 		metadata, acl, sseRequest, storageClass)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to create object "+objectName)
+		logger.Error("Unable to create object", objectName, "error:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -767,7 +837,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		}
 	}
 
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "PutObject"
 
 	WriteSuccessResponse(w, nil)
@@ -777,11 +847,13 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 // ----------
 // This implementation of the POST operation append an object in a bucket.
 func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.Request) {
-	helper.Debugln("AppendObjectHandler", "enter")
-
+	ctx := getRequestContext(r)
+	logger := ctx.Logger
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 	objectName := vars["object"]
+
+	logger.Info("Appending object:", bucketName, objectName)
 
 	var authType = signature.GetRequestAuthType(r)
 	var err error
@@ -793,7 +865,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 
 	pos := r.URL.Query().Get("position")
 	// Parse SSE related headers
-	// Suport SSE-S3 and SSE-C now
+	// Support SSE-S3 and SSE-C now
 	var sseRequest SseRequest
 	var position uint64
 	var acl Acl
@@ -842,13 +914,13 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 		metadata["md5Sum"] = ""
 	} else {
 		if len(r.Header.Get("Content-Md5")) == 0 {
-			helper.Debugln("Content Md5 is null!")
+			logger.Error("Content Md5 is null")
 			WriteErrorResponse(w, r, ErrInvalidDigest)
 			return
 		}
 		md5Bytes, err := checkValidMD5(r.Header.Get("Content-Md5"))
 		if err != nil {
-			helper.Debugln("Content Md5 is invalid!")
+			logger.Error("Content Md5 is invalid")
 			WriteErrorResponse(w, r, ErrInvalidDigest)
 			return
 		} else {
@@ -877,7 +949,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	}
 
 	// Verify auth
-	credential, dataReader, err := signature.VerifyUpload(r)
+	credential, dataReadCloser, err := signature.VerifyUpload(r)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -885,7 +957,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 
 	// Check whether the object is exist or not
 	// Check whether the bucket is owned by the specified user
-	objInfo, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName, "", credential)
+	objInfo, err := api.ObjectAPI.GetObjectInfoByCtx(ctx, "", credential)
 	if err != nil && err != ErrNoSuchKey {
 		WriteErrorResponse(w, r, err)
 		return
@@ -897,7 +969,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	}
 
 	if objInfo != nil && objInfo.Size != int64(position) {
-		helper.Debugln("Current Size:", objInfo.Size, "Position:", position)
+		logger.Info("Current Size:", objInfo.Size, "Position:", position)
 		w.Header().Set("X-Amz-Next-Append-Position", strconv.FormatInt(objInfo.Size, 10))
 		WriteErrorResponse(w, r, ErrPositionNotEqualToLength)
 		return
@@ -932,10 +1004,10 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	}
 
 	var result AppendObjectResult
-	result, err = api.ObjectAPI.AppendObject(bucketName, objectName, credential, position, size, dataReader,
+	result, err = api.ObjectAPI.AppendObject(bucketName, objectName, credential, position, size, dataReadCloser,
 		metadata, acl, sseRequest, storageClass, objInfo)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to append object "+objectName)
+		logger.Error("Unable to append object", objectName, "error:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -950,9 +1022,6 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	// Set SSE related headers
 	for _, headerName := range []string{
 		"X-Amz-Server-Side-Encryption",
-		//"X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id",
-		//"X-Amz-Server-Side-Encryption-Customer-Algorithm",
-		//"X-Amz-Server-Side-Encryption-Customer-Key-Md5",
 	} {
 		if header := r.Header.Get(headerName); header != "" {
 			w.Header().Set(headerName, header)
@@ -962,13 +1031,62 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	// Set next position
 	w.Header().Set("X-Amz-Next-Append-Position", strconv.FormatInt(result.NextPosition, 10))
 
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "AppendObject"
 
 	WriteSuccessResponse(w, nil)
 }
 
+func (api ObjectAPIHandlers) PutObjectMeta(w http.ResponseWriter, r *http.Request) {
+	ctx := getRequestContext(r)
+	logger := ctx.Logger
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+	objectName := vars["object"]
+
+	logger.Info("Put object meta:", bucketName, objectName)
+
+	var credential common.Credential
+	var err error
+	if credential, err = checkRequestAuth(r, policy.PutObjectAction); err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+
+	if r.ContentLength <= 0 {
+		WriteErrorResponse(w, r, ErrMissingContentLength)
+		return
+	}
+
+	if r.ContentLength > MaxObjectMetaConfigurationSize {
+		WriteErrorResponse(w, r, ErrEntityTooLarge)
+		return
+	}
+
+	metaData, err := ParseMetaConfig(io.LimitReader(r.Body, r.ContentLength))
+	if err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+	object := ctx.ObjectInfo
+	object.CustomAttributes = metaData.Data
+
+	err = api.ObjectAPI.PutObjectMeta(ctx.BucketInfo, object, credential)
+	if err != nil {
+		logger.Error("Unable to update object meta for", object.Name,
+			"error:", err)
+		WriteErrorResponse(w, r, err)
+		return
+	}
+
+	// ResponseRecorder
+	w.(*ResponseRecorder).operationName = "PutObjectMeta"
+
+	WriteSuccessResponse(w, nil)
+}
+
 func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 	objectName := vars["object"]
@@ -999,15 +1117,15 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 		}
 	} else {
 		aclBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 1024))
-		helper.Debug("acl body:\n %s", string(aclBuffer))
+		logger.Info("ACL body:", string(aclBuffer))
 		if err != nil {
-			helper.ErrorIf(err, "Unable to read acls body")
+			logger.Error("Unable to read ACLs body:", err)
 			WriteErrorResponse(w, r, ErrInvalidAcl)
 			return
 		}
 		err = xml.Unmarshal(aclBuffer, &policy)
 		if err != nil {
-			helper.ErrorIf(err, "Unable to Unmarshal xml for acl")
+			logger.Error("Unable to Unmarshal XML for ACL:", err)
 			WriteErrorResponse(w, r, ErrInternalError)
 			return
 		}
@@ -1016,7 +1134,8 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 	version := r.URL.Query().Get("versionId")
 	err = api.ObjectAPI.SetObjectAcl(bucketName, objectName, version, policy, acl, credential)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to set ACL for object")
+		logger.Error("Unable to set ACL for object", objectName,
+			"error:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -1024,13 +1143,14 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 		w.Header().Set("x-amz-version-id", version)
 	}
 
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "PutObjectAcl"
 
 	WriteSuccessResponse(w, nil)
 }
 
 func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 	objectName := vars["object"]
@@ -1053,16 +1173,17 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 	}
 
 	version := r.URL.Query().Get("versionId")
-	policy, err := api.ObjectAPI.GetObjectAcl(bucketName, objectName, version, credential)
+	acl, err := api.ObjectAPI.GetObjectAcl(bucketName, objectName, version, credential)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to fetch object policy.")
+		logger.Error("Unable to fetch object acl:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
 
-	aclBuffer, err := xmlFormat(policy)
+	aclBuffer, err := xmlFormat(acl)
 	if err != nil {
-		helper.ErrorIf(err, "Failed to marshal acl XML for object", objectName)
+		logger.Error("Failed to marshal ACL XML for object", objectName,
+			"error:", err)
 		WriteErrorResponse(w, r, ErrInternalError)
 		return
 	}
@@ -1071,18 +1192,18 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 		w.Header().Set("x-amz-version-id", version)
 	}
 
-	setXmlHeader(w, aclBuffer)
+	setXmlHeader(w)
 
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "GetObjectAcl"
-
 	WriteSuccessResponse(w, aclBuffer)
 }
 
-/// Multipart objectAPIHandlers
+// Multipart objectAPIHandlers
 
 // NewMultipartUploadHandler - New multipart upload
 func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 	objectName := vars["object"]
@@ -1136,7 +1257,7 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 	uploadID, err := api.ObjectAPI.NewMultipartUpload(credential, bucketName, objectName,
 		metadata, acl, sseRequest, storageClass)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to initiate new multipart upload id.")
+		logger.Error("Unable to initiate new multipart upload id:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -1164,6 +1285,7 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 
 // PutObjectPartHandler - Upload part
 func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 	objectName := vars["object"]
@@ -1226,7 +1348,7 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 		return
 	}
 
-	credential, dataReader, err := signature.VerifyUpload(r)
+	credential, dataReadCloser, err := signature.VerifyUpload(r)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -1235,9 +1357,9 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 	var result PutObjectPartResult
 	// No need to verify signature, anonymous request access is already allowed.
 	result, err = api.ObjectAPI.PutObjectPart(bucketName, objectName, credential,
-		uploadID, partID, size, dataReader, incomingMd5, sseRequest)
+		uploadID, partID, size, dataReadCloser, incomingMd5, sseRequest)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to create object part for "+objectName)
+		logger.Error("Unable to create object part for", objectName, "error:", err)
 		// Verify if the underlying error is signature mismatch.
 		WriteErrorResponse(w, r, err)
 		return
@@ -1269,6 +1391,7 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 
 // Upload part - copy
 func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	targetBucketName := vars["bucket"]
 	targetObjectName := vars["object"]
@@ -1356,7 +1479,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 	sourceObject, err := api.ObjectAPI.GetObjectInfo(sourceBucketName, sourceObjectName,
 		sourceVersion, credential)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to fetch object info.")
+		logger.Error("Unable to fetch object info:", err)
 		WriteErrorResponseWithResource(w, r, err, copySource)
 		return
 	}
@@ -1381,7 +1504,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 	} else {
 		copySourceRange, err := ParseRequestRange(copySourceRangeString, sourceObject.Size)
 		if err != nil {
-			helper.ErrorIf(err, "Invalid request range")
+			logger.Error("Invalid request range", err)
 			WriteErrorResponse(w, r, ErrInvalidRange)
 			return
 		}
@@ -1403,7 +1526,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 		err = api.ObjectAPI.GetObject(sourceObject, readOffset, readLength,
 			pipeWriter, sseRequest)
 		if err != nil {
-			helper.ErrorIf(err, "Unable to read an object.")
+			logger.Error("Unable to read an object:", err)
 			pipeWriter.CloseWithError(err)
 			return
 		}
@@ -1414,8 +1537,8 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 	result, err := api.ObjectAPI.CopyObjectPart(targetBucketName, targetObjectName, targetUploadId,
 		targetPartId, readLength, pipeReader, credential, sseRequest)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to copy object part from "+sourceObjectName+
-			" to "+targetObjectName)
+		logger.Error("Unable to copy object part from", sourceObjectName,
+			"to", targetObjectName, "error:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -1450,6 +1573,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 
 // AbortMultipartUploadHandler - Abort multipart upload
 func (api ObjectAPIHandlers) AbortMultipartUploadHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 	objectName := vars["object"]
@@ -1475,7 +1599,7 @@ func (api ObjectAPIHandlers) AbortMultipartUploadHandler(w http.ResponseWriter, 
 	if err := api.ObjectAPI.AbortMultipartUpload(credential, bucketName,
 		objectName, uploadId); err != nil {
 
-		helper.ErrorIf(err, "Unable to abort multipart upload.")
+		logger.Error("Unable to abort multipart upload:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -1488,6 +1612,7 @@ func (api ObjectAPIHandlers) AbortMultipartUploadHandler(w http.ResponseWriter, 
 
 // ListObjectPartsHandler - List object parts
 func (api ObjectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 	objectName := vars["object"]
@@ -1517,7 +1642,7 @@ func (api ObjectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 	listPartsInfo, err := api.ObjectAPI.ListObjectParts(credential, bucketName,
 		objectName, request)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to list uploaded parts.")
+		logger.Error("Unable to list uploaded parts:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -1532,6 +1657,7 @@ func (api ObjectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 
 // CompleteMultipartUploadHandler - Complete multipart upload
 func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 	objectName := vars["object"]
@@ -1557,23 +1683,27 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	}
 	completeMultipartBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to complete multipart upload when read request body.")
+		logger.Error(
+			"Unable to complete multipart upload when read request body:", err)
 		WriteErrorResponse(w, r, ErrInternalError)
 		return
 	}
 	complMultipartUpload := &meta.CompleteMultipartUpload{}
 	if err = xml.Unmarshal(completeMultipartBytes, complMultipartUpload); err != nil {
-		helper.ErrorIf(err, "Unable to parse complete multipart upload XML. data: %s", string(completeMultipartBytes))
+		logger.Error("Unable to parse complete multipart upload XML. data:",
+			string(completeMultipartBytes), "error:", err)
 		WriteErrorResponse(w, r, ErrMalformedXML)
 		return
 	}
 	if len(complMultipartUpload.Parts) == 0 {
-		helper.ErrorIf(errors.New("len(complMultipartUpload.Parts) == 0"), "Unable to complete multipart upload.")
+		logger.Error("Unable to complete multipart upload: " +
+			"len(complMultipartUpload.Parts) == 0")
 		WriteErrorResponse(w, r, ErrMalformedXML)
 		return
 	}
 	if !sort.IsSorted(meta.CompletedParts(complMultipartUpload.Parts)) {
-		helper.ErrorIf(errors.New("part not sorted."), "Unable to complete multipart upload. data: %+v", complMultipartUpload.Parts)
+		logger.Error("Unable to complete multipart upload. data:",
+			complMultipartUpload.Parts, "parts not sorted")
 		WriteErrorResponse(w, r, ErrInvalidPartOrder)
 		return
 	}
@@ -1590,7 +1720,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 		objectName, uploadId, completeParts)
 
 	if err != nil {
-		helper.ErrorIf(err, "Unable to complete multipart upload.")
+		logger.Error("Unable to complete multipart upload:", err)
 		switch oErr := err.(type) {
 		case meta.PartTooSmall:
 			// Write part too small error.
@@ -1608,7 +1738,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	response := GenerateCompleteMultpartUploadResponse(bucketName, objectName, location, result.ETag)
 	encodedSuccessResponse, err := xmlFormat(response)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to parse CompleteMultipartUpload response")
+		logger.Error("Unable to parse CompleteMultipartUpload response:", err)
 		WriteErrorResponseNoHeader(w, r, ErrInternalError, r.URL.Path)
 		return
 	}
@@ -1631,16 +1761,15 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 			result.SseCustomerKeyMd5Base64)
 	}
 
-	setXmlHeader(w, encodedSuccessResponse)
+	setXmlHeader(w)
 
 	//ResponseRecorder
 	w.(*ResponseRecorder).operationName = "CompleteMultipartUpload"
-
 	// write success response.
 	WriteSuccessResponse(w, encodedSuccessResponse)
 }
 
-/// Delete objectAPIHandlers
+// Delete objectAPIHandlers
 
 // DeleteObjectHandler - delete an object
 func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.Request) {
@@ -1665,9 +1794,8 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 		}
 	}
 	version := r.URL.Query().Get("versionId")
-	/// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectDELETE.html
-	/// Ignore delete object errors, since we are supposed to reply
-	/// only 204.
+	// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectDELETE.html
+	// Ignore delete object errors, since we are supposed to reply only 204.
 	result, err := api.ObjectAPI.DeleteObject(bucketName, objectName, version, credential)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
@@ -1681,7 +1809,7 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 	if result.VersionId != "" {
 		w.Header().Set("x-amz-version-id", result.VersionId)
 	}
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "DeleteObject"
 	WriteSuccessNoContent(w)
 }
@@ -1693,21 +1821,21 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 
 var ValidSuccessActionStatus = []string{"200", "201", "204"}
 
-
 func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	var err error
 	// Here the parameter is the size of the form data that should
 	// be loaded in memory, the remaining being put in temporary files.
 	reader, err := r.MultipartReader()
 	if err != nil {
-		helper.ErrorIf(err, "Unable to initialize multipart reader.")
+		logger.Error("Unable to initialize multipart reader:", err)
 		WriteErrorResponse(w, r, ErrMalformedPOSTRequest)
 		return
 	}
 
 	fileBody, formValues, err := extractHTTPFormValues(reader)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to parse form values.")
+		logger.Error("Unable to parse form values:", err)
 		WriteErrorResponse(w, r, ErrMalformedPOSTRequest)
 		return
 	}
@@ -1725,12 +1853,11 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	helper.Debugln("formValues", formValues)
-	helper.Debugln("bucket", bucketName)
+	logger.Info("PostObjectHandler formValues", formValues)
 
 	var credential common.Credential
 	postPolicyType := signature.GetPostPolicyType(formValues)
-	helper.Debugln("type", postPolicyType)
+	logger.Info("type", postPolicyType)
 	switch postPolicyType {
 	case signature.PostPolicyV2:
 		credential, err = signature.DoesPolicySignatureMatchV2(formValues)
@@ -1790,7 +1917,7 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 	result, err := api.ObjectAPI.PutObject(bucketName, objectName, credential, -1, fileBody,
 		metadata, acl, sseRequest, storageClass)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to create object "+objectName)
+		logger.Error("Unable to create object", objectName, "error:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -1834,7 +1961,7 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		})
 		w.WriteHeader(201)
 
-		//ResponseRecorder
+		// ResponseRecorder
 		w.(*ResponseRecorder).operationName = "PostObject"
 
 		w.Write(encodedSuccessResponse)

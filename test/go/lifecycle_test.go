@@ -1,14 +1,15 @@
 package _go
 
 import (
-	"github.com/journeymidnight/aws-sdk-go/aws"
-	"github.com/journeymidnight/aws-sdk-go/service/s3"
-	. "github.com/journeymidnight/yig/test/go/lib"
 	"os"
 	"os/exec"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/journeymidnight/aws-sdk-go/aws"
+	"github.com/journeymidnight/aws-sdk-go/service/s3"
+	. "github.com/journeymidnight/yig/test/go/lib"
 )
 
 func Test_LifeCycle(t *testing.T) {
@@ -28,7 +29,7 @@ func Test_LifeCycle(t *testing.T) {
 	}
 	t.Log("PutObject Success!")
 
-    //PutBucketLifecycle:Sets lifecycle configuration for your bucket. If a lifecycle configuration exists, it replaces it.
+	//PutBucketLifecycle:Sets lifecycle configuration for your bucket. If a lifecycle configuration exists, it replaces it.
 	putPut := &s3.PutBucketLifecycleConfigurationInput{
 		Bucket: aws.String(TEST_BUCKET),
 		LifecycleConfiguration: &s3.BucketLifecycleConfiguration{
@@ -62,7 +63,7 @@ func Test_LifeCycle(t *testing.T) {
 	}
 	t.Log("GetBucketLifecycle Success!")
 
-    //Get object before lc.
+	//Get object before lc.
 	v, err := sc.GetObject(TEST_BUCKET, TEST_KEY)
 	if err != nil {
 		t.Fatal("GetObject before lc err:", err)
@@ -72,19 +73,19 @@ func Test_LifeCycle(t *testing.T) {
 	}
 	t.Log("GetObject before lc Success value:", v)
 
-	//Test "lc.go".
-	err = os.Chdir("../../integrate")
+	//Test "lifecycle.go".
+	err = os.Chdir("../../")
 	if err != nil {
-                t.Fatal("change dir in lc err:", err)
-        }
-	cmd := exec.Command("bash", "runlc.sh")
+		t.Fatal("change dir in lc err:", err)
+	}
+	cmd := exec.Command("make", "runlc")
 	err = cmd.Run()
 	if err != nil {
 		t.Fatal("lc err:", err)
 	}
 	time.Sleep(time.Second * 3)
 	t.Log("lc Success!")
-    os.Chdir("../test/go")
+	os.Chdir("../test/go")
 
 	//Get object after lc.
 	v, err = sc.GetObject(TEST_BUCKET, TEST_KEY)
@@ -95,7 +96,7 @@ func Test_LifeCycle(t *testing.T) {
 		} else {
 			t.Fatal("GetObject after lc test Fail!", err)
 		}
-	}else{
+	} else {
 		t.Fatal("GetObject after lc test Fail!", err)
 	}
 
@@ -103,7 +104,7 @@ func Test_LifeCycle(t *testing.T) {
 	deletePut := &s3.DeleteBucketLifecycleInput{
 		Bucket: aws.String(TEST_BUCKET),
 	}
-    _, err = sc.Client.DeleteBucketLifecycle(deletePut)
+	_, err = sc.Client.DeleteBucketLifecycle(deletePut)
 	if err != nil {
 		t.Fatal("DeleteBucketLifecycle err:", err)
 	}
@@ -124,4 +125,3 @@ func Test_LC_End(t *testing.T) {
 	}
 
 }
-

@@ -105,12 +105,12 @@ func (yig *YigStorage) NewMultipartUpload(credential common.Credential, bucketNa
 		contentType = "application/octet-stream"
 	}
 
-	cephCluster, pool := yig.PickOneClusterAndPool(bucketName, objectName, -1, false)
+	cephCluster, pool := yig.pickClusterAndPool(bucketName, objectName, -1, false)
 	multipartMetadata := meta.MultipartMetadata{
 		InitiatorId:  credential.UserId,
 		OwnerId:      bucket.OwnerId,
 		ContentType:  contentType,
-		Location:     cephCluster.Name,
+		Location:     cephCluster.ID(),
 		Pool:         pool,
 		Acl:          acl,
 		SseRequest:   sseRequest,
@@ -142,8 +142,10 @@ func (yig *YigStorage) NewMultipartUpload(credential common.Credential, bucketNa
 }
 
 func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential common.Credential,
-	uploadId string, partId int, size int64, data io.Reader, md5Hex string,
+	uploadId string, partId int, size int64, data io.ReadCloser, md5Hex string,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectPartResult, err error) {
+
+	defer data.Close()
 	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
 	if err != nil {
 		return
@@ -174,11 +176,10 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 	md5Writer := md5.New()
 	limitedDataReader := io.LimitReader(data, size)
 	poolName := multipart.Metadata.Pool
-	cephCluster, err := yig.GetClusterByFsName(multipart.Metadata.Location)
+	cluster, err := yig.GetClusterByFsName(multipart.Metadata.Location)
 	if err != nil {
 		return
 	}
-	oid := cephCluster.GetUniqUploadName()
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
 
 	var initializationVector []byte
@@ -193,18 +194,18 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 	if err != nil {
 		return
 	}
-	bytesWritten, err := cephCluster.Put(poolName, oid, storageReader)
+	objectId, bytesWritten, err := cluster.Put(poolName, storageReader)
 	if err != nil {
 		return
 	}
 	// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
 	// so the object in Ceph could be removed asynchronously
 	maybeObjectToRecycle := objectToRecycle{
-		location: cephCluster.Name,
+		location: cluster.ID(),
 		pool:     poolName,
-		objectId: oid,
+		objectId: objectId,
 	}
-	if bytesWritten < size {
+	if int64(bytesWritten) < size {
 		RecycleQueue <- maybeObjectToRecycle
 		err = ErrIncompleteBody
 		return
@@ -217,7 +218,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 		return
 	}
 
-	if signVerifyReader, ok := data.(*signature.SignVerifyReader); ok {
+	if signVerifyReader, ok := data.(*signature.SignVerifyReadCloser); ok {
 		credential, err = signVerifyReader.Verify()
 		if err != nil {
 			RecycleQueue <- maybeObjectToRecycle
@@ -243,7 +244,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 	part := meta.Part{
 		PartNumber:           partId,
 		Size:                 size,
-		ObjectId:             oid,
+		ObjectId:             objectId,
 		Etag:                 calculatedMd5,
 		LastModified:         time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT),
 		InitializationVector: initializationVector,
@@ -308,7 +309,6 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	if err != nil {
 		return
 	}
-	oid := cephCluster.GetUniqUploadName()
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
 
 	var initializationVector []byte
@@ -323,19 +323,19 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	if err != nil {
 		return
 	}
-	bytesWritten, err := cephCluster.Put(poolName, oid, storageReader)
+	objectId, bytesWritten, err := cephCluster.Put(poolName, storageReader)
 	if err != nil {
 		return
 	}
 	// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
 	// so the object in Ceph could be removed asynchronously
 	maybeObjectToRecycle := objectToRecycle{
-		location: cephCluster.Name,
+		location: cephCluster.ID(),
 		pool:     poolName,
-		objectId: oid,
+		objectId: objectId,
 	}
 
-	if bytesWritten < size {
+	if int64(bytesWritten) < size {
 		RecycleQueue <- maybeObjectToRecycle
 		err = ErrIncompleteBody
 		return
@@ -366,7 +366,7 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	part := meta.Part{
 		PartNumber:           partId,
 		Size:                 size,
-		ObjectId:             oid,
+		ObjectId:             objectId,
 		Etag:                 result.Md5,
 		LastModified:         now.Format(meta.CREATE_TIME_LAYOUT),
 		InitializationVector: initializationVector,
@@ -464,7 +464,7 @@ func (yig *YigStorage) ListObjectParts(credential common.Credential, bucketName,
 	result.Bucket = bucketName
 	result.Key = objectName
 	result.UploadId = request.UploadId
-	result.StorageClass = "STANDARD"
+	result.StorageClass = multipart.Metadata.StorageClass.ToString()
 	result.PartNumberMarker = request.PartNumberMarker
 	result.MaxParts = request.MaxParts
 	result.EncodingType = request.EncodingType
@@ -540,16 +540,18 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 
 	md5Writer := md5.New()
 	var totalSize int64 = 0
-	helper.Logger.Println(20, "Upload parts:", uploadedParts, "uploadId:", uploadId)
+	helper.Logger.Info("Upload parts:", uploadedParts, "uploadId:", uploadId)
 	for i := 0; i < len(uploadedParts); i++ {
 		if uploadedParts[i].PartNumber != i+1 {
-			helper.Logger.Println(20, "uploadedParts[i].PartNumber != i+1; i:", i, "uploadId:", uploadId)
+			helper.Logger.Error("uploadedParts[i].PartNumber != i+1; i:", i,
+				"uploadId:", uploadId)
 			err = ErrInvalidPart
 			return
 		}
 		part, ok := multipart.Parts[i+1]
 		if !ok {
-			helper.Logger.Println(20, "multipart.Parts[i+1] does not exist; i:", i, "uploadId:", uploadId)
+			helper.Logger.Error("multipart.Parts[i+1] does not exist; i:", i,
+				"uploadId:", uploadId)
 			err = ErrInvalidPart
 			return
 		}
@@ -562,15 +564,17 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 			return
 		}
 		if part.Etag != uploadedParts[i].ETag {
-			helper.Logger.Println(20, "part.Etag != uploadedParts[i].ETag;",
-				"i:", i, "Etag:", part.Etag, "reqEtag:", uploadedParts[i].ETag, "uploadId:", uploadId)
+			helper.Logger.Error("part.Etag != uploadedParts[i].ETag;",
+				"i:", i, "Etag:", part.Etag, "reqEtag:",
+				uploadedParts[i].ETag, "uploadId:", uploadId)
 			err = ErrInvalidPart
 			return
 		}
 		var etagBytes []byte
 		etagBytes, err = hex.DecodeString(part.Etag)
 		if err != nil {
-			helper.Logger.Println(20, "hex.DecodeString(part.Etag) err;", "uploadId:", uploadId)
+			helper.Logger.Error("hex.DecodeString(part.Etag) err:", err,
+				"uploadId:", uploadId)
 			err = ErrInvalidPart
 			return
 		}
@@ -629,13 +633,6 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 	} else {
 		err = yig.MetaStorage.PutObject(object, &multipart, nil, false)
 	}
-
-	//// Remove from multiparts table
-	//err = yig.MetaStorage.Client.DeleteMultipart(multipart)
-	//if err != nil { // rollback objects table
-	//	yig.delTableEntryForRollback(object, objMap)
-	//	return result, err
-	//}
 
 	sseRequest := multipart.Metadata.SseRequest
 	result.SseType = sseRequest.Type

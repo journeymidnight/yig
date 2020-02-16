@@ -1,9 +1,9 @@
 language: go
 sudo: required
-dist: trusty
+dist: bionic
 
 go:
-  - 1.12
+  - 1.13
 
 services:
 - docker
@@ -26,10 +26,9 @@ install:
 - sudo ufw disable
 
 script:
-- make integrate
 - export GOPROXY=https://goproxy.cn
 - export GO111MODULE=on
-- go mod tidy
+- make integrate
   # golang 1.12 will change the permission of go.mod and go.sum
   # use chmod to reset the permission of go.mod and go.sum to make go test happy
 - sudo chmod 644 go.mod go.sum
@@ -38,9 +37,6 @@ script:
 - go test -v
 - popd
 - cat lc.log
-- pushd messagebus/tests
-- go test -check.vv
-- popd
 
 before_deploy:
   - echo "prepare package"
@@ -68,3 +64,4 @@ deploy:
     on:
       repo: journeymidnight/yig
       branch: master
+

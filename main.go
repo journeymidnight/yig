@@ -2,6 +2,8 @@ package main
 
 import (
 	"math/rand"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"runtime"
@@ -9,86 +11,79 @@ import (
 	"time"
 
 	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/mods"
-	"github.com/journeymidnight/yig/iam"
-	bus "github.com/journeymidnight/yig/messagebus"
-	_ "github.com/journeymidnight/yig/messagebus/kafka"
+	bus "github.com/journeymidnight/yig/mq"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/storage"
 )
 
-var logger *log.Logger
-
 func DumpStacks() {
 	buf := make([]byte, 1<<16)
-	stacklen := runtime.Stack(buf, true)
-	helper.Logger.Printf(5, "=== received SIGQUIT ===\n*** goroutine dump...\n%s\n*** end\n", buf[:stacklen])
+	stackLen := runtime.Stack(buf, true)
+	helper.Logger.Error("Received SIGQUIT, goroutine dump:")
+	helper.Logger.Error(buf[:stackLen])
+	helper.Logger.Error("*** dump end")
 }
 
 func main() {
-	// Errors should cause panic so as to log to stderr for function calls in main()
+	// Errors should cause panic so as to log to stderr for initialization functions
 
 	rand.Seed(time.Now().UnixNano())
 
 	helper.SetupConfig()
 
-	//yig log
-	f, err := os.OpenFile(helper.CONFIG.LogPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		panic("Failed to open log file " + helper.CONFIG.LogPath)
-	}
-	defer f.Close()
-
-	logger = log.New(f, "[yig]", log.LstdFlags, helper.CONFIG.LogLevel)
-	helper.Logger = logger
-	logger.Printf(20, "YIG conf: %+v \n", helper.CONFIG)
-	logger.Println(5, "YIG instance ID:", helper.CONFIG.InstanceId)
-
-	//access log
-	a, err := os.OpenFile(helper.CONFIG.AccessLogPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
-	if err != nil {
-		panic("Failed to open access log file " + helper.CONFIG.AccessLogPath)
-	}
-	defer a.Close()
-	accessLogger := log.New(a, "", 0, helper.CONFIG.LogLevel)
-	helper.AccessLogger = accessLogger
+	// yig log
+	logLevel := log.ParseLevel(helper.CONFIG.LogLevel)
+	helper.Logger = log.NewFileLogger(helper.CONFIG.LogPath, logLevel)
+	defer helper.Logger.Close()
+	helper.Logger.Info("YIG conf:", helper.CONFIG)
+	helper.Logger.Info("YIG instance ID:", helper.CONFIG.InstanceId)
+	// access log
+	helper.AccessLogger = log.NewFileLogger(helper.CONFIG.AccessLogPath, log.InfoLevel)
+	defer helper.AccessLogger.Close()
 
 	if helper.CONFIG.MetaCacheType > 0 || helper.CONFIG.EnableDataCache {
 		redis.Initialize()
 		defer redis.Close()
 	}
 
-	yig := storage.New(logger, helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache, helper.CONFIG.CephConfigPattern)
+	yig := storage.New(helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache)
 	adminServerConfig := &adminServerConfig{
 		Address: helper.CONFIG.BindAdminAddress,
-		Logger:  logger,
+		Logger:  helper.Logger,
 		Yig:     yig,
 	}
 	if redis.Pool() != nil && helper.CONFIG.CacheCircuitCheckInterval != 0 {
 		go yig.PingCache(time.Duration(helper.CONFIG.CacheCircuitCheckInterval) * time.Second)
 	}
 
-	// try to create message bus sender if message bus is enabled.
-	// message bus sender is singleton so create it beforehand.
-	if helper.CONFIG.MsgBus.Enabled {
-		messageBusSender, err := bus.GetMessageSender()
-		if err != nil {
-			helper.Logger.Printf(2, "failed to create message bus sender, err: %v", err)
-			panic("failed to create message bus sender")
-		}
-		if nil == messageBusSender {
-			helper.Logger.Printf(2, "failed to create message bus sender, sender is nil.")
-			panic("failed to create message bus sender, sender is nil.")
-		}
-		helper.Logger.Printf(20, "succeed to create message bus sender.")
-	}
-
-
-	//Read all *.so from plugins directory, and fill the varaible allPlugins
+	// Read all *.so from plugins directory, and fill the variable allPlugins
 	allPluginMap := mods.InitialPlugins()
 
+	// try to create message queue sender if message bus is enabled.
+	// message queue sender is singleton so create it beforehand.
+	mqSender, err := bus.InitMessageSender(allPluginMap)
+	if err != nil {
+		helper.Logger.Error("Failed to create message queue sender, err:", err)
+		panic("failed to create message bus sender")
+	}
+	if mqSender == nil {
+		helper.Logger.Error("Failed to create message queue sender, sender is nil.")
+		panic("failed to create message queue sender, sender is nil.")
+	}
+	helper.Logger.Info("Succeed to create message queue sender.")
+
 	iam.InitializeIamClient(allPluginMap)
+
+	// Add pprof handler
+	if helper.CONFIG.EnablePProf {
+		go func() {
+			err := http.ListenAndServe("0.0.0.0:8730", nil)
+			helper.Logger.Error("Start ppof err:", err)
+		}()
+	}
 
 	startAdminServer(adminServerConfig)
 
@@ -96,7 +91,7 @@ func main() {
 		Address:      helper.CONFIG.BindApiAddress,
 		KeyFilePath:  helper.CONFIG.SSLKeyPath,
 		CertFilePath: helper.CONFIG.SSLCertPath,
-		Logger:       logger,
+		Logger:       helper.Logger,
 		ObjectLayer:  yig,
 	}
 	startApiServer(apiServerConfig)

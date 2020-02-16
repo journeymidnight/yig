@@ -30,17 +30,17 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 		CreateTime: now,
 		OwnerId:    credential.UserId,
 		ACL:        acl,
-		Versioning: "Disabled", // it's the default
+		Versioning: meta.VersionDisabled, // it's the default
 	}
 	processed, err := yig.MetaStorage.Client.CheckAndPutBucket(bucket)
 	if err != nil {
-		yig.Logger.Println(5, "Error making checkandput: ", err)
+		helper.Logger.Error("Error making CheckAndPut:", err)
 		return err
 	}
 	if !processed { // bucket already exists, return accurate message
 		bucket, err := yig.MetaStorage.GetBucket(bucketName, false)
 		if err != nil {
-			yig.Logger.Println(5, "Error get bucket: ", bucketName, ", with error", err)
+			helper.Logger.Info("Error get bucket:", bucketName, "with error:", err)
 			return ErrBucketAlreadyExists
 		}
 		if bucket.OwnerId == credential.UserId {
@@ -51,17 +51,15 @@ func (yig *YigStorage) MakeBucket(bucketName string, acl datatype.Acl,
 	}
 	err = yig.MetaStorage.AddBucketForUser(bucketName, credential.UserId)
 	if err != nil { // roll back bucket table, i.e. remove inserted bucket
-		yig.Logger.Println(5, "Error AddBucketForUser: ", err)
+		helper.Logger.Error("Error AddBucketForUser:", err)
 		err = yig.MetaStorage.Client.DeleteBucket(bucket)
 		if err != nil {
-			yig.Logger.Println(5, "Error deleting: ", err)
-			yig.Logger.Println(5, "Leaving junk bucket unremoved: ", bucketName)
+			helper.Logger.Error("Error deleting:", bucketName, "error:", err,
+				"leaving junk bucket unremoved")
 			return err
 		}
 	}
-	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.UserTable, credential.UserId)
-	}
+	yig.MetaStorage.Cache.Remove(redis.UserTable, credential.UserId)
 	return err
 }
 
@@ -94,9 +92,9 @@ func (yig *YigStorage) SetBucketAcl(bucketName string, policy datatype.AccessCon
 	return nil
 }
 
-func (yig *YigStorage) SetBucketLc(bucketName string, lc datatype.Lc,
+func (yig *YigStorage) SetBucketLifecycle(bucketName string, lc datatype.Lifecycle,
 	credential common.Credential) error {
-	helper.Logger.Println(10, "enter SetBucketLc")
+	helper.Logger.Info("enter SetBucketLifecycle")
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
 		return err
@@ -104,7 +102,7 @@ func (yig *YigStorage) SetBucketLc(bucketName string, lc datatype.Lc,
 	if bucket.OwnerId != credential.UserId {
 		return ErrBucketAccessForbidden
 	}
-	bucket.LC = lc
+	bucket.Lifecycle = lc
 	err = yig.MetaStorage.Client.PutBucket(*bucket)
 	if err != nil {
 		return err
@@ -115,13 +113,13 @@ func (yig *YigStorage) SetBucketLc(bucketName string, lc datatype.Lc,
 
 	err = yig.MetaStorage.PutBucketToLifeCycle(*bucket)
 	if err != nil {
-		yig.Logger.Println(5, "Error Put bucket to LC table: ", err)
+		helper.Logger.Error("Error Put bucket to lifecycle table:", err)
 		return err
 	}
 	return nil
 }
 
-func (yig *YigStorage) GetBucketLc(bucketName string, credential common.Credential) (lc datatype.Lc,
+func (yig *YigStorage) GetBucketLifecycle(bucketName string, credential common.Credential) (lc datatype.Lifecycle,
 	err error) {
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
@@ -131,14 +129,14 @@ func (yig *YigStorage) GetBucketLc(bucketName string, credential common.Credenti
 		err = ErrBucketAccessForbidden
 		return
 	}
-	if len(bucket.LC.Rule) == 0 {
+	if len(bucket.Lifecycle.Rule) == 0 {
 		err = ErrNoSuchBucketLc
 		return
 	}
-	return bucket.LC, nil
+	return bucket.Lifecycle, nil
 }
 
-func (yig *YigStorage) DelBucketLc(bucketName string, credential common.Credential) error {
+func (yig *YigStorage) DelBucketLifecycle(bucketName string, credential common.Credential) error {
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
 		return err
@@ -146,7 +144,7 @@ func (yig *YigStorage) DelBucketLc(bucketName string, credential common.Credenti
 	if bucket.OwnerId != credential.UserId {
 		return ErrBucketAccessForbidden
 	}
-	bucket.LC = datatype.Lc{}
+	bucket.Lifecycle = datatype.Lifecycle{}
 	err = yig.MetaStorage.Client.PutBucket(*bucket)
 	if err != nil {
 		return err
@@ -156,7 +154,7 @@ func (yig *YigStorage) DelBucketLc(bucketName string, credential common.Credenti
 	}
 	err = yig.MetaStorage.RemoveBucketFromLifeCycle(*bucket)
 	if err != nil {
-		yig.Logger.Println(5, "Error Remove bucket From LC table hbase: ", err)
+		helper.Logger.Error("Remove bucket From lifecycle table error:", err)
 		return err
 	}
 	return nil
@@ -248,7 +246,7 @@ func (yig *YigStorage) GetBucketVersioning(bucketName string, credential common.
 	if err != nil {
 		return versioning, err
 	}
-	versioning.Status = helper.Ternary(bucket.Versioning == "Disabled",
+	versioning.Status = helper.Ternary(bucket.Versioning == meta.VersionDisabled,
 		"", bucket.Versioning).(string)
 	return
 }
@@ -287,6 +285,28 @@ func (yig *YigStorage) GetBucketInfo(bucketName string,
 		return
 	}
 
+	if !credential.AllowOtherUserAccess {
+		if bucket.OwnerId != credential.UserId {
+			switch bucket.ACL.CannedAcl {
+			case "public-read", "public-read-write", "authenticated-read":
+				break
+			default:
+				err = ErrBucketAccessForbidden
+				return
+			}
+		}
+	}
+
+	return
+}
+
+func (yig *YigStorage) GetBucketInfoByCtx(ctx api.RequestContext,
+	credential common.Credential) (bucket *meta.Bucket, err error) {
+
+	bucket = ctx.BucketInfo
+	if bucket == nil {
+		return nil, ErrNoSuchBucket
+	}
 	if !credential.AllowOtherUserAccess {
 		if bucket.OwnerId != credential.UserId {
 			switch bucket.ACL.CannedAcl {
@@ -374,6 +394,34 @@ func (yig *YigStorage) DeleteBucketPolicy(credential common.Credential, bucketNa
 	return nil
 }
 
+func (yig *YigStorage) SetBucketWebsite(bucket *meta.Bucket, config datatype.WebsiteConfiguration) (err error) {
+	bucket.Website = config
+	err = yig.MetaStorage.Client.PutBucket(*bucket)
+	if err != nil {
+		return err
+	}
+	yig.MetaStorage.Cache.Remove(redis.BucketTable, bucket.Name)
+	return nil
+}
+
+func (yig *YigStorage) GetBucketWebsite(bucketName string) (config datatype.WebsiteConfiguration, err error) {
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
+	if err != nil {
+		return
+	}
+	return bucket.Website, nil
+}
+
+func (yig *YigStorage) DeleteBucketWebsite(bucket *meta.Bucket) error {
+	bucket.Website = datatype.WebsiteConfiguration{}
+	err := yig.MetaStorage.Client.PutBucket(*bucket)
+	if err != nil {
+		return err
+	}
+	yig.MetaStorage.Cache.Remove(redis.BucketTable, bucket.Name)
+	return nil
+}
+
 func (yig *YigStorage) ListBuckets(credential common.Credential) (buckets []meta.Bucket, err error) {
 	bucketNames, err := yig.MetaStorage.GetUserBuckets(credential.UserId, true)
 	if err != nil {
@@ -408,11 +456,11 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential common.Credent
 		return ErrBucketNotEmpty
 	}
 	// Check if object part is empty
-	objparts, _, _, _, _, err := yig.MetaStorage.Client.ListMultipartUploads(bucketName, "", "","","", "",1)
+	objparts, _, _, _, _, err := yig.MetaStorage.Client.ListMultipartUploads(bucketName, "", "", "", "", "", 1)
 	if err != nil {
 		return err
 	}
-	if  len(objparts) != 0 {
+	if len(objparts) != 0 {
 		return ErrBucketNotEmpty
 	}
 	err = yig.MetaStorage.Client.DeleteBucket(*bucket)
@@ -433,10 +481,10 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential common.Credent
 		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
 	}
 
-	if bucket.LC.Rule != nil {
+	if bucket.Lifecycle.Rule != nil {
 		err = yig.MetaStorage.RemoveBucketFromLifeCycle(*bucket)
 		if err != nil {
-			yig.Logger.Println(5, "Error remove bucket from lifeCycle: ", err)
+			helper.Logger.Warn("Remove bucket from lifeCycle error:", err)
 		}
 	}
 
@@ -465,7 +513,7 @@ func (yig *YigStorage) ListObjectsInternal(bucketName string,
 	} else { // version 1
 		marker = request.Marker
 	}
-	helper.Debugln("Prefix:", request.Prefix, "Marker:", request.Marker, "MaxKeys:",
+	helper.Logger.Info("Prefix:", request.Prefix, "Marker:", request.Marker, "MaxKeys:",
 		request.MaxKeys, "Delimiter:", request.Delimiter, "Version:", request.Version,
 		"keyMarker:", request.KeyMarker, "versionIdMarker:", request.VersionIdMarker)
 	return yig.MetaStorage.Client.ListObjects(bucketName, marker, verIdMarker, request.Prefix, request.Delimiter, request.Versioned, request.MaxKeys)
@@ -475,7 +523,7 @@ func (yig *YigStorage) ListObjects(credential common.Credential, bucketName stri
 	request datatype.ListObjectsRequest) (result meta.ListObjectsInfo, err error) {
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
-	helper.Debugln("GetBucket", bucket)
+	helper.Logger.Info("GetBucket", bucket)
 	if err != nil {
 		return
 	}
@@ -505,12 +553,12 @@ func (yig *YigStorage) ListObjects(credential common.Credential, bucketName stri
 	}
 	objects := make([]datatype.Object, 0, len(retObjects))
 	for _, obj := range retObjects {
-		helper.Debugln("result:", obj.Name)
+		helper.Logger.Info("result:", obj.Name)
 		object := datatype.Object{
 			LastModified: obj.LastModifiedTime.UTC().Format(meta.CREATE_TIME_LAYOUT),
 			ETag:         "\"" + obj.Etag + "\"",
 			Size:         obj.Size,
-			StorageClass: "STANDARD",
+			StorageClass: obj.StorageClass.ToString(),
 		}
 		if request.EncodingType != "" { // only support "url" encoding for now
 			object.Key = url.QueryEscape(obj.Name)
@@ -582,7 +630,7 @@ func (yig *YigStorage) ListVersionedObjects(credential common.Credential, bucket
 			LastModified: o.LastModifiedTime.UTC().Format(meta.CREATE_TIME_LAYOUT),
 			ETag:         "\"" + o.Etag + "\"",
 			Size:         o.Size,
-			StorageClass: "STANDARD",
+			StorageClass: o.StorageClass.ToString(),
 			Key:          o.Name,
 		}
 		if request.EncodingType != "" { // only support "url" encoding for now
@@ -620,4 +668,3 @@ func (yig *YigStorage) ListVersionedObjects(credential common.Credential, bucket
 
 	return
 }
-

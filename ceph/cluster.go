@@ -1,85 +1,99 @@
-package storage
+package ceph
 
 import (
 	"container/list"
 	"errors"
+	"fmt"
+	"github.com/journeymidnight/radoshttpd/rados"
+	"github.com/journeymidnight/yig/backend"
+	"github.com/journeymidnight/yig/helper"
 	"io"
 	"io/ioutil"
-	"sync"
-
-	"github.com/journeymidnight/radoshttpd/rados"
-	"github.com/journeymidnight/yig/log"
+	"path/filepath"
+	"sync/atomic"
 	"time"
-	"fmt"
-	"github.com/journeymidnight/yig/helper"
 )
 
 const (
-	MON_TIMEOUT         = "10"
-	OSD_TIMEOUT         = "10"
-	STRIPE_UNIT         = 512 << 10 /* 512K */
-	STRIPE_COUNT        = 2
-	OBJECT_SIZE         = 8 << 20         /* 8M */
-	BUFFER_SIZE         = 1 << 20         /* 1M */
-	MIN_CHUNK_SIZE      = 512 << 10       /* 512K */
-	MAX_CHUNK_SIZE      = 8 * BUFFER_SIZE /* 8M */
-	SMALL_FILE_POOLNAME = "rabbit"
-	BIG_FILE_POOLNAME   = "tiger"
-	BIG_FILE_THRESHOLD  = 128 << 10 /* 128K */
-	AIO_CONCURRENT      = 4
+	MON_TIMEOUT                = "10"
+	OSD_TIMEOUT                = "10"
+	STRIPE_UNIT                = 512 << 10 /* 512K */
+	STRIPE_COUNT               = 2
+	OBJECT_SIZE                = 8 << 20 /* 8M */
+	AIO_CONCURRENT             = 4
+	DEFAULT_CEPHCONFIG_PATTERN = "conf/*.conf"
+	MIN_CHUNK_SIZE             = 512 << 10       // 512K
+	BUFFER_SIZE                = 1 << 20         // 1M
+	MAX_CHUNK_SIZE             = 8 * BUFFER_SIZE // 8M
 )
 
-type CephStorage struct {
-	Name       string
-	Conn       *rados.Conn
-	InstanceId uint64
-	Logger     *log.Logger
-	CountMutex *sync.Mutex
-	Counter    uint64
+func Initialize(config helper.Config) map[string]backend.Cluster {
+	cephConfigPattern := config.CephConfigPattern
+	if cephConfigPattern == "" {
+		cephConfigPattern = DEFAULT_CEPHCONFIG_PATTERN
+	}
+	cephConfigFiles, err := filepath.Glob(cephConfigPattern)
+	if err != nil || len(cephConfigFiles) == 0 {
+		panic("No ceph conf found")
+	}
+	helper.Logger.Info("Loading Ceph file:", cephConfigFiles)
+
+	clusters := make(map[string]backend.Cluster)
+	for _, conf := range cephConfigFiles {
+		c := NewCephStorage(conf)
+		clusters[c.Name] = c
+	}
+
+	return clusters
 }
 
-func NewCephStorage(configFile string, logger *log.Logger) *CephStorage {
+type CephCluster struct {
+	Name       string
+	Conn       RadosConn
+	InstanceId uint64
+	counter    uint64
+}
 
-	logger.Printf(5, "Loading Ceph file %s\n", configFile)
+func NewCephStorage(configFile string) *CephCluster {
 
-	Rados, err := rados.NewConn("admin")
-	Rados.SetConfigOption("rados_mon_op_timeout", MON_TIMEOUT)
-	Rados.SetConfigOption("rados_osd_op_timeout", OSD_TIMEOUT)
+	helper.Logger.Info("Loading Ceph file", configFile)
 
-	err = Rados.ReadConfigFile(configFile)
+	conn, err := rados.NewConn("admin")
+	conn.SetConfigOption("rados_mon_op_timeout", MON_TIMEOUT)
+	conn.SetConfigOption("rados_osd_op_timeout", OSD_TIMEOUT)
+
+	err = conn.ReadConfigFile(configFile)
 	if err != nil {
-		helper.Logger.Printf(0, "Failed to open ceph.conf: %s\n", configFile)
+		helper.Logger.Error("Failed to open ceph.conf:", configFile)
 		return nil
 	}
 
-	err = Rados.Connect()
+	err = conn.Connect()
 	if err != nil {
-		helper.Logger.Printf(0, "Failed to connect to remote cluster: %s\n", configFile)
+		helper.Logger.Error("Failed to connect to remote cluster:", configFile)
 		return nil
 	}
 
-	name, err := Rados.GetFSID()
+	name, err := conn.GetFSID()
 	if err != nil {
-		helper.Logger.Printf(0, "Failed to get FSID: %s\n", configFile)
-		Rados.Shutdown()
+		helper.Logger.Error("Failed to get FSID:", configFile)
+		conn.Shutdown()
 		return nil
 	}
 
-	id := Rados.GetInstanceID()
+	id := conn.GetInstanceID()
 
-	cluster := CephStorage{
-		Conn:       Rados,
+	cluster := CephCluster{
+		Conn:       radosConn{conn},
 		Name:       name,
 		InstanceId: id,
-		Logger:     logger,
-		CountMutex: new(sync.Mutex),
 	}
 
-	logger.Printf(5, "Ceph Cluster %s is ready, InstanceId is %d\n", name, id)
+	helper.Logger.Info("Ceph Cluster", name, "is ready, InstanceId is", name, id)
 	return &cluster
 }
 
-func setStripeLayout(p *rados.StriperPool) int {
+func setStripeLayout(p StriperPool) int {
 	var ret int = 0
 	if ret = p.SetLayoutStripeUnit(STRIPE_UNIT); ret < 0 {
 		return ret
@@ -98,7 +112,7 @@ func pending_has_completed(p *list.List) bool {
 		return false
 	}
 	e := p.Front()
-	c := e.Value.(*rados.AioCompletion)
+	c := e.Value.(AioCompletion)
 	ret := c.IsComplete()
 	if ret == 0 {
 		return false
@@ -111,7 +125,7 @@ func wait_pending_front(p *list.List) int {
 	/* remove AioCompletion from list */
 	e := p.Front()
 	p.Remove(e)
-	c := e.Value.(*rados.AioCompletion)
+	c := e.Value.(AioCompletion)
 	c.WaitForComplete()
 	ret := c.GetReturnValue()
 	c.Release()
@@ -126,19 +140,17 @@ func drain_pending(p *list.List) int {
 	return ret
 }
 
-func (cluster *CephStorage) GetUniqUploadName() string {
-	cluster.CountMutex.Lock()
-	defer cluster.CountMutex.Unlock()
-	cluster.Counter += 1
-	oid := fmt.Sprintf("%d:%d", cluster.InstanceId, cluster.Counter)
+func (cluster *CephCluster) getUniqUploadName() string {
+	v := atomic.AddUint64(&cluster.counter, 1)
+	oid := fmt.Sprintf("%d:%d", cluster.InstanceId, v)
 	return oid
 }
 
-func (c *CephStorage) Shutdown() {
-	c.Conn.Shutdown()
+func (cluster *CephCluster) Shutdown() {
+	cluster.Conn.Shutdown()
 }
 
-func (cluster *CephStorage) doSmallPut(poolname string, oid string, data io.Reader) (size int64, err error) {
+func (cluster *CephCluster) doSmallPut(poolname string, oid string, data io.Reader) (size uint64, err error) {
 	pool, err := cluster.Conn.OpenPool(poolname)
 	if err != nil {
 		return 0, errors.New("Bad poolname")
@@ -146,7 +158,7 @@ func (cluster *CephStorage) doSmallPut(poolname string, oid string, data io.Read
 	defer pool.Destroy()
 
 	buf, err := ioutil.ReadAll(data)
-	size = int64(len(buf))
+	size = uint64(len(buf))
 	if err != nil {
 		return 0, errors.New("Read from client failed")
 	}
@@ -162,7 +174,7 @@ type RadosSmallDownloader struct {
 	oid       string
 	offset    int64
 	remaining int64
-	pool      *rados.Pool
+	pool      Pool
 }
 
 func (rd *RadosSmallDownloader) Read(p []byte) (n int, err error) {
@@ -198,31 +210,35 @@ func (rd *RadosSmallDownloader) Close() error {
 	return nil
 }
 
-func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (size int64, err error) {
-	if poolname == SMALL_FILE_POOLNAME {
-		return cluster.doSmallPut(poolname, oid, data)
+func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
+	size uint64, err error) {
+
+	oid = cluster.getUniqUploadName()
+	if poolname == backend.SMALL_FILE_POOLNAME {
+		size, err = cluster.doSmallPut(poolname, oid, data)
+		return oid, size, err
 	}
 
 	pool, err := cluster.Conn.OpenPool(poolname)
 	if err != nil {
-		return 0, fmt.Errorf("Bad poolname %s", poolname)
+		return oid, 0, fmt.Errorf("Bad poolname %s", poolname)
 	}
 	defer pool.Destroy()
 
 	striper, err := pool.CreateStriper()
 	if err != nil {
-		return 0, fmt.Errorf("Bad ioctx of pool %s", poolname)
+		return oid, 0, fmt.Errorf("Bad ioctx of pool %s", poolname)
 	}
 	defer striper.Destroy()
 
-	setStripeLayout(&striper)
+	setStripeLayout(striper)
 
 	/* if the data len in pending_data is bigger than current_upload_window, I will flush the data to ceph */
 	/* current_upload_window could not dynamically increase or shrink */
 
-	var c *rados.AioCompletion
+	var c AioCompletion
 	pending := list.New()
-	var current_upload_window = MIN_CHUNK_SIZE /* initial window size as MIN_CHUNK_SIZE, max size is MAX_CHUNK_SIZE */
+	var current_upload_window = helper.CONFIG.UploadMinChunkSize /* initial window size as MIN_CHUNK_SIZE, max size is MAX_CHUNK_SIZE */
 	var pending_data = make([]byte, current_upload_window)
 
 	var slice_offset = 0
@@ -237,7 +253,8 @@ func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (si
 		count, err := data.Read(slice)
 		if err != nil && err != io.EOF {
 			drain_pending(pending)
-			return 0, fmt.Errorf("Read from client failed. pool:%s oid:%s", poolname, oid)
+			return oid, 0,
+				fmt.Errorf("Read from client failed. pool:%s oid:%s", poolname, oid)
 		}
 		if count == 0 {
 			break
@@ -254,38 +271,39 @@ func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (si
 		}
 
 		/* pending data is full now */
-		c = new(rados.AioCompletion)
-		c.Create()
-		_, err = striper.WriteAIO(c, oid, pending_data, offset)
+		c, err = striper.WriteAIO(oid, pending_data, offset)
 		if err != nil {
 			c.Release()
 			drain_pending(pending)
-			return 0, fmt.Errorf("Bad io. pool:%s oid:%s", poolname, oid)
+			return oid, 0,
+				fmt.Errorf("Bad io. pool:%s oid:%s", poolname, oid)
 		}
 		pending.PushBack(c)
 
 		for pending_has_completed(pending) {
 			if ret := wait_pending_front(pending); ret < 0 {
 				drain_pending(pending)
-				return 0, fmt.Errorf("Error drain_pending in pending_has_completed. pool:%s oid:%s", poolname, oid)
+				return oid, 0,
+					fmt.Errorf("Error drain_pending in pending_has_completed. pool:%s oid:%s", poolname, oid)
 			}
 		}
 
 		if pending.Len() > AIO_CONCURRENT {
 			if ret := wait_pending_front(pending); ret < 0 {
 				drain_pending(pending)
-				return 0, fmt.Errorf("Error wait_pending_front. pool:%s oid:%s", poolname, oid)
+				return oid, 0,
+					fmt.Errorf("Error wait_pending_front. pool:%s oid:%s", poolname, oid)
 			}
 		}
 		offset += uint64(len(pending_data))
 
 		/* Resize current upload window */
-		expected_time := count * 1000 * 1000 * 1000 / current_upload_window  /* 1000 * 1000 * 1000 means use Nanoseconds */
+		expected_time := int64(count) * 1000 * 1000 * 1000 / current_upload_window /* 1000 * 1000 * 1000 means use Nanoseconds */
 
 		// If the upload speed is less than half of the current upload window, reduce the upload window by half.
 		// If upload speed is larger than current window size per second, used the larger window and twice
-		if  elapsed_time.Nanoseconds() > 2 * int64(expected_time) {
-			if slow_count > 2 && current_upload_window > MIN_CHUNK_SIZE {
+		if elapsed_time.Nanoseconds() > 2*int64(expected_time) {
+			if slow_count > 2 && current_upload_window > helper.CONFIG.UploadMinChunkSize {
 				current_upload_window = current_upload_window >> 1
 				slow_count = 0
 			}
@@ -293,8 +311,8 @@ func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (si
 		} else if int64(expected_time) > elapsed_time.Nanoseconds() {
 			/* if upload speed is fast enough, enlarge the current_upload_window a bit */
 			current_upload_window = current_upload_window << 1
-			if current_upload_window > MAX_CHUNK_SIZE {
-				current_upload_window = MAX_CHUNK_SIZE
+			if current_upload_window > helper.CONFIG.UploadMaxChunkSize {
+				current_upload_window = helper.CONFIG.UploadMaxChunkSize
 			}
 			slow_count = 0
 		}
@@ -304,42 +322,55 @@ func (cluster *CephStorage) Put(poolname string, oid string, data io.Reader) (si
 		slice = pending_data[0:current_upload_window]
 	}
 
-	size = int64(uint64(slice_offset) + offset)
+	size = uint64(slice_offset) + offset
 	//write all remaining data
 	if slice_offset > 0 {
-		c = new(rados.AioCompletion)
-		c.Create()
-		striper.WriteAIO(c, oid, pending_data[:slice_offset], offset)
+		c, err = striper.WriteAIO(oid, pending_data[:slice_offset], offset)
+		if err != nil {
+			c.Release()
+			return oid, 0, fmt.Errorf("error writing remaining data, pool:%s oid:%s",
+				poolname, oid)
+		}
 		pending.PushBack(c)
 	}
 
 	//drain_pending
 	if ret := drain_pending(pending); ret < 0 {
-		return 0, fmt.Errorf("Error wait_pending_front. pool:%s oid:%s", poolname, oid)
+		return oid, 0,
+			fmt.Errorf("Error wait_pending_front. pool:%s oid:%s", poolname, oid)
 	}
-	return size, nil
+	return oid, size, nil
 }
 
-func (cluster *CephStorage) Append(poolname string, oid string, data io.Reader, offset uint64, isExist bool) (size int64, err error) {
-	if poolname != BIG_FILE_POOLNAME {
-		return 0, errors.New("specified pool must be used for storing big file.")
+func (cluster *CephCluster) Append(poolname string, existName string, data io.Reader,
+	offset int64) (oid string, size uint64, err error) {
+
+	oid = existName
+	if len(oid) == 0 {
+		oid = cluster.getUniqUploadName()
+	}
+	if poolname != backend.BIG_FILE_POOLNAME {
+		return oid, 0,
+			errors.New("specified pool must be used for storing big file.")
 	}
 
 	pool, err := cluster.Conn.OpenPool(poolname)
 	if err != nil {
-		return 0, fmt.Errorf("Bad poolname %s", poolname)
+		return oid, 0,
+			fmt.Errorf("Bad poolname %s", poolname)
 	}
 	defer pool.Destroy()
 
 	striper, err := pool.CreateStriper()
 	if err != nil {
-		return 0, fmt.Errorf("Bad ioctx of pool %s", poolname)
+		return oid, 0,
+			fmt.Errorf("Bad ioctx of pool %s", poolname)
 	}
 	defer striper.Destroy()
 
-	setStripeLayout(&striper)
+	setStripeLayout(striper)
 
-	var current_upload_window = MIN_CHUNK_SIZE /* initial window size as MIN_CHUNK_SIZE, max size is MAX_CHUNK_SIZE */
+	var current_upload_window = helper.CONFIG.UploadMinChunkSize /* initial window size as MIN_CHUNK_SIZE, max size is MAX_CHUNK_SIZE */
 	var pending_data = make([]byte, current_upload_window)
 
 	var origin_offset = offset
@@ -366,29 +397,30 @@ func (cluster *CephStorage) Append(poolname string, oid string, data io.Reader, 
 		}
 
 		/* pending data is full now */
-		_, err = striper.Write(oid, pending_data, offset)
+		_, err = striper.Write(oid, pending_data, uint64(offset))
 		if err != nil {
-			return 0, fmt.Errorf("Bad io. pool:%s oid:%s", poolname, oid)
+			return oid, 0,
+				fmt.Errorf("Bad io. pool:%s oid:%s", poolname, oid)
 		}
 
-		offset += uint64(len(pending_data))
+		offset += int64(len(pending_data))
 
 		/* Resize current upload window */
-		expected_time := count * 1000 * 1000 * 1000 / current_upload_window  /* 1000 * 1000 * 1000 means use Nanoseconds */
+		expected_time := int64(count) * 1000 * 1000 * 1000 / current_upload_window /* 1000 * 1000 * 1000 means use Nanoseconds */
 
 		// If the upload speed is less than half of the current upload window, reduce the upload window by half.
 		// If upload speed is larger than current window size per second, used the larger window and twice
-		if  elapsed_time.Nanoseconds() > 2 * int64(expected_time) {
-			if slow_count > 2 && current_upload_window > MIN_CHUNK_SIZE {
+		if elapsed_time.Nanoseconds() > 2*expected_time {
+			if slow_count > 2 && current_upload_window > helper.CONFIG.UploadMinChunkSize {
 				current_upload_window = current_upload_window >> 1
 				slow_count = 0
 			}
 			slow_count += 1
-		} else if int64(expected_time) > elapsed_time.Nanoseconds() {
+		} else if expected_time > elapsed_time.Nanoseconds() {
 			/* if upload speed is fast enough, enlarge the current_upload_window a bit */
 			current_upload_window = current_upload_window << 1
-			if current_upload_window > MAX_CHUNK_SIZE {
-				current_upload_window = MAX_CHUNK_SIZE
+			if current_upload_window > helper.CONFIG.UploadMaxChunkSize {
+				current_upload_window = helper.CONFIG.UploadMaxChunkSize
 			}
 			slow_count = 0
 		}
@@ -398,24 +430,25 @@ func (cluster *CephStorage) Append(poolname string, oid string, data io.Reader, 
 		slice = pending_data[0:current_upload_window]
 	}
 
-	size = int64(uint64(slice_offset) + offset - origin_offset)
+	size = uint64(int64(slice_offset) + offset - origin_offset)
 	//write all remaining data
 	if slice_offset > 0 {
-		_, err = striper.Write(oid, pending_data, offset)
+		_, err = striper.Write(oid, pending_data, uint64(offset))
 		if err != nil {
-			return 0, fmt.Errorf("Bad io. pool:%s oid:%s", poolname, oid)
+			return oid, 0,
+				fmt.Errorf("Bad io. pool:%s oid:%s", poolname, oid)
 		}
 	}
 
-	return size, nil
+	return oid, size, nil
 }
 
 type RadosDownloader struct {
-	striper   *rados.StriperPool
+	striper   StriperPool
 	oid       string
 	offset    int64
 	remaining int64
-	pool      *rados.Pool
+	pool      Pool
 }
 
 func (rd *RadosDownloader) Read(p []byte) (n int, err error) {
@@ -452,10 +485,10 @@ func (rd *RadosDownloader) Close() error {
 	return nil
 }
 
-func (cluster *CephStorage) getReader(poolName string, oid string, startOffset int64,
-	length int64) (reader io.ReadCloser, err error) {
+func (cluster *CephCluster) GetReader(poolName string, oid string, startOffset int64,
+	length uint64) (reader io.ReadCloser, err error) {
 
-	if poolName == SMALL_FILE_POOLNAME {
+	if poolName == backend.SMALL_FILE_POOLNAME {
 		pool, e := cluster.Conn.OpenPool(poolName)
 		if e != nil {
 			err = errors.New("bad poolname")
@@ -465,7 +498,7 @@ func (cluster *CephStorage) getReader(poolName string, oid string, startOffset i
 			oid:       oid,
 			offset:    startOffset,
 			pool:      pool,
-			remaining: length,
+			remaining: int64(length),
 		}
 
 		return radosSmallReader, nil
@@ -484,42 +517,17 @@ func (cluster *CephStorage) getReader(poolName string, oid string, startOffset i
 	}
 
 	radosReader := &RadosDownloader{
-		striper:   &striper,
+		striper:   striper,
 		oid:       oid,
 		offset:    startOffset,
 		pool:      pool,
-		remaining: length,
+		remaining: int64(length),
 	}
 
 	return radosReader, nil
 }
 
-// Works together with `wrapAlignedEncryptionReader`, see comments there.
-func (cluster *CephStorage) getAlignedReader(poolName string, oid string, startOffset int64,
-	length int64) (reader io.ReadCloser, err error) {
-
-	alignedOffset := startOffset / AES_BLOCK_SIZE * AES_BLOCK_SIZE
-	length += startOffset - alignedOffset
-	return cluster.getReader(poolName, oid, alignedOffset, length)
-}
-
-/*
-func (cluster *CephStorage) get(poolName string, oid string, startOffset int64,
-	length int64, writer io.Writer) error {
-
-	reader, err := cluster.getReader(poolName, oid, startOffset, length)
-	if err != nil {
-		return err
-	}
-	defer reader.Close()
-
-	buf := make([]byte, MAX_CHUNK_SIZE)
-	_, err = io.CopyBuffer(writer, reader, buf)
-	return err
-}
-*/
-
-func (cluster *CephStorage) doSmallRemove(poolname string, oid string) error {
+func (cluster *CephCluster) doSmallRemove(poolname string, oid string) error {
 	pool, err := cluster.Conn.OpenPool(poolname)
 	if err != nil {
 		return errors.New("Bad poolname")
@@ -528,9 +536,9 @@ func (cluster *CephStorage) doSmallRemove(poolname string, oid string) error {
 	return pool.Delete(oid)
 }
 
-func (cluster *CephStorage) Remove(poolname string, oid string) error {
+func (cluster *CephCluster) Remove(poolname string, oid string) error {
 
-	if poolname == SMALL_FILE_POOLNAME {
+	if poolname == backend.SMALL_FILE_POOLNAME {
 		return cluster.doSmallRemove(poolname, oid)
 	}
 
@@ -545,15 +553,22 @@ func (cluster *CephStorage) Remove(poolname string, oid string) error {
 		return errors.New("Bad ioctx")
 	}
 	defer striper.Destroy()
+	// if we do not set our custom layout, rados will infer all objects filename from default layout setting, 
+	// and some sub objects will not be deleted
+	setStripeLayout(striper)
 
 	return striper.Delete(oid)
 }
 
-func (cluster *CephStorage) GetUsedSpacePercent() (pct int, err error) {
+func (cluster *CephCluster) ID() string {
+	return cluster.Name
+}
+
+func (cluster *CephCluster) GetUsage() (usage backend.Usage, err error) {
 	stat, err := cluster.Conn.GetClusterStats()
 	if err != nil {
-		return 0, errors.New("Stat error")
+		return usage, err
 	}
-	pct = int(stat.Kb_used * uint64(100) / stat.Kb)
+	usage.UsedSpacePercent = int(stat.Kb_used * uint64(100) / stat.Kb)
 	return
 }

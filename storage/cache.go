@@ -51,12 +51,12 @@ func (d *enabledDataCache) WriteFromCache(object *meta.Object, startOffset int64
 
 	file, err := redis.GetBytes(cacheKey, startOffset, startOffset+length-1)
 	if err == nil && file != nil && int64(len(file)) == length {
-		helper.Debugln("File cache HIT. key:", cacheKey, "range:", startOffset, startOffset+length-1)
+		helper.Logger.Info("File cache HIT. key:", cacheKey, "range:", startOffset, startOffset+length-1)
 		_, err := out.Write(file)
 		return err
 	}
 
-	helper.Debugln("File cache MISS. key:", cacheKey , "range:", startOffset, startOffset+length-1)
+	helper.Logger.Info("File cache MISS. key:", cacheKey , "range:", startOffset, startOffset+length-1)
 
 	var buffer bytes.Buffer
 	onCacheMiss(&buffer)
@@ -92,12 +92,12 @@ func (d *enabledDataCache) GetAlignedReader(object *meta.Object, startOffset int
 
 	file, err := redis.GetBytes(cacheKey, startOffset, startOffset+length-1)
 	if err == nil && file != nil && int64(len(file)) == length {
-		helper.Debugln("File cache HIT")
+		helper.Logger.Info("File cache HIT")
 		r := newReadCloser(file)
 		return r, nil
 	}
 
-	helper.Debugln("File cache MISS")
+	helper.Logger.Info("File cache MISS")
 
 	var buffer bytes.Buffer
 	onCacheMiss(&buffer)

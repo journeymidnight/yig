@@ -10,7 +10,7 @@
 
 ## A completely new designed object storage gateway framework that fully compatible with Amazon S3
 
-At its core, Yig extend minio backend storage to allow more than one ceph cluster work together and form a super large storage resource pool, users could easily enlarge the pool`s capacity to EB level by adding a new ceph cluser to this pool. Benifits are avoiding data movement and IO drop down caused by adding new host or disks to old ceph cluster as usual way. To accomplish this goal, Yig need a distribute database to store meta infomation. Now already Support Tidb,MySql,Hbase.
+At its core, Yig extend minio backend storage to allow more than one ceph cluster work together and form a super large storage resource pool, users could easily enlarge the pool`s capacity to EB level by adding a new ceph cluser to this pool. Benifits are avoiding data movement and IO drop down caused by adding new host or disks to old ceph cluster as usual way. To accomplish this goal, Yig need a distribute database to store meta infomation. Now already Support Tidb,MySql.
 
 ![arch](https://github.com/journeymidnight/yig/raw/master/doc/images/yig.jpg)
 
@@ -49,7 +49,7 @@ sh package/rpmbuild.sh
 Before running Yig, requirments below are needed:
 
  * Deploy at least a ceph cluster with two specify pools named 'tiger' and 'rabbit' are created. About how to deploy ceph, please refer [https://ceph.com](https://ceph.com) or our [[Sample]](https://github.com/journeymidnight/yig/wiki/Minimal-Ceph-Deployment)
- * Deploy a Hbase/TiDB/Mysql, then create tables. [[Sample]](https://github.com/journeymidnight/yig/blob/master/doc/deploy.md)
+ * Deploy a TiDB/Mysql, then create tables. [[Sample]](https://github.com/journeymidnight/yig/blob/master/doc/deploy.md)
 
  	* Tidb/Mysql: 
  	
@@ -58,22 +58,6 @@ Before running Yig, requirments below are needed:
  	 MariaDB [(none)]> source ../yig/integrate/yig.sql
  	```
  	
- 	* Hbase
-
- 	```
- 	 sh ../yig/tools/create_table.sh
- 	```
- 		
- * If you want to use one ceph cluster to store data, you dont need to put data to table 'cluster' in hbase. Once there are more than one ceph cluster, you need put every cluster's fsid and pool name and weight to table 'cluster' as follows. Pls replace fsid with real fsid in ceph config. You can use any actual number to replace weight_num. YIG can calculate proportion in total weights and assign a cluster to write according to it when you put data.
- 
- 	* Hbase
-
- 	```
-   hbase shell
-   put 'cluster', "fsid\x0Atiger", 'c:weight', 'weight_num'
-   put 'cluster', "fsid\x0Arabbit", 'c:weight', 'weight_num'
- 	```
-   
  * Deploy [yig-iam](https://github.com/journeymidnight/yig-iam) used for user management and authorize request. If Yig is running in Debug Mode, request will not sent to yig-iam. So this deployment is optional, but in real factory environment, you still need it.
 
  * Deploy a standalone Redis instance used as cache for better performance. This deployment is optional but strong recommend
@@ -84,36 +68,53 @@ Before running Yig, requirments below are needed:
 
 ## Config files
 
-Main config file of Yig is located at ```/etc/yig/yig.json ``` by default
+Main config file of Yig is located at ```/etc/yig/yig.toml ``` by default
 
 ```
-{
-    "S3Domain": "s3.test.com",
-    "Region": "cn-bj-1",
-    "IamEndpoint": "http://10.11.144.11:9006",
-    "IamKey": "key",
-    "IamSecret": "secret",
-    "LogPath": "/var/log/yig/yig.log",
-    "PanicLogPath":"/var/log/yig/panic.log",
-    "PidFile": "/var/run/yig/yig.pid",
-    "BindApiAddress": "0.0.0.0:80",
-    "BindAdminAddress": "0.0.0.0:9000",
-    "SSLKeyPath": "",
-    "SSLCertPath": "",
-    "ZookeeperAddress": "10.110.95.56:2181,10.110.95.62:2181",
-    "RedisAddress": "localhost:6379",
-    "RedisConnectionNumber": 10,
-    "InMemoryCacheMaxEntryCount": 100000,
-    "DebugMode": false,
-    "AdminKey": "secret",
-    "MetaCacheType": 2,
-    "EnableDataCache": true,
-    "CephConfigPattern": "/etc/yig/conf/*.conf",
-    "GcThread": 1,
-    "LogLevel": 5,
-    "ReservedOrigins":"sample.abc.com",
-    "TidbInfo"
-}
+s3domain = ["s3.test.com","s3-internal.test.com"]
+region = "cn-bj-1"
+log_path = "/var/log/yig/yig.log"
+access_log_path = "/var/log/yig/access.log"
+access_log_format = "{combined}"
+panic_log_path = "/var/log/yig/panic.log"
+log_level = 20
+pid_file = "/var/run/yig/yig.pid"
+api_listener = "0.0.0.0:8080"
+admin_listener = "0.0.0.0:9000"
+admin_key = "secret"
+ssl_key_path = ""
+ssl_cert_path = ""
+
+# DebugMode
+lcdebug = true
+debug_mode = true
+reserved_origins = "s3.test.com,s3-internal.test.com"
+
+# Meta Config
+meta_cache_type = 2
+meta_store = "tidb"
+tidb_info = "root:@tcp(10.5.0.17:4000)/yig"
+keepalive = true
+zk_address = "hbase:2181"
+redis_address = "redis:6379"
+redis_password = "hehehehe"
+redis_connection_number = 10
+memory_cache_max_entry_count = 100000
+enable_data_cache = true
+redis_connect_timeout = 1
+redis_read_timeout = 1
+redis_write_timeout = 1
+redis_keepalive = 60
+redis_pool_max_idle = 3
+redis_pool_idle_timeout = 30
+cache_circuit_check_interval = 3
+cache_circuit_close_sleep_window = 1
+cache_circuit_close_required_count = 3
+cache_circuit_open_threshold = 1
+
+
+# Ceph Config
+ceph_config_pattern = "/etc/ceph/*.conf"
 ```
 
 ### Meanings of options above:

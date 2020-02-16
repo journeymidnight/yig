@@ -17,7 +17,7 @@
 package main
 
 import (
-	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -35,9 +35,9 @@ import (
 
 type ServerConfig struct {
 	Address      string
-	KeyFilePath  string      // path for SSL key file
-	CertFilePath string      // path for SSL certificate file
-	Logger       *log.Logger // global logger
+	KeyFilePath  string     // path for SSL key file
+	CertFilePath string     // path for SSL certificate file
+	Logger       log.Logger // global logger
 	ObjectLayer  *storage.YigStorage
 }
 
@@ -56,7 +56,7 @@ func configureServerHandler(c *ServerConfig) http.Handler {
 	// Add new routers here.
 
 	// List of some generic handlers which are applied for all
-	// incoming requests.
+	// incoming requests, ** in reverse order **
 	var handlerFns = []api.HandlerFunc{
 		// Limits the number of concurrent http requests.
 		api.SetCommonHeaderHandler,
@@ -65,18 +65,15 @@ func configureServerHandler(c *ServerConfig) http.Handler {
 		// Validates all incoming URL resources, for invalid/unsupported
 		// resources client receives a HTTP error.
 		api.SetIgnoreResourcesHandler,
-		// Auth handler verifies incoming authorization headers and
-		// routes them accordingly. Client receives a HTTP error for
-		// invalid/unsupported signatures.
-		api.SetAuthHandler,
 		// Add new handlers here.
 
 		api.SetLogHandler,
 
 		api.NewAccessLogHandler,
 
-		// This handler must be last one.
 		api.SetGenerateContextHandler,
+
+		api.SetRequestIdHandler,
 	}
 
 	// Register rest of the handlers.
@@ -104,14 +101,14 @@ func configureServer(c *ServerConfig) *api.Server {
 // getListenIPs - gets all the ips to listen on.
 func getListenIPs(httpServerConf *http.Server) (hosts []string, port string) {
 	host, port, err := net.SplitHostPort(httpServerConf.Addr)
-	helper.FatalIf(err, "Unable to parse host port.")
+	helper.PanicOnError(err, "Unable to parse host port.")
 
 	switch {
 	case host != "":
 		hosts = append(hosts, host)
 	default:
 		addrs, err := net.InterfaceAddrs()
-		helper.FatalIf(err, "Unable to determine network interface address.")
+		helper.PanicOnError(err, "Unable to determine network interface address.")
 		for _, addr := range addrs {
 			if addr.Network() == "ip+net" {
 				host := strings.Split(addr.String(), "/")[0]
@@ -128,9 +125,9 @@ func getListenIPs(httpServerConf *http.Server) (hosts []string, port string) {
 func printListenIPs(tls bool, hosts []string, port string) {
 	for _, host := range hosts {
 		if tls {
-			logger.Printf(5, "    https://%s:%s\n", host, port)
+			helper.Logger.Info(fmt.Sprintf("https://%s:%s", host, port))
 		} else {
-			logger.Printf(5, "    http://%s:%s\n", host, port)
+			helper.Logger.Info(fmt.Sprintf("http://%s:%s", host, port))
 		}
 	}
 }
@@ -138,9 +135,9 @@ func printListenIPs(tls bool, hosts []string, port string) {
 // Extract port number from address address should be of the form host:port.
 func getPort(address string) int {
 	_, portStr, err := net.SplitHostPort(address)
-	helper.FatalIf(err, "Unable to parse host port.")
+	helper.PanicOnError(err, "Unable to parse host port.")
 	portInt, err := strconv.Atoi(portStr)
-	helper.FatalIf(err, "Invalid port number.")
+	helper.PanicOnError(err, "Invalid port number.")
 	return portInt
 }
 
@@ -177,17 +174,18 @@ func checkPortAvailability(port int) {
 	}
 	ifcs, err := net.Interfaces()
 	if err != nil {
-		helper.FatalIf(err, "Unable to list interfaces.")
+		helper.PanicOnError(err, "Unable to list interfaces.")
 	}
 	for _, ifc := range ifcs {
 		addrs, err := ifc.Addrs()
 		if err != nil {
-			helper.FatalIf(err, "Unable to list addresses on interface %s.", ifc.Name)
+			helper.PanicOnError(err,
+				fmt.Sprintf("Unable to list addresses on interface %s.", ifc.Name))
 		}
 		for _, addr := range addrs {
 			ipnet, ok := addr.(*net.IPNet)
 			if !ok {
-				helper.ErrorIf(errors.New(""), "Failed to assert type on (*net.IPNet) interface.")
+				helper.Logger.Error("Failed to assert type on (*net.IPNet) interface.")
 				continue
 			}
 			ip := ipnet.IP
@@ -200,15 +198,18 @@ func checkPortAvailability(port int) {
 			if err != nil {
 				if isAddrInUse(err) {
 					// Fail if port is already in use.
-					helper.FatalIf(err, "Unable to listen on %s:%.d.", tcpAddr.IP, tcpAddr.Port)
+					helper.PanicOnError(err,
+						fmt.Sprintf("Unable to listen on %s:%.d.",
+							tcpAddr.IP, tcpAddr.Port))
 				} else {
 					// Ignore other errors.
 					continue
 				}
 			}
-			if err = l.Close(); err != nil {
-				helper.FatalIf(err, "Unable to close listener on %s:%.d.", tcpAddr.IP, tcpAddr.Port)
-			}
+			err = l.Close()
+			helper.PanicOnError(err,
+				fmt.Sprintf("Unable to close listener on %s:%.d.",
+					tcpAddr.IP, tcpAddr.Port))
 		}
 	}
 }
@@ -245,7 +246,7 @@ func startApiServer(c *ServerConfig) {
 	hosts, port := getListenIPs(apiServer.Server) // get listen ips and port.
 	tls := apiServer.Server.TLSConfig != nil      // 'true' if TLS is enabled.
 
-	logger.Println(5, "\nS3 Object Storage:")
+	helper.Logger.Info("S3 Object Storage:")
 	// Print api listen ips.
 	printListenIPs(tls, hosts, port)
 
@@ -258,7 +259,7 @@ func startApiServer(c *ServerConfig) {
 			// Fallback to http.
 			err = apiServer.Server.ListenAndServe()
 		}
-		helper.FatalIf(err, "API server error.")
+		helper.PanicOnError(err, "API server error.")
 	}()
 }
 

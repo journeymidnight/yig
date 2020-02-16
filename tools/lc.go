@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
@@ -19,12 +18,11 @@ import (
 )
 
 const (
-	SCAN_HBASE_LIMIT = 50
+	SCAN_LIMIT          = 50
 	DEFAULT_LC_LOG_PATH = "/var/log/yig/lc.log"
 )
 
 var (
-	logger      *log.Logger
 	yig         *storage.YigStorage
 	taskQ       chan types.LifeCycle
 	signalQueue chan os.Signal
@@ -35,18 +33,18 @@ var (
 
 func getLifeCycles() {
 	var marker string
-	logger.Println(5, 5, "all bucket lifecycle handle start")
+	helper.Logger.Info("all bucket lifecycle handle start")
 	waitgroup.Add(1)
 	defer waitgroup.Done()
 	for {
 		if stop {
-			helper.Logger.Print(5, ".")
+			helper.Logger.Info("shutting down...")
 			return
 		}
 
-		result, err := yig.MetaStorage.ScanLifeCycle(SCAN_HBASE_LIMIT, marker)
+		result, err := yig.MetaStorage.ScanLifeCycle(SCAN_LIMIT, marker)
 		if err != nil {
-			logger.Println(5, "ScanLifeCycle failed", err)
+			helper.Logger.Error("ScanLifeCycle failed:", err)
 			signalQueue <- syscall.SIGQUIT
 			return
 		}
@@ -65,14 +63,14 @@ func getLifeCycles() {
 }
 
 func checkIfExpiration(updateTime time.Time, days int) bool {
-	if helper.CONFIG.LcDebug == false {
+	if helper.CONFIG.DebugMode == false {
 		return int(time.Since(updateTime).Seconds()) >= days*24*3600
 	} else {
 		return int(time.Since(updateTime).Seconds()) >= days
 	}
 }
 
-// If a rule has an empty prifex ,the days in it will be consider as a default days for all objects that not specified in
+// If a rule has an empty prefix, the days in it will be consider as a default days for all objects that not specified in
 // other rules. For this reason, we have two conditions to check if a object has expired and should be deleted
 //  if defaultConfig == true
 //                    for each object           check if object name has a prifix
@@ -92,7 +90,7 @@ func retrieveBucket(lc types.LifeCycle) error {
 	if err != nil {
 		return err
 	}
-	rules := bucket.LC.Rule
+	rules := bucket.Lifecycle.Rule
 	for _, rule := range rules {
 		if rule.Prefix == "" {
 			defaultConfig = true
@@ -134,20 +132,18 @@ func retrieveBucket(lc types.LifeCycle) error {
 				} else {
 					days = defaultDays
 				}
-				helper.Debugln("inteval:", time.Since(object.LastModifiedTime).Seconds())
+				helper.Logger.Info("inteval:", time.Since(object.LastModifiedTime).Seconds())
 				if checkIfExpiration(object.LastModifiedTime, days) {
-					helper.Debugln("come here")
+					helper.Logger.Info("come here")
 					if object.NullVersion {
 						object.VersionId = ""
 					}
 					_, err = yig.DeleteObject(object.BucketName, object.Name, object.VersionId, common.Credential{})
 					if err != nil {
-						helper.Logger.Println(5, "[FAILED]", object.BucketName, object.Name, object.VersionId, err)
-						fmt.Println("[FAILED]", object.BucketName, object.Name, object.VersionId, err)
+						helper.Logger.Error(object.BucketName, object.Name, object.VersionId, err)
 						continue
 					}
-					helper.Logger.Println(5, "[DELETED]", object.BucketName, object.Name, object.VersionId)
-					fmt.Println("[DELETED]", object.BucketName, object.Name, object.VersionId)
+					helper.Logger.Info("Deleted:", object.BucketName, object.Name, object.VersionId)
 				}
 			}
 			if truncated == true {
@@ -177,13 +173,10 @@ func retrieveBucket(lc types.LifeCycle) error {
 					if checkIfExpiration(object.LastModifiedTime, days) {
 						_, err = yig.DeleteObject(object.BucketName, object.Name, object.VersionId, common.Credential{})
 						if err != nil {
-							logger.Println(5, "failed to delete object:", object.Name, object.BucketName)
-							helper.Logger.Println(5, "[FAILED]", object.BucketName, object.Name, object.VersionId, err)
-							fmt.Println("[FAILED]", object.BucketName, object.Name, object.VersionId, err)
+							helper.Logger.Error(object.BucketName, object.Name, object.VersionId, "failed:", err)
 							continue
 						}
-						helper.Logger.Println(5, "[DELETED]", object.BucketName, object.Name, object.VersionId)
-						fmt.Println("[DELETED]", object.BucketName, object.Name, object.VersionId)
+						helper.Logger.Info("Deleted:", object.BucketName, object.Name, object.VersionId)
 					}
 				}
 				if truncated == true {
@@ -204,7 +197,7 @@ func processLifecycle() {
 	time.Sleep(time.Second * 1)
 	for {
 		if stop {
-			helper.Logger.Print(5, ".")
+			helper.Logger.Info("Shutting down...")
 			return
 		}
 		waitgroup.Add(1)
@@ -212,15 +205,14 @@ func processLifecycle() {
 		case item := <-taskQ:
 			err := retrieveBucket(item)
 			if err != nil {
-				logger.Println(5, "[ERR] Bucket: ", item.BucketName, err)
-				fmt.Printf("[ERR] Bucket:%v, %v", item.BucketName, err)
+				helper.Logger.Error("Bucket", item.BucketName, "retrieve error:", err)
 				waitgroup.Done()
 				continue
 			}
-			fmt.Printf("[DONE] Bucket:%s", item.BucketName)
+			helper.Logger.Info("Bucket lifecycle done:", item.BucketName)
 		default:
 			if empty == true {
-				logger.Println(5, "all bucket lifecycle handle complete. QUIT")
+				helper.Logger.Info("All bucket lifecycle handle complete. QUIT")
 				signalQueue <- syscall.SIGQUIT
 				waitgroup.Done()
 				return
@@ -231,27 +223,24 @@ func processLifecycle() {
 }
 
 func main() {
-	helper.SetupConfig()
-
-	f, err := os.OpenFile(DEFAULT_LC_LOG_PATH, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		panic("Failed to open log file in current dir")
-	}
-	defer f.Close()
 	stop = false
-	logger = log.New(f, "[yig]", log.LstdFlags, helper.CONFIG.LogLevel)
-	helper.Logger = logger
+
+	helper.SetupConfig()
+	logLevel := log.ParseLevel(helper.CONFIG.LogLevel)
+
+	helper.Logger = log.NewFileLogger(DEFAULT_LC_LOG_PATH, logLevel)
+	defer helper.Logger.Close()
 	if helper.CONFIG.MetaCacheType > 0 || helper.CONFIG.EnableDataCache {
 		redis.Initialize()
 		defer redis.Close()
 	}
-	yig = storage.New(logger, helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache, helper.CONFIG.CephConfigPattern)
-	taskQ = make(chan types.LifeCycle, SCAN_HBASE_LIMIT)
+	yig = storage.New(helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache)
+	taskQ = make(chan types.LifeCycle, SCAN_LIMIT)
 	signal.Ignore()
 	signalQueue = make(chan os.Signal)
 
 	numOfWorkers := helper.CONFIG.LcThread
-	helper.Logger.Println(5, "start lc thread:", numOfWorkers)
+	helper.Logger.Info("start lc thread:", numOfWorkers)
 	empty = false
 	for i := 0; i < numOfWorkers; i++ {
 		go processLifecycle()

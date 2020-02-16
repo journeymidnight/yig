@@ -16,7 +16,7 @@ type Versioning struct {
 func VersioningFromXml(xmlBytes []byte) (versioning Versioning, err error) {
 	err = xml.Unmarshal(xmlBytes, &versioning)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to unmarshal versioning XML")
+		helper.Logger.Error("Unable to unmarshal versioning XML:", err)
 		return versioning, ErrInvalidVersioning
 	}
 	if versioning.Status != "Enabled" && versioning.Status != "Suspended" {

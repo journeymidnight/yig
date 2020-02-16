@@ -15,8 +15,6 @@
 package api
 
 import (
-	"bytes"
-	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -174,7 +172,7 @@ func (r *replacer) getSubstitution(key string) string {
 	case "{request_uri}":
 		return r.request.Method + " " + r.request.URL.String() + " " + r.request.Proto
 	case "{request_id}":
-		return r.request.Context().Value(RequestContextKey).(RequestContext).RequestId
+		return getRequestContext(r.request).RequestID
 	case "{operation_name}":
 		return r.responseRecorder.operationName
 	case "{host_name}":
@@ -182,20 +180,20 @@ func (r *replacer) getSubstitution(key string) string {
 	case "{region_id}":
 		return helper.CONFIG.Region
 	case "{bucket_name}":
-		bucketName, _ := GetBucketAndObjectInfoFromRequest(r.request)
+		bucketName := getRequestContext(r.request).BucketName
 		if bucketName == "" {
 			return "-"
 		}
 		return bucketName
 	case "{object_name}":
-		_, objectName := GetBucketAndObjectInfoFromRequest(r.request)
+		objectName := getRequestContext(r.request).ObjectName
 		if objectName == "" {
 			return "-"
 		}
 		return objectName
 	case "{object_size}":
 		var objectSize int64
-		objectInfo := r.request.Context().Value(RequestContextKey).(RequestContext).ObjectInfo
+		objectInfo := getRequestContext(r.request).ObjectInfo
 		if objectInfo != nil {
 			objectSize = objectInfo.Size
 		}
@@ -208,7 +206,7 @@ func (r *replacer) getSubstitution(key string) string {
 		}
 		return requester_id
 	case "{project_id}":
-		bucketInfo := r.request.Context().Value(RequestContextKey).(RequestContext).BucketInfo
+		bucketInfo := getRequestContext(r.request).BucketInfo
 		if bucketInfo == nil {
 			return "-"
 		}
@@ -265,7 +263,7 @@ func (r *replacer) getSubstitution(key string) string {
 		// Currently, the intranet domain name is formed by adding the "-internal" on the second-level domain name of the public network.
 		return strconv.FormatBool(strings.Contains(r.request.Host, "internal"))
 	case "{storage_class}":
-		objectInfo := r.request.Context().Value(RequestContextKey).(RequestContext).ObjectInfo
+		objectInfo := getRequestContext(r.request).ObjectInfo
 		if objectInfo == nil {
 			return "-"
 		}
@@ -296,67 +294,6 @@ func (r *replacer) getSubstitution(key string) string {
 // Set sets key to value in the r.customReplacements map.
 func (r *replacer) Set(key, value string) {
 	r.customReplacements["{"+key+"}"] = value
-}
-
-// isPrivateSubnet - check to see if this ip is in a private subnet
-func isPrivateSubnet(ipAddress net.IP) bool {
-	// my use case is only concerned with ipv4 atm
-	if ipCheck := ipAddress.To4(); ipCheck != nil {
-		// iterate over all our ranges
-		for _, r := range privateRanges {
-			// check if this ip is in a private range
-			if inRange(r, ipAddress) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-//ipRange - a structure that holds the start and end of a range of ip addresses
-type ipRange struct {
-	start net.IP
-	end   net.IP
-}
-
-var privateRanges = []ipRange{
-	ipRange{
-		start: net.ParseIP("10.0.0.0"),
-		end:   net.ParseIP("10.255.255.255"),
-	},
-	ipRange{
-		start: net.ParseIP("100.64.0.0"),
-		end:   net.ParseIP("100.127.255.255"),
-	},
-	ipRange{
-		start: net.ParseIP("127.0.0.0"),
-		end:   net.ParseIP("127.0.0.255"),
-	},
-	ipRange{
-		start: net.ParseIP("172.16.0.0"),
-		end:   net.ParseIP("172.31.255.255"),
-	},
-	ipRange{
-		start: net.ParseIP("192.0.0.0"),
-		end:   net.ParseIP("192.0.0.255"),
-	},
-	ipRange{
-		start: net.ParseIP("192.168.0.0"),
-		end:   net.ParseIP("192.168.255.255"),
-	},
-	ipRange{
-		start: net.ParseIP("198.18.0.0"),
-		end:   net.ParseIP("198.19.255.255"),
-	},
-}
-
-// inRange - check to see if a given ip address is within a range given
-func inRange(r ipRange, ipAddress net.IP) bool {
-	// strcmp type byte comparison
-	if bytes.Compare(ipAddress, r.start) >= 0 && bytes.Compare(ipAddress, r.end) < 0 {
-		return true
-	}
-	return false
 }
 
 type JudgeCdnRequest func(r *http.Request) bool

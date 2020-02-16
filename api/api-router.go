@@ -66,6 +66,9 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 		// CopyObject
 		bucket.Methods("PUT").Path("/{object:.+}").HeadersRegexp("X-Amz-Copy-Source", ".*?(/).*?").
 			HandlerFunc(api.CopyObjectHandler)
+		// RenameObject
+		bucket.Methods("PUT").Path("/{object:.+}").HeadersRegexp("X-Amz-Rename-Source-Key", ".*?").
+			HandlerFunc(api.RenameObjectHandler)
 		// PutObjectACL
 		bucket.Methods("PUT").Path("/{object:.+}").HandlerFunc(api.PutObjectAclHandler).
 			Queries("acl", "")
@@ -75,6 +78,8 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 
 		// AppendObject
 		bucket.Methods("POST").Path("/{object:.+}").HandlerFunc(api.AppendObjectHandler).Queries("append", "")
+		// PutObjectMeta
+		bucket.Methods("PUT").Path("/{object:.+}").Queries("meta", "").HandlerFunc(api.PutObjectMeta)
 		// PutObject
 		bucket.Methods("PUT").Path("/{object:.+}").HandlerFunc(api.PutObjectHandler)
 		// PostObject
@@ -119,6 +124,12 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 		bucket.Methods("GET").HandlerFunc(api.GetBucketPolicyHandler).Queries("policy", "")
 		// DeleteBucketPolicy
 		bucket.Methods("DELETE").HandlerFunc(api.DeleteBucketPolicyHandler).Queries("policy", "")
+		// PutBucketWebsite
+		bucket.Methods("PUT").HandlerFunc(api.PutBucketWebsiteHandler).Queries("website", "")
+		// GetBucketWebsite
+		bucket.Methods("GET").HandlerFunc(api.GetBucketWebsiteHandler).Queries("website", "")
+		// DeleteBucketWebsite
+		bucket.Methods("DELETE").HandlerFunc(api.DeleteBucketWebsiteHandler).Queries("website", "")
 
 		// HeadBucket
 		bucket.Methods("HEAD").HandlerFunc(api.HeadBucketHandler)

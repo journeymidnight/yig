@@ -2,21 +2,22 @@ package redis
 
 import (
 	"encoding/hex"
+	"fmt"
 	"github.com/minio/highwayhash"
 	"io"
 	"strconv"
 	"strings"
 
 	"context"
+	"github.com/cep21/circuit"
 	redigo "github.com/gomodule/redigo/redis"
 	"github.com/journeymidnight/yig/circuitbreak"
 	"github.com/journeymidnight/yig/helper"
 	"time"
-	"github.com/cep21/circuit"
 )
 
 var (
-	redisPool *redigo.Pool
+	redisPool    *redigo.Pool
 	CacheCircuit *circuit.Circuit
 )
 
@@ -35,11 +36,11 @@ func (r RedisDatabase) InvalidQueue() string {
 }
 
 const (
-	UserTable    RedisDatabase = iota
-	BucketTable  
-	ObjectTable  
-	FileTable    
-	ClusterTable 
+	UserTable RedisDatabase = iota
+	BucketTable
+	ObjectTable
+	FileTable
+	ClusterTable
 )
 
 var MetadataTables = []RedisDatabase{UserTable, BucketTable, ObjectTable, ClusterTable}
@@ -68,10 +69,10 @@ func Initialize() {
 
 	CacheCircuit = circuitbreak.NewCacheCircuit()
 	redisPool = &redigo.Pool{
-			MaxIdle:     helper.CONFIG.RedisPoolMaxIdle,
-			IdleTimeout: time.Duration(helper.CONFIG.RedisPoolIdleTimeout) * time.Second,
-			// Other pool configuration not shown in this example.
-			Dial: df,
+		MaxIdle:     helper.CONFIG.RedisPoolMaxIdle,
+		IdleTimeout: time.Duration(helper.CONFIG.RedisPoolIdleTimeout) * time.Second,
+		// Other pool configuration not shown in this example.
+		Dial: df,
 	}
 }
 
@@ -82,7 +83,7 @@ func Pool() *redigo.Pool {
 func Close() {
 	err := redisPool.Close()
 	if err != nil {
-		helper.ErrorIf(err, "Cannot close redis pool.")
+		helper.Logger.Error("Cannot close redis pool:", err)
 	}
 }
 
@@ -99,7 +100,7 @@ func Remove(table RedisDatabase, key string) (err error) {
 				return err
 			}
 			defer c.Close()
-			hashkey,err := HashSum(key)
+			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
 			}
@@ -108,7 +109,10 @@ func Remove(table RedisDatabase, key string) (err error) {
 			if err == redigo.ErrNil {
 				return nil
 			}
-			helper.ErrorIf(err, "Cmd: %s. Key: %s.", "DEL", table.String()+key)
+			if err != nil {
+				helper.Logger.Error("Redis DEL", table.String()+key,
+					"error:", err)
+			}
 			return err
 		},
 		nil,
@@ -128,7 +132,7 @@ func Set(table RedisDatabase, key string, value interface{}) (err error) {
 			if err != nil {
 				return err
 			}
-			hashkey,err := HashSum(key)
+			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
 			}
@@ -137,7 +141,11 @@ func Set(table RedisDatabase, key string, value interface{}) (err error) {
 			if err == redigo.ErrNil {
 				return nil
 			}
-			helper.ErrorIf(err, "Cmd: %s. Key: %s. Value: %s. Reply: %s.", "SET", table.String()+key, string(encodedValue), r)
+			if err != nil {
+				helper.Logger.Error(
+					fmt.Sprintf("Cmd: SET. Key: %s. Value: %s. Reply: %s.",
+						table.String()+key, string(encodedValue), r))
+			}
 			return err
 		},
 		nil,
@@ -155,7 +163,8 @@ func Get(table RedisDatabase, key string,
 			if err != nil {
 				return err
 			}
-			hashkey,err := HashSum(key)
+			defer c.Close()
+			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
 			}
@@ -180,6 +189,35 @@ func Get(table RedisDatabase, key string,
 	return unmarshal(encodedValue)
 }
 
+func GetUsage(key string) (value string, err error) {
+	err = CacheCircuit.Execute(
+		context.Background(),
+		func(ctx context.Context) (err error) {
+			c, err := GetClient(ctx)
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			value, err = redigo.String(c.Do("GET", key))
+			if err != nil {
+				if err == redigo.ErrNil {
+					return nil
+				}
+				return err
+			}
+			return nil
+		},
+		nil,
+	)
+	if err != nil {
+		return "", err
+	}
+	if len(value) == 0 {
+		return "", nil
+	}
+	return value, nil
+}
+
 // Get file bytes
 // `start` and `end` are inclusive
 // FIXME: this API causes an extra memory copy, need to patch radix to fix it
@@ -192,7 +230,8 @@ func GetBytes(key string, start int64, end int64) ([]byte, error) {
 			if err != nil {
 				return err
 			}
-			hashkey,err := HashSum(key)
+			defer c.Close()
+			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
 			}
@@ -223,7 +262,8 @@ func SetBytes(key string, value []byte) (err error) {
 			if err != nil {
 				return err
 			}
-			hashkey,err := HashSum(key)
+			defer c.Close()
+			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
 			}
@@ -232,7 +272,10 @@ func SetBytes(key string, value []byte) (err error) {
 			if err == redigo.ErrNil {
 				return nil
 			}
-			helper.ErrorIf(err, "Cmd: %s. Key: %s. Value: %s. Reply: %s.", "SET", FileTable.String()+key, string(value), r)
+			if err != nil {
+				helper.Logger.Error(fmt.Sprintf("Cmd: SET. Key: %s. Value: %s. Reply: %s.",
+					FileTable.String()+key, string(value), r))
+			}
 			return err
 		},
 		nil,
@@ -248,7 +291,8 @@ func Invalid(table RedisDatabase, key string) (err error) {
 			if err != nil {
 				return err
 			}
-			hashkey,err := HashSum(key)
+			defer c.Close()
+			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
 			}
@@ -257,33 +301,35 @@ func Invalid(table RedisDatabase, key string) (err error) {
 			if err == redigo.ErrNil {
 				return nil
 			}
-			helper.ErrorIf(err, "Cmd: %s. Queue: %s. Key: %s. Reply: %s.", "PUBLISH", table.InvalidQueue(), FileTable.String()+key, r)
+			if err != nil {
+				helper.Logger.Error(fmt.Sprintf("Cmd: PUBLISH. Queue: %s. Key: %s. Reply: %s.",
+					table.InvalidQueue(), FileTable.String()+key, r))
+			}
 			return err
 		},
 		nil,
 	)
-
 }
 
 // Get Object to HighWayHash for redis
-func HashSum(ObjectName string) (string,error) {
+func HashSum(ObjectName string) (string, error) {
 	key, err := hex.DecodeString(keyvalue)
 	if err != nil {
-		return "",err
+		return "", err
 	}
 
 	ObjectNameString := strings.NewReader(ObjectName)
 
 	hash, err := highwayhash.New(key)
 	if err != nil {
-		return "",err
+		return "", err
 	}
 
 	if _, err = io.Copy(hash, ObjectNameString); err != nil {
-		return "",err
+		return "", err
 	}
 
 	sumresult := hex.EncodeToString(hash.Sum(nil))
 
-	return sumresult,nil
+	return sumresult, nil
 }

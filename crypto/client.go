@@ -20,7 +20,7 @@ func NewKMS() KMS {
 	//extention case here
 
 	default:
-		helper.Logger.Println(5, "not support kms type", helper.CONFIG.KMS.Type)
+		helper.Logger.Info("not support kms type", helper.CONFIG.KMS.Type)
 		return nil
 	}
 }

@@ -18,12 +18,14 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/gorilla/mux"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/meta"
 	"github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/signature"
@@ -71,7 +73,7 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Expose-Headers", strings.Join(CommonS3ResponseHeaders, ","))
 	}
 
-	ctx := r.Context().Value(RequestContextKey).(RequestContext)
+	ctx := getRequestContext(r)
 	bucket := ctx.BucketInfo
 
 	// If bucket CORS exists, overwrite the in-reserved CORS Headers
@@ -109,8 +111,9 @@ type resourceHandler struct {
 // Resource handler ServeHTTP() wrapper
 func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Skip the first element which is usually '/' and split the rest.
-	bucketName, objectName := GetBucketAndObjectInfoFromRequest(r)
-	helper.Logger.Println(5, "ServeHTTP", bucketName, objectName)
+	ctx := getRequestContext(r)
+	logger := ctx.Logger
+	bucketName, objectName := ctx.BucketName, ctx.ObjectName
 	// If bucketName is present and not objectName check for bucket
 	// level resource queries.
 	if bucketName != "" && objectName == "" {
@@ -128,7 +131,7 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	// A put method on path "/" doesn't make sense, ignore it.
 	if r.Method == "PUT" && r.URL.Path == "/" && bucketName == "" {
-		helper.Debugln("Host:", r.Host, "Path:", r.URL.Path, "Bucket:", bucketName)
+		logger.Info("Host:", r.Host, "Path:", r.URL.Path, "Bucket:", bucketName)
 		WriteErrorResponse(w, r, ErrMethodNotAllowed)
 		return
 	}
@@ -143,29 +146,60 @@ func SetIgnoreResourcesHandler(h http.Handler, _ *meta.Meta) http.Handler {
 	return resourceHandler{h}
 }
 
-// authHandler - handles all the incoming authorization headers and
-// validates them if possible.
-type AuthHandler struct {
+// Checks requests for not implemented Bucket resources
+func ignoreNotImplementedBucketResources(req *http.Request) bool {
+	for name := range req.URL.Query() {
+		if notImplementedBucketResourceNames[name] {
+			helper.Logger.Warn("Bucket", name, "has not been implemented.")
+			return true
+		}
+	}
+	return false
+}
+
+// Checks requests for not implemented Object resources
+func ignoreNotImplementedObjectResources(req *http.Request) bool {
+	for name := range req.URL.Query() {
+		if notImplementedObjectResourceNames[name] {
+			helper.Logger.Warn("Object", name, "has not been implemented.")
+			return true
+		}
+	}
+	return false
+}
+
+// List of not implemented bucket queries
+var notImplementedBucketResourceNames = map[string]bool{
+	"logging":        true,
+	"notification":   true,
+	"replication":    true,
+	"tagging":        true,
+	"requestPayment": true,
+}
+
+// List of not implemented object queries
+var notImplementedObjectResourceNames = map[string]bool{
+	"torrent": true,
+}
+
+func ContextLogger(r *http.Request) log.Logger {
+	return r.Context().Value(RequestContextKey).(RequestContext).Logger
+}
+
+type RequestIdHandler struct {
 	handler http.Handler
 }
 
-// handler for validating incoming authorization headers.
-func (a AuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	switch signature.GetRequestAuthType(r) {
-	case signature.AuthTypeUnknown:
-		WriteErrorResponse(w, r, ErrSignatureVersionNotSupported)
-		return
-	default:
-		// Let top level caller validate for anonymous and known
-		// signed requests.
-		a.handler.ServeHTTP(w, r)
-		return
-	}
+func (h RequestIdHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	requestID := string(helper.GenerateRandomId())
+	logger := helper.Logger.NewWithRequestID(requestID)
+	ctx := context.WithValue(r.Context(), RequestIdKey, requestID)
+	ctx = context.WithValue(ctx, ContextLoggerKey, logger)
+	h.handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
-// setAuthHandler to validate authorization header for the incoming request.
-func SetAuthHandler(h http.Handler, _ *meta.Meta) http.Handler {
-	return AuthHandler{h}
+func SetRequestIdHandler(h http.Handler, _ *meta.Meta) http.Handler {
+	return RequestIdHandler{h}
 }
 
 // authHandler - handles all the incoming authorization headers and
@@ -180,10 +214,9 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	var bucketInfo *types.Bucket
 	var objectInfo *types.Object
 	var err error
-	requestId := string(helper.GenerateRandomId())
-	bucketName, objectName := GetBucketAndObjectInfoFromRequest(r)
-	helper.Logger.Println(20, "GenerateContextHandler. RequestId:", requestId, "BucketName:", bucketName, "ObjectName:", objectName)
-
+	requestId := r.Context().Value(RequestIdKey).(string)
+	logger := r.Context().Value(ContextLoggerKey).(log.Logger)
+	bucketName, objectName, isBucketDomain := GetBucketAndObjectInfoFromRequest(r)
 	if bucketName != "" {
 		bucketInfo, err = h.meta.GetBucket(bucketName, true)
 		if err != nil && err != ErrNoSuchBucket {
@@ -199,9 +232,28 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	ctx := context.WithValue(r.Context(), RequestContextKey, RequestContext{requestId, bucketInfo, objectInfo})
-	h.handler.ServeHTTP(w, r.WithContext(ctx))
+	authType := signature.GetRequestAuthType(r)
+	if authType == signature.AuthTypeUnknown {
+		WriteErrorResponse(w, r, ErrSignatureVersionNotSupported)
+		return
+	}
 
+	ctx := context.WithValue(
+		r.Context(),
+		RequestContextKey,
+		RequestContext{
+			RequestID:      requestId,
+			Logger:         logger,
+			BucketName:     bucketName,
+			ObjectName:     objectName,
+			BucketInfo:     bucketInfo,
+			ObjectInfo:     objectInfo,
+			AuthType:       authType,
+			IsBucketDomain: isBucketDomain,
+		})
+	logger.Info(fmt.Sprintf("BucketName: %s, ObjectName: %s, BucketInfo: %+v, ObjectInfo: %+v, AuthType: %d",
+		bucketName, objectName, bucketInfo, objectInfo, authType))
+	h.handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
 // setAuthHandler to validate authorization header for the incoming request.
@@ -222,66 +274,15 @@ func InReservedOrigins(origin string) bool {
 	return false
 }
 
-// guessIsBrowserReq - returns true if the request is browser.
-// This implementation just validates user-agent and
-// looks for "Mozilla" string. This is no way certifiable
-// way to know if the request really came from a browser
-// since User-Agent's can be arbitrary. But this is just
-// a best effort function.
-func guessIsBrowserReq(req *http.Request) bool {
-	if req == nil {
-		return false
-	}
-	return true
-	//return strings.Contains(req.Header.Get("User-Agent"), "Mozilla")
-}
-
 //// helpers
 
-// Checks requests for not implemented Bucket resources
-func ignoreNotImplementedBucketResources(req *http.Request) bool {
-	for name := range req.URL.Query() {
-		if notimplementedBucketResourceNames[name] {
-			return true
-		}
-	}
-	return false
-}
-
-// Checks requests for not implemented Object resources
-func ignoreNotImplementedObjectResources(req *http.Request) bool {
-	for name := range req.URL.Query() {
-		if notimplementedObjectResourceNames[name] {
-			return true
-		}
-	}
-	return false
-}
-
-// List of not implemented bucket queries
-var notimplementedBucketResourceNames = map[string]bool{
-	"logging":        true,
-	"notification":   true,
-	"replication":    true,
-	"tagging":        true,
-	"requestPayment": true,
-	"website":        true,
-}
-
-// List of not implemented object queries
-var notimplementedObjectResourceNames = map[string]bool{
-	"torrent": true,
-}
-
-func GetBucketAndObjectInfoFromRequest(r *http.Request) (bucketName string, objectName string) {
+func GetBucketAndObjectInfoFromRequest(r *http.Request) (bucketName string, objectName string, isBucketDomain bool) {
 	splits := strings.SplitN(r.URL.Path[1:], "/", 2)
 	v := strings.Split(r.Host, ":")
 	hostWithOutPort := v[0]
-	ok, bucketName := helper.HasBucketInDomain(hostWithOutPort, ".", helper.CONFIG.S3Domain)
-	if ok {
-		if len(splits) == 1 {
-			objectName = splits[0]
-		}
+	isBucketDomain, bucketName = helper.HasBucketInDomain(hostWithOutPort, ".", helper.CONFIG.S3Domain)
+	if isBucketDomain {
+		objectName = r.URL.Path[1:]
 	} else {
 		if len(splits) == 1 {
 			bucketName = splits[0]
@@ -291,5 +292,16 @@ func GetBucketAndObjectInfoFromRequest(r *http.Request) (bucketName string, obje
 			objectName = splits[1]
 		}
 	}
-	return
+	return bucketName, objectName, isBucketDomain
+}
+
+func getRequestContext(r *http.Request) RequestContext {
+	ctx, ok := r.Context().Value(RequestContextKey).(RequestContext)
+	if ok {
+		return ctx
+	}
+	return RequestContext{
+		Logger: r.Context().Value(ContextLoggerKey).(log.Logger),
+		RequestID: r.Context().Value(RequestIdKey).(string),
+	}
 }

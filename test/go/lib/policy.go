@@ -5,6 +5,192 @@ import (
 	"github.com/journeymidnight/aws-sdk-go/service/s3"
 )
 
+const (
+	GetObjectPolicy_1 = `{
+			"Version": "2012-10-17",
+			"Statement": [{
+			"Effect": "Allow",
+			"Principal": {"AWS":["*"]},
+			"Action": ["s3:GetObject"],
+			"Resource": [
+				"arn:aws:s3:::` + TEST_BUCKET + `/*"
+			]
+			}]
+		}`
+
+	GetObjectPolicy_2 = `{
+			"Version": "2012-10-17",
+			"Statement": [{
+			"Effect": "Allow",
+			"Principal": {"AWS":["*"]},
+			"Action": ["s3:GetObject"],
+			"Resource": [
+				"arn:aws:s3:::` + TEST_BUCKET + `/test/*"
+			]
+			}]
+		}`
+
+	SetBucketPolicyAllowStringLike = `{
+			"Version": "2012-10-17",
+			"Id": "http referer policy example",
+			"Statement": [
+				{
+					"Sid": "Allow get requests referred by url test1",
+					"Effect":"Allow",
+					"Principal": {
+						"AWS":"*"
+					},
+					"Action":["s3:GetObject"],
+					"Resource":[
+							"arn:aws:s3:::` + TEST_BUCKET + `",
+							"arn:aws:s3:::` + TEST_BUCKET + `/*"
+					],
+					"Condition":
+							{"StringLike":{"aws:Referer":["http://www.genltemen.com/*","http://genltemen.com/*"]}}
+				}
+			]
+		}`
+
+	SetBucketPolicyAllowStringNotLike = `{
+			"Version": "2012-10-17",
+			"Id": "http referer policy example",
+			"Statement": [
+				{
+					"Sid": "Allow get requests referred by url test2",
+					"Effect":"Allow",
+					"Principal": {
+						"AWS":"*"
+					},
+					"Action":["s3:GetObject"],
+					"Resource":[
+							"arn:aws:s3:::` + TEST_BUCKET + `",
+							"arn:aws:s3:::` + TEST_BUCKET + `/*"
+					],
+					"Condition":
+							{"StringNotLike":{"aws:Referer":["http://www.thief.com/*","http://thief.com/*"]}}
+				}
+			]
+		}`
+
+	SetBucketPolicyDenyStringLike = `{
+			"Version": "2012-10-17",
+			"Id": "http referer policy example",
+			"Statement": [
+				{
+					"Sid": "Deny get requests referred by url test3",
+					"Effect":"Deny",
+					"Principal": {
+						"AWS":"*"
+					},
+					"Action":["s3:GetObject"],
+					"Resource":[
+							"arn:aws:s3:::` + TEST_BUCKET + `",
+							"arn:aws:s3:::` + TEST_BUCKET + `/*"
+					],
+					"Condition":
+							{"StringLike":{"aws:Referer":["http://www.thief.com/*","http://thief.com/*"]}}
+				}
+			]
+		}`
+
+	SetBucketPolicyDenyStringNotLike = `{
+			"Version": "2012-10-17",
+			"Id": "http referer policy example",
+			"Statement": [
+				{
+					"Sid": "Deny get requests referred by url test3",
+					"Effect":"Deny",
+					"Principal": {
+						"AWS":"*"
+					},
+					"Action":["s3:GetObject"],
+					"Resource":[
+							"arn:aws:s3:::` + TEST_BUCKET + `",
+							"arn:aws:s3:::` + TEST_BUCKET + `/*"
+					],
+					"Condition":
+							{"StringNotLike":{"aws:Referer":["http://www.genltemen.com/*","http://genltemen.com/*"]}}
+				}
+			]
+		}`
+
+	SetBucketPolicyAllowIPAddress = `{
+  			"Id":"PolicyId2",
+  			"Version":"2012-10-17",
+  			"Statement":[
+    			{
+      				"Sid":"AllowIPmix",
+      				"Effect":"Allow",
+      				"Principal":"*",
+      				"Action":"s3:GetObject",
+      				"Resource":"arn:aws:s3:::` + TEST_BUCKET + `/*",
+     				"Condition": {
+        				"IpAddress": {
+          					"aws:SourceIp": "10.0.12.0/24"
+						}
+     				}
+   				}
+  			]
+	}`
+
+	SetBucketPolicyAllowNotIPAddress = `{
+  			"Id":"PolicyId2",
+  			"Version":"2012-10-17",
+  			"Statement":[
+    			{
+      				"Sid":"AllowIPmix",
+      				"Effect":"Allow",
+      				"Principal":"*",
+      				"Action":"s3:GetObject",
+      				"Resource":"arn:aws:s3:::` + TEST_BUCKET + `/*",
+     				"Condition": {
+        				"NotIpAddress": {
+          					"aws:SourceIp": "10.0.11.0/24"
+						}
+     				}
+   				}
+  			]
+	}`
+
+	SetBucketPolicyDenyIPAddress = `{
+  			"Id":"PolicyId2",
+  			"Version":"2012-10-17",
+  			"Statement":[
+    			{
+      				"Sid":"DenyIPmix",
+      				"Effect":"Deny",
+      				"Principal":"*",
+      				"Action":"s3:GetObject",
+      				"Resource":"arn:aws:s3:::` + TEST_BUCKET + `/*",
+     				"Condition": {
+        				"IpAddress": {
+          					"aws:SourceIp": "10.0.11.0/24"
+						}
+     				}
+   				}
+  			]
+	}`
+
+	SetBucketPolicyDenyNotIPAddress = `{
+  			"Id":"PolicyId2",
+  			"Version":"2012-10-17",
+  			"Statement":[
+    			{
+      				"Sid":"DenyIPmix",
+      				"Effect":"Deny",
+      				"Principal":"*",
+      				"Action":"s3:GetObject",
+      				"Resource":"arn:aws:s3:::` + TEST_BUCKET + `/*",
+     				"Condition": {
+        				"NotIpAddress": {
+          					"aws:SourceIp": "10.0.12.0/24"
+						}
+     				}
+   				}
+  			]
+	}`
+)
+
 func (s3client *S3Client) PutBucketPolicy(bucketName, policy string) (err error) {
 	params := &s3.PutBucketPolicyInput{
 		Bucket: aws.String(bucketName),

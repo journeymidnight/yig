@@ -17,7 +17,6 @@
 package api
 
 import (
-	"context"
 	"encoding/base64"
 	"encoding/xml"
 	"errors"
@@ -74,13 +73,6 @@ func contains(stringList []string, element string) bool {
 	return false
 }
 
-func requestIdFromContext(ctx context.Context) string {
-	if result, ok := ctx.Value(RequestContextKey).(RequestContext); ok {
-		return result.RequestId
-	}
-	return ""
-}
-
 // We support '.' with bucket names but we fallback to using path
 // style requests instead for such buckets.
 var (
@@ -134,7 +126,7 @@ func xmlFormat(data interface{}) ([]byte, error) {
 	return output, nil
 }
 
-func setXmlHeader(w http.ResponseWriter, body []byte) {
+func setXmlHeader(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/xml")
 }
 

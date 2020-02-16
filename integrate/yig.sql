@@ -29,6 +29,7 @@ CREATE TABLE `buckets` (
   `lc` JSON DEFAULT NULL,
   `uid` varchar(255) DEFAULT NULL,
   `policy` JSON DEFAULT NULL,
+  `website` JSON DEFAULT NULL,
   `createtime` datetime DEFAULT NULL,
   `usages` bigint(20) DEFAULT NULL,
   `versioning` varchar(255) DEFAULT NULL,

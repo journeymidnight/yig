@@ -34,7 +34,7 @@ type entry struct {
 
 func newMetaCache(myType CacheType) (m MetaCache) {
 
-	helper.Logger.Printf(10, "Setting Up Metadata Cache: %s\n", cacheNames[int(myType)])
+	helper.Logger.Info("Setting Up Metadata Cache:", cacheNames[int(myType)])
 	if myType == SimpleCache {
 		m := new(enabledSimpleMetaCache)
 		m.Hit = 0
@@ -68,23 +68,24 @@ func (m *enabledSimpleMetaCache) Get(table redis.RedisDatabase, key string,
 	onCacheMiss func() (interface{}, error),
 	unmarshaller func([]byte) (interface{}, error), willNeed bool) (value interface{}, err error) {
 
-	helper.Logger.Println(10, "enabledSimpleMetaCache Get. table:", table, "key:", key)
+	helper.Logger.Info("enabledSimpleMetaCache.Get table:", table, "key:", key)
 
 	value, err = redis.Get(table, key, unmarshaller)
 	if err != nil {
-		helper.Logger.Println(5, "enabledSimpleMetaCache Get err:", err, "table:", table, "key:", key)
+		helper.Logger.Info("enabledSimpleMetaCache.Get err:", err,
+			"table:", table, "key:", key)
 	}
 	if err == nil && value != nil {
 		m.Hit = m.Hit + 1
 		return value, nil
 	}
 
-	//if redis doesn't have the entry
+	// if redis doesn't have the entry
 	if onCacheMiss != nil {
 		value, err = onCacheMiss()
 		if err != nil{
-			if  err != sql.ErrNoRows {
-				helper.ErrorIf(err, "exec onCacheMiss() err.")
+			if err != sql.ErrNoRows {
+				helper.Logger.Error("exec onCacheMiss() err:", err)
 			}
 			return
 		}
@@ -92,7 +93,7 @@ func (m *enabledSimpleMetaCache) Get(table redis.RedisDatabase, key string,
 		if willNeed == true {
 			err = redis.Set(table, key, value)
 			if err != nil {
-				helper.Logger.Println(5, "WARNING: redis is down!")
+				helper.Logger.Warn("redis is down!")
 				//do nothing, even if redis is down.
 			}
 		}

@@ -10,6 +10,7 @@ import (
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
+	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/signature"
 )
 
@@ -18,60 +19,58 @@ import (
 // - validates the policy action if anonymous tests bucket policies if any,
 //   for authenticated requests validates IAM policies.
 // returns APIErrorCode if any to be replied to the client.
-func checkRequestAuth(api ObjectAPIHandlers, r *http.Request, action policy.Action, bucketName, objectName string) (c common.Credential, err error) {
+func checkRequestAuth(r *http.Request, action policy.Action) (c common.Credential, err error) {
 	// TODO:Location constraint
-	authType := signature.GetRequestAuthType(r)
+	ctx := getRequestContext(r)
+	logger := ctx.Logger
+	authType := ctx.AuthType
 	switch authType {
 	case signature.AuthTypeUnknown:
-		helper.Logger.Println(5, "ErrAccessDenied: AuthTypeUnknown")
-		return c, ErrAccessDenied
+		logger.Info("ErrAccessDenied: AuthTypeUnknown")
+		return c, ErrSignatureVersionNotSupported
 	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		helper.Logger.Println(5, "AuthTypeSigned:", authType)
+		helper.Logger.Info("AuthTypeSigned:", authType)
 		if c, err := signature.IsReqAuthenticated(r); err != nil {
-			helper.Logger.Println(5, "ErrAccessDenied: IsReqAuthenticated return false:", err)
+			helper.Logger.Info("ErrAccessDenied: IsReqAuthenticated return false:", err)
 			return c, err
 		} else {
-			helper.Logger.Println(5, "Credential:", c)
+			helper.Logger.Info("Credential:", c)
 			// check bucket policy
-			c, err = IsBucketPolicyAllowed(c, api, r, action, bucketName, objectName)
+			isAllow, err := IsBucketPolicyAllowed(c.UserId, ctx.BucketInfo, r, action, ctx.ObjectName)
+			c.AllowOtherUserAccess = isAllow
 			return c, err
 		}
 	case signature.AuthTypeAnonymous:
-		c, err = IsBucketPolicyAllowed(c, api, r, action, bucketName, objectName)
+		isAllow, err := IsBucketPolicyAllowed(c.UserId, ctx.BucketInfo, r, action, ctx.ObjectName)
+		c.AllowOtherUserAccess = isAllow
 		return c, err
 	}
 	return c, ErrAccessDenied
 }
 
-func IsBucketPolicyAllowed(c common.Credential, api ObjectAPIHandlers, r *http.Request, action policy.Action, bucketName, objectName string) (common.Credential, error) {
-	bucket, err := api.ObjectAPI.GetBucket(bucketName)
-	if err != nil {
-		helper.Logger.Println(5, "GetBucket", bucketName, "err:", err)
-		return c, err
+func IsBucketPolicyAllowed(userId string, bucket *meta.Bucket, r *http.Request, action policy.Action, objectName string) (allow bool, err error) {
+	if bucket == nil {
+		return false, ErrAccessDenied
 	}
-	if bucket.OwnerId == c.UserId {
-		return c, nil
+	if bucket.OwnerId == userId {
+		return false, nil
 	}
-	helper.Logger.Println(5, "bucket.OwnerId:", bucket.OwnerId, "not equals c.UserId:", c.UserId)
-	helper.Debugln("GetBucketPolicy:", bucket.Policy)
 	policyResult := bucket.Policy.IsAllowed(policy.Args{
-		AccountName:     c.UserId,
+		// TODO: Add IAM policy. Current account name is always useless.
+		AccountName:     userId,
 		Action:          action,
-		BucketName:      bucketName,
+		BucketName:      bucket.Name,
 		ConditionValues: getConditionValues(r, ""),
 		IsOwner:         false,
 		ObjectName:      objectName,
 	})
 	if policyResult == policy.PolicyAllow {
-		c.AllowOtherUserAccess = true
-		helper.Debugln("Allow", c.UserId, "access", bucketName, "with", action, objectName)
-		return c, nil
+		return true, nil
 	} else if policyResult == policy.PolicyDeny {
-		helper.Debugln("ErrAccessDenied: NotAllow", c.UserId, "access", bucketName, "with", action, objectName)
-		return c, ErrAccessDenied
+		return false, ErrAccessDenied
 	} else {
-		return c, nil
+		return false, nil
 	}
 
 }

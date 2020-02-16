@@ -25,7 +25,7 @@ func (m *Meta) GetUserBuckets(userId string, willNeed bool) (buckets []string, e
 	}
 	buckets, ok := bs.([]string)
 	if !ok {
-		helper.Debugln("Cast bs failed:", bs)
+		helper.Logger.Info("Cast bs failed:", bs)
 		err = ErrInternalError
 		return
 	}

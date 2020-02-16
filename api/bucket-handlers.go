@@ -36,6 +36,7 @@ import (
 // -------------------------
 // This operation returns bucket location.
 func (api ObjectAPIHandlers) GetBucketLocationHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 
@@ -57,7 +58,7 @@ func (api ObjectAPIHandlers) GetBucketLocationHandler(w http.ResponseWriter, r *
 	}
 
 	if _, err = api.ObjectAPI.GetBucketInfo(bucketName, credential); err != nil {
-		helper.ErrorIf(err, "Unable to fetch bucket info.")
+		logger.Error("Unable to fetch bucket info:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -66,7 +67,7 @@ func (api ObjectAPIHandlers) GetBucketLocationHandler(w http.ResponseWriter, r *
 	encodedSuccessResponse := EncodeResponse(LocationResponse{
 		Location: helper.CONFIG.Region,
 	})
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "GetBucketLocation"
 	WriteSuccessResponse(w, encodedSuccessResponse)
 }
@@ -80,6 +81,7 @@ func (api ObjectAPIHandlers) GetBucketLocationHandler(w http.ResponseWriter, r *
 // uploads in the response.
 //
 func (api ObjectAPIHandlers) ListMultipartUploadsHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 
@@ -108,12 +110,12 @@ func (api ObjectAPIHandlers) ListMultipartUploadsHandler(w http.ResponseWriter, 
 
 	listMultipartsResponse, err := api.ObjectAPI.ListMultipartUploads(credential, bucketName, request)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to list multipart uploads.")
+		logger.Error("Unable to list multipart uploads:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
 	encodedSuccessResponse := EncodeResponse(listMultipartsResponse)
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "ListMultipartUploads"
 	// write success response.
 	WriteSuccessResponse(w, encodedSuccessResponse)
@@ -126,11 +128,17 @@ func (api ObjectAPIHandlers) ListMultipartUploadsHandler(w http.ResponseWriter, 
 // criteria to return a subset of the objects in a bucket.
 //
 func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 
 	var credential common.Credential
 	var err error
+
+	if api.HandledByWebsite(w, r) {
+		return
+	}
+
 	switch signature.GetRequestAuthType(r) {
 	default:
 		// For all unknown auth types return error.
@@ -154,7 +162,7 @@ func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 
 	listObjectsInfo, err := api.ObjectAPI.ListObjects(credential, bucketName, request)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to list objects.")
+		logger.Error("Unable to list objects:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -162,7 +170,7 @@ func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 	response := GenerateListObjectsResponse(bucketName, request, listObjectsInfo)
 	encodedSuccessResponse := EncodeResponse(response)
 
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "ListObjects"
 	// Write success response.
 	WriteSuccessResponse(w, encodedSuccessResponse)
@@ -170,6 +178,7 @@ func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 }
 
 func (api ObjectAPIHandlers) ListVersionedObjectsHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 
@@ -199,7 +208,7 @@ func (api ObjectAPIHandlers) ListVersionedObjectsHandler(w http.ResponseWriter, 
 
 	listObjectsInfo, err := api.ObjectAPI.ListVersionedObjects(credential, bucketName, request)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to list objects.")
+		logger.Error("Unable to list objects:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -207,7 +216,7 @@ func (api ObjectAPIHandlers) ListVersionedObjectsHandler(w http.ResponseWriter, 
 	response := GenerateVersionedListObjectResponse(bucketName, request, listObjectsInfo)
 	encodedSuccessResponse := EncodeResponse(response)
 
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "ListVersionedObjects"
 	// Write success response.
 	WriteSuccessResponse(w, encodedSuccessResponse)
@@ -219,6 +228,7 @@ func (api ObjectAPIHandlers) ListVersionedObjectsHandler(w http.ResponseWriter, 
 // This implementation of the GET operation returns a list of all buckets
 // owned by the authenticated sender of the request.
 func (api ObjectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	// List buckets does not support bucket policies.
 	var credential common.Credential
 	var err error
@@ -228,22 +238,24 @@ func (api ObjectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.R
 	}
 
 	bucketsInfo, err := api.ObjectAPI.ListBuckets(credential)
-	if err == nil {
-		// generate response
-		response := GenerateListBucketsResponse(bucketsInfo, credential)
-		encodedSuccessResponse := EncodeResponse(response)
-		// write response
-		WriteSuccessResponse(w, encodedSuccessResponse)
-		return
+	if err != nil {
+		logger.Error("Unable to list buckets:", err)
+		WriteErrorResponse(w, r, err)
 	}
-	helper.ErrorIf(err, "Unable to list buckets.")
-	//ResponseRecorder
+
+	// generate response
+	response := GenerateListBucketsResponse(bucketsInfo, credential)
+	encodedSuccessResponse := EncodeResponse(response)
+	// write response
+	WriteSuccessResponse(w, encodedSuccessResponse)
+	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "ListBuckets"
-	WriteErrorResponse(w, r, err)
+	return
 }
 
 // DeleteMultipleObjectsHandler - deletes multiple objects.
 func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
@@ -285,7 +297,7 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 
 	// Read incoming body XML bytes.
 	if n, err := io.ReadFull(r.Body, deleteXmlBytes); err != nil || int64(n) != contentLength {
-		helper.ErrorIf(err, "Unable to read HTTP body.")
+		logger.Error("Unable to read HTTP body:", err)
 		WriteErrorResponse(w, r, ErrIncompleteBody)
 		return
 	}
@@ -293,7 +305,7 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	// Unmarshal list of keys to be deleted.
 	deleteObjects := &DeleteObjectsRequest{}
 	if err := xml.Unmarshal(deleteXmlBytes, deleteObjects); err != nil {
-		helper.ErrorIf(err, "Unable to unmarshal delete objects request XML.")
+		logger.Error("Unable to unmarshal delete objects request XML:", err)
 		// FIXME? Amazon returns a 200 with error message XML
 		WriteErrorResponse(w, r, ErrMalformedXML)
 		return
@@ -314,7 +326,7 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 					result.VersionId, "").(string),
 			})
 		} else {
-			helper.ErrorIf(err, "Unable to delete object.")
+			logger.Error("Unable to delete object:", err)
 			apiErrorCode, ok := err.(ApiErrorCode)
 			if ok {
 				deleteErrors = append(deleteErrors, DeleteError{
@@ -336,7 +348,7 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	// Generate response
 	response := GenerateMultiDeleteResponse(deleteObjects.Quiet, deletedObjects, deleteErrors)
 	encodedSuccessResponse := EncodeResponse(response)
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "DeleteMultipleObjects"
 	// Write success response.
 	WriteSuccessResponse(w, encodedSuccessResponse)
@@ -346,7 +358,7 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 // ----------
 // This implementation of the PUT operation creates a new bucket for authenticated request
 func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Request) {
-	helper.Debugln("PutBucketHandler", "enter")
+	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucketName := strings.ToLower(vars["bucket"])
 	if !isValidBucketName(bucketName) {
@@ -361,7 +373,7 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	if len(r.Header.Get("Content-Length")) == 0 {
-		helper.Debugln("Content Length is null!")
+		logger.Info("Content Length is null")
 		WriteErrorResponse(w, r, ErrInvalidHeader)
 		return
 	}
@@ -373,33 +385,26 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	// TODO:the location value in the request body should match the Region in serverConfig.
-	// other values of location are not accepted.
-	// make bucket fails in such cases.
-
-	//	err = isValidLocationConstraint(r.Body)
-	//	if err != nil {
-	//		WriteErrorResponse(w, r, err)
-	//		return
-	//	}
 
 	// Make bucket.
 	err = api.ObjectAPI.MakeBucket(bucketName, acl, credential)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to create bucket "+bucketName)
+		logger.Error("Unable to create bucket", bucketName, "error:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
 	// Make sure to add Location information here only for bucket
 	w.Header().Set("Location", GetLocation(r))
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "PutBucket"
 	WriteSuccessResponse(w, nil)
 }
 
 func (api ObjectAPIHandlers) PutBucketLifeCycleHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
-	helper.Logger.Println(10, "enter PutBucketLCHandler")
+
 	var credential common.Credential
 	var err error
 	if credential, err = signature.IsReqAuthenticated(r); err != nil {
@@ -407,33 +412,34 @@ func (api ObjectAPIHandlers) PutBucketLifeCycleHandler(w http.ResponseWriter, r 
 		return
 	}
 
-	var lc Lc
+	var lc Lifecycle
 	lcBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 4096))
 	if err != nil {
-		helper.ErrorIf(err, "Unable to read lifecycle body")
+		logger.Error("Unable to read lifecycle body:", err)
 		WriteErrorResponse(w, r, ErrInvalidLc)
 		return
 	}
 	err = xml.Unmarshal(lcBuffer, &lc)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to parse lifecycle xml body")
+		logger.Error("Unable to parse lifecycle XML body:", err)
 		WriteErrorResponse(w, r, ErrInternalError)
 		return
 	}
 
-	helper.Debugln("Set LC:", lc)
-	err = api.ObjectAPI.SetBucketLc(bucket, lc, credential)
+	logger.Info("Setting lifecycle:", lc)
+	err = api.ObjectAPI.SetBucketLifecycle(bucket, lc, credential)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to set LC for bucket.")
+		logger.Error(err, "Unable to set lifecycle for bucket:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "PutBucketLifeCycle"
 	WriteSuccessResponse(w, nil)
 }
 
 func (api ObjectAPIHandlers) GetBucketLifeCycleHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 
@@ -454,21 +460,23 @@ func (api ObjectAPIHandlers) GetBucketLifeCycleHandler(w http.ResponseWriter, r 
 		}
 	}
 
-	lc, err := api.ObjectAPI.GetBucketLc(bucketName, credential)
+	lc, err := api.ObjectAPI.GetBucketLifecycle(bucketName, credential)
 	if err != nil {
-		helper.ErrorIf(err, "Failed to get bucket acl policy for bucket", bucketName)
+		logger.Error("Failed to get bucket ACL policy for bucket", bucketName,
+			"error:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
 
 	lcBuffer, err := xmlFormat(lc)
 	if err != nil {
-		helper.ErrorIf(err, "Failed to marshal lc XML for bucket", bucketName)
+		logger.Error("Failed to marshal lifecycle XML for bucket", bucketName,
+			"error:", err)
 		WriteErrorResponse(w, r, ErrInternalError)
 		return
 	}
 
-	setXmlHeader(w, lcBuffer)
+	setXmlHeader(w)
 	//ResponseRecorder
 	w.(*ResponseRecorder).operationName = "GetBucketLifeCycle"
 	WriteSuccessResponse(w, lcBuffer)
@@ -486,18 +494,19 @@ func (api ObjectAPIHandlers) DelBucketLifeCycleHandler(w http.ResponseWriter, r 
 		return
 	}
 
-	err = api.ObjectAPI.DelBucketLc(bucketName, credential)
+	err = api.ObjectAPI.DelBucketLifecycle(bucketName, credential)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "DelBucketLifeCycle"
 	WriteSuccessNoContent(w)
 
 }
 
 func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
@@ -513,20 +522,20 @@ func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.
 	if _, ok := r.Header["X-Amz-Acl"]; ok {
 		acl, err = getAclFromHeader(r.Header)
 		if err != nil {
-			helper.ErrorIf(err, "Unable to read canned acls")
+			logger.Error("Unable to read canned ACLs:", err)
 			WriteErrorResponse(w, r, ErrInvalidAcl)
 			return
 		}
 	} else {
 		aclBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 1024))
 		if err != nil {
-			helper.ErrorIf(err, "Unable to read acls body")
+			logger.Error("Unable to read ACL body:", err)
 			WriteErrorResponse(w, r, ErrInvalidAcl)
 			return
 		}
 		err = xml.Unmarshal(aclBuffer, &policy)
 		if err != nil {
-			helper.ErrorIf(err, "Unable to parse acls xml body")
+			logger.Error("Unable to parse ACLs XML body:", err)
 			WriteErrorResponse(w, r, ErrInternalError)
 			return
 		}
@@ -534,16 +543,17 @@ func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.
 
 	err = api.ObjectAPI.SetBucketAcl(bucket, policy, acl, credential)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to set ACL for bucket.")
+		logger.Error("Unable to set ACL for bucket:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "PutBucketAcl"
 	WriteSuccessResponse(w, nil)
 }
 
 func (api ObjectAPIHandlers) GetBucketAclHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 
@@ -566,25 +576,28 @@ func (api ObjectAPIHandlers) GetBucketAclHandler(w http.ResponseWriter, r *http.
 
 	policy, err := api.ObjectAPI.GetBucketAcl(bucketName, credential)
 	if err != nil {
-		helper.ErrorIf(err, "Failed to get bucket acl policy for bucket", bucketName)
+		logger.Error("Failed to get ACL policy for bucket", bucketName,
+			"error:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
 
 	aclBuffer, err := xmlFormat(policy)
 	if err != nil {
-		helper.ErrorIf(err, "Failed to marshal acl XML for bucket", bucketName)
+		logger.Error("Failed to marshal ACL XML for bucket", bucketName,
+			"error:", err)
 		WriteErrorResponse(w, r, ErrInternalError)
 		return
 	}
 
-	setXmlHeader(w, aclBuffer)
+	setXmlHeader(w)
 	//ResponseRecorder
 	w.(*ResponseRecorder).operationName = "GetBucketAcl"
 	WriteSuccessResponse(w, aclBuffer)
 }
 
 func (api ObjectAPIHandlers) PutBucketCorsHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 
@@ -610,7 +623,7 @@ func (api ObjectAPIHandlers) PutBucketCorsHandler(w http.ResponseWriter, r *http
 
 	corsBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, MAX_CORS_SIZE))
 	if err != nil {
-		helper.ErrorIf(err, "Unable to read CORS body")
+		logger.Error("Unable to read CORS body:", err)
 		WriteErrorResponse(w, r, ErrInternalError)
 		return
 	}
@@ -625,7 +638,7 @@ func (api ObjectAPIHandlers) PutBucketCorsHandler(w http.ResponseWriter, r *http
 		WriteErrorResponse(w, r, err)
 		return
 	}
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "PutBucketCors"
 	WriteSuccessResponse(w, nil)
 }
@@ -646,12 +659,13 @@ func (api ObjectAPIHandlers) DeleteBucketCorsHandler(w http.ResponseWriter, r *h
 		WriteErrorResponse(w, r, err)
 		return
 	}
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "DeleteBucketCors"
 	WriteSuccessNoContent(w)
 }
 
 func (api ObjectAPIHandlers) GetBucketCorsHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 
@@ -670,18 +684,20 @@ func (api ObjectAPIHandlers) GetBucketCorsHandler(w http.ResponseWriter, r *http
 
 	corsBuffer, err := xmlFormat(cors)
 	if err != nil {
-		helper.ErrorIf(err, "Failed to marshal CORS XML for bucket", bucketName)
+		logger.Error("Failed to marshal CORS XML for bucket", bucketName,
+			"error:", err)
 		WriteErrorResponse(w, r, ErrInternalError)
 		return
 	}
 
-	setXmlHeader(w, corsBuffer)
+	setXmlHeader(w)
 	//ResponseRecorder
 	w.(*ResponseRecorder).operationName = "GetBucketCors"
 	WriteSuccessResponse(w, corsBuffer)
 }
 
 func (api ObjectAPIHandlers) GetBucketVersioningHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 
@@ -700,18 +716,20 @@ func (api ObjectAPIHandlers) GetBucketVersioningHandler(w http.ResponseWriter, r
 
 	versioningBuffer, err := xmlFormat(versioning)
 	if err != nil {
-		helper.ErrorIf(err, "Failed to marshal versioning XML for bucket", bucketName)
+		logger.Error(err, "Failed to marshal versioning XML for bucket", bucketName,
+			"error:", err)
 		WriteErrorResponse(w, r, ErrInternalError)
 		return
 	}
 
-	setXmlHeader(w, versioningBuffer)
+	setXmlHeader(w)
 	//ResponseRecorder
 	w.(*ResponseRecorder).operationName = "GetBucketVersioning"
 	WriteSuccessResponse(w, versioningBuffer)
 }
 
 func (api ObjectAPIHandlers) PutBucketVersioningHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
 
@@ -738,7 +756,7 @@ func (api ObjectAPIHandlers) PutBucketVersioningHandler(w http.ResponseWriter, r
 
 	versioningBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 1024))
 	if err != nil {
-		helper.ErrorIf(err, "Unable to read versioning body")
+		logger.Error("Unable to read versioning body:", err)
 		WriteErrorResponse(w, r, ErrInternalError)
 		return
 	}
@@ -753,12 +771,12 @@ func (api ObjectAPIHandlers) PutBucketVersioningHandler(w http.ResponseWriter, r
 		WriteErrorResponse(w, r, err)
 		return
 	}
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "PutBucketVersioning"
 	WriteSuccessResponse(w, nil)
 }
 
-func extractHTTPFormValues(reader *multipart.Reader) (filePartReader io.Reader,
+func extractHTTPFormValues(reader *multipart.Reader) (filePartReader io.ReadCloser,
 	formValues map[string]string, err error) {
 
 	formValues = make(map[string]string)
@@ -812,6 +830,7 @@ func extractHTTPFormValues(reader *multipart.Reader) (filePartReader io.Reader,
 // have permission to access it. Otherwise, the operation might
 // return responses such as 404 Not Found and 403 Forbidden.
 func (api ObjectAPIHandlers) HeadBucketHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
@@ -833,17 +852,18 @@ func (api ObjectAPIHandlers) HeadBucketHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	if _, err = api.ObjectAPI.GetBucketInfo(bucket, credential); err != nil {
-		helper.ErrorIf(err, "Unable to fetch bucket info.")
+		logger.Error("Unable to fetch bucket info:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "HeadBucket"
 	WriteSuccessResponse(w, nil)
 }
 
 // DeleteBucketHandler - Delete bucket
 func (api ObjectAPIHandlers) DeleteBucketHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
 
@@ -855,12 +875,12 @@ func (api ObjectAPIHandlers) DeleteBucketHandler(w http.ResponseWriter, r *http.
 	}
 
 	if err = api.ObjectAPI.DeleteBucket(bucket, credential); err != nil {
-		helper.ErrorIf(err, "Unable to delete a bucket.")
+		logger.Error("Unable to delete a bucket:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
 
-	//ResponseRecorder
+	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "DeleteBucket"
 	// Write success response.
 	WriteSuccessNoContent(w)
