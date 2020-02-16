@@ -286,6 +286,10 @@ func (t *TidbClient) DeleteObject(object *Object, tx Tx) (err error) {
 	return nil
 }
 
+func (t *TidbClient) DeleteVersionedObject(object *Object, tx Tx) error {
+	return nil
+}
+
 //util function
 func getParts(bucketName, objectName string, version uint64, cli *sql.DB) (parts map[int]*Part, err error) {
 	parts = make(map[int]*Part)

@@ -181,6 +181,10 @@ func (c *TiKVClient) DeleteObject(object *Object, tx Tx) error {
 	return txn.Delete(key)
 }
 
+func (c *TiKVClient) DeleteVersionedObject(object *Object, tx Tx) error {
+	return nil
+}
+
 func (c *TiKVClient) UpdateObjectAcl(object *Object) error {
 	return c.PutObjectWithoutMultiPart(object)
 }

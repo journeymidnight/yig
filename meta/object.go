@@ -148,6 +148,41 @@ func (m *Meta) DeleteObject(object *Object) (err error) {
 	return m.Client.UpdateUsage(object.BucketName, -object.Size, tx)
 }
 
+func (m *Meta) DeleteVersionedObject(object *Object) (err error) {
+	tx, err := m.Client.NewTrans()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = m.Client.CommitTrans(tx)
+		}
+		if err != nil {
+			m.Client.AbortTrans(tx)
+		}
+	}()
+
+	err = m.Client.DeleteObject(object, tx)
+	if err != nil {
+		return err
+	}
+
+	err = m.Client.PutObjectToGarbageCollection(object, tx)
+	if err != nil {
+		return err
+	}
+
+	return m.Client.UpdateUsage(object.BucketName, -object.Size, tx)
+}
+
+func (m *Meta) AddDeleteMarker(object *Object) error {
+	return nil
+}
+
+func (m *Meta) DeleteSuspendedObject(object *Object) error {
+	return nil
+}
+
 func (m *Meta) AppendObject(object *Object, isExist bool) error {
 	if !isExist {
 		return m.Client.PutObject(object, nil, true)

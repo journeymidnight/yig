@@ -24,6 +24,7 @@ type Client interface {
 	UpdateAppendObject(object *Object) error
 	RenameObject(object *Object, sourceObject string) (err error)
 	DeleteObject(object *Object, tx Tx) error
+	DeleteVersionedObject(object *Object, tx Tx) error
 	UpdateObjectAcl(object *Object) error
 	UpdateObjectAttrs(object *Object) error
 	//bucket

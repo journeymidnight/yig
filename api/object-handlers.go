@@ -1791,8 +1791,6 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 	}
 	if result.DeleteMarker {
 		w.Header().Set("x-amz-delete-marker", "true")
-	} else {
-		w.Header().Set("x-amz-delete-marker", "false")
 	}
 	if result.VersionId != "" {
 		w.Header().Set("x-amz-version-id", result.VersionId)
