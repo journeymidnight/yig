@@ -4,6 +4,7 @@ import (
 	"io"
 
 	"bytes"
+
 	"github.com/journeymidnight/yig/helper"
 	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
@@ -25,7 +26,6 @@ type DataCache interface {
 }
 
 type enabledDataCache struct {
-
 }
 
 type disabledDataCache struct{}
@@ -47,7 +47,7 @@ func (d *enabledDataCache) WriteFromCache(object *meta.Object, startOffset int64
 		return writeThrough(out)
 	}
 
-	cacheKey := object.BucketName + ":" + object.Name + ":" + object.GetVersionId()
+	cacheKey := object.BucketName + ":" + object.Name + ":" + object.VersionId
 
 	file, err := redis.GetBytes(cacheKey, startOffset, startOffset+length-1)
 	if err == nil && file != nil && int64(len(file)) == length {
@@ -56,7 +56,7 @@ func (d *enabledDataCache) WriteFromCache(object *meta.Object, startOffset int64
 		return err
 	}
 
-	helper.Logger.Info("File cache MISS. key:", cacheKey , "range:", startOffset, startOffset+length-1)
+	helper.Logger.Info("File cache MISS. key:", cacheKey, "range:", startOffset, startOffset+length-1)
 
 	var buffer bytes.Buffer
 	onCacheMiss(&buffer)
@@ -88,7 +88,7 @@ func (d *enabledDataCache) GetAlignedReader(object *meta.Object, startOffset int
 	length += startOffset - alignedOffset
 	startOffset = alignedOffset
 
-	cacheKey := object.BucketName + ":" + object.Name + ":" + object.GetVersionId()
+	cacheKey := object.BucketName + ":" + object.Name + ":" + object.VersionId
 
 	file, err := redis.GetBytes(cacheKey, startOffset, startOffset+length-1)
 	if err == nil && file != nil && int64(len(file)) == length {

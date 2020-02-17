@@ -74,25 +74,27 @@ func (c *TiKVClient) GetLatestVersionedObject(bucketName, objectName string) (ob
 	}
 }
 
-func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage bool) error {
+func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage bool, tx Tx) error {
 	objectKey := genObjectKey(object.BucketName, object.Name, object.VersionId)
-	tx, err := c.NewTrans()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err == nil {
-			err = c.CommitTrans(tx)
-		}
+	if tx == nil {
+		tx, err := c.NewTrans()
 		if err != nil {
-			c.AbortTrans(tx)
+			return err
 		}
-	}()
+		defer func() {
+			if err == nil {
+				err = c.CommitTrans(tx)
+			}
+			if err != nil {
+				c.AbortTrans(tx)
+			}
+		}()
+	}
 
 	txn := tx.(*TikvTx).tx
 	if multipart != nil {
 		object.Parts = multipart.Parts
-		err = c.DeleteMultipart(multipart, tx)
+		err := c.DeleteMultipart(multipart, tx)
 		if err != nil {
 			return err
 		}
@@ -115,7 +117,7 @@ func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage
 }
 
 func (c *TiKVClient) PutVersionedObject(object *Object, multipart *Multipart, updateUsage bool) error {
-	return c.PutObject(object, multipart, updateUsage)
+	return c.PutObject(object, multipart, updateUsage, nil)
 }
 
 func (c *TiKVClient) PutObjectWithoutMultiPart(object *Object) error {
@@ -147,7 +149,7 @@ func (c *TiKVClient) PutObjectWithoutMultiPart(object *Object) error {
 }
 
 func (c *TiKVClient) UpdateObject(object *Object, multipart *Multipart, updateUsage bool) (err error) {
-	return c.PutObject(object, multipart, updateUsage)
+	return c.PutObject(object, multipart, updateUsage, nil)
 }
 
 func (c *TiKVClient) UpdateObjectWithoutMultiPart(object *Object) error {
@@ -212,7 +214,13 @@ func (c *TiKVClient) DeleteObject(object *Object, tx Tx) error {
 }
 
 func (c *TiKVClient) DeleteVersionedObject(object *Object, tx Tx) error {
-	return nil
+	return c.DeleteObject(object, tx)
+}
+
+func (c *TiKVClient) AddDeleteMarker(marker *Object, version string, tx Tx) error {
+	marker.VersionId = version
+	marker.DeleteMarker = true
+	return c.PutObject(marker, nil, false, tx)
 }
 
 func (c *TiKVClient) UpdateObjectAcl(object *Object) error {

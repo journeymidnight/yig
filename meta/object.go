@@ -99,7 +99,7 @@ func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multi
 		if needUpdate {
 			return m.Client.UpdateObject(object, multipart, updateUsage)
 		} else {
-			return m.Client.PutObject(object, multipart, updateUsage)
+			return m.Client.PutObject(object, multipart, updateUsage, nil)
 		}
 
 		return nil
@@ -165,7 +165,7 @@ func (m *Meta) DeleteVersionedObject(object *Object) (err error) {
 		}
 	}()
 
-	err = m.Client.DeleteObject(object, tx)
+	err = m.Client.DeleteVersionedObject(object, tx)
 	if err != nil {
 		return err
 	}
@@ -178,17 +178,48 @@ func (m *Meta) DeleteVersionedObject(object *Object) (err error) {
 	return m.Client.UpdateUsage(object.BucketName, -object.Size, tx)
 }
 
-func (m *Meta) AddDeleteMarker(object *Object) error {
-	return nil
+func (m *Meta) AddDeleteMarker(marker *Object, version string) error {
+	return m.Client.AddDeleteMarker(marker, version, nil)
 }
 
 func (m *Meta) DeleteSuspendedObject(object *Object) error {
-	return nil
+	tx, err := m.Client.NewTrans()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = m.Client.CommitTrans(tx)
+		}
+		if err != nil {
+			m.Client.AbortTrans(tx)
+		}
+	}()
+
+	// only put delete marker if null version does not exist
+	if !object.DeleteMarker {
+		err = m.Client.DeleteObject(object, tx)
+		if err != nil {
+			return err
+		}
+
+		err = m.Client.PutObjectToGarbageCollection(object, tx)
+		if err != nil {
+			return err
+		}
+
+		err = m.Client.UpdateUsage(object.BucketName, -object.Size, tx)
+		if err != nil {
+			return err
+		}
+	}
+
+	return m.Client.AddDeleteMarker(object, NullVersion, tx)
 }
 
 func (m *Meta) AppendObject(object *Object, isExist bool) error {
 	if !isExist {
-		return m.Client.PutObject(object, nil, true)
+		return m.Client.PutObject(object, nil, true, nil)
 	} else {
 		return m.Client.UpdateAppendObject(object)
 	}

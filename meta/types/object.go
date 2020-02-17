@@ -4,11 +4,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 
 	"github.com/journeymidnight/yig/api/datatype"
-	"github.com/xxtea/xxtea-go/xxtea"
 )
 
 const NullVersion = "null"
@@ -84,16 +82,8 @@ func (o *Object) String() (s string) {
 	return s
 }
 
-func (o *Object) GetVersionId() string {
-	if o.NullVersion {
-		return "null"
-	}
-	if o.VersionId != "" {
-		return o.VersionId
-	}
-	timeData := []byte(strconv.FormatUint(uint64(o.LastModifiedTime.UnixNano()), 10))
-	o.VersionId = hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
-	return o.VersionId
+func (o *Object) GenVersionId() string {
+	return hex.EncodeToString(EncodeTime(uint64(o.LastModifiedTime.UnixNano())))
 }
 
 //Tidb related function

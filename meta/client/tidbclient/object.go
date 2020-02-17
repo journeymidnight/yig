@@ -89,6 +89,14 @@ func (t *TidbClient) GetLatestVersionedObject(bucketName, objectName string) (ob
 	return
 }
 
+func (t *TidbClient) AddDeleteMarker(object *Object, version string, tx Tx) error {
+	return nil
+}
+
+func (t *TidbClient) DeleteSuspendedObject(object *Object, tx Tx) error {
+	return nil
+}
+
 func (t *TidbClient) UpdateObjectAttrs(object *Object) error {
 	sql, args := object.GetUpdateAttrsSql()
 	_, err := t.Client.Exec(sql, args...)
@@ -169,28 +177,31 @@ func (t *TidbClient) UpdateObjectWithoutMultiPart(object *Object) error {
 	return err
 }
 
-func (t *TidbClient) PutObject(object *Object, multipart *Multipart, updateUsage bool) (err error) {
-	tx, err := t.Client.Begin()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err == nil {
-			err = tx.Commit()
-		}
+func (t *TidbClient) PutObject(object *Object, multipart *Multipart, updateUsage bool, tx Tx) (err error) {
+	if tx == nil {
+		tx, err := t.Client.Begin()
 		if err != nil {
-			tx.Rollback()
+			return err
 		}
-	}()
+		defer func() {
+			if err == nil {
+				err = tx.Commit()
+			}
+			if err != nil {
+				tx.Rollback()
+			}
+		}()
+	}
+	txn := tx.(*sql.Tx)
 
 	sql, args := object.GetCreateSql()
-	_, err = tx.Exec(sql, args...)
+	_, err = txn.Exec(sql, args...)
 	if object.Parts != nil {
 		v := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
 		version := strconv.FormatUint(v, 10)
 		for _, p := range object.Parts {
 			psql, args := p.GetCreateSql(object.BucketName, object.Name, version)
-			_, err = tx.Exec(psql, args...)
+			_, err = txn.Exec(psql, args...)
 			if err != nil {
 				return err
 			}

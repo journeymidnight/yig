@@ -615,7 +615,7 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 		StorageClass:         storageClass,
 	}
 	if bucket.Versioning == meta.VersionEnabled {
-		object.VersionId = hex.EncodeToString(meta.EncodeTime(uint64(object.LastModifiedTime.UnixNano())))
+		object.VersionId = object.GenVersionId()
 	} else {
 		object.VersionId = meta.NullVersion
 	}
@@ -627,7 +627,7 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 		return
 	} else {
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
-		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
+		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.VersionId)
 		if reqCtx.ObjectInfo != nil && reqCtx.BucketInfo.Versioning != meta.VersionEnabled {
 			go yig.removeOldObject(reqCtx.ObjectInfo)
 		}
@@ -656,7 +656,7 @@ func (yig *YigStorage) PutObjectMeta(bucket *meta.Bucket, targetObject *meta.Obj
 	}
 
 	yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
-	yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
+	yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.VersionId)
 
 	return nil
 }
@@ -683,7 +683,6 @@ func (yig *YigStorage) RenameObject(reqCtx RequestContext, targetObject *meta.Ob
 
 	result.LastModified = targetObject.LastModifiedTime
 	yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
-	yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
 
 	return result, nil
 }
@@ -848,7 +847,7 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 		return
 	} else {
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
-		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
+		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.VersionId)
 		if reqCtx.ObjectInfo != nil && reqCtx.BucketInfo.Versioning == meta.VersionDisabled {
 			go yig.removeOldObject(reqCtx.ObjectInfo)
 		}
@@ -917,9 +916,6 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 	if bucket == nil {
 		return result, ErrNoSuchBucket
 	}
-	if object == nil {
-		return result, nil
-	}
 
 	bucketName, objectName, version := reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId
 	switch bucket.ACL.CannedAcl {
@@ -933,6 +929,9 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 
 	switch bucket.Versioning {
 	case meta.VersionDisabled:
+		if object == nil {
+			return result, nil
+		}
 		if version != "" && version != meta.NullVersion {
 			return result, ErrNoSuchVersion
 		}
@@ -941,25 +940,40 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 			return
 		}
 	case meta.VersionEnabled:
+		if object == nil {
+			return result, nil
+		}
 		if version != "" {
 			err = yig.MetaStorage.DeleteVersionedObject(object)
 			if err != nil {
 				return
 			}
 		} else {
-			err = yig.MetaStorage.AddDeleteMarker(object)
+			err = yig.MetaStorage.AddDeleteMarker(object, object.GenVersionId())
 			if err != nil {
 				return
 			}
 		}
 	case meta.VersionSuspended:
 		if version != "" {
+			if object == nil {
+				return result, nil
+			}
 			err = yig.MetaStorage.DeleteVersionedObject(object)
 			if err != nil {
 				return
 			}
 		} else {
-			//TODO: compress
+			// remove null version object(if exists) and add a delete marker
+			if object == nil {
+				object = new(meta.Object)
+				object.BucketName = bucketName
+				object.Name = objectName
+				object.DeleteMarker = true
+				object.VersionId = meta.NullVersion
+				object.LastModifiedTime = time.Now().UTC()
+			}
+
 			err = yig.MetaStorage.DeleteSuspendedObject(object)
 			if err != nil {
 				return
@@ -1094,7 +1108,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 		CustomAttributes:     metadata,
 		Type:                 meta.ObjectTypeAppendable,
 		StorageClass:         storageClass,
-		VersionId:            "null",
+		VersionId:            meta.NullVersion,
 	}
 
 	result.LastModified = object.LastModifiedTime
@@ -1108,7 +1122,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 
 	if err == nil {
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
-		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
+		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.VersionId)
 	}
 	return result, nil
 }

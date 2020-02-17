@@ -16,7 +16,7 @@ type Client interface {
 	//object
 	GetObject(bucketName, objectName, version string) (object *Object, err error)
 	GetLatestVersionedObject(bucketName, objectName string) (object *Object, err error)
-	PutObject(object *Object, multipart *Multipart, updateUsage bool) error
+	PutObject(object *Object, multipart *Multipart, updateUsage bool, tx Tx) error
 	PutObjectWithoutMultiPart(object *Object) error
 	UpdateObject(object *Object, multipart *Multipart, updateUsage bool) (err error)
 	UpdateObjectWithoutMultiPart(object *Object) error
@@ -27,6 +27,8 @@ type Client interface {
 	DeleteVersionedObject(object *Object, tx Tx) error
 	UpdateObjectAcl(object *Object) error
 	UpdateObjectAttrs(object *Object) error
+	AddDeleteMarker(marker *Object, version string, tx Tx) error
+
 	//bucket
 	GetBucket(bucketName string) (bucket *Bucket, err error)
 	GetBuckets() (buckets []Bucket, err error)
