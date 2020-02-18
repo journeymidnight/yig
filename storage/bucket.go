@@ -422,6 +422,16 @@ func (yig *YigStorage) DeleteBucketWebsite(bucket *meta.Bucket) error {
 	return nil
 }
 
+func (yig *YigStorage) SetBucketEncryption(bucket *meta.Bucket, config datatype.EncryptionConfiguration) (err error) {
+	bucket.Encryption = config
+	err = yig.MetaStorage.Client.PutBucket(*bucket)
+	if err != nil {
+		return err
+	}
+	yig.MetaStorage.Cache.Remove(redis.BucketTable, bucket.Name)
+	return nil
+}
+
 func (yig *YigStorage) ListBuckets(credential common.Credential) (buckets []meta.Bucket, err error) {
 	bucketNames, err := yig.MetaStorage.GetUserBuckets(credential.UserId, true)
 	if err != nil {

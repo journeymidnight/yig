@@ -167,6 +167,10 @@ const (
 	ErrInvalidIndexDocumentSuffix
 	ErrInvalidErrorDocumentKey
 	ErrMalformedMetadataConfiguration
+	ErrMalformedEncryptionConfiguration
+	ErrMissingRuleInEncryption
+	ErrMissingEncryptionByDefaultInEncryptionRule
+	ErrMissingSSEAlgorithmOrKMSMasterKeyIDInEncryptionRule
 )
 
 // error code to APIError structure, these fields carry respective
@@ -771,6 +775,26 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrMalformedMetadataConfiguration: {
 		AwsErrorCode:   "InvalidMetaConfiguration",
 		Description:    "Parsing meta XML data failed",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMalformedEncryptionConfiguration: {
+		AwsErrorCode:   "MalformedEncryptionConfiguration",
+		Description:    "Cannot Marshal/Unmarshal XML of encryption configuration.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMissingRuleInEncryption: {
+		AwsErrorCode:   "MissingRoutingRuleInEncryptionRules",
+		Description:    "There must be at least one of Rule element.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMissingEncryptionByDefaultInEncryptionRule: {
+		AwsErrorCode:   "MissingRedirectInWebsiteRoutingRule",
+		Description:    "In a Rule container, there must be have ApplyServerSideEncryptionByDefault.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMissingSSEAlgorithmOrKMSMasterKeyIDInEncryptionRule: {
+		AwsErrorCode:   "MissingSSEAlgorithmOrKMSMasterKeyIDInEncryptionRule",
+		Description:    "In a Rule container, there must be have SSEAlgorithm or KMSMasterKeyID.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 }
