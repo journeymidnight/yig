@@ -1,8 +1,6 @@
 package datatype
-import "encoding/xml"
 
 type BucketLoggingStatus struct {
-	XMLName xml.Name        `xml:"BucketLoggingStatus"`
 	LoggingEnabled    BucketLoggingRule `xml:"LoggingEnabled"`
 }
 

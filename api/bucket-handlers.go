@@ -415,25 +415,25 @@ func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *h
 	var bl BucketLoggingStatus
 	blBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 4096))
 	if err != nil {
-		logger.Error("Unable to read lifecycle body:", err)
+		logger.Error("Unable to read bucket logging body:", err)
 		WriteErrorResponse(w, r, ErrInvalidBl)
 		return
 	}
 	err = xml.Unmarshal(blBuffer, &bl)
 	if err != nil {
-		logger.Error("Unable to parse lifecycle XML body:", err)
+		logger.Error("Unable to parse bucket logging XML body:", err)
 		WriteErrorResponse(w, r, ErrInternalError)
 		return
 	}
 	logger.Info("Setting bucket logging:", bl)
 	err = api.ObjectAPI.SetBucketLogging(bucket, bl, credential)
 	if err != nil {
-		logger.Error(err, "Unable to set lifecycle for bucket:", err)
+		logger.Error(err, "Unable to set bucket logging for bucket:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
 	// ResponseRecorder
-	w.(*ResponseRecorder).operationName = "PutBucketLifeCycle"
+	w.(*ResponseRecorder).operationName = "PutBucketLogging"
 	WriteSuccessResponse(w, nil)
 }
 
@@ -469,7 +469,7 @@ func (api ObjectAPIHandlers) GetBucketLoggingHandler(w http.ResponseWriter, r *h
 
 	blBuffer, err := xmlFormat(bl)
 	if err != nil {
-		logger.Error("Failed to marshal bucketLogging XML for bucket", bucketName,
+		logger.Error("Failed to marshal bucket logging XML for bucket", bucketName,
 			"error:", err)
 		WriteErrorResponse(w, r, ErrInternalError)
 		return
