@@ -60,6 +60,99 @@ func (api ObjectAPIHandlers) PutBucketEncryption(w http.ResponseWriter, r *http.
 		WriteErrorResponse(w, r, err)
 		return
 	}
+
+	// ResponseRecorder
+	w.(*ResponseRecorder).operationName = "PutBucketEncryption"
 	WriteSuccessResponse(w, nil)
 
+}
+
+func (api ObjectAPIHandlers) GetBucketEncryption(w http.ResponseWriter, r *http.Request) {
+	ctx := getRequestContext(r)
+	logger := ctx.Logger
+
+	var credential common.Credential
+	var err error
+	switch ctx.AuthType {
+	default:
+		// For all unknown auth types return error.
+		WriteErrorResponse(w, r, ErrAccessDenied)
+		return
+	case signature.AuthTypeAnonymous:
+		break
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
+		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
+		if credential, err = signature.IsReqAuthenticated(r); err != nil {
+			WriteErrorResponse(w, r, err)
+			return
+		}
+	}
+
+	if ctx.BucketInfo == nil {
+		WriteErrorResponse(w, r, ErrNoSuchBucket)
+		return
+	}
+	if credential.UserId != ctx.BucketInfo.OwnerId {
+		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
+		return
+	}
+
+	bucketEncryption, err := api.ObjectAPI.GetBucketEncryption(ctx.BucketName)
+	if err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+
+	encodedSuccessResponse, err := xmlFormat(bucketEncryption)
+	if err != nil {
+		logger.Error("Failed to marshal Encryption XML for bucket", ctx.BucketName,
+			"error:", err)
+		WriteErrorResponse(w, r, ErrInternalError)
+		return
+	}
+
+	setXmlHeader(w)
+	//ResponseRecorder
+	w.(*ResponseRecorder).operationName = "GetBucketEncryption"
+	// Write to client.
+	WriteSuccessResponse(w, encodedSuccessResponse)
+}
+
+func (api ObjectAPIHandlers) DeleteBucketEncryption(w http.ResponseWriter, r *http.Request) {
+	ctx := getRequestContext(r)
+
+	var credential common.Credential
+	var err error
+	switch ctx.AuthType {
+	default:
+		// For all unknown auth types return error.
+		WriteErrorResponse(w, r, ErrAccessDenied)
+		return
+	case signature.AuthTypeAnonymous:
+		break
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
+		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
+		if credential, err = signature.IsReqAuthenticated(r); err != nil {
+			WriteErrorResponse(w, r, err)
+			return
+		}
+	}
+
+	if ctx.BucketInfo == nil {
+		WriteErrorResponse(w, r, ErrNoSuchBucket)
+		return
+	}
+	if credential.UserId != ctx.BucketInfo.OwnerId {
+		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
+		return
+	}
+
+	if err := api.ObjectAPI.DeleteBucketEncryption(ctx.BucketInfo); err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+	// ResponseRecorder
+	w.(*ResponseRecorder).operationName = "DeleteBucketEncryption"
+	// Success.
+	WriteSuccessNoContent(w)
 }

@@ -9,6 +9,31 @@ import (
 	"io/ioutil"
 )
 
+func (s3client *S3Client) PutBucketEncryptionWithXml(bucketName string, config *s3.ServerSideEncryptionConfiguration) (err error) {
+	params := &s3.PutBucketEncryptionInput{
+		Bucket:                            aws.String(bucketName),
+		ServerSideEncryptionConfiguration: config,
+	}
+	_, err = s3client.Client.PutBucketEncryption(params)
+	return err
+}
+
+func (s3client *S3Client) GetBucketEncryption(bucketName string) (ret string, err error) {
+	params := &s3.GetBucketEncryptionInput{
+		Bucket:                            aws.String(bucketName),
+	}
+	out,err := s3client.Client.GetBucketEncryption(params)
+	return out.String(), err
+}
+
+func (s3client *S3Client) DeleteBucketEncryption(bucketName string) (ret string, err error) {
+	params := &s3.DeleteBucketEncryptionInput{
+		Bucket:                            aws.String(bucketName),
+	}
+	out,err := s3client.Client.DeleteBucketEncryption(params)
+	return out.String(), err
+}
+
 func (s3client *S3Client) PutEncryptObjectWithSSEC(bucketName, key, value string) (err error) {
 	ssekey := "qwertyuiopasdfghjklzxcvbnmaaaaaa"
 	hash := md5.New()

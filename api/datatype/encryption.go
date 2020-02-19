@@ -9,11 +9,14 @@ import (
 	"io/ioutil"
 )
 
-const MaxBucketEncryptionConfigurationSize = 20 * humanize.KiByte
+const (
+	MaxBucketEncryptionRulesCount        = 100
+	MaxBucketEncryptionConfigurationSize = 20 * humanize.KiByte
+)
 
 type EncryptionConfiguration struct {
 	XMLName xml.Name `xml:"ServerSideEncryptionConfiguration"`
-	Rule    *Rule    `xml:"Rule,omitempty"`
+	Rules   []*Rule  `xml:"Rule,omitempty"`
 }
 
 type Rule struct {
@@ -29,15 +32,23 @@ type ApplyServerSideEncryptionByDefault struct {
 
 //Reference:https://docs.aws.amazon.com/AmazonS3/latest/API/API_PutBucketEncryption.html
 func (e *EncryptionConfiguration) Validate() (error error) {
-	if e.Rule != nil {
-		if e.Rule.ApplyServerSideEncryptionByDefault == nil {
-			return ErrMissingEncryptionByDefaultInEncryptionRule
+	if e.Rules != nil {
+		if len(e.Rules) == 0 {
+			return ErrMissingRuleInEncryption
 		}
-		sseAlgorithm := e.Rule.ApplyServerSideEncryptionByDefault.SSEAlgorithm
-		masterKeyID := e.Rule.ApplyServerSideEncryptionByDefault.KMSMasterKeyID
-		if sseAlgorithm == "" {
-			if masterKeyID == "" {
-				return ErrMissingSSEAlgorithmOrKMSMasterKeyIDInEncryptionRule
+		if len(e.Rules) > MaxBucketEncryptionRulesCount {
+			return ErrExceededEncryptionRulesLimit
+		}
+		for _, r := range e.Rules {
+			if r.ApplyServerSideEncryptionByDefault == nil {
+				return ErrMissingEncryptionByDefaultInEncryptionRule
+			}
+			sseAlgorithm := r.ApplyServerSideEncryptionByDefault.SSEAlgorithm
+			masterKeyID := r.ApplyServerSideEncryptionByDefault.KMSMasterKeyID
+			if sseAlgorithm == "" {
+				if masterKeyID == "" {
+					return ErrMissingSSEAlgorithmOrKMSMasterKeyIDInEncryptionRule
+				}
 			}
 		}
 	} else {

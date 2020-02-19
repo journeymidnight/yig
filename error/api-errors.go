@@ -169,6 +169,7 @@ const (
 	ErrMalformedMetadataConfiguration
 	ErrMalformedEncryptionConfiguration
 	ErrMissingRuleInEncryption
+	ErrExceededEncryptionRulesLimit
 	ErrMissingEncryptionByDefaultInEncryptionRule
 	ErrMissingSSEAlgorithmOrKMSMasterKeyIDInEncryptionRule
 )
@@ -783,7 +784,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrMissingRuleInEncryption: {
-		AwsErrorCode:   "MissingRoutingRuleInEncryptionRules",
+		AwsErrorCode:   "MissingRuleInEncryptionRules",
 		Description:    "There must be at least one of Rule element.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
@@ -795,6 +796,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrMissingSSEAlgorithmOrKMSMasterKeyIDInEncryptionRule: {
 		AwsErrorCode:   "MissingSSEAlgorithmOrKMSMasterKeyIDInEncryptionRule",
 		Description:    "In a Rule container, there must be have SSEAlgorithm or KMSMasterKeyID.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrExceededEncryptionRulesLimit: {
+		AwsErrorCode:   "ExceededEncryptionRulesLimit",
+		Description:    "The quantity of the routing rules in the website configuration is exceeded.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 }
