@@ -3,7 +3,6 @@ package tidbclient
 import (
 	"database/sql"
 	"encoding/json"
-	"strconv"
 	"strings"
 	"time"
 
@@ -153,23 +152,23 @@ func (t *TidbClient) CheckAndPutBucket(bucket *Bucket) (bool, error) {
 	return processed, err
 }
 
-func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimiter string, versioned bool, maxKeys int) (retObjects []*Object, prefixes []string, truncated bool, nextMarker, nextVerIdMarker string, err error) {
+func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimiter string, versioned bool, maxKeys int, withDeleteMarker bool) (retObjects []*Object, prefixes []string, truncated bool, nextMarker, nextVerIdMarker string, err error) {
 	const MaxObjectList = 10000
-	if versioned {
-		return
-	}
 	var count int
 	var exit bool
 	objectMap := make(map[string]struct{})
 	objectNum := make(map[string]int)
 	commonPrefixes := make(map[string]struct{})
 	omarker := marker
+
+	helper.Logger.Printf(20, bucketName, marker, verIdMarker, prefix, delimiter, versioned, maxKeys, withDeleteMarker)
+
 	for {
 		var loopcount int
 		var sqltext string
 		var rows *sql.Rows
 		args := make([]interface{}, 0)
-		sqltext = "select bucketname,name,version from objects where bucketName=?"
+		sqltext = "select bucketname,name,version,deletemarker from objects where bucketName=?"
 		args = append(args, bucketName)
 		if prefix != "" {
 			sqltext += " and name like ?"
@@ -205,11 +204,13 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 			loopcount += 1
 			//fetch related date
 			var bucketname, name string
-			var version uint64
+			var version uint64 // Internal version, the same as in DB.
+			var deletemarker bool
 			err = rows.Scan(
 				&bucketname,
 				&name,
 				&version,
+				&deletemarker,
 			)
 			if err != nil {
 				return
@@ -222,15 +223,18 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 			objectNum[name] += 1
 			marker = name
 
-			if _, ok := objectMap[name]; !ok {
-				objectMap[name] = struct{}{}
-			} else {
-				continue
+			//filte by objectname
+			if !versioned {
+				if _, ok := objectMap[name]; !ok {
+					objectMap[name] = struct{}{}
+				} else {
+					continue
+				}
 			}
 			//filte by deletemarker
-			/*if deletemarker {
+			if deletemarker && !withDeleteMarker {
 				continue
-			}*/
+			}
 			if name == omarker {
 				continue
 			}
@@ -258,10 +262,9 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 				}
 			}
 			var o *Object
-			Strver := strconv.FormatUint(version, 10)
-			o, err = t.GetObject(bucketname, name, Strver)
+			o, err = t.GetObject(bucketname, name, ConvertRawVersionToS3Version(version))
 			if err != nil {
-				helper.Logger.Printf(2, "ListObjects: failed to GetObject(%s, %s, %s), err: %v", bucketname, name, Strver, err)
+				helper.Logger.Printf(2, "ListObjects: failed to GetObject(%s, %s, %s), err: %v", bucketname, name, err)
 				return
 			}
 			count += 1

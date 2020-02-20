@@ -51,17 +51,13 @@ func (m *Meta) GetAllObject(bucketName string, objectName string) (object []*Obj
 	return m.Client.GetAllObject(bucketName, objectName, "")
 }
 
-func (m *Meta) GetObjectMap(bucketName, objectName string) (objMap *ObjMap, err error) {
-	m.Client.GetObjectMap(bucketName, objectName)
-	return
-}
-
 func (m *Meta) GetObjectVersion(ctx context.Context, bucketName, objectName, version string, willNeed bool) (object *Object, err error) {
 	getObjectVersion := func() (o helper.Serializable, err error) {
 		object, err := m.Client.GetObject(bucketName, objectName, version)
 		if err != nil {
 			return
 		}
+		helper.Debugln("[", helper.RequestIdFromContext(ctx), "]", "GetObjectVersion object.Name:", object.Name, version, object.VersionId)
 		if object.Name != objectName {
 			err = ErrNoSuchKey
 			return
@@ -87,7 +83,7 @@ func (m *Meta) GetObjectVersion(ctx context.Context, bucketName, objectName, ver
 	return object, nil
 }
 
-func (m *Meta) PutObject(ctx context.Context, object *Object, multipart *Multipart, objMap *ObjMap, updateUsage bool) error {
+func (m *Meta) PutObject(ctx context.Context, object *Object, multipart *Multipart, updateUsage bool) error {
 	tstart := time.Now()
 	tx, err := m.Client.NewTrans()
 	defer func() {
@@ -99,13 +95,6 @@ func (m *Meta) PutObject(ctx context.Context, object *Object, multipart *Multipa
 	err = m.Client.PutObject(object, tx)
 	if err != nil {
 		return err
-	}
-
-	if objMap != nil {
-		err = m.Client.PutObjectMap(objMap, tx)
-		if err != nil {
-			return err
-		}
 	}
 
 	if multipart != nil {
@@ -154,14 +143,12 @@ func (m *Meta) UpdateObjectAttrs(object *Object) error {
 	return err
 }
 
-func (m *Meta) PutObjMapEntry(objMap *ObjMap) error {
-	err := m.Client.PutObjectMap(objMap, nil)
-	return err
-}
-
-func (m *Meta) DeleteObject(ctx context.Context, object *Object, DeleteMarker bool, objMap *ObjMap) error {
+func (m *Meta) DeleteObject(ctx context.Context, object *Object, DeleteMarker bool) error {
 	tx, err := m.Client.NewTrans()
 	defer func() {
+		if err == nil {
+			err = m.Client.CommitTrans(tx)
+		}
 		if err != nil {
 			m.Client.AbortTrans(tx)
 		}
@@ -170,13 +157,6 @@ func (m *Meta) DeleteObject(ctx context.Context, object *Object, DeleteMarker bo
 	err = m.Client.DeleteObject(object, tx)
 	if err != nil {
 		return err
-	}
-
-	if objMap != nil {
-		err = m.Client.DeleteObjectMap(objMap, tx)
-		if err != nil {
-			return err
-		}
 	}
 
 	if DeleteMarker {
@@ -189,19 +169,15 @@ func (m *Meta) DeleteObject(ctx context.Context, object *Object, DeleteMarker bo
 	}
 
 	err = m.UpdateUsage(ctx, object.BucketName, -object.Size)
-	if err != nil {
-		return err
-	}
-	err = m.Client.CommitTrans(tx)
 
 	return err
 }
 
-func (m *Meta) AppendObject(object *Object, isExist bool) error {
+func (m *Meta) AppendObject(object *Object, isExist bool, versionId string) error {
 	if !isExist {
 		return m.Client.PutObject(object, nil)
 	}
-	return m.Client.UpdateAppendObject(object)
+	return m.Client.UpdateAppendObject(object, versionId)
 }
 
 //func (m *Meta) DeleteObjectEntry(object *Object) error {

@@ -18,9 +18,7 @@ import (
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/iam/common"
-	obj "github.com/journeymidnight/yig/meta"
 	meta "github.com/journeymidnight/yig/meta/types"
-	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/signature"
 )
 
@@ -611,28 +609,16 @@ func (yig *YigStorage) CompleteMultipartUpload(ctx context.Context, credential c
 		StorageClass:     multipart.Metadata.StorageClass,
 	}
 
-	var nullVerNum uint64
-	nullVerNum, err = yig.checkOldObject(ctx, bucketName, objectName, bucket.Versioning)
-	if err != nil {
+	if err = yig.checkOldObject(ctx, bucketName, objectName, bucket.Versioning); err != nil {
 		return
 	}
+
+	if err = yig.MetaStorage.PutObject(ctx, object, &multipart, false); err != nil {
+		return
+	}
+
 	if bucket.Versioning == "Enabled" {
-		result.VersionId = object.GetVersionId()
-	}
-	// update null version number
-	if bucket.Versioning == "Suspended" {
-		nullVerNum = uint64(object.LastModifiedTime.UnixNano())
-	}
-
-	objMap := &meta.ObjMap{
-		Name:       objectName,
-		BucketName: bucketName,
-	}
-
-	if nullVerNum != 0 {
-		err = yig.MetaStorage.PutObject(ctx, object, &multipart, objMap, false)
-	} else {
-		err = yig.MetaStorage.PutObject(ctx, object, &multipart, nil, false)
+		result.VersionId = object.VersionId
 	}
 
 	//// Remove from multiparts table
@@ -648,10 +634,7 @@ func (yig *YigStorage) CompleteMultipartUpload(ctx context.Context, credential c
 	result.SseCustomerAlgorithm = sseRequest.SseCustomerAlgorithm
 	result.SseCustomerKeyMd5Base64 = base64.StdEncoding.EncodeToString(sseRequest.SseCustomerKey)
 
-	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.ObjectTable, obj.OBJECT_CACHE_PREFIX, bucketName+":"+objectName+":")
-		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
-	}
+	yig.removeCache(bucketName, objectName, "")
 
 	return
 }

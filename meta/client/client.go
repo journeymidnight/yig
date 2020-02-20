@@ -17,7 +17,7 @@ type Client interface {
 	GetObject(bucketName, objectName, version string) (object *Object, err error)
 	GetAllObject(bucketName, objectName, version string) (object []*Object, err error)
 	PutObject(object *Object, tx interface{}) error
-	UpdateAppendObject(object *Object) error
+	UpdateAppendObject(object *Object, versionId string) error
 	UpdateObjectAttrs(object *Object) error
 	DeleteObject(object *Object, tx interface{}) error
 	UpdateObjectAcl(object *Object) error
@@ -27,7 +27,7 @@ type Client interface {
 	PutBucket(bucket *Bucket) error
 	CheckAndPutBucket(bucket *Bucket) (bool, error)
 	DeleteBucket(bucket *Bucket) error
-	ListObjects(bucketName, marker, verIdMarker, prefix, delimiter string, versioned bool, maxKeys int) (retObjects []*Object, prefixes []string, truncated bool, nextMarker, nextVerIdMarker string, err error)
+	ListObjects(bucketName, marker, verIdMarker, prefix, delimiter string, versioned bool, maxKeys int, withDeleteMarker bool) (retObjects []*Object, prefixes []string, truncated bool, nextMarker, nextVerIdMarker string, err error)
 	UpdateUsage(bucketName string, size int64, tx interface{}) error
 	UpdateUsages(usages map[string]int64, tx interface{}) error
 
@@ -37,10 +37,6 @@ type Client interface {
 	PutObjectPart(multipart *Multipart, part *Part, tx interface{}) (err error)
 	DeleteMultipart(multipart *Multipart, tx interface{}) (err error)
 	ListMultipartUploads(bucketName, keyMarker, uploadIdMarker, prefix, delimiter, encodingType string, maxUploads int) (uploads []datatype.Upload, prefixs []string, isTruncated bool, nextKeyMarker, nextUploadIdMarker string, err error)
-	//objmap
-	GetObjectMap(bucketName, objectName string) (objMap *ObjMap, err error)
-	PutObjectMap(objMap *ObjMap, tx interface{}) error
-	DeleteObjectMap(objMap *ObjMap, tx interface{}) error
 	//cluster
 	GetCluster(fsid, pool string) (cluster Cluster, err error)
 	//lc
