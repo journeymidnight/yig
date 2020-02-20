@@ -19,8 +19,7 @@ import (
 	"time"
 )
 
-func New(metaCacheType int, enableDataCache bool) *YigStorage {
-	kms := crypto.NewKMS()
+func New(metaCacheType int, enableDataCache bool, kms crypto.KMS) *YigStorage {
 	yig := YigStorage{
 		DataStorage: make(map[string]backend.Cluster),
 		DataCache:   newDataCache(enableDataCache),

@@ -54,15 +54,28 @@ upload_max_chunk_size = 8388608 #8MB
 # Ceph Config
 ceph_config_pattern = "/etc/ceph/*.conf"
 
-[kms]
-type = "vault"
+# Plugin Config
+[plugins.encryption_vault]
+path = "/etc/yig/plugins/vault_plugin.so"
+enable = true
+[plugins.encryption_vault.args]
 endpoint = "http://10.5.0.19:8200"
 kms_id = "your_id"
 kms_secret = "your_secret"
 version = 0
-keyname = "yig"
+keyName = "yig"
 
-# Plugin Config
+[plugins.encryption_kms]
+path = "/etc/yig/plugins/kms_plugin.so"
+enable = false
+[plugins.encryption_kms.args]
+url = "https://10.0.47.24:8011"
+keyName = "yig"
+accessKey = "UYqO9JUqFFejWmO2"
+secretAccessKey = "0TsGg4snfyWMcn7KrfyeYKPZnLEm63"
+debug_mode = true
+token = "20cd173e-9d5a-431f-a26d-cdb1ad168c84"
+
 [plugins.dummy_mq]
 path = "/etc/yig/plugins/dummy_mq_plugin.so"
 enable = true
