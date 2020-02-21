@@ -147,12 +147,6 @@ func NewVaultConfig(config map[string]interface{}) (VaultConfig, error) {
 		},
 	}
 
-	// return if none of the vault env variables are configured
-	if (vault.Endpoint == "") && (vault.Auth.AppRole.ID == "") && (vault.Auth.AppRole.Secret == "") &&
-		(vault.Key.Name == "") && (vault.Key.Version == 0) {
-		return vault, nil
-	}
-
 	if err := validateVaultConfig(&vault); err != nil {
 		return vault, err
 	}
