@@ -138,6 +138,7 @@ CREATE TABLE `multiparts` (
   `acl` JSON DEFAULT NULL,
   `sserequest` JSON DEFAULT NULL,
   `encryption` blob DEFAULT NULL,
+  `cipher` blob DEFAULT NULL,
   `attrs` JSON DEFAULT NULL,
   `storageclass` tinyint(1) DEFAULT 0,
   UNIQUE KEY `rowkey` (`bucketname`,`objectname`,`uploadtime`)

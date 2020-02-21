@@ -539,9 +539,100 @@ func Test_MultipartUploadWithSSES3(t *testing.T) {
 		}
 	}
 
-	v, err := sc.GetEncryptObjectWithSSES3(TEST_BUCKET, TEST_KEY)
+	_, err = sc.GetEncryptObjectWithSSES3(TEST_BUCKET, TEST_KEY)
 	if err != nil {
 		t.Fatal("GetEncryptObjectWithSSES3 err:", err)
 	}
-	t.Log("GetEncryptObjectWithSSES3 Success value:", v)
+	t.Log("GetEncryptObjectWithSSES3 Success value:")
+}
+
+func Test_CopyObjectPartWithSSES3(t *testing.T) {
+	svc := NewS3()
+	err := svc.MakeBucket(TEST_BUCKET)
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+		panic(err)
+	}
+	err = svc.MakeBucket(TEST_COPY_BUCKET)
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+		panic(err)
+	}
+
+	//upload
+	uploadId, err := svc.CreateMultiPartUploadWithSSES3(TEST_BUCKET, TEST_KEY, s3.ObjectStorageClassStandard)
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+		panic(err)
+	}
+	partCount := 3
+	completedUpload := &s3.CompletedMultipartUpload{
+		Parts: make([]*s3.CompletedPart, partCount),
+	}
+	for i := 0; i < partCount; i++ {
+		partNumber := int64(i + 1)
+		etag, err := svc.UploadPart(TEST_BUCKET, TEST_KEY, GenMinimalPart(), uploadId, partNumber)
+		if err != nil {
+			t.Fatal("UploadPart err:", err)
+			panic(err)
+		}
+		completedUpload.Parts[i] = &s3.CompletedPart{
+			ETag:       aws.String(etag),
+			PartNumber: aws.Int64(partNumber),
+		}
+	}
+	err = svc.CompleteMultiPartUpload(TEST_BUCKET, TEST_KEY, uploadId, completedUpload)
+	if err != nil {
+		t.Fatal("CompleteMultiPartUpload err:", err)
+		err = svc.AbortMultiPartUpload(TEST_BUCKET, TEST_KEY, uploadId)
+		if err != nil {
+			t.Fatal("AbortMultiPartUpload err:", err)
+		}
+	}
+
+	//Copy
+	input := &s3.CopyObjectInput{
+		Bucket:     aws.String(TEST_COPY_BUCKET),
+		CopySource: aws.String(TEST_BUCKET + "/" + TEST_KEY),
+		Key:        aws.String(TEST_KEY),
+	}
+	_, err = svc.Client.CopyObject(input)
+	if err != nil {
+		t.Fatal("Copy Object err:", err)
+	}
+	t.Log("CopyObject Success!")
+
+
+	//verify them
+	v1, err := svc.GetEncryptObjectWithSSES3(TEST_BUCKET, TEST_KEY)
+	if err != nil {
+		t.Fatal("Get Object err:", err)
+	}
+	v2, err := svc.GetEncryptObjectWithSSES3(TEST_COPY_BUCKET, TEST_KEY)
+	if err != nil {
+		t.Fatal("Get Object err:", err)
+	}
+	if v1 != v2 {
+		t.Fatal("Copyed result is not the same.")
+	}
+
+	//clean up
+	err = svc.DeleteObject(TEST_BUCKET, TEST_KEY)
+	if err != nil {
+		t.Log("DeleteObject err:", err)
+	}
+	err = svc.DeleteObject(TEST_COPY_BUCKET, TEST_KEY)
+	if err != nil {
+		t.Log("DeleteObject err:", err)
+	}
+	err = svc.DeleteBucket(TEST_BUCKET)
+	if err != nil {
+		t.Fatal("DeleteBucket err:", err)
+		panic(err)
+	}
+	err = svc.DeleteBucket(TEST_COPY_BUCKET)
+	if err != nil {
+		t.Fatal("DeleteBucket err:", err)
+		panic(err)
+	}
 }
