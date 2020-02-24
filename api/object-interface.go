@@ -101,4 +101,9 @@ type ObjectLayer interface {
 	AbortMultipartUpload(credential common.Credential, bucket, object, uploadID string) error
 	CompleteMultipartUpload(credential common.Credential, bucket, object, uploadID string,
 		uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult, err error)
+
+	// Freezer operations.
+	GetFreezer(bucketName string, objectName string, version string) (freezer *meta.Freezer, err error)
+	GetFreezerStatus(bucketName string, objectName string, version string) (freezer *meta.Freezer, err error)
+	CreateFreezer(freezer *meta.Freezer) (err error)
 }

@@ -23,6 +23,7 @@ meta_cache_type = 2
 meta_store = "tidb"
 tidb_info = "root:@tcp(10.5.0.17:4000)/yig"
 keepalive = true
+enable_compression = false
 enable_usage_push = false
 redis_address = "redis:6379"
 redis_password = "hehehehe"

@@ -145,6 +145,7 @@ const (
 	// Add new extended error codes here.
 	ContentNotModified // actually not an error
 	ErrInvalidHeader   // supplementary error for golang http lib
+	ErrInvalidStatus
 	ErrNoSuchBucketCors
 	ErrPolicyMissingFields
 	ErrInvalidAcl
@@ -167,6 +168,9 @@ const (
 	ErrInvalidIndexDocumentSuffix
 	ErrInvalidErrorDocumentKey
 	ErrMalformedMetadataConfiguration
+	ErrInvalidRestoreInfo
+	ErrCreateRestoreObject
+	ErrInvalidGlacierObject
 )
 
 // error code to APIError structure, these fields carry respective
@@ -180,6 +184,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidCopySource: {
 		AwsErrorCode:   "InvalidArgument",
 		Description:    "Copy Source must mention the source bucket and key: sourcebucket/sourcekey.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidRestoreInfo: {
+		AwsErrorCode:   "InvalidRestoreInfo",
+		Description:    "Defrost parameter setting error.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidCopySourceStorageClass: {
@@ -265,6 +274,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidVersioning: {
 		AwsErrorCode:   "IllegalVersioningConfigurationException",
 		Description:    "The versioning configuration specified in the request is invalid.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidGlacierObject: {
+		AwsErrorCode:   "InvalidGlacierObject",
+		Description:    "Glacier objects need to be thawed before this operation can be performed.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrAccessDenied: {
@@ -639,7 +653,12 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		HttpStatusCode: http.StatusNotModified,
 	},
 	ErrInvalidHeader: {
-		AwsErrorCode:   "InvalidRequest",
+		AwsErrorCode:   "InvalidStatus",
+		Description:    "The status you specified in header is invalid.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidStatus: {
+		AwsErrorCode:   "InvalidStatus",
 		Description:    "This request is illegal because some header is malformed.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
@@ -772,6 +791,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "InvalidMetaConfiguration",
 		Description:    "Parsing meta XML data failed",
 		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrCreateRestoreObject: {
+		AwsErrorCode:   "CreateRestoreObjectError",
+		Description:    "Create object thaw operation failed",
+		HttpStatusCode: http.StatusInternalServerError,
 	},
 }
 

@@ -105,7 +105,7 @@ func (yig *YigStorage) NewMultipartUpload(credential common.Credential, bucketNa
 		contentType = "application/octet-stream"
 	}
 
-	cephCluster, pool := yig.pickClusterAndPool(bucketName, objectName, -1, false)
+	cephCluster, pool := yig.pickClusterAndPool(bucketName, objectName, storageClass, -1, false)
 	multipartMetadata := meta.MultipartMetadata{
 		InitiatorId:  credential.UserId,
 		OwnerId:      bucket.OwnerId,
