@@ -694,9 +694,9 @@ func (api ObjectAPIHandlers) GetBucketCorsHandler(w http.ResponseWriter, r *http
 }
 
 func (api ObjectAPIHandlers) GetBucketVersioningHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
+	bucketName := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
@@ -705,7 +705,7 @@ func (api ObjectAPIHandlers) GetBucketVersioningHandler(w http.ResponseWriter, r
 		return
 	}
 
-	versioning, err := api.ObjectAPI.GetBucketVersioning(bucketName, credential)
+	versioning, err := api.ObjectAPI.GetBucketVersioning(reqCtx, credential)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -726,9 +726,8 @@ func (api ObjectAPIHandlers) GetBucketVersioningHandler(w http.ResponseWriter, r
 }
 
 func (api ObjectAPIHandlers) PutBucketVersioningHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 
 	var credential common.Credential
 	var err error
@@ -763,7 +762,7 @@ func (api ObjectAPIHandlers) PutBucketVersioningHandler(w http.ResponseWriter, r
 		WriteErrorResponse(w, r, err)
 		return
 	}
-	err = api.ObjectAPI.SetBucketVersioning(bucketName, versioning, credential)
+	err = api.ObjectAPI.SetBucketVersioning(reqCtx, versioning, credential)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return

@@ -212,33 +212,36 @@ func (yig *YigStorage) GetBucketCors(bucketName string,
 	return bucket.CORS, nil
 }
 
-func (yig *YigStorage) SetBucketVersioning(bucketName string, versioning datatype.Versioning,
+func (yig *YigStorage) SetBucketVersioning(reqCtx RequestContext, versioning datatype.Versioning,
 	credential common.Credential) error {
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, false)
-	if err != nil {
-		return err
+	bucket := reqCtx.BucketInfo
+	if bucket == nil {
+		return ErrNoSuchBucket
 	}
 	if bucket.OwnerId != credential.UserId {
 		return ErrBucketAccessForbidden
 	}
 	bucket.Versioning = versioning.Status
-	err = yig.MetaStorage.Client.PutBucket(*bucket)
+	err := yig.MetaStorage.Client.PutBucket(*bucket)
 	if err != nil {
 		return err
 	}
 	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
+		yig.MetaStorage.Cache.Remove(redis.BucketTable, reqCtx.BucketName)
 	}
 	return nil
 }
 
-func (yig *YigStorage) GetBucketVersioning(bucketName string, credential common.Credential) (
+func (yig *YigStorage) GetBucketVersioning(reqCtx RequestContext, credential common.Credential) (
 	versioning datatype.Versioning, err error) {
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, false)
-	if err != nil {
-		return versioning, err
+	bucket := reqCtx.BucketInfo
+	if bucket == nil {
+		return versioning, ErrNoSuchBucket
+	}
+	if bucket.OwnerId != credential.UserId {
+		return versioning, ErrBucketAccessForbidden
 	}
 	versioning.Status = helper.Ternary(bucket.Versioning == meta.VersionDisabled,
 		"", bucket.Versioning).(string)

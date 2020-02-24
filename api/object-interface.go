@@ -38,9 +38,9 @@ type ObjectLayer interface {
 		credential common.Credential) error
 	GetBucketAcl(bucket string, credential common.Credential) (datatype.AccessControlPolicyResponse, error)
 	SetBucketCors(bucket string, cors datatype.Cors, credential common.Credential) error
-	SetBucketVersioning(bucket string, versioning datatype.Versioning, credential common.Credential) error
+	SetBucketVersioning(reqCtx RequestContext, versioning datatype.Versioning, credential common.Credential) error
 	DeleteBucketCors(bucket string, credential common.Credential) error
-	GetBucketVersioning(bucket string, credential common.Credential) (datatype.Versioning, error)
+	GetBucketVersioning(reqCtx RequestContext, credential common.Credential) (datatype.Versioning, error)
 	GetBucketCors(bucket string, credential common.Credential) (datatype.Cors, error)
 	GetBucket(bucketName string) (bucket *meta.Bucket, err error) // For INTERNAL USE ONLY
 	GetBucketInfo(bucket string, credential common.Credential) (bucketInfo *meta.Bucket, err error)
