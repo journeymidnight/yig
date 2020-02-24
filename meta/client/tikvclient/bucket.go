@@ -11,6 +11,7 @@ import (
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
 	"github.com/tikv/client-go/key"
+	"github.com/tikv/client-go/txnkv/kv"
 )
 
 func genBucketKey(bucketName string) []byte {
@@ -152,12 +153,353 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 	return
 }
 
-func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (listInfo ListObjectsInfo, err error) {
+func (c *TiKVClient) FindNextObject(it kv.Iterator, marker, prefix, delimiter string,
+	commonPrefixes map[string]interface{}) (o Object, isPrefix bool, err error) {
+	for it.Valid() {
+		k, v := string(it.Key()[:]), it.Value()
+		// extract object key
+		objKey := strings.Split(k, TableSeparator)[1]
+		if objKey == marker {
+			it.Next(context.TODO())
+			continue
+		}
+		if !strings.HasPrefix(objKey, prefix) {
+			it.Next(context.TODO())
+			continue
+		}
+
+		if delimiter != "" {
+			subKey := strings.TrimPrefix(objKey, prefix)
+			sp := strings.SplitN(subKey, delimiter, 2)
+			if len(sp) == 2 {
+				prefixKey := prefix + sp[0] + delimiter
+				if _, ok := commonPrefixes[prefixKey]; !ok && prefixKey != marker {
+					o.Name = prefixKey
+					return o, true, nil
+				}
+				it.Next(context.TODO())
+				continue
+			}
+		}
+
+		err = helper.MsgPackUnMarshal(v, &o)
+		if err != nil {
+			return o, false, err
+		}
+		return o, false, nil
+	}
+	return o, false, nil
+}
+
+func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (info ListObjectsInfo, err error) {
+	startKey := genObjectKey(bucketName, marker, NullVersion)
+	endKey := genObjectKey(bucketName, TableMaxKeySuffix, NullVersion)
+
+	startVerKey := genObjectKey(bucketName, marker, TableMinKeySuffix)
+	endVerKey := genObjectKey(bucketName, TableMaxKeySuffix, TableMaxKeySuffix)
+
+	txNull, err := c.TxnCli.Begin(context.TODO())
+	if err != nil {
+		return info, err
+	}
+	itNull, err := txNull.Iter(context.TODO(), key.Key(startKey), key.Key(endKey))
+	if err != nil {
+		return info, err
+	}
+	defer itNull.Close()
+
+	txVer, err := c.TxnCli.Begin(context.TODO())
+	if err != nil {
+		return info, err
+	}
+	itVer, err := txVer.Iter(context.TODO(), key.Key(startVerKey), key.Key(endVerKey))
+	if err != nil {
+		return info, err
+	}
+	defer itVer.Close()
+
+	commonPrefixes := make(map[string]interface{})
+	count := 0
+
+	var nNext, vNext = true, true
+	var verMarker = marker
+	var currentNullObj, currentVerObj Object
+	var isNullPrefix, isVerPrefix bool
+	for {
+		var o *Object
+		if nNext {
+			currentNullObj, isNullPrefix, err = c.FindNextObject(itNull, marker, prefix, delimiter, commonPrefixes)
+			if err != nil {
+				return info, err
+			}
+			itNull.Next(context.TODO())
+		}
+		if vNext {
+			currentVerObj, isVerPrefix, err = c.FindNextObject(itVer, verMarker, prefix, delimiter, commonPrefixes)
+			if err != nil {
+				return info, err
+			}
+			itVer.Next(context.TODO())
+			verMarker = currentVerObj.Name
+		}
+
+		// Pick latest obj
+		if currentVerObj.Name == "" && currentNullObj.Name == "" {
+			return
+		} else if currentVerObj.Name == "" {
+			o = &currentNullObj
+			nNext = false
+		} else if currentNullObj.Name == "" {
+			o = &currentVerObj
+			vNext = false
+		} else {
+			// The result will be 0 if a==b, -1 if a < b, and +1 if a > b.
+			r := strings.Compare(currentVerObj.Name, currentNullObj.Name)
+			if r < 0 {
+				o = &currentVerObj
+				vNext = false
+			} else if r > 0 {
+				o = &currentNullObj
+				vNext = false
+			} else {
+				if isNullPrefix && isVerPrefix {
+					o = &currentNullObj
+					vNext, nNext = true, true
+				}
+				if currentNullObj.LastModifiedTime.After(currentVerObj.LastModifiedTime) {
+					o = &currentNullObj
+					nNext = false
+				} else {
+					o = &currentVerObj
+					vNext = false
+				}
+			}
+		}
+
+		// is prefix
+		if strings.HasSuffix(o.Name, delimiter) {
+			prefixKey := o.Name
+			if _, ok := commonPrefixes[prefixKey]; !ok && prefixKey != marker {
+				count++
+				if count == maxKeys {
+					info.NextMarker = prefixKey
+				}
+				if count > maxKeys {
+					info.IsTruncated = true
+					break
+				}
+				commonPrefixes[prefixKey] = nil
+			}
+			continue
+		}
+
+		if o.DeleteMarker {
+			continue
+		}
+
+		var info_o datatype.Object
+		info_o.Key = o.Name
+		info_o.Owner = datatype.Owner{ID: o.OwnerId}
+		info_o.ETag = o.Etag
+		info_o.LastModified = o.LastModifiedTime.UTC().Format(CREATE_TIME_LAYOUT)
+		info_o.Size = uint64(o.Size)
+		info_o.StorageClass = o.StorageClass.ToString()
+		count++
+		if count == maxKeys {
+			info.NextMarker = o.Name
+		}
+		if count > maxKeys {
+			info.IsTruncated = true
+			break
+		}
+		info.Objects = append(info.Objects, info_o)
+	}
+	info.Prefixes = helper.Keys(commonPrefixes)
 	return
+}
+
+func (c *TiKVClient) FindNextVersionedObject(itVer kv.Iterator, marker, verIdMarker, prefix, delimiter string,
+	commonPrefixes map[string]interface{}) (o Object, isPrefix bool, err error) {
+	for itVer.Valid() {
+		k, v := string(itVer.Key()[:]), itVer.Value()
+		// extract object key
+		sp := strings.Split(k, TableSeparator)
+		if len(sp) != 3 {
+			err = ErrInvalidObjectName
+			return
+		}
+		objKey := sp[1]
+		verId := sp[2]
+
+		if objKey == marker && verId == verIdMarker {
+			itVer.Next(context.TODO())
+			continue
+		}
+		if !strings.HasPrefix(objKey, prefix) {
+			itVer.Next(context.TODO())
+			continue
+		}
+
+		if delimiter != "" {
+			subKey := strings.TrimPrefix(objKey, prefix)
+			sp := strings.SplitN(subKey, delimiter, 2)
+			if len(sp) == 2 {
+				prefixKey := prefix + sp[0] + delimiter
+				if _, ok := commonPrefixes[prefixKey]; !ok && prefixKey != marker {
+					o.Name = prefixKey
+					return o, true, nil
+				}
+				itVer.Next(context.TODO())
+				continue
+			}
+		}
+
+		err = helper.MsgPackUnMarshal(v, &o)
+		if err != nil {
+			return o, false, err
+		}
+		return o, false, nil
+	}
+	return o, false, nil
 }
 
 func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefix, delimiter string,
 	maxKeys int) (info VersionedListObjectsInfo, err error) {
+	startKey := genObjectKey(bucketName, marker, NullVersion)
+	endKey := genObjectKey(bucketName, TableMaxKeySuffix, NullVersion)
+
+	txNull, err := c.TxnCli.Begin(context.TODO())
+	if err != nil {
+		return info, err
+	}
+	itNull, err := txNull.Iter(context.TODO(), key.Key(startKey), key.Key(endKey))
+	if err != nil {
+		return info, err
+	}
+	defer itNull.Close()
+
+	if marker != "" && verIdMarker == NullVersion {
+		o, err := c.GetObject(bucketName, marker, NullVersion)
+		if err != nil {
+			if err == ErrNoSuchKey {
+				return info, nil
+			}
+			return info, err
+		}
+		verIdMarker = o.GenVersionId()
+	}
+
+	startVerKey := genObjectKey(bucketName, marker, verIdMarker)
+	endVerKey := genObjectKey(bucketName, TableMaxKeySuffix, TableMaxKeySuffix)
+
+	txVer, err := c.TxnCli.Begin(context.TODO())
+	if err != nil {
+		return info, err
+	}
+	itVer, err := txVer.Iter(context.TODO(), key.Key(startVerKey), key.Key(endVerKey))
+	if err != nil {
+		return info, err
+	}
+	defer itVer.Close()
+
+	var nNext, vNext = true, true
+	var currentNullObj, currentVerObj Object
+	var isNullPrefix, isVerPrefix bool
+	commonPrefixes := make(map[string]interface{})
+	count := 0
+
+	for {
+		var o *Object
+		if nNext {
+			currentNullObj, isNullPrefix, err = c.FindNextObject(itNull, marker, prefix, delimiter, commonPrefixes)
+			if err != nil {
+				return info, err
+			}
+			itNull.Next(context.TODO())
+		}
+		if vNext {
+			currentVerObj, isVerPrefix, err = c.FindNextVersionedObject(itVer, marker, verIdMarker, prefix, delimiter, commonPrefixes)
+			if err != nil {
+				return info, err
+			}
+			itVer.Next(context.TODO())
+		}
+
+		// Pick obj
+		if currentVerObj.Name == "" && currentNullObj.Name == "" {
+			return
+		} else if currentVerObj.Name == "" {
+			o = &currentNullObj
+			nNext = false
+		} else if currentNullObj.Name == "" {
+			o = &currentVerObj
+			vNext = false
+		} else {
+			// The result will be 0 if a==b, -1 if a < b, and +1 if a > b.
+			r := strings.Compare(currentVerObj.Name, currentNullObj.Name)
+			if r < 0 {
+				o = &currentVerObj
+				vNext = false
+			} else if r > 0 {
+				o = &currentNullObj
+				vNext = false
+			} else {
+				if isNullPrefix && isVerPrefix {
+					o = &currentNullObj
+					vNext, nNext = true, true
+				}
+				if currentNullObj.LastModifiedTime.After(currentVerObj.LastModifiedTime) {
+					o = &currentNullObj
+					nNext = false
+				} else {
+					o = &currentVerObj
+					vNext = false
+				}
+			}
+		}
+
+		// is prefix
+		if strings.HasSuffix(o.Name, delimiter) {
+			prefixKey := o.Name
+			if _, ok := commonPrefixes[prefixKey]; !ok && prefixKey != marker {
+				count++
+				if count == maxKeys {
+					info.NextKeyMarker = prefixKey
+				}
+				if count > maxKeys {
+					info.IsTruncated = true
+					break
+				}
+				commonPrefixes[prefixKey] = nil
+			}
+			continue
+		}
+
+		if o.DeleteMarker {
+			continue
+		}
+
+		var info_o datatype.VersionedObject
+		info_o.Key = o.Name
+		info_o.Owner = datatype.Owner{ID: o.OwnerId}
+		info_o.ETag = o.Etag
+		info_o.LastModified = o.LastModifiedTime.UTC().Format(CREATE_TIME_LAYOUT)
+		info_o.Size = o.Size
+		info_o.StorageClass = o.StorageClass.ToString()
+		info_o.VersionId = o.VersionId
+		info_o.DeleteMarker = o.DeleteMarker
+		count++
+		if count == maxKeys {
+			info.NextKeyMarker = o.Name
+			info.NextVersionIdMarker = o.VersionId
+		}
+		if count > maxKeys {
+			info.IsTruncated = true
+			break
+		}
+		info.Objects = append(info.Objects, info_o)
+	}
+	info.Prefixes = helper.Keys(commonPrefixes)
 	return
 }
 
