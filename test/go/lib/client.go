@@ -19,7 +19,7 @@ const (
 	Region           = "RegionHeHe"
 
 	TEST_BUCKET         = "mybucket"
-	TEST_COPY_BUCKET	= "mycopyBucket"
+	TEST_COPY_BUCKET	= "mycopybucket"
 	TEST_KEY            = "testput"
 	TEST_KEY_SPECIAL    = "testputspecial:!@$%^&*()_+=-;?><| "
 	TEST_VALUE          = "valueput"

@@ -210,11 +210,11 @@ func HTTPRequest(url, token string, date []byte) (int, []byte, error) {
 	if err != nil {
 		return res.StatusCode, nil, err
 	}
+	defer res.Body.Close()
 	data, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return 400, nil, err
 	}
-	defer res.Body.Close()
 
 	return res.StatusCode, data, nil
 }

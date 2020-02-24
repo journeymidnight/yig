@@ -22,10 +22,6 @@ func (api ObjectAPIHandlers) PutBucketEncryption(w http.ResponseWriter, r *http.
 		return
 	case signature.AuthTypeAnonymous:
 		break
-	case signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		// Not V4
-		WriteErrorResponse(w, r, ErrAccessDenied)
-		return
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
 			WriteErrorResponse(w, r, err)
