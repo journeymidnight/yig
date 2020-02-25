@@ -20,7 +20,6 @@ import (
 	"encoding/base64"
 	"encoding/xml"
 	"errors"
-	"github.com/journeymidnight/yig/api/datatype"
 	"io"
 	"net/http"
 	"regexp"
@@ -135,22 +134,4 @@ func setXmlHeader(w http.ResponseWriter) {
 // contains server-side-encryption.
 func hasServerSideEncryptionHeader(header http.Header) bool {
 	return crypto.S3.IsRequested(header) || crypto.SSEC.IsRequested(header)
-}
-
-func checkBucketEncryption(bucketName string, objectAPI ObjectLayer) (*datatype.ApplyServerSideEncryptionByDefault, bool) {
-	bucketEncryption, err := objectAPI.GetBucketEncryption(bucketName)
-	if err != nil {
-		return nil, false
-	}
-	if len(bucketEncryption.Rules) == 0 {
-		return nil, false
-	}
-	configuration := bucketEncryption.Rules[0].ApplyServerSideEncryptionByDefault
-	if configuration.SSEAlgorithm == crypto.SSEAlgorithmAES256 {
-		return configuration, true
-	}
-	//if bucketEncryption.Rules[0].ApplyServerSideEncryptionByDefault.SSEAlgorithm == crypto.SSEAlgorithmKMS {
-	//	return configuration, nil
-	//}
-	return nil, false
 }

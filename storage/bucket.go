@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"github.com/journeymidnight/yig/crypto"
 	"net/url"
 	"strings"
 	"time"
@@ -448,6 +449,28 @@ func (yig *YigStorage) DeleteBucketEncryption(bucket *meta.Bucket) error {
 	}
 	yig.MetaStorage.Cache.Remove(redis.BucketTable, bucket.Name)
 	return nil
+}
+
+func (yig *YigStorage) CheckBucketEncryption(bucketName string) (*datatype.ApplyServerSideEncryptionByDefault, bool) {
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
+	if err != nil {
+		return nil, false
+	}
+	bucketEncryption := bucket.Encryption
+	if err != nil {
+		return nil, false
+	}
+	if len(bucketEncryption.Rules) == 0 {
+		return nil, false
+	}
+	configuration := bucketEncryption.Rules[0].ApplyServerSideEncryptionByDefault
+	if configuration.SSEAlgorithm == crypto.SSEAlgorithmAES256 {
+		return configuration, true
+	}
+	//if bucketEncryption.Rules[0].ApplyServerSideEncryptionByDefault.SSEAlgorithm == crypto.SSEAlgorithmKMS {
+	//	return configuration, nil
+	//}
+	return nil, false
 }
 
 func (yig *YigStorage) ListBuckets(credential common.Credential) (buckets []meta.Bucket, err error) {

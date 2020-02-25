@@ -481,7 +481,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 	if sseRequest.Type == "" {
-		if configuration, ok := checkBucketEncryption(targetBucketName, api.ObjectAPI); ok {
+		if configuration, ok := api.ObjectAPI.CheckBucketEncryption(targetBucketName); ok {
 			if configuration.SSEAlgorithm == crypto.SSEAlgorithmAES256 {
 				sseRequest.Type = crypto.S3.String()
 			}
@@ -807,7 +807,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 			WriteErrorResponse(w, r, err)
 			return
 		}
-	} else if configuration, ok := checkBucketEncryption(bucketName, api.ObjectAPI); ok {
+	} else if configuration, ok := api.ObjectAPI.CheckBucketEncryption(bucketName); ok {
 		if configuration.SSEAlgorithm == crypto.SSEAlgorithmAES256 {
 			sseRequest.Type = crypto.S3.String()
 		}
@@ -1262,7 +1262,7 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 			WriteErrorResponse(w, r, err)
 			return
 		}
-	} else if configuration, ok := checkBucketEncryption(bucketName, api.ObjectAPI); ok {
+	} else if configuration, ok := api.ObjectAPI.CheckBucketEncryption(bucketName); ok {
 		if configuration.SSEAlgorithm == crypto.SSEAlgorithmAES256 {
 			sseRequest.Type = crypto.S3.String()
 		}
@@ -1929,7 +1929,7 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 	if sseRequest.Type == "" {
-		if configuration, ok := checkBucketEncryption(bucketName, api.ObjectAPI); ok {
+		if configuration, ok := api.ObjectAPI.CheckBucketEncryption(bucketName); ok {
 			if configuration.SSEAlgorithm == crypto.SSEAlgorithmAES256 {
 				sseRequest.Type = crypto.S3.String()
 			}

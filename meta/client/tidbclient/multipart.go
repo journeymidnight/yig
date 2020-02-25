@@ -30,7 +30,7 @@ func (t *TidbClient) GetMultipart(bucketName, objectName, uploadId string) (mult
 	}
 	uploadTime = math.MaxUint64 - uploadTime
 	sqltext := "select bucketname,objectname,uploadtime,initiatorid,ownerid,contenttype,location,pool,acl,sserequest," +
-		"encryption,cipher,attrs,storageclass from multiparts where bucketname=? and objectname=? and uploadtime=?;"
+		"encryption,COALESCE(cipher,\"\"),attrs,storageclass from multiparts where bucketname=? and objectname=? and uploadtime=?;"
 	var initialTime uint64
 	var acl, sseRequest, attrs string
 	err = t.Client.QueryRow(sqltext, bucketName, objectName, uploadTime).Scan(
