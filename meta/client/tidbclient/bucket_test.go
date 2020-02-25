@@ -14,7 +14,7 @@ import (
 
 var bucketColumns = []string{
 	"bucketname", "acl", "cors", "lc",
-	"uid", "policy", "website",
+	"uid", "policy", "website", "encryption",
 	"createtime", "usages", "versioning",
 }
 

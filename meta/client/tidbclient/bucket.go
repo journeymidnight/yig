@@ -14,8 +14,8 @@ import (
 )
 
 func (t *TidbClient) GetBucket(bucketName string) (bucket *Bucket, err error) {
-	var acl, cors, lc, policy, website, createTime string
-	sqltext := "select bucketname,acl,cors,lc,uid,policy,website,createtime,usages,versioning from buckets where bucketname=?;"
+	var acl, cors, lc, policy, website, encryption, createTime string
+	sqltext := "select bucketname,acl,cors,lc,uid,policy,website,COALESCE(encryption,\"\"),createtime,usages,versioning from buckets where bucketname=?;"
 	bucket = new(Bucket)
 	err = t.Client.QueryRow(sqltext, bucketName).Scan(
 		&bucket.Name,
@@ -25,6 +25,7 @@ func (t *TidbClient) GetBucket(bucketName string) (bucket *Bucket, err error) {
 		&bucket.OwnerId,
 		&policy,
 		&website,
+		&encryption,
 		&createTime,
 		&bucket.Usage,
 		&bucket.Versioning,
@@ -59,11 +60,15 @@ func (t *TidbClient) GetBucket(bucketName string) (bucket *Bucket, err error) {
 	if err != nil {
 		return
 	}
+	err = json.Unmarshal([]byte(encryption), &bucket.Encryption)
+	if err != nil {
+		return
+	}
 	return
 }
 
 func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
-	sqltext := "select bucketname,acl,cors,lc,uid,policy,website,createtime,usages,versioning from buckets;"
+	sqltext := "select bucketname,acl,cors,lc,uid,policy,website,COALESCE(encryption,\"\"),createtime,usages,versioning from buckets;"
 	rows, err := t.Client.Query(sqltext)
 	if err == sql.ErrNoRows {
 		err = nil
@@ -75,7 +80,7 @@ func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
 
 	for rows.Next() {
 		var tmp Bucket
-		var acl, cors, lc, policy, website, createTime string
+		var acl, cors, lc, policy, website,encryption, createTime string
 		err = rows.Scan(
 			&tmp.Name,
 			&acl,
@@ -84,6 +89,7 @@ func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
 			&tmp.OwnerId,
 			&policy,
 			&website,
+			&encryption,
 			&createTime,
 			&tmp.Usage,
 			&tmp.Versioning)
@@ -111,6 +117,10 @@ func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
 			return
 		}
 		err = json.Unmarshal([]byte(website), &tmp.Website)
+		if err != nil {
+			return
+		}
+		err = json.Unmarshal([]byte(encryption), &tmp.Encryption)
 		if err != nil {
 			return
 		}

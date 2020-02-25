@@ -30,7 +30,7 @@ func (t *TidbClient) GetMultipart(bucketName, objectName, uploadId string) (mult
 	}
 	uploadTime = math.MaxUint64 - uploadTime
 	sqltext := "select bucketname,objectname,uploadtime,initiatorid,ownerid,contenttype,location,pool,acl,sserequest," +
-		"encryption,attrs,storageclass from multiparts where bucketname=? and objectname=? and uploadtime=?;"
+		"encryption,COALESCE(cipher,\"\"),attrs,storageclass from multiparts where bucketname=? and objectname=? and uploadtime=?;"
 	var initialTime uint64
 	var acl, sseRequest, attrs string
 	err = t.Client.QueryRow(sqltext, bucketName, objectName, uploadTime).Scan(
@@ -45,6 +45,7 @@ func (t *TidbClient) GetMultipart(bucketName, objectName, uploadId string) (mult
 		&acl,
 		&sseRequest,
 		&multipart.Metadata.EncryptionKey,
+		&multipart.Metadata.CipherKey,
 		&attrs,
 		&multipart.Metadata.StorageClass,
 	)
@@ -107,9 +108,9 @@ func (t *TidbClient) CreateMultipart(multipart Multipart) (err error) {
 	acl, _ := json.Marshal(m.Acl)
 	sseRequest, _ := json.Marshal(m.SseRequest)
 	attrs, _ := json.Marshal(m.Attrs)
-	sqltext := "insert into multiparts(bucketname,objectname,uploadtime,initiatorid,ownerid,contenttype,location,pool,acl,sserequest,encryption,attrs,storageclass) " +
-		"values(?,?,?,?,?,?,?,?,?,?,?,?,?)"
-	_, err = t.Client.Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime, m.InitiatorId, m.OwnerId, m.ContentType, m.Location, m.Pool, acl, sseRequest, m.EncryptionKey, attrs, m.StorageClass)
+	sqltext := "insert into multiparts(bucketname,objectname,uploadtime,initiatorid,ownerid,contenttype,location,pool,acl,sserequest,encryption,cipher,attrs,storageclass) " +
+		"values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+	_, err = t.Client.Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime, m.InitiatorId, m.OwnerId, m.ContentType, m.Location, m.Pool, acl, sseRequest, m.EncryptionKey,m.CipherKey, attrs, m.StorageClass)
 	return
 }
 
