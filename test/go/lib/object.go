@@ -29,6 +29,15 @@ func (s3client *S3Client) PutObject(bucketName, key, value string) (err error) {
 	return
 }
 
+func (s3client *S3Client) PutObjectOutput(bucketName, key, value string) (out *s3.PutObjectOutput, err error) {
+	params := &s3.PutObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(key),
+		Body:   bytes.NewReader([]byte(value)),
+	}
+	return s3client.Client.PutObject(params)
+}
+
 func (s3client *S3Client) PutObjectPreSignedWithSpecifiedBody(bucketName, key, value string, expire time.Duration) (url string, err error) {
 	params := &s3.PutObjectInput{
 		Bucket: aws.String(bucketName),
@@ -100,6 +109,14 @@ func (s3client *S3Client) DeleteObject(bucketName, key string) (err error) {
 		return err
 	}
 	return
+}
+
+func (s3client *S3Client) DeleteObjectOutput(bucketName, key string) (out *s3.DeleteObjectOutput, err error) {
+	params := &s3.DeleteObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(key),
+	}
+	return s3client.Client.DeleteObject(params)
 }
 
 func (s3client *S3Client) AppendObject(bucketName, key, value string, position int64) (nextPos int64, err error) {
