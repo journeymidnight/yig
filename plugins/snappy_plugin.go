@@ -1,9 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"github.com/golang/snappy"
+	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/mods"
-	"io"
 )
 
 const pluginName = "snappy"
@@ -23,7 +24,16 @@ func GetCompressClient(config map[string]interface{}) (interface{}, error) {
 
 type SnappyCompress struct{}
 
-func (s SnappyCompress) CompressWriter(writer io.Writer) io.Writer {
-	snappyWriter := snappy.NewBufferedWriter(writer)
-	return snappyWriter
+func (s SnappyCompress) CompressWriter(input []byte) ([]byte, error) {
+	buf := new(bytes.Buffer)
+	w := snappy.NewBufferedWriter(buf)
+	if _, err := w.Write(input); err != nil {
+		helper.Logger.Error("error compressing data:", err)
+		return nil, err
+	}
+	if err := w.Close(); err != nil {
+		helper.Logger.Error("error closing compressed data:", err)
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }

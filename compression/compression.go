@@ -3,11 +3,10 @@ package compression
 import (
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/mods"
-	"io"
 )
 
 type Compression interface {
-	CompressWriter(writer io.Writer) io.Writer
+	CompressWriter(input []byte) ([]byte, error)
 }
 
 var Compress Compression
