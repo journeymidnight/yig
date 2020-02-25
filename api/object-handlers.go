@@ -222,6 +222,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 
 	if object.DeleteMarker {
 		w.Header().Set("x-amz-delete-marker", "true")
+		SetObjectHeaders(w, object, nil, 404)
 		WriteErrorResponse(w, r, ErrNoSuchKey)
 		return
 	}

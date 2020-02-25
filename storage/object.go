@@ -940,28 +940,46 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 			return
 		}
 	case meta.VersionEnabled:
-		if object == nil {
-			return result, nil
-		}
 		if version != "" {
+			if object == nil {
+				return result, ErrNoSuchKey
+			}
 			err = yig.MetaStorage.DeleteVersionedObject(object)
 			if err != nil {
 				return
 			}
+			result.VersionId = object.VersionId
+			if object.DeleteMarker {
+				result.DeleteMarker = true
+			}
 		} else {
-			err = yig.MetaStorage.AddDeleteMarker(object, object.GenVersionId())
+			if object == nil {
+				object = &meta.Object{
+					BucketName: bucketName,
+					Name:       objectName,
+					OwnerId:    credential.UserId,
+				}
+			}
+			object.LastModifiedTime = time.Now().UTC()
+			versionId := object.GenVersionId()
+			err = yig.MetaStorage.AddDeleteMarker(object, versionId)
 			if err != nil {
 				return
 			}
+			result.VersionId = versionId
 		}
 	case meta.VersionSuspended:
 		if version != "" {
 			if object == nil {
-				return result, nil
+				return result, ErrNoSuchKey
 			}
 			err = yig.MetaStorage.DeleteVersionedObject(object)
 			if err != nil {
 				return
+			}
+			result.VersionId = object.VersionId
+			if object.DeleteMarker {
+				result.DeleteMarker = true
 			}
 		} else {
 			// remove null version object(if exists) and add a delete marker
@@ -989,13 +1007,9 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":")
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + "null")
 		if version != "" && version != meta.NullVersion {
-			result.VersionId = version
 			yig.MetaStorage.Cache.Remove(redis.ObjectTable,
 				bucketName+":"+objectName+":"+version)
 			yig.DataCache.Remove(bucketName + ":" + objectName + ":" + version)
-		}
-		if object.DeleteMarker {
-			result.DeleteMarker = true
 		}
 	}
 	return result, nil
