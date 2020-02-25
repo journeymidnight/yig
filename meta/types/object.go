@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"strconv"
 	"time"
 
@@ -46,6 +45,7 @@ type Object struct {
 	// ObjectType include `Normal`, `Appendable`, 'Multipart'
 	Type         ObjectType
 	StorageClass StorageClass
+	CreateTime   uint64 // Timestamp(nanosecond)
 }
 
 type ObjectType int
@@ -141,32 +141,43 @@ func (o *Object) GetVersionId() string {
 //Tidb related function
 
 func (o *Object) GetCreateSql() (string, []interface{}) {
-	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
+
 	customAttributes, _ := json.Marshal(o.CustomAttributes)
 	acl, _ := json.Marshal(o.ACL)
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
 	sql := "insert into objects(bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag," +
-		"contenttype,customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass) " +
-		"values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-	args := []interface{}{o.BucketName, o.Name, version, o.Location, o.Pool, o.OwnerId, o.Size, o.ObjectId,
+		"contenttype,customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass,createtime) " +
+		"values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+	args := []interface{}{o.BucketName, o.Name, o.VersionId, o.Location, o.Pool, o.OwnerId, o.Size, o.ObjectId,
 		lastModifiedTime, o.Etag, o.ContentType, customAttributes, acl, o.NullVersion, o.DeleteMarker,
-		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass}
+		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass, o.LastModifiedTime.UnixNano()}
+	return sql, args
+}
+
+func (o *Object) GetUpdateSql() (string, []interface{}) {
+	customAttributes, _ := json.Marshal(o.CustomAttributes)
+	acl, _ := json.Marshal(o.ACL)
+	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
+	sql := "update objects set location=?,pool=?,size=?,objectid=?,lastmodifiedtime=?,etag=?," +
+		"contenttype=?,customattributes=?,acl=?,ssetype=?,encryptionkey=?,initializationvector=?,type=?, storageclass=?, createtime=? " +
+		"where bucketname=? and name=? and version=?"
+	args := []interface{}{o.Location, o.Pool, o.Size, o.ObjectId,
+		lastModifiedTime, o.Etag, o.ContentType, customAttributes, acl,
+		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass, o.LastModifiedTime.UnixNano(), o.BucketName, o.Name, o.VersionId}
 	return sql, args
 }
 
 func (o *Object) GetAppendSql() (string, []interface{}) {
-	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
-	sql := "update objects set lastmodifiedtime=?, size=?, version=? where bucketname=? and name=?"
-	args := []interface{}{lastModifiedTime, o.Size, version, o.BucketName, o.Name}
+	sql := "update objects set lastmodifiedtime=?, size=? where bucketname=? and name=? and version=?"
+	args := []interface{}{lastModifiedTime, o.Size, o.BucketName, o.Name, o.VersionId}
 	return sql, args
 }
 
 func (o *Object) GetUpdateAclSql() (string, []interface{}) {
-	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
 	acl, _ := json.Marshal(o.ACL)
 	sql := "update objects set acl=? where bucketname=? and name=? and version=?"
-	args := []interface{}{acl, o.BucketName, o.Name, version}
+	args := []interface{}{acl, o.BucketName, o.Name, o.VersionId}
 	return sql, args
 }
 
@@ -178,9 +189,8 @@ func (o *Object) GetUpdateAttrsSql() (string, []interface{}) {
 }
 
 func (o *Object) GetUpdateNameSql(sourceObject string) (string, []interface{}) {
-	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
-	sql := "update objects set name=? where bucketname=? and name=? and version=?"
-	args := []interface{}{o.Name, o.BucketName, sourceObject, version}
+	sql := "update objects set name=? where bucketname=? and name=? and version=0"
+	args := []interface{}{o.Name, o.BucketName, sourceObject}
 	return sql, args
 }
 

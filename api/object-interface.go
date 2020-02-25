@@ -21,6 +21,7 @@ import (
 
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/policy"
+	. "github.com/journeymidnight/yig/context"
 	"github.com/journeymidnight/yig/iam/common"
 	meta "github.com/journeymidnight/yig/meta/types"
 )
@@ -72,16 +73,17 @@ type ObjectLayer interface {
 		sse datatype.SseRequest) (err error)
 	GetObjectInfo(bucket, object, version string, credential common.Credential) (objInfo *meta.Object, err error)
 	GetObjectInfoByCtx(ctx RequestContext, version string, credential common.Credential) (objInfo *meta.Object, err error)
-	PutObject(bucket, object string, credential common.Credential, size int64, data io.ReadCloser,
+	PutObject(reqCtx RequestContext, credential common.Credential, size int64, data io.ReadCloser,
 		metadata map[string]string, acl datatype.Acl,
 		sse datatype.SseRequest, storageClass meta.StorageClass) (result datatype.PutObjectResult, err error)
 	AppendObject(bucket, object string, credential common.Credential, offset uint64, size int64, data io.ReadCloser,
 		metadata map[string]string, acl datatype.Acl,
 		sse datatype.SseRequest, storageClass meta.StorageClass, objInfo *meta.Object) (result datatype.AppendObjectResult, err error)
 
-	CopyObject(targetObject *meta.Object, source io.Reader, credential common.Credential,
-		sse datatype.SseRequest, isMetadataOnly bool) (result datatype.PutObjectResult, err error)
-	RenameObject(targetObject *meta.Object, sourceObject string, credential common.Credential) (result datatype.RenameObjectResult, err error)
+	CopyObject(reqCtx RequestContext, targetObject *meta.Object, source io.Reader, credential common.Credential,
+		sseRequest datatype.SseRequest, isMetadataOnly bool) (result datatype.PutObjectResult, err error)
+	RenameObject(reqCtx RequestContext, targetObject *meta.Object, sourceObject string, credential common.Credential) (result datatype.RenameObjectResult, err error)
+
 	PutObjectMeta(bucket *meta.Bucket, targetObject *meta.Object, credential common.Credential) (err error)
 	SetObjectAcl(bucket string, object string, version string, policy datatype.AccessControlPolicy,
 		acl datatype.Acl, credential common.Credential) error
@@ -93,10 +95,10 @@ type ObjectLayer interface {
 	// Multipart operations.
 	ListMultipartUploads(credential common.Credential, bucket string,
 		request datatype.ListUploadsRequest) (result datatype.ListMultipartUploadsResponse, err error)
-	NewMultipartUpload(credential common.Credential, bucket, object string,
+	NewMultipartUpload(reqCtx RequestContext, credential common.Credential,
 		metadata map[string]string, acl datatype.Acl,
 		sse datatype.SseRequest, storageClass meta.StorageClass) (uploadID string, err error)
-	PutObjectPart(bucket, object string, credential common.Credential, uploadID string, partID int,
+	PutObjectPart(reqCtx RequestContext, credential common.Credential, uploadID string, partID int,
 		size int64, data io.ReadCloser, md5Hex string,
 		sse datatype.SseRequest) (result datatype.PutObjectPartResult, err error)
 	CopyObjectPart(bucketName, objectName, uploadId string, partId int, size int64, data io.Reader,
@@ -105,6 +107,6 @@ type ObjectLayer interface {
 	ListObjectParts(credential common.Credential, bucket, object string,
 		request datatype.ListPartsRequest) (result datatype.ListPartsResponse, err error)
 	AbortMultipartUpload(credential common.Credential, bucket, object, uploadID string) error
-	CompleteMultipartUpload(credential common.Credential, bucket, object, uploadID string,
+	CompleteMultipartUpload(reqCtx RequestContext, credential common.Credential, uploadID string,
 		uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult, err error)
 }

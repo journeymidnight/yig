@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/journeymidnight/yig/api/datatype/policy"
+	"github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
@@ -21,7 +22,7 @@ import (
 // returns APIErrorCode if any to be replied to the client.
 func checkRequestAuth(r *http.Request, action policy.Action) (c common.Credential, err error) {
 	// TODO:Location constraint
-	ctx := getRequestContext(r)
+	ctx := context.GetRequestContext(r)
 	logger := ctx.Logger
 	authType := ctx.AuthType
 	switch authType {

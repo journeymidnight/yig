@@ -8,6 +8,7 @@ import (
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/policy"
+	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
@@ -15,7 +16,7 @@ import (
 )
 
 func (api ObjectAPIHandlers) PutBucketWebsiteHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := getRequestContext(r)
+	ctx := GetRequestContext(r)
 	logger := ctx.Logger
 
 	var credential common.Credential
@@ -66,7 +67,7 @@ func (api ObjectAPIHandlers) PutBucketWebsiteHandler(w http.ResponseWriter, r *h
 }
 
 func (api ObjectAPIHandlers) GetBucketWebsiteHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := getRequestContext(r)
+	ctx := GetRequestContext(r)
 	logger := ctx.Logger
 
 	var credential common.Credential
@@ -116,7 +117,7 @@ func (api ObjectAPIHandlers) GetBucketWebsiteHandler(w http.ResponseWriter, r *h
 }
 
 func (api ObjectAPIHandlers) DeleteBucketWebsiteHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := getRequestContext(r)
+	ctx := GetRequestContext(r)
 
 	var credential common.Credential
 	var err error
@@ -153,7 +154,7 @@ func (api ObjectAPIHandlers) DeleteBucketWebsiteHandler(w http.ResponseWriter, r
 }
 
 func (api ObjectAPIHandlers) HandledByWebsite(w http.ResponseWriter, r *http.Request) (handled bool) {
-	ctx := getRequestContext(r)
+	ctx := GetRequestContext(r)
 	logger := ctx.Logger
 	if ctx.BucketInfo == nil {
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
@@ -242,7 +243,7 @@ func (api ObjectAPIHandlers) HandledByWebsite(w http.ResponseWriter, r *http.Req
 
 func (api ObjectAPIHandlers) ReturnWebsiteErrorDocument(w http.ResponseWriter, r *http.Request, statusCode int) (handled bool) {
 	w.(*ResponseRecorder).operationName = "GetObject"
-	ctx := getRequestContext(r)
+	ctx := GetRequestContext(r)
 	logger := ctx.Logger
 	if ctx.BucketInfo == nil {
 		WriteErrorResponse(w, r, ErrNoSuchBucket)

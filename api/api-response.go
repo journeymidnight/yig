@@ -26,6 +26,7 @@ import (
 	"strconv"
 
 	. "github.com/journeymidnight/yig/api/datatype"
+	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
@@ -245,7 +246,7 @@ func WriteErrorResponseWithResource(w http.ResponseWriter, r *http.Request, err 
 }
 
 func WriteErrorResponseHeaders(w http.ResponseWriter, r *http.Request, err error) (handled bool) {
-	ctx := getRequestContext(r)
+	ctx := GetRequestContext(r)
 	logger := ctx.Logger
 
 	var status int
@@ -298,7 +299,7 @@ func WriteErrorResponseNoHeader(w http.ResponseWriter, req *http.Request, err er
 		errorResponse.Message = "We encountered an internal error, please try again."
 	}
 	errorResponse.Resource = resource
-	errorResponse.RequestId = getRequestContext(req).RequestID
+	errorResponse.RequestId = GetRequestContext(req).RequestID
 	errorResponse.HostId = helper.CONFIG.InstanceId
 
 	encodedErrorResponse := EncodeResponse(errorResponse)

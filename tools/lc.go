@@ -234,7 +234,7 @@ func main() {
 	defer helper.Logger.Close()
 	if helper.CONFIG.MetaCacheType > 0 || helper.CONFIG.EnableDataCache {
 		redis.Initialize()
-		defer redis.Close()
+		defer redis.CloseAll()
 	}
 
 	// Read all *.so from plugins directory, and fill the variable allPlugins

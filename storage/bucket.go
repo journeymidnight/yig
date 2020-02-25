@@ -9,6 +9,7 @@ import (
 	"github.com/journeymidnight/yig/api"
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/policy"
+	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
@@ -301,7 +302,7 @@ func (yig *YigStorage) GetBucketInfo(bucketName string,
 	return
 }
 
-func (yig *YigStorage) GetBucketInfoByCtx(ctx api.RequestContext,
+func (yig *YigStorage) GetBucketInfoByCtx(ctx RequestContext,
 	credential common.Credential) (bucket *meta.Bucket, err error) {
 
 	bucket = ctx.BucketInfo
