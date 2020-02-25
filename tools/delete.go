@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"github.com/journeymidnight/yig/crypto"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/meta"
 	"github.com/journeymidnight/yig/meta/types"
+	"github.com/journeymidnight/yig/mods"
 	"github.com/journeymidnight/yig/storage"
 	"os"
 	"os/signal"
@@ -132,12 +134,16 @@ func main() {
 	signal.Ignore()
 	signalQueue := make(chan os.Signal)
 
+	// Read all *.so from plugins directory, and fill the variable allPlugins
+	allPluginMap := mods.InitialPlugins()
+  	kms := crypto.NewKMS(allPluginMap)
+
 	numOfWorkers := helper.CONFIG.GcThread
 	yigs = make([]*storage.YigStorage, helper.CONFIG.GcThread+1)
-	yigs[0] = storage.New(int(meta.NoCache), false)
+	yigs[0] = storage.New(int(meta.NoCache), false, kms)
 	helper.Logger.Info("start gc thread:", numOfWorkers)
 	for i := 0; i < numOfWorkers; i++ {
-		yigs[i+1] = storage.New(int(meta.NoCache), false)
+		yigs[i+1] = storage.New(int(meta.NoCache), false, kms)
 		go deleteFromCeph(i + 1)
 	}
 	go removeDeleted()
