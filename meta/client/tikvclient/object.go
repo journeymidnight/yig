@@ -51,7 +51,6 @@ func (c *TiKVClient) GetLatestVersionedObject(bucketName, objectName string) (ob
 	if err != nil {
 		return nil, err
 	}
-
 	versionStartKey := genObjectKey(bucketName, objectName, TableMinKeySuffix)
 	versionEndKey := genObjectKey(bucketName, objectName, TableMaxKeySuffix)
 	kvs, err := c.TxScan(key.Key(versionStartKey), key.Key(versionEndKey), 1)
@@ -69,15 +68,15 @@ func (c *TiKVClient) GetLatestVersionedObject(bucketName, objectName string) (ob
 	} else if len(kvs) == 0 {
 		return &o, nil
 	} else {
-		reto := helper.Ternary(o.LastModifiedTime.After(vo.LastModifiedTime), &o, &vo)
-		return reto.(*Object), nil
+		retObj := helper.Ternary(o.LastModifiedTime.After(vo.LastModifiedTime), &o, &vo)
+		return retObj.(*Object), nil
 	}
 }
 
-func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage bool, tx Tx) error {
+func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage bool, tx Tx) (err error) {
 	objectKey := genObjectKey(object.BucketName, object.Name, object.VersionId)
 	if tx == nil {
-		tx, err := c.NewTrans()
+		tx, err = c.NewTrans()
 		if err != nil {
 			return err
 		}
