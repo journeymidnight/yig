@@ -168,6 +168,11 @@ const (
 	ErrInvalidIndexDocumentSuffix
 	ErrInvalidErrorDocumentKey
 	ErrMalformedMetadataConfiguration
+	ErrMalformedEncryptionConfiguration
+	ErrMissingRuleInEncryption
+	ErrExceededEncryptionRulesLimit
+	ErrMissingEncryptionByDefaultInEncryptionRule
+	ErrMissingSSEAlgorithmOrKMSMasterKeyIDInEncryptionRule
 )
 
 // error code to APIError structure, these fields carry respective
@@ -772,6 +777,31 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrMalformedMetadataConfiguration: {
 		AwsErrorCode:   "InvalidMetaConfiguration",
 		Description:    "Parsing meta XML data failed",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMalformedEncryptionConfiguration: {
+		AwsErrorCode:   "MalformedEncryptionConfiguration",
+		Description:    "Cannot Marshal/Unmarshal XML of encryption configuration.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMissingRuleInEncryption: {
+		AwsErrorCode:   "MissingRuleInEncryptionRules",
+		Description:    "There must be at least one of Rule element.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMissingEncryptionByDefaultInEncryptionRule: {
+		AwsErrorCode:   "MissingRedirectInWebsiteRoutingRule",
+		Description:    "In a Rule container, there must be have ApplyServerSideEncryptionByDefault.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMissingSSEAlgorithmOrKMSMasterKeyIDInEncryptionRule: {
+		AwsErrorCode:   "MissingSSEAlgorithmOrKMSMasterKeyIDInEncryptionRule",
+		Description:    "In a Rule container, there must be have SSEAlgorithm or KMSMasterKeyID.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrExceededEncryptionRulesLimit: {
+		AwsErrorCode:   "ExceededEncryptionRulesLimit",
+		Description:    "The quantity of the routing rules in the website configuration is exceeded.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 }

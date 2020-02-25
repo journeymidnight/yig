@@ -21,6 +21,18 @@ func GenTestSpecialCharaterObjectUrl(sc *S3Client) string {
 	return "http://" + *sc.Client.Config.Endpoint + string(os.PathSeparator) + TEST_BUCKET + string(os.PathSeparator) + urlchange
 }
 
+func TransferToS3AccessEncryptionConfiguration(config *datatype.EncryptionConfiguration) (encryption *s3.ServerSideEncryptionConfiguration) {
+	encryption = new(s3.ServerSideEncryptionConfiguration)
+	for _, e := range config.Rules {
+		rule := new(s3.ServerSideEncryptionRule)
+		rule.ApplyServerSideEncryptionByDefault = new(s3.ServerSideEncryptionByDefault)
+		rule.ApplyServerSideEncryptionByDefault.SSEAlgorithm = aws.String(e.ApplyServerSideEncryptionByDefault.SSEAlgorithm)
+		rule.ApplyServerSideEncryptionByDefault.KMSMasterKeyID = aws.String(e.ApplyServerSideEncryptionByDefault.KMSMasterKeyID)
+		encryption.Rules = append(encryption.Rules,rule)
+	}
+	return
+}
+
 func TransferToS3AccessControlPolicy(policy *datatype.AccessControlPolicy) (s3policy *s3.AccessControlPolicy) {
 	s3policy = new(s3.AccessControlPolicy)
 	s3policy.Owner = new(s3.Owner)

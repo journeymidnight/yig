@@ -64,6 +64,12 @@ type ObjectLayer interface {
 	GetBucketWebsite(bucket string) (datatype.WebsiteConfiguration, error)
 	DeleteBucketWebsite(bucket *meta.Bucket) error
 
+	// Encryption operations
+	SetBucketEncryption(bucket *meta.Bucket, config datatype.EncryptionConfiguration) error
+	GetBucketEncryption(bucket string) (datatype.EncryptionConfiguration, error)
+	DeleteBucketEncryption(bucket *meta.Bucket) error
+	CheckBucketEncryption(bucket string) (*datatype.ApplyServerSideEncryptionByDefault, bool)
+
 	// Object operations.
 	GetObject(object *meta.Object, startOffset int64, length int64, writer io.Writer,
 		sse datatype.SseRequest) (err error)
