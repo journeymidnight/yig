@@ -400,6 +400,88 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 	WriteSuccessResponse(w, nil)
 }
 
+func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
+	vars := mux.Vars(r)
+	bucket := vars["bucket"]
+
+	var credential common.Credential
+	var err error
+	if credential, err = signature.IsReqAuthenticated(r); err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+
+	var bl BucketLoggingStatus
+	blBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 4096))
+	if err != nil {
+		logger.Error("Unable to read bucket logging body:", err)
+		WriteErrorResponse(w, r, ErrInvalidBl)
+		return
+	}
+	err = xml.Unmarshal(blBuffer, &bl)
+	if err != nil {
+		logger.Error("Unable to parse bucket logging XML body:", err)
+		WriteErrorResponse(w, r, ErrInternalError)
+		return
+	}
+	logger.Info("Setting bucket logging:", bl)
+	err = api.ObjectAPI.SetBucketLogging(bucket, bl, credential)
+	if err != nil {
+		logger.Error(err, "Unable to set bucket logging for bucket:", err)
+		WriteErrorResponse(w, r, err)
+		return
+	}
+	// ResponseRecorder
+	w.(*ResponseRecorder).operationName = "PutBucketLogging"
+	WriteSuccessResponse(w, nil)
+}
+
+func (api ObjectAPIHandlers) GetBucketLoggingHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+
+	var credential common.Credential
+	var err error
+	switch signature.GetRequestAuthType(r) {
+	default:
+		// For all unknown auth types return error.
+		WriteErrorResponse(w, r, ErrAccessDenied)
+		return
+	case signature.AuthTypeAnonymous:
+		break
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
+		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
+		if credential, err = signature.IsReqAuthenticated(r); err != nil {
+			WriteErrorResponse(w, r, err)
+			return
+		}
+	}
+
+	bl, err := api.ObjectAPI.GetBucketLogging(bucketName, credential)
+	if err != nil {
+		logger.Error("Failed to get bucket ACL policy for bucket", bucketName,
+			"error:", err)
+		WriteErrorResponse(w, r, err)
+		return
+	}
+
+	blBuffer, err := xmlFormat(bl)
+	if err != nil {
+		logger.Error("Failed to marshal bucket logging XML for bucket", bucketName,
+			"error:", err)
+		WriteErrorResponse(w, r, ErrInternalError)
+		return
+	}
+
+	setXmlHeader(w)
+	//ResponseRecorder
+	w.(*ResponseRecorder).operationName = "GetBucketLogging"
+	WriteSuccessResponse(w, blBuffer)
+
+}
+
 func (api ObjectAPIHandlers) PutBucketLifeCycleHandler(w http.ResponseWriter, r *http.Request) {
 	logger := ContextLogger(r)
 	vars := mux.Vars(r)
