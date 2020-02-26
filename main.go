@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/journeymidnight/yig/crypto"
 	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
@@ -13,8 +14,8 @@ import (
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/log"
-	bus "github.com/journeymidnight/yig/mq"
 	"github.com/journeymidnight/yig/mods"
+	bus "github.com/journeymidnight/yig/mq"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/storage"
 )
@@ -49,7 +50,12 @@ func main() {
 		defer redis.CloseAll()
 	}
 
-	yig := storage.New(helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache)
+	// Read all *.so from plugins directory, and fill the variable allPlugins
+	allPluginMap := mods.InitialPlugins()
+
+	kms := crypto.NewKMS(allPluginMap)
+
+	yig := storage.New(helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache, kms)
 	adminServerConfig := &adminServerConfig{
 		Address: helper.CONFIG.BindAdminAddress,
 		Logger:  helper.Logger,
@@ -63,9 +69,6 @@ func main() {
 		}
 	}
 
-	// Read all *.so from plugins directory, and fill the variable allPlugins
-	allPluginMap := mods.InitialPlugins()
-
 	// try to create message queue sender if message bus is enabled.
 	// message queue sender is singleton so create it beforehand.
 	mqSender, err := bus.InitMessageSender(allPluginMap)
@@ -73,7 +76,7 @@ func main() {
 		helper.Logger.Error("Failed to create message queue sender, err:", err)
 		panic("failed to create message queue sender")
 	}
-	if mqSender ==  nil {
+	if mqSender == nil {
 		helper.Logger.Error("Failed to create message queue sender, sender is nil.")
 		panic("failed to create message queue sender, sender is nil.")
 	}

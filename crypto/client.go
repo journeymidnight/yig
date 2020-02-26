@@ -2,25 +2,24 @@ package crypto
 
 import (
 	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/mods"
 )
 
-func NewKMS() KMS {
-	switch helper.CONFIG.KMS.Type {
-	case "vault":
-		c, err := NewVaultConfig()
-		if err != nil {
-			panic("read kms vault err:" + err.Error())
-		}
-		vault, err := NewVault(c)
-		if err != nil {
-			panic("create vault err:" + err.Error())
-		}
-		return vault
+var kms KMS
 
-	//extention case here
-
-	default:
-		helper.Logger.Info("not support kms type", helper.CONFIG.KMS.Type)
-		return nil
+func NewKMS(plugins map[string]*mods.YigPlugin) KMS {
+	for name, p := range plugins {
+		if p.PluginType == mods.KMS_PLUGIN {
+			c, err := p.Create(helper.CONFIG.Plugins[name].Args)
+			if err != nil {
+				helper.Logger.Error("failed to initial KMS plugin:", name, "\nerr:", err)
+				return nil
+			}
+			helper.Logger.Println("Message KMS plugin is", name)
+			kms = c.(KMS)
+			return kms
+		}
 	}
+	helper.Logger.Info("not support kms type")
+	panic("Failed to initialize any KMS plugin, quiting...\n")
 }

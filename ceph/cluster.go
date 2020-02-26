@@ -554,6 +554,9 @@ func (cluster *CephCluster) Remove(poolname string, oid string) error {
 		return errors.New("Bad ioctx")
 	}
 	defer striper.Destroy()
+	// if we do not set our custom layout, rados will infer all objects filename from default layout setting, 
+	// and some sub objects will not be deleted
+	setStripeLayout(striper)
 
 	setStripeLayout(striper)
 	return striper.Delete(oid)

@@ -22,13 +22,13 @@ func InitMessageSender(plugins map[string]*mods.YigPlugin) (MessageSender, error
 		if p.PluginType == mods.MQ_PLUGIN {
 			c, err := p.Create(helper.CONFIG.Plugins[name].Args)
 			if err != nil {
-				helper.Logger.Error("failed to initial message queue plugin:", name, "\nerr:", err)
+				helper.Logger.Error("failed to initial message Queue plugin:", name, "\nerr:", err)
 				return nil, err
 			}
-			helper.Logger.Println("Message queue plugin is", name)
+			helper.Logger.Println("Message Queue plugin is", name)
 			MsgSender = c.(MessageSender)
 			return MsgSender, nil
 		}
 	}
-	panic("Failed to initialize any message queue plugin, quiting...\n")
+	panic("Failed to initialize any MessageQueue plugin, quiting...\n")
 }
