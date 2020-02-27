@@ -2,6 +2,7 @@ package _go
 import (
 	. "github.com/journeymidnight/yig/test/go/lib"
 	"github.com/journeymidnight/aws-sdk-go/service/s3"
+	"github.com/journeymidnight/aws-sdk-go/aws"
 	"testing"
 )
 
