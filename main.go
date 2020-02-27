@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/journeymidnight/yig/compression"
+	"github.com/journeymidnight/yig/crypto"
 	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
@@ -50,7 +51,12 @@ func main() {
 		defer redis.Close()
 	}
 
-	yig := storage.New(helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache)
+	// Read all *.so from plugins directory, and fill the variable allPlugins
+	allPluginMap := mods.InitialPlugins()
+
+	kms := crypto.NewKMS(allPluginMap)
+
+	yig := storage.New(helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache, kms)
 	adminServerConfig := &adminServerConfig{
 		Address: helper.CONFIG.BindAdminAddress,
 		Logger:  helper.Logger,
@@ -59,9 +65,6 @@ func main() {
 	if redis.Pool() != nil && helper.CONFIG.CacheCircuitCheckInterval != 0 {
 		go yig.PingCache(time.Duration(helper.CONFIG.CacheCircuitCheckInterval) * time.Second)
 	}
-
-	// Read all *.so from plugins directory, and fill the variable allPlugins
-	allPluginMap := mods.InitialPlugins()
 
 	// try to create message queue sender if message bus is enabled.
 	// message queue sender is singleton so create it beforehand.

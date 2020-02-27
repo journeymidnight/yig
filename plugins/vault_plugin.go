@@ -1,24 +1,12 @@
-// Minio Cloud Storage, (C) 2015, 2016, 2017, 2018 Minio, Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//    http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-package crypto
+package main
 
 import (
 	"bytes"
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/journeymidnight/yig/crypto"
+	"github.com/journeymidnight/yig/mods"
 	"strings"
 	"time"
 
@@ -27,6 +15,7 @@ import (
 )
 
 const (
+	pluginName           = "encryption_vault"
 	DEBUG_ROOT_TOKEN     = "myroot"
 	DEBUG_LEASE_DURATION = 60 * 60 * 24 * 30 // 30 days
 )
@@ -55,7 +44,7 @@ func (v *vaultService) decryptEndpoint(key string) string {
 // VaultKey represents vault encryption key-id name & version
 type VaultKey struct {
 	Name    string `json:"name"`
-	Version int    `json:"version"`
+	Version int64  `json:"version"`
 }
 
 // VaultAuth represents vault auth type to use. For now, AppRole is the only supported
@@ -76,6 +65,28 @@ type VaultConfig struct {
 	Endpoint string    `json:"endpoint"`
 	Auth     VaultAuth `json:"auth"`
 	Key      VaultKey  `json:"key-id"`
+}
+
+//The variable MUST be named as Exported.
+//the code in yig-plugin will lookup this symbol
+var Exported = mods.YigPlugin{
+	Name:       pluginName,
+	PluginType: mods.KMS_PLUGIN,
+	Create:     GetVaultClient,
+}
+
+func GetVaultClient(config map[string]interface{}) (interface{}, error) {
+	helper.Logger.Info("Get KMS plugin config:", config)
+
+	c, err := NewVaultConfig(config)
+	if err != nil {
+		panic("read kms vault err:" + err.Error())
+	}
+	vault, err := NewVault(c)
+	if err != nil {
+		panic("create vault err:" + err.Error())
+	}
+	return vault, nil
 }
 
 // validate whether all required env variables needed to start vault service have
@@ -120,43 +131,34 @@ func getVaultAccessToken(client *vault.Client, appRoleID, appSecret string) (tok
 
 // NewVaultConfig sets KMSConfig from environment
 // variables and performs validations.
-func NewVaultConfig() (KMSConfig, error) {
-	kc := KMSConfig{}
-	config := VaultConfig{
-		Endpoint: helper.CONFIG.KMS.Endpoint,
+func NewVaultConfig(config map[string]interface{}) (VaultConfig, error) {
+	vault := VaultConfig{
+		Endpoint: config["endpoint"].(string),
 		Auth: VaultAuth{
 			Type: "approle",
 			AppRole: VaultAppRole{
-				ID:     helper.CONFIG.KMS.Id,
-				Secret: helper.CONFIG.KMS.Secret,
+				ID:     config["kms_id"].(string),
+				Secret: config["kms_secret"].(string),
 			},
 		},
 		Key: VaultKey{
-			Version: helper.CONFIG.KMS.Version,
-			Name:    helper.CONFIG.KMS.Keyname,
+			Version: config["version"].(int64),
+			Name:    config["keyName"].(string),
 		},
 	}
 
-	// return if none of the vault env variables are configured
-	if (config.Endpoint == "") && (config.Auth.AppRole.ID == "") && (config.Auth.AppRole.Secret == "") &&
-		(config.Key.Name == "") && (config.Key.Version == 0) {
-		return kc, nil
+	if err := validateVaultConfig(&vault); err != nil {
+		return vault, err
 	}
-
-	if err := validateVaultConfig(&config); err != nil {
-		return kc, err
-	}
-	kc.Vault = config
-	return kc, nil
+	return vault, nil
 }
 
 // NewVault initializes Hashicorp Vault KMS by
 // authenticating to Vault with the credentials in KMSConfig,
 // and gets a client token for future api calls.
-func NewVault(kmsConf KMSConfig) (KMS, error) {
-	config := kmsConf.Vault
+func NewVault(vaultConf VaultConfig) (interface{}, error) {
 	vconfig := &vault.Config{
-		Address: config.Endpoint,
+		Address: vaultConf.Endpoint,
 	}
 
 	c, err := vault.NewClient(vconfig)
@@ -170,7 +172,7 @@ func NewVault(kmsConf KMSConfig) (KMS, error) {
 		accessToken = DEBUG_ROOT_TOKEN
 		leaseDuration = DEBUG_LEASE_DURATION
 	} else {
-		accessToken, leaseDuration, err = getVaultAccessToken(c, config.Auth.AppRole.ID, config.Auth.AppRole.Secret)
+		accessToken, leaseDuration, err = getVaultAccessToken(c, vaultConf.Auth.AppRole.ID, vaultConf.Auth.AppRole.Secret)
 		helper.Logger.Info("Get access token:", accessToken,
 			"lease duration:", leaseDuration)
 		if err != nil {
@@ -181,7 +183,7 @@ func NewVault(kmsConf KMSConfig) (KMS, error) {
 	// authenticate and get the access token
 	helper.Logger.Info("Get vault token:", accessToken, "leaseDuration", leaseDuration)
 	c.SetToken(accessToken)
-	v := vaultService{client: c, config: &config, leaseDuration: time.Duration(leaseDuration)}
+	v := vaultService{client: c, config: &vaultConf, leaseDuration: time.Duration(leaseDuration)}
 	v.renewToken(c)
 	return &v, nil
 }
@@ -203,7 +205,7 @@ func (v *vaultService) renewToken(c *vault.Client) {
 
 // Generates a random plain text key, sealed plain text key from
 // Vault. It returns the plaintext key and sealed plaintext key on success
-func (v *vaultService) GenerateKey(keyID string, ctx Context) (key [32]byte, sealedKey []byte, err error) {
+func (v *vaultService) GenerateKey(keyID string, ctx crypto.Context) (key [32]byte, sealedKey []byte, err error) {
 	contextStream := new(bytes.Buffer)
 	ctx.WriteTo(contextStream)
 
@@ -226,7 +228,7 @@ func (v *vaultService) GenerateKey(keyID string, ctx Context) (key [32]byte, sea
 
 // unsealKMSKey unseals the sealedKey using the Vault master key
 // referenced by the keyID. The plain text key is returned on success.
-func (v *vaultService) UnsealKey(keyID string, sealedKey []byte, ctx Context) (key [32]byte, err error) {
+func (v *vaultService) UnsealKey(keyID string, sealedKey []byte, ctx crypto.Context) (key [32]byte, err error) {
 	contextStream := new(bytes.Buffer)
 	ctx.WriteTo(contextStream)
 	payload := map[string]interface{}{

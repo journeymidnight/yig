@@ -545,6 +545,17 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		WriteErrorResponse(w, r, err)
 		return
 	}
+	if sseRequest.Type == "" {
+		if configuration, ok := api.ObjectAPI.CheckBucketEncryption(targetBucketName); ok {
+			if configuration.SSEAlgorithm == crypto.SSEAlgorithmAES256 {
+				sseRequest.Type = crypto.S3.String()
+			}
+			//TODO:add kms
+		}
+	}
+	if sseRequest.Type == "" {
+		sseRequest.Type = sourceObject.SseType
+	}
 
 	// Verify before x-amz-copy-source preconditions before continuing with CopyObject.
 	if err = checkObjectPreconditions(w, r, sourceObject); err != nil {
@@ -861,6 +872,11 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 			WriteErrorResponse(w, r, err)
 			return
 		}
+	} else if configuration, ok := api.ObjectAPI.CheckBucketEncryption(bucketName); ok {
+		if configuration.SSEAlgorithm == crypto.SSEAlgorithmAES256 {
+			sseRequest.Type = crypto.S3.String()
+		}
+		//TODO:add kms
 	}
 
 	acl, err := getAclFromHeader(r.Header)
@@ -1391,6 +1407,11 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 			WriteErrorResponse(w, r, err)
 			return
 		}
+	} else if configuration, ok := api.ObjectAPI.CheckBucketEncryption(bucketName); ok {
+		if configuration.SSEAlgorithm == crypto.SSEAlgorithmAES256 {
+			sseRequest.Type = crypto.S3.String()
+		}
+		//TODO:add kms
 	}
 
 	storageClass, err := getStorageClassFromHeader(r)
@@ -2077,6 +2098,14 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
+	}
+	if sseRequest.Type == "" {
+		if configuration, ok := api.ObjectAPI.CheckBucketEncryption(bucketName); ok {
+			if configuration.SSEAlgorithm == crypto.SSEAlgorithmAES256 {
+				sseRequest.Type = crypto.S3.String()
+			}
+			//TODO:add kms
+		}
 	}
 
 	storageClass, err := getStorageClassFromHeader(r)

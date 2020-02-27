@@ -78,23 +78,12 @@ type Config struct {
 	DownloadBufPoolSize int64 `toml:"download_buf_pool_size"`
 	UploadMinChunkSize  int64 `toml:"upload_min_chunk_size"`
 	UploadMaxChunkSize  int64 `toml:"upload_max_chunk_size"`
-
-	KMS KMSConfig `toml:"kms"`
 }
 
 type PluginConfig struct {
 	Path   string                 `toml:"path"`
 	Enable bool                   `toml:"enable"`
 	Args   map[string]interface{} `toml:"args"`
-}
-
-type KMSConfig struct {
-	Type     string
-	Endpoint string
-	Id       string `toml:"kms_id"`
-	Secret   string `toml:"kms_secret"`
-	Version  int
-	Keyname  string
 }
 
 var CONFIG Config
@@ -178,8 +167,6 @@ func MarshalTOMLConfig() error {
 	CONFIG.DownloadBufPoolSize = Ternary(c.DownloadBufPoolSize < MIN_BUFFER_SIZE || c.DownloadBufPoolSize > MAX_BUFEER_SIZE, MIN_BUFFER_SIZE, c.DownloadBufPoolSize).(int64)
 	CONFIG.UploadMinChunkSize = Ternary(c.UploadMinChunkSize < MIN_BUFFER_SIZE || c.UploadMinChunkSize > MAX_BUFEER_SIZE, MIN_BUFFER_SIZE, c.UploadMinChunkSize).(int64)
 	CONFIG.UploadMaxChunkSize = Ternary(c.UploadMaxChunkSize < CONFIG.UploadMinChunkSize || c.UploadMaxChunkSize > MAX_BUFEER_SIZE, MAX_BUFEER_SIZE, c.UploadMaxChunkSize).(int64)
-
-	CONFIG.KMS = c.KMS
 
 	return nil
 }

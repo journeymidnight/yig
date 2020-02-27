@@ -30,6 +30,7 @@ CREATE TABLE `buckets` (
   `uid` varchar(255) DEFAULT NULL,
   `policy` JSON DEFAULT NULL,
   `website` JSON DEFAULT NULL,
+  `encryption` JSON DEFAULT NULL,
   `createtime` datetime DEFAULT NULL,
   `usages` bigint(20) DEFAULT NULL,
   `versioning` varchar(255) DEFAULT NULL,
@@ -137,6 +138,7 @@ CREATE TABLE `multiparts` (
   `acl` JSON DEFAULT NULL,
   `sserequest` JSON DEFAULT NULL,
   `encryption` blob DEFAULT NULL,
+  `cipher` blob DEFAULT NULL,
   `attrs` JSON DEFAULT NULL,
   `storageclass` tinyint(1) DEFAULT 0,
   UNIQUE KEY `rowkey` (`bucketname`,`objectname`,`uploadtime`)

@@ -2,10 +2,12 @@ package main
 
 import (
 	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/crypto"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/meta/types"
+	"github.com/journeymidnight/yig/mods"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/storage"
 	"os"
@@ -234,7 +236,12 @@ func main() {
 		redis.Initialize()
 		defer redis.Close()
 	}
-	yig = storage.New(helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache)
+
+	// Read all *.so from plugins directory, and fill the variable allPlugins
+	allPluginMap := mods.InitialPlugins()
+	kms := crypto.NewKMS(allPluginMap)
+
+	yig = storage.New(helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache, kms)
 	taskQ = make(chan types.LifeCycle, SCAN_LIMIT)
 	signal.Ignore()
 	signalQueue = make(chan os.Signal)
