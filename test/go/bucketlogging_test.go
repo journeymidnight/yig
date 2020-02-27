@@ -53,3 +53,12 @@ func Test_DeleteBucketLogging(t *testing.T) {
 	}
 	t.Log("DeleteBucketLogging Success.")
 }
+func Test_BucketLogging_End(t *testing.T) {
+	sc := NewS3()
+	err := sc.DeleteBucket(TEST_BUCKET)
+	if err != nil {
+		t.Fatal("DeleteBucket err:", err)
+		panic(err)
+	}
+
+}
