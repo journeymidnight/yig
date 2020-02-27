@@ -18,8 +18,8 @@ func Test_BucketLogging_Prepare(t *testing.T) {
 func Test_PutBucketLogging(t *testing.T) {
 	sc := NewS3()
 	rules := &s3.LoggingEnabled{
-		TargetBucket: aws.String(targetBucket),
-		TargetPrefix: aws.String(targetPrefix),
+		TargetBucket: aws.String("testTargetBucket"),
+		TargetPrefix: aws.String("testTargetPrefix"),
 	}
 	err := sc.PutBucketLogging(TEST_BUCKET, rules)
 	if err != nil {
