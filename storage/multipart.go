@@ -4,10 +4,12 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
+	"github.com/journeymidnight/yig/compression"
 	"io"
 	"net/url"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/journeymidnight/yig/api"
@@ -105,7 +107,7 @@ func (yig *YigStorage) NewMultipartUpload(credential common.Credential, bucketNa
 		contentType = "application/octet-stream"
 	}
 
-	cephCluster, pool := yig.pickClusterAndPool(bucketName, objectName, -1, false)
+	cephCluster, pool := yig.pickClusterAndPool(bucketName, objectName, storageClass, -1, false)
 	multipartMetadata := meta.MultipartMetadata{
 		InitiatorId:  credential.UserId,
 		OwnerId:      bucket.OwnerId,
@@ -173,6 +175,14 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 		return
 	}
 
+	var isCompressible bool
+	if helper.CONFIG.EnableCompression && multipart.Metadata.StorageClass.ToString() == "GLACIER" {
+		objectNameSlice := strings.Split(objectName, ".")
+		s := objectNameSlice[len(objectNameSlice)-1]
+		suffix := "." + s
+		isCompressible = compression.IsCompressible(suffix, multipart.Metadata.ContentType)
+	}
+
 	md5Writer := md5.New()
 	limitedDataReader := io.LimitReader(data, size)
 	poolName := multipart.Metadata.Pool
@@ -194,7 +204,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 	if err != nil {
 		return
 	}
-	objectId, bytesWritten, err := cluster.Put(poolName, storageReader)
+	objectId, bytesWritten, err := cluster.Put(poolName, isCompressible, storageReader)
 	if err != nil {
 		return
 	}
@@ -302,6 +312,14 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 		return
 	}
 
+	var isCompressible bool
+	if helper.CONFIG.EnableCompression && multipart.Metadata.StorageClass.ToString() == "GLACIER" {
+		objectNameSlice := strings.Split(objectName, ".")
+		s := objectNameSlice[len(objectNameSlice)-1]
+		suffix := "." + s
+		isCompressible = compression.IsCompressible(suffix, multipart.Metadata.ContentType)
+	}
+
 	md5Writer := md5.New()
 	limitedDataReader := io.LimitReader(data, size)
 	poolName := multipart.Metadata.Pool
@@ -323,7 +341,7 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	if err != nil {
 		return
 	}
-	objectId, bytesWritten, err := cephCluster.Put(poolName, storageReader)
+	objectId, bytesWritten, err := cephCluster.Put(poolName, isCompressible, storageReader)
 	if err != nil {
 		return
 	}

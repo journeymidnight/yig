@@ -4,9 +4,11 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
+	"github.com/journeymidnight/yig/compression"
 	"io"
 	"math/rand"
 	"path"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,7 +25,7 @@ import (
 	"github.com/journeymidnight/yig/signature"
 )
 
-var latestQueryTime [2]time.Time // 0 is for SMALL_FILE_POOLNAME, 1 is for BIG_FILE_POOLNAME
+var latestQueryTime [2]time.Time // 0 is for SMALL_FILE_POOLNAME, 1 is for BIG_FILE_POOLNAME, 2 is for GLACIER_FILE_POOLNAME
 const (
 	CLUSTER_MAX_USED_SPACE_PERCENT = 85
 	BIG_FILE_THRESHOLD             = 128 << 10 /* 128K */
@@ -39,22 +41,27 @@ func (yig *YigStorage) pickRandomCluster() (cluster backend.Cluster) {
 	return
 }
 
-func (yig *YigStorage) pickClusterAndPool(bucket string, object string,
+func (yig *YigStorage) pickClusterAndPool(bucket string, object string, storageClass meta.StorageClass,
 	size int64, isAppend bool) (cluster backend.Cluster, poolName string) {
 
 	var idx int
-	if isAppend {
-		poolName = backend.BIG_FILE_POOLNAME
-		idx = 1
-	} else if size < 0 { // request.ContentLength is -1 if length is unknown
-		poolName = backend.BIG_FILE_POOLNAME
-		idx = 1
-	} else if size < BIG_FILE_THRESHOLD {
-		poolName = backend.SMALL_FILE_POOLNAME
-		idx = 0
+	if storageClass.ToString() == "GLACIER" {
+		poolName = backend.GLACIER_FILE_POOLNAME
+		idx = 2
 	} else {
-		poolName = backend.BIG_FILE_POOLNAME
-		idx = 1
+		if isAppend {
+			poolName = backend.BIG_FILE_POOLNAME
+			idx = 1
+		} else if size < 0 { // request.ContentLength is -1 if length is unknown
+			poolName = backend.BIG_FILE_POOLNAME
+			idx = 1
+		} else if size < BIG_FILE_THRESHOLD {
+			poolName = backend.SMALL_FILE_POOLNAME
+			idx = 0
+		} else {
+			poolName = backend.BIG_FILE_POOLNAME
+			idx = 1
+		}
 	}
 	var needCheck bool
 	queryTime := latestQueryTime[idx]
@@ -535,9 +542,17 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		limitedDataReader = data
 	}
 
-	cluster, poolName := yig.pickClusterAndPool(bucketName, objectName, size, false)
+	cluster, poolName := yig.pickClusterAndPool(bucketName, objectName, storageClass, size, false)
 	if cluster == nil {
 		return result, ErrInternalError
+	}
+
+	var isCompressible bool
+	if helper.CONFIG.EnableCompression && storageClass.ToString() == "GLACIER" {
+		objectNameSlice := strings.Split(objectName, ".")
+		s := objectNameSlice[len(objectNameSlice)-1]
+		suffix := "." + s
+		isCompressible = compression.IsCompressible(suffix, metadata["Content-Type"])
 	}
 
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
@@ -554,7 +569,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	if err != nil {
 		return
 	}
-	objectId, bytesWritten, err := cluster.Put(poolName, storageReader)
+	objectId, bytesWritten, err := cluster.Put(poolName, isCompressible, storageReader)
 	if err != nil {
 		return
 	}
@@ -750,12 +765,20 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		return result, nil
 	}
 
+	var isCompressible bool
+	if helper.CONFIG.EnableCompression && targetObject.StorageClass.ToString() == "GLACIER" {
+		objectNameSlice := strings.Split(targetObject.Name, ".")
+		s := objectNameSlice[len(objectNameSlice)-1]
+		suffix := "." + s
+		isCompressible = compression.IsCompressible(suffix, targetObject.ContentType)
+	}
+
 	// Limit the reader to its provided size if specified.
 	var limitedDataReader io.Reader
 	limitedDataReader = io.LimitReader(source, targetObject.Size)
 
 	cephCluster, poolName := yig.pickClusterAndPool(targetObject.BucketName,
-		targetObject.Name, targetObject.Size, false)
+		targetObject.Name, targetObject.StorageClass, targetObject.Size, false)
 
 	if len(targetObject.Parts) != 0 {
 		var targetParts map[int]*meta.Part = make(map[int]*meta.Part, len(targetObject.Parts))
@@ -786,7 +809,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 					}
 				}
 				storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
-				oid, bytesW, err = cephCluster.Put(poolName, storageReader)
+				oid, bytesW, err = cephCluster.Put(poolName, isCompressible, storageReader)
 				maybeObjectToRecycle = objectToRecycle{
 					location: cephCluster.ID(),
 					pool:     poolName,
@@ -837,7 +860,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 			return
 		}
 		var bytesWritten uint64
-		oid, bytesWritten, err = cephCluster.Put(poolName, storageReader)
+		oid, bytesWritten, err = cephCluster.Put(poolName, isCompressible, storageReader)
 		if err != nil {
 			return
 		}

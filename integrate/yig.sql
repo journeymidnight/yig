@@ -201,6 +201,53 @@ CREATE TABLE `objects` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `restoreobjectpart`
+--
+
+DROP TABLE IF EXISTS `restoreobjectpart`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `restoreobjectpart` (
+  `partnumber` int(11) DEFAULT NULL,
+  `size` bigint(20) DEFAULT NULL,
+  `objectid` varchar(255) DEFAULT NULL,
+  `offset` bigint(20) DEFAULT NULL,
+  `etag` varchar(255) DEFAULT NULL,
+  `lastmodified` datetime DEFAULT NULL,
+  `initializationvector` blob DEFAULT NULL,
+  `bucketname` varchar(255) DEFAULT NULL,
+  `objectname` varchar(255) DEFAULT NULL,
+  `version` bigint(20) unsigned DEFAULT NULL,
+  KEY `rowkey` (`bucketname`,`objectname`,`version`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Table structure for table `restoreobjects`
+--
+
+DROP TABLE IF EXISTS `restoreobjects`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `restoreobjects` (
+  `bucketname` varchar(255) DEFAULT NULL,
+  `name` varchar(255) DEFAULT NULL,
+  `version` bigint(20) unsigned DEFAULT NULL,
+  `status` tinyint(1) DEFAULT '0',
+  `lifetime` tinyint(2) DEFAULT '1',
+  `lastmodifiedtime` datetime DEFAULT NULL,
+  `location` varchar(255) DEFAULT NULL,
+  `pool` varchar(255) DEFAULT NULL,
+  `ownerid` varchar(255) DEFAULT NULL,
+  `size` bigint(20) DEFAULT NULL,
+  `objectid` varchar(255) DEFAULT NULL,
+  `etag` varchar(255) DEFAULT NULL,
+  `initializationvector` blob DEFAULT NULL,
+  UNIQUE KEY `rowkey` (`bucketname`,`name`,`version`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
 -- Table structure for table `objmap`
 --
 

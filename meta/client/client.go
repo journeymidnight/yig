@@ -56,4 +56,14 @@ type Client interface {
 	PutObjectToGarbageCollection(object *Object, tx DB) error
 	ScanGarbageCollection(limit int, startRowKey string) ([]GarbageCollection, error)
 	RemoveGarbageCollection(garbage GarbageCollection) error
+	//freezer
+	CreateFreezer(freezer *Freezer) (err error)
+	ListFreezers(maxKeys int) (retFreezers []Freezer, err error)
+	ListFreezersNeedContinue(maxKeys int, status Status) (retFreezers []Freezer, err error)
+	GetFreezer(bucketName, objectName, version string) (freezer *Freezer, err error)
+	GetFreezerStatus(bucketName, objectName, version string) (freezer *Freezer, err error)
+	PutFreezer(freezer *Freezer, status Status, tx DB) (err error)
+	UploadFreezerStatus(bucketName, objectName string, status, statusSetting Status) (err error)
+	UploadFreezerBackendInfo(targetFreezer *Freezer) error
+	DeleteFreezer(freezer *Freezer, tx DB) error
 }
