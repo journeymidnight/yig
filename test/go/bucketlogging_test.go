@@ -32,12 +32,12 @@ func Test_PutBucketLogging(t *testing.T) {
 
 func Test_GetBucketLogging(t *testing.T) {
 	sc := NewS3()
-	err := sc.GetBucketLogging(TEST_BUCKET)
+	out,err := sc.GetBucketLogging(TEST_BUCKET)
 	if err != nil {
 		t.Fatal("GetBucketLogging err:", err)
 		panic(err)
 	}
-	t.Log("GetBucketLogging Success.")
+	t.Log("GetBucketAcl Success! out:", out)
 }
 
 func Test_DeleteBucketLogging(t *testing.T) {
