@@ -25,7 +25,7 @@ import (
 	"github.com/journeymidnight/yig/signature"
 )
 
-var latestQueryTime [2]time.Time // 0 is for SMALL_FILE_POOLNAME, 1 is for BIG_FILE_POOLNAME, 2 is for GLACIER_FILE_POOLNAME
+var latestQueryTime [3]time.Time // 0 is for SMALL_FILE_POOLNAME, 1 is for BIG_FILE_POOLNAME, 2 is for GLACIER_FILE_POOLNAME
 const (
 	CLUSTER_MAX_USED_SPACE_PERCENT = 85
 	BIG_FILE_THRESHOLD             = 128 << 10 /* 128K */
@@ -519,7 +519,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
-		helper.Logger.Info("get bucket", bucket, "err:", err)
+		helper.Logger.Error("get bucket", bucket, "err:", err)
 		return
 	}
 
