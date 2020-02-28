@@ -259,9 +259,11 @@ func (cluster *CephCluster) Put(poolname string, isCompressible bool, data io.Re
 		}
 		if isCompressible {
 			slice, err = compression.Compress.CompressWriter(slice)
-			drain_pending(pending)
-			return oid, 0,
-				fmt.Errorf("EnCompress slice err. pool:%s oid:%s", poolname, oid)
+			if err != nil {
+				drain_pending(pending)
+				return oid, 0,
+					fmt.Errorf("EnCompress slice err. pool:%s oid:%s", poolname, oid)
+			}
 		}
 		if count == 0 {
 			break
