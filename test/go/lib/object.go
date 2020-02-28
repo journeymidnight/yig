@@ -144,6 +144,18 @@ func (s3client *S3Client) ChangeObjectStorageClass(bucketName, key string, stora
 	return
 }
 
+func (s3client *S3Client) RestoreObject(bucketName, key string, config *s3.RestoreRequest) (err error) {
+	params := &s3.RestoreObjectInput{
+		Bucket:         aws.String(bucketName),
+		Key:            aws.String(key),
+		RestoreRequest: config,
+	}
+	if _, err = s3client.Client.RestoreObject(params); err != nil {
+		return err
+	}
+	return
+}
+
 type PostObjectInput struct {
 	Url        string
 	Bucket     string
