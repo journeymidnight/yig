@@ -62,7 +62,6 @@ type Client interface {
 	ListFreezersNeedContinue(maxKeys int, status Status) (retFreezers []Freezer, err error)
 	GetFreezer(bucketName, objectName, version string) (freezer *Freezer, err error)
 	GetFreezerStatus(bucketName, objectName, version string) (freezer *Freezer, err error)
-	PutFreezer(freezer *Freezer, status Status, tx DB) (err error)
 	UploadFreezerStatus(bucketName, objectName string, status, statusSetting Status) (err error)
 	UploadFreezerBackendInfo(targetFreezer *Freezer) error
 	DeleteFreezer(freezer *Freezer, tx DB) error

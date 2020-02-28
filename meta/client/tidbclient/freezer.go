@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	. "github.com/journeymidnight/yig/error"
 	. "github.com/journeymidnight/yig/meta/types"
-	"math"
 	"strconv"
 )
 
@@ -27,10 +26,10 @@ func (t *TidbClient) ListFreezers(maxKeys int) (retFreezers []Freezer, err error
 		var sqltext string
 		var rows *sql.Rows
 		if marker == "" {
-			sqltext = "select bucketname,objectname,version,status,lifetime,lastmodifiedtime from restoreobjects order by bucketname,name,version limit ?;"
+			sqltext = "select bucketname,objectname,version,status,lifetime,lastmodifiedtime from restoreobjects order by bucketname,objectname,version limit ?;"
 			rows, err = t.Client.Query(sqltext, maxKeys)
 		} else {
-			sqltext = "select bucketname,objectname,version,status,lifetime,lastmodifiedtime from restoreobjects where name >=? order by bucketname,name,version limit ?,?;"
+			sqltext = "select bucketname,objectname,version,status,lifetime,lastmodifiedtime from restoreobjects where name >=? order by bucketname,objectname,version limit ?,?;"
 			rows, err = t.Client.Query(sqltext, marker, count-1, count+maxKeys)
 		}
 		if err != nil {
@@ -77,10 +76,10 @@ func (t *TidbClient) ListFreezersNeedContinue(maxKeys int, status Status) (retFr
 		var sqltext string
 		var rows *sql.Rows
 		if marker == "" {
-			sqltext = "select bucketname,objectname,version from restoreobjects where status=? order by bucketname,name,version limit ?;"
+			sqltext = "select bucketname,objectname,version from restoreobjects where status=? order by bucketname,objectname,version limit ?;"
 			rows, err = t.Client.Query(sqltext, status, maxKeys)
 		} else {
-			sqltext = "select bucketname,objectname,version from restoreobjects where name >=? and status=? order by bucketname,name,version limit ?,?;"
+			sqltext = "select bucketname,objectname,version from restoreobjects where name >=? and status=? order by bucketname,objectname,version limit ?,?;"
 			rows, err = t.Client.Query(sqltext, marker, status, count-1, count+maxKeys)
 		}
 		if err != nil {
@@ -183,37 +182,6 @@ func (t *TidbClient) UploadFreezerBackendInfo(targetFreezer *Freezer) (err error
 		return err
 	}
 	return nil
-}
-
-func (t *TidbClient) PutFreezer(freezer *Freezer, status Status, tx DB) (err error) {
-	if tx == nil {
-		tx, err = t.Client.Begin()
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err == nil {
-				err = tx.(*sql.Tx).Commit()
-			}
-			if err != nil {
-				tx.(*sql.Tx).Rollback()
-			}
-		}()
-	}
-	sql, args := freezer.GetUpdateSql(status)
-	_, err = tx.Exec(sql, args...)
-	if freezer.Parts != nil {
-		v := math.MaxUint64 - uint64(freezer.LastModifiedTime.UnixNano())
-		version := strconv.FormatUint(v, 10)
-		for _, p := range freezer.Parts {
-			psql, args := p.GetCreateSql(freezer.BucketName, freezer.Name, version)
-			_, err = tx.Exec(psql, args...)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return err
 }
 
 func (t *TidbClient) DeleteFreezer(freezer *Freezer, tx DB) (err error) {
