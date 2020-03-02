@@ -5,6 +5,7 @@ import (
 	. "github.com/journeymidnight/yig/error"
 	. "github.com/journeymidnight/yig/meta/types"
 	"strconv"
+	"time"
 )
 
 func (t *TidbClient) CreateFreezer(freezer *Freezer) (err error) {
@@ -40,17 +41,20 @@ func (t *TidbClient) ListFreezers(maxKeys int) (retFreezers []Freezer, err error
 			count += 1
 			loopCount += 1
 			var version uint64
+			var lastmodifiedtime string
 			retFreezer := &Freezer{}
 			err = rows.Scan(
 				&retFreezer.BucketName,
 				&retFreezer.Name,
 				&version,
 				&retFreezer.LifeTime,
-				&retFreezer.LastModifiedTime,
+				&lastmodifiedtime,
 			)
 			if err != nil {
 				return
 			}
+			local, _ := time.LoadLocation("Local")
+			retFreezer.LastModifiedTime, _ = time.ParseInLocation(TIME_LAYOUT_TIDB, lastmodifiedtime, local)
 			str := strconv.FormatUint(version, 10)
 			retFreezer.VersionId = str
 			retFreezers = append(retFreezers, *retFreezer)
@@ -90,17 +94,20 @@ func (t *TidbClient) ListFreezersNeedContinue(maxKeys int, status Status) (retFr
 			count += 1
 			loopCount += 1
 			var version uint64
+			var lastmodifiedtime string
 			retFreezer := &Freezer{}
 			err = rows.Scan(
 				&retFreezer.BucketName,
 				&retFreezer.Name,
 				&version,
 				&retFreezer.LifeTime,
-				&retFreezer.LastModifiedTime,
+				&lastmodifiedtime,
 			)
 			if err != nil {
 				return
 			}
+			local, _ := time.LoadLocation("Local")
+			retFreezer.LastModifiedTime, _ = time.ParseInLocation(TIME_LAYOUT_TIDB, lastmodifiedtime, local)
 			str := strconv.FormatUint(version, 10)
 			retFreezer.VersionId = str
 			retFreezers = append(retFreezers, *retFreezer)
@@ -114,6 +121,7 @@ func (t *TidbClient) ListFreezersNeedContinue(maxKeys int, status Status) (retFr
 }
 
 func (t *TidbClient) GetFreezer(bucketName, objectName, version string) (freezer *Freezer, err error) {
+	var lastmodifiedtime string
 	sqltext := "select bucketname,objectname,IFNULL(version,''),status,lifetime,lastmodifiedtime,location,pool,ownerid,size,etag,initializationvector from restoreobjects where bucketname=? and objectname=?;"
 	row := t.Client.QueryRow(sqltext, bucketName, objectName)
 	freezer = &Freezer{}
@@ -123,7 +131,7 @@ func (t *TidbClient) GetFreezer(bucketName, objectName, version string) (freezer
 		&freezer.VersionId,
 		&freezer.Status,
 		&freezer.LifeTime,
-		&freezer.LastModifiedTime,
+		&lastmodifiedtime,
 		&freezer.Location,
 		&freezer.Pool,
 		&freezer.OwnerId,
@@ -137,6 +145,8 @@ func (t *TidbClient) GetFreezer(bucketName, objectName, version string) (freezer
 	} else if err != nil {
 		return
 	}
+	local, _ := time.LoadLocation("Local")
+	freezer.LastModifiedTime, _ = time.ParseInLocation(TIME_LAYOUT_TIDB, lastmodifiedtime, local)
 	freezer.Parts, err = getFreezerParts(freezer.BucketName, freezer.Name, t.Client)
 	//build simple index for multipart
 	if len(freezer.Parts) != 0 {
