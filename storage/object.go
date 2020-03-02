@@ -621,7 +621,7 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 		StorageClass:         storageClass,
 	}
 	result.LastModified = object.LastModifiedTime
-	err = yig.MetaStorage.PutObject(reqCtx, object, nil, nil, true)
+	err = yig.MetaStorage.PutObject(reqCtx, object, nil, true)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
@@ -863,7 +863,7 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 
 	result.LastModified = targetObject.LastModifiedTime
 
-	err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, nil, true)
+	err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, true)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
@@ -878,7 +878,7 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 	return result, nil
 }
 
-func (yig *YigStorage) removeByObject(object *meta.Object, objMap *meta.ObjMap) (err error) {
+func (yig *YigStorage) removeByObject(object *meta.Object) (err error) {
 	err = yig.MetaStorage.DeleteObject(object)
 	if err != nil {
 		return
@@ -887,13 +887,6 @@ func (yig *YigStorage) removeByObject(object *meta.Object, objMap *meta.ObjMap) 
 }
 
 func (yig *YigStorage) getObjWithVersion(bucketName, objectName, version string) (object *meta.Object, err error) {
-	if version == "null" {
-		objMap, err := yig.MetaStorage.GetObjectMap(bucketName, objectName)
-		if err != nil {
-			return nil, err
-		}
-		version = objMap.NullVerId
-	}
 	return yig.MetaStorage.GetObjectVersion(bucketName, objectName, version, true)
 
 }
@@ -907,7 +900,7 @@ func (yig *YigStorage) removeAllObjectsEntryByName(bucketName, objectName string
 		return err
 	}
 	for _, obj := range objs {
-		err = yig.removeByObject(obj, nil)
+		err = yig.removeByObject(obj)
 		if err != nil {
 			return err
 		}
@@ -932,7 +925,7 @@ func (yig *YigStorage) removeAllOldObjectsByVersion(bucketName, objectName, late
 		return err
 	}
 	for _, obj := range objs {
-		err = yig.removeByObject(obj, nil)
+		err = yig.removeByObject(obj)
 		if err != nil {
 			return err
 		}
@@ -941,24 +934,6 @@ func (yig *YigStorage) removeAllOldObjectsByVersion(bucketName, objectName, late
 }
 
 func (yig *YigStorage) removeObjectVersion(bucketName, objectName, version string) error {
-	object, err := yig.getObjWithVersion(bucketName, objectName, version)
-	if err == ErrNoSuchKey {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-
-	if version == "null" {
-		objMap := &meta.ObjMap{
-			Name:       objectName,
-			BucketName: bucketName,
-		}
-		err = yig.removeByObject(object, objMap)
-		if err != nil {
-			return err
-		}
-	}
 	return nil
 }
 

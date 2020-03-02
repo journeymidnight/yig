@@ -52,11 +52,6 @@ func (m *Meta) GetAllOldObjects(bucketName string, objectName string, latestVers
 	return m.Client.GetAllOldObjects(bucketName, objectName, latestVersion)
 }
 
-func (m *Meta) GetObjectMap(bucketName, objectName string) (objMap *ObjMap, err error) {
-	m.Client.GetObjectMap(bucketName, objectName)
-	return
-}
-
 func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed bool) (object *Object, err error) {
 	getObjectVersion := func() (o interface{}, err error) {
 		object, err := m.Client.GetObject(bucketName, objectName, version)
@@ -87,7 +82,7 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed
 	return object, nil
 }
 
-func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multipart, objMap *ObjMap, updateUsage bool) error {
+func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multipart, updateUsage bool) error {
 	if reqCtx.BucketInfo == nil {
 		return ErrNoSuchBucket
 	}
@@ -168,11 +163,6 @@ func (m *Meta) RenameObject(object *Object, sourceObject string) error {
 
 func (m *Meta) ReplaceObjectMetas(object *Object) error {
 	err := m.Client.ReplaceObjectMetas(object, nil)
-	return err
-}
-
-func (m *Meta) PutObjMapEntry(objMap *ObjMap) error {
-	err := m.Client.PutObjectMap(objMap, nil)
 	return err
 }
 
