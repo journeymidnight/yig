@@ -416,7 +416,7 @@ func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *h
 	blBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 4096))
 	if err != nil {
 		logger.Error("Unable to read bucket logging body:", err)
-		WriteErrorResponse(w, r, ErrInvalidBl)
+		WriteErrorResponse(w, r, ErrInvalidBucketLogging)
 		return
 	}
 	err = xml.Unmarshal(blBuffer, &bl)

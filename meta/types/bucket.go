@@ -52,27 +52,27 @@ func (b *Bucket) String() (s string) {
 func (b Bucket) GetUpdateSql() (string, []interface{}) {
 	acl, _ := json.Marshal(b.ACL)
 	cors, _ := json.Marshal(b.CORS)
-	bl, _ := json.Marshal(b.BucketLogging)
+	logging, _ := json.Marshal(b.BucketLogging)
 	lc, _ := json.Marshal(b.Lifecycle)
 	bucket_policy, _ := json.Marshal(b.Policy)
 	website, _ := json.Marshal(b.Website)
 	encryption,_ := json.Marshal(b.Encryption)
-	sql := "update buckets set bucketname=?,acl=?,policy=?,cors=?,bl=?,lc=?,website=?,encryption=?,uid=?,versioning=? where bucketname=?"
-	args := []interface{}{b.Name, acl, bucket_policy, cors, bl, lc, website, encryption, b.OwnerId, b.Versioning, b.Name}
+	sql := "update buckets set bucketname=?,acl=?,policy=?,cors=?,logging=?,lc=?,website=?,encryption=?,uid=?,versioning=? where bucketname=?"
+	args := []interface{}{b.Name, acl, bucket_policy, cors, logging, lc, website, encryption, b.OwnerId, b.Versioning, b.Name}
 	return sql, args
 }
 
 func (b Bucket) GetCreateSql() (string, []interface{}) {
 	acl, _ := json.Marshal(b.ACL)
 	cors, _ := json.Marshal(b.CORS)
-	bl, _ := json.Marshal(b.BucketLogging)
+	logging, _ := json.Marshal(b.BucketLogging)
 	lc, _ := json.Marshal(b.Lifecycle)
 	bucket_policy, _ := json.Marshal(b.Policy)
 	website, _ := json.Marshal(b.Website)
 	encryption,_ := json.Marshal(b.Encryption)
 	createTime := b.CreateTime.Format(TIME_LAYOUT_TIDB)
-	sql := "insert into buckets(bucketname,acl,cors,bl,lc,uid,policy,website,encryption,createtime,usages,versioning) " +
+	sql := "insert into buckets(bucketname,acl,cors,logging,lc,uid,policy,website,encryption,createtime,usages,versioning) " +
 		"values(?,?,?,?,?,?,?,?,?,?,?,?);"
-	args := []interface{}{b.Name, acl, cors, bl, lc, b.OwnerId, bucket_policy, website, encryption, createTime, b.Usage, b.Versioning}
+	args := []interface{}{b.Name, acl, cors, logging, lc, b.OwnerId, bucket_policy, website, encryption, createTime, b.Usage, b.Versioning}
 	return sql, args
 }
