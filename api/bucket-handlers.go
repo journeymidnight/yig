@@ -398,7 +398,6 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 	w.Header().Set("Location", GetLocation(r))
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "PutBucket"
-	helper.Logger.Info("############2")
 	WriteSuccessResponse(w, nil)
 }
 
