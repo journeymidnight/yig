@@ -404,7 +404,7 @@ func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *h
 	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucket := vars["bucket"]
-
+	ctx := getRequestContext(r)
 	var credential common.Credential
 	var err error
 	if credential, err = signature.IsReqAuthenticated(r); err != nil {
@@ -426,6 +426,15 @@ func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *h
 		return
 	}
 	logger.Info("Setting bucket logging:", bl)
+	if ctx.BucketInfo == nil {
+		WriteErrorResponse(w, r, ErrNoSuchBucket)
+		return
+	}
+
+	if credential.UserId != ctx.BucketInfo.OwnerId {
+		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
+		return
+	}
 	err = api.ObjectAPI.SetBucketLogging(bucket, bl, credential)
 	if err != nil {
 		logger.Error(err, "Unable to set bucket logging for bucket:", err)

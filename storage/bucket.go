@@ -100,9 +100,6 @@ func (yig *YigStorage) SetBucketLogging(bucketName string, bl datatype.BucketLog
 	if err != nil {
 		return err
 	}
-	if bucket.OwnerId != credential.UserId {
-		return ErrBucketAccessForbidden
-	}
 	bucket.BucketLogging = bl
 	err = yig.MetaStorage.Client.PutBucket(*bucket)
 	if err != nil {
@@ -120,10 +117,6 @@ func (yig *YigStorage) GetBucketLogging(bucketName string, credential common.Cre
 	helper.Logger.Info(20,"Setting bucketlogging2::",bucket.BucketLogging)
 	if err != nil {
 		return bl, err
-	}
-	if bucket.OwnerId != credential.UserId {
-		err = ErrBucketAccessForbidden
-		return
 	}
 	return bucket.BucketLogging, nil
 }
