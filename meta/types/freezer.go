@@ -25,7 +25,7 @@ type Freezer struct {
 func (o *Freezer) GetCreateSql() (string, []interface{}) {
 	// TODO Multi-version control
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
-	sql := "insert into restoreobjects(bucketname,objectname,status,lifetime,lastmodifiedtime) values(?,?,?,?,?,?)"
+	sql := "insert into restoreobjects(bucketname,objectname,status,lifetime,lastmodifiedtime) values(?,?,?,?,?)"
 	args := []interface{}{o.BucketName, o.Name, o.Status, o.LifeTime, lastModifiedTime}
 	return sql, args
 }
