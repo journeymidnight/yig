@@ -93,6 +93,33 @@ func (yig *YigStorage) SetBucketAcl(bucketName string, policy datatype.AccessCon
 	return nil
 }
 
+func (yig *YigStorage) SetBucketLogging(bucketName string, bl datatype.BucketLoggingStatus) error {
+	helper.Logger.Info("enter SetBucketLogging")
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
+	if err != nil {
+		return err
+	}
+	bucket.BucketLogging = bl
+	err = yig.MetaStorage.Client.PutBucket(*bucket)
+	if err != nil {
+		return err
+	}
+	yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
+
+	return nil
+}
+
+func (yig *YigStorage) GetBucketLogging(bucketName string) (bl datatype.BucketLoggingStatus,
+	err error) {
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
+	helper.Logger.Info(20,"Setting bucketlogging1::",bucket)
+	helper.Logger.Info(20,"Setting bucketlogging2::",bucket.BucketLogging)
+	if err != nil {
+		return bl, err
+	}
+	return bucket.BucketLogging, nil
+}
+
 func (yig *YigStorage) SetBucketLifecycle(bucketName string, lc datatype.Lifecycle,
 	credential common.Credential) error {
 	helper.Logger.Info("enter SetBucketLifecycle")
