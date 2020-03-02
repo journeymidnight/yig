@@ -29,9 +29,8 @@ import (
 type ObjectLayer interface {
 	// Bucket operations.
 	MakeBucket(bucket string, acl datatype.Acl, credential common.Credential) error
-	SetBucketLogging(bucket string, config datatype.BucketLoggingStatus,
-		credential common.Credential) error
-	GetBucketLogging(bucket string, credential common.Credential) (datatype.BucketLoggingStatus, error)
+	SetBucketLogging(bucket string, config datatype.BucketLoggingStatus) error
+	GetBucketLogging(bucket string) (datatype.BucketLoggingStatus, error)
 	SetBucketLifecycle(bucket string, config datatype.Lifecycle,
 		credential common.Credential) error
 	GetBucketLifecycle(bucket string, credential common.Credential) (datatype.Lifecycle, error)

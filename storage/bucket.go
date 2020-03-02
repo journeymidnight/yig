@@ -93,8 +93,7 @@ func (yig *YigStorage) SetBucketAcl(bucketName string, policy datatype.AccessCon
 	return nil
 }
 
-func (yig *YigStorage) SetBucketLogging(bucketName string, bl datatype.BucketLoggingStatus,
-	credential common.Credential) error {
+func (yig *YigStorage) SetBucketLogging(bucketName string, bl datatype.BucketLoggingStatus) error {
 	helper.Logger.Info("enter SetBucketLogging")
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
@@ -110,7 +109,7 @@ func (yig *YigStorage) SetBucketLogging(bucketName string, bl datatype.BucketLog
 	return nil
 }
 
-func (yig *YigStorage) GetBucketLogging(bucketName string, credential common.Credential) (bl datatype.BucketLoggingStatus,
+func (yig *YigStorage) GetBucketLogging(bucketName string) (bl datatype.BucketLoggingStatus,
 	err error) {
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	helper.Logger.Info(20,"Setting bucketlogging1::",bucket)

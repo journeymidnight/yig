@@ -435,7 +435,7 @@ func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *h
 		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
 		return
 	}
-	err = api.ObjectAPI.SetBucketLogging(bucket, bl, credential)
+	err = api.ObjectAPI.SetBucketLogging(bucket, bl)
 	if err != nil {
 		logger.Error(err, "Unable to set bucket logging for bucket:", err)
 		WriteErrorResponse(w, r, err)
@@ -479,7 +479,7 @@ func (api ObjectAPIHandlers) GetBucketLoggingHandler(w http.ResponseWriter, r *h
 		return
 	}
 
-	bl, err := api.ObjectAPI.GetBucketLogging(bucketName, credential)
+	bl, err := api.ObjectAPI.GetBucketLogging(bucketName)
 	if err != nil {
 		logger.Error("Failed to get bucket ACL policy for bucket", bucketName,
 			"error:", err)
