@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	."github.com/journeymidnight/yig/context"
 	"net/http"
 	"strings"
 	"time"
@@ -25,6 +26,8 @@ type ResponseRecorder struct {
 	bucketLogging      bool
 	cdn_request        bool
 }
+
+const timeLayoutStr = "2006-01-02 15:04:05"
 
 func NewResponseRecorder(w http.ResponseWriter) *ResponseRecorder {
 	return &ResponseRecorder{
@@ -57,6 +60,11 @@ func (a AccessLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	helper.AccessLogger.Println(response)
 	// send the entries in access logger to message queue.
 	elems := newReplacer.GetReplacedValues()
+	ctx := GetRequestContext(r)
+	if ctx.ObjectInfo != nil {
+		objectLastModifiedTime := ctx.ObjectInfo.LastModifiedTime.Format(timeLayoutStr)
+		elems["last_modified_time"] = objectLastModifiedTime
+	}
 	a.notify(elems)
 }
 
