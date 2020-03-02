@@ -442,7 +442,7 @@ func (api ObjectAPIHandlers) GetBucketLoggingHandler(w http.ResponseWriter, r *h
 	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
-	ctx := getRequestContext(r)
+	ctx := GetRequestContext(r)
 
 	var credential common.Credential
 	var err error
