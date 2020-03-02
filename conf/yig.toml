@@ -81,7 +81,6 @@ path = "/etc/yig/plugins/dummy_kms_plugin.so"
 enable = true
 [plugins.dummy_encryption_kms.args]
 url = "KMS"
-
 [plugins.dummy_mq]
 path = "/etc/yig/plugins/dummy_mq_plugin.so"
 enable = true

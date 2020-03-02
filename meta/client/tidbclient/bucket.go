@@ -14,13 +14,14 @@ import (
 )
 
 func (t *TidbClient) GetBucket(bucketName string) (bucket *Bucket, err error) {
-	var acl, cors, lc, policy, website, encryption, createTime string
-	sqltext := "select bucketname,acl,cors,lc,uid,policy,website,COALESCE(encryption,\"\"),createtime,usages,versioning from buckets where bucketname=?;"
+	var acl, cors, logging, lc, policy, website, encryption, createTime string
+	sqltext := "select bucketname,acl,cors,COALESCE(logging,\"\"),lc,uid,policy,website,COALESCE(encryption,\"\"),createtime,usages,versioning from buckets where bucketname=?;"
 	bucket = new(Bucket)
 	err = t.Client.QueryRow(sqltext, bucketName).Scan(
 		&bucket.Name,
 		&acl,
 		&cors,
+		&logging,
 		&lc,
 		&bucket.OwnerId,
 		&policy,
@@ -48,6 +49,10 @@ func (t *TidbClient) GetBucket(bucketName string) (bucket *Bucket, err error) {
 	if err != nil {
 		return
 	}
+	err = json.Unmarshal([]byte(logging), &bucket.BucketLogging)
+	if err != nil {
+		return
+	}
 	err = json.Unmarshal([]byte(lc), &bucket.Lifecycle)
 	if err != nil {
 		return
@@ -68,7 +73,7 @@ func (t *TidbClient) GetBucket(bucketName string) (bucket *Bucket, err error) {
 }
 
 func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
-	sqltext := "select bucketname,acl,cors,lc,uid,policy,website,COALESCE(encryption,\"\"),createtime,usages,versioning from buckets;"
+	sqltext := "select bucketname,acl,cors,COALESCE(logging,\"\"),lc,uid,policy,website,COALESCE(encryption,\"\"),createtime,usages,versioning from buckets;"
 	rows, err := t.Client.Query(sqltext)
 	if err == sql.ErrNoRows {
 		err = nil
@@ -80,11 +85,12 @@ func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
 
 	for rows.Next() {
 		var tmp Bucket
-		var acl, cors, lc, policy, website,encryption, createTime string
+		var acl, cors, logging, lc, policy, website,encryption, createTime string
 		err = rows.Scan(
 			&tmp.Name,
 			&acl,
 			&cors,
+			&logging,
 			&lc,
 			&tmp.OwnerId,
 			&policy,
@@ -105,6 +111,10 @@ func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
 			return
 		}
 		err = json.Unmarshal([]byte(cors), &tmp.CORS)
+		if err != nil {
+			return
+		}
+		err = json.Unmarshal([]byte(logging), &tmp.BucketLogging)
 		if err != nil {
 			return
 		}

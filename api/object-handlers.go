@@ -584,6 +584,10 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName {
+		isMetadataOnly = true
+	}
+
 	// Create the object.
 	result, err := api.ObjectAPI.CopyObject(reqCtx, targetObject, pipeReader, credential, sseRequest, isMetadataOnly)
 	if err != nil {
