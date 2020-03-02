@@ -584,7 +584,6 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var isMetadataOnly bool
 	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName {
 		isMetadataOnly = true
 	}
