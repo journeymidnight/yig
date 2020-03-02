@@ -110,7 +110,7 @@ func (t *TidbClient) CreateMultipart(multipart Multipart) (err error) {
 	attrs, _ := json.Marshal(m.Attrs)
 	sqltext := "insert into multiparts(bucketname,objectname,uploadtime,initiatorid,ownerid,contenttype,location,pool,acl,sserequest,encryption,cipher,attrs,storageclass) " +
 		"values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-	_, err = t.Client.Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime, m.InitiatorId, m.OwnerId, m.ContentType, m.Location, m.Pool, acl, sseRequest, m.EncryptionKey,m.CipherKey, attrs, m.StorageClass)
+	_, err = t.Client.Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime, m.InitiatorId, m.OwnerId, m.ContentType, m.Location, m.Pool, acl, sseRequest, m.EncryptionKey, m.CipherKey, attrs, m.StorageClass)
 	return
 }
 
@@ -279,13 +279,4 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 	}
 	prefixs = helper.Keys(commonPrefixes)
 	return
-}
-
-func (t *TidbClient) RenameObjectPart(object *Object, sourceObject string, tx DB) (err error) {
-	if tx == nil {
-		tx = t.Client
-	}
-	sql, args := object.GetUpdateObjectPartNameSql(sourceObject)
-	_, err = tx.Exec(sql, args...)
-	return err
 }

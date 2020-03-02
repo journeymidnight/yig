@@ -672,18 +672,11 @@ func (yig *YigStorage) RenameObject(reqCtx RequestContext, targetObject *meta.Ob
 		}
 	}
 
-	if len(targetObject.Parts) != 0 {
-		err = yig.MetaStorage.RenameObjectPart(targetObject, sourceObject)
-		if err != nil {
-			helper.Logger.Error("Update Object Attrs, sql fails:", err)
-			return result, ErrInternalError
-		}
-	} else {
-		err = yig.MetaStorage.RenameObject(targetObject, sourceObject)
-		if err != nil {
-			helper.Logger.Error("Update Object Attrs, sql fails:", err)
-			return result, ErrInternalError
-		}
+	err = yig.MetaStorage.RenameObject(targetObject, sourceObject)
+	if err != nil {
+		helper.Logger.Error("Update Object Attrs, sql fails:", err)
+		return result, ErrInternalError
+
 	}
 
 	result.LastModified = targetObject.LastModifiedTime

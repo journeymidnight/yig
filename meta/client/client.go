@@ -19,9 +19,8 @@ type Client interface {
 	PutObjectWithoutMultiPart(object *Object) error
 	UpdateObject(object *Object, multipart *Multipart, updateUsage bool) (err error)
 	UpdateObjectWithoutMultiPart(object *Object) error
-	UpdateAppendObject(object *Object, tx DB) error
-	RenameObjectPart(object *Object, sourceObject string, tx DB) (err error)
-	RenameObject(object *Object, sourceObject string, tx DB) (err error)
+	UpdateAppendObject(object *Object) error
+	RenameObject(object *Object, sourceObject string) (err error)
 	ReplaceObjectMetas(object *Object, tx DB) (err error)
 	DeleteObject(object *Object, tx DB) error
 	UpdateObjectAcl(object *Object) error

@@ -84,33 +84,6 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 	return
 }
 
-func (t *TidbClient) GetAllObject(bucketName, objectName string) (object []*Object, err error) {
-	sqltext := "select version from objects where bucketname=? and name=?;"
-	var versions []string
-	rows, err := t.Client.Query(sqltext, bucketName, objectName)
-	if err != nil {
-		return
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var sversion string
-		err = rows.Scan(&sversion)
-		if err != nil {
-			return
-		}
-		versions = append(versions, sversion)
-	}
-	for _, v := range versions {
-		var obj *Object
-		obj, err = t.GetObject(bucketName, objectName, v)
-		if err != nil {
-			return
-		}
-		object = append(object, obj)
-	}
-	return
-}
-
 func (t *TidbClient) UpdateObjectAttrs(object *Object) error {
 	sql, args := object.GetUpdateAttrsSql()
 	_, err := t.Client.Exec(sql, args...)
@@ -123,12 +96,32 @@ func (t *TidbClient) UpdateObjectAcl(object *Object) error {
 	return err
 }
 
-func (t *TidbClient) RenameObject(object *Object, sourceObject string, tx DB) (err error) {
-	if tx == nil {
-		tx = t.Client
-	}
+func (t *TidbClient) RenameObject(object *Object, sourceObject string) (err error) {
 	sql, args := object.GetUpdateNameSql(sourceObject)
-	_, err = tx.Exec(sql, args...)
+	if len(object.Parts) != 0 {
+		tx, err := t.NewTrans()
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err == nil {
+				err = t.CommitTrans(tx)
+			}
+			if err != nil {
+				t.AbortTrans(tx)
+			}
+		}()
+		_, err = tx.Exec(sql, args...)
+		if err != nil {
+			return err
+		}
+
+		// rename parts
+		sql, args = object.GetUpdateObjectPartNameSql(sourceObject)
+		_, err = tx.Exec(sql, args...)
+		return err
+	}
+	_, err = t.Client.Exec(sql, args...)
 	return
 }
 
@@ -141,13 +134,26 @@ func (t *TidbClient) ReplaceObjectMetas(object *Object, tx DB) (err error) {
 	return
 }
 
-func (t *TidbClient) UpdateAppendObject(object *Object, tx DB) (err error) {
-	if tx == nil {
-		tx = t.Client
+func (t *TidbClient) UpdateAppendObject(object *Object) (err error) {
+	tx, err := t.NewTrans()
+	if err != nil {
+		return err
 	}
-	sql, args := object.GetAppendSql()
+	defer func() {
+		if err == nil {
+			err = t.CommitTrans(tx)
+		}
+		if err != nil {
+			t.AbortTrans(tx)
+		}
+	}()
+
+	lastModifiedTime := object.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
+	sql := "update objects set lastmodifiedtime=?, size=? where bucketname=? and name=? and version=?"
+	args := []interface{}{lastModifiedTime, object.Size, object.BucketName, object.Name, object.VersionId}
 	_, err = tx.Exec(sql, args...)
-	return err
+
+	return t.UpdateUsage(object.BucketName, object.Size, tx)
 }
 
 func (t *TidbClient) PutObjectWithoutMultiPart(object *Object) error {
