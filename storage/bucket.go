@@ -108,9 +108,7 @@ func (yig *YigStorage) SetBucketLogging(bucketName string, bl datatype.BucketLog
 	if err != nil {
 		return err
 	}
-	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
-	}
+	yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
 
 	return nil
 }

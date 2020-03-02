@@ -441,6 +441,7 @@ func (api ObjectAPIHandlers) GetBucketLoggingHandler(w http.ResponseWriter, r *h
 	logger := ContextLogger(r)
 	vars := mux.Vars(r)
 	bucketName := vars["bucket"]
+	ctx := getRequestContext(r)
 
 	var credential common.Credential
 	var err error
@@ -457,6 +458,16 @@ func (api ObjectAPIHandlers) GetBucketLoggingHandler(w http.ResponseWriter, r *h
 			WriteErrorResponse(w, r, err)
 			return
 		}
+	}
+
+	if ctx.BucketInfo == nil {
+		WriteErrorResponse(w, r, ErrNoSuchBucket)
+		return
+	}
+
+	if credential.UserId != ctx.BucketInfo.OwnerId {
+		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
+		return
 	}
 
 	bl, err := api.ObjectAPI.GetBucketLogging(bucketName, credential)
