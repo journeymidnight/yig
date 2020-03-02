@@ -26,6 +26,7 @@ CREATE TABLE `buckets` (
   `bucketname` varchar(255) NOT NULL DEFAULT '',
   `acl` JSON DEFAULT NULL,
   `cors` JSON DEFAULT NULL,
+  `logging` JSON NOT NULL DEFAULT '',
   `lc` JSON DEFAULT NULL,
   `uid` varchar(255) DEFAULT NULL,
   `policy` JSON DEFAULT NULL,
