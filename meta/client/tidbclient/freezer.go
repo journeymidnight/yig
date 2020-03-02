@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	. "github.com/journeymidnight/yig/error"
 	. "github.com/journeymidnight/yig/meta/types"
-	"math"
 	"strconv"
 )
 
@@ -27,10 +26,10 @@ func (t *TidbClient) ListFreezers(maxKeys int) (retFreezers []Freezer, err error
 		var sqltext string
 		var rows *sql.Rows
 		if marker == "" {
-			sqltext = "select bucketname,objectname,version,status,lifetime,lastmodifiedtime from restoreobjects order by bucketname,name,version limit ?;"
+			sqltext = "select bucketname,objectname,version,status,lifetime,lastmodifiedtime from restoreobjects order by bucketname,objectname,version limit ?;"
 			rows, err = t.Client.Query(sqltext, maxKeys)
 		} else {
-			sqltext = "select bucketname,objectname,version,status,lifetime,lastmodifiedtime from restoreobjects where name >=? order by bucketname,name,version limit ?,?;"
+			sqltext = "select bucketname,objectname,version,status,lifetime,lastmodifiedtime from restoreobjects where name >=? order by bucketname,objectname,version limit ?,?;"
 			rows, err = t.Client.Query(sqltext, marker, count-1, count+maxKeys)
 		}
 		if err != nil {
@@ -77,10 +76,10 @@ func (t *TidbClient) ListFreezersNeedContinue(maxKeys int, status Status) (retFr
 		var sqltext string
 		var rows *sql.Rows
 		if marker == "" {
-			sqltext = "select bucketname,objectname,version from restoreobjects where status=? order by bucketname,name,version limit ?;"
+			sqltext = "select bucketname,objectname,version from restoreobjects where status=? order by bucketname,objectname,version limit ?;"
 			rows, err = t.Client.Query(sqltext, status, maxKeys)
 		} else {
-			sqltext = "select bucketname,objectname,version from restoreobjects where name >=? and status=? order by bucketname,name,version limit ?,?;"
+			sqltext = "select bucketname,objectname,version from restoreobjects where name >=? and status=? order by bucketname,objectname,version limit ?,?;"
 			rows, err = t.Client.Query(sqltext, marker, status, count-1, count+maxKeys)
 		}
 		if err != nil {
@@ -115,8 +114,8 @@ func (t *TidbClient) ListFreezersNeedContinue(maxKeys int, status Status) (retFr
 }
 
 func (t *TidbClient) GetFreezer(bucketName, objectName, version string) (freezer *Freezer, err error) {
-	sqltext := "select bucketname,objectname,version,status,lifetime,lastmodifiedtime,location,pool.ownerid,size,etag,initializationvector from restoreobjects where bucketname=? and objectname=? and version=?;"
-	row := t.Client.QueryRow(sqltext, bucketName, objectName, version)
+	sqltext := "select bucketname,objectname,version,status,lifetime,lastmodifiedtime,location,pool.ownerid,size,etag,initializationvector from restoreobjects where bucketname=? and objectname=?;"
+	row := t.Client.QueryRow(sqltext, bucketName, objectName)
 	freezer = &Freezer{}
 	err = row.Scan(
 		&freezer.BucketName,
@@ -138,7 +137,7 @@ func (t *TidbClient) GetFreezer(bucketName, objectName, version string) (freezer
 	} else if err != nil {
 		return
 	}
-	freezer.Parts, err = getFreezerParts(freezer.BucketName, freezer.Name, freezer.VersionId, t.Client)
+	freezer.Parts, err = getFreezerParts(freezer.BucketName, freezer.Name, t.Client)
 	//build simple index for multipart
 	if len(freezer.Parts) != 0 {
 		var sortedPartNum = make([]int64, len(freezer.Parts))
@@ -160,7 +159,7 @@ func (t *TidbClient) GetFreezerStatus(bucketName, objectName, version string) (f
 		&freezer.VersionId,
 		&freezer.Status,
 	)
-	if err == sql.ErrNoRows {
+	if err == sql.ErrNoRows || freezer.Name == "" {
 		err = ErrNoSuchKey
 		return
 	}
@@ -185,7 +184,7 @@ func (t *TidbClient) UploadFreezerBackendInfo(targetFreezer *Freezer) (err error
 	return nil
 }
 
-func (t *TidbClient) PutFreezer(freezer *Freezer, status Status, tx DB) (err error) {
+func (t *TidbClient) DeleteFreezer(bucketName, objectName string, tx DB) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		if err != nil {
@@ -200,44 +199,13 @@ func (t *TidbClient) PutFreezer(freezer *Freezer, status Status, tx DB) (err err
 			}
 		}()
 	}
-	sql, args := freezer.GetUpdateSql(status)
-	_, err = tx.Exec(sql, args...)
-	if freezer.Parts != nil {
-		v := math.MaxUint64 - uint64(freezer.LastModifiedTime.UnixNano())
-		version := strconv.FormatUint(v, 10)
-		for _, p := range freezer.Parts {
-			psql, args := p.GetCreateSql(freezer.BucketName, freezer.Name, version)
-			_, err = tx.Exec(psql, args...)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return err
-}
-
-func (t *TidbClient) DeleteFreezer(freezer *Freezer, tx DB) (err error) {
-	if tx == nil {
-		tx, err = t.Client.Begin()
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err == nil {
-				err = tx.(*sql.Tx).Commit()
-			}
-			if err != nil {
-				tx.(*sql.Tx).Rollback()
-			}
-		}()
-	}
-	sqltext := "delete from restoreobjects where bucketname=? and objectname=? and versionid=?;"
-	_, err = tx.Exec(sqltext, freezer.BucketName, freezer.Name, freezer.VersionId)
+	sqltext := "delete from restoreobjects where bucketname=? and objectname=?;"
+	_, err = tx.Exec(sqltext, bucketName, objectName)
 	if err != nil {
 		return err
 	}
-	sqltext = "delete from restoreobjectpart where objectname=? and bucketname=? and version=?;"
-	_, err = tx.Exec(sqltext, freezer.Name, freezer.BucketName, freezer.VersionId)
+	sqltext = "delete from restoreobjectpart where objectname=? and bucketname=?;"
+	_, err = tx.Exec(sqltext, bucketName, objectName)
 	if err != nil {
 		return err
 	}
@@ -245,10 +213,10 @@ func (t *TidbClient) DeleteFreezer(freezer *Freezer, tx DB) (err error) {
 }
 
 //util function
-func getFreezerParts(bucketName, objectName string, version string, cli *sql.DB) (parts map[int]*Part, err error) {
+func getFreezerParts(bucketName, objectName string, cli *sql.DB) (parts map[int]*Part, err error) {
 	parts = make(map[int]*Part)
-	sqltext := "select partnumber,size,objectid,offset,etag,lastmodified,initializationvector from restoreobjectpart where bucketname=? and objectname=? and version=?;"
-	rows, err := cli.Query(sqltext, bucketName, objectName, version)
+	sqltext := "select partnumber,size,objectid,offset,etag,lastmodified,initializationvector from restoreobjectpart where bucketname=? and objectname=?;"
+	rows, err := cli.Query(sqltext, bucketName, objectName)
 	if err != nil {
 		return
 	}

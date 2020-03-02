@@ -14,12 +14,9 @@ type S3Client struct {
 const (
 	Endpoint         = "s3.test.com:8080"
 	EndpointInternal = "s3-internal.test.com:8080"
-	//AccessKey        = "hehehehe"
-	//SecretKey        = "hehehehe"
-	//Region           = "RegionHeHe"
-	AccessKey        = "UYqO9JUqFFejWmO2"
-	SecretKey        = "0TsGg4snfyWMcn7KrfyeYKPZnLEm63"
-	Region           = "cn-bj-1"
+	AccessKey        = "hehehehe"
+	SecretKey        = "hehehehe"
+	Region           = "RegionHeHe"
 
 	TEST_BUCKET         = "mybucket"
 	TEST_COPY_BUCKET	= "mycopybucket"

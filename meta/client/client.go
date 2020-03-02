@@ -21,6 +21,7 @@ type Client interface {
 	RenameObject(object *Object, sourceObject string, tx DB) (err error)
 	ReplaceObjectMetas(object *Object, tx DB) (err error)
 	DeleteObject(object *Object, tx DB) error
+	UpdateObject(object *Object, tx DB) (err error)
 	UpdateObjectAcl(object *Object) error
 	UpdateObjectAttrs(object *Object) error
 	//bucket
@@ -62,8 +63,7 @@ type Client interface {
 	ListFreezersNeedContinue(maxKeys int, status Status) (retFreezers []Freezer, err error)
 	GetFreezer(bucketName, objectName, version string) (freezer *Freezer, err error)
 	GetFreezerStatus(bucketName, objectName, version string) (freezer *Freezer, err error)
-	PutFreezer(freezer *Freezer, status Status, tx DB) (err error)
 	UploadFreezerStatus(bucketName, objectName string, status, statusSetting Status) (err error)
 	UploadFreezerBackendInfo(targetFreezer *Freezer) error
-	DeleteFreezer(freezer *Freezer, tx DB) error
+	DeleteFreezer(bucketName, objectName string, tx DB) (err error)
 }

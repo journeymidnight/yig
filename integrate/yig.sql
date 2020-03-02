@@ -231,7 +231,7 @@ DROP TABLE IF EXISTS `restoreobjects`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `restoreobjects` (
   `bucketname` varchar(255) DEFAULT NULL,
-  `name` varchar(255) DEFAULT NULL,
+  `objectname` varchar(255) DEFAULT NULL,
   `version` bigint(20) unsigned DEFAULT NULL,
   `status` tinyint(1) DEFAULT '0',
   `lifetime` tinyint(2) DEFAULT '1',
@@ -243,7 +243,7 @@ CREATE TABLE `restoreobjects` (
   `objectid` varchar(255) DEFAULT NULL,
   `etag` varchar(255) DEFAULT NULL,
   `initializationvector` blob DEFAULT NULL,
-  UNIQUE KEY `rowkey` (`bucketname`,`name`,`version`)
+  UNIQUE KEY `rowkey` (`bucketname`,`objectname`,`version`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
 

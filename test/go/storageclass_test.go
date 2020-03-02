@@ -36,13 +36,15 @@ func Test_PutObject_With_StorageClass(t *testing.T) {
 			t.Fatal("PutObjectWithStorageClass err:", err)
 			panic(err)
 		}
-		out, err := sc.GetObjectOutPut(c.BucketName, c.Key)
-		if err != nil {
-			t.Fatal("GetObjectOutPut err:", err)
-			panic(err)
-		}
-		if *out.StorageClass != c.Expected {
-			t.Fatal("StorageClass is not correct. out:", *out.StorageClass, "expected:", c.Expected)
+		if c.StorageClass != s3.ObjectStorageClassGlacier {
+			out, err := sc.GetObjectOutPut(c.BucketName, c.Key)
+			if err != nil {
+				t.Fatal("GetObjectOutPut err:", err)
+				panic(err)
+			}
+			if *out.StorageClass != c.Expected {
+				t.Fatal("StorageClass is not correct. out:", *out.StorageClass, "expected:", c.Expected)
+			}
 		}
 	}
 }
@@ -96,13 +98,15 @@ func Test_MultipartUpload_With_StorageClass(t *testing.T) {
 			}
 		}
 
-		out, err := sc.GetObjectOutPut(c.BucketName, c.Key)
-		if err != nil {
-			t.Fatal("GetObjectOutPut err:", err)
-			panic(err)
-		}
-		if *out.StorageClass != c.Expected {
-			t.Fatal("StorageClass is not correct. out:", *out.StorageClass, "expected:", c.Expected)
+		if c.StorageClass != s3.ObjectStorageClassGlacier {
+			out, err := sc.GetObjectOutPut(c.BucketName, c.Key)
+			if err != nil {
+				t.Fatal("GetObjectOutPut err:", err)
+				panic(err)
+			}
+			if *out.StorageClass != c.Expected {
+				t.Fatal("StorageClass is not correct. out:", *out.StorageClass, "expected:", c.Expected)
+			}
 		}
 	}
 }

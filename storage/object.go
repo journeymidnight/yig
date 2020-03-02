@@ -25,7 +25,7 @@ import (
 	"github.com/journeymidnight/yig/signature"
 )
 
-var latestQueryTime [2]time.Time // 0 is for SMALL_FILE_POOLNAME, 1 is for BIG_FILE_POOLNAME, 2 is for GLACIER_FILE_POOLNAME
+var latestQueryTime [3]time.Time // 0 is for SMALL_FILE_POOLNAME, 1 is for BIG_FILE_POOLNAME, 2 is for GLACIER_FILE_POOLNAME
 const (
 	CLUSTER_MAX_USED_SPACE_PERCENT = 85
 	BIG_FILE_THRESHOLD             = 128 << 10 /* 128K */
@@ -519,7 +519,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
-		helper.Logger.Info("get bucket", bucket, "err:", err)
+		helper.Logger.Error("get bucket", bucket, "err:", err)
 		return
 	}
 
@@ -724,7 +724,7 @@ func (yig *YigStorage) RenameObject(targetObject *meta.Object, sourceObject stri
 	return result, nil
 }
 
-func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, credential common.Credential,
+func (yig *YigStorage) CopyObject(targetObject *meta.Object, sourceObject *meta.Object, source io.Reader, credential common.Credential,
 	sseRequest datatype.SseRequest, isMetadataOnly bool) (result datatype.PutObjectResult, err error) {
 
 	var oid string
@@ -920,11 +920,21 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		BucketName: targetObject.BucketName,
 	}
 
-	if nullVerNum != 0 {
-		objMap.NullVerNum = nullVerNum
-		err = yig.MetaStorage.PutObject(targetObject, nil, objMap, true)
+	if sourceObject.StorageClass.ToString() == "GLACIER" || targetObject.StorageClass.ToString() == "GLACIER" {
+		var isFreezer bool
+		if sourceObject.StorageClass.ToString() == "GLACIER" {
+			isFreezer = true
+		} else {
+			isFreezer = false
+		}
+		err = yig.MetaStorage.UpdateGlacierObject(targetObject, sourceObject, isFreezer)
 	} else {
-		err = yig.MetaStorage.PutObject(targetObject, nil, nil, true)
+		if nullVerNum != 0 {
+			objMap.NullVerNum = nullVerNum
+			err = yig.MetaStorage.PutObject(targetObject, nil, objMap, true)
+		} else {
+			err = yig.MetaStorage.PutObject(targetObject, nil, nil, true)
+		}
 	}
 
 	if err != nil {

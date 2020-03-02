@@ -162,6 +162,14 @@ func (o *Object) GetAppendSql() (string, []interface{}) {
 	return sql, args
 }
 
+func (o *Object) GetUpdateSql() (string, []interface{}) {
+	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
+	sql := "update objects set location=?,pool=?," +
+		"size=?,objectid=?,lastmodifiedtime=?,etag=?,initializationvector=?,storageclass=? where bucketname=? and name=?"
+	args := []interface{}{lastModifiedTime, o.Location, o.Pool, o.Size, o.ObjectId, o.Etag, o.InitializationVector, o.StorageClass, o.BucketName, o.Name}
+	return sql, args
+}
+
 func (o *Object) GetUpdateAclSql() (string, []interface{}) {
 	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
 	acl, _ := json.Marshal(o.ACL)

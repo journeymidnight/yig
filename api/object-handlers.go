@@ -514,6 +514,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	truelySourceObject := sourceObject
 	if sourceObject.StorageClass.ToString() == "GLACIER" {
 		freezer, err := api.ObjectAPI.GetFreezer(sourceBucketName, sourceObjectName, sourceVersion)
 		if err != nil {
@@ -639,11 +640,15 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 
 	var isMetadataOnly bool
 	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName {
-		isMetadataOnly = true
+		if sourceObject.StorageClass.ToString() == "GLACIER" || targetObject.StorageClass.ToString() == "GLACIER" {
+			isMetadataOnly = false
+		} else {
+			isMetadataOnly = true
+		}
 	}
 
 	// Create the object.
-	result, err := api.ObjectAPI.CopyObject(targetObject, pipeReader, credential, sseRequest, isMetadataOnly)
+	result, err := api.ObjectAPI.CopyObject(targetObject, truelySourceObject, pipeReader, credential, sseRequest, isMetadataOnly)
 	if err != nil {
 		logger.Error("CopyObject failed:", err)
 		WriteErrorResponse(w, r, err)
@@ -1294,8 +1299,8 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 	}
 
 	targetFreezer := &meta.Freezer{}
-	targetFreezer.BucketName = freezer.BucketName
-	targetFreezer.Name = freezer.Name
+	targetFreezer.BucketName = object.BucketName
+	targetFreezer.Name = object.Name
 	targetFreezer.Status = status
 	targetFreezer.LifeTime = info.Days
 	err = api.ObjectAPI.CreateFreezer(targetFreezer)
