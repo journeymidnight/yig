@@ -724,7 +724,7 @@ func (yig *YigStorage) RenameObject(targetObject *meta.Object, sourceObject stri
 	return result, nil
 }
 
-func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, credential common.Credential,
+func (yig *YigStorage) CopyObject(targetObject *meta.Object, sourceObject *meta.Object, source io.Reader, credential common.Credential,
 	sseRequest datatype.SseRequest, isMetadataOnly bool) (result datatype.PutObjectResult, err error) {
 
 	var oid string
@@ -920,11 +920,21 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		BucketName: targetObject.BucketName,
 	}
 
-	if nullVerNum != 0 {
-		objMap.NullVerNum = nullVerNum
-		err = yig.MetaStorage.PutObject(targetObject, nil, objMap, true)
+	if sourceObject.StorageClass.ToString() == "GLACIER" || targetObject.StorageClass.ToString() == "GLACIER" {
+		var isFreezer bool
+		if sourceObject.StorageClass.ToString() == "GLACIER" {
+			isFreezer = true
+		} else {
+			isFreezer = false
+		}
+		err = yig.MetaStorage.UpdateGlacierObject(targetObject, sourceObject, isFreezer)
 	} else {
-		err = yig.MetaStorage.PutObject(targetObject, nil, nil, true)
+		if nullVerNum != 0 {
+			objMap.NullVerNum = nullVerNum
+			err = yig.MetaStorage.PutObject(targetObject, nil, objMap, true)
+		} else {
+			err = yig.MetaStorage.PutObject(targetObject, nil, nil, true)
+		}
 	}
 
 	if err != nil {
