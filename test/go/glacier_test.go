@@ -58,4 +58,14 @@ func Test_RestoreObject(t *testing.T) {
 	}
 	t.Log("RestoreObject Success!")
 
+	err = sc.DeleteObject(TEST_BUCKET,TEST_KEY)
+	if err != nil {
+		t.Fatal("DeleteObject err:", err)
+	}
+	t.Log("DeleteObject Success!")
+	err = sc.DeleteBucket(TEST_BUCKET)
+	if err != nil {
+		t.Fatal("DeleteBucket err:", err)
+	}
+	t.Log("DeleteBucket Success!")
 }
