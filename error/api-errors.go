@@ -168,14 +168,14 @@ const (
 	ErrInvalidIndexDocumentSuffix
 	ErrInvalidErrorDocumentKey
 	ErrMalformedMetadataConfiguration
-	ErrInvalidRestoreInfo
-	ErrCreateRestoreObject
-	ErrInvalidGlacierObject
 	ErrMalformedEncryptionConfiguration
 	ErrMissingRuleInEncryption
 	ErrExceededEncryptionRulesLimit
 	ErrMissingEncryptionByDefaultInEncryptionRule
 	ErrMissingSSEAlgorithmOrKMSMasterKeyIDInEncryptionRule
+	ErrInvalidRestoreInfo
+	ErrCreateRestoreObject
+	ErrInvalidGlacierObject
 )
 
 // error code to APIError structure, these fields carry respective
@@ -797,11 +797,6 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		Description:    "Parsing meta XML data failed",
 		HttpStatusCode: http.StatusBadRequest,
 	},
-	ErrCreateRestoreObject: {
-		AwsErrorCode:   "CreateRestoreObjectError",
-		Description:    "Create object thaw operation failed",
-		HttpStatusCode: http.StatusInternalServerError,
-	},
 	ErrMalformedEncryptionConfiguration: {
 		AwsErrorCode:   "MalformedEncryptionConfiguration",
 		Description:    "Cannot Marshal/Unmarshal XML of encryption configuration.",
@@ -826,6 +821,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "ExceededEncryptionRulesLimit",
 		Description:    "The quantity of the routing rules in the website configuration is exceeded.",
 		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrCreateRestoreObject: {
+		AwsErrorCode:   "CreateRestoreObjectError",
+		Description:    "Create object thaw operation failed",
+		HttpStatusCode: http.StatusInternalServerError,
 	},
 }
 

@@ -25,8 +25,8 @@ const EXPORTED_PLUGIN = "Exported"
 const (
 	IAM_PLUGIN = iota //IamClient interface
 	MQ_PLUGIN
-	COMPRESS_PLUGIN
 	KMS_PLUGIN
+	COMPRESS_PLUGIN
 	NUMS_PLUGIN
 )
 
