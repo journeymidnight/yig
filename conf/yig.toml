@@ -24,11 +24,11 @@ meta_store = "tidb"
 tidb_info = "root:@tcp(10.5.0.17:4000)/yig"
 keepalive = true
 enable_usage_push = false
-redis_address = "redis:6379"
+redis_group = ["redis:6379"]
 redis_password = "hehehehe"
 redis_connection_number = 10
 memory_cache_max_entry_count = 100000
-enable_data_cache = true
+enable_data_cache = false
 redis_connect_timeout = 1
 redis_read_timeout = 1
 redis_write_timeout = 1
@@ -54,15 +54,33 @@ upload_max_chunk_size = 8388608 #8MB
 # Ceph Config
 ceph_config_pattern = "/etc/ceph/*.conf"
 
-[kms]
-type = "vault"
+# Plugin Config
+[plugins.encryption_vault]
+path = "/etc/yig/plugins/vault_plugin.so"
+enable = false
+[plugins.encryption_vault.args]
 endpoint = "http://10.5.0.19:8200"
 kms_id = "your_id"
 kms_secret = "your_secret"
 version = 0
-keyname = "yig"
+keyName = "yig"
 
-# Plugin Config
+[plugins.encryption_kms]
+path = "/etc/yig/plugins/kms_plugin.so"
+enable = false
+[plugins.encryption_kms.args]
+url = "https://10.0.47.24:8011"
+keyName = "alias/yig"
+accessKey = "UYqO9JUqFFejWmO2"
+secretAccessKey = "0TsGg4snfyWMcn7KrfyeYKPZnLEm63"
+debug_mode = true
+token = "20cd173e-9d5a-431f-a26d-cdb1ad168c84"
+
+[plugins.dummy_encryption_kms]
+path = "/etc/yig/plugins/dummy_kms_plugin.so"
+enable = true
+[plugins.dummy_encryption_kms.args]
+url = "KMS"
 [plugins.dummy_mq]
 path = "/etc/yig/plugins/dummy_mq_plugin.so"
 enable = true

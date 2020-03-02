@@ -2,13 +2,14 @@ package api
 
 import (
 	"fmt"
+	."github.com/journeymidnight/yig/context"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/journeymidnight/yig/helper"
-	bus "github.com/journeymidnight/yig/mq"
 	"github.com/journeymidnight/yig/meta"
+	bus "github.com/journeymidnight/yig/mq"
 )
 
 type ResponseRecorder struct {
@@ -59,7 +60,7 @@ func (a AccessLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	helper.AccessLogger.Println(response)
 	// send the entries in access logger to message queue.
 	elems := newReplacer.GetReplacedValues()
-	ctx := getRequestContext(r)
+	ctx := GetRequestContext(r)
 	if ctx.ObjectInfo != nil {
 		objectLastModifiedTime := ctx.ObjectInfo.LastModifiedTime.Format(timeLayoutStr)
 		elems["last_modified_time"] = objectLastModifiedTime

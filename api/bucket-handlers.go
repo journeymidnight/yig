@@ -20,12 +20,11 @@ import (
 	"encoding/xml"
 	"io"
 	"io/ioutil"
-	"mime/multipart"
 	"net/http"
-	"strings"
 
 	"github.com/gorilla/mux"
 	. "github.com/journeymidnight/yig/api/datatype"
+	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
@@ -358,13 +357,15 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 // ----------
 // This implementation of the PUT operation creates a new bucket for authenticated request
 func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucketName := strings.ToLower(vars["bucket"])
-	if !isValidBucketName(bucketName) {
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
+
+	bucketName := reqCtx.BucketName
+	if err := CheckValidBucketName(bucketName); err != nil {
 		WriteErrorResponse(w, r, ErrInvalidBucketName)
 		return
 	}
+
 	var credential common.Credential
 	var err error
 	if credential, err = signature.IsReqAuthenticated(r); err != nil {
@@ -387,7 +388,7 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 	// TODO:the location value in the request body should match the Region in serverConfig.
 
 	// Make bucket.
-	err = api.ObjectAPI.MakeBucket(bucketName, acl, credential)
+	err = api.ObjectAPI.MakeBucket(reqCtx, acl, credential)
 	if err != nil {
 		logger.Error("Unable to create bucket", bucketName, "error:", err)
 		WriteErrorResponse(w, r, err)
@@ -869,53 +870,6 @@ func (api ObjectAPIHandlers) PutBucketVersioningHandler(w http.ResponseWriter, r
 	WriteSuccessResponse(w, nil)
 }
 
-func extractHTTPFormValues(reader *multipart.Reader) (filePartReader io.ReadCloser,
-	formValues map[string]string, err error) {
-
-	formValues = make(map[string]string)
-	for {
-		var part *multipart.Part
-		part, err = reader.NextPart()
-		if err == io.EOF {
-			err = nil
-			break
-		}
-		if err != nil {
-			return nil, nil, err
-		}
-
-		if part.FormName() != "file" {
-			var buffer []byte
-			buffer, err = ioutil.ReadAll(part)
-			if err != nil {
-				return nil, nil, err
-			}
-			formValues[http.CanonicalHeaderKey(part.FormName())] = string(buffer)
-		} else {
-			// "All variables within the form are expanded prior to validating
-			// the POST policy"
-			fileName := part.FileName()
-			objectKey, ok := formValues["Key"]
-			if !ok {
-				return nil, nil, ErrMissingFields
-			}
-			if strings.Contains(objectKey, "${filename}") {
-				formValues["Key"] = strings.Replace(objectKey, "${filename}", fileName, -1)
-			}
-
-			filePartReader = part
-			// "The file or content must be the last field in the form.
-			// Any fields below it are ignored."
-			break
-		}
-	}
-
-	if filePartReader == nil {
-		err = ErrEmptyEntity
-	}
-	return
-}
-
 // HeadBucketHandler - HEAD Bucket
 // ----------
 // This operation is useful to determine if a bucket exists.
@@ -956,9 +910,8 @@ func (api ObjectAPIHandlers) HeadBucketHandler(w http.ResponseWriter, r *http.Re
 
 // DeleteBucketHandler - Delete bucket
 func (api ObjectAPIHandlers) DeleteBucketHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucket := vars["bucket"]
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 
 	var credential common.Credential
 	var err error
@@ -967,7 +920,7 @@ func (api ObjectAPIHandlers) DeleteBucketHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if err = api.ObjectAPI.DeleteBucket(bucket, credential); err != nil {
+	if err = api.ObjectAPI.DeleteBucket(reqCtx, credential); err != nil {
 		logger.Error("Unable to delete a bucket:", err)
 		WriteErrorResponse(w, r, err)
 		return

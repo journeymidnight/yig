@@ -2,6 +2,8 @@ package meta
 
 import (
 	"database/sql"
+
+	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
@@ -46,9 +48,8 @@ func (m *Meta) GetAllObject(bucketName string, objectName string) (object []*Obj
 	return m.Client.GetAllObject(bucketName, objectName, "")
 }
 
-func (m *Meta) GetObjectMap(bucketName, objectName string) (objMap *ObjMap, err error) {
-	m.Client.GetObjectMap(bucketName, objectName)
-	return
+func (m *Meta) GetAllOldObjects(bucketName string, objectName string, latestVersion string) (objects []*Object, err error) {
+	return m.Client.GetAllOldObjects(bucketName, objectName, latestVersion)
 }
 
 func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed bool) (object *Object, err error) {
@@ -81,7 +82,27 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed
 	return object, nil
 }
 
-func (m *Meta) PutObject(object *Object, multipart *Multipart, objMap *ObjMap, updateUsage bool) error {
+func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multipart, updateUsage bool) error {
+	if reqCtx.BucketInfo == nil {
+		return ErrNoSuchBucket
+	}
+	if reqCtx.BucketInfo.Versioning == VersionDisabled {
+		object.VersionId = "0"
+	} else {
+		return ErrNotImplemented
+		// TODO: object.VersionId = strconv.FormatUint(math.MaxUint64-uint64(object.LastModifiedTime.UnixNano()), 10)
+	}
+
+	needUpdate := (reqCtx.ObjectInfo != nil)
+	if multipart == nil && object.Parts == nil {
+		if needUpdate {
+			return m.Client.UpdateObjectWithoutMultiPart(object)
+		} else {
+			return m.Client.PutObjectWithoutMultiPart(object)
+		}
+
+	}
+
 	tx, err := m.Client.NewTrans()
 	if err != nil {
 		return err
@@ -92,13 +113,13 @@ func (m *Meta) PutObject(object *Object, multipart *Multipart, objMap *ObjMap, u
 		}
 	}()
 
-	err = m.Client.PutObject(object, tx)
-	if err != nil {
-		return err
-	}
-
-	if objMap != nil {
-		err = m.Client.PutObjectMap(objMap, tx)
+	if needUpdate {
+		err = m.Client.UpdateObject(object, tx)
+		if err != nil {
+			return err
+		}
+	} else {
+		err = m.Client.PutObject(object, tx)
 		if err != nil {
 			return err
 		}
@@ -145,12 +166,25 @@ func (m *Meta) ReplaceObjectMetas(object *Object) error {
 	return err
 }
 
-func (m *Meta) PutObjMapEntry(objMap *ObjMap) error {
-	err := m.Client.PutObjectMap(objMap, nil)
-	return err
+func (m *Meta) DeleteOldObject(object *Object) (err error) {
+	var tx *sql.Tx
+	tx, err = m.Client.NewTrans()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = m.Client.CommitTrans(tx)
+		}
+		if err != nil {
+			m.Client.AbortTrans(tx)
+		}
+	}()
+
+	return m.Client.UpdateUsage(object.BucketName, -object.Size, tx)
 }
 
-func (m *Meta) DeleteObject(object *Object, DeleteMarker bool, objMap *ObjMap) (err error) {
+func (m *Meta) DeleteObject(object *Object) (err error) {
 	var tx *sql.Tx
 	tx, err = m.Client.NewTrans()
 	if err != nil {
@@ -168,17 +202,6 @@ func (m *Meta) DeleteObject(object *Object, DeleteMarker bool, objMap *ObjMap) (
 	err = m.Client.DeleteObject(object, tx)
 	if err != nil {
 		return err
-	}
-
-	if objMap != nil {
-		err = m.Client.DeleteObjectMap(objMap, tx)
-		if err != nil {
-			return err
-		}
-	}
-
-	if DeleteMarker {
-		return nil
 	}
 
 	err = m.Client.PutObjectToGarbageCollection(object, tx)

@@ -2,10 +2,11 @@ package tidbclient
 
 import (
 	"database/sql"
-	. "github.com/journeymidnight/yig/meta/types"
 	"math"
 	"strings"
 	"time"
+
+	. "github.com/journeymidnight/yig/meta/types"
 )
 
 //gc
@@ -31,12 +32,12 @@ func (t *TidbClient) PutObjectToGarbageCollection(object *Object, tx DB) (err er
 		hasPart = true
 	}
 	mtime := o.MTime.Format(TIME_LAYOUT_TIDB)
-	version := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
 	sqltext := "insert ignore into gc(bucketname,objectname,version,location,pool,objectid,status,mtime,part,triedtimes) values(?,?,?,?,?,?,?,?,?,?);"
-	_, err = tx.Exec(sqltext, o.BucketName, o.ObjectName, version, o.Location, o.Pool, o.ObjectId, o.Status, mtime, hasPart, o.TriedTimes)
+	_, err = tx.Exec(sqltext, o.BucketName, o.ObjectName, object.VersionId, o.Location, o.Pool, o.ObjectId, o.Status, mtime, hasPart, o.TriedTimes)
 	if err != nil {
 		return err
 	}
+	version := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
 	for _, p := range object.Parts {
 		psql, args := p.GetCreateGcSql(o.BucketName, o.ObjectName, version)
 		_, err = tx.Exec(psql, args...)

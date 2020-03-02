@@ -10,6 +10,7 @@ import (
 	"github.com/journeymidnight/yig/mods"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/storage"
+
 	"os"
 	"os/signal"
 	"strconv"
@@ -234,7 +235,7 @@ func main() {
 	defer helper.Logger.Close()
 	if helper.CONFIG.MetaCacheType > 0 || helper.CONFIG.EnableDataCache {
 		redis.Initialize()
-		defer redis.Close()
+		defer redis.CloseAll()
 	}
 
 	// Read all *.so from plugins directory, and fill the variable allPlugins

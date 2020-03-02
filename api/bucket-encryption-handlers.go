@@ -2,6 +2,7 @@ package api
 
 import (
 	"github.com/journeymidnight/yig/api/datatype"
+	."github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/signature"
@@ -10,7 +11,7 @@ import (
 )
 
 func (api ObjectAPIHandlers) PutBucketEncryption(w http.ResponseWriter, r *http.Request) {
-	ctx := getRequestContext(r)
+	ctx := GetRequestContext(r)
 	logger := ctx.Logger
 
 	var credential common.Credential
@@ -62,7 +63,7 @@ func (api ObjectAPIHandlers) PutBucketEncryption(w http.ResponseWriter, r *http.
 }
 
 func (api ObjectAPIHandlers) GetBucketEncryption(w http.ResponseWriter, r *http.Request) {
-	ctx := getRequestContext(r)
+	ctx := GetRequestContext(r)
 	logger := ctx.Logger
 
 	var credential common.Credential
@@ -110,7 +111,7 @@ func (api ObjectAPIHandlers) GetBucketEncryption(w http.ResponseWriter, r *http.
 }
 
 func (api ObjectAPIHandlers) DeleteBucketEncryption(w http.ResponseWriter, r *http.Request) {
-	ctx := getRequestContext(r)
+	ctx := GetRequestContext(r)
 
 	var credential common.Credential
 	var err error

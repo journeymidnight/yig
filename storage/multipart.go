@@ -12,6 +12,7 @@ import (
 
 	"github.com/journeymidnight/yig/api"
 	"github.com/journeymidnight/yig/api/datatype"
+	. "github.com/journeymidnight/yig/context"
 	"github.com/journeymidnight/yig/crypto"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
@@ -82,13 +83,13 @@ func (yig *YigStorage) ListMultipartUploads(credential common.Credential, bucket
 	return
 }
 
-func (yig *YigStorage) NewMultipartUpload(credential common.Credential, bucketName, objectName string,
+func (yig *YigStorage) NewMultipartUpload(reqCtx RequestContext, credential common.Credential,
 	metadata map[string]string, acl datatype.Acl,
 	sseRequest datatype.SseRequest, storageClass meta.StorageClass) (uploadId string, err error) {
-
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
-	if err != nil {
-		return
+	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
+	bucket := reqCtx.BucketInfo
+	if bucket == nil {
+		return "", ErrNoSuchBucket
 	}
 	switch bucket.ACL.CannedAcl {
 	case "public-read-write":
@@ -141,11 +142,12 @@ func (yig *YigStorage) NewMultipartUpload(credential common.Credential, bucketNa
 	return
 }
 
-func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential common.Credential,
+func (yig *YigStorage) PutObjectPart(reqCtx RequestContext, credential common.Credential,
 	uploadId string, partId int, size int64, data io.ReadCloser, md5Hex string,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectPartResult, err error) {
 
 	defer data.Close()
+	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
 	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
 	if err != nil {
 		return
@@ -514,13 +516,12 @@ func (yig *YigStorage) AbortMultipartUpload(credential common.Credential,
 	return nil
 }
 
-func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, bucketName,
-	objectName, uploadId string, uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult,
+func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential common.Credential, uploadId string, uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult,
 	err error) {
-
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
-	if err != nil {
-		return
+	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
+	bucket := reqCtx.BucketInfo
+	if bucket == nil {
+		return result, ErrNoSuchBucket
 	}
 	switch bucket.ACL.CannedAcl {
 	case "public-read-write":
@@ -610,28 +611,9 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 		StorageClass:     multipart.Metadata.StorageClass,
 	}
 
-	var nullVerNum uint64
-	nullVerNum, err = yig.checkOldObject(bucketName, objectName, bucket.Versioning)
+	err = yig.MetaStorage.PutObject(reqCtx, object, &multipart, false)
 	if err != nil {
 		return
-	}
-	if bucket.Versioning == "Enabled" {
-		result.VersionId = object.GetVersionId()
-	}
-	// update null version number
-	if bucket.Versioning == "Suspended" {
-		nullVerNum = uint64(object.LastModifiedTime.UnixNano())
-	}
-
-	objMap := &meta.ObjMap{
-		Name:       objectName,
-		BucketName: bucketName,
-	}
-
-	if nullVerNum != 0 {
-		err = yig.MetaStorage.PutObject(object, &multipart, objMap, false)
-	} else {
-		err = yig.MetaStorage.PutObject(object, &multipart, nil, false)
 	}
 
 	sseRequest := multipart.Metadata.SseRequest

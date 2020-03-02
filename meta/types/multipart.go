@@ -48,7 +48,6 @@ type Multipart struct {
 	Parts       map[int]*Part
 }
 
-
 func (m *Multipart) GetUploadId() (string, error) {
 	if m.UploadId != "" {
 		return m.UploadId, nil
@@ -100,7 +99,7 @@ func (p *Part) GetCreateGcSql(bucketname, objectname string, version uint64) (st
 }
 
 func (o *Object) GetUpdateObjectPartNameSql(sourceObject string) (string, []interface{}) {
-	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
+	version := math.MaxUint64 - o.CreateTime
 	sql := "update objectpart set objectname=? where bucketname=? and objectname=? and version=?"
 	args := []interface{}{o.Name, o.BucketName, sourceObject, version}
 	return sql, args

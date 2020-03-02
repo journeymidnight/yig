@@ -181,8 +181,14 @@ func Test_MultipartRename(t *testing.T) {
 
 func Test_CopyObjectPart(t *testing.T) {
 	svc := NewS3()
-	defer svc.CleanEnv()
-	svc.CleanEnv()
+	TEST_COPY_KEY := "COPYED:" + TEST_KEY
+	delFn := func(sc *S3Client) {
+		sc.DeleteObject(TEST_BUCKET, TEST_KEY)
+		sc.DeleteObject(TEST_BUCKET, TEST_COPY_KEY)
+		sc.DeleteBucket(TEST_BUCKET)
+	}
+	delFn(svc)
+	defer delFn(svc)
 	err := svc.MakeBucket(TEST_BUCKET)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
@@ -218,7 +224,6 @@ func Test_CopyObjectPart(t *testing.T) {
 		}
 	}
 
-	TEST_COPY_KEY := "COPYED:" + TEST_KEY
 	input := &s3.CopyObjectInput{
 		Bucket:     aws.String(TEST_BUCKET),
 		CopySource: aws.String(TEST_BUCKET + "/" + TEST_KEY),
@@ -249,8 +254,14 @@ func Test_CopyObjectPart(t *testing.T) {
 
 func Test_CopyObjectPartWithoutMD5(t *testing.T) {
 	svc := NewS3WithoutMD5()
-	defer svc.CleanEnv()
-	svc.CleanEnv()
+	TEST_COPY_KEY := "COPYED:" + TEST_KEY
+	delFn := func(sc *S3Client) {
+		sc.DeleteObject(TEST_BUCKET, TEST_KEY)
+		sc.DeleteObject(TEST_BUCKET, TEST_COPY_KEY)
+		sc.DeleteBucket(TEST_BUCKET)
+	}
+	delFn(svc)
+	defer delFn(svc)
 	err := svc.MakeBucket(TEST_BUCKET)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
@@ -289,7 +300,6 @@ func Test_CopyObjectPartWithoutMD5(t *testing.T) {
 		}
 	}
 
-	TEST_COPY_KEY := "COPYED:" + TEST_KEY
 	input := &s3.CopyObjectInput{
 		Bucket:     aws.String(TEST_BUCKET),
 		CopySource: aws.String(TEST_BUCKET + "/" + TEST_KEY),

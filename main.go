@@ -47,7 +47,7 @@ func main() {
 
 	if helper.CONFIG.MetaCacheType > 0 || helper.CONFIG.EnableDataCache {
 		redis.Initialize()
-		defer redis.Close()
+		defer redis.CloseAll()
 	}
 
 	// Read all *.so from plugins directory, and fill the variable allPlugins
@@ -61,8 +61,12 @@ func main() {
 		Logger:  helper.Logger,
 		Yig:     yig,
 	}
-	if redis.Pool() != nil && helper.CONFIG.CacheCircuitCheckInterval != 0 {
-		go yig.PingCache(time.Duration(helper.CONFIG.CacheCircuitCheckInterval) * time.Second)
+	if helper.CONFIG.CacheCircuitCheckInterval != 0 {
+		for i := 0; i < len(helper.CONFIG.RedisGroup); i++ {
+			go func(i int) {
+				yig.PingCache(time.Duration(helper.CONFIG.CacheCircuitCheckInterval)*time.Second, i)
+			}(i)
+		}
 	}
 
 	// try to create message queue sender if message bus is enabled.
@@ -70,7 +74,7 @@ func main() {
 	mqSender, err := bus.InitMessageSender(allPluginMap)
 	if err != nil {
 		helper.Logger.Error("Failed to create message queue sender, err:", err)
-		panic("failed to create message bus sender")
+		panic("failed to create message queue sender")
 	}
 	if mqSender == nil {
 		helper.Logger.Error("Failed to create message queue sender, sender is nil.")

@@ -18,17 +18,20 @@ package api
 
 import (
 	"context"
-	"fmt"
+	"io"
+	"io/ioutil"
+	"mime/multipart"
 	"net/http"
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/journeymidnight/yig/meta"
+	"github.com/journeymidnight/yig/signature"
+
+	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
-	"github.com/journeymidnight/yig/meta"
-	"github.com/journeymidnight/yig/meta/types"
-	"github.com/journeymidnight/yig/signature"
 )
 
 // HandlerFunc - useful to chain different middleware http.Handler
@@ -73,7 +76,7 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Expose-Headers", strings.Join(CommonS3ResponseHeaders, ","))
 	}
 
-	ctx := getRequestContext(r)
+	ctx := GetRequestContext(r)
 	bucket := ctx.BucketInfo
 
 	// If bucket CORS exists, overwrite the in-reserved CORS Headers
@@ -111,7 +114,7 @@ type resourceHandler struct {
 // Resource handler ServeHTTP() wrapper
 func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Skip the first element which is usually '/' and split the rest.
-	ctx := getRequestContext(r)
+	ctx := GetRequestContext(r)
 	logger := ctx.Logger
 	bucketName, objectName := ctx.BucketName, ctx.ObjectName
 	// If bucketName is present and not objectName check for bucket
@@ -131,7 +134,7 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	// A put method on path "/" doesn't make sense, ignore it.
 	if r.Method == "PUT" && r.URL.Path == "/" && bucketName == "" {
-		logger.Info("Host:", r.Host, "Path:", r.URL.Path, "Bucket:", bucketName)
+		logger.Error("Host:", r.Host, "Path:", r.URL.Path, "Bucket:", bucketName)
 		WriteErrorResponse(w, r, ErrMethodNotAllowed)
 		return
 	}
@@ -210,25 +213,17 @@ type GenerateContextHandler struct {
 
 // handler for validating incoming authorization headers.
 func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	var bucketInfo *types.Bucket
-	var objectInfo *types.Object
-	var err error
+	var reqCtx RequestContext
 	requestId := r.Context().Value(RequestIdKey).(string)
+	reqCtx.RequestID = requestId
+
 	logger := r.Context().Value(ContextLoggerKey).(log.Logger)
-	bucketName, objectName, isBucketDomain := GetBucketAndObjectInfoFromRequest(r)
-	if bucketName != "" {
-		bucketInfo, err = h.meta.GetBucket(bucketName, true)
-		if err != nil && err != ErrNoSuchBucket {
-			WriteErrorResponse(w, r, err)
-			return
-		}
-		if bucketInfo != nil && objectName != "" {
-			objectInfo, err = h.meta.GetObject(bucketInfo.Name, objectName, true)
-			if err != nil && err != ErrNoSuchKey {
-				WriteErrorResponse(w, r, err)
-				return
-			}
-		}
+	reqCtx.Logger = logger
+
+	err := FillBucketAndObjectInfo(&reqCtx, r, h.meta)
+	if err != nil {
+		WriteErrorResponse(w, r, err)
+		return
 	}
 
 	authType := signature.GetRequestAuthType(r)
@@ -236,23 +231,113 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		WriteErrorResponse(w, r, ErrSignatureVersionNotSupported)
 		return
 	}
+	reqCtx.AuthType = authType
 
-	ctx := context.WithValue(
-		r.Context(),
-		RequestContextKey,
-		RequestContext{
-			RequestID:      requestId,
-			Logger:         logger,
-			BucketName:     bucketName,
-			ObjectName:     objectName,
-			BucketInfo:     bucketInfo,
-			ObjectInfo:     objectInfo,
-			AuthType:       authType,
-			IsBucketDomain: isBucketDomain,
-		})
-	logger.Info(fmt.Sprintf("BucketName: %s, ObjectName: %s, BucketInfo: %+v, ObjectInfo: %+v, AuthType: %d",
-		bucketName, objectName, bucketInfo, objectInfo, authType))
+	ctx := context.WithValue(r.Context(), RequestContextKey, reqCtx)
+	logger.Info("BucketName:", reqCtx.BucketName, "ObjectName:", reqCtx.ObjectName, "BucketExist:",
+		reqCtx.BucketInfo != nil, "ObjectExist:", reqCtx.ObjectInfo != nil, "AuthType:", authType)
 	h.handler.ServeHTTP(w, r.WithContext(ctx))
+}
+
+func FillBucketAndObjectInfo(reqCtx *RequestContext, r *http.Request, meta *meta.Meta) error {
+	var err error
+	v := strings.Split(r.Host, ":")
+	hostWithOutPort := v[0]
+	reqCtx.IsBucketDomain, reqCtx.BucketName = helper.HasBucketInDomain(hostWithOutPort, ".", helper.CONFIG.S3Domain)
+	splits := strings.SplitN(r.URL.Path[1:], "/", 2)
+
+	if reqCtx.IsBucketDomain {
+		reqCtx.ObjectName = r.URL.Path[1:]
+	} else {
+		if len(splits) == 1 {
+			reqCtx.BucketName = splits[0]
+		}
+		if len(splits) == 2 {
+			reqCtx.BucketName = splits[0]
+			reqCtx.ObjectName = splits[1]
+		}
+	}
+
+	if isPostObjectRequest(r) {
+		// PostObject Op extract all data from body
+		reader, err := r.MultipartReader()
+		if err != nil {
+			return ErrMalformedPOSTRequest
+		}
+		reqCtx.Body, reqCtx.FormValues, err = extractHTTPFormValues(reader)
+		if err != nil {
+			return err
+		}
+		reqCtx.ObjectName = reqCtx.FormValues["Key"]
+	} else {
+		reqCtx.Body = r.Body
+		reqCtx.FormValues = nil
+	}
+
+	if reqCtx.BucketName != "" {
+		reqCtx.BucketInfo, err = meta.GetBucket(reqCtx.BucketName, true)
+		if err != nil && err != ErrNoSuchBucket {
+			return err
+		}
+		if reqCtx.BucketInfo != nil && reqCtx.ObjectName != "" {
+			reqCtx.ObjectInfo, err = meta.GetObject(reqCtx.BucketInfo.Name, reqCtx.ObjectName, true)
+			if err != nil && err != ErrNoSuchKey {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func extractHTTPFormValues(reader *multipart.Reader) (filePartReader io.ReadCloser,
+	formValues map[string]string, err error) {
+
+	formValues = make(map[string]string)
+	for {
+		var part *multipart.Part
+		part, err = reader.NextPart()
+		if err == io.EOF {
+			err = nil
+			break
+		}
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if part.FormName() != "file" {
+			var buffer []byte
+			buffer, err = ioutil.ReadAll(part)
+			if err != nil {
+				return nil, nil, err
+			}
+			formValues[http.CanonicalHeaderKey(part.FormName())] = string(buffer)
+		} else {
+			// "All variables within the form are expanded prior to validating
+			// the POST policy"
+			fileName := part.FileName()
+			objectKey, ok := formValues["Key"]
+			if !ok {
+				return nil, nil, ErrMissingFields
+			}
+			if strings.Contains(objectKey, "${filename}") {
+				formValues["Key"] = strings.Replace(objectKey, "${filename}", fileName, -1)
+			}
+
+			filePartReader = part
+			// "The file or content must be the last field in the form.
+			// Any fields below it are ignored."
+			break
+		}
+	}
+
+	if filePartReader == nil {
+		err = ErrEmptyEntity
+	}
+	return
+}
+
+func isPostObjectRequest(r *http.Request) bool {
+	return r.Method == http.MethodPost && strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data")
 }
 
 // setAuthHandler to validate authorization header for the incoming request.
@@ -271,36 +356,4 @@ func InReservedOrigins(origin string) bool {
 		}
 	}
 	return false
-}
-
-//// helpers
-
-func GetBucketAndObjectInfoFromRequest(r *http.Request) (bucketName string, objectName string, isBucketDomain bool) {
-	splits := strings.SplitN(r.URL.Path[1:], "/", 2)
-	v := strings.Split(r.Host, ":")
-	hostWithOutPort := v[0]
-	isBucketDomain, bucketName = helper.HasBucketInDomain(hostWithOutPort, ".", helper.CONFIG.S3Domain)
-	if isBucketDomain {
-		objectName = r.URL.Path[1:]
-	} else {
-		if len(splits) == 1 {
-			bucketName = splits[0]
-		}
-		if len(splits) == 2 {
-			bucketName = splits[0]
-			objectName = splits[1]
-		}
-	}
-	return bucketName, objectName, isBucketDomain
-}
-
-func getRequestContext(r *http.Request) RequestContext {
-	ctx, ok := r.Context().Value(RequestContextKey).(RequestContext)
-	if ok {
-		return ctx
-	}
-	return RequestContext{
-		Logger: r.Context().Value(ContextLoggerKey).(log.Logger),
-		RequestID: r.Context().Value(RequestIdKey).(string),
-	}
 }
