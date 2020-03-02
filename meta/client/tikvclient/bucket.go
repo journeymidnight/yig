@@ -163,6 +163,10 @@ func (c *TiKVClient) FindNextObject(it kv.Iterator, marker, prefix, delimiter st
 			it.Next(context.TODO())
 			continue
 		}
+		if objKey == marker {
+			it.Next(context.TODO())
+			continue
+		}
 		if !strings.HasPrefix(objKey, prefix) {
 			it.Next(context.TODO())
 			continue
@@ -233,6 +237,7 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				return info, err
 			}
 			itNull.Next(context.TODO())
+			marker = currentNullObj.Name
 		}
 		if vNext {
 			currentVerObj, isVerPrefix, err = c.FindNextObject(itVer, verMarker, prefix, delimiter, commonPrefixes)
@@ -324,12 +329,12 @@ func (c *TiKVClient) FindNextVersionedObject(itVer kv.Iterator, marker, verIdMar
 		k, v := string(itVer.Key()[:]), itVer.Value()
 		// extract object key
 		sp := strings.Split(k, TableSeparator)
-		if len(sp) != 3 {
+		if len(sp) != 4 {
 			err = ErrInvalidObjectName
 			return
 		}
-		objKey := sp[1]
-		verId := sp[2]
+		objKey := sp[2]
+		verId := sp[3]
 
 		if objKey == marker && verId == verIdMarker {
 			itVer.Next(context.TODO())
@@ -415,14 +420,18 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 			if err != nil {
 				return info, err
 			}
-			itNull.Next(context.TODO())
+			if currentNullObj.Name != "" {
+				itNull.Next(context.TODO())
+			}
 		}
 		if vNext {
 			currentVerObj, isVerPrefix, err = c.FindNextVersionedObject(itVer, marker, verIdMarker, prefix, delimiter, commonPrefixes)
 			if err != nil {
 				return info, err
 			}
-			itVer.Next(context.TODO())
+			if currentVerObj.Name != "" {
+				itVer.Next(context.TODO())
+			}
 		}
 
 		// Pick obj
@@ -430,18 +439,20 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 			return
 		} else if currentVerObj.Name == "" {
 			o = &currentNullObj
-			nNext = false
+			vNext = false
 		} else if currentNullObj.Name == "" {
 			o = &currentVerObj
-			vNext = false
+			nNext = false
 		} else {
 			// The result will be 0 if a==b, -1 if a < b, and +1 if a > b.
 			r := strings.Compare(currentVerObj.Name, currentNullObj.Name)
 			if r < 0 {
 				o = &currentVerObj
-				vNext = false
+				vNext = true
+				nNext = false
 			} else if r > 0 {
 				o = &currentNullObj
+				nNext = true
 				vNext = false
 			} else {
 				if isNullPrefix && isVerPrefix {
@@ -450,10 +461,12 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 				}
 				if currentNullObj.LastModifiedTime.After(currentVerObj.LastModifiedTime) {
 					o = &currentNullObj
-					nNext = false
+					nNext = true
+					vNext = false
 				} else {
 					o = &currentVerObj
-					vNext = false
+					vNext = true
+					nNext = false
 				}
 			}
 		}

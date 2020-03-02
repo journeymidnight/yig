@@ -11,14 +11,13 @@ import (
 )
 
 // **Key**: {BucketName}\\{ObjectName}
-// **Versioned Key**: {BucketName}\\{ObjectName}\\{Version}
+// **Versioned Key**: v\\{BucketName}\\{ObjectName}\\{Version}
 // Version = hex.EncodeToString(BigEndian(MaxUint64 - multipart.InitialTime))
 func genObjectKey(bucketName, objectName, version string) []byte {
-	// TODO: GetLatestObject
-	if version == NullVersion || version == "" {
+	if version == NullVersion {
 		return GenKey(bucketName, objectName)
 	} else {
-		return GenKey(bucketName, objectName, version)
+		return GenKey(TableVersionObjectPrefix, bucketName, objectName, version)
 	}
 }
 

@@ -32,7 +32,7 @@ func TestBucketVersioning(t *testing.T) {
 	assert.Equal(t, status, s3.BucketVersioningStatusSuspended)
 }
 
-func TestVersionedObject(t *testing.T) {
+func TestEnableVersionedObject(t *testing.T) {
 	sc := NewS3()
 	defer func() {
 		// TODO: List and delete
@@ -86,4 +86,24 @@ func TestVersionedObject(t *testing.T) {
 
 	delOut, err = sc.DeleteObjectVersion(TEST_BUCKET, TEST_KEY, ver1)
 	assert.Equal(t, err, nil)
+}
+
+func TestListObjectVersions(t *testing.T) {
+	sc := NewS3()
+
+	defer func() {
+		sc.DeleteBucket(TEST_BUCKET)
+	}()
+	err := sc.MakeBucket(TEST_BUCKET)
+	assert.Equal(t, err, nil, "MakeBucket err")
+	err = sc.PutBucketVersion(TEST_BUCKET, s3.BucketVersioningStatusEnabled)
+	assert.Equal(t, err, nil, "PutBucketVersion err")
+
+	for i := 0; i < 4; i++ {
+		putObjOut, err := sc.PutObjectOutput(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+		assert.Equal(t, err, nil, "PutObject err")
+		assert.NotEqual(t, putObjOut.VersionId, nil, "PutObject err")
+		t.Log("VersionId", i, ":", *putObjOut.VersionId)
+	}
+
 }

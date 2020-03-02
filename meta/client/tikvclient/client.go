@@ -11,13 +11,14 @@ import (
 )
 
 const (
-	TableClusterPrefix    = "c"
-	TableBucketPrefix     = "b"
-	TableUserBucketPrefix = "u"
-	TableMultipartPrefix  = "m"
-	TableObjectPartPrefix = "p"
-	TableLifeCyclePrefix  = "l"
-	TableGcPrefix         = "g"
+	TableClusterPrefix       = "c"
+	TableBucketPrefix        = "b"
+	TableUserBucketPrefix    = "u"
+	TableMultipartPrefix     = "m"
+	TableObjectPartPrefix    = "p"
+	TableLifeCyclePrefix     = "l"
+	TableGcPrefix            = "g"
+	TableVersionObjectPrefix = "v"
 )
 
 var (
