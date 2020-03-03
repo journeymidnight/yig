@@ -646,14 +646,16 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 
 	if object.StorageClass.ToString() == "GLACIER" {
 		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
-		if err != nil && err != ErrNoSuchKey {
-			return
-		}
-		if err != ErrNoSuchKey {
-			err = yig.MetaStorage.DeleteFreezer(freezer)
-			if err != nil {
+		if err != nil {
+			if err == ErrNoSuchKey {
+				err = nil
 				return
 			}
+			return
+		}
+		err = yig.MetaStorage.DeleteFreezer(freezer)
+		if err != nil {
+			return
 		}
 	}
 
