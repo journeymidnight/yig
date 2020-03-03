@@ -644,6 +644,17 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		nullVerNum = uint64(object.LastModifiedTime.UnixNano())
 	}
 
+	if object.StorageClass.ToString() == "GLACIER" {
+		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
+		if err != nil && err != ErrNoSuchKey {
+			return
+		}
+		err = yig.MetaStorage.DeleteFreezer(freezer)
+		if err != nil {
+			return
+		}
+	}
+
 	if nullVerNum != 0 {
 		objMap := &meta.ObjMap{
 			Name:       objectName,
@@ -750,6 +761,20 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, sourceObject *meta.
 	}
 
 	if isMetadataOnly {
+		if sourceObject.StorageClass.ToString() == "GLACIER" {
+			err = yig.MetaStorage.UpdateGlacierObject(targetObject, sourceObject, true)
+			if err != nil {
+				helper.Logger.Error("Copy Object with same source and target with GLACIER object, sql fails:", err)
+				return result, ErrInternalError
+			}
+			result.LastModified = targetObject.LastModifiedTime
+			if bucket.Versioning == "Enabled" {
+				result.VersionId = targetObject.GetVersionId()
+			}
+			yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
+			yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
+			return result, nil
+		}
 		err = yig.MetaStorage.ReplaceObjectMetas(targetObject)
 		if err != nil {
 			helper.Logger.Error("Copy Object with same source and target, sql fails:", err)
@@ -920,14 +945,8 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, sourceObject *meta.
 		BucketName: targetObject.BucketName,
 	}
 
-	if sourceObject.StorageClass.ToString() == "GLACIER" || targetObject.StorageClass.ToString() == "GLACIER" {
-		var isFreezer bool
-		if sourceObject.StorageClass.ToString() == "GLACIER" {
-			isFreezer = true
-		} else {
-			isFreezer = false
-		}
-		err = yig.MetaStorage.UpdateGlacierObject(targetObject, sourceObject, isFreezer)
+	if targetObject.StorageClass.ToString() == "GLACIER" {
+		err = yig.MetaStorage.UpdateGlacierObject(targetObject, sourceObject, false)
 	} else {
 		if nullVerNum != 0 {
 			objMap.NullVerNum = nullVerNum

@@ -111,13 +111,6 @@ func (m *Meta) PutObject(object *Object, multipart *Multipart, objMap *ObjMap, u
 		}
 	}
 
-	if object.StorageClass.ToString() == "GLACIER" {
-		err = m.Client.DeleteFreezer(object.BucketName, object.Name, tx)
-		if err != nil {
-			return err
-		}
-	}
-
 	if updateUsage {
 		err = m.Client.UpdateUsage(object.BucketName, object.Size, tx)
 		if err != nil {
@@ -218,6 +211,9 @@ func (m *Meta) UpdateGlacierObject(targetObject, sourceObject *Object, isFreezer
 
 	if isFreezer {
 		err = m.Client.DeleteFreezer(sourceObject.BucketName, sourceObject.Name, tx)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = m.Client.PutObjectToGarbageCollection(sourceObject, tx)

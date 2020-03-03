@@ -646,6 +646,17 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 		BucketName: bucketName,
 	}
 
+	if object.StorageClass.ToString() == "GLACIER" {
+		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
+		if err != nil && err != ErrNoSuchKey {
+			return
+		}
+		err = yig.MetaStorage.DeleteFreezer(freezer)
+		if err != nil {
+			return
+		}
+	}
+
 	if nullVerNum != 0 {
 		err = yig.MetaStorage.PutObject(object, &multipart, objMap, false)
 	} else {

@@ -122,7 +122,7 @@ func (t *TidbClient) ListFreezersNeedContinue(maxKeys int, status Status) (retFr
 
 func (t *TidbClient) GetFreezer(bucketName, objectName, version string) (freezer *Freezer, err error) {
 	var lastmodifiedtime string
-	sqltext := "select bucketname,objectname,IFNULL(version,''),status,lifetime,lastmodifiedtime,location,pool,ownerid,size,objectid,etag,initializationvector from restoreobjects where bucketname=? and objectname=?;"
+	sqltext := "select bucketname,objectname,IFNULL(version,''),status,lifetime,lastmodifiedtime,IFNULL(location,''),pool,ownerid,size,objectid,etag,initializationvector from restoreobjects where bucketname=? and objectname=?;"
 	row := t.Client.QueryRow(sqltext, bucketName, objectName)
 	freezer = &Freezer{}
 	err = row.Scan(
