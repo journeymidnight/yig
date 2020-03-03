@@ -651,9 +651,11 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 		if err != nil && err != ErrNoSuchKey {
 			return
 		}
-		err = yig.MetaStorage.DeleteFreezer(freezer)
-		if err != nil {
-			return
+		if err != ErrNoSuchKey {
+			err = yig.MetaStorage.DeleteFreezer(freezer)
+			if err != nil {
+				return
+			}
 		}
 	}
 

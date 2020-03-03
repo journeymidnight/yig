@@ -649,9 +649,11 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		if err != nil && err != ErrNoSuchKey {
 			return
 		}
-		err = yig.MetaStorage.DeleteFreezer(freezer)
-		if err != nil {
-			return
+		if err != ErrNoSuchKey {
+			err = yig.MetaStorage.DeleteFreezer(freezer)
+			if err != nil {
+				return
+			}
 		}
 	}
 

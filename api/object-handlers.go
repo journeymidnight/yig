@@ -1311,6 +1311,7 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 	}
 
 	// ResponseRecorder
+	w.WriteHeader(http.StatusAccepted)
 	w.(*ResponseRecorder).operationName = "RestoreObject"
 
 	WriteSuccessResponseWithStatus(w, nil, http.StatusAccepted)
