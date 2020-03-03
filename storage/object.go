@@ -946,7 +946,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, sourceObject *meta.
 		BucketName: targetObject.BucketName,
 	}
 
-	if targetObject.StorageClass.ToString() == "GLACIER" {
+	if targetObject.StorageClass.ToString() == "GLACIER" && targetObject.Name == sourceObject.Name && targetObject.BucketName == sourceObject.BucketName {
 		err = yig.MetaStorage.UpdateGlacierObject(targetObject, sourceObject, false)
 	} else {
 		if nullVerNum != 0 {
