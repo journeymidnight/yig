@@ -56,6 +56,6 @@ type Client interface {
 	RemoveBucketForUser(bucketName string, userId string) (err error)
 	//gc
 	PutObjectToGarbageCollection(object *Object, tx Tx) error
-	ScanGarbageCollection(limit int, startRowKey string) ([]GarbageCollection, error)
+	ScanGarbageCollection(limit int) ([]GarbageCollection, error)
 	RemoveGarbageCollection(garbage GarbageCollection) error
 }

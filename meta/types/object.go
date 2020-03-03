@@ -1,18 +1,13 @@
 package types
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"strconv"
 	"time"
 
 	"github.com/journeymidnight/yig/api/datatype"
-	"github.com/journeymidnight/yig/meta/util"
 	"github.com/xxtea/xxtea-go/xxtea"
 )
 
@@ -86,51 +81,9 @@ func (o *Object) String() (s string) {
 	return s
 }
 
-func (o *Object) GetVersionNumber() (uint64, error) {
-	decrypted, err := util.Decrypt(o.VersionId)
-	if err != nil {
-		return 0, err
-	}
-	version, err := strconv.ParseUint(decrypted, 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	return version, nil
-}
-
-func (o *Object) encryptSseKey() (err error) {
-	// Don't encrypt if `EncryptionKey` is not set
-	if len(o.EncryptionKey) == 0 {
-		return
-	}
-
-	if len(o.InitializationVector) == 0 {
-		o.InitializationVector = make([]byte, INITIALIZATION_VECTOR_LENGTH)
-		_, err = io.ReadFull(rand.Reader, o.InitializationVector)
-		if err != nil {
-			return
-		}
-	}
-
-	block, err := aes.NewCipher(SSE_S3_MASTER_KEY)
-	if err != nil {
-		return err
-	}
-
-	aesGcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return err
-	}
-
-	// InitializationVector is 16 bytes(because of CTR), but use only first 12 bytes in GCM
-	// for performance
-	o.EncryptionKey = aesGcm.Seal(nil, o.InitializationVector[:12], o.EncryptionKey, nil)
-	return nil
-}
-
 func (o *Object) GetVersionId() string {
 	if o.NullVersion {
-		return "null"
+		return NullVersion
 	}
 	if o.VersionId != "" {
 		return o.VersionId
@@ -169,13 +122,6 @@ func (o *Object) GetUpdateSql() (string, []interface{}) {
 	return sql, args
 }
 
-func (o *Object) GetAppendSql() (string, []interface{}) {
-	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
-	sql := "update objects set lastmodifiedtime=?, size=? where bucketname=? and name=? and version=?"
-	args := []interface{}{lastModifiedTime, o.Size, o.BucketName, o.Name, o.VersionId}
-	return sql, args
-}
-
 func (o *Object) GetUpdateAclSql() (string, []interface{}) {
 	acl, _ := json.Marshal(o.ACL)
 	sql := "update objects set acl=? where bucketname=? and name=? and version=?"
@@ -193,18 +139,6 @@ func (o *Object) GetUpdateAttrsSql() (string, []interface{}) {
 func (o *Object) GetUpdateNameSql(sourceObject string) (string, []interface{}) {
 	sql := "update objects set name=? where bucketname=? and name=? and version=0"
 	args := []interface{}{o.Name, o.BucketName, sourceObject}
-	return sql, args
-}
-
-func (o *Object) GetAddUsageSql() (string, []interface{}) {
-	sql := "update buckets set usages= usages + ? where bucketname=?"
-	args := []interface{}{o.Size, o.BucketName}
-	return sql, args
-}
-
-func (o *Object) GetSubUsageSql() (string, []interface{}) {
-	sql := "update buckets set usages= usages + ? where bucketname=?"
-	args := []interface{}{-o.Size, o.BucketName}
 	return sql, args
 }
 
