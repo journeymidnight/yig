@@ -579,10 +579,6 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	} else {
 		targetStorageClass = sourceObject.StorageClass
 	}
-	if targetStorageClass == meta.ObjectStorageClassGlacier || targetStorageClass == meta.ObjectStorageClassDeepArchive {
-		WriteErrorResponse(w, r, ErrInvalidCopySourceStorageClass)
-		return
-	}
 
 	// maximum Upload size for object in a single CopyObject operation.
 	if isMaxObjectSize(sourceObject.Size) {
