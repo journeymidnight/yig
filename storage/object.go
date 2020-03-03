@@ -979,6 +979,19 @@ func (yig *YigStorage) removeAllObjectsEntryByName(bucketName, objectName string
 		return err
 	}
 	for _, obj := range objs {
+		if obj.StorageClass.ToString() == "GLACIER" {
+			freezer, err := yig.GetFreezer(bucketName, objectName, "")
+			if err == nil {
+				if freezer.Name == objectName {
+					err = yig.MetaStorage.DeleteFreezer(freezer)
+					if err != nil {
+						return err
+					}
+				}
+			} else if err != ErrNoSuchKey {
+				return err
+			}
+		}
 		err = yig.removeByObject(obj, nil)
 		if err != nil {
 			return err

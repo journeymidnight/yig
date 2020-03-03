@@ -122,7 +122,7 @@ func (t *TidbClient) ListFreezersNeedContinue(maxKeys int, status Status) (retFr
 
 func (t *TidbClient) GetFreezer(bucketName, objectName, version string) (freezer *Freezer, err error) {
 	var lastmodifiedtime string
-	sqltext := "select bucketname,objectname,IFNULL(version,''),status,lifetime,lastmodifiedtime,location,pool,ownerid,size,etag,initializationvector from restoreobjects where bucketname=? and objectname=?;"
+	sqltext := "select bucketname,objectname,IFNULL(version,''),status,lifetime,lastmodifiedtime,location,pool,ownerid,size,objectid,etag,initializationvector from restoreobjects where bucketname=? and objectname=?;"
 	row := t.Client.QueryRow(sqltext, bucketName, objectName)
 	freezer = &Freezer{}
 	err = row.Scan(
@@ -136,6 +136,7 @@ func (t *TidbClient) GetFreezer(bucketName, objectName, version string) (freezer
 		&freezer.Pool,
 		&freezer.OwnerId,
 		&freezer.Size,
+		&freezer.ObjectId,
 		&freezer.Etag,
 		&freezer.InitializationVector,
 	)
@@ -160,8 +161,8 @@ func (t *TidbClient) GetFreezer(bucketName, objectName, version string) (freezer
 }
 
 func (t *TidbClient) GetFreezerStatus(bucketName, objectName, version string) (freezer *Freezer, err error) {
-	sqltext := "select bucketname,objectname,version,status from restoreobjects where bucketname=? and objectname=? and version=?;"
-	row := t.Client.QueryRow(sqltext, bucketName, objectName, version)
+	sqltext := "select bucketname,objectname,IFNULL(version,''),status from restoreobjects where bucketname=? and objectname=?;"
+	row := t.Client.QueryRow(sqltext, bucketName, objectName)
 	freezer = &Freezer{}
 	err = row.Scan(
 		&freezer.BucketName,

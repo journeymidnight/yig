@@ -55,6 +55,7 @@ type Client interface {
 	RemoveBucketForUser(bucketName string, userId string) (err error)
 	//gc
 	PutObjectToGarbageCollection(object *Object, tx DB) error
+	PutFreezerToGarbageCollection(object *Freezer, tx DB) (err error)
 	ScanGarbageCollection(limit int, startRowKey string) ([]GarbageCollection, error)
 	RemoveGarbageCollection(garbage GarbageCollection) error
 	//freezer

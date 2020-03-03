@@ -363,7 +363,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 
 	if object.StorageClass.ToString() == "GLACIER" {
 		freezer, err := api.ObjectAPI.GetFreezerStatus(object.BucketName, object.Name, version)
-		if err != nil {
+		if err != nil && err != ErrNoSuchKey {
 			logger.Error("Unable to get restore object status", object.BucketName, object.Name, version,
 				"error:", err)
 			WriteErrorResponse(w, r, err)
