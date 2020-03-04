@@ -1315,7 +1315,7 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 // PutObjectPartHandler - Upload part
 func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http.Request) {
 	reqCtx := GetRequestContext(r)
-	logger := ContextLogger(r)
+	logger := reqCtx.Logger
 
 	authType := reqCtx.AuthType
 

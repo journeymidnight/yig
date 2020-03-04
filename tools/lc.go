@@ -2,10 +2,8 @@ package main
 
 import (
 	"github.com/journeymidnight/yig/api/datatype"
-	"github.com/journeymidnight/yig/context"
 	"github.com/journeymidnight/yig/crypto"
 	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/mods"
@@ -109,19 +107,19 @@ func retrieveBucket(lc types.LifeCycle) error {
 	request.MaxKeys = 1000
 	if defaultConfig == true {
 		for {
-			retObjects, _, truncated, nextMarker, nextVerIdMarker, err := yig.ListObjectsInternal(bucket.Name, request)
+			info, err := yig.ListObjectsInternal(bucket.Name, request)
 			if err != nil {
 				return err
 			}
 
-			for _, object := range retObjects {
+			for _, object := range info.Objects {
 				prefixMatch := false
 				matchDays := 0
 				for _, rule := range rules {
 					if rule.Prefix == "" {
 						continue
 					}
-					if strings.HasPrefix(object.Name, rule.Prefix) == false {
+					if strings.HasPrefix(object.Key, rule.Prefix) == false {
 						continue
 					}
 					prefixMatch = true
@@ -136,30 +134,26 @@ func retrieveBucket(lc types.LifeCycle) error {
 				} else {
 					days = defaultDays
 				}
-				helper.Logger.Info("inteval:", time.Since(object.LastModifiedTime).Seconds())
-				if checkIfExpiration(object.LastModifiedTime, days) {
-					helper.Logger.Info("come here")
-					if object.NullVersion {
-						object.VersionId = ""
-					}
-					reqCtx := context.RequestContext{
-						BucketInfo: bucket,
-						ObjectInfo: object,
-						BucketName: object.BucketName,
-						ObjectName: object.Name,
-						VersionId:  object.VersionId,
-					}
-					_, err = yig.DeleteObject(reqCtx, common.Credential{})
+				lastt, err := time.Parse(types.TIME_LAYOUT_TIDB, object.LastModified)
+				if err != nil {
+					return err
+				}
+				if checkIfExpiration(lastt, days) {
+					o, err := yig.MetaStorage.GetObject(bucket.Name, object.Key, true)
 					if err != nil {
-						helper.Logger.Error(object.BucketName, object.Name, object.VersionId, err)
+						helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
 						continue
 					}
-					helper.Logger.Info("Deleted:", object.BucketName, object.Name, object.VersionId)
+					err = yig.MetaStorage.DeleteObject(o)
+					if err != nil {
+						helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
+						continue
+					}
+					helper.Logger.Info("Deleted:", bucket.Name, object.Key, object.LastModified)
 				}
 			}
-			if truncated == true {
-				request.KeyMarker = nextMarker
-				request.VersionIdMarker = nextVerIdMarker
+			if info.IsTruncated == true {
+				request.KeyMarker = info.NextMarker
 			} else {
 				break
 			}
@@ -175,31 +169,31 @@ func retrieveBucket(lc types.LifeCycle) error {
 			}
 			request.Prefix = rule.Prefix
 			for {
-
-				retObjects, _, truncated, nextMarker, nextVerIdMarker, err := yig.ListObjectsInternal(bucket.Name, request)
+				info, err := yig.ListObjectsInternal(bucket.Name, request)
 				if err != nil {
 					return err
 				}
-				for _, object := range retObjects {
-					if checkIfExpiration(object.LastModifiedTime, days) {
-						reqCtx := context.RequestContext{
-							BucketInfo: bucket,
-							ObjectInfo: object,
-							BucketName: object.BucketName,
-							ObjectName: object.Name,
-							VersionId:  object.VersionId,
-						}
-						_, err = yig.DeleteObject(reqCtx, common.Credential{})
+				for _, object := range info.Objects {
+					lastt, err := time.Parse(types.TIME_LAYOUT_TIDB, object.LastModified)
+					if err != nil {
+						return err
+					}
+					if checkIfExpiration(lastt, days) {
+						o, err := yig.MetaStorage.GetObject(bucket.Name, object.Key, true)
 						if err != nil {
-							helper.Logger.Error(object.BucketName, object.Name, object.VersionId, "failed:", err)
+							helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
 							continue
 						}
-						helper.Logger.Info("Deleted:", object.BucketName, object.Name, object.VersionId)
+						err = yig.MetaStorage.DeleteObject(o)
+						if err != nil {
+							helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
+							continue
+						}
+						helper.Logger.Info(bucket.Name, object.Key, object.LastModified, err)
 					}
 				}
-				if truncated == true {
-					request.KeyMarker = nextMarker
-					request.VersionIdMarker = nextVerIdMarker
+				if info.IsTruncated == true {
+					request.KeyMarker = info.NextMarker
 				} else {
 					break
 				}
