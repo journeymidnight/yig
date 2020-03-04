@@ -163,9 +163,10 @@ func (o *Object) GetAppendSql() (string, []interface{}) {
 }
 
 func (o *Object) GetUpdateSql() (string, []interface{}) {
+	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
 	sql := "update objects set location=?,pool=?," +
-		"size=?,objectid=?,etag=?,initializationvector=?,storageclass=? where bucketname=? and name=?"
-	args := []interface{}{o.Location, o.Pool, o.Size, o.ObjectId, o.Etag, o.InitializationVector, o.StorageClass, o.BucketName, o.Name}
+		"size=?,objectid=?,etag=?,initializationvector=?,storageclass=? where bucketname=? and name=? and version=?"
+	args := []interface{}{o.Location, o.Pool, o.Size, o.ObjectId, o.Etag, o.InitializationVector, o.StorageClass, o.BucketName, o.Name, version}
 	return sql, args
 }
 

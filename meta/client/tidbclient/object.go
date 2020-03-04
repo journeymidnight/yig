@@ -210,8 +210,6 @@ func (t *TidbClient) UpdateObject(object *Object, tx DB) (err error) {
 	sql, args := object.GetUpdateSql()
 	_, err = tx.Exec(sql, args...)
 	if object.Parts != nil {
-		v := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
-		version := strconv.FormatUint(v, 10)
 		for _, p := range object.Parts {
 			psql, args := p.GetCreateSql(object.BucketName, object.Name, version)
 			_, err = tx.Exec(psql, args...)
