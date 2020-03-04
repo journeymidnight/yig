@@ -112,4 +112,5 @@ type ObjectLayer interface {
 	GetFreezer(bucketName string, objectName string, version string) (freezer *meta.Freezer, err error)
 	GetFreezerStatus(bucketName string, objectName string, version string) (freezer *meta.Freezer, err error)
 	CreateFreezer(freezer *meta.Freezer) (err error)
+	UpdateFreezerDate(freezer *meta.Freezer, date int) (err error)
 }

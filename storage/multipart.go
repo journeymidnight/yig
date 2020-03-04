@@ -176,7 +176,7 @@ func (yig *YigStorage) PutObjectPart(bucketName, objectName string, credential c
 	}
 
 	var isCompressible bool
-	if helper.CONFIG.EnableCompression && multipart.Metadata.StorageClass.ToString() == "GLACIER" {
+	if helper.CONFIG.EnableCompression && multipart.Metadata.StorageClass == meta.ObjectStorageClassGlacier {
 		objectNameSlice := strings.Split(objectName, ".")
 		s := objectNameSlice[len(objectNameSlice)-1]
 		suffix := "." + s
@@ -313,7 +313,7 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	}
 
 	var isCompressible bool
-	if helper.CONFIG.EnableCompression && multipart.Metadata.StorageClass.ToString() == "GLACIER" {
+	if helper.CONFIG.EnableCompression && multipart.Metadata.StorageClass == meta.ObjectStorageClassGlacier {
 		objectNameSlice := strings.Split(objectName, ".")
 		s := objectNameSlice[len(objectNameSlice)-1]
 		suffix := "." + s
@@ -646,7 +646,7 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 		BucketName: bucketName,
 	}
 
-	if object.StorageClass.ToString() == "GLACIER" {
+	if object.StorageClass == meta.ObjectStorageClassGlacier {
 		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
 		if err == nil {
 			err = yig.MetaStorage.DeleteFreezer(freezer)

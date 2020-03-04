@@ -17,6 +17,10 @@ func (m *Meta) GetFreezerStatus(bucketName string, objectName string, version st
 	return m.Client.GetFreezerStatus(bucketName, objectName, "")
 }
 
+func (m *Meta) UpdateFreezerDate(freezer *types.Freezer) error {
+	return m.Client.UploadFreezerDate(freezer.BucketName, freezer.Name, freezer.LifeTime)
+}
+
 func (m *Meta) DeleteFreezer(freezer *types.Freezer) (err error) {
 	var tx *sql.Tx
 	tx, err = m.Client.NewTrans()

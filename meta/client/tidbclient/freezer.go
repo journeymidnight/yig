@@ -4,119 +4,12 @@ import (
 	"database/sql"
 	. "github.com/journeymidnight/yig/error"
 	. "github.com/journeymidnight/yig/meta/types"
-	"strconv"
 	"time"
 )
 
 func (t *TidbClient) CreateFreezer(freezer *Freezer) (err error) {
 	sql, args := freezer.GetCreateSql()
 	_, err = t.Client.Exec(sql, args...)
-	return
-}
-
-func (t *TidbClient) ListFreezers(maxKeys int) (retFreezers []Freezer, err error) {
-	var count int
-	var marker string
-	marker = ""
-	for {
-		if marker == "" {
-			count = 0
-		}
-		var loopCount int
-		loopCount = 0
-		var sqltext string
-		var rows *sql.Rows
-		if marker == "" {
-			sqltext = "select bucketname,objectname,version,status,lifetime,lastmodifiedtime from restoreobjects order by bucketname,objectname,version limit ?;"
-			rows, err = t.Client.Query(sqltext, maxKeys)
-		} else {
-			sqltext = "select bucketname,objectname,version,status,lifetime,lastmodifiedtime from restoreobjects where name >=? order by bucketname,objectname,version limit ?,?;"
-			rows, err = t.Client.Query(sqltext, marker, count-1, count+maxKeys)
-		}
-		if err != nil {
-			return
-		}
-		defer rows.Close()
-		for rows.Next() {
-			count += 1
-			loopCount += 1
-			var version uint64
-			var lastmodifiedtime string
-			retFreezer := &Freezer{}
-			err = rows.Scan(
-				&retFreezer.BucketName,
-				&retFreezer.Name,
-				&version,
-				&retFreezer.LifeTime,
-				&lastmodifiedtime,
-			)
-			if err != nil {
-				return
-			}
-			local, _ := time.LoadLocation("Local")
-			retFreezer.LastModifiedTime, _ = time.ParseInLocation(TIME_LAYOUT_TIDB, lastmodifiedtime, local)
-			str := strconv.FormatUint(version, 10)
-			retFreezer.VersionId = str
-			retFreezers = append(retFreezers, *retFreezer)
-			marker = retFreezer.Name
-		}
-		if loopCount < maxKeys {
-			break
-		}
-	}
-	return
-}
-
-func (t *TidbClient) ListFreezersNeedContinue(maxKeys int, status Status) (retFreezers []Freezer, err error) {
-	var count int
-	var marker string
-	marker = ""
-	for {
-		if marker == "" {
-			count = 0
-		}
-		var loopCount int
-		loopCount = 0
-		var sqltext string
-		var rows *sql.Rows
-		if marker == "" {
-			sqltext = "select bucketname,objectname,version from restoreobjects where status=? order by bucketname,objectname,version limit ?;"
-			rows, err = t.Client.Query(sqltext, status, maxKeys)
-		} else {
-			sqltext = "select bucketname,objectname,version from restoreobjects where name >=? and status=? order by bucketname,objectname,version limit ?,?;"
-			rows, err = t.Client.Query(sqltext, marker, status, count-1, count+maxKeys)
-		}
-		if err != nil {
-			return
-		}
-		defer rows.Close()
-		for rows.Next() {
-			count += 1
-			loopCount += 1
-			var version uint64
-			var lastmodifiedtime string
-			retFreezer := &Freezer{}
-			err = rows.Scan(
-				&retFreezer.BucketName,
-				&retFreezer.Name,
-				&version,
-				&retFreezer.LifeTime,
-				&lastmodifiedtime,
-			)
-			if err != nil {
-				return
-			}
-			local, _ := time.LoadLocation("Local")
-			retFreezer.LastModifiedTime, _ = time.ParseInLocation(TIME_LAYOUT_TIDB, lastmodifiedtime, local)
-			str := strconv.FormatUint(version, 10)
-			retFreezer.VersionId = str
-			retFreezers = append(retFreezers, *retFreezer)
-			marker = retFreezer.Name
-		}
-		if loopCount < maxKeys {
-			break
-		}
-	}
 	return
 }
 
@@ -177,18 +70,9 @@ func (t *TidbClient) GetFreezerStatus(bucketName, objectName, version string) (f
 	return
 }
 
-func (t *TidbClient) UploadFreezerStatus(bucketName, objectName string, status, statusSetting Status) (err error) {
-	sqltext := "update restoreobjects set status=? where bucketname=? and objectname=? and status=?;"
-	_, err = t.Client.Exec(sqltext, statusSetting, bucketName, objectName, status)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (t *TidbClient) UploadFreezerBackendInfo(targetFreezer *Freezer) (err error) {
-	sqltext := "update restoreobjects set pool=?,size=? where bucketname=? and objectname=?;"
-	_, err = t.Client.Exec(sqltext, targetFreezer.Pool, targetFreezer.Size, targetFreezer.BucketName, targetFreezer.Name)
+func (t *TidbClient) UploadFreezerDate(bucketName, objectName string, lifetime int) (err error) {
+	sqltext := "update restoreobjects set lifetime=? where bucketname=? and objectname=?;"
+	_, err = t.Client.Exec(sqltext, lifetime, bucketName, objectName)
 	if err != nil {
 		return err
 	}

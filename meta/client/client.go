@@ -60,11 +60,8 @@ type Client interface {
 	RemoveGarbageCollection(garbage GarbageCollection) error
 	//freezer
 	CreateFreezer(freezer *Freezer) (err error)
-	ListFreezers(maxKeys int) (retFreezers []Freezer, err error)
-	ListFreezersNeedContinue(maxKeys int, status Status) (retFreezers []Freezer, err error)
 	GetFreezer(bucketName, objectName, version string) (freezer *Freezer, err error)
 	GetFreezerStatus(bucketName, objectName, version string) (freezer *Freezer, err error)
-	UploadFreezerStatus(bucketName, objectName string, status, statusSetting Status) (err error)
-	UploadFreezerBackendInfo(targetFreezer *Freezer) error
+	UploadFreezerDate(bucketName, objectName string, lifetime int) (err error)
 	DeleteFreezer(bucketName, objectName string, tx DB) (err error)
 }

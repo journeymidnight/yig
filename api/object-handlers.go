@@ -217,7 +217,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if object.StorageClass.ToString() == "GLACIER" {
+	if object.StorageClass == meta.ObjectStorageClassGlacier {
 		freezer, err := api.ObjectAPI.GetFreezer(ctx.BucketName, ctx.ObjectName, version)
 		if err != nil {
 			if err == ErrNoSuchKey {
@@ -229,7 +229,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
 			return
 		}
-		if freezer.Status.ToString() != "FINISH" {
+		if freezer.Status != meta.ObjectHasRestored {
 			logger.Error("Unable to get glacier object with no restore")
 			err = ErrInvalidGlacierObject
 			return
@@ -361,14 +361,14 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if object.StorageClass.ToString() == "GLACIER" {
+	if object.StorageClass == meta.ObjectStorageClassGlacier {
 		freezer, err := api.ObjectAPI.GetFreezerStatus(object.BucketName, object.Name, version)
 		if err != nil && err != ErrNoSuchKey {
 			logger.Error("Unable to get restore object status", object.BucketName, object.Name, version,
 				"error:", err)
 			WriteErrorResponse(w, r, err)
 		}
-		if freezer.Status.ToString() == "FINISH" {
+		if freezer.Status == meta.ObjectHasRestored {
 			w.Header().Set("x-amz-restore", "ongoing-request='true'")
 		} else {
 			w.Header().Set("x-amz-restore", "ongoing-request='false'")
@@ -514,33 +514,6 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	truelySourceObject := sourceObject
-	if sourceObject.StorageClass.ToString() == "GLACIER" {
-		freezer, err := api.ObjectAPI.GetFreezer(sourceBucketName, sourceObjectName, sourceVersion)
-		if err != nil {
-			if err == ErrNoSuchKey {
-				logger.Error("Unable to get glacier object with no restore")
-				WriteErrorResponse(w, r, ErrInvalidGlacierObject)
-				return
-			}
-			logger.Error("Unable to get glacier object info err:", err)
-			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
-			return
-		}
-		if freezer.Status.ToString() != "FINISH" {
-			logger.Error("Unable to get glacier object with no restore")
-			err = ErrInvalidGlacierObject
-			return
-		}
-		sourceObject.Etag = freezer.Etag
-		sourceObject.Size = freezer.Size
-		sourceObject.Parts = freezer.Parts
-		sourceObject.Pool = freezer.Pool
-		sourceObject.InitializationVector = freezer.InitializationVector
-		sourceObject.Location = freezer.Location
-		sourceObject.ObjectId = freezer.ObjectId
-	}
-
 	sseRequest, err := parseSseHeader(r.Header)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
@@ -580,6 +553,35 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		targetStorageClass = sourceObject.StorageClass
 	}
 
+	truelySourceObject := sourceObject
+	if sourceObject.StorageClass == meta.ObjectStorageClassGlacier {
+		freezer, err := api.ObjectAPI.GetFreezer(sourceBucketName, sourceObjectName, sourceVersion)
+		if err != nil {
+			if err == ErrNoSuchKey {
+				logger.Error("Unable to get glacier object with no restore")
+				WriteErrorResponse(w, r, ErrInvalidGlacierObject)
+				return
+			}
+			logger.Error("Unable to get glacier object info err:", err)
+			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
+			return
+		}
+		if freezer.Status != meta.ObjectHasRestored || freezer.Pool == "" {
+			logger.Error("Unable to get glacier object with no restore")
+			err = ErrInvalidGlacierObject
+			return
+		}
+		if targetStorageClass != meta.ObjectStorageClassGlacier {
+			sourceObject.Etag = freezer.Etag
+			sourceObject.Size = freezer.Size
+			sourceObject.Parts = freezer.Parts
+			sourceObject.Pool = freezer.Pool
+			sourceObject.InitializationVector = freezer.InitializationVector
+			sourceObject.Location = freezer.Location
+			sourceObject.ObjectId = freezer.ObjectId
+		}
+	}
+
 	// maximum Upload size for object in a single CopyObject operation.
 	if isMaxObjectSize(sourceObject.Size) {
 		WriteErrorResponseWithResource(w, r, ErrEntityTooLarge, copySource)
@@ -615,6 +617,9 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	targetObject.Etag = sourceObject.Etag
 	targetObject.Parts = sourceObject.Parts
 	targetObject.Type = sourceObject.Type
+	targetObject.ObjectId = sourceObject.ObjectId
+	targetObject.Pool = sourceObject.Pool
+	targetObject.Location = sourceObject.Location
 	targetObject.StorageClass = targetStorageClass
 
 	directive := r.Header.Get("X-Amz-Metadata-Directive")
@@ -637,7 +642,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	var isMetadataOnly bool
 	isMetadataOnly = false
 	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName {
-		if sourceObject.StorageClass.ToString() != "GLACIER" && targetObject.StorageClass.ToString() == "GLACIER" {
+		if sourceObject.StorageClass != meta.ObjectStorageClassGlacier && targetObject.StorageClass == meta.ObjectStorageClassGlacier {
 			isMetadataOnly = false
 		} else {
 			isMetadataOnly = true
@@ -1259,7 +1264,7 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		return
 	}
 
-	if object.StorageClass.ToString() != "GLACIER" {
+	if object.StorageClass != meta.ObjectStorageClassGlacier {
 		WriteErrorResponse(w, r, ErrInvalidObjectName)
 		return
 	}
@@ -1270,6 +1275,12 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		return
 	}
 
+	info, err := GetRestoreInfo(r)
+	if err != nil {
+		logger.Error("Unable to get freezer info:", err)
+		WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
+	}
+
 	freezer, err := api.ObjectAPI.GetFreezerStatus(object.BucketName, object.Name, object.VersionId)
 	if err != ErrNoSuchKey {
 		if err != nil {
@@ -1278,20 +1289,23 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 			WriteErrorResponse(w, r, err)
 		}
 
-		// ResponseRecorder
-		w.(*ResponseRecorder).operationName = "RestoreObject"
+		if freezer.Status == meta.ObjectHasRestored {
+			err = api.ObjectAPI.UpdateFreezerDate(freezer, info.Days)
+			if err != nil {
+				logger.Error("Unable to Update freezer date:", err)
+				WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
+			}
 
-		if freezer.Status.ToString() == "FINISH" {
+			// ResponseRecorder
+			w.(*ResponseRecorder).operationName = "RestoreObject"
+
 			WriteSuccessResponse(w, nil)
 		} else {
+			// ResponseRecorder
+			w.(*ResponseRecorder).operationName = "RestoreObject"
+
 			WriteSuccessResponseWithStatus(w, nil, http.StatusAccepted)
 		}
-	}
-
-	info, err := GetRestoreInfo(r)
-	if err != nil {
-		logger.Error("Unable to get freezer info:", err)
-		WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
 	}
 
 	status, err := meta.MatchStatusIndex("READY")
@@ -1300,11 +1314,17 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
 	}
 
+	lifeTime := info.Days
+	if lifeTime < 1 || lifeTime > 30 {
+		logger.Error("Error freezer life time:", err)
+		WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
+	}
+
 	targetFreezer := &meta.Freezer{}
 	targetFreezer.BucketName = object.BucketName
 	targetFreezer.Name = object.Name
 	targetFreezer.Status = status
-	targetFreezer.LifeTime = info.Days
+	targetFreezer.LifeTime = lifeTime
 	err = api.ObjectAPI.CreateFreezer(targetFreezer)
 	if err != nil {
 		logger.Error("Unable to create freezer:", err)
@@ -1659,7 +1679,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
-	if sourceObject.StorageClass.ToString() == "GLACIER" {
+	if sourceObject.StorageClass == meta.ObjectStorageClassGlacier {
 		freezer, err := api.ObjectAPI.GetFreezer(sourceBucketName, sourceObjectName, sourceVersion)
 		if err != nil {
 			if err == ErrNoSuchKey {
@@ -1671,7 +1691,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
 			return
 		}
-		if freezer.Status.ToString() != "FINISH" {
+		if freezer.Status != meta.ObjectHasRestored {
 			logger.Error("Unable to get glacier object with no restore")
 			err = ErrInvalidGlacierObject
 			return

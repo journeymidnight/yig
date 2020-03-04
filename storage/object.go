@@ -45,7 +45,7 @@ func (yig *YigStorage) pickClusterAndPool(bucket string, object string, storageC
 	size int64, isAppend bool) (cluster backend.Cluster, poolName string) {
 
 	var idx int
-	if storageClass.ToString() == "GLACIER" {
+	if storageClass == meta.ObjectStorageClassGlacier {
 		poolName = backend.GLACIER_FILE_POOLNAME
 		idx = 2
 	} else {
@@ -548,7 +548,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	}
 
 	var isCompressible bool
-	if helper.CONFIG.EnableCompression && storageClass.ToString() == "GLACIER" {
+	if helper.CONFIG.EnableCompression && storageClass == meta.ObjectStorageClassGlacier {
 		objectNameSlice := strings.Split(objectName, ".")
 		s := objectNameSlice[len(objectNameSlice)-1]
 		suffix := "." + s
@@ -644,7 +644,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		nullVerNum = uint64(object.LastModifiedTime.UnixNano())
 	}
 
-	if object.StorageClass.ToString() == "GLACIER" {
+	if object.StorageClass == meta.ObjectStorageClassGlacier {
 		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
 		if err == nil {
 			err = yig.MetaStorage.DeleteFreezer(freezer)
@@ -762,7 +762,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, sourceObject *meta.
 	}
 
 	if isMetadataOnly {
-		if sourceObject.StorageClass.ToString() == "GLACIER" {
+		if sourceObject.StorageClass == meta.ObjectStorageClassGlacier {
 			targetObject.LastModifiedTime = sourceObject.LastModifiedTime
 			err = yig.MetaStorage.UpdateGlacierObject(targetObject, sourceObject, true)
 			if err != nil {
@@ -793,7 +793,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, sourceObject *meta.
 	}
 
 	var isCompressible bool
-	if helper.CONFIG.EnableCompression && targetObject.StorageClass.ToString() == "GLACIER" {
+	if helper.CONFIG.EnableCompression && targetObject.StorageClass == meta.ObjectStorageClassGlacier {
 		objectNameSlice := strings.Split(targetObject.Name, ".")
 		s := objectNameSlice[len(objectNameSlice)-1]
 		suffix := "." + s
@@ -947,7 +947,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, sourceObject *meta.
 		BucketName: targetObject.BucketName,
 	}
 
-	if targetObject.StorageClass.ToString() == "GLACIER" && targetObject.Name == sourceObject.Name && targetObject.BucketName == sourceObject.BucketName {
+	if targetObject.StorageClass == meta.ObjectStorageClassGlacier && targetObject.Name == sourceObject.Name && targetObject.BucketName == sourceObject.BucketName {
 		targetObject.LastModifiedTime = sourceObject.LastModifiedTime
 		result.LastModified = targetObject.LastModifiedTime
 		err = yig.MetaStorage.UpdateGlacierObject(targetObject, sourceObject, false)
@@ -1002,7 +1002,7 @@ func (yig *YigStorage) removeAllObjectsEntryByName(bucketName, objectName string
 		return err
 	}
 	for _, obj := range objs {
-		if obj.StorageClass.ToString() == "GLACIER" {
+		if obj.StorageClass == meta.ObjectStorageClassGlacier {
 			freezer, err := yig.GetFreezer(bucketName, objectName, "")
 			if err == nil {
 				if freezer.Name == objectName {
