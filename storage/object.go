@@ -949,6 +949,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, sourceObject *meta.
 
 	if targetObject.StorageClass.ToString() == "GLACIER" && targetObject.Name == sourceObject.Name && targetObject.BucketName == sourceObject.BucketName {
 		targetObject.LastModifiedTime = sourceObject.LastModifiedTime
+		result.LastModified = targetObject.LastModifiedTime
 		err = yig.MetaStorage.UpdateGlacierObject(targetObject, sourceObject, false)
 	} else {
 		if nullVerNum != 0 {
