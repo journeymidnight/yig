@@ -1259,6 +1259,11 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		return
 	}
 
+	if object.StorageClass.ToString() != "GLACIER" {
+		WriteErrorResponse(w, r, ErrInvalidObjectName)
+		return
+	}
+
 	if object.DeleteMarker {
 		w.Header().Set("x-amz-delete-marker", "true")
 		WriteErrorResponse(w, r, ErrNoSuchKey)
@@ -1305,6 +1310,7 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		logger.Error("Unable to create freezer:", err)
 		WriteErrorResponse(w, r, ErrCreateRestoreObject)
 	}
+	logger.Info("Submit thaw request successfully")
 
 	// ResponseRecorder
 	w.WriteHeader(http.StatusAccepted)
