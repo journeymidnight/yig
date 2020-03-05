@@ -22,7 +22,7 @@ type Cluster interface {
 	// get cluster usage statistics
 	GetUsage() (Usage, error)
 	// put new object to storage Cluster
-	Put(poolname string, isCompressible bool, data io.Reader) (oid string,
+	Put(poolname string, data io.Reader) (oid string,
 		size uint64, err error)
 	// append a new chunk to object, empty existName means new object
 	Append(poolName, existName string, objectChunk io.Reader,

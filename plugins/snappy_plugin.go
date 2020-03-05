@@ -3,8 +3,9 @@ package main
 import (
 	"bytes"
 	"github.com/golang/snappy"
-	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/mods"
+	"io"
+	"strings"
 )
 
 const pluginName = "snappy"
@@ -24,16 +25,83 @@ func GetCompressClient(config map[string]interface{}) (interface{}, error) {
 
 type SnappyCompress struct{}
 
-func (s SnappyCompress) CompressWriter(input []byte) ([]byte, error) {
-	buf := new(bytes.Buffer)
-	w := snappy.NewBufferedWriter(buf)
-	if _, err := w.Write(input); err != nil {
-		helper.Logger.Error("error compressing data:", err)
-		return nil, err
+// TODO : Fix memory issues
+func (s SnappyCompress) Compress(reader io.Reader) (result io.Reader, err error) {
+	var out, input []byte
+	for {
+		inputNum, err := reader.Read(input)
+		if err != nil && err != io.EOF {
+			return
+		}
+		if inputNum == 0 {
+			break
+		}
+		out = snappy.Encode(nil, input)
 	}
-	if err := w.Close(); err != nil {
-		helper.Logger.Error("error closing compressed data:", err)
-		return nil, err
+	result = bytes.NewReader(out)
+	return result, nil
+}
+
+// TODO : Fix memory issues
+func (s SnappyCompress) UnCompress(reader io.Reader) (result io.Reader, err error) {
+	var out, input []byte
+	for {
+		inputNum, err := reader.Read(input)
+		if err != nil && err != io.EOF {
+			return
+		}
+		if inputNum == 0 {
+			break
+		}
+		out, err = snappy.Decode(nil, input)
+		if err != nil {
+			return
+		}
 	}
-	return buf.Bytes(), nil
+	result = bytes.NewReader(out)
+	return result, nil
+}
+
+func (s SnappyCompress) IsCompressible(objectName, mtype string) bool {
+	objectNameSlice := strings.Split(objectName, ".")
+	str := objectNameSlice[len(objectNameSlice)-1]
+	suffix := "." + str
+
+	// text
+	if strings.HasPrefix(mtype, "text/") {
+		return true
+	}
+
+	// images
+	switch suffix {
+	case ".svg", ".bmp":
+		return true
+	}
+	if strings.HasPrefix(mtype, "image/") {
+		return false
+	}
+
+	// by file name extension
+	switch suffix {
+	case ".zip", ".rar", ".gz", ".bz2", ".xz":
+		return false
+	case ".pdf", ".txt", ".html", ".htm", ".css", ".js", ".json":
+		return true
+	case ".php", ".java", ".go", ".rb", ".c", ".cpp", ".h", ".hpp":
+		return true
+	case ".png", ".jpg", ".jpeg":
+		return false
+	}
+
+	// by mime type
+	if strings.HasPrefix(mtype, "application/") {
+		if strings.HasSuffix(mtype, "xml") {
+			return true
+		}
+		if strings.HasSuffix(mtype, "script") {
+			return true
+		}
+	}
+
+	return false
 }

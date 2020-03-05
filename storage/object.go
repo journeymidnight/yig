@@ -4,11 +4,9 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
-	"github.com/journeymidnight/yig/compression"
 	"io"
 	"math/rand"
 	"path"
-	"strings"
 	"sync"
 	"time"
 
@@ -547,14 +545,6 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		return result, ErrInternalError
 	}
 
-	var isCompressible bool
-	if helper.CONFIG.EnableCompression && storageClass == meta.ObjectStorageClassGlacier {
-		objectNameSlice := strings.Split(objectName, ".")
-		s := objectNameSlice[len(objectNameSlice)-1]
-		suffix := "." + s
-		isCompressible = compression.IsCompressible(suffix, metadata["Content-Type"])
-	}
-
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
 
 	var initializationVector []byte
@@ -569,7 +559,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	if err != nil {
 		return
 	}
-	objectId, bytesWritten, err := cluster.Put(poolName, isCompressible, storageReader)
+	objectId, bytesWritten, err := cluster.Put(poolName, storageReader)
 	if err != nil {
 		return
 	}
@@ -792,14 +782,6 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, sourceObject *meta.
 		return result, nil
 	}
 
-	var isCompressible bool
-	if helper.CONFIG.EnableCompression && targetObject.StorageClass == meta.ObjectStorageClassGlacier {
-		objectNameSlice := strings.Split(targetObject.Name, ".")
-		s := objectNameSlice[len(objectNameSlice)-1]
-		suffix := "." + s
-		isCompressible = compression.IsCompressible(suffix, targetObject.ContentType)
-	}
-
 	// Limit the reader to its provided size if specified.
 	var limitedDataReader io.Reader
 	limitedDataReader = io.LimitReader(source, targetObject.Size)
@@ -836,7 +818,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, sourceObject *meta.
 					}
 				}
 				storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
-				oid, bytesW, err = cephCluster.Put(poolName, isCompressible, storageReader)
+				oid, bytesW, err = cephCluster.Put(poolName, storageReader)
 				maybeObjectToRecycle = objectToRecycle{
 					location: cephCluster.ID(),
 					pool:     poolName,
@@ -887,7 +869,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, sourceObject *meta.
 			return
 		}
 		var bytesWritten uint64
-		oid, bytesWritten, err = cephCluster.Put(poolName, isCompressible, storageReader)
+		oid, bytesWritten, err = cephCluster.Put(poolName, storageReader)
 		if err != nil {
 			return
 		}

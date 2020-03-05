@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/journeymidnight/radoshttpd/rados"
 	"github.com/journeymidnight/yig/backend"
-	"github.com/journeymidnight/yig/compression"
 	"github.com/journeymidnight/yig/helper"
 	"io"
 	"io/ioutil"
@@ -211,7 +210,7 @@ func (rd *RadosSmallDownloader) Close() error {
 	return nil
 }
 
-func (cluster *CephCluster) Put(poolname string, isCompressible bool, data io.Reader) (oid string,
+func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
 	size uint64, err error) {
 
 	oid = cluster.getUniqUploadName()
@@ -256,14 +255,6 @@ func (cluster *CephCluster) Put(poolname string, isCompressible bool, data io.Re
 			drain_pending(pending)
 			return oid, 0,
 				fmt.Errorf("Read from client failed. pool:%s oid:%s", poolname, oid)
-		}
-		if isCompressible {
-			slice, err = compression.Compress.CompressWriter(slice)
-			if err != nil {
-				drain_pending(pending)
-				return oid, 0,
-					fmt.Errorf("EnCompress slice err. pool:%s oid:%s", poolname, oid)
-			}
 		}
 		if count == 0 {
 			break

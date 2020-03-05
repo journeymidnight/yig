@@ -3,10 +3,13 @@ package compression
 import (
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/mods"
+	"io"
 )
 
 type Compression interface {
-	CompressWriter(input []byte) ([]byte, error)
+	Compress(reader io.Reader) (result io.Reader, err error)
+	UnCompress(reader io.Reader) (result io.Reader, err error)
+	IsCompressible(objectName, mtype string) bool
 }
 
 var Compress Compression
@@ -26,4 +29,16 @@ func InitCompression(plugins map[string]*mods.YigPlugin) (Compression, error) {
 		}
 	}
 	panic("Failed to initialize any Compression plugin, quiting...\n")
+}
+
+func CompressObject(objectName, objectType string, reader io.Reader) (result io.Reader, err error) {
+	if helper.CONFIG.EnableCompression {
+		isCompressible := Compress.IsCompressible(objectName, objectType)
+		if !isCompressible {
+			return reader, nil
+		} else {
+			return Compress.Compress(reader)
+		}
+	}
+	return reader, nil
 }
