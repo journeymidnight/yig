@@ -37,7 +37,6 @@ script:
   - pushd test/go
   - go test -v
   - popd
-  - cat lc.log
 
 before_deploy:
   - echo "prepare package"
