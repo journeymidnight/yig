@@ -23,6 +23,7 @@ type Bucket struct {
 	OwnerId    string
 	CORS       datatype.Cors
 	ACL        datatype.Acl
+	BucketLogging datatype.BucketLoggingStatus
 	Lifecycle  datatype.Lifecycle
 	Policy     policy.Policy
 	Website    datatype.WebsiteConfiguration
@@ -37,6 +38,7 @@ func (b *Bucket) String() (s string) {
 	s += "OwnerId: " + b.OwnerId + "\t"
 	s += "CORS: " + fmt.Sprintf("%+v", b.CORS) + "\t"
 	s += "ACL: " + fmt.Sprintf("%+v", b.ACL) + "\t"
+	s += "BucketLogging: " + fmt.Sprintf("%+v", b.BucketLogging) + "\t"
 	s += "LifeCycle: " + fmt.Sprintf("%+v", b.Lifecycle) + "\t"
 	s += "Policy: " + fmt.Sprintf("%+v", b.Policy) + "\t"
 	s += "Website: " + fmt.Sprintf("%+v", b.Website) + "\t"
@@ -50,26 +52,27 @@ func (b *Bucket) String() (s string) {
 func (b Bucket) GetUpdateSql() (string, []interface{}) {
 	acl, _ := json.Marshal(b.ACL)
 	cors, _ := json.Marshal(b.CORS)
+	logging, _ := json.Marshal(b.BucketLogging)
 	lc, _ := json.Marshal(b.Lifecycle)
 	bucket_policy, _ := json.Marshal(b.Policy)
 	website, _ := json.Marshal(b.Website)
 	encryption,_ := json.Marshal(b.Encryption)
-	sql := "update buckets set bucketname=?,acl=?,policy=?,cors=?,lc=?,website=?,encryption=?,uid=?,versioning=? where bucketname=?"
-	args := []interface{}{b.Name, acl, bucket_policy, cors, lc, website, encryption, b.OwnerId, b.Versioning, b.Name}
+	sql := "update buckets set bucketname=?,acl=?,policy=?,cors=?,logging=?,lc=?,website=?,encryption=?,uid=?,versioning=? where bucketname=?"
+	args := []interface{}{b.Name, acl, bucket_policy, cors, logging, lc, website, encryption, b.OwnerId, b.Versioning, b.Name}
 	return sql, args
 }
 
 func (b Bucket) GetCreateSql() (string, []interface{}) {
 	acl, _ := json.Marshal(b.ACL)
 	cors, _ := json.Marshal(b.CORS)
+	logging, _ := json.Marshal(b.BucketLogging)
 	lc, _ := json.Marshal(b.Lifecycle)
 	bucket_policy, _ := json.Marshal(b.Policy)
 	website, _ := json.Marshal(b.Website)
 	encryption,_ := json.Marshal(b.Encryption)
 	createTime := b.CreateTime.Format(TIME_LAYOUT_TIDB)
-
-	sql := "insert into buckets(bucketname,acl,cors,lc,uid,policy,website,encryption,createtime,usages,versioning) " +
-		"values(?,?,?,?,?,?,?,?,?,?,?);"
-	args := []interface{}{b.Name, acl, cors, lc, b.OwnerId, bucket_policy, website, encryption, createTime, b.Usage, b.Versioning}
+	sql := "insert into buckets(bucketname,acl,cors,logging,lc,uid,policy,website,encryption,createtime,usages,versioning) " +
+		"values(?,?,?,?,?,?,?,?,?,?,?,?);"
+	args := []interface{}{b.Name, acl, cors, logging, lc, b.OwnerId, bucket_policy, website, encryption, createTime, b.Usage, b.Versioning}
 	return sql, args
 }

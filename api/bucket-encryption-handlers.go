@@ -20,8 +20,6 @@ func (api ObjectAPIHandlers) PutBucketEncryption(w http.ResponseWriter, r *http.
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
 		return
-	case signature.AuthTypeAnonymous:
-		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
 			WriteErrorResponse(w, r, err)
@@ -74,10 +72,7 @@ func (api ObjectAPIHandlers) GetBucketEncryption(w http.ResponseWriter, r *http.
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
 			WriteErrorResponse(w, r, err)
 			return
@@ -124,10 +119,7 @@ func (api ObjectAPIHandlers) DeleteBucketEncryption(w http.ResponseWriter, r *ht
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
 			WriteErrorResponse(w, r, err)
 			return
