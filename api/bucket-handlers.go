@@ -238,6 +238,7 @@ func (api ObjectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.R
 	if err != nil {
 		logger.Error("Unable to list buckets:", err)
 		WriteErrorResponse(w, r, err)
+		return
 	}
 
 	// generate response
