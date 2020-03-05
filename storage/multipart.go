@@ -4,12 +4,10 @@ import (
 	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
-	"github.com/journeymidnight/yig/compression"
 	"io"
 	"net/url"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/journeymidnight/yig/api"

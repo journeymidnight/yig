@@ -31,7 +31,7 @@ func (s SnappyCompress) Compress(reader io.Reader) (result io.Reader, err error)
 	for {
 		inputNum, err := reader.Read(input)
 		if err != nil && err != io.EOF {
-			return
+			return reader, err
 		}
 		if inputNum == 0 {
 			break
@@ -48,14 +48,14 @@ func (s SnappyCompress) UnCompress(reader io.Reader) (result io.Reader, err erro
 	for {
 		inputNum, err := reader.Read(input)
 		if err != nil && err != io.EOF {
-			return
+			return reader, err
 		}
 		if inputNum == 0 {
 			break
 		}
 		out, err = snappy.Decode(nil, input)
 		if err != nil {
-			return
+			return reader, err
 		}
 	}
 	result = bytes.NewReader(out)

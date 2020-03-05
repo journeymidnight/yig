@@ -56,10 +56,9 @@ upload_max_chunk_size = 8388608 #8MB
 ceph_config_pattern = "/etc/ceph/*.conf"
 
 # Plugin Config
-[plugins.snappy]
-path = "/etc/yig/plugins/snappy_plugin.so"
+[plugins.dummy_compression]
+path = "/etc/yig/plugins/dummy_compression_plugin.so"
 enable = true
-[plugins.snappy.args]
 
 [plugins.encryption_vault]
 path = "/etc/yig/plugins/vault_plugin.so"
