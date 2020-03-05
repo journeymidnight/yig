@@ -3,12 +3,13 @@ package lib
 import (
 	"errors"
 	"fmt"
-	"github.com/journeymidnight/aws-sdk-go/aws"
-	"github.com/journeymidnight/aws-sdk-go/service/s3"
-	"github.com/journeymidnight/yig/api/datatype"
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/journeymidnight/aws-sdk-go/aws"
+	"github.com/journeymidnight/aws-sdk-go/service/s3"
+	"github.com/journeymidnight/yig/api/datatype"
 )
 
 func GenTestObjectUrl(sc *S3Client) string {
@@ -28,7 +29,7 @@ func TransferToS3AccessEncryptionConfiguration(config *datatype.EncryptionConfig
 		rule.ApplyServerSideEncryptionByDefault = new(s3.ServerSideEncryptionByDefault)
 		rule.ApplyServerSideEncryptionByDefault.SSEAlgorithm = aws.String(e.ApplyServerSideEncryptionByDefault.SSEAlgorithm)
 		rule.ApplyServerSideEncryptionByDefault.KMSMasterKeyID = aws.String(e.ApplyServerSideEncryptionByDefault.KMSMasterKeyID)
-		encryption.Rules = append(encryption.Rules,rule)
+		encryption.Rules = append(encryption.Rules, rule)
 	}
 	return
 }
@@ -123,4 +124,13 @@ func GenMinimalPart() []byte {
 
 func Format(s string) string {
 	return strings.Replace(strings.Replace(strings.Replace(s, " ", "", -1), "\n", "", -1), "\t", "", -1)
+}
+
+func HasStrInSlice(slice []string, str string) bool {
+	for _, s := range slice {
+		if s == str {
+			return true
+		}
+	}
+	return false
 }

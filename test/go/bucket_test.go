@@ -38,7 +38,7 @@ func Test_Bucket(t *testing.T) {
 	if len(buckets) != 2 {
 		t.Fatal("Buckets count is wrong", len(buckets))
 	}
-	if buckets[0] != TEST_BUCKET || buckets[1] != TEST_BUCKET+"2" {
+	if !HasStrInSlice(buckets, TEST_BUCKET) && !HasStrInSlice(buckets, TEST_BUCKET+"2") {
 		t.Fatal("Buckets' name is wrong", buckets)
 	}
 	t.Log("ListBucket Success.")
