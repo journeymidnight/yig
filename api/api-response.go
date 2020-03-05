@@ -259,8 +259,10 @@ func WriteErrorResponseHeaders(w http.ResponseWriter, r *http.Request, err error
 	logger.Info("Response status code:", status, "err:", err)
 
 	// ResponseRecorder
-	w.(*ResponseRecorder).status = status
-
+	_, ok = w.(*ResponseRecorder)
+	if ok {
+		w.(*ResponseRecorder).status = status
+	}
 	// check website routing rules
 	if ctx.BucketInfo == nil {
 		w.WriteHeader(status)

@@ -43,30 +43,33 @@ func (t *TidbClient) GetBucket(bucketName string) (bucket *Bucket, err error) {
 	}
 	err = json.Unmarshal([]byte(acl), &bucket.ACL)
 	if err != nil {
+		helper.Logger.Error("Unable to unmarshal acl:", acl)
 		return
 	}
 	err = json.Unmarshal([]byte(cors), &bucket.CORS)
 	if err != nil {
+		helper.Logger.Error("Unable to unmarshal cors:", cors)
 		return
 	}
 	err = json.Unmarshal([]byte(logging), &bucket.BucketLogging)
 	if err != nil {
+		helper.Logger.Error("Unable to unmarshal logging:", logging)
 		return
 	}
 	err = json.Unmarshal([]byte(lc), &bucket.Lifecycle)
 	if err != nil {
+		helper.Logger.Error("Unable to unmarshal lc:", lc)
 		return
 	}
-	err = json.Unmarshal([]byte(policy), &bucket.Policy)
-	if err != nil {
-		return
-	}
+	bucket.Policy = []byte(policy)
 	err = json.Unmarshal([]byte(website), &bucket.Website)
 	if err != nil {
+		helper.Logger.Error("Unable to unmarshal website:", website)
 		return
 	}
 	err = json.Unmarshal([]byte(encryption), &bucket.Encryption)
 	if err != nil {
+		helper.Logger.Error("Unable to unmarshal encryption:", encryption)
 		return
 	}
 	return
