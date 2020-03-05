@@ -15,7 +15,7 @@ func (t *TidbClient) CreateFreezer(freezer *Freezer) (err error) {
 
 func (t *TidbClient) GetFreezer(bucketName, objectName, version string) (freezer *Freezer, err error) {
 	var lastmodifiedtime string
-	sqltext := "select bucketname,objectname,IFNULL(version,''),status,lifetime,lastmodifiedtime,IFNULL(location,''),IFNULL(pool,''),IFNULL(ownerid,''),IFNULL(size,'0'),IFNULL(objectid,''),IFNULL(etag,''),IFNULL(initializationvector,'') from restoreobjects where bucketname=? and objectname=?;"
+	sqltext := "select bucketname,objectname,IFNULL(version,''),status,lifetime,lastmodifiedtime,IFNULL(location,''),IFNULL(pool,''),IFNULL(ownerid,''),IFNULL(size,'0'),IFNULL(objectid,''),IFNULL(etag,'') from restoreobjects where bucketname=? and objectname=?;"
 	row := t.Client.QueryRow(sqltext, bucketName, objectName)
 	freezer = &Freezer{}
 	err = row.Scan(
@@ -31,7 +31,6 @@ func (t *TidbClient) GetFreezer(bucketName, objectName, version string) (freezer
 		&freezer.Size,
 		&freezer.ObjectId,
 		&freezer.Etag,
-		&freezer.InitializationVector,
 	)
 	if err == sql.ErrNoRows {
 		err = ErrNoSuchKey
@@ -110,7 +109,7 @@ func (t *TidbClient) DeleteFreezer(bucketName, objectName string, tx DB) (err er
 //util function
 func getFreezerParts(bucketName, objectName string, cli *sql.DB) (parts map[int]*Part, err error) {
 	parts = make(map[int]*Part)
-	sqltext := "select partnumber,size,objectid,offset,etag,lastmodified,initializationvector from restoreobjectpart where bucketname=? and objectname=?;"
+	sqltext := "select partnumber,size,objectid,offset,etag,lastmodified from restoreobjectpart where bucketname=? and objectname=?;"
 	rows, err := cli.Query(sqltext, bucketName, objectName)
 	if err != nil {
 		return
@@ -125,7 +124,6 @@ func getFreezerParts(bucketName, objectName string, cli *sql.DB) (parts map[int]
 			&p.Offset,
 			&p.Etag,
 			&p.LastModified,
-			&p.InitializationVector,
 		)
 		parts[p.PartNumber] = p
 	}

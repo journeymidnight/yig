@@ -215,7 +215,6 @@ CREATE TABLE `restoreobjectpart` (
   `offset` bigint(20) DEFAULT NULL,
   `etag` varchar(255) DEFAULT NULL,
   `lastmodified` datetime DEFAULT NULL,
-  `initializationvector` blob DEFAULT NULL,
   `bucketname` varchar(255) DEFAULT NULL,
   `objectname` varchar(255) DEFAULT NULL,
   `version` bigint(20) unsigned DEFAULT NULL,
@@ -243,7 +242,6 @@ CREATE TABLE `restoreobjects` (
   `size` bigint(20) DEFAULT NULL,
   `objectid` varchar(255) DEFAULT NULL,
   `etag` varchar(255) DEFAULT NULL,
-  `initializationvector` blob DEFAULT NULL,
   UNIQUE KEY `rowkey` (`bucketname`,`objectname`,`version`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;

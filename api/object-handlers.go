@@ -238,7 +238,6 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		object.Size = freezer.Size
 		object.Parts = freezer.Parts
 		object.Pool = freezer.Pool
-		object.InitializationVector = freezer.InitializationVector
 		object.Location = freezer.Location
 		object.ObjectId = freezer.ObjectId
 	}
@@ -576,7 +575,6 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 			sourceObject.Size = freezer.Size
 			sourceObject.Parts = freezer.Parts
 			sourceObject.Pool = freezer.Pool
-			sourceObject.InitializationVector = freezer.InitializationVector
 			sourceObject.Location = freezer.Location
 			sourceObject.ObjectId = freezer.ObjectId
 		}
@@ -1700,7 +1698,6 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 		sourceObject.Size = freezer.Size
 		sourceObject.Parts = freezer.Parts
 		sourceObject.Pool = freezer.Pool
-		sourceObject.InitializationVector = freezer.InitializationVector
 		sourceObject.Location = freezer.Location
 		sourceObject.ObjectId = freezer.ObjectId
 	}
