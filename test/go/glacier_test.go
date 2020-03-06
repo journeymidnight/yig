@@ -2,9 +2,10 @@ package _go
 
 import (
 	"encoding/xml"
+	"testing"
+
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/test/go/lib"
-	"testing"
 )
 
 const (
@@ -36,13 +37,9 @@ func Test_PutObjectWithGlacier(t *testing.T) {
 		t.Fatal("PutObject err:", err)
 	}
 	t.Log("PutObject Success!")
-}
-
-func Test_RestoreObject(t *testing.T) {
-	sc := NewS3()
 
 	var config = &datatype.Restore{}
-	err := xml.Unmarshal([]byte(RESTOREXML1), config)
+	err = xml.Unmarshal([]byte(RESTOREXML1), config)
 	if err != nil {
 		t.Fatal("Unmarshal encryption configuration err:", err)
 	}

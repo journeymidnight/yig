@@ -1,12 +1,12 @@
 package types
 
 import (
-	"encoding/hex"
 	"errors"
 	"math"
 	"strconv"
 
 	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/meta/util"
 )
 
@@ -60,7 +60,8 @@ func (m *Multipart) GenUploadId() error {
 // UploadId := hex.EncodeToString(xxtea.Encrypt(TIME_STRING, XXTEA_KEY))
 func getMultipartUploadId(initialTime uint64) string {
 	timeData := strconv.FormatUint(initialTime, 10)
-	return hex.EncodeToString([]byte(util.Encrypt(timeData)))
+	helper.Logger.Info("timeData:")
+	return util.Encrypt(timeData)
 }
 
 func GetInitialTimeFromUploadId(uploadId string) (uint64, error) {

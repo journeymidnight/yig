@@ -221,9 +221,10 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 			loopcount += 1
 			//fetch related date
 			var bucketname, name, ownerid string
-			var version, etag, lastModified, storageClass string
+			var version, etag, lastModified string
 			var nullversion, deletemarker bool
 			var size uint64
+			var storageClassType StorageClass
 			err = rows.Scan(
 				&bucketname,
 				&name,
@@ -233,7 +234,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 				&ownerid,
 				&etag,
 				&lastModified,
-				&storageClass,
+				&storageClassType,
 				&size,
 			)
 			if err != nil {
@@ -297,7 +298,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 			}
 			o.LastModified = lastt.UTC().Format(CREATE_TIME_LAYOUT)
 			o.Size = size
-			o.StorageClass = storageClass
+			o.StorageClass = storageClassType.ToString()
 
 			count += 1
 			if count == maxKeys {
