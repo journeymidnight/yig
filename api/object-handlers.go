@@ -1225,68 +1225,64 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 	}
 
 	freezer, err := api.ObjectAPI.GetFreezerStatus(object.BucketName, object.Name, object.VersionId)
-	if err != ErrNoSuchKey {
+	if err != nil && err != ErrNoSuchKey {
+		logger.Error("Unable to get restore object status", object.BucketName, object.Name,
+			"error:", err)
+		WriteErrorResponse(w, r, err)
+	}
+	if err == ErrNoSuchKey || freezer.Name == "" {
+		status, err := meta.MatchStatusIndex("READY")
 		if err != nil {
-			logger.Error("Unable to get restore object status", object.BucketName, object.Name,
-				"error:", err)
-			WriteErrorResponse(w, r, err)
+			logger.Error("Unable to get freezer status:", err)
+			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
 		}
 
-		if freezer.Status == meta.ObjectHasRestored {
-			err = api.ObjectAPI.UpdateFreezerDate(freezer, info.Days, true)
+		lifeTime := info.Days
+		if lifeTime < 1 || lifeTime > 30 {
+			logger.Error("Error freezer life time:", err)
+			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
+		}
+
+		targetFreezer := &meta.Freezer{}
+		targetFreezer.BucketName = object.BucketName
+		targetFreezer.Name = object.Name
+		targetFreezer.Status = status
+		targetFreezer.LifeTime = lifeTime
+		err = api.ObjectAPI.CreateFreezer(targetFreezer)
+		if err != nil {
+			logger.Error("Unable to create freezer:", err)
+			WriteErrorResponse(w, r, ErrCreateRestoreObject)
+		}
+		logger.Info("Submit thaw request successfully")
+
+		// ResponseRecorder
+		w.WriteHeader(http.StatusAccepted)
+		w.(*ResponseRecorder).operationName = "RestoreObject"
+
+		WriteSuccessResponseWithStatus(w, nil, http.StatusAccepted)
+	}
+	if freezer.Status == meta.ObjectHasRestored {
+		err = api.ObjectAPI.UpdateFreezerDate(freezer, info.Days, true)
+		if err != nil {
+			logger.Error("Unable to Update freezer date:", err)
+			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
+		}
+
+		// ResponseRecorder
+		w.(*ResponseRecorder).operationName = "RestoreObject"
+		WriteSuccessResponse(w, nil)
+	} else {
+		if freezer.LifeTime != info.Days {
+			err = api.ObjectAPI.UpdateFreezerDate(freezer, info.Days, false)
 			if err != nil {
 				logger.Error("Unable to Update freezer date:", err)
 				WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
 			}
-
-			// ResponseRecorder
-			w.(*ResponseRecorder).operationName = "RestoreObject"
-
-			WriteSuccessResponse(w, nil)
-		} else {
-			if freezer.LifeTime != info.Days {
-				err = api.ObjectAPI.UpdateFreezerDate(freezer, info.Days, false)
-				if err != nil {
-					logger.Error("Unable to Update freezer date:", err)
-					WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
-				}
-			}
-			// ResponseRecorder
-			w.(*ResponseRecorder).operationName = "RestoreObject"
-
-			WriteSuccessResponseWithStatus(w, nil, http.StatusAccepted)
 		}
+		// ResponseRecorder
+		w.(*ResponseRecorder).operationName = "RestoreObject"
+		WriteSuccessResponseWithStatus(w, nil, http.StatusAccepted)
 	}
-
-	status, err := meta.MatchStatusIndex("READY")
-	if err != nil {
-		logger.Error("Unable to get freezer status:", err)
-		WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
-	}
-
-	lifeTime := info.Days
-	if lifeTime < 1 || lifeTime > 30 {
-		logger.Error("Error freezer life time:", err)
-		WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
-	}
-
-	targetFreezer := &meta.Freezer{}
-	targetFreezer.BucketName = object.BucketName
-	targetFreezer.Name = object.Name
-	targetFreezer.Status = status
-	targetFreezer.LifeTime = lifeTime
-	err = api.ObjectAPI.CreateFreezer(targetFreezer)
-	if err != nil {
-		logger.Error("Unable to create freezer:", err)
-		WriteErrorResponse(w, r, ErrCreateRestoreObject)
-	}
-	logger.Info("Submit thaw request successfully")
-
-	// ResponseRecorder
-	w.WriteHeader(http.StatusAccepted)
-	w.(*ResponseRecorder).operationName = "RestoreObject"
-
-	WriteSuccessResponseWithStatus(w, nil, http.StatusAccepted)
 }
 
 func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.Request) {
