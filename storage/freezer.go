@@ -17,13 +17,18 @@ func (yig *YigStorage) GetFreezer(bucketName string, objectName string, version 
 	return yig.MetaStorage.GetFreezer(bucketName, objectName, version)
 }
 
-func (yig *YigStorage) UpdateFreezerDate(freezer *meta.Freezer, date int) (err error) {
+func (yig *YigStorage) UpdateFreezerDate(freezer *meta.Freezer, date int, isIncrement bool) (err error) {
 	if date > 30 || date < 1 {
 		return ErrInvalidRestoreInfo
 	}
-	lifeTime := freezer.LifeTime + date
-	if lifeTime > 30 {
-		lifeTime = 30
+	var lifeTime int
+	if isIncrement {
+		lifeTime = freezer.LifeTime + date
+		if lifeTime > 30 {
+			lifeTime = 30
+		}
+	} else {
+		lifeTime = date
 	}
 	freezer.LifeTime = lifeTime
 	return yig.MetaStorage.UpdateFreezerDate(freezer)
