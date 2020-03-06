@@ -20,6 +20,7 @@ type Client interface {
 	PutObject(object *Object, tx DB) error
 	PutObjectWithoutMultiPart(object *Object) error
 	UpdateObject(object *Object, tx DB) (err error)
+	UpdateFreezerObject(object *Object, tx DB) (err error)
 	UpdateObjectWithoutMultiPart(object *Object) error
 	UpdateAppendObject(object *Object, tx DB) error
 	RenameObjectPart(object *Object, sourceObject string, tx DB) (err error)
@@ -57,6 +58,13 @@ type Client interface {
 	RemoveBucketForUser(bucketName string, userId string) (err error)
 	//gc
 	PutObjectToGarbageCollection(object *Object, tx DB) error
+	PutFreezerToGarbageCollection(object *Freezer, tx DB) (err error)
 	ScanGarbageCollection(limit int, startRowKey string) ([]GarbageCollection, error)
 	RemoveGarbageCollection(garbage GarbageCollection) error
+	//freezer
+	CreateFreezer(freezer *Freezer) (err error)
+	GetFreezer(bucketName, objectName, version string) (freezer *Freezer, err error)
+	GetFreezerStatus(bucketName, objectName, version string) (freezer *Freezer, err error)
+	UploadFreezerDate(bucketName, objectName string, lifetime int) (err error)
+	DeleteFreezer(bucketName, objectName string, tx DB) (err error)
 }

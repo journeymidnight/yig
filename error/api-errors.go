@@ -173,6 +173,10 @@ const (
 	ErrExceededEncryptionRulesLimit
 	ErrMissingEncryptionByDefaultInEncryptionRule
 	ErrMissingSSEAlgorithmOrKMSMasterKeyIDInEncryptionRule
+	ErrInvalidStatus
+	ErrInvalidRestoreInfo
+	ErrCreateRestoreObject
+	ErrInvalidGlacierObject
 )
 
 // error code to APIError structure, these fields carry respective
@@ -803,6 +807,26 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "ExceededEncryptionRulesLimit",
 		Description:    "The quantity of the routing rules in the website configuration is exceeded.",
 		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidRestoreInfo: {
+		AwsErrorCode:   "InvalidRestoreInfo",
+		Description:    "Defrost parameter setting error.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidGlacierObject: {
+		AwsErrorCode:   "InvalidGlacierObject",
+		Description:    "Glacier objects need to be thawed before this operation can be performed.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidStatus: {
+		AwsErrorCode:   "InvalidStatus",
+		Description:    "The status you specified in header is invalid.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrCreateRestoreObject: {
+		AwsErrorCode:   "CreateRestoreObjectError",
+		Description:    "Create object thaw operation failed",
+		HttpStatusCode: http.StatusInternalServerError,
 	},
 }
 

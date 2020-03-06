@@ -26,6 +26,7 @@ const (
 	IAM_PLUGIN = iota //IamClient interface
 	MQ_PLUGIN
 	KMS_PLUGIN
+	COMPRESS_PLUGIN
 	NUMS_PLUGIN
 )
 

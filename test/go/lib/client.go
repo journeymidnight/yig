@@ -19,10 +19,11 @@ const (
 	Region           = "RegionHeHe"
 
 	TEST_BUCKET         = "mybucket"
-	TEST_COPY_BUCKET	= "mycopybucket"
+	TEST_COPY_BUCKET    = "mycopybucket"
 	TEST_KEY            = "testput"
 	TEST_KEY_SPECIAL    = "testputspecial:!@$%^&*()_+=-;?><| "
 	TEST_VALUE          = "valueput"
+	TEST_STORAGEGLACIER = "GLACIER "
 	TEST_ILLEGALREFERER = "http://www.thief.com/"
 	TEST_LEGALREFERER   = "http://www.genltemen.com/"
 	TEST_COMMONREFERER  = "http://www.common.com/"

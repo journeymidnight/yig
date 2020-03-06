@@ -24,6 +24,7 @@ meta_store = "tidb"
 tidb_info = "root:@tcp(10.5.0.17:4000)/yig"
 keepalive = true
 enable_usage_push = false
+enable_compression = false
 redis_group = ["redis:6379"]
 redis_password = "hehehehe"
 redis_connection_number = 10
@@ -55,6 +56,10 @@ upload_max_chunk_size = 8388608 #8MB
 ceph_config_pattern = "/etc/ceph/*.conf"
 
 # Plugin Config
+[plugins.dummy_compression]
+path = "/etc/yig/plugins/dummy_compression_plugin.so"
+enable = true
+
 [plugins.encryption_vault]
 path = "/etc/yig/plugins/vault_plugin.so"
 enable = false

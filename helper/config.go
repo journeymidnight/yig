@@ -42,6 +42,7 @@ type Config struct {
 	MetaStore              string `toml:"meta_store"`
 	TidbInfo               string `toml:"tidb_info"`
 	KeepAlive              bool   `toml:"keepalive"`
+	EnableCompression      bool   `toml:"enable_compression"`
 
 	//About cache
 	EnableUsagePush       bool     `toml:"enable_usage_push"`
@@ -78,7 +79,6 @@ type Config struct {
 	DownloadBufPoolSize int64 `toml:"download_buf_pool_size"`
 	UploadMinChunkSize  int64 `toml:"upload_min_chunk_size"`
 	UploadMaxChunkSize  int64 `toml:"upload_max_chunk_size"`
-
 }
 
 type PluginConfig struct {
@@ -128,6 +128,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.ReservedOrigins = c.ReservedOrigins
 	CONFIG.TidbInfo = c.TidbInfo
 	CONFIG.KeepAlive = c.KeepAlive
+	CONFIG.EnableCompression = c.EnableCompression
 	CONFIG.InstanceId = Ternary(c.InstanceId == "",
 		string(GenerateRandomId()), c.InstanceId).(string)
 	CONFIG.ConcurrentRequestLimit = Ternary(c.ConcurrentRequestLimit == 0,
