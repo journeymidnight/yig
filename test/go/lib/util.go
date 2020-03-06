@@ -54,6 +54,15 @@ func TransferToS3AccessControlPolicy(policy *datatype.AccessControlPolicy) (s3po
 	return
 }
 
+func TransferToS3AccessRestoreRequest(config *datatype.Restore) (s3RestoreConfig *s3.RestoreRequest) {
+	s3RestoreConfig = new(s3.RestoreRequest)
+	s3RestoreConfig.GlacierJobParameters = new(s3.GlacierJobParameters)
+	s3RestoreConfig.Days = aws.Int64(int64(config.Days))
+	s3RestoreConfig.GlacierJobParameters.Tier = aws.String(config.GlacierJobParameters.Tier)
+
+	return
+}
+
 func (sc *S3Client) CleanEnv() {
 	sc.DeleteObject(TEST_BUCKET, TEST_KEY)
 	sc.DeleteBucket(TEST_BUCKET)

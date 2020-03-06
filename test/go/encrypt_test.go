@@ -2,11 +2,12 @@ package _go
 
 import (
 	"encoding/xml"
+	"testing"
+
 	"github.com/journeymidnight/aws-sdk-go/aws"
 	"github.com/journeymidnight/aws-sdk-go/service/s3"
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/test/go/lib"
-	"testing"
 )
 
 const (
@@ -27,20 +28,19 @@ const (
 	</ServerSideEncryptionConfiguration>`
 )
 
-func Test_Encrypt_Prepare(t *testing.T) {
+func Test_PutBucketEncryption(t *testing.T) {
 	sc := NewS3()
 	err := sc.MakeBucket(TEST_BUCKET)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
-}
-
-func Test_PutBucketEncryption(t *testing.T) {
-	sc := NewS3()
+	defer func() {
+		sc.DeleteBucket(TEST_BUCKET)
+	}()
 
 	var config = &datatype.EncryptionConfiguration{}
-	err := xml.Unmarshal([]byte(EncryptionSSES3XML), config)
+	err = xml.Unmarshal([]byte(EncryptionSSES3XML), config)
 	if err != nil {
 		t.Fatal("Unmarshal encryption configuration err:", err)
 	}
@@ -71,9 +71,17 @@ func Test_PutBucketEncryption(t *testing.T) {
 
 func Test_PutObejctWithSetBucketEncryption(t *testing.T) {
 	sc := NewS3()
-
+	err := sc.MakeBucket(TEST_BUCKET)
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+		panic(err)
+	}
+	defer func() {
+		sc.DeleteObject(TEST_BUCKET, TEST_KEY)
+		sc.DeleteBucket(TEST_BUCKET)
+	}()
 	var config = &datatype.EncryptionConfiguration{}
-	err := xml.Unmarshal([]byte(EncryptionSSES3XML), config)
+	err = xml.Unmarshal([]byte(EncryptionSSES3XML), config)
 	if err != nil {
 		t.Fatal("Unmarshal encryption configuration err:", err)
 	}
@@ -101,12 +109,8 @@ func Test_PutObejctWithSetBucketEncryption(t *testing.T) {
 		t.Fatal("PutObject err:", err)
 	}
 	t.Log("PutObject Success!")
-}
 
-func Test_GetObjectWithBucketEncryption(t *testing.T) {
-	sc := NewS3()
-
-	out, err := sc.GetBucketEncryption(TEST_BUCKET)
+	out, err = sc.GetBucketEncryption(TEST_BUCKET)
 	if err != nil {
 		t.Fatal("GetBucketEncryption err:", err)
 	}
@@ -131,15 +135,19 @@ func Test_GetObjectWithBucketEncryption(t *testing.T) {
 
 func Test_PutEncryptObjectWithSSEC(t *testing.T) {
 	sc := NewS3()
-	err := sc.PutEncryptObjectWithSSEC(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	err := sc.MakeBucket(TEST_BUCKET)
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+		panic(err)
+	}
+	defer func() {
+		sc.DeleteObject(TEST_BUCKET, TEST_KEY)
+		sc.DeleteBucket(TEST_BUCKET)
+	}()
+	err = sc.PutEncryptObjectWithSSEC(TEST_BUCKET, TEST_KEY, TEST_VALUE)
 	if err != nil {
 		t.Fatal("PutEncryptObjectWithSSEC err:", err)
 	}
-	t.Log("PutEncryptObjectWithSSEC Success!")
-}
-
-func TestS3Client_GetEncryptObjectWithSSEC(t *testing.T) {
-	sc := NewS3()
 	v, err := sc.GetEncryptObjectWithSSEC(TEST_BUCKET, TEST_KEY)
 	if err != nil {
 		t.Fatal("GetEncryptObjectWithSSEC err:", err)
@@ -152,15 +160,20 @@ func TestS3Client_GetEncryptObjectWithSSEC(t *testing.T) {
 
 func Test_PutEncryptObjectWithSSES3(t *testing.T) {
 	sc := NewS3()
-	err := sc.PutEncryptObjectWithSSES3(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	err := sc.MakeBucket(TEST_BUCKET)
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+		panic(err)
+	}
+	defer func() {
+		sc.DeleteObject(TEST_BUCKET, TEST_KEY)
+		sc.DeleteBucket(TEST_BUCKET)
+	}()
+	err = sc.PutEncryptObjectWithSSES3(TEST_BUCKET, TEST_KEY, TEST_VALUE)
 	if err != nil {
 		t.Fatal("PutEncryptObjectWithSSES3 err:", err)
 	}
 	t.Log("PutEncryptObjectWithSSES3 Success!")
-}
-
-func TestS3Client_GetEncryptObjectWithSSES3(t *testing.T) {
-	sc := NewS3()
 	v, err := sc.GetEncryptObjectWithSSES3(TEST_BUCKET, TEST_KEY)
 	if err != nil {
 		t.Fatal("GetEncryptObjectWithSSES3 err:", err)
@@ -169,19 +182,6 @@ func TestS3Client_GetEncryptObjectWithSSES3(t *testing.T) {
 		t.Fatal("GetEncryptObjectWithSSES3 err: value is:", v, ", but should be:", TEST_VALUE)
 	}
 	t.Log("GetEncryptObjectWithSSES3 Success value:", v)
-}
-
-func Test_Encrypt_End(t *testing.T) {
-	sc := NewS3()
-	err := sc.DeleteObject(TEST_BUCKET, TEST_KEY)
-	if err != nil {
-		t.Log("DeleteObject err:", err)
-	}
-	err = sc.DeleteBucket(TEST_BUCKET)
-	if err != nil {
-		t.Fatal("DeleteBucket err:", err)
-		panic(err)
-	}
 }
 
 func Test_CopyObjectSourceIsSSES3(t *testing.T) {
@@ -601,7 +601,6 @@ func Test_CopyObjectPartWithSSES3(t *testing.T) {
 		t.Fatal("Copy Object err:", err)
 	}
 	t.Log("CopyObject Success!")
-
 
 	//verify them
 	v1, err := svc.GetEncryptObjectWithSSES3(TEST_BUCKET, TEST_KEY)

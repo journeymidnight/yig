@@ -45,7 +45,7 @@ const (
 	</AccessControlPolicy>`
 )
 
-func Test_ACL_Prepare(t *testing.T) {
+func Test_ACL(t *testing.T) {
 	sc := NewS3()
 	defer func() {
 		sc.DeleteObject(TEST_BUCKET, TEST_KEY)

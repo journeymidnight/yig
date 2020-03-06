@@ -84,7 +84,7 @@ type ObjectLayer interface {
 		metadata map[string]string, acl datatype.Acl,
 		sse datatype.SseRequest, storageClass meta.StorageClass, objInfo *meta.Object) (result datatype.AppendObjectResult, err error)
 
-	CopyObject(reqCtx RequestContext, targetObject *meta.Object, source io.Reader, credential common.Credential,
+	CopyObject(reqCtx RequestContext, targetObject *meta.Object, sourceObject *meta.Object, source io.Reader, credential common.Credential,
 		sseRequest datatype.SseRequest, isMetadataOnly bool) (result datatype.PutObjectResult, err error)
 	RenameObject(reqCtx RequestContext, targetObject *meta.Object, sourceObject string, credential common.Credential) (result datatype.RenameObjectResult, err error)
 	PutObjectMeta(bucket *meta.Bucket, targetObject *meta.Object, credential common.Credential) (err error)
@@ -112,4 +112,10 @@ type ObjectLayer interface {
 	AbortMultipartUpload(reqCtx RequestContext, credential common.Credential, uploadID string) error
 	CompleteMultipartUpload(reqCtx RequestContext, credential common.Credential, uploadID string,
 		uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult, err error)
+
+	// Freezer operations.
+	GetFreezer(bucketName string, objectName string, version string) (freezer *meta.Freezer, err error)
+	GetFreezerStatus(bucketName string, objectName string, version string) (freezer *meta.Freezer, err error)
+	CreateFreezer(freezer *meta.Freezer) (err error)
+	UpdateFreezerDate(freezer *meta.Freezer, date int, isIncrement bool) (err error)
 }

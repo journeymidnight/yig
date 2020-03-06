@@ -9,6 +9,7 @@ import (
 const (
 	SMALL_FILE_POOLNAME = "rabbit"
 	BIG_FILE_POOLNAME   = "tiger"
+	GLACIER_FILE_POOLNAME = "turtle"
 )
 
 type Usage struct {

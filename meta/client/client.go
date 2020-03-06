@@ -17,7 +17,11 @@ type Client interface {
 	GetObject(bucketName, objectName, version string) (object *Object, err error)
 	PutObject(object *Object, multipart *Multipart, updateUsage bool) error
 	PutObjectWithoutMultiPart(object *Object) error
+
 	UpdateObject(object *Object, multipart *Multipart, updateUsage bool) (err error)
+
+	UpdateFreezerObject(object *Object, tx Tx) (err error)
+
 	UpdateObjectWithoutMultiPart(object *Object) error
 	UpdateAppendObject(object *Object) error
 	RenameObject(object *Object, sourceObject string) (err error)
@@ -57,7 +61,17 @@ type Client interface {
 	GetUserBuckets(userId string) (buckets []string, err error)
 	RemoveBucketForUser(bucketName string, userId string) (err error)
 	//gc
+
 	PutObjectToGarbageCollection(object *Object, tx Tx) error
 	ScanGarbageCollection(limit int) ([]GarbageCollection, error)
+
+	PutFreezerToGarbageCollection(object *Freezer, tx Tx) (err error)
+
 	RemoveGarbageCollection(garbage GarbageCollection) error
+	//freezer
+	CreateFreezer(freezer *Freezer) (err error)
+	GetFreezer(bucketName, objectName, version string) (freezer *Freezer, err error)
+	GetFreezerStatus(bucketName, objectName, version string) (freezer *Freezer, err error)
+	UploadFreezerDate(bucketName, objectName string, lifetime int) (err error)
+	DeleteFreezer(bucketName, objectName string, tx Tx) (err error)
 }

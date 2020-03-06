@@ -251,6 +251,44 @@ func (t *TidbClient) UpdateObject(object *Object, multipart *Multipart, updateUs
 	return err
 }
 
+func (t *TidbClient) UpdateFreezerObject(object *Object, tx Tx) (err error) {
+	if tx == nil {
+		tx, err = t.Client.Begin()
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err == nil {
+				err = tx.(*sql.Tx).Commit()
+			}
+			if err != nil {
+				tx.(*sql.Tx).Rollback()
+			}
+		}()
+	}
+	txn := tx.(*sql.Tx)
+	v := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
+	version := strconv.FormatUint(v, 10)
+	sqltext := "delete from objectpart where objectname=? and bucketname=? and version=?;"
+	_, err = txn.Exec(sqltext, object.Name, object.BucketName, version)
+	if err != nil {
+		return err
+	}
+
+	sql, args := object.GetGlacierUpdateSql()
+	_, err = txn.Exec(sql, args...)
+	if object.Parts != nil {
+		for _, p := range object.Parts {
+			psql, args := p.GetCreateSql(object.BucketName, object.Name, version)
+			_, err = txn.Exec(psql, args...)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (t *TidbClient) DeleteObject(object *Object, tx Tx) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()
