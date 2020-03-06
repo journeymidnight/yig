@@ -231,7 +231,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		}
 		if freezer.Status != meta.ObjectHasRestored {
 			logger.Error("Unable to get glacier object with no restore")
-			err = ErrInvalidGlacierObject
+			WriteErrorResponse(w, r, ErrInvalidGlacierObject)
 			return
 		}
 		object.Etag = freezer.Etag
