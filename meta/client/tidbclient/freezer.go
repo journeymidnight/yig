@@ -62,7 +62,7 @@ func (t *TidbClient) GetFreezerStatus(bucketName, objectName, version string) (f
 		&freezer.VersionId,
 		&freezer.Status,
 	)
-	if err == sql.ErrNoRows || freezer.Name == "" {
+	if err == sql.ErrNoRows || freezer.Name != objectName {
 		err = ErrNoSuchKey
 		return
 	}

@@ -1288,7 +1288,7 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		}
 
 		if freezer.Status == meta.ObjectHasRestored {
-			err = api.ObjectAPI.UpdateFreezerDate(freezer, info.Days)
+			err = api.ObjectAPI.UpdateFreezerDate(freezer, info.Days, true)
 			if err != nil {
 				logger.Error("Unable to Update freezer date:", err)
 				WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
@@ -1299,6 +1299,13 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 
 			WriteSuccessResponse(w, nil)
 		} else {
+			if freezer.LifeTime != info.Days {
+				err = api.ObjectAPI.UpdateFreezerDate(freezer, info.Days, false)
+				if err != nil {
+					logger.Error("Unable to Update freezer date:", err)
+					WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
+				}
+			}
 			// ResponseRecorder
 			w.(*ResponseRecorder).operationName = "RestoreObject"
 
