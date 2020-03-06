@@ -146,6 +146,46 @@ func (m *Meta) PutObjectEntry(object *Object) error {
 	return err
 }
 
+func (m *Meta) UpdateGlacierObject(targetObject, sourceObject *Object, isFreezer bool) (err error) {
+	var tx *sql.Tx
+	tx, err = m.Client.NewTrans()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = m.Client.CommitTrans(tx)
+		}
+		if err != nil {
+			m.Client.AbortTrans(tx)
+		}
+	}()
+
+	if isFreezer {
+		err = m.Client.UpdateFreezerObject(targetObject, tx)
+		if err != nil {
+			return err
+		}
+
+		err = m.Client.DeleteFreezer(sourceObject.BucketName, sourceObject.Name, tx)
+		if err != nil {
+			return err
+		}
+	} else {
+		err = m.Client.PutObject(targetObject, tx)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = m.Client.PutObjectToGarbageCollection(sourceObject, tx)
+	if err != nil {
+		return err
+	}
+
+	return err
+}
+
 func (m *Meta) UpdateObjectAcl(object *Object) error {
 	err := m.Client.UpdateObjectAcl(object)
 	return err

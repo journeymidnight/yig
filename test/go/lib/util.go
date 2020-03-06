@@ -28,7 +28,7 @@ func TransferToS3AccessEncryptionConfiguration(config *datatype.EncryptionConfig
 		rule.ApplyServerSideEncryptionByDefault = new(s3.ServerSideEncryptionByDefault)
 		rule.ApplyServerSideEncryptionByDefault.SSEAlgorithm = aws.String(e.ApplyServerSideEncryptionByDefault.SSEAlgorithm)
 		rule.ApplyServerSideEncryptionByDefault.KMSMasterKeyID = aws.String(e.ApplyServerSideEncryptionByDefault.KMSMasterKeyID)
-		encryption.Rules = append(encryption.Rules,rule)
+		encryption.Rules = append(encryption.Rules, rule)
 	}
 	return
 }
@@ -50,6 +50,15 @@ func TransferToS3AccessControlPolicy(policy *datatype.AccessControlPolicy) (s3po
 		grant.Permission = aws.String(p.Permission)
 		s3policy.Grants = append(s3policy.Grants, grant)
 	}
+	return
+}
+
+func TransferToS3AccessRestoreRequest(config *datatype.Restore) (s3RestoreConfig *s3.RestoreRequest) {
+	s3RestoreConfig = new(s3.RestoreRequest)
+	s3RestoreConfig.GlacierJobParameters = new(s3.GlacierJobParameters)
+	s3RestoreConfig.Days = aws.Int64(int64(config.Days))
+	s3RestoreConfig.GlacierJobParameters.Tier = aws.String(config.GlacierJobParameters.Tier)
+
 	return
 }
 

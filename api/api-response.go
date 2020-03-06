@@ -225,6 +225,23 @@ func WriteSuccessResponse(w http.ResponseWriter, response []byte) {
 	w.(http.Flusher).Flush()
 }
 
+// WriteSuccessResponse write success headers and response if need define different status codes.
+func WriteSuccessResponseWithStatus(w http.ResponseWriter, response []byte, status int) {
+	if response == nil {
+		w.WriteHeader(status)
+		return
+	}
+
+	//ResponseRecorder
+	w.(*ResponseRecorder).status = status
+	w.(*ResponseRecorder).size = int64(len(response))
+
+	w.Header().Set("Content-Length", strconv.Itoa(len(response)))
+	w.WriteHeader(status)
+	w.Write(response)
+	w.(http.Flusher).Flush()
+}
+
 // writeSuccessNoContent write success headers with http status 204
 func WriteSuccessNoContent(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusNoContent)
