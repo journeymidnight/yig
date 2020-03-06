@@ -22,12 +22,12 @@ func GetDummyCompressClient(config map[string]interface{}) (interface{}, error) 
 
 type DummyCompress struct{}
 
-func (d DummyCompress) Compress(reader io.Reader) (result io.Reader, err error) {
-	return reader, nil
+func (d DummyCompress) CompressReader(reader io.Reader) io.Reader {
+	return reader
 }
 
-func (d DummyCompress) UnCompress(reader io.Reader) (result io.Reader, err error) {
-	return reader, nil
+func (d DummyCompress) UnCompressReader(reader io.Reader) io.Reader {
+	return reader
 }
 
 func (d DummyCompress) IsCompressible(objectName, mtype string) bool {

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"github.com/golang/snappy"
 	. "github.com/journeymidnight/yig/mods"
 	"io"
@@ -25,41 +24,33 @@ func GetCompressClient(config map[string]interface{}) (interface{}, error) {
 
 type SnappyCompress struct{}
 
-// TODO : Fix memory issues
-func (s SnappyCompress) Compress(reader io.Reader) (result io.Reader, err error) {
-	var out, input []byte
-	for {
-		inputNum, err := reader.Read(input)
-		if err != nil && err != io.EOF {
-			return reader, err
-		}
-		if inputNum == 0 {
-			break
-		}
-		out = snappy.Encode(nil, input)
-	}
-	result = bytes.NewReader(out)
-	return result, nil
+func (s SnappyCompress) CompressReader(reader io.Reader) io.Reader {
+	return CompressReader{r: reader}
 }
 
-// TODO : Fix memory issues
-func (s SnappyCompress) UnCompress(reader io.Reader) (result io.Reader, err error) {
-	var out, input []byte
-	for {
-		inputNum, err := reader.Read(input)
-		if err != nil && err != io.EOF {
-			return reader, err
-		}
-		if inputNum == 0 {
-			break
-		}
-		out, err = snappy.Decode(nil, input)
-		if err != nil {
-			return reader, err
-		}
+type CompressReader struct {
+	r io.Reader
+}
+
+func (c CompressReader) Read(p []byte) (n int, err error) {
+	out := snappy.Encode(nil, p)
+	return c.r.Read(out)
+}
+
+func (s SnappyCompress) UnCompressReader(reader io.Reader) io.Reader {
+	return UnCompressReader{r: reader}
+}
+
+type UnCompressReader struct {
+	r io.Reader
+}
+
+func (c UnCompressReader) Read(p []byte) (n int, err error) {
+	out, err := snappy.Decode(nil, p)
+	if err != nil {
+		return
 	}
-	result = bytes.NewReader(out)
-	return result, nil
+	return c.r.Read(out)
 }
 
 func (s SnappyCompress) IsCompressible(objectName, mtype string) bool {
