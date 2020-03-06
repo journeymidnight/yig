@@ -1294,8 +1294,7 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 
 		lifeTime := info.Days
 		if lifeTime < 1 || lifeTime > 30 {
-			logger.Error("Error freezer life time:", err)
-			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
+			lifeTime = 1
 		}
 
 		targetFreezer := &meta.Freezer{}
