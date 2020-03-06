@@ -1,7 +1,6 @@
 package storage
 
 import (
-	. "github.com/journeymidnight/yig/error"
 	meta "github.com/journeymidnight/yig/meta/types"
 )
 
@@ -19,7 +18,7 @@ func (yig *YigStorage) GetFreezer(bucketName string, objectName string, version 
 
 func (yig *YigStorage) UpdateFreezerDate(freezer *meta.Freezer, date int, isIncrement bool) (err error) {
 	if date > 30 || date < 1 {
-		return ErrInvalidRestoreInfo
+		date = 1
 	}
 	var lifeTime int
 	if isIncrement {
