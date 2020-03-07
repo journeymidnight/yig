@@ -233,7 +233,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		}
 		if freezer.Status != meta.ObjectHasRestored {
 			logger.Error("Unable to get glacier object with no restore")
-			err = ErrInvalidGlacierObject
+			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
 			return
 		}
 		object.Etag = freezer.Etag
@@ -636,6 +636,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	targetObject.ObjectId = sourceObject.ObjectId
 	targetObject.Pool = sourceObject.Pool
 	targetObject.Location = sourceObject.Location
+	targetObject.VersionId = sourceObject.VersionId
 	targetObject.StorageClass = targetStorageClass
 
 	directive := r.Header.Get("X-Amz-Metadata-Directive")
@@ -1454,6 +1455,8 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 		WriteErrorResponse(w, r, err)
 		return
 	}
+
+	helper.Logger.Info("=================", storageClass, "+++", reqCtx.ObjectInfo.StorageClass)
 
 	uploadID, err := api.ObjectAPI.NewMultipartUpload(reqCtx, credential, metadata, acl, sseRequest, storageClass)
 	if err != nil {

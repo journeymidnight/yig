@@ -160,19 +160,13 @@ func (m *Meta) UpdateGlacierObject(targetObject, sourceObject *Object, isFreezer
 			m.Client.AbortTrans(tx)
 		}
 	}()
+	err = m.Client.UpdateFreezerObject(targetObject, tx)
+	if err != nil {
+		return err
+	}
 
 	if isFreezer {
-		err = m.Client.UpdateFreezerObject(targetObject, tx)
-		if err != nil {
-			return err
-		}
-
 		err = m.Client.DeleteFreezer(sourceObject.BucketName, sourceObject.Name, tx)
-		if err != nil {
-			return err
-		}
-	} else {
-		err = m.Client.PutObject(targetObject, tx)
 		if err != nil {
 			return err
 		}
