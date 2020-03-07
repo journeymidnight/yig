@@ -567,7 +567,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		}
 		if freezer.Status != meta.ObjectHasRestored || freezer.Pool == "" {
 			logger.Error("Unable to get glacier object with no restore")
-			err = ErrInvalidGlacierObject
+			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
 			return
 		}
 		if targetStorageClass != meta.ObjectStorageClassGlacier {
