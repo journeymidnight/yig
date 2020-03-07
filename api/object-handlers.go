@@ -573,7 +573,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		}
 		if freezer.Status != meta.ObjectHasRestored || freezer.Pool == "" {
 			logger.Error("Unable to get glacier object with no restore")
-			err = ErrInvalidGlacierObject
+			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
 			return
 		}
 		if targetStorageClass != meta.ObjectStorageClassGlacier {
@@ -1455,8 +1455,6 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 		WriteErrorResponse(w, r, err)
 		return
 	}
-
-	helper.Logger.Info("=================", storageClass, "+++", reqCtx.ObjectInfo.StorageClass)
 
 	uploadID, err := api.ObjectAPI.NewMultipartUpload(reqCtx, credential, metadata, acl, sseRequest, storageClass)
 	if err != nil {
