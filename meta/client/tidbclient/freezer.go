@@ -109,7 +109,7 @@ func (t *TidbClient) DeleteFreezer(bucketName, objectName string, tx DB) (err er
 //util function
 func getFreezerParts(bucketName, objectName string, cli *sql.DB) (parts map[int]*Part, err error) {
 	parts = make(map[int]*Part)
-	sqltext := "select partnumber,size,objectid,offset,etag,lastmodified from restoreobjectpart where bucketname=? and objectname=?;"
+	sqltext := "select partnumber,size,objectid,offset,etag,lastmodified,initializationvector from restoreobjectpart where bucketname=? and objectname=?;"
 	rows, err := cli.Query(sqltext, bucketName, objectName)
 	if err != nil {
 		return
@@ -124,6 +124,7 @@ func getFreezerParts(bucketName, objectName string, cli *sql.DB) (parts map[int]
 			&p.Offset,
 			&p.Etag,
 			&p.LastModified,
+			&p.InitializationVector,
 		)
 		parts[p.PartNumber] = p
 	}
