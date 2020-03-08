@@ -215,6 +215,7 @@ CREATE TABLE `restoreobjectpart` (
   `offset` bigint(20) DEFAULT NULL,
   `etag` varchar(255) DEFAULT NULL,
   `lastmodified` datetime DEFAULT NULL,
+  `initializationvector` blob DEFAULT NULL,
   `bucketname` varchar(255) DEFAULT NULL,
   `objectname` varchar(255) DEFAULT NULL,
   `version` bigint(20) unsigned DEFAULT NULL,
