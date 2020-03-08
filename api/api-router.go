@@ -134,12 +134,12 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 		bucket.Methods("GET").HandlerFunc(api.GetBucketWebsiteHandler).Queries("website", "")
 		// DeleteBucketWebsite
 		bucket.Methods("DELETE").HandlerFunc(api.DeleteBucketWebsiteHandler).Queries("website", "")
-		//
-		bucket.Methods("PUT").HandlerFunc(api.PutBucketEncryption).Queries("encryption", "")
-		//
-		bucket.Methods("GET").HandlerFunc(api.GetBucketEncryption).Queries("encryption", "")
-		//
-		bucket.Methods("DELETE").HandlerFunc(api.DeleteBucketEncryption).Queries("encryption", "")
+		// PutBucketEncryption
+		bucket.Methods("PUT").HandlerFunc(api.PutBucketEncryptionHandler).Queries("encryption", "")
+		// GetBucketEncryption
+		bucket.Methods("GET").HandlerFunc(api.GetBucketEncryptionHandler).Queries("encryption", "")
+		// DeleteBucketEncryption
+		bucket.Methods("DELETE").HandlerFunc(api.DeleteBucketEncryptionHandler).Queries("encryption", "")
 
 		// HeadBucket
 		bucket.Methods("HEAD").HandlerFunc(api.HeadBucketHandler)

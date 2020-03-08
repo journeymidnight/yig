@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/dustin/go-humanize"
 	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/api/datatype/lifecycle"
 	"github.com/journeymidnight/yig/api/datatype/policy"
 	"time"
 )
@@ -24,7 +25,7 @@ type Bucket struct {
 	CORS       datatype.Cors
 	ACL        datatype.Acl
 	BucketLogging datatype.BucketLoggingStatus
-	Lifecycle  datatype.Lifecycle
+	Lifecycle  lifecycle.Lifecycle
 	Policy     policy.Policy
 	Website    datatype.WebsiteConfiguration
 	Encryption datatype.EncryptionConfiguration

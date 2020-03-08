@@ -6,6 +6,7 @@ import (
 	"github.com/journeymidnight/aws-sdk-go/aws"
 	"github.com/journeymidnight/aws-sdk-go/service/s3"
 	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/api/datatype/lifecycle"
 	"net/url"
 	"os"
 	"strings"
@@ -21,6 +22,55 @@ func GenTestSpecialCharaterObjectUrl(sc *S3Client) string {
 	return "http://" + *sc.Client.Config.Endpoint + string(os.PathSeparator) + TEST_BUCKET + string(os.PathSeparator) + urlchange
 }
 
+func TransferToS3AccessLifecycleConfiguration(config *lifecycle.Lifecycle) (lifecycle *s3.BucketLifecycleConfiguration) {
+	lifecycle = new(s3.BucketLifecycleConfiguration)
+	for _, r := range config.Rules {
+		rule := new(s3.LifecycleRule)
+		//rule.AbortIncompleteMultipartUpload = new(s3.AbortIncompleteMultipartUpload)
+		//rule.AbortIncompleteMultipartUpload.DaysAfterInitiation = aws.Int64(int64(r.))
+		rule.Expiration = new(s3.LifecycleExpiration)
+		rule.Expiration.Days = aws.Int64(int64(r.Expiration.Days))
+		rule.Expiration.Date = aws.Time(r.Expiration.Date.Time)
+
+		rule.Filter = new(s3.LifecycleRuleFilter)
+		rule.Filter.And = new(s3.LifecycleRuleAndOperator)
+		rule.Filter.And.Prefix = aws.String(r.Filter.And.Prefix)
+		for _, andTag := range r.Filter.And.Tags {
+			tag := new(s3.Tag)
+			tag.Key = aws.String(andTag.Key)
+			tag.Value = aws.String(andTag.Value)
+			rule.Filter.And.Tags = append(rule.Filter.And.Tags, tag)
+		}
+		rule.Filter.Tag = new(s3.Tag)
+		rule.Filter.Tag.Value = aws.String(r.Filter.Tag.Value)
+		rule.Filter.Tag.Key = aws.String(r.Filter.Tag.Key)
+
+		rule.ID = aws.String(r.ID)
+
+		rule.NoncurrentVersionExpiration = new(s3.NoncurrentVersionExpiration)
+		rule.NoncurrentVersionExpiration.NoncurrentDays = aws.Int64(int64(r.NoncurrentVersionExpiration.NoncurrentDays))
+
+		for _, ruleNoncurrentVersionTransition := range r.NoncurrentVersionTransitions {
+			noncurrentVersionTransitions := new(s3.NoncurrentVersionTransition)
+			noncurrentVersionTransitions.NoncurrentDays = aws.Int64(int64(ruleNoncurrentVersionTransition.NoncurrentDays))
+			noncurrentVersionTransitions.StorageClass = aws.String(ruleNoncurrentVersionTransition.StorageClass)
+			rule.NoncurrentVersionTransitions = append(rule.NoncurrentVersionTransitions, noncurrentVersionTransitions)
+		}
+
+		rule.Status = aws.String(string(r.Status))
+
+		for _, ruleTransition := range r.Transitions {
+			transition := new(s3.Transition)
+			transition.StorageClass = aws.String(ruleTransition.StorageClass)
+			transition.Date = aws.Time(ruleTransition.Date.Time)
+			transition.Days = aws.Int64(int64(ruleTransition.Days))
+			rule.Transitions = append(rule.Transitions, transition)
+		}
+		lifecycle.Rules = append(lifecycle.Rules, rule)
+	}
+	return
+}
+
 func TransferToS3AccessEncryptionConfiguration(config *datatype.EncryptionConfiguration) (encryption *s3.ServerSideEncryptionConfiguration) {
 	encryption = new(s3.ServerSideEncryptionConfiguration)
 	for _, e := range config.Rules {
@@ -28,7 +78,7 @@ func TransferToS3AccessEncryptionConfiguration(config *datatype.EncryptionConfig
 		rule.ApplyServerSideEncryptionByDefault = new(s3.ServerSideEncryptionByDefault)
 		rule.ApplyServerSideEncryptionByDefault.SSEAlgorithm = aws.String(e.ApplyServerSideEncryptionByDefault.SSEAlgorithm)
 		rule.ApplyServerSideEncryptionByDefault.KMSMasterKeyID = aws.String(e.ApplyServerSideEncryptionByDefault.KMSMasterKeyID)
-		encryption.Rules = append(encryption.Rules,rule)
+		encryption.Rules = append(encryption.Rules, rule)
 	}
 	return
 }

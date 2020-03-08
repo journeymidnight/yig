@@ -1,14 +1,15 @@
 package storage
 
 import (
-	"github.com/journeymidnight/yig/crypto"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/journeymidnight/yig/api"
 	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/api/datatype/lifecycle"
 	"github.com/journeymidnight/yig/api/datatype/policy"
+	"github.com/journeymidnight/yig/crypto"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
@@ -120,23 +121,15 @@ func (yig *YigStorage) GetBucketLogging(bucketName string) (bl datatype.BucketLo
 	return bucket.BucketLogging, nil
 }
 
-func (yig *YigStorage) SetBucketLifecycle(bucketName string, lc datatype.Lifecycle,
-	credential common.Credential) error {
+func (yig *YigStorage) SetBucketLifecycle(bucket *meta.Bucket, lc lifecycle.Lifecycle) error {
 	helper.Logger.Info("enter SetBucketLifecycle")
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
-	if err != nil {
-		return err
-	}
-	if bucket.OwnerId != credential.UserId {
-		return ErrBucketAccessForbidden
-	}
 	bucket.Lifecycle = lc
-	err = yig.MetaStorage.Client.PutBucket(*bucket)
+	err := yig.MetaStorage.Client.PutBucket(*bucket)
 	if err != nil {
 		return err
 	}
 	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
+		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucket.Name)
 	}
 
 	err = yig.MetaStorage.PutBucketToLifeCycle(*bucket)
@@ -147,38 +140,23 @@ func (yig *YigStorage) SetBucketLifecycle(bucketName string, lc datatype.Lifecyc
 	return nil
 }
 
-func (yig *YigStorage) GetBucketLifecycle(bucketName string, credential common.Credential) (lc datatype.Lifecycle,
+func (yig *YigStorage) GetBucketLifecycle(bucketName string) (lc lifecycle.Lifecycle,
 	err error) {
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
 		return lc, err
 	}
-	if bucket.OwnerId != credential.UserId {
-		err = ErrBucketAccessForbidden
-		return
-	}
-	if len(bucket.Lifecycle.Rule) == 0 {
-		err = ErrNoSuchBucketLc
-		return
-	}
 	return bucket.Lifecycle, nil
 }
 
-func (yig *YigStorage) DelBucketLifecycle(bucketName string, credential common.Credential) error {
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
-	if err != nil {
-		return err
-	}
-	if bucket.OwnerId != credential.UserId {
-		return ErrBucketAccessForbidden
-	}
-	bucket.Lifecycle = datatype.Lifecycle{}
-	err = yig.MetaStorage.Client.PutBucket(*bucket)
+func (yig *YigStorage) DelBucketLifecycle(bucket *meta.Bucket) error {
+	bucket.Lifecycle = lifecycle.Lifecycle{}
+	err := yig.MetaStorage.Client.PutBucket(*bucket)
 	if err != nil {
 		return err
 	}
 	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
+		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucket.Name)
 	}
 	err = yig.MetaStorage.RemoveBucketFromLifeCycle(*bucket)
 	if err != nil {
@@ -559,7 +537,7 @@ func (yig *YigStorage) DeleteBucket(bucketName string, credential common.Credent
 		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
 	}
 
-	if bucket.Lifecycle.Rule != nil {
+	if bucket.Lifecycle.Rules != nil {
 		err = yig.MetaStorage.RemoveBucketFromLifeCycle(*bucket)
 		if err != nil {
 			helper.Logger.Warn("Remove bucket from lifeCycle error:", err)
