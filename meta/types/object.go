@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"strconv"
 	"time"
 
@@ -216,9 +215,8 @@ func (o *Object) GetReplaceObjectMetasSql() (string, []interface{}) {
 }
 
 func (o *Object) GetGlacierUpdateSql() (string, []interface{}) {
-	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
 	sql := "update objects set location=?,pool=?," +
-		"size=?,objectid=?,etag=?,initializationvector=?,storageclass=? where bucketname=? and name=? and version=?"
-	args := []interface{}{o.Location, o.Pool, o.Size, o.ObjectId, o.Etag, o.InitializationVector, o.StorageClass, o.BucketName, o.Name, version}
+		"size=?,objectid=?,etag=?,initializationvector=?,storageclass=? where bucketname=? and name=?"
+	args := []interface{}{o.Location, o.Pool, o.Size, o.ObjectId, o.Etag, o.InitializationVector, o.StorageClass, o.BucketName, o.Name}
 	return sql, args
 }
