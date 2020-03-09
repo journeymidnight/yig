@@ -9,26 +9,20 @@ import (
 	. "github.com/journeymidnight/yig/test/go/lib"
 )
 
-func Test_Bucket_Prepare(t *testing.T) {
+func Test_Bucket_Policy(t *testing.T) {
 	sc := NewS3()
 	err := sc.MakeBucket(TEST_BUCKET)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
-}
-
-func Test_PutBucketPolicy(t *testing.T) {
-	sc := NewS3()
-	err := sc.PutBucketPolicy(TEST_BUCKET, GetObjectPolicy_1)
+	defer sc.CleanEnv()
+	err = sc.PutBucketPolicy(TEST_BUCKET, GetObjectPolicy_1)
 	if err != nil {
 		t.Fatal("PutBucketPolicy err:", err)
 	}
 	t.Log("PutBucketPolicy success.")
-}
 
-func Test_GetBucketPolicy(t *testing.T) {
-	sc := NewS3()
 	result, err := sc.GetBucketPolicy(TEST_BUCKET)
 	if err != nil {
 		t.Fatal("GetBucketPolicy err:", err, "policy:", result)

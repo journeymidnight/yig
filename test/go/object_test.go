@@ -11,44 +11,33 @@ import (
 	. "github.com/journeymidnight/yig/test/go/lib"
 )
 
-func Test_Object_Prepare(t *testing.T) {
+func Test_Object(t *testing.T) {
 	sc := NewS3()
 	err := sc.MakeBucket(TEST_BUCKET)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
-}
-
-func Test_PutObject(t *testing.T) {
-	sc := NewS3()
-	err := sc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	defer sc.CleanEnv()
+	err = sc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
 	if err != nil {
 		t.Fatal("PutObject err:", err)
 	}
 	t.Log("PutObject Success!")
-}
 
-func Test_PutObjectWithoutMD5(t *testing.T) {
-	sc := NewS3WithoutMD5()
-	err := sc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	sc2 := NewS3WithoutMD5()
+	err = sc2.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
 	if err != nil {
 		t.Fatal("PutObject err:", err)
 	}
 	t.Log("PutObject Success!")
-}
 
-func Test_HeadObject(t *testing.T) {
-	sc := NewS3()
-	err := sc.HeadObject(TEST_BUCKET, TEST_KEY)
+	err = sc.HeadObject(TEST_BUCKET, TEST_KEY)
 	if err != nil {
 		t.Fatal("HeadBucket err:", err)
 	}
 	t.Log("HeadObject Success!")
-}
 
-func Test_GetObject(t *testing.T) {
-	sc := NewS3()
 	v, err := sc.GetObject(TEST_BUCKET, TEST_KEY)
 	if err != nil {
 		t.Fatal("GetObject err:", err)
@@ -57,11 +46,8 @@ func Test_GetObject(t *testing.T) {
 		t.Fatal("GetObject err: value is:", v, ", but should be:", TEST_VALUE)
 	}
 	t.Log("GetObject Success value:", v)
-}
 
-func Test_DeleteObject(t *testing.T) {
-	sc := NewS3()
-	err := sc.DeleteObject(TEST_BUCKET, TEST_KEY)
+	err = sc.DeleteObject(TEST_BUCKET, TEST_KEY)
 	if err != nil {
 		t.Fatal("DeleteObject err:", err)
 	}
@@ -70,9 +56,7 @@ func Test_DeleteObject(t *testing.T) {
 		t.Fatal("HeadObject err:", err)
 	}
 	t.Log("DeleteObject Success!")
-}
 
-func Test_PostObject(t *testing.T) {
 	pbi := &PostObjectInput{
 		Url:        fmt.Sprintf("http://s3.test.com:8080/%s", TEST_BUCKET),
 		Bucket:     TEST_BUCKET,
@@ -85,20 +69,12 @@ func Test_PostObject(t *testing.T) {
 		FileSize:   1024,
 	}
 
-	sc := NewS3()
-	sc.MakeBucket(TEST_BUCKET)
-	err := sc.PostObject(pbi)
+	err = sc.PostObject(pbi)
 	if err != nil {
 		t.Fatal("PostObject err:", err)
 	}
 	t.Log("PostObject Success!")
-}
-func Test_PreSignedGetObject(t *testing.T) {
-	sc := NewS3()
-	err := sc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
-	if err != nil {
-		t.Fatal("PutObject err:", err)
-	}
+
 	url, err := sc.GetObjectPreSigned(TEST_BUCKET, TEST_KEY, 5*time.Second)
 	if err != nil {
 		t.Fatal("GetObjectPreSigned err:", err)
@@ -129,13 +105,24 @@ func Test_PreSignedGetObject(t *testing.T) {
 }
 
 func Test_CopyObjectWithoutMD5(t *testing.T) {
+	TEST_COPY_KEY := "COPYED:" + TEST_KEY
 	svc := NewS3WithoutMD5()
-	err := svc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	err := svc.MakeBucket(TEST_BUCKET)
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+		panic(err)
+	}
+	defer func() {
+		//clean up
+		svc.DeleteObject(TEST_BUCKET, TEST_KEY)
+		svc.DeleteObject(TEST_BUCKET, TEST_COPY_KEY)
+		svc.DeleteBucket(TEST_BUCKET)
+	}()
+	err = svc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
 	if err != nil {
 		t.Fatal("PutObject err:", err)
 	}
 
-	TEST_COPY_KEY := "COPYED:" + TEST_KEY
 	input := &s3.CopyObjectInput{
 		Bucket:     aws.String(TEST_BUCKET),
 		CopySource: aws.String(TEST_BUCKET + "/" + TEST_KEY),
@@ -158,21 +145,28 @@ func Test_CopyObjectWithoutMD5(t *testing.T) {
 	if v1 != v2 {
 		t.Fatal("Copyed result is not the same.")
 	}
-
-	//clean up
-	svc.DeleteObject(TEST_BUCKET, TEST_KEY)
-	svc.DeleteObject(TEST_BUCKET, TEST_COPY_KEY)
 }
 
 func Test_CopyObject(t *testing.T) {
+	TEST_COPY_KEY := "COPYED:" + TEST_KEY
 	//non-cryption
 	svc := NewS3()
-	err := svc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	err := svc.MakeBucket(TEST_BUCKET)
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+		panic(err)
+	}
+	defer func() {
+		//clean up
+		svc.DeleteObject(TEST_BUCKET, TEST_KEY)
+		svc.DeleteObject(TEST_BUCKET, TEST_COPY_KEY)
+		svc.DeleteBucket(TEST_BUCKET)
+	}()
+	err = svc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
 	if err != nil {
 		t.Fatal("PutObject err:", err)
 	}
 
-	TEST_COPY_KEY := "COPYED:" + TEST_KEY
 	input := &s3.CopyObjectInput{
 		Bucket:     aws.String(TEST_BUCKET),
 		CopySource: aws.String(TEST_BUCKET + "/" + TEST_KEY),
@@ -195,20 +189,28 @@ func Test_CopyObject(t *testing.T) {
 	if v1 != v2 {
 		t.Fatal("Copyed result is not the same.")
 	}
-
-	//clean up
-	svc.DeleteObject(TEST_BUCKET, TEST_KEY)
-	svc.DeleteObject(TEST_BUCKET, TEST_COPY_KEY)
 }
 
 func Test_CopyObjectWithReplace(t *testing.T) {
+	TEST_COPY_KEY := "COPYED:" + TEST_KEY
 	svc := NewS3()
-	err := svc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	err := svc.MakeBucket(TEST_BUCKET)
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+		panic(err)
+	}
+	defer func() {
+		//clean up
+		svc.DeleteObject(TEST_BUCKET, TEST_KEY)
+		svc.DeleteObject(TEST_BUCKET, TEST_COPY_KEY)
+		svc.DeleteBucket(TEST_BUCKET)
+	}()
+
+	err = svc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
 	if err != nil {
 		t.Fatal("PutObject err:", err)
 	}
 
-	TEST_COPY_KEY := "COPYED:" + TEST_KEY
 	input := &s3.CopyObjectInput{
 		Bucket:            aws.String(TEST_BUCKET),
 		CopySource:        aws.String(TEST_BUCKET + "/" + TEST_KEY),
@@ -257,19 +259,32 @@ func Test_CopyObjectWithReplace(t *testing.T) {
 			break
 		}
 	}
-	svc.DeleteObject(TEST_BUCKET, TEST_KEY)
-	svc.DeleteObject(TEST_BUCKET, TEST_COPY_KEY)
 }
 
 func Test_RenameObject(t *testing.T) {
+	TEST_COPY_KEY := "COPY:" + TEST_KEY
+	TEST_RENAME_KEY := "RENAME:" + TEST_KEY
+
 	//non-cryption
 	svc := NewS3()
-	err := svc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	err := svc.MakeBucket(TEST_BUCKET)
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+		panic(err)
+	}
+	defer func() {
+		//clean up
+		svc.DeleteObject(TEST_BUCKET, TEST_KEY)
+		svc.DeleteObject(TEST_BUCKET, TEST_COPY_KEY)
+		svc.DeleteObject(TEST_BUCKET, TEST_RENAME_KEY)
+		svc.DeleteBucket(TEST_BUCKET)
+	}()
+
+	err = svc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
 	if err != nil {
 		t.Fatal("PutObject err:", err)
 	}
 
-	TEST_COPY_KEY := "COPY:" + TEST_KEY
 	input1 := &s3.CopyObjectInput{
 		Bucket:     aws.String(TEST_BUCKET),
 		CopySource: aws.String(TEST_BUCKET + "/" + TEST_KEY),
@@ -280,7 +295,6 @@ func Test_RenameObject(t *testing.T) {
 		t.Fatal("Copy Object err:", err)
 	}
 
-	TEST_RENAME_KEY := "RENAME:" + TEST_KEY
 	input2 := &s3.RenameObjectInput{
 		Bucket:          aws.String(TEST_BUCKET),
 		RenameSourceKey: aws.String(TEST_KEY),
@@ -303,24 +317,27 @@ func Test_RenameObject(t *testing.T) {
 	if v1 != v2 {
 		t.Fatal("Rename result is not the same.")
 	}
-
-	//clean up
-	svc.DeleteObject(TEST_BUCKET, TEST_COPY_KEY)
-	svc.DeleteObject(TEST_BUCKET, TEST_RENAME_KEY)
 }
 
 func Test_RenameObjectWithSameName(t *testing.T) {
+	TEST_SAME_KEY := "SAME:" + TEST_KEY
+
 	//non-cryption
 	svc := NewS3()
-	TEST_SAME_KEY := "SAME:" + TEST_KEY
+	err := svc.MakeBucket(TEST_BUCKET)
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+		panic(err)
+	}
 	delFn := func(sc *S3Client) {
 		//clean up
 		svc.DeleteObject(TEST_BUCKET, TEST_SAME_KEY)
 		svc.DeleteObject(TEST_BUCKET, TEST_KEY)
+		svc.DeleteBucket(TEST_BUCKET)
 	}
-	delFn(svc)
 	defer delFn(svc)
-	err := svc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+
+	err = svc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
 	if err != nil {
 		t.Fatal("PutObject err:", err)
 	}
@@ -344,18 +361,30 @@ func Test_RenameObjectWithSameName(t *testing.T) {
 	if err == nil {
 		t.Fatal("Rename Object err:", err)
 	}
-
 }
 
 func Test_RenameObjectErrFolder(t *testing.T) {
+	TEST_RENAME_KEY := "RENAME:" + TEST_KEY + "/"
+
 	//non-cryption
 	svc := NewS3()
-	err := svc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	err := svc.MakeBucket(TEST_BUCKET)
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+		panic(err)
+	}
+	delFn := func(sc *S3Client) {
+		//clean up
+		svc.DeleteObject(TEST_BUCKET, TEST_RENAME_KEY)
+		svc.DeleteObject(TEST_BUCKET, TEST_KEY)
+		svc.DeleteBucket(TEST_BUCKET)
+	}
+	defer delFn(svc)
+	err = svc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
 	if err != nil {
 		t.Fatal("PutObject err:", err)
 	}
 
-	TEST_RENAME_KEY := "RENAME:" + TEST_KEY + "/"
 	input := &s3.RenameObjectInput{
 		Bucket:          aws.String(TEST_BUCKET),
 		RenameSourceKey: aws.String(TEST_KEY),
@@ -365,22 +394,22 @@ func Test_RenameObjectErrFolder(t *testing.T) {
 	if err == nil {
 		t.Fatal("Rename Object with floder:", err)
 	}
-
-	//clean up
-	svc.DeleteObject(TEST_BUCKET, TEST_RENAME_KEY)
 }
 
 func Test_Object_Append(t *testing.T) {
 	sc := NewS3()
+	err := sc.MakeBucket(TEST_BUCKET)
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+		panic(err)
+	}
 	delFn := func(sc *S3Client) {
 		sc.DeleteObject(TEST_BUCKET, TEST_KEY)
 		sc.DeleteBucket(TEST_BUCKET)
+		sc.DeleteBucket(TEST_BUCKET)
 	}
-	delFn(sc)
 	defer delFn(sc)
-	sc.MakeBucket(TEST_BUCKET)
 	var nextPos int64
-	var err error
 	nextPos, err = sc.AppendObject(TEST_BUCKET, TEST_KEY, TEST_VALUE, nextPos)
 	if err != nil {
 		t.Fatal("AppendObject err:", err)
