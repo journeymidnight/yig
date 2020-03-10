@@ -928,25 +928,24 @@ func (yig *YigStorage) removeOldObject(object *meta.Object) (err error) {
 		return err
 	}
 
-	for _, obj := range objs {
-		if obj.StorageClass == meta.ObjectStorageClassGlacier {
-			freezer, err := yig.GetFreezer(bucketName, objectName, "")
-			if err == nil {
-				if freezer.Name == objectName {
-					err = yig.MetaStorage.DeleteFreezer(freezer)
-					if err != nil {
-						return err
-					}
+	if object.StorageClass == meta.ObjectStorageClassGlacier {
+		freezer, err := yig.GetFreezer(object.BucketName, object.Name, "")
+		if err == nil {
+			if freezer.Name == object.Name {
+				err = yig.MetaStorage.DeleteFreezer(freezer)
+				if err != nil {
+					return err
 				}
-			} else if err != ErrNoSuchKey {
-				return err
 			}
-		}
-		err = yig.removeByObject(obj)
-		if err != nil {
+		} else if err != ErrNoSuchKey {
 			return err
 		}
 	}
+	err = yig.removeByObject(object)
+	if err != nil {
+		return err
+	}
+
 	err = yig.removeByObject(object)
 	if err != nil {
 		return err
