@@ -74,6 +74,7 @@ func (t *TidbClient) PutFreezerToGarbageCollection(object *Freezer, tx Tx) (err 
 	version := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
 	sqltext := "insert ignore into gc(bucketname,objectname,version,location,pool,objectid,status,mtime,part,triedtimes) values(?,?,?,?,?,?,?,?,?,?);"
 	_, err = txn.Exec(sqltext, o.BucketName, o.ObjectName, version, o.Location, o.Pool, o.ObjectId, o.Status, mtime, hasPart, o.TriedTimes)
+
 	if err != nil {
 		return err
 	}

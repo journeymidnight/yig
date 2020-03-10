@@ -22,7 +22,11 @@ func (yig *YigStorage) UpdateFreezerDate(freezer *meta.Freezer, date int, isIncr
 	}
 	var lifeTime int
 	if isIncrement {
-		lifeTime = freezer.LifeTime + date
+		freezerInfo, err := yig.GetFreezer(freezer.BucketName, freezer.Name, freezer.VersionId)
+		if err != nil {
+			return err
+		}
+		lifeTime = freezerInfo.LifeTime + date
 		if lifeTime > 30 {
 			lifeTime = 30
 		}

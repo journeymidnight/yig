@@ -239,7 +239,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		}
 		if freezer.Status != meta.ObjectHasRestored {
 			logger.Error("Unable to get glacier object with no restore")
-			err = ErrInvalidGlacierObject
+			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
 			return
 		}
 		object.Etag = freezer.Etag
@@ -578,7 +578,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		}
 		if freezer.Status != meta.ObjectHasRestored || freezer.Pool == "" {
 			logger.Error("Unable to get glacier object with no restore")
-			err = ErrInvalidGlacierObject
+			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
 			return
 		}
 		if targetStorageClass != meta.ObjectStorageClassGlacier {
@@ -641,6 +641,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	targetObject.ObjectId = sourceObject.ObjectId
 	targetObject.Pool = sourceObject.Pool
 	targetObject.Location = sourceObject.Location
+
 	targetObject.StorageClass = targetStorageClass
 
 	directive := r.Header.Get("X-Amz-Metadata-Directive")
@@ -658,10 +659,6 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	} else {
 		WriteErrorResponse(w, r, ErrInvalidCopyRequest)
 		return
-	}
-
-	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName {
-		isMetadataOnly = true
 	}
 
 	// Create the object.
