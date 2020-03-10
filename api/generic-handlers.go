@@ -243,7 +243,7 @@ func FillBucketAndObjectInfo(reqCtx *RequestContext, r *http.Request, meta *meta
 	var err error
 	v := strings.Split(r.Host, ":")
 	hostWithOutPort := v[0]
-	reqCtx.IsBucketDomain, reqCtx.BucketName = helper.HasBucketInDomain(hostWithOutPort, ".", helper.CONFIG.S3Domain)
+	reqCtx.IsBucketDomain, reqCtx.BucketName = helper.HasBucketInDomain(hostWithOutPort, helper.CONFIG.S3Domain)
 	splits := strings.SplitN(r.URL.Path[1:], "/", 2)
 
 	if reqCtx.IsBucketDomain {

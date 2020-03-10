@@ -22,7 +22,6 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	"github.com/gorilla/mux"
 	. "github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
@@ -35,9 +34,9 @@ import (
 // -------------------------
 // This operation returns bucket location.
 func (api ObjectAPIHandlers) GetBucketLocationHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
+	bucketName := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
@@ -398,9 +397,9 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 }
 
 func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucket := vars["bucket"]
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
+	bucket := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
@@ -435,10 +434,9 @@ func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *h
 }
 
 func (api ObjectAPIHandlers) GetBucketLoggingHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
-	ctx := GetRequestContext(r)
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
+	bucketName := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
@@ -457,12 +455,12 @@ func (api ObjectAPIHandlers) GetBucketLoggingHandler(w http.ResponseWriter, r *h
 		}
 	}
 
-	if ctx.BucketInfo == nil {
+	if reqCtx.BucketInfo == nil {
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return
 	}
 
-	if credential.UserId != ctx.BucketInfo.OwnerId {
+	if credential.UserId != reqCtx.BucketInfo.OwnerId {
 		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
 		return
 	}
@@ -491,9 +489,9 @@ func (api ObjectAPIHandlers) GetBucketLoggingHandler(w http.ResponseWriter, r *h
 }
 
 func (api ObjectAPIHandlers) PutBucketLifeCycleHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucket := vars["bucket"]
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
+	bucket := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
@@ -529,9 +527,9 @@ func (api ObjectAPIHandlers) PutBucketLifeCycleHandler(w http.ResponseWriter, r 
 }
 
 func (api ObjectAPIHandlers) GetBucketLifeCycleHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
+	bucketName := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
@@ -574,8 +572,8 @@ func (api ObjectAPIHandlers) GetBucketLifeCycleHandler(w http.ResponseWriter, r 
 }
 
 func (api ObjectAPIHandlers) DelBucketLifeCycleHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
+	reqCtx := GetRequestContext(r)
+	bucketName := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
@@ -596,9 +594,9 @@ func (api ObjectAPIHandlers) DelBucketLifeCycleHandler(w http.ResponseWriter, r 
 }
 
 func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucket := vars["bucket"]
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
+	bucket := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
@@ -643,9 +641,9 @@ func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.
 }
 
 func (api ObjectAPIHandlers) GetBucketAclHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
+	bucketName := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
@@ -687,9 +685,9 @@ func (api ObjectAPIHandlers) GetBucketAclHandler(w http.ResponseWriter, r *http.
 }
 
 func (api ObjectAPIHandlers) PutBucketCorsHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
+	bucketName := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
@@ -734,8 +732,8 @@ func (api ObjectAPIHandlers) PutBucketCorsHandler(w http.ResponseWriter, r *http
 }
 
 func (api ObjectAPIHandlers) DeleteBucketCorsHandler(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
+	reqCtx := GetRequestContext(r)
+	bucketName := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
@@ -755,9 +753,9 @@ func (api ObjectAPIHandlers) DeleteBucketCorsHandler(w http.ResponseWriter, r *h
 }
 
 func (api ObjectAPIHandlers) GetBucketCorsHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
+	bucketName := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
@@ -787,9 +785,9 @@ func (api ObjectAPIHandlers) GetBucketCorsHandler(w http.ResponseWriter, r *http
 }
 
 func (api ObjectAPIHandlers) GetBucketVersioningHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
+	bucketName := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
@@ -819,9 +817,9 @@ func (api ObjectAPIHandlers) GetBucketVersioningHandler(w http.ResponseWriter, r
 }
 
 func (api ObjectAPIHandlers) PutBucketVersioningHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
+	bucketName := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
@@ -873,9 +871,8 @@ func (api ObjectAPIHandlers) PutBucketVersioningHandler(w http.ResponseWriter, r
 // have permission to access it. Otherwise, the operation might
 // return responses such as 404 Not Found and 403 Forbidden.
 func (api ObjectAPIHandlers) HeadBucketHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucket := vars["bucket"]
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 
 	var credential common.Credential
 	var err error
@@ -894,7 +891,7 @@ func (api ObjectAPIHandlers) HeadBucketHandler(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	if _, err = api.ObjectAPI.GetBucketInfo(bucket, credential); err != nil {
+	if _, err = api.ObjectAPI.GetBucketInfo(reqCtx.BucketName, credential); err != nil {
 		logger.Error("Unable to fetch bucket info:", err)
 		WriteErrorResponse(w, r, err)
 		return

@@ -28,7 +28,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gorilla/mux"
 	. "github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/policy"
 	. "github.com/journeymidnight/yig/context"
@@ -455,10 +454,9 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 // while reading the object from another source.
 func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Request) {
 	reqCtx := GetRequestContext(r)
-	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	targetBucketName := vars["bucket"]
-	targetObjectName := vars["object"]
+	logger := reqCtx.Logger
+	targetBucketName := reqCtx.BucketName
+	targetObjectName := reqCtx.ObjectName
 
 	var credential common.Credential
 	var err error
@@ -949,11 +947,10 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 // ----------
 // This implementation of the POST operation append an object in a bucket.
 func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := GetRequestContext(r)
-	logger := ctx.Logger
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
-	objectName := vars["object"]
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
+	bucketName := reqCtx.BucketName
+	objectName := reqCtx.ObjectName
 
 	logger.Info("Appending object:", bucketName, objectName)
 
@@ -1059,7 +1056,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 
 	// Check whether the object is exist or not
 	// Check whether the bucket is owned by the specified user
-	objInfo, err := api.ObjectAPI.GetObjectInfoByCtx(ctx, "", credential)
+	objInfo, err := api.ObjectAPI.GetObjectInfoByCtx(reqCtx, "", credential)
 	if err != nil && err != ErrNoSuchKey {
 		WriteErrorResponse(w, r, err)
 		return
@@ -1140,11 +1137,10 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 }
 
 func (api ObjectAPIHandlers) PutObjectMeta(w http.ResponseWriter, r *http.Request) {
-	ctx := GetRequestContext(r)
-	logger := ctx.Logger
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
-	objectName := vars["object"]
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
+	bucketName := reqCtx.BucketName
+	objectName := reqCtx.ObjectName
 
 	logger.Info("Put object meta:", bucketName, objectName)
 
@@ -1170,10 +1166,10 @@ func (api ObjectAPIHandlers) PutObjectMeta(w http.ResponseWriter, r *http.Reques
 		WriteErrorResponse(w, r, err)
 		return
 	}
-	object := ctx.ObjectInfo
+	object := reqCtx.ObjectInfo
 	object.CustomAttributes = metaData.Data
 
-	err = api.ObjectAPI.PutObjectMeta(ctx.BucketInfo, object, credential)
+	err = api.ObjectAPI.PutObjectMeta(reqCtx.BucketInfo, object, credential)
 	if err != nil {
 		logger.Error("Unable to update object meta for", object.Name,
 			"error:", err)
@@ -1292,10 +1288,10 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 }
 
 func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.Request) {
+	reqCtx := GetRequestContext(r)
 	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
-	objectName := vars["object"]
+	bucketName := reqCtx.BucketName
+	objectName := reqCtx.ObjectName
 
 	var credential common.Credential
 	var err error
@@ -1356,10 +1352,10 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 }
 
 func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.Request) {
+	reqCtx := GetRequestContext(r)
 	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
-	objectName := vars["object"]
+	bucketName := reqCtx.BucketName
+	objectName := reqCtx.ObjectName
 
 	var credential common.Credential
 	var err error
@@ -1411,9 +1407,8 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r *http.Request) {
 	reqCtx := GetRequestContext(r)
 	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
-	objectName := vars["object"]
+	bucketName := reqCtx.BucketName
+	objectName := reqCtx.ObjectName
 
 	if !isValidObjectName(objectName) {
 		WriteErrorResponse(w, r, ErrInvalidObjectName)
@@ -1600,10 +1595,10 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 
 // Upload part - copy
 func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *http.Request) {
+	reqCtx := GetRequestContext(r)
 	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	targetBucketName := vars["bucket"]
-	targetObjectName := vars["object"]
+	targetBucketName := reqCtx.BucketName
+	targetObjectName := reqCtx.ObjectName
 
 	if !isValidObjectName(targetObjectName) {
 		WriteErrorResponse(w, r, ErrInvalidObjectName)
@@ -1845,10 +1840,10 @@ func (api ObjectAPIHandlers) AbortMultipartUploadHandler(w http.ResponseWriter, 
 
 // ListObjectPartsHandler - List object parts
 func (api ObjectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *http.Request) {
-	logger := ContextLogger(r)
-	vars := mux.Vars(r)
-	bucketName := vars["bucket"]
-	objectName := vars["object"]
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
+	bucketName := reqCtx.BucketName
+	objectName := reqCtx.ObjectName
 
 	var credential common.Credential
 	var err error
