@@ -79,7 +79,7 @@ func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multi
 		return ErrNoSuchBucket
 	}
 	if reqCtx.BucketInfo.Versioning == VersionDisabled {
-		object.VersionId = "0"
+		object.VersionId = NullVersion
 	} else {
 		return ErrNotImplemented
 		// TODO: object.VersionId = strconv.FormatUint(math.MaxUint64-uint64(object.LastModifiedTime.UnixNano()), 10)

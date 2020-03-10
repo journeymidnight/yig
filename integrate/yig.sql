@@ -248,26 +248,6 @@ CREATE TABLE `restoreobjects` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
---
--- Table structure for table `objmap`
---
-
-DROP TABLE IF EXISTS `restoreobjectpart`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `restoreobjectpart` (
-  `partnumber` int(11) DEFAULT NULL,
-  `size` bigint(20) DEFAULT NULL,
-  `objectid` varchar(255) DEFAULT NULL,
-  `offset` bigint(20) DEFAULT NULL,
-  `etag` varchar(255) DEFAULT NULL,
-  `lastmodified` datetime DEFAULT NULL,
-  `bucketname` varchar(255) DEFAULT NULL,
-  `objectname` varchar(255) DEFAULT NULL,
-  `version` bigint(20) unsigned DEFAULT NULL,
-  KEY `rowkey` (`bucketname`,`objectname`,`version`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
-/*!40101 SET character_set_client = @saved_cs_client */;
 
 --
 -- Table structure for table `restoreobjects`
