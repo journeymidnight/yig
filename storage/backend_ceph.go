@@ -78,7 +78,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 		helper.Logger.Println(20, "request append oid:", oid, "iv:", initializationVector, "size:", objSize)
 	} else {
 		// New appendable object
-		cephCluster, poolName = yig.pickClusterAndPool(bucketName, objectName, size, true)
+		cephCluster, poolName = yig.pickClusterAndPool(bucketName, objectName, storageClass, size, true)
 		if cephCluster == nil || poolName != backend.BIG_FILE_POOLNAME {
 			helper.Logger.Warn("PickOneClusterAndPool error")
 			return result, ErrInternalError

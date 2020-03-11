@@ -183,6 +183,44 @@ func (t *TidbClient) PutObject(object *Object, tx DB) (err error) {
 	return err
 }
 
+func (t *TidbClient) UpdateObject(object *Object, tx DB) (err error) {
+	if tx == nil {
+		tx, err = t.Client.Begin()
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err == nil {
+				err = tx.(*sql.Tx).Commit()
+			}
+			if err != nil {
+				tx.(*sql.Tx).Rollback()
+			}
+		}()
+	}
+
+	v := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
+	version := strconv.FormatUint(v, 10)
+	sqltext := "delete from objectpart where objectname=? and bucketname=? and version=?;"
+	_, err = tx.Exec(sqltext, object.Name, object.BucketName, version)
+	if err != nil {
+		return err
+	}
+
+	sql, args := object.GetUpdateSql()
+	_, err = tx.Exec(sql, args...)
+	if object.Parts != nil {
+		for _, p := range object.Parts {
+			psql, args := p.GetCreateSql(object.BucketName, object.Name, version)
+			_, err = tx.Exec(psql, args...)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (t *TidbClient) DeleteObject(object *Object, tx DB) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()

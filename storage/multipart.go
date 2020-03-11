@@ -105,7 +105,7 @@ func (yig *YigStorage) NewMultipartUpload(credential common.Credential, bucketNa
 		contentType = "application/octet-stream"
 	}
 
-	cephCluster, pool := yig.pickClusterAndPool(bucketName, objectName, -1, false)
+	cephCluster, pool := yig.pickClusterAndPool(bucketName, objectName, storageClass, -1, false)
 	multipartMetadata := meta.MultipartMetadata{
 		InitiatorId:  credential.UserId,
 		OwnerId:      bucket.OwnerId,
@@ -626,6 +626,18 @@ func (yig *YigStorage) CompleteMultipartUpload(credential common.Credential, buc
 	objMap := &meta.ObjMap{
 		Name:       objectName,
 		BucketName: bucketName,
+	}
+
+	if object.StorageClass == meta.ObjectStorageClassGlacier {
+		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
+		if err == nil {
+			err = yig.MetaStorage.DeleteFreezer(freezer)
+			if err != nil {
+				return result, err
+			}
+		} else if err != ErrNoSuchKey {
+			return result, err
+		}
 	}
 
 	if nullVerNum != 0 {

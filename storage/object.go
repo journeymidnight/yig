@@ -23,7 +23,7 @@ import (
 	"github.com/journeymidnight/yig/signature"
 )
 
-var latestQueryTime [2]time.Time // 0 is for SMALL_FILE_POOLNAME, 1 is for BIG_FILE_POOLNAME
+var latestQueryTime [3]time.Time // 0 is for SMALL_FILE_POOLNAME, 1 is for BIG_FILE_POOLNAME, 2 is for GLACIER_FILE_POOLNAME
 const (
 	CLUSTER_MAX_USED_SPACE_PERCENT = 85
 	BIG_FILE_THRESHOLD             = 128 << 10 /* 128K */
@@ -39,22 +39,27 @@ func (yig *YigStorage) pickRandomCluster() (cluster backend.Cluster) {
 	return
 }
 
-func (yig *YigStorage) pickClusterAndPool(bucket string, object string,
+func (yig *YigStorage) pickClusterAndPool(bucket string, object string, storageClass meta.StorageClass,
 	size int64, isAppend bool) (cluster backend.Cluster, poolName string) {
 
 	var idx int
-	if isAppend {
-		poolName = backend.BIG_FILE_POOLNAME
-		idx = 1
-	} else if size < 0 { // request.ContentLength is -1 if length is unknown
-		poolName = backend.BIG_FILE_POOLNAME
-		idx = 1
-	} else if size < BIG_FILE_THRESHOLD {
-		poolName = backend.SMALL_FILE_POOLNAME
-		idx = 0
+	if storageClass == meta.ObjectStorageClassGlacier {
+		poolName = backend.GLACIER_FILE_POOLNAME
+		idx = 2
 	} else {
-		poolName = backend.BIG_FILE_POOLNAME
-		idx = 1
+		if isAppend {
+			poolName = backend.BIG_FILE_POOLNAME
+			idx = 1
+		} else if size < 0 { // request.ContentLength is -1 if length is unknown
+			poolName = backend.BIG_FILE_POOLNAME
+			idx = 1
+		} else if size < BIG_FILE_THRESHOLD {
+			poolName = backend.SMALL_FILE_POOLNAME
+			idx = 0
+		} else {
+			poolName = backend.BIG_FILE_POOLNAME
+			idx = 1
+		}
 	}
 	var needCheck bool
 	queryTime := latestQueryTime[idx]
@@ -512,7 +517,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
-		helper.Logger.Info("get bucket", bucket, "err:", err)
+		helper.Logger.Error("get bucket", bucket, "err:", err)
 		return
 	}
 
@@ -535,7 +540,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		limitedDataReader = data
 	}
 
-	cluster, poolName := yig.pickClusterAndPool(bucketName, objectName, size, false)
+	cluster, poolName := yig.pickClusterAndPool(bucketName, objectName, storageClass, size, false)
 	if cluster == nil {
 		return result, ErrInternalError
 	}
@@ -629,6 +634,18 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 		nullVerNum = uint64(object.LastModifiedTime.UnixNano())
 	}
 
+	if object.StorageClass == meta.ObjectStorageClassGlacier {
+		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
+		if err == nil {
+			err = yig.MetaStorage.DeleteFreezer(freezer)
+			if err != nil {
+				return result, err
+			}
+		} else if err != ErrNoSuchKey {
+			return result, err
+		}
+	}
+
 	if nullVerNum != 0 {
 		objMap := &meta.ObjMap{
 			Name:       objectName,
@@ -709,7 +726,7 @@ func (yig *YigStorage) RenameObject(targetObject *meta.Object, sourceObject stri
 	return result, nil
 }
 
-func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, credential common.Credential,
+func (yig *YigStorage) CopyObject(targetObject *meta.Object, sourceObject *meta.Object, source io.Reader, credential common.Credential,
 	sseRequest datatype.SseRequest, isMetadataOnly bool) (result datatype.PutObjectResult, err error) {
 
 	var oid string
@@ -735,6 +752,21 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 	}
 
 	if isMetadataOnly {
+		if sourceObject.StorageClass == meta.ObjectStorageClassGlacier {
+			targetObject.LastModifiedTime = sourceObject.LastModifiedTime
+			err = yig.MetaStorage.UpdateGlacierObject(targetObject, sourceObject, true)
+			if err != nil {
+				helper.Logger.Error("Copy Object with same source and target with GLACIER object, sql fails:", err)
+				return result, ErrInternalError
+			}
+			result.LastModified = targetObject.LastModifiedTime
+			if bucket.Versioning == "Enabled" {
+				result.VersionId = targetObject.GetVersionId()
+			}
+			yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
+			yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
+			return result, nil
+		}
 		err = yig.MetaStorage.ReplaceObjectMetas(targetObject)
 		if err != nil {
 			helper.Logger.Error("Copy Object with same source and target, sql fails:", err)
@@ -755,7 +787,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 	limitedDataReader = io.LimitReader(source, targetObject.Size)
 
 	cephCluster, poolName := yig.pickClusterAndPool(targetObject.BucketName,
-		targetObject.Name, targetObject.Size, false)
+		targetObject.Name, targetObject.StorageClass, targetObject.Size, false)
 
 	if len(targetObject.Parts) != 0 {
 		var targetParts map[int]*meta.Part = make(map[int]*meta.Part, len(targetObject.Parts))
@@ -897,11 +929,17 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, source io.Reader, c
 		BucketName: targetObject.BucketName,
 	}
 
-	if nullVerNum != 0 {
-		objMap.NullVerNum = nullVerNum
-		err = yig.MetaStorage.PutObject(targetObject, nil, objMap, true)
+	if targetObject.StorageClass == meta.ObjectStorageClassGlacier && targetObject.Name == sourceObject.Name && targetObject.BucketName == sourceObject.BucketName {
+		targetObject.LastModifiedTime = sourceObject.LastModifiedTime
+		result.LastModified = targetObject.LastModifiedTime
+		err = yig.MetaStorage.UpdateGlacierObject(targetObject, sourceObject, false)
 	} else {
-		err = yig.MetaStorage.PutObject(targetObject, nil, nil, true)
+		if nullVerNum != 0 {
+			objMap.NullVerNum = nullVerNum
+			err = yig.MetaStorage.PutObject(targetObject, nil, objMap, true)
+		} else {
+			err = yig.MetaStorage.PutObject(targetObject, nil, nil, true)
+		}
 	}
 
 	if err != nil {
@@ -946,6 +984,19 @@ func (yig *YigStorage) removeAllObjectsEntryByName(bucketName, objectName string
 		return err
 	}
 	for _, obj := range objs {
+		if obj.StorageClass == meta.ObjectStorageClassGlacier {
+			freezer, err := yig.GetFreezer(bucketName, objectName, "")
+			if err == nil {
+				if freezer.Name == objectName {
+					err = yig.MetaStorage.DeleteFreezer(freezer)
+					if err != nil {
+						return err
+					}
+				}
+			} else if err != ErrNoSuchKey {
+				return err
+			}
+		}
 		err = yig.removeByObject(obj, nil)
 		if err != nil {
 			return err
