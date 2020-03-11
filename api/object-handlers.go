@@ -193,8 +193,8 @@ func (o *GetObjectResponseWriter) Write(p []byte) (int, error) {
 // This implementation of the GET operation retrieves object. To use GET,
 // you must have READ access to the object.
 func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := GetRequestContext(r)
-	logger := ctx.Logger
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 	var credential common.Credential
 	var err error
 	if api.HandledByWebsite(w, r) {
@@ -206,9 +206,9 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	version := r.URL.Query().Get("versionId")
+	reqVersion := reqCtx.VersionId
 	// Fetch object stat info.
-	object, err := api.ObjectAPI.GetObjectInfoByCtx(ctx, version, credential)
+	object, err := api.ObjectAPI.GetObjectInfoByCtx(reqCtx, reqVersion, credential)
 	if err != nil {
 		logger.Error("Unable to fetch object info:", err)
 		if err == ErrNoSuchKey {
@@ -226,7 +226,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	if object.StorageClass == meta.ObjectStorageClassGlacier {
-		freezer, err := api.ObjectAPI.GetFreezer(ctx.BucketName, ctx.ObjectName, version)
+		freezer, err := api.ObjectAPI.GetFreezer(reqCtx.BucketName, reqCtx.ObjectName, reqVersion)
 		if err != nil {
 			if err == ErrNoSuchKey {
 				logger.Error("Unable to get glacier object with no restore")
@@ -302,7 +302,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	// io.Writer type which keeps track if any data was written.
-	writer := newGetObjectResponseWriter(w, r, object, hrange, http.StatusOK, version)
+	writer := newGetObjectResponseWriter(w, r, object, hrange, http.StatusOK, reqVersion)
 
 	switch object.SseType {
 	case "":
@@ -347,8 +347,8 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 // The HEAD operation retrieves metadata from an object without returning the object itself.
 // TODO refactor HEAD and GET
 func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := GetRequestContext(r)
-	logger := ctx.Logger
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.GetObjectAction); err != nil {
@@ -356,8 +356,8 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	version := r.URL.Query().Get("versionId")
-	object, err := api.ObjectAPI.GetObjectInfoByCtx(ctx, version, credential)
+	reqVersion := reqCtx.VersionId
+	object, err := api.ObjectAPI.GetObjectInfoByCtx(reqCtx, reqVersion, credential)
 	if err != nil {
 		logger.Error("Unable to fetch object info:", err)
 		if err == ErrNoSuchKey {
@@ -369,9 +369,9 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	if object.StorageClass == meta.ObjectStorageClassGlacier {
-		freezer, err := api.ObjectAPI.GetFreezerStatus(object.BucketName, object.Name, version)
+		freezer, err := api.ObjectAPI.GetFreezerStatus(object.BucketName, object.Name, reqVersion)
 		if err != nil && err != ErrNoSuchKey {
-			logger.Error("Unable to get restore object status", object.BucketName, object.Name, version,
+			logger.Error("Unable to get restore object status", object.BucketName, object.Name, reqVersion,
 				"error:", err)
 			WriteErrorResponse(w, r, err)
 		}
@@ -384,6 +384,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 
 	if object.DeleteMarker {
 		w.Header().Set("x-amz-delete-marker", "true")
+		SetObjectHeaders(w, object, nil, http.StatusNotFound)
 		WriteErrorResponse(w, r, ErrNoSuchKey)
 		return
 	}
@@ -754,7 +755,7 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 
 	//TODO: Supplement Object MultiVersion Judge.
 	bucket := reqCtx.BucketInfo
-	if bucket.Versioning != meta.VersionDisabled {
+	if bucket.Versioning != BucketVersioningDisabled {
 		WriteErrorResponse(w, r, ErrNotSupportBucketEnabledVersion)
 		return
 	}
@@ -2022,8 +2023,6 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 	}
 	if result.DeleteMarker {
 		w.Header().Set("x-amz-delete-marker", "true")
-	} else {
-		w.Header().Set("x-amz-delete-marker", "false")
 	}
 	if result.VersionId != "" {
 		w.Header().Set("x-amz-version-id", result.VersionId)

@@ -9,12 +9,6 @@ import (
 	"github.com/journeymidnight/yig/api/datatype"
 )
 
-const (
-	VersionEnabled   = "Enabled"
-	VersionDisabled  = "Disabled"
-	VersionSuspended = "Suspended"
-)
-
 type Bucket struct {
 	Name string
 	// Date and time when the bucket was created,
@@ -28,7 +22,7 @@ type Bucket struct {
 	Policy        []byte // need to MarshalJSON
 	Website       datatype.WebsiteConfiguration
 	Encryption    datatype.EncryptionConfiguration
-	Versioning    string // actually enum: Disabled/Enabled/Suspended
+	Versioning    datatype.BucketVersioningType // actually enum: Disabled/Enabled/Suspended
 	Usage         int64
 }
 
@@ -43,7 +37,7 @@ func (b *Bucket) String() (s string) {
 	s += "Policy: " + fmt.Sprintf("%+v", b.Policy) + "\t"
 	s += "Website: " + fmt.Sprintf("%+v", b.Website) + "\t"
 	s += "Encryption" + fmt.Sprintf("%+v", b.Encryption) + "\t"
-	s += "Version: " + b.Versioning + "\t"
+	s += "Version: " + b.Versioning.String() + "\t"
 	s += "Usage: " + humanize.Bytes(uint64(b.Usage)) + "\t"
 	return
 }

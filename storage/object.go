@@ -378,12 +378,6 @@ func (yig *YigStorage) GetObjectInfoByCtx(ctx RequestContext,
 	if object == nil {
 		return nil, ErrNoSuchKey
 	}
-	if version != "" {
-		object, err = yig.getObjWithVersion(ctx.BucketName, ctx.ObjectName, version)
-		if err != nil {
-			return
-		}
-	}
 
 	if !credential.AllowOtherUserAccess {
 		switch object.ACL.CannedAcl {
@@ -625,6 +619,7 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 		Type:                 meta.ObjectTypeNormal,
 		StorageClass:         storageClass,
 	}
+	object.VersionId = object.GenVersionId(bucket.Versioning)
 
 	if object.StorageClass == meta.ObjectStorageClassGlacier {
 		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
@@ -645,8 +640,8 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 		return
 	} else {
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
-		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
-		if reqCtx.ObjectInfo != nil && reqCtx.BucketInfo.Versioning == meta.VersionDisabled {
+		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.VersionId)
+		if reqCtx.ObjectInfo != nil && reqCtx.BucketInfo.Versioning == datatype.BucketVersioningDisabled {
 			go yig.removeOldObject(reqCtx.ObjectInfo)
 		}
 	}
@@ -671,7 +666,7 @@ func (yig *YigStorage) PutObjectMeta(bucket *meta.Bucket, targetObject *meta.Obj
 	}
 
 	yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
-	yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
+	yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.VersionId)
 
 	return nil
 }
@@ -699,7 +694,7 @@ func (yig *YigStorage) RenameObject(reqCtx RequestContext, targetObject *meta.Ob
 
 	result.LastModified = targetObject.LastModifiedTime
 	yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
-	yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
+	yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.VersionId)
 
 	return result, nil
 }
@@ -738,10 +733,10 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 			}
 			result.LastModified = targetObject.LastModifiedTime
 			if bucket.Versioning == "Enabled" {
-				result.VersionId = targetObject.GetVersionId()
+				result.VersionId = targetObject.VersionId
 			}
 			yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
-			yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
+			yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.VersionId)
 			return result, nil
 		}
 		err = yig.MetaStorage.ReplaceObjectMetas(targetObject)
@@ -752,10 +747,10 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 		targetObject.LastModifiedTime = time.Now().UTC()
 		result.LastModified = targetObject.LastModifiedTime
 		if bucket.Versioning == "Enabled" {
-			result.VersionId = targetObject.GetVersionId()
+			result.VersionId = targetObject.VersionId
 		}
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
-		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
+		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.VersionId)
 		return result, nil
 	}
 
@@ -900,8 +895,8 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 		return
 	} else {
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
-		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
-		if reqCtx.ObjectInfo != nil && reqCtx.BucketInfo.Versioning == meta.VersionDisabled {
+		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.VersionId)
+		if reqCtx.ObjectInfo != nil && reqCtx.BucketInfo.Versioning == datatype.BucketVersioningDisabled {
 			go yig.removeOldObject(reqCtx.ObjectInfo)
 		}
 	}
@@ -1065,7 +1060,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 		CustomAttributes:     metadata,
 		Type:                 meta.ObjectTypeAppendable,
 		StorageClass:         storageClass,
-		VersionId:            "0",
+		VersionId:            meta.NullVersion,
 	}
 
 	result.LastModified = object.LastModifiedTime
@@ -1079,7 +1074,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 
 	if err == nil {
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
-		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
+		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.VersionId)
 	}
 	return result, nil
 }
@@ -1101,11 +1096,8 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 	if bucket == nil {
 		return result, ErrNoSuchBucket
 	}
-	if object == nil {
-		return result, nil
-	}
 
-	bucketName, objectName, version := reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId
+	bucketName, objectName, reqVersion := reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId
 	switch bucket.ACL.CannedAcl {
 	case "public-read-write":
 		break
@@ -1116,18 +1108,74 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 	} // TODO policy and fancy ACL
 
 	switch bucket.Versioning {
-	case meta.VersionDisabled:
-		if version != "" && version != "null" {
+	case datatype.BucketVersioningDisabled:
+		if reqVersion != "" && reqVersion != meta.NullVersion {
 			return result, ErrNoSuchVersion
+		}
+		if object == nil {
+			return result, ErrNoSuchKey
 		}
 		err = yig.MetaStorage.DeleteObject(object)
 		if err != nil {
 			return
 		}
-	case meta.VersionEnabled:
-		return result, ErrNotImplemented
-	case meta.VersionSuspended:
-		return result, ErrNotImplemented
+	case datatype.BucketVersioningEnabled:
+		if reqVersion != "" {
+			if object == nil {
+				return result, ErrNoSuchKey
+			}
+			err = yig.MetaStorage.DeleteObject(object)
+			if err != nil {
+				return
+			}
+			result.VersionId = object.VersionId
+			if object.DeleteMarker {
+				result.DeleteMarker = true
+			}
+		} else {
+			if object == nil {
+				object = &meta.Object{
+					BucketName:       bucketName,
+					Name:             objectName,
+					OwnerId:          credential.UserId,
+					DeleteMarker:     true,
+					LastModifiedTime: time.Now().UTC(),
+				}
+			}
+			object.VersionId = object.GenVersionId(datatype.BucketVersioningEnabled)
+			err = yig.MetaStorage.AddDeleteMarker(object)
+			if err != nil {
+				return
+			}
+			result.VersionId = object.VersionId
+		}
+	case datatype.BucketVersioningSuspended:
+		if reqVersion != "" {
+			if object == nil {
+				return result, ErrNoSuchKey
+			}
+			err = yig.MetaStorage.DeleteObject(object)
+			if err != nil {
+				return
+			}
+			result.VersionId = reqVersion
+			if object.DeleteMarker {
+				result.DeleteMarker = true
+			}
+		} else {
+			if object == nil {
+				object = new(meta.Object)
+				object.BucketName = bucketName
+				object.Name = objectName
+				object.DeleteMarker = true
+				object.VersionId = meta.NullVersion
+				object.LastModifiedTime = time.Now().UTC()
+			}
+			err = yig.MetaStorage.DeleteSuspendedObject(object)
+			if err != nil {
+				return
+			}
+		}
 	default:
 		helper.Logger.Error("Invalid bucket versioning:", bucketName)
 		return result, ErrInternalError
@@ -1137,10 +1185,10 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":")
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + "null")
-		if version != "" {
+		if reqVersion != "" && reqVersion != meta.NullVersion {
 			yig.MetaStorage.Cache.Remove(redis.ObjectTable,
-				bucketName+":"+objectName+":"+version)
-			yig.DataCache.Remove(bucketName + ":" + objectName + ":" + version)
+				bucketName+":"+objectName+":"+reqVersion)
+			yig.DataCache.Remove(bucketName + ":" + objectName + ":" + reqVersion)
 		}
 	}
 	return result, nil

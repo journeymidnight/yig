@@ -82,16 +82,13 @@ func (o *Object) String() (s string) {
 	return s
 }
 
-func (o *Object) GetVersionId() string {
-	if o.NullVersion {
+func (o *Object) GenVersionId(bucketVersionType datatype.BucketVersioningType) string {
+	if bucketVersionType != datatype.BucketVersioningEnabled {
 		return NullVersion
 	}
-	if o.VersionId != "" {
-		return o.VersionId
-	}
+
 	timeData := []byte(strconv.FormatUint(uint64(o.LastModifiedTime.UnixNano()), 10))
-	o.VersionId = hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
-	return o.VersionId
+	return hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
 }
 
 //Tidb related function

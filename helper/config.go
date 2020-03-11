@@ -7,9 +7,9 @@ import (
 )
 
 const (
-	YIG_CONF_PATH   = "/etc/yig/yig.toml"
-	MIN_BUFFER_SIZE = 512 << 10 // 512k
-	MAX_BUFEER_SIZE = 8 << 20   // 8M
+	YIG_CONF_PATH         = "/etc/yig/yig.toml"
+	MIN_BUFFER_SIZE int64 = 512 << 10 // 512k
+	MAX_BUFEER_SIZE int64 = 8 << 20   // 8M
 )
 
 type Config struct {

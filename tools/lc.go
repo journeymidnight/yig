@@ -107,7 +107,7 @@ func retrieveBucket(lc types.LifeCycle) error {
 	request.MaxKeys = 1000
 	if defaultConfig == true {
 		for {
-			info, err := yig.ListObjectsInternal(bucket.Name, request)
+			info, err := yig.ListObjectsInternal(bucket, request)
 			if err != nil {
 				return err
 			}
@@ -169,7 +169,7 @@ func retrieveBucket(lc types.LifeCycle) error {
 			}
 			request.Prefix = rule.Prefix
 			for {
-				info, err := yig.ListObjectsInternal(bucket.Name, request)
+				info, err := yig.ListObjectsInternal(bucket, request)
 				if err != nil {
 					return err
 				}

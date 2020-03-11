@@ -85,6 +85,11 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 	return
 }
 
+func (t *TidbClient) GetLatestObjectVersion(bucketName, objectName string) (object *Object, err error) {
+	//TODO
+	return
+}
+
 func (t *TidbClient) UpdateObjectAttrs(object *Object) error {
 	sql, args := object.GetUpdateAttrsSql()
 	_, err := t.Client.Exec(sql, args...)
@@ -154,18 +159,6 @@ func (t *TidbClient) UpdateAppendObject(object *Object) (err error) {
 	return t.UpdateUsage(object.BucketName, object.Size, tx)
 }
 
-func (t *TidbClient) PutObjectWithoutMultiPart(object *Object) error {
-	sql, args := object.GetCreateSql()
-	_, err := t.Client.Exec(sql, args...)
-	return err
-}
-
-func (t *TidbClient) UpdateObjectWithoutMultiPart(object *Object) error {
-	sql, args := object.GetUpdateSql()
-	_, err := t.Client.Exec(sql, args...)
-	return err
-}
-
 func (t *TidbClient) PutObject(object *Object, multipart *Multipart, updateUsage bool) (err error) {
 	tx, err := t.Client.Begin()
 	if err != nil {
@@ -206,7 +199,6 @@ func (t *TidbClient) PutObject(object *Object, multipart *Multipart, updateUsage
 }
 
 func (t *TidbClient) UpdateObject(object *Object, multipart *Multipart, updateUsage bool) (err error) {
-
 	tx, err := t.Client.Begin()
 	if err != nil {
 		return err
@@ -318,6 +310,14 @@ func (t *TidbClient) DeleteObject(object *Object, tx Tx) (err error) {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func (t *TidbClient) AddDeleteMarker(object *Object, tx Tx) error {
+	return nil
+}
+
+func (t *TidbClient) DeleteSuspendedObject(object *Object, tx Tx) error {
 	return nil
 }
 

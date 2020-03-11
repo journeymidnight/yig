@@ -30,24 +30,24 @@ import (
 type ObjectLayer interface {
 	// Bucket operations.
 
-	SetBucketLogging(bucket string, config datatype.BucketLoggingStatus,
+	SetBucketLogging(reqCtx RequestContext, config datatype.BucketLoggingStatus,
 		credential common.Credential) error
-	GetBucketLogging(bucket string, credential common.Credential) (datatype.BucketLoggingStatus, error)
+	GetBucketLogging(reqCtx RequestContext, credential common.Credential) (datatype.BucketLoggingStatus, error)
 	MakeBucket(reqCtx RequestContext, acl datatype.Acl, credential common.Credential) error
-	SetBucketLifecycle(bucket string, config datatype.Lifecycle,
+	SetBucketLifecycle(reqCtx RequestContext, config datatype.Lifecycle,
 		credential common.Credential) error
-	GetBucketLifecycle(bucket string, credential common.Credential) (datatype.Lifecycle, error)
-	DelBucketLifecycle(bucket string, credential common.Credential) error
-	SetBucketAcl(bucket string, policy datatype.AccessControlPolicy, acl datatype.Acl,
+	GetBucketLifecycle(reqCtx RequestContext, credential common.Credential) (datatype.Lifecycle, error)
+	DelBucketLifecycle(reqCtx RequestContext, credential common.Credential) error
+	SetBucketAcl(reqCtx RequestContext, policy datatype.AccessControlPolicy, acl datatype.Acl,
 		credential common.Credential) error
-	GetBucketAcl(bucket string, credential common.Credential) (datatype.AccessControlPolicyResponse, error)
-	SetBucketCors(bucket string, cors datatype.Cors, credential common.Credential) error
-	SetBucketVersioning(bucket string, versioning datatype.Versioning, credential common.Credential) error
-	DeleteBucketCors(bucket string, credential common.Credential) error
-	GetBucketVersioning(bucket string, credential common.Credential) (datatype.Versioning, error)
-	GetBucketCors(bucket string, credential common.Credential) (datatype.Cors, error)
+	GetBucketAcl(reqCtx RequestContext, credential common.Credential) (datatype.AccessControlPolicyResponse, error)
+	SetBucketCors(reqCtx RequestContext, cors datatype.Cors, credential common.Credential) error
+	SetBucketVersioning(reqCtx RequestContext, versioning datatype.Versioning, credential common.Credential) error
+	DeleteBucketCors(reqCtx RequestContext, credential common.Credential) error
+	GetBucketVersioning(reqCtx RequestContext, credential common.Credential) (datatype.Versioning, error)
+	GetBucketCors(reqCtx RequestContext, credential common.Credential) (datatype.Cors, error)
 	GetBucket(bucketName string) (bucket *meta.Bucket, err error) // For INTERNAL USE ONLY
-	GetBucketInfo(bucket string, credential common.Credential) (bucketInfo *meta.Bucket, err error)
+	GetBucketInfo(reqCtx RequestContext, credential common.Credential) (bucketInfo *meta.Bucket, err error)
 	GetBucketInfoByCtx(ctx RequestContext, credential common.Credential) (bucket *meta.Bucket, err error)
 	ListBuckets(credential common.Credential) (buckets []meta.Bucket, err error)
 	DeleteBucket(reqCtx RequestContext, credential common.Credential) error

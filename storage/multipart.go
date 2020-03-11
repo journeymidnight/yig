@@ -578,7 +578,7 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 		Type:             meta.ObjectTypeMultipart,
 		StorageClass:     multipart.Metadata.StorageClass,
 	}
-
+	object.VersionId = object.GenVersionId(bucket.Versioning)
 	if object.StorageClass == meta.ObjectStorageClassGlacier {
 		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
 		if err == nil {
@@ -604,7 +604,7 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 
 	if err == nil {
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
-		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.GetVersionId())
+		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.VersionId)
 	}
 
 	return

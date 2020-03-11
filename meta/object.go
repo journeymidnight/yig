@@ -3,6 +3,7 @@ package meta
 import (
 	. "database/sql/driver"
 
+	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
@@ -44,11 +45,18 @@ func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (o
 	return object, nil
 }
 
-func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed bool) (object *Object, err error) {
+func (m *Meta) GetObjectVersion(bucketName, objectName, reqVersion string, willNeed bool) (object *Object, err error) {
 	getObjectVersion := func() (o interface{}, err error) {
-		object, err := m.Client.GetObject(bucketName, objectName, version)
-		if err != nil {
-			return
+		if reqVersion == "" {
+			object, err = m.Client.GetLatestObjectVersion(bucketName, objectName)
+			if err != nil {
+				return
+			}
+		} else {
+			object, err = m.Client.GetObject(bucketName, objectName, reqVersion)
+			if err != nil {
+				return
+			}
 		}
 		if object.Name != objectName {
 			err = ErrNoSuchKey
@@ -61,7 +69,7 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed
 		err := helper.MsgPackUnMarshal(in, &object)
 		return &object, err
 	}
-	o, err := m.Cache.Get(redis.ObjectTable, bucketName+":"+objectName+":"+version,
+	o, err := m.Cache.Get(redis.ObjectTable, bucketName+":"+objectName+":"+reqVersion,
 		getObjectVersion, unmarshaller, willNeed)
 	if err != nil {
 		return
@@ -78,25 +86,19 @@ func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multi
 	if reqCtx.BucketInfo == nil {
 		return ErrNoSuchBucket
 	}
-	if reqCtx.BucketInfo.Versioning == VersionDisabled {
-		object.VersionId = NullVersion
-	} else {
-		return ErrNotImplemented
-		// TODO: object.VersionId = strconv.FormatUint(math.MaxUint64-uint64(object.LastModifiedTime.UnixNano()), 10)
-	}
+	switch reqCtx.BucketInfo.Versioning {
+	case datatype.BucketVersioningSuspended:
+		// TODO: Check SUSPEND Logic
+		fallthrough
+	case datatype.BucketVersioningDisabled:
+		needUpdate := (reqCtx.ObjectInfo != nil)
 
-	needUpdate := (reqCtx.ObjectInfo != nil)
-	if multipart == nil && object.Parts == nil {
 		if needUpdate {
-			return m.Client.UpdateObjectWithoutMultiPart(object)
+			return m.Client.UpdateObject(object, multipart, updateUsage)
 		} else {
-			return m.Client.PutObjectWithoutMultiPart(object)
+			return m.Client.PutObject(object, multipart, updateUsage)
 		}
-	}
-
-	if needUpdate {
-		return m.Client.UpdateObject(object, multipart, updateUsage)
-	} else {
+	case datatype.BucketVersioningEnabled:
 		return m.Client.PutObject(object, multipart, updateUsage)
 	}
 
@@ -205,6 +207,45 @@ func (m *Meta) DeleteObject(object *Object) (err error) {
 	}
 
 	return m.Client.UpdateUsage(object.BucketName, -object.Size, tx)
+}
+
+func (m *Meta) AddDeleteMarker(marker *Object) (err error) {
+	return m.Client.AddDeleteMarker(marker, nil)
+}
+
+func (m *Meta) DeleteSuspendedObject(object *Object) (err error) {
+	tx, err := m.Client.NewTrans()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = m.Client.CommitTrans(tx)
+		}
+		if err != nil {
+			m.Client.AbortTrans(tx)
+		}
+	}()
+
+	// only put delete marker if null version does not exist
+	if !object.DeleteMarker {
+		err = m.Client.DeleteObject(object, tx)
+		if err != nil {
+			return err
+		}
+
+		err = m.Client.PutObjectToGarbageCollection(object, tx)
+		if err != nil {
+			return err
+		}
+
+		err = m.Client.UpdateUsage(object.BucketName, -object.Size, tx)
+		if err != nil {
+			return err
+		}
+	}
+
+	return m.Client.AddDeleteMarker(object, tx)
 }
 
 func (m *Meta) AppendObject(object *Object, isExist bool) error {

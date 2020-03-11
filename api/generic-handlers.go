@@ -25,7 +25,9 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/meta"
+	"github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/signature"
 
 	. "github.com/journeymidnight/yig/context"
@@ -219,7 +221,7 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 
 	logger := r.Context().Value(ContextLoggerKey).(log.Logger)
 	reqCtx.Logger = logger
-
+	reqCtx.VersionId = helper.Ternary(r.URL.Query().Get("versionId") == "null", types.NullVersion, r.URL.Query().Get("versionId")).(string)
 	err := FillBucketAndObjectInfo(&reqCtx, r, h.meta)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
@@ -232,7 +234,7 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		return
 	}
 	reqCtx.AuthType = authType
-	reqCtx.VersionId = r.URL.Query().Get("versionId")
+
 	ctx := context.WithValue(r.Context(), RequestContextKey, reqCtx)
 	logger.Info("BucketName:", reqCtx.BucketName, "ObjectName:", reqCtx.ObjectName, "BucketExist:",
 		reqCtx.BucketInfo != nil, "ObjectExist:", reqCtx.ObjectInfo != nil, "AuthType:", authType, "VersionId:", reqCtx.VersionId)
@@ -279,10 +281,20 @@ func FillBucketAndObjectInfo(reqCtx *RequestContext, r *http.Request, meta *meta
 		if err != nil && err != ErrNoSuchBucket {
 			return err
 		}
-		if reqCtx.BucketInfo != nil && reqCtx.ObjectName != "" {
-			reqCtx.ObjectInfo, err = meta.GetObject(reqCtx.BucketInfo.Name, reqCtx.ObjectName, true)
-			if err != nil && err != ErrNoSuchKey {
-				return err
+		if reqCtx.BucketInfo != nil {
+			if reqCtx.BucketInfo.Versioning == datatype.BucketVersioningDisabled {
+				if reqCtx.VersionId != "" {
+					return ErrInvalidVersioning
+				}
+				reqCtx.ObjectInfo, err = meta.GetObject(reqCtx.BucketInfo.Name, reqCtx.ObjectName, true)
+				if err != nil && err != ErrNoSuchKey {
+					return err
+				}
+			} else {
+				reqCtx.ObjectInfo, err = meta.GetObjectVersion(reqCtx.BucketInfo.Name, reqCtx.ObjectName, reqCtx.VersionId, true)
+				if err != nil && err != ErrNoSuchKey {
+					return err
+				}
 			}
 		}
 	}
