@@ -20,10 +20,11 @@ import (
 	"net/url"
 	"strconv"
 
+	"unicode/utf8"
+
 	. "github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
-	"unicode/utf8"
 )
 
 func parseListObjectsQuery(query url.Values) (request ListObjectsRequest, err error) {
@@ -84,6 +85,12 @@ func parseListObjectsQuery(query url.Values) (request ListObjectsRequest, err er
 		err = ErrNonUTF8Encode
 		return
 	}
+
+	if request.KeyMarker == "" && request.VersionIdMarker != "" {
+		err = ErrInvalidVersioning
+		return
+	}
+
 	return
 }
 

@@ -7,9 +7,21 @@ import (
 	"github.com/journeymidnight/yig/helper"
 )
 
+type BucketVersioningType string
+
+const (
+	BucketVersioningEnabled   BucketVersioningType = "Enabled"
+	BucketVersioningDisabled  BucketVersioningType = "Disabled"
+	BucketVersioningSuspended BucketVersioningType = "Suspended"
+)
+
+func (b BucketVersioningType) String() string {
+	return string(b)
+}
+
 type Versioning struct {
-	XMLName xml.Name `xml:"VersioningConfiguration"`
-	Status  string   `xml:",omitempty"`
+	XMLName xml.Name             `xml:"VersioningConfiguration"`
+	Status  BucketVersioningType `xml:",omitempty"`
 	//TODO: MfaDelete string
 }
 
@@ -19,7 +31,7 @@ func VersioningFromXml(xmlBytes []byte) (versioning Versioning, err error) {
 		helper.Logger.Error("Unable to unmarshal versioning XML:", err)
 		return versioning, ErrInvalidVersioning
 	}
-	if versioning.Status != "Enabled" && versioning.Status != "Suspended" {
+	if versioning.Status != BucketVersioningEnabled && versioning.Status != BucketVersioningSuspended {
 		return versioning, ErrInvalidVersioning
 	}
 	return versioning, nil

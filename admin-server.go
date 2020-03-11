@@ -107,8 +107,9 @@ func getObjectInfo(w http.ResponseWriter, r *http.Request) {
 	claims := r.Context().Value("claims").(jwt.MapClaims)
 	bucketName := claims["bucket"].(string)
 	objectName := claims["object"].(string)
+	version := claims["version"].(string)
 
-	object, err := adminServer.Yig.MetaStorage.GetObject(bucketName, objectName, true)
+	object, err := adminServer.Yig.MetaStorage.GetObject(bucketName, objectName, version, true)
 	if err != nil {
 		api.WriteErrorResponse(w, r, err)
 		return

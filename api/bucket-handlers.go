@@ -36,7 +36,6 @@ import (
 func (api ObjectAPIHandlers) GetBucketLocationHandler(w http.ResponseWriter, r *http.Request) {
 	reqCtx := GetRequestContext(r)
 	logger := reqCtx.Logger
-	bucketName := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
@@ -55,7 +54,7 @@ func (api ObjectAPIHandlers) GetBucketLocationHandler(w http.ResponseWriter, r *
 		}
 	}
 
-	if _, err = api.ObjectAPI.GetBucketInfo(bucketName, credential); err != nil {
+	if _, err = api.ObjectAPI.GetBucketInfo(reqCtx, credential); err != nil {
 		logger.Error("Unable to fetch bucket info:", err)
 		WriteErrorResponse(w, r, err)
 		return
@@ -135,7 +134,7 @@ func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	switch signature.GetRequestAuthType(r) {
+	switch reqCtx.AuthType {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -399,7 +398,6 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *http.Request) {
 	reqCtx := GetRequestContext(r)
 	logger := reqCtx.Logger
-	bucket := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
@@ -422,7 +420,7 @@ func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *h
 		return
 	}
 	logger.Info("Setting bucket logging:", bl)
-	err = api.ObjectAPI.SetBucketLogging(bucket, bl, credential)
+	err = api.ObjectAPI.SetBucketLogging(reqCtx, bl, credential)
 	if err != nil {
 		logger.Error(err, "Unable to set bucket logging for bucket:", err)
 		WriteErrorResponse(w, r, err)
@@ -465,7 +463,7 @@ func (api ObjectAPIHandlers) GetBucketLoggingHandler(w http.ResponseWriter, r *h
 		return
 	}
 
-	bl, err := api.ObjectAPI.GetBucketLogging(bucketName, credential)
+	bl, err := api.ObjectAPI.GetBucketLogging(reqCtx, credential)
 	if err != nil {
 		logger.Error("Failed to get bucket ACL policy for bucket", bucketName,
 			"error:", err)
@@ -491,7 +489,6 @@ func (api ObjectAPIHandlers) GetBucketLoggingHandler(w http.ResponseWriter, r *h
 func (api ObjectAPIHandlers) PutBucketLifeCycleHandler(w http.ResponseWriter, r *http.Request) {
 	reqCtx := GetRequestContext(r)
 	logger := reqCtx.Logger
-	bucket := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
@@ -515,7 +512,7 @@ func (api ObjectAPIHandlers) PutBucketLifeCycleHandler(w http.ResponseWriter, r 
 	}
 
 	logger.Info("Setting lifecycle:", lc)
-	err = api.ObjectAPI.SetBucketLifecycle(bucket, lc, credential)
+	err = api.ObjectAPI.SetBucketLifecycle(reqCtx, lc, credential)
 	if err != nil {
 		logger.Error(err, "Unable to set lifecycle for bucket:", err)
 		WriteErrorResponse(w, r, err)
@@ -548,7 +545,7 @@ func (api ObjectAPIHandlers) GetBucketLifeCycleHandler(w http.ResponseWriter, r 
 		}
 	}
 
-	lc, err := api.ObjectAPI.GetBucketLifecycle(bucketName, credential)
+	lc, err := api.ObjectAPI.GetBucketLifecycle(reqCtx, credential)
 	if err != nil {
 		logger.Error("Failed to get bucket ACL policy for bucket", bucketName,
 			"error:", err)
@@ -573,7 +570,6 @@ func (api ObjectAPIHandlers) GetBucketLifeCycleHandler(w http.ResponseWriter, r 
 
 func (api ObjectAPIHandlers) DelBucketLifeCycleHandler(w http.ResponseWriter, r *http.Request) {
 	reqCtx := GetRequestContext(r)
-	bucketName := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
@@ -582,7 +578,7 @@ func (api ObjectAPIHandlers) DelBucketLifeCycleHandler(w http.ResponseWriter, r 
 		return
 	}
 
-	err = api.ObjectAPI.DelBucketLifecycle(bucketName, credential)
+	err = api.ObjectAPI.DelBucketLifecycle(reqCtx, credential)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -596,7 +592,6 @@ func (api ObjectAPIHandlers) DelBucketLifeCycleHandler(w http.ResponseWriter, r 
 func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.Request) {
 	reqCtx := GetRequestContext(r)
 	logger := reqCtx.Logger
-	bucket := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
@@ -629,7 +624,7 @@ func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.
 		}
 	}
 
-	err = api.ObjectAPI.SetBucketAcl(bucket, policy, acl, credential)
+	err = api.ObjectAPI.SetBucketAcl(reqCtx, policy, acl, credential)
 	if err != nil {
 		logger.Error("Unable to set ACL for bucket:", err)
 		WriteErrorResponse(w, r, err)
@@ -662,7 +657,7 @@ func (api ObjectAPIHandlers) GetBucketAclHandler(w http.ResponseWriter, r *http.
 		}
 	}
 
-	policy, err := api.ObjectAPI.GetBucketAcl(bucketName, credential)
+	policy, err := api.ObjectAPI.GetBucketAcl(reqCtx, credential)
 	if err != nil {
 		logger.Error("Failed to get ACL policy for bucket", bucketName,
 			"error:", err)
@@ -687,7 +682,6 @@ func (api ObjectAPIHandlers) GetBucketAclHandler(w http.ResponseWriter, r *http.
 func (api ObjectAPIHandlers) PutBucketCorsHandler(w http.ResponseWriter, r *http.Request) {
 	reqCtx := GetRequestContext(r)
 	logger := reqCtx.Logger
-	bucketName := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
@@ -721,7 +715,7 @@ func (api ObjectAPIHandlers) PutBucketCorsHandler(w http.ResponseWriter, r *http
 		WriteErrorResponse(w, r, err)
 		return
 	}
-	err = api.ObjectAPI.SetBucketCors(bucketName, cors, credential)
+	err = api.ObjectAPI.SetBucketCors(reqCtx, cors, credential)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -733,7 +727,6 @@ func (api ObjectAPIHandlers) PutBucketCorsHandler(w http.ResponseWriter, r *http
 
 func (api ObjectAPIHandlers) DeleteBucketCorsHandler(w http.ResponseWriter, r *http.Request) {
 	reqCtx := GetRequestContext(r)
-	bucketName := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
@@ -742,7 +735,7 @@ func (api ObjectAPIHandlers) DeleteBucketCorsHandler(w http.ResponseWriter, r *h
 		return
 	}
 
-	err = api.ObjectAPI.DeleteBucketCors(bucketName, credential)
+	err = api.ObjectAPI.DeleteBucketCors(reqCtx, credential)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -764,7 +757,7 @@ func (api ObjectAPIHandlers) GetBucketCorsHandler(w http.ResponseWriter, r *http
 		return
 	}
 
-	cors, err := api.ObjectAPI.GetBucketCors(bucketName, credential)
+	cors, err := api.ObjectAPI.GetBucketCors(reqCtx, credential)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -796,7 +789,7 @@ func (api ObjectAPIHandlers) GetBucketVersioningHandler(w http.ResponseWriter, r
 		return
 	}
 
-	versioning, err := api.ObjectAPI.GetBucketVersioning(bucketName, credential)
+	versioning, err := api.ObjectAPI.GetBucketVersioning(reqCtx, credential)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -819,7 +812,6 @@ func (api ObjectAPIHandlers) GetBucketVersioningHandler(w http.ResponseWriter, r
 func (api ObjectAPIHandlers) PutBucketVersioningHandler(w http.ResponseWriter, r *http.Request) {
 	reqCtx := GetRequestContext(r)
 	logger := reqCtx.Logger
-	bucketName := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
@@ -854,7 +846,7 @@ func (api ObjectAPIHandlers) PutBucketVersioningHandler(w http.ResponseWriter, r
 		WriteErrorResponse(w, r, err)
 		return
 	}
-	err = api.ObjectAPI.SetBucketVersioning(bucketName, versioning, credential)
+	err = api.ObjectAPI.SetBucketVersioning(reqCtx, versioning, credential)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -891,7 +883,7 @@ func (api ObjectAPIHandlers) HeadBucketHandler(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	if _, err = api.ObjectAPI.GetBucketInfo(reqCtx.BucketName, credential); err != nil {
+	if _, err = api.ObjectAPI.GetBucketInfo(reqCtx, credential); err != nil {
 		logger.Error("Unable to fetch bucket info:", err)
 		WriteErrorResponse(w, r, err)
 		return

@@ -107,7 +107,7 @@ func retrieveBucket(lc types.LifeCycle) error {
 	request.MaxKeys = 1000
 	if defaultConfig == true {
 		for {
-			info, err := yig.ListObjectsInternal(bucket.Name, request)
+			info, err := yig.ListObjectsInternal(bucket, request)
 			if err != nil {
 				return err
 			}
@@ -139,7 +139,7 @@ func retrieveBucket(lc types.LifeCycle) error {
 					return err
 				}
 				if checkIfExpiration(lastt, days) {
-					o, err := yig.MetaStorage.GetObject(bucket.Name, object.Key, true)
+					o, err := yig.MetaStorage.GetObject(bucket.Name, object.Key, "", true)
 					if err != nil {
 						helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
 						continue
@@ -169,7 +169,7 @@ func retrieveBucket(lc types.LifeCycle) error {
 			}
 			request.Prefix = rule.Prefix
 			for {
-				info, err := yig.ListObjectsInternal(bucket.Name, request)
+				info, err := yig.ListObjectsInternal(bucket, request)
 				if err != nil {
 					return err
 				}
@@ -179,7 +179,7 @@ func retrieveBucket(lc types.LifeCycle) error {
 						return err
 					}
 					if checkIfExpiration(lastt, days) {
-						o, err := yig.MetaStorage.GetObject(bucket.Name, object.Key, true)
+						o, err := yig.MetaStorage.GetObject(bucket.Name, object.Key, "", true)
 						if err != nil {
 							helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
 							continue

@@ -194,7 +194,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrInvalidCopySourceStorageClass: {
 		AwsErrorCode:   "InvalidCopySourceStorageClass",
-		Description:    "Storage class of copy source cannot be GLACIER or DEEP_ARCHIVE.",
+		Description:    "Storage class of copy source cannot be changed in version-enabled bucket.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidCopyRequest: {

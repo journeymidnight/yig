@@ -30,24 +30,24 @@ import (
 type ObjectLayer interface {
 	// Bucket operations.
 
-	SetBucketLogging(bucket string, config datatype.BucketLoggingStatus,
+	SetBucketLogging(reqCtx RequestContext, config datatype.BucketLoggingStatus,
 		credential common.Credential) error
-	GetBucketLogging(bucket string, credential common.Credential) (datatype.BucketLoggingStatus, error)
+	GetBucketLogging(reqCtx RequestContext, credential common.Credential) (datatype.BucketLoggingStatus, error)
 	MakeBucket(reqCtx RequestContext, acl datatype.Acl, credential common.Credential) error
-	SetBucketLifecycle(bucket string, config datatype.Lifecycle,
+	SetBucketLifecycle(reqCtx RequestContext, config datatype.Lifecycle,
 		credential common.Credential) error
-	GetBucketLifecycle(bucket string, credential common.Credential) (datatype.Lifecycle, error)
-	DelBucketLifecycle(bucket string, credential common.Credential) error
-	SetBucketAcl(bucket string, policy datatype.AccessControlPolicy, acl datatype.Acl,
+	GetBucketLifecycle(reqCtx RequestContext, credential common.Credential) (datatype.Lifecycle, error)
+	DelBucketLifecycle(reqCtx RequestContext, credential common.Credential) error
+	SetBucketAcl(reqCtx RequestContext, policy datatype.AccessControlPolicy, acl datatype.Acl,
 		credential common.Credential) error
-	GetBucketAcl(bucket string, credential common.Credential) (datatype.AccessControlPolicyResponse, error)
-	SetBucketCors(bucket string, cors datatype.Cors, credential common.Credential) error
-	SetBucketVersioning(bucket string, versioning datatype.Versioning, credential common.Credential) error
-	DeleteBucketCors(bucket string, credential common.Credential) error
-	GetBucketVersioning(bucket string, credential common.Credential) (datatype.Versioning, error)
-	GetBucketCors(bucket string, credential common.Credential) (datatype.Cors, error)
+	GetBucketAcl(reqCtx RequestContext, credential common.Credential) (datatype.AccessControlPolicyResponse, error)
+	SetBucketCors(reqCtx RequestContext, cors datatype.Cors, credential common.Credential) error
+	SetBucketVersioning(reqCtx RequestContext, versioning datatype.Versioning, credential common.Credential) error
+	DeleteBucketCors(reqCtx RequestContext, credential common.Credential) error
+	GetBucketVersioning(reqCtx RequestContext, credential common.Credential) (datatype.Versioning, error)
+	GetBucketCors(reqCtx RequestContext, credential common.Credential) (datatype.Cors, error)
 	GetBucket(bucketName string) (bucket *meta.Bucket, err error) // For INTERNAL USE ONLY
-	GetBucketInfo(bucket string, credential common.Credential) (bucketInfo *meta.Bucket, err error)
+	GetBucketInfo(reqCtx RequestContext, credential common.Credential) (bucketInfo *meta.Bucket, err error)
 	GetBucketInfoByCtx(ctx RequestContext, credential common.Credential) (bucket *meta.Bucket, err error)
 	ListBuckets(credential common.Credential) (buckets []meta.Bucket, err error)
 	DeleteBucket(reqCtx RequestContext, credential common.Credential) error
@@ -70,13 +70,13 @@ type ObjectLayer interface {
 	SetBucketEncryption(bucket *meta.Bucket, config datatype.EncryptionConfiguration) error
 	GetBucketEncryption(bucket string) (datatype.EncryptionConfiguration, error)
 	DeleteBucketEncryption(bucket *meta.Bucket) error
-	CheckBucketEncryption(bucket string) (*datatype.ApplyServerSideEncryptionByDefault, bool)
+	CheckBucketEncryption(bucket *meta.Bucket) (*datatype.ApplyServerSideEncryptionByDefault, bool)
 
 	// Object operations.
 	GetObject(object *meta.Object, startOffset int64, length int64, writer io.Writer,
 		sse datatype.SseRequest) (err error)
 	GetObjectInfo(bucket, object, version string, credential common.Credential) (objInfo *meta.Object, err error)
-	GetObjectInfoByCtx(reqCtx RequestContext, version string, credential common.Credential) (objInfo *meta.Object, err error)
+	GetObjectInfoByCtx(reqCtx RequestContext, credential common.Credential) (objInfo *meta.Object, err error)
 	PutObject(reqCtx RequestContext, credential common.Credential, size int64, data io.ReadCloser,
 		metadata map[string]string, acl datatype.Acl,
 		sse datatype.SseRequest, storageClass meta.StorageClass) (result datatype.PutObjectResult, err error)
@@ -88,9 +88,9 @@ type ObjectLayer interface {
 		sseRequest datatype.SseRequest, isMetadataOnly bool) (result datatype.PutObjectResult, err error)
 	RenameObject(reqCtx RequestContext, targetObject *meta.Object, sourceObject string, credential common.Credential) (result datatype.RenameObjectResult, err error)
 	PutObjectMeta(bucket *meta.Bucket, targetObject *meta.Object, credential common.Credential) (err error)
-	SetObjectAcl(bucket string, object string, version string, policy datatype.AccessControlPolicy,
+	SetObjectAcl(reqCtx RequestContext, policy datatype.AccessControlPolicy,
 		acl datatype.Acl, credential common.Credential) error
-	GetObjectAcl(bucket string, object string, version string, credential common.Credential) (
+	GetObjectAcl(reqCtx RequestContext, credential common.Credential) (
 		policy datatype.AccessControlPolicyResponse, err error)
 	DeleteObject(reqCtx RequestContext, credential common.Credential) (datatype.DeleteObjectResult,
 		error)

@@ -1,7 +1,6 @@
 package types
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -9,7 +8,6 @@ import (
 	"time"
 
 	"github.com/journeymidnight/yig/api/datatype"
-	"github.com/xxtea/xxtea-go/xxtea"
 )
 
 const NullVersion = "0"
@@ -82,16 +80,12 @@ func (o *Object) String() (s string) {
 	return s
 }
 
-func (o *Object) GetVersionId() string {
-	if o.NullVersion {
+func (o *Object) GenVersionId(bucketVersionType datatype.BucketVersioningType) string {
+	if bucketVersionType != datatype.BucketVersioningEnabled {
 		return NullVersion
 	}
-	if o.VersionId != "" {
-		return o.VersionId
-	}
-	timeData := []byte(strconv.FormatUint(uint64(o.LastModifiedTime.UnixNano()), 10))
-	o.VersionId = hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
-	return o.VersionId
+
+	return strconv.FormatUint(math.MaxUint64-uint64(o.LastModifiedTime.UnixNano()), 10)
 }
 
 //Tidb related function
@@ -114,11 +108,11 @@ func (o *Object) GetUpdateSql() (string, []interface{}) {
 	customAttributes, _ := json.Marshal(o.CustomAttributes)
 	acl, _ := json.Marshal(o.ACL)
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
-	sql := "update objects set location=?,pool=?,size=?,objectid=?,lastmodifiedtime=?,etag=?," +
+	sql := "update objects set location=?,pool=?,size=?,objectid=?,lastmodifiedtime=?,etag=?,deletemarker=?," +
 		"contenttype=?,customattributes=?,acl=?,ssetype=?,encryptionkey=?,initializationvector=?,type=?, storageclass=?, createtime=? " +
 		"where bucketname=? and name=? and version=?"
 	args := []interface{}{o.Location, o.Pool, o.Size, o.ObjectId,
-		lastModifiedTime, o.Etag, o.ContentType, customAttributes, acl,
+		lastModifiedTime, o.Etag, o.DeleteMarker, o.ContentType, customAttributes, acl,
 		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass, o.LastModifiedTime.UnixNano(), o.BucketName, o.Name, o.VersionId}
 	return sql, args
 }

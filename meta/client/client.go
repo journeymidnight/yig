@@ -15,17 +15,17 @@ type Client interface {
 	CommitTrans(tx Tx) error
 	//object
 	GetObject(bucketName, objectName, version string) (object *Object, err error)
+	GetLatestObjectVersion(bucketName, objectName string) (object *Object, err error)
 	PutObject(object *Object, multipart *Multipart, updateUsage bool) error
-	PutObjectWithoutMultiPart(object *Object) error
-	UpdateObject(object *Object, multipart *Multipart, updateUsage bool) (err error)
+	UpdateObject(object *Object, multipart *Multipart, updateUsage bool, tx Tx) (err error)
 	UpdateFreezerObject(object *Object, tx Tx) (err error)
-	UpdateObjectWithoutMultiPart(object *Object) error
 	UpdateAppendObject(object *Object) error
 	RenameObject(object *Object, sourceObject string) (err error)
 
 	ReplaceObjectMetas(object *Object, tx Tx) (err error)
 
 	DeleteObject(object *Object, tx Tx) error
+	DeleteObjectPart(object *Object, tx Tx) error
 	UpdateObjectAcl(object *Object) error
 	UpdateObjectAttrs(object *Object) error
 	//bucket
@@ -36,6 +36,7 @@ type Client interface {
 	CheckAndPutBucket(bucket Bucket) (bool, error)
 	DeleteBucket(bucket Bucket) error
 	ListObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (listInfo ListObjectsInfo, err error)
+	ListLatestObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (listInfo ListObjectsInfo, err error)
 	ListVersionedObjects(bucketName, marker, verIdMarker, prefix, delimiter string, maxKeys int) (listInfo VersionedListObjectsInfo, err error)
 
 	UpdateUsage(bucketName string, size int64, tx Tx) error
@@ -68,5 +69,4 @@ type Client interface {
 	GetFreezerStatus(bucketName, objectName, version string) (freezer *Freezer, err error)
 	UploadFreezerDate(bucketName, objectName string, lifetime int) (err error)
 	DeleteFreezer(bucketName, objectName string, tx Tx) (err error)
-
 }

@@ -1,8 +1,6 @@
 package main
 
 import (
-	"github.com/journeymidnight/yig/compression"
-	"github.com/journeymidnight/yig/crypto"
 	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
@@ -11,6 +9,9 @@ import (
 	"runtime"
 	"syscall"
 	"time"
+
+	"github.com/journeymidnight/yig/compression"
+	"github.com/journeymidnight/yig/crypto"
 
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
@@ -62,7 +63,7 @@ func main() {
 		Logger:  helper.Logger,
 		Yig:     yig,
 	}
-	if helper.CONFIG.CacheCircuitCheckInterval != 0 {
+	if helper.CONFIG.CacheCircuitCheckInterval != 0 && helper.CONFIG.MetaCacheType != 0 {
 		for i := 0; i < len(helper.CONFIG.RedisGroup); i++ {
 			go func(i int) {
 				yig.PingCache(time.Duration(helper.CONFIG.CacheCircuitCheckInterval)*time.Second, i)
