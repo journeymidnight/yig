@@ -88,9 +88,9 @@ type ObjectLayer interface {
 		sseRequest datatype.SseRequest, isMetadataOnly bool) (result datatype.PutObjectResult, err error)
 	RenameObject(reqCtx RequestContext, targetObject *meta.Object, sourceObject string, credential common.Credential) (result datatype.RenameObjectResult, err error)
 	PutObjectMeta(bucket *meta.Bucket, targetObject *meta.Object, credential common.Credential) (err error)
-	SetObjectAcl(bucket string, object string, version string, policy datatype.AccessControlPolicy,
+	SetObjectAcl(reqCtx RequestContext, policy datatype.AccessControlPolicy,
 		acl datatype.Acl, credential common.Credential) error
-	GetObjectAcl(bucket string, object string, version string, credential common.Credential) (
+	GetObjectAcl(reqCtx RequestContext, credential common.Credential) (
 		policy datatype.AccessControlPolicyResponse, err error)
 	DeleteObject(reqCtx RequestContext, credential common.Credential) (datatype.DeleteObjectResult,
 		error)

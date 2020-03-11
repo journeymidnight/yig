@@ -466,8 +466,6 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// TODO: Reject requests where body/payload is present, for now we don't even read it.
-
 	// copy source is of form: /bucket-name/object-name?versionId=xxxxxx
 	copySource := r.Header.Get("X-Amz-Copy-Source")
 
@@ -484,7 +482,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		sourceObjectName = splits[1]
 	}
 	// If source object is empty, reply back error.
-	if sourceObjectName == "" {
+	if sourceBucketName == "" || sourceObjectName == "" {
 		WriteErrorResponse(w, r, ErrInvalidCopySource)
 		return
 	}
@@ -498,9 +496,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		}
 		sourceVersion = strings.TrimPrefix(splits[1], "versionId=")
 	}
-	if sourceVersion == "" {
-		sourceVersion = "0"
-	}
+
 	// X-Amz-Copy-Source should be URL-encoded
 	sourceBucketName, err = url.QueryUnescape(sourceBucketName)
 	if err != nil {
@@ -1288,7 +1284,6 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.Request) {
 	reqCtx := GetRequestContext(r)
 	logger := ContextLogger(r)
-	bucketName := reqCtx.BucketName
 	objectName := reqCtx.ObjectName
 
 	var credential common.Credential
@@ -1332,7 +1327,7 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 	}
 
 	version := r.URL.Query().Get("versionId")
-	err = api.ObjectAPI.SetObjectAcl(bucketName, objectName, version, policy, acl, credential)
+	err = api.ObjectAPI.SetObjectAcl(reqCtx, policy, acl, credential)
 	if err != nil {
 		logger.Error("Unable to set ACL for object", objectName,
 			"error:", err)
@@ -1352,7 +1347,6 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.Request) {
 	reqCtx := GetRequestContext(r)
 	logger := ContextLogger(r)
-	bucketName := reqCtx.BucketName
 	objectName := reqCtx.ObjectName
 
 	var credential common.Credential
@@ -1373,7 +1367,7 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 	}
 
 	version := r.URL.Query().Get("versionId")
-	acl, err := api.ObjectAPI.GetObjectAcl(bucketName, objectName, version, credential)
+	acl, err := api.ObjectAPI.GetObjectAcl(reqCtx, credential)
 	if err != nil {
 		logger.Error("Unable to fetch object acl:", err)
 		WriteErrorResponse(w, r, err)

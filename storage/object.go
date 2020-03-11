@@ -334,13 +334,20 @@ func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 		return
 	}
 
-	if version == "" || version == meta.NullVersion {
-		object, err = yig.MetaStorage.GetObject(bucketName, objectName, true)
-	} else {
-		object, err = yig.getObjWithVersion(bucketName, objectName, version)
+	if version == "null" {
+		version = meta.NullVersion
 	}
+	if bucket.Versioning == datatype.BucketVersioningDisabled {
+		if version != "" {
+			return nil, ErrInvalidVersioning
+		}
+		object, err = yig.MetaStorage.GetObject(bucketName, objectName, meta.NullVersion, true)
+	} else {
+		object, err = yig.MetaStorage.GetObject(bucketName, objectName, version, true)
+	}
+
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	if !credential.AllowOtherUserAccess {
@@ -400,26 +407,19 @@ func (yig *YigStorage) GetObjectInfoByCtx(ctx RequestContext,
 			}
 		}
 	}
-
 	return
 }
 
-func (yig *YigStorage) GetObjectAcl(bucketName string, objectName string,
-	version string, credential common.Credential) (policy datatype.AccessControlPolicyResponse, err error) {
-
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
-	if err != nil {
-		return
+func (yig *YigStorage) GetObjectAcl(reqCtx RequestContext, credential common.Credential) (
+	policy datatype.AccessControlPolicyResponse, err error) {
+	bucket := reqCtx.BucketInfo
+	if bucket == nil {
+		return policy, ErrNoSuchBucket
 	}
 
-	var object *meta.Object
-	if version == "" || version == meta.NullVersion {
-		object, err = yig.MetaStorage.GetObject(bucketName, objectName, true)
-	} else {
-		object, err = yig.getObjWithVersion(bucketName, objectName, version)
-	}
-	if err != nil {
-		return
+	object := reqCtx.ObjectInfo
+	if object == nil {
+		return policy, ErrNoSuchKey
 	}
 
 	switch object.ACL.CannedAcl {
@@ -449,8 +449,18 @@ func (yig *YigStorage) GetObjectAcl(bucketName string, objectName string,
 	return
 }
 
-func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, version string,
-	policy datatype.AccessControlPolicy, acl datatype.Acl, credential common.Credential) error {
+func (yig *YigStorage) SetObjectAcl(reqCtx RequestContext, policy datatype.AccessControlPolicy, acl datatype.Acl,
+	credential common.Credential) error {
+
+	bucket := reqCtx.BucketInfo
+	if bucket == nil {
+		return ErrNoSuchBucket
+	}
+
+	object := reqCtx.ObjectInfo
+	if object == nil {
+		return ErrNoSuchKey
+	}
 
 	if acl.CannedAcl == "" {
 		newCannedAcl, err := datatype.GetCannedAclFromPolicy(policy)
@@ -460,10 +470,6 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, versio
 		acl = newCannedAcl
 	}
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
-	if err != nil {
-		return err
-	}
 	switch bucket.ACL.CannedAcl {
 	case "bucket-owner-full-control":
 		if bucket.OwnerId != credential.UserId {
@@ -474,23 +480,15 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, versio
 			return ErrAccessDenied
 		}
 	} // TODO policy and fancy ACL
-	var object *meta.Object
-	if version == "" || version == meta.NullVersion {
-		object, err = yig.MetaStorage.GetObject(bucketName, objectName, false)
-	} else {
-		object, err = yig.getObjWithVersion(bucketName, objectName, version)
-	}
-	if err != nil {
-		return err
-	}
+
 	object.ACL = acl
-	err = yig.MetaStorage.UpdateObjectAcl(object)
+	err := yig.MetaStorage.UpdateObjectAcl(object)
 	if err != nil {
 		return err
 	}
 	if err == nil {
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable,
-			bucketName+":"+objectName+":"+version)
+			reqCtx.BucketName+":"+reqCtx.ObjectName+":"+reqCtx.VersionId)
 	}
 	return nil
 }
@@ -910,11 +908,6 @@ func (yig *YigStorage) removeByObject(object *meta.Object) (err error) {
 		return
 	}
 	return nil
-}
-
-func (yig *YigStorage) getObjWithVersion(bucketName, objectName, version string) (object *meta.Object, err error) {
-	return yig.MetaStorage.GetObjectVersion(bucketName, objectName, version, true)
-
 }
 
 func (yig *YigStorage) removeOldObject(object *meta.Object) (err error) {

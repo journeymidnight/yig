@@ -139,7 +139,7 @@ func retrieveBucket(lc types.LifeCycle) error {
 					return err
 				}
 				if checkIfExpiration(lastt, days) {
-					o, err := yig.MetaStorage.GetObject(bucket.Name, object.Key, true)
+					o, err := yig.MetaStorage.GetObject(bucket.Name, object.Key, "", true)
 					if err != nil {
 						helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
 						continue
@@ -179,7 +179,7 @@ func retrieveBucket(lc types.LifeCycle) error {
 						return err
 					}
 					if checkIfExpiration(lastt, days) {
-						o, err := yig.MetaStorage.GetObject(bucket.Name, object.Key, true)
+						o, err := yig.MetaStorage.GetObject(bucket.Name, object.Key, "", true)
 						if err != nil {
 							helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
 							continue

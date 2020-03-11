@@ -11,41 +11,7 @@ import (
 	"github.com/journeymidnight/yig/redis"
 )
 
-func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (object *Object, err error) {
-	getObject := func() (o interface{}, err error) {
-		helper.Logger.Info("GetObject CacheMiss. bucket:", bucketName,
-			"object:", objectName)
-		object, err := m.Client.GetObject(bucketName, objectName, "")
-		if err != nil {
-			return
-		}
-		helper.Logger.Info("GetObject object.Name:", object.Name)
-		if object.Name != objectName {
-			err = ErrNoSuchKey
-			return
-		}
-		return object, nil
-	}
-	unmarshaller := func(in []byte) (interface{}, error) {
-		var object Object
-		err := helper.MsgPackUnMarshal(in, &object)
-		return &object, err
-	}
-
-	o, err := m.Cache.Get(redis.ObjectTable, bucketName+":"+objectName+":",
-		getObject, unmarshaller, willNeed)
-	if err != nil {
-		return
-	}
-	object, ok := o.(*Object)
-	if !ok {
-		err = ErrInternalError
-		return
-	}
-	return object, nil
-}
-
-func (m *Meta) GetObjectVersion(bucketName, objectName, reqVersion string, willNeed bool) (object *Object, err error) {
+func (m *Meta) GetObject(bucketName, objectName, reqVersion string, willNeed bool) (object *Object, err error) {
 	getObjectVersion := func() (o interface{}, err error) {
 		if reqVersion == "" {
 			object, err = m.Client.GetLatestObjectVersion(bucketName, objectName)
