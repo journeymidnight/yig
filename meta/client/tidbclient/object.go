@@ -12,21 +12,21 @@ import (
 	. "github.com/journeymidnight/yig/meta/types"
 )
 
-func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *Object, err error) {
+func (t *TidbClient) GetObject(bucketName, objectName, version string) (*Object, error) {
 	var ibucketname, iname, customattributes, acl, lastModifiedTime string
 	var iversion uint64
-
+	var err error
 	var row *sql.Row
 	sqltext := "select bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag,contenttype," +
 		"customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass,createtime from objects where bucketname=? and name=? "
-	if version == "" || version == NullVersion {
-		sqltext += "and version='0'"
+	if version == NullVersion {
+		sqltext += "and version=0"
 		row = t.Client.QueryRow(sqltext, bucketName, objectName)
 	} else {
 		sqltext += "and version=?;"
 		row = t.Client.QueryRow(sqltext, bucketName, objectName, version)
 	}
-	object = &Object{}
+	object := &Object{}
 	err = row.Scan(
 		&ibucketname,
 		&iname,
@@ -52,27 +52,30 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 	)
 	if err == sql.ErrNoRows {
 		err = ErrNoSuchKey
-		return
+		return nil, ErrNoSuchKey
 	} else if err != nil {
-		return
+		return nil, err
 	}
 	object.LastModifiedTime, err = time.Parse("2006-01-02 15:04:05", lastModifiedTime)
 	if err != nil {
-		return
+		return nil, err
 	}
 	object.Name = objectName
 	object.BucketName = bucketName
 	err = json.Unmarshal([]byte(acl), &object.ACL)
 	if err != nil {
-		return
+		return nil, err
 	}
 	err = json.Unmarshal([]byte(customattributes), &object.CustomAttributes)
 	if err != nil {
-		return
+		return nil, err
 	}
 	if object.Type == ObjectTypeMultipart {
 		iversion = math.MaxUint64 - object.CreateTime
 		object.Parts, err = getParts(object.BucketName, object.Name, iversion, t.Client)
+		if err != nil {
+			return nil, err
+		}
 		//build simple index for multipart
 		if len(object.Parts) != 0 {
 			var sortedPartNum = make([]int64, len(object.Parts))
@@ -82,7 +85,7 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 			object.PartsIndex = &SimpleIndex{Index: sortedPartNum}
 		}
 	}
-	return
+	return object, nil
 }
 
 func (t *TidbClient) GetLatestObjectVersion(bucketName, objectName string) (object *Object, err error) {

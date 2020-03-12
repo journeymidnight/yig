@@ -1326,7 +1326,6 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 		}
 	}
 
-	version := r.URL.Query().Get("versionId")
 	err = api.ObjectAPI.SetObjectAcl(reqCtx, policy, acl, credential)
 	if err != nil {
 		logger.Error("Unable to set ACL for object", objectName,
@@ -1334,8 +1333,8 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 		WriteErrorResponse(w, r, err)
 		return
 	}
-	if version != "" {
-		w.Header().Set("x-amz-version-id", version)
+	if reqCtx.VersionId != "" {
+		w.Header().Set("x-amz-version-id", reqCtx.VersionId)
 	}
 
 	// ResponseRecorder

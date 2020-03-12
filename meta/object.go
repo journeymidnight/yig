@@ -24,10 +24,6 @@ func (m *Meta) GetObject(bucketName, objectName, reqVersion string, willNeed boo
 				return
 			}
 		}
-		if object.Name != objectName {
-			err = ErrNoSuchKey
-			return
-		}
 		return object, nil
 	}
 	unmarshaller := func(in []byte) (interface{}, error) {

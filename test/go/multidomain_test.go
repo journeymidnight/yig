@@ -2,11 +2,13 @@ package _go
 
 import (
 	"testing"
+
 	. "github.com/journeymidnight/yig/test/go/lib"
 )
 
-func Test_MultiDomain(t *testing.T)  {
+func Test_MultiDomain(t *testing.T) {
 	sc := NewS3Internal()
+	defer sc.CleanEnv()
 	err := sc.MakeBucket(TEST_BUCKET)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
@@ -23,7 +25,7 @@ func Test_MultiDomain(t *testing.T)  {
 
 	err = sc.DeleteObject(TEST_BUCKET, TEST_KEY)
 	if err != nil {
-		t.Log("DeleteObject err:", err)
+		t.Fatal("DeleteObject err:", err)
 	}
 
 	err = sc.DeleteBucket(TEST_BUCKET)
