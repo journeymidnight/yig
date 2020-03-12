@@ -274,6 +274,9 @@ func (yig *YigStorage) GetBucketVersioning(reqCtx RequestContext, credential com
 	if bucket == nil {
 		return versioning, ErrNoSuchBucket
 	}
+	if bucket.Versioning == datatype.BucketVersioningDisabled {
+		return
+	}
 	versioning.Status = bucket.Versioning
 	return
 }

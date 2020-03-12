@@ -206,7 +206,7 @@ func (api ObjectAPIHandlers) HandledByWebsite(w http.ResponseWriter, r *http.Req
 				return true
 			}
 			credential.AllowOtherUserAccess = isAllow
-			index, err := api.ObjectAPI.GetObjectInfo(ctx.BucketName, indexName, "", credential)
+			_, index, err := api.ObjectAPI.GetBucketAndObjectInfo(ctx.BucketName, indexName, "", credential)
 			if err != nil {
 				if err == ErrNoSuchKey {
 					api.errAllowableObjectNotFound(w, r, credential)
@@ -259,7 +259,7 @@ func (api ObjectAPIHandlers) ReturnWebsiteErrorDocument(w http.ResponseWriter, r
 			return true
 		}
 		credential.AllowOtherUserAccess = isAllow
-		index, err := api.ObjectAPI.GetObjectInfo(ctx.BucketName, indexName, "", credential)
+		_, index, err := api.ObjectAPI.GetBucketAndObjectInfo(ctx.BucketName, indexName, "", credential)
 		if err != nil {
 			WriteErrorResponse(w, r, err)
 			return true

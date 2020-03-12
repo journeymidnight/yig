@@ -570,7 +570,7 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 		ContentType:      contentType,
 		Parts:            multipart.Parts,
 		ACL:              multipart.Metadata.Acl,
-		NullVersion:      helper.Ternary(bucket.Versioning == "Enabled", false, true).(bool),
+		NullVersion:      helper.Ternary(bucket.Versioning == datatype.BucketVersioningEnabled, false, true).(bool),
 		DeleteMarker:     false,
 		SseType:          multipart.Metadata.SseRequest.Type,
 		EncryptionKey:    multipart.Metadata.CipherKey,

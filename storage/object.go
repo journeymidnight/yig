@@ -326,28 +326,28 @@ func copyEncryptedPart(pool string, part *meta.Part, cluster backend.Cluster,
 	return err
 }
 
-func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
-	version string, credential common.Credential) (object *meta.Object, err error) {
+func (yig *YigStorage) GetBucketAndObjectInfo(bucketName string, objectName string,
+	version string, credential common.Credential) (bucket *meta.Bucket, object *meta.Object, err error) {
 
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
+	bucket, err = yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
 		return
 	}
 
-	if version == "null" {
-		version = meta.NullVersion
-	}
 	if bucket.Versioning == datatype.BucketVersioningDisabled {
 		if version != "" {
-			return nil, ErrInvalidVersioning
+			return nil, nil, ErrInvalidVersioning
 		}
 		object, err = yig.MetaStorage.GetObject(bucketName, objectName, meta.NullVersion, true)
 	} else {
+		if version == "null" {
+			version = meta.NullVersion
+		}
 		object, err = yig.MetaStorage.GetObject(bucketName, objectName, version, true)
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if !credential.AllowOtherUserAccess {
@@ -607,7 +607,7 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 		Etag:             calculatedMd5,
 		ContentType:      metadata["Content-Type"],
 		ACL:              acl,
-		NullVersion:      helper.Ternary(bucket.Versioning == "Enabled", false, true).(bool),
+		NullVersion:      helper.Ternary(bucket.Versioning == datatype.BucketVersioningEnabled, false, true).(bool),
 		DeleteMarker:     false,
 		SseType:          sseRequest.Type,
 		EncryptionKey: helper.Ternary(sseRequest.Type == crypto.S3.String(),
@@ -639,7 +639,7 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 	} else {
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":")
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.VersionId)
-		if reqCtx.ObjectInfo != nil && reqCtx.BucketInfo.Versioning == datatype.BucketVersioningDisabled {
+		if reqCtx.ObjectInfo != nil && reqCtx.BucketInfo.Versioning != datatype.BucketVersioningEnabled {
 			go yig.removeOldObject(reqCtx.ObjectInfo)
 		}
 	}
@@ -720,34 +720,28 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 			return result, ErrBucketAccessForbidden
 		}
 	}
-
+	targetObject.LastModifiedTime = time.Now().UTC()
+	targetObject.VersionId = targetObject.GenVersionId(bucket.Versioning)
 	if isMetadataOnly {
 		if sourceObject.StorageClass == meta.ObjectStorageClassGlacier {
-			targetObject.LastModifiedTime = sourceObject.LastModifiedTime
 			err = yig.MetaStorage.UpdateGlacierObject(targetObject, sourceObject, true)
 			if err != nil {
 				helper.Logger.Error("Copy Object with same source and target with GLACIER object, sql fails:", err)
 				return result, ErrInternalError
 			}
-			result.LastModified = targetObject.LastModifiedTime
-			if bucket.Versioning == "Enabled" {
-				result.VersionId = targetObject.VersionId
+		} else {
+			err = yig.MetaStorage.ReplaceObjectMetas(targetObject)
+			if err != nil {
+				helper.Logger.Error("Copy Object with same source and target, sql fails:", err)
+				return result, ErrInternalError
 			}
-			yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
-			yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.VersionId)
-			return result, nil
 		}
-		err = yig.MetaStorage.ReplaceObjectMetas(targetObject)
-		if err != nil {
-			helper.Logger.Error("Copy Object with same source and target, sql fails:", err)
-			return result, ErrInternalError
-		}
-		targetObject.LastModifiedTime = time.Now().UTC()
+
 		result.LastModified = targetObject.LastModifiedTime
-		if bucket.Versioning == "Enabled" {
+		if bucket.Versioning == datatype.BucketVersioningEnabled {
 			result.VersionId = targetObject.VersionId
 		}
-		yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":"+targetObject.VersionId)
 		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.VersionId)
 		return result, nil
 	}
@@ -868,13 +862,10 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 	}
 	// TODO validate bucket policy and fancy ACL
 
-	targetObject.Rowkey = nil   // clear the rowkey cache
-	targetObject.VersionId = "" // clear the versionId cache
 	targetObject.Location = cephCluster.ID()
 	targetObject.Pool = poolName
 	targetObject.OwnerId = credential.UserId
-	targetObject.LastModifiedTime = time.Now().UTC()
-	targetObject.NullVersion = helper.Ternary(bucket.Versioning == "Enabled", false, true).(bool)
+	targetObject.NullVersion = helper.Ternary(bucket.Versioning == datatype.BucketVersioningEnabled, false, true).(bool)
 	targetObject.DeleteMarker = false
 	targetObject.SseType = sseRequest.Type
 	targetObject.EncryptionKey = helper.Ternary(sseRequest.Type == crypto.S3.String(),
@@ -894,7 +885,7 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 	} else {
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
 		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.VersionId)
-		if reqCtx.ObjectInfo != nil && reqCtx.BucketInfo.Versioning == datatype.BucketVersioningDisabled {
+		if reqCtx.ObjectInfo != nil && reqCtx.BucketInfo.Versioning != datatype.BucketVersioningEnabled {
 			go yig.removeOldObject(reqCtx.ObjectInfo)
 		}
 	}
@@ -928,15 +919,6 @@ func (yig *YigStorage) removeOldObject(object *meta.Object) (err error) {
 		} else if err != ErrNoSuchKey {
 			return err
 		}
-	}
-	err = yig.removeByObject(object)
-	if err != nil {
-		return err
-	}
-
-	err = yig.removeByObject(object)
-	if err != nil {
-		return err
 	}
 
 	return

@@ -512,7 +512,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	logger.Info("Copying object from", sourceBucketName, sourceObjectName,
 		sourceVersion, "to", targetBucketName, targetObjectName)
 
-	sourceObject, err := api.ObjectAPI.GetObjectInfo(sourceBucketName, sourceObjectName,
+	sourceBucket, sourceObject, err := api.ObjectAPI.GetBucketAndObjectInfo(sourceBucketName, sourceObjectName,
 		sourceVersion, credential)
 
 	if err != nil {
@@ -544,20 +544,16 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// TODO: In a versioning-enabled bucket, you cannot change the storage class
-	//  of a specific version of an object. When you copy it, Amazon S3 gives it
-	//  a new version ID.
-	storageClassStr := r.Header.Get("X-Amz-Storage-Class")
 	var targetStorageClass meta.StorageClass
-	if storageClassStr != "" {
-		helper.Logger.Info("Get storage class header:", storageClassStr)
-		targetStorageClass, err = meta.MatchStorageClassIndex(storageClassStr)
-		if err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
-	} else {
-		targetStorageClass = sourceObject.StorageClass
+	targetStorageClass, err = getStorageClassFromHeader(r)
+	if err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+
+	if sourceBucket.Versioning == BucketVersioningEnabled && sourceObject.StorageClass != targetStorageClass {
+		WriteErrorResponse(w, r, ErrInvalidCopySourceStorageClass)
+		return
 	}
 
 	truelySourceObject := sourceObject
@@ -585,6 +581,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 			sourceObject.Pool = freezer.Pool
 			sourceObject.Location = freezer.Location
 			sourceObject.ObjectId = freezer.ObjectId
+			sourceObject.VersionId = freezer.VersionId
 		}
 	}
 
@@ -595,11 +592,8 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	var isMetadataOnly bool
-	isMetadataOnly = false
 	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName {
-		if sourceObject.StorageClass != meta.ObjectStorageClassGlacier && targetStorageClass == meta.ObjectStorageClassGlacier {
-			isMetadataOnly = false
-		} else {
+		if sourceObject.StorageClass == meta.ObjectStorageClassGlacier || targetStorageClass != meta.ObjectStorageClassGlacier {
 			isMetadataOnly = true
 		}
 	}
@@ -638,7 +632,6 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	targetObject.ObjectId = sourceObject.ObjectId
 	targetObject.Pool = sourceObject.Pool
 	targetObject.Location = sourceObject.Location
-
 	targetObject.StorageClass = targetStorageClass
 
 	directive := r.Header.Get("X-Amz-Metadata-Directive")
@@ -758,7 +751,7 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 	logger.Info("Bucket Multi-version is:", bucket.Versioning)
 
 	var sourceVersion string
-	sourceObject, err := api.ObjectAPI.GetObjectInfo(reqCtx.BucketName, sourceObjectName,
+	_, sourceObject, err := api.ObjectAPI.GetBucketAndObjectInfo(reqCtx.BucketName, sourceObjectName,
 		sourceVersion, credential)
 	if err != nil {
 		WriteErrorResponseWithResource(w, r, err, sourceObjectName)
@@ -1673,7 +1666,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
-	sourceObject, err := api.ObjectAPI.GetObjectInfo(sourceBucketName, sourceObjectName,
+	_, sourceObject, err := api.ObjectAPI.GetBucketAndObjectInfo(sourceBucketName, sourceObjectName,
 		sourceVersion, credential)
 	if err != nil {
 		logger.Error("Unable to fetch object info:", err)

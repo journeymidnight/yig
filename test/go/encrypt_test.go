@@ -186,7 +186,12 @@ func Test_PutEncryptObjectWithSSES3(t *testing.T) {
 
 func Test_CopyObjectSourceIsSSES3(t *testing.T) {
 	svc := NewS3()
-
+	defer func() {
+		svc.DeleteObject(TEST_BUCKET, TEST_KEY)
+		svc.DeleteObject(TEST_COPY_BUCKET, TEST_KEY)
+		svc.DeleteBucket(TEST_BUCKET)
+		svc.DeleteBucket(TEST_COPY_BUCKET)
+	}()
 	err := svc.MakeBucket(TEST_BUCKET)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
@@ -225,26 +230,6 @@ func Test_CopyObjectSourceIsSSES3(t *testing.T) {
 	}
 	if v1 != v2 {
 		t.Fatal("Copyed result is not the same.")
-	}
-
-	//clean up
-	err = svc.DeleteObject(TEST_BUCKET, TEST_KEY)
-	if err != nil {
-		t.Log("DeleteObject err:", err)
-	}
-	err = svc.DeleteObject(TEST_COPY_BUCKET, TEST_KEY)
-	if err != nil {
-		t.Log("DeleteObject err:", err)
-	}
-	err = svc.DeleteBucket(TEST_BUCKET)
-	if err != nil {
-		t.Fatal("DeleteBucket err:", err)
-		panic(err)
-	}
-	err = svc.DeleteBucket(TEST_COPY_BUCKET)
-	if err != nil {
-		t.Fatal("DeleteBucket err:", err)
-		panic(err)
 	}
 }
 
