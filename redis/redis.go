@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/minio/highwayhash"
 	"github.com/cep21/circuit"
 	redigo "github.com/gomodule/redigo/redis"
 	"github.com/journeymidnight/yig/circuitbreak"
 	"github.com/journeymidnight/yig/helper"
+	"github.com/minio/highwayhash"
 )
 
 var (
@@ -212,7 +212,6 @@ func Get(table RedisDatabase, key string,
 			if err != nil {
 				return err
 			}
-			// Use table.String() + hashkey as Redis key
 			encodedValue, err = redigo.Bytes(c.Do("GET", table.String()+hashkey))
 			if err != nil {
 				if err == redigo.ErrNil {
@@ -236,38 +235,37 @@ func Get(table RedisDatabase, key string,
 // Get Usages
 // `start` and `end` are inclusive
 func GetUsage(key string) (value string, err error) {
-	i, err := GetLocate(key)
-	if err != nil {
-		return
-	}
 	var encodedValue string
-	err = Circuits[i].Execute(
-		context.Background(),
-		func(ctx context.Context) (err error) {
-			c, err := GetClient(ctx, i)
-			if err != nil {
-				return err
-			}
-			defer c.Close()
-			// Use table.String() + hashkey as Redis key
-			encodedValue, err = redigo.String(c.Do("GET", key))
-			if err != nil {
-				if err == redigo.ErrNil {
-					return nil
+	for circuitNum, circuitTarget := range Circuits {
+		err = circuitTarget.Execute(
+			context.Background(),
+			func(ctx context.Context) (err error) {
+				c, err := GetClient(ctx, circuitNum)
+				if err != nil {
+					return err
 				}
-				return err
-			}
-			return nil
-		},
-		nil,
-	)
-	if err != nil {
-		return "", err
+				defer c.Close()
+				// Use table.String() + hashkey as Redis key
+				encodedValue, err = redigo.String(c.Do("GET", key))
+				if err != nil {
+					if err == redigo.ErrNil {
+						return nil
+					}
+					return err
+				}
+				return nil
+			},
+			nil,
+		)
+		if err != nil {
+			return "", err
+		}
+		if len(encodedValue) == 0 {
+			continue
+		}
+		return encodedValue, nil
 	}
-	if len(encodedValue) == 0 {
-		return "", nil
-	}
-	return encodedValue, nil
+	return "", nil
 }
 
 // Get file bytes
