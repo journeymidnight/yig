@@ -19,6 +19,7 @@ package lifecycle
 import (
 	"encoding/xml"
 	"fmt"
+	. "github.com/journeymidnight/yig/error"
 	"testing"
 )
 
@@ -35,14 +36,14 @@ func TestUnsupportedRules(t *testing.T) {
 			inputXML: ` <Rule>
 	                     <NoncurrentVersionTransition></NoncurrentVersionTransition>
 	                    </Rule>`,
-			expectedErr: errNoncurrentVersionTransitionUnsupported,
+			expectedErr: nil,
 		},
 		{ // Rule with unsupported NoncurrentVersionExpiration
 
 			inputXML: ` <Rule>
 	                     <NoncurrentVersionExpiration></NoncurrentVersionExpiration>
 	                    </Rule>`,
-			expectedErr: errNoncurrentVersionExpirationUnsupported,
+			expectedErr: nil,
 		},
 		{ // Rule with unsupported Transition action
 			inputXML: ` <Rule>
@@ -74,13 +75,13 @@ func TestInvalidRules(t *testing.T) {
 			inputXML: ` <Rule>
                             <Status>Enabled</Status>
 	                    </Rule>`,
-			expectedErr: errMissingAction,
+			expectedErr: ErrLcMissingAction,
 		},
 		{ // Rule with ID longer than 255 characters
 			inputXML: ` <Rule>
 	                    <ID> babababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababababab </ID>
 						</Rule>`,
-			expectedErr: errInvalidRuleID,
+			expectedErr: ErrInvalidLcRuleID,
 		},
 		{ // Rule with empty status
 			inputXML: ` <Rule>
@@ -89,13 +90,13 @@ func TestInvalidRules(t *testing.T) {
 									<Days>3</Days>
                                     </Expiration>
 	                    </Rule>`,
-			expectedErr: errEmptyRuleStatus,
+			expectedErr: ErrInvalidLcRuleStatus,
 		},
 		{ // Rule with invalid status
 			inputXML: ` <Rule>
                               <Status>OK</Status>
 	                    </Rule>`,
-			expectedErr: errInvalidRuleStatus,
+			expectedErr: ErrInvalidLcRuleStatus,
 		},
 		{ // Expiration with neither number of days nor a date
 			inputXML: ` <Rule>
@@ -103,7 +104,7 @@ func TestInvalidRules(t *testing.T) {
 	                    	<Expiration>
                                     </Expiration>
 	                    </Rule>`,
-			expectedErr: errLifecycleOfDateAndDays,
+			expectedErr: ErrInvalidLcUsingDateAndDays,
 		},
 		{ // Transition with neither number of days nor a date
 			inputXML: ` <Rule>
@@ -115,7 +116,7 @@ func TestInvalidRules(t *testing.T) {
                                     
                                     </Transition>
 	                    </Rule>`,
-			expectedErr: errLifecycleOfDateAndDays,
+			expectedErr: ErrInvalidLcUsingDateAndDays,
 		},
 		{ // Transition and Expiration run success
 			inputXML: ` <Rule>
@@ -127,7 +128,7 @@ func TestInvalidRules(t *testing.T) {
                                     <Days>3</Days>
                                     </Transition>
 	                    </Rule>`,
-			expectedErr: nil,
+			expectedErr: ErrLcMissingStorageClass,
 		},
 		{ // Transition and Expiration run success
 			inputXML: ` <Rule>
@@ -142,7 +143,7 @@ func TestInvalidRules(t *testing.T) {
                                     <Date>2019-04-20T00:00:00Z</Date>
                                     </Transition>
 	                    </Rule>`,
-			expectedErr: nil,
+			expectedErr: ErrLcMissingStorageClass,
 		},
 		{ // Transition and Expiration run success
 			inputXML: ` <Rule>
@@ -152,13 +153,14 @@ func TestInvalidRules(t *testing.T) {
                                     </Expiration>
 							<Transition>
                                     <Days>3</Days>
+									<StorageClass>GLACIER</StorageClass>
                                     </Transition>
 							<Transition>
                                     <Days>3</Days>
 									<Date>2019-04-20T00:00:00Z</Date>
                                     </Transition>
 	                    </Rule>`,
-			expectedErr: errLifecycleOfDateAndDays,
+			expectedErr: ErrInvalidLcUsingDateAndDays,
 		},
 	}
 

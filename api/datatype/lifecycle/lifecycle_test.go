@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"fmt"
+	. "github.com/journeymidnight/yig/error"
 	"testing"
 	"time"
 )
@@ -29,7 +30,7 @@ func TestParseLifecycleConfig(t *testing.T) {
 	var manyRules []Rule
 	rule := Rule{
 		Status:     "Enabled",
-		Expiration: Expiration{Days: ExpirationDays(3)},
+		Expiration: &Expiration{Days: ExpirationDays(3)},
 	}
 	for i := 0; i < 101; i++ {
 		manyRules = append(manyRules, rule)
@@ -43,17 +44,17 @@ func TestParseLifecycleConfig(t *testing.T) {
 	// Test for lifecycle config with rules containing overlapping prefixes
 	rule1 := Rule{
 		Status:     "Enabled",
-		Expiration: Expiration{Days: ExpirationDays(3)},
-		Filter: Filter{
-			Prefix: "/a/b",
+		Expiration: &Expiration{Days: ExpirationDays(3)},
+		Filter: &Filter{
+			Prefix: String("/a/b"),
 		},
 	}
 	rule2 := Rule{
 		Status:     "Enabled",
-		Expiration: Expiration{Days: ExpirationDays(3)},
-		Filter: Filter{
-			And: And{
-				Prefix: "/a/b/c",
+		Expiration: &Expiration{Days: ExpirationDays(3)},
+		Filter: &Filter{
+			And: &And{
+				Prefix: String("/a/b/c"),
 			},
 		},
 	}
@@ -89,11 +90,11 @@ func TestParseLifecycleConfig(t *testing.T) {
 		{ // lifecycle config with no rules
 			inputConfig: `<LifecycleConfiguration>
 		                          </LifecycleConfiguration>`,
-			expectedErr: errLifecycleNoRule,
+			expectedErr: ErrInvalidLcRulesNumbers,
 		},
 		{ // lifecycle config with more than 1000 rules
 			inputConfig: string(manyRuleLcConfig),
-			expectedErr: errLifecycleTooManyRules,
+			expectedErr: ErrInvalidLcRulesNumbers,
 		},
 		{ // lifecycle config with rules having overlapping prefix
 			inputConfig: string(overlappingLcConfig),
@@ -120,13 +121,13 @@ func TestMarshalLifecycleConfig(t *testing.T) {
 		Rules: []Rule{
 			{
 				Status:     "Enabled",
-				Filter:     Filter{Prefix: "prefix-1"},
-				Expiration: Expiration{Days: ExpirationDays(3)},
+				Filter:     &Filter{Prefix: String("prefix-1")},
+				Expiration: &Expiration{Days: ExpirationDays(3)},
 			},
 			{
 				Status:     "Enabled",
-				Filter:     Filter{Prefix: "prefix-1"},
-				Expiration: Expiration{Date: ExpirationDate(midnightTS)},
+				Filter:     &Filter{Prefix: String("prefix-1")},
+				Expiration: &Expiration{Date: ExpirationDate(midnightTS)},
 			},
 		},
 	}
@@ -201,28 +202,28 @@ func TestComputeActions(t *testing.T) {
 		},
 		// Should remove (test Days)
 		{
-			inputConfig:    `<LifecycleConfiguration><Rule><Filter><Prefix>foodir/</Prefix></Filter><Status>Enabled</Status><Expiration><Days>5</Days></Expiration></Rule></LifecycleConfiguration>`,
+			inputConfig:    `<LifecycleConfiguration><Rule><Filter><Prefix>foodir/</Prefix><And></And></Filter><Status>Enabled</Status><Expiration><Days>5</Days></Expiration></Rule></LifecycleConfiguration>`,
 			objectName:     "foodir/fooobject",
 			objectModTime:  time.Now().UTC().Add(-6 * 24 * time.Hour), // Created 6 days ago
 			expectedAction: DeleteAction,
 		},
 		// Too early to remove (test Date)
 		{
-			inputConfig:    `<LifecycleConfiguration><Rule><Filter><Prefix>foodir/</Prefix></Filter><Status>Enabled</Status><Expiration><Date>` + time.Now().Truncate(24*time.Hour).UTC().Add(24*time.Hour).Format(time.RFC3339) + `</Date></Expiration></Rule></LifecycleConfiguration>`,
+			inputConfig:    `<LifecycleConfiguration><Rule><Filter><Prefix>foodir/</Prefix></Filter><Status>Enabled</Status><Expiration><Date>` + time.Now().Truncate(24 * time.Hour).UTC().Add(24 * time.Hour).Format(time.RFC3339) + `</Date></Expiration></Rule></LifecycleConfiguration>`,
 			objectName:     "foodir/fooobject",
 			objectModTime:  time.Now().UTC().Add(-24 * time.Hour), // Created 1 day ago
 			expectedAction: NoneAction,
 		},
 		// Should remove (test Days)
 		{
-			inputConfig:    `<LifecycleConfiguration><Rule><Filter><Prefix>foodir/</Prefix></Filter><Status>Enabled</Status><Expiration><Date>` + time.Now().Truncate(24*time.Hour).UTC().Add(-24*time.Hour).Format(time.RFC3339) + `</Date></Expiration></Rule></LifecycleConfiguration>`,
+			inputConfig:    `<LifecycleConfiguration><Rule><Filter><Prefix>foodir/</Prefix></Filter><Status>Enabled</Status><Expiration><Date>` + time.Now().Truncate(24 * time.Hour).UTC().Add(-24 * time.Hour).Format(time.RFC3339) + `</Date></Expiration></Rule></LifecycleConfiguration>`,
 			objectName:     "foodir/fooobject",
 			objectModTime:  time.Now().UTC().Add(-24 * time.Hour), // Created 1 day ago
 			expectedAction: DeleteAction,
 		},
 		// Should remove (Tags match)
 		{
-			inputConfig:    `<LifecycleConfiguration><Rule><Filter><And><Prefix>foodir/</Prefix><Tag><Key>tag1</Key><Value>value1</Value></Tag></And></Filter><Status>Enabled</Status><Expiration><Date>` + time.Now().Truncate(24*time.Hour).UTC().Add(-24*time.Hour).Format(time.RFC3339) + `</Date></Expiration></Rule></LifecycleConfiguration>`,
+			inputConfig:    `<LifecycleConfiguration><Rule><Filter><And><Prefix>foodir/</Prefix><Tag><Key>tag1</Key><Value>value1</Value></Tag></And></Filter><Status>Enabled</Status><Expiration><Date>` + time.Now().Truncate(24 * time.Hour).UTC().Add(-24 * time.Hour).Format(time.RFC3339) + `</Date></Expiration></Rule></LifecycleConfiguration>`,
 			objectName:     "foodir/fooobject",
 			objectTags:     "tag1=value1&tag2=value2",
 			objectModTime:  time.Now().UTC().Add(-24 * time.Hour), // Created 1 day ago
@@ -230,7 +231,7 @@ func TestComputeActions(t *testing.T) {
 		},
 		// Should remove (Multiple Rules, Tags match)
 		{
-			inputConfig:    `<LifecycleConfiguration><Rule><Filter><And><Prefix>foodir/</Prefix><Tag><Key>tag1</Key><Value>value1</Value><Key>tag2</Key><Value>value2</Value></Tag></And></Filter><Status>Enabled</Status><Expiration><Date>` + time.Now().Truncate(24*time.Hour).UTC().Add(-24*time.Hour).Format(time.RFC3339) + `</Date></Expiration></Rule><Rule><Filter><And><Prefix>abc/</Prefix><Tag><Key>tag2</Key><Value>value</Value></Tag></And></Filter><Status>Enabled</Status><Expiration><Date>` + time.Now().Truncate(24*time.Hour).UTC().Add(-24*time.Hour).Format(time.RFC3339) + `</Date></Expiration></Rule></LifecycleConfiguration>`,
+			inputConfig:    `<LifecycleConfiguration><Rule><Filter><And><Prefix>foodir/</Prefix><Tag><Key>tag1</Key><Value>value1</Value><Key>tag2</Key><Value>value2</Value></Tag></And></Filter><Status>Enabled</Status><Expiration><Date>` + time.Now().Truncate(24 * time.Hour).UTC().Add(-24 * time.Hour).Format(time.RFC3339) + `</Date></Expiration></Rule><Rule><Filter><And><Prefix>abc/</Prefix><Tag><Key>tag2</Key><Value>value</Value></Tag></And></Filter><Status>Enabled</Status><Expiration><Date>` + time.Now().Truncate(24 * time.Hour).UTC().Add(-24 * time.Hour).Format(time.RFC3339) + `</Date></Expiration></Rule></LifecycleConfiguration>`,
 			objectName:     "foodir/fooobject",
 			objectTags:     "tag1=value1&tag2=value2",
 			objectModTime:  time.Now().UTC().Add(-24 * time.Hour), // Created 1 day ago
@@ -238,7 +239,7 @@ func TestComputeActions(t *testing.T) {
 		},
 		// Should remove (Tags match)
 		{
-			inputConfig:    `<LifecycleConfiguration><Rule><Filter><And><Prefix>foodir/</Prefix><Tag><Key>tag1</Key><Value>value1</Value><Key>tag2</Key><Value>value2</Value></Tag></And></Filter><Status>Enabled</Status><Expiration><Date>` + time.Now().Truncate(24*time.Hour).UTC().Add(-24*time.Hour).Format(time.RFC3339) + `</Date></Expiration></Rule></LifecycleConfiguration>`,
+			inputConfig:    `<LifecycleConfiguration><Rule><Filter><And><Prefix>foodir/</Prefix><Tag><Key>tag1</Key><Value>value1</Value><Key>tag2</Key><Value>value2</Value></Tag></And></Filter><Status>Enabled</Status><Expiration><Date>` + time.Now().Truncate(24 * time.Hour).UTC().Add(-24 * time.Hour).Format(time.RFC3339) + `</Date></Expiration></Rule></LifecycleConfiguration>`,
 			objectName:     "foodir/fooobject",
 			objectTags:     "tag1=value1&tag2=value2",
 			objectModTime:  time.Now().UTC().Add(-24 * time.Hour), // Created 1 day ago
@@ -246,7 +247,7 @@ func TestComputeActions(t *testing.T) {
 		},
 		// Should not remove (Tags don't match)
 		{
-			inputConfig:    `<LifecycleConfiguration><Rule><Filter><And><Prefix>foodir/</Prefix><Tag><Key>tag</Key><Value>value1</Value></Tag></And></Filter><Status>Enabled</Status><Expiration><Date>` + time.Now().Truncate(24*time.Hour).UTC().Add(-24*time.Hour).Format(time.RFC3339) + `</Date></Expiration></Rule></LifecycleConfiguration>`,
+			inputConfig:    `<LifecycleConfiguration><Rule><Filter><And><Prefix>foodir/</Prefix><Tag><Key>tag</Key><Value>value1</Value></Tag></And></Filter><Status>Enabled</Status><Expiration><Date>` + time.Now().Truncate(24 * time.Hour).UTC().Add(-24 * time.Hour).Format(time.RFC3339) + `</Date></Expiration></Rule></LifecycleConfiguration>`,
 			objectName:     "foodir/fooobject",
 			objectTags:     "tag1=value1",
 			objectModTime:  time.Now().UTC().Add(-24 * time.Hour), // Created 1 day ago
@@ -254,10 +255,32 @@ func TestComputeActions(t *testing.T) {
 		},
 		// Should not remove (Tags match, but prefix doesn't match)
 		{
-			inputConfig:    `<LifecycleConfiguration><Rule><Filter><And><Prefix>foodir/</Prefix><Tag><Key>tag1</Key><Value>value1</Value></Tag></And></Filter><Status>Enabled</Status><Expiration><Date>` + time.Now().Truncate(24*time.Hour).UTC().Add(-24*time.Hour).Format(time.RFC3339) + `</Date></Expiration></Rule></LifecycleConfiguration>`,
+			inputConfig:    `<LifecycleConfiguration><Rule><Filter><And><Prefix>foodir/</Prefix><Tag><Key>tag1</Key><Value>value1</Value></Tag></And></Filter><Status>Enabled</Status><Expiration><Date>` + time.Now().Truncate(24 * time.Hour).UTC().Add(-24 * time.Hour).Format(time.RFC3339) + `</Date></Expiration></Rule></LifecycleConfiguration>`,
 			objectName:     "foxdir/fooobject",
 			objectTags:     "tag1=value1",
 			objectModTime:  time.Now().UTC().Add(-24 * time.Hour), // Created 1 day ago
+			expectedAction: NoneAction,
+		},
+		{
+			inputConfig: `<LifecycleConfiguration>
+  						<Rule>
+    						<ID>id1</ID>
+							<Filter>
+									<Prefix>documents/</Prefix>
+    						</Filter>
+    						<Status>Enabled</Status>
+    						<Transition>
+      							<Days>30</Days>
+								<StorageClass>GLACIER</StorageClass>
+    						</Transition>
+							<Transition>
+      							<Days>60</Days>
+								<StorageClass>GLACIER</StorageClass>
+    						</Transition>
+  						</Rule>
+						</LifecycleConfiguration>`,
+			objectName:     "document/document.go",
+			objectModTime:  time.Now().UTC().Add(-31 * 24 * time.Hour), // Created 30 day ago
 			expectedAction: NoneAction,
 		},
 	}
@@ -269,10 +292,9 @@ func TestComputeActions(t *testing.T) {
 				t.Fatalf("%d: Got unexpected error: %v", i+1, err)
 			}
 			resultAction := lc.ComputeAction(tc.objectName, tc.objectTags, tc.objectModTime)
-			if  resultAction != tc.expectedAction {
+			if resultAction != tc.expectedAction {
 				t.Fatalf("%d: Expected action: `%v`, got: `%v`", i+1, tc.expectedAction, resultAction)
 			}
-			t.Log(lc,resultAction)
 		})
 
 	}

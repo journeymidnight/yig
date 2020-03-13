@@ -18,14 +18,8 @@ package lifecycle
 
 import (
 	"encoding/xml"
+	. "github.com/journeymidnight/yig/error"
 	"time"
-)
-
-var (
-	errLifecycleInvalidDate     = Errorf("Date must be provided in ISO 8601 format")
-	errLifecycleInvalidDays     = Errorf("Days must be positive integer")
-	errLifecycleOfDateAndDays   = Errorf("Date and Days must be have only one")
-	errLifecycleDateNotMidnight = Errorf("'Date' must be at midnight GMT")
 )
 
 // ExpirationDays is a type alias to unmarshal Days in Expiration
@@ -40,7 +34,7 @@ func (eDays *ExpirationDays) UnmarshalXML(d *xml.Decoder, startElement xml.Start
 		return err
 	}
 	if numDays <= 0 {
-		return errLifecycleInvalidDays
+		return ErrInvalidLcDays
 	}
 	*eDays = ExpirationDays(numDays)
 	return nil
@@ -73,14 +67,14 @@ func (eDate *ExpirationDate) UnmarshalXML(d *xml.Decoder, startElement xml.Start
 	// users to provide RFC 3339 compliant dates.
 	expDate, err := time.Parse(time.RFC3339, dateStr)
 	if err != nil {
-		return errLifecycleInvalidDate
+		return ErrInvalidLcDate
 	}
 	// Allow only date timestamp specifying midnight GMT
 	hr, min, sec := expDate.Clock()
 	nsec := expDate.Nanosecond()
 	loc := expDate.Location()
 	if !(hr == 0 && min == 0 && sec == 0 && nsec == 0 && loc.String() == time.UTC.String()) {
-		return errLifecycleDateNotMidnight
+		return ErrLcDateNotMidnight
 	}
 
 	*eDate = ExpirationDate{expDate}
@@ -96,23 +90,46 @@ func (eDate *ExpirationDate) MarshalXML(e *xml.Encoder, startElement xml.StartEl
 	return e.EncodeElement(eDate.Format(time.RFC3339), startElement)
 }
 
+type DeleteMarker bool
+
+// UnmarshalXML parses delete marker from Expiration
+func (dMarker *DeleteMarker) UnmarshalXML(d *xml.Decoder, startElement xml.StartElement) error {
+	var marker bool
+	err := d.DecodeElement(&marker, &startElement)
+	if err != nil {
+		return err
+	}
+
+	*dMarker = DeleteMarker(marker)
+	return nil
+}
+
+// MarshalXML encodes expiration delete marker
+func (dMarker *DeleteMarker) MarshalXML(e *xml.Encoder, startElement xml.StartElement) error {
+	return e.EncodeElement(dMarker, startElement)
+}
+
 // Expiration - expiration actions for a rule in lifecycle configuration.
 type Expiration struct {
-	XMLName xml.Name       `xml:"Expiration"`
-	Days    ExpirationDays `xml:"Days,omitempty"`
-	Date    ExpirationDate `xml:"Date,omitempty"`
+	XMLName      xml.Name       `xml:"Expiration"`
+	Days         ExpirationDays `xml:"Days,omitempty"`
+	Date         ExpirationDate `xml:"Date,omitempty"`
+	DeleteMarker *DeleteMarker  `xml:"ExpiredObjectDeleteMarker,omitempty"`
 }
 
 // Validate - validates the "Expiration" element
 func (e Expiration) Validate() error {
 	// Neither expiration days or date is specified
+	if e.XMLName.Local == "" {
+		return nil
+	}
 	if e.IsDaysNull() && e.IsDateNull() {
-		return errLifecycleOfDateAndDays
+		return ErrInvalidLcUsingDateAndDays
 	}
 
 	// Both expiration days and date are specified
 	if !e.IsDaysNull() && !e.IsDateNull() {
-		return errLifecycleOfDateAndDays
+		return ErrInvalidLcUsingDateAndDays
 	}
 	return nil
 }

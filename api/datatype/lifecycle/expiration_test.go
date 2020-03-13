@@ -19,6 +19,7 @@ package lifecycle
 import (
 	"encoding/xml"
 	"fmt"
+	. "github.com/journeymidnight/yig/error"
 	"testing"
 )
 
@@ -32,19 +33,19 @@ func TestInvalidExpiration(t *testing.T) {
 			inputXML: ` <Expiration>
                                     <Days>0</Days>
                                     </Expiration>`,
-			expectedErr: errLifecycleInvalidDays,
+			expectedErr: ErrInvalidLcDays,
 		},
 		{ // Expiration with invalid date
 			inputXML: ` <Expiration>
                                     <Date>invalid date</Date>
                                     </Expiration>`,
-			expectedErr: errLifecycleInvalidDate,
+			expectedErr: ErrInvalidLcDate,
 		},
 		{ // Expiration with both number of days nor a date
 			inputXML: `<Expiration>
 		                    <Date>2019-04-20T00:01:00Z</Date>
 		                    </Expiration>`,
-			expectedErr: errLifecycleDateNotMidnight,
+			expectedErr: ErrLcDateNotMidnight,
 		},
 	}
 
@@ -78,14 +79,21 @@ func TestInvalidExpiration(t *testing.T) {
 		{ // Expiration with neither number of days nor a date
 			inputXML: `<Expiration>
                                     </Expiration>`,
-			expectedErr: errLifecycleOfDateAndDays,
+			expectedErr: ErrInvalidLcUsingDateAndDays,
 		},
 		{ // Expiration with both number of days nor a date
 			inputXML: `<Expiration>
                                     <Days>3</Days>
                                     <Date>2019-04-20T00:00:00Z</Date>
                                     </Expiration>`,
-			expectedErr: errLifecycleOfDateAndDays,
+			expectedErr: ErrInvalidLcUsingDateAndDays,
+		},
+		{ // Expiration with deleteMarker
+			inputXML: `<Expiration>
+                                    <Days>3</Days>
+                                    <ExpiredObjectDeleteMarker>false</ExpiredObjectDeleteMarker>
+                                    </Expiration>`,
+			expectedErr: nil,
 		},
 	}
 	for i, tc := range validationTestCases {

@@ -16,48 +16,54 @@
 
 package lifecycle
 
-import "encoding/xml"
-
+import (
+	"encoding/xml"
+	. "github.com/journeymidnight/yig/error"
+)
 // Filter - a filter for a lifecycle configuration Rule.
 type Filter struct {
 	XMLName xml.Name `xml:"Filter"`
-	Prefix  string   `xml:"Prefix,omitempty"`
-	And     And      `xml:"And,omitempty"`
-	Tag     Tag      `xml:"Tag,omitempty"`
+	Prefix  *string  `xml:"Prefix,omitempty"`
+	And     *And     `xml:"And,omitempty"`
+	Tag     *Tag     `xml:"Tag,omitempty"`
 }
-
-var (
-	errInvalidFilter = Errorf("Filter must have exactly one of Prefix, Tag, or And specified")
-)
 
 // Validate - validates the filter element
 func (f Filter) Validate() error {
 	// A Filter must have exactly one of Prefix, Tag, or And specified.
-	if !f.And.isEmpty() {
-		if f.Prefix != "" {
-			return errInvalidFilter
+	if f.And != nil && !f.And.isEmpty() {
+		if f.Prefix != nil {
+			return ErrInvalidLcFilter
 		}
-		if !f.Tag.IsEmpty() {
-			return errInvalidFilter
+		if f.Tag!= nil {
+			return ErrInvalidLcFilter
 		}
 		if err := f.And.Validate(); err != nil {
 			return err
 		}
 	}
-	if f.Prefix != "" {
+	if f.Prefix != nil {
+		if f.Tag != nil {
+			return ErrInvalidLcFilter
+		}
+	}
+	if f.Tag != nil {
 		if !f.Tag.IsEmpty() {
-			return errInvalidFilter
+			if err := f.Tag.Validate(); err != nil {
+				return err
+			}
 		}
 	}
-	if !f.Tag.IsEmpty() {
-		if err := f.Tag.Validate(); err != nil {
-			return err
-		}
-	}
+
 	return nil
 }
 
 // isEmpty - returns true if Filter tag is empty
-func (f Filter) isEmpty() bool {
-	return f.And.isEmpty() && f.Prefix == "" && f.Tag == Tag{}
+func (f *Filter) isEmpty() bool {
+	return f.And.isEmpty() && f.Prefix == nil && f.Tag == nil
+}
+
+//String returns a pointer to the string value passed in.
+func String(s string) *string {
+	return &s
 }

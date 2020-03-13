@@ -42,7 +42,7 @@ func (api ObjectAPIHandlers) PutBucketLifeCycleHandler(w http.ResponseWriter, r 
 	lifecycle, err := ParseLifecycleConfig(io.LimitReader(r.Body,r.ContentLength))
 	if err != nil {
 		logger.Error("Unable to parse lifecycle body:", err)
-		WriteErrorResponse(w, r, ErrInvalidLc)
+		WriteErrorResponse(w, r, err)
 		return
 	}
 

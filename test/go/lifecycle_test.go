@@ -25,11 +25,27 @@ const (
       								<Days>30</Days>
       								<StorageClass>GLACIER</StorageClass>
     						</Transition>
+							<NoncurrentVersionTransition>
+                                    <NoncurrentDays>3</NoncurrentDays>
+									<StorageClass>GLACIER</StorageClass>
+                                    </NoncurrentVersionTransition>
   						</Rule>
   						<Rule>
     						<ID>id2</ID>
     						<Filter>
        							<Prefix>logs/</Prefix>
+    						</Filter>
+    						<Status>Enabled</Status>
+    						<Expiration>
+      							<Days>365</Days>
+    						</Expiration>
+							<NoncurrentVersionExpiration>
+                                    <NoncurrentDays>3</NoncurrentDays>
+                                    </NoncurrentVersionExpiration>
+  						</Rule>
+						<Rule>
+    						<Filter>
+       							<Prefix>test/</Prefix>
     						</Filter>
     						<Status>Enabled</Status>
     						<Expiration>

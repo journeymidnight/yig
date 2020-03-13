@@ -19,6 +19,7 @@ package lifecycle
 import (
 	"bytes"
 	"encoding/xml"
+	. "github.com/journeymidnight/yig/error"
 )
 
 // Status represents lifecycle configuration status
@@ -35,26 +36,19 @@ type Rule struct {
 	XMLName                      xml.Name                      `xml:"Rule"`
 	ID                           string                        `xml:"ID,omitempty"`
 	Status                       Status                        `xml:"Status"`
-	Filter                       Filter                        `xml:"Filter,omitempty"`
-	Expiration                   Expiration                    `xml:"Expiration,omitempty"`
+	Filter                       *Filter                       `xml:"Filter,omitempty"`
+	Expiration                   *Expiration                   `xml:"Expiration,omitempty"`
 	Transitions                  []Transition                  `xml:"Transition,omitempty"`
-	NoncurrentVersionExpiration  NoncurrentVersionExpiration   `xml:"NoncurrentVersionExpiration,omitempty"`
+	NoncurrentVersionExpiration  *NoncurrentVersionExpiration  `xml:"NoncurrentVersionExpiration,omitempty"`
 	NoncurrentVersionTransitions []NoncurrentVersionTransition `xml:"NoncurrentVersionTransition,omitempty"`
 	// FIXME: add a type to catch unsupported AbortIncompleteMultipartUpload AbortIncompleteMultipartUpload `xml:"AbortIncompleteMultipartUpload,omitempty"`
 }
-
-var (
-	errInvalidRuleID     = Errorf("ID must be less than 255 characters")
-	errEmptyRuleStatus   = Errorf("Status should not be empty")
-	errInvalidRuleStatus = Errorf("Status must be set to either Enabled or Disabled")
-	errMissingAction     = Errorf("No expiration or transition action found")
-)
 
 // validateID - checks if ID is valid or not.
 func (r Rule) validateID() error {
 	// cannot be longer than 255 characters
 	if len(string(r.ID)) > 255 {
-		return errInvalidRuleID
+		return ErrInvalidLcRuleID
 	}
 	return nil
 }
@@ -63,25 +57,45 @@ func (r Rule) validateID() error {
 func (r Rule) validateStatus() error {
 	// Status can't be empty
 	if len(r.Status) == 0 {
-		return errEmptyRuleStatus
+		return ErrInvalidLcRuleStatus
 	}
 
 	// Status must be one of Enabled or Disabled
 	if r.Status != Enabled && r.Status != Disabled {
-		return errInvalidRuleStatus
+		return ErrInvalidLcRuleStatus
 	}
 	return nil
 }
 
 func (r Rule) validateAction() error {
-	if r.Expiration == (Expiration{}) && len(r.Transitions) == 0 {
-		return errMissingAction
+	if r.Expiration != nil || len(r.Transitions) != 0 {
+		if r.Expiration != nil {
+			if err := r.Expiration.Validate(); err != nil {
+				return err
+			}
+		}
+
+		for _, transition := range r.Transitions {
+			if err := transition.Validate(); err != nil {
+				return err
+			}
+		}
+
+		return nil
 	}
-	if err := r.Expiration.Validate(); err != nil {
-		return err
+
+	return ErrLcMissingAction
+}
+
+func (r Rule) validateNoncurrentVersion() error {
+	if r.NoncurrentVersionExpiration != nil {
+		if err := r.NoncurrentVersionExpiration.Validate(); err != nil {
+			return err
+		}
 	}
-	for _, transition := range r.Transitions {
-		if err := transition.Validate(); err != nil {
+
+	for _, nvTransition := range r.NoncurrentVersionTransitions {
+		if err := nvTransition.Validate(); err != nil {
 			return err
 		}
 	}
@@ -90,18 +104,21 @@ func (r Rule) validateAction() error {
 }
 
 func (r Rule) validateFilter() error {
-	return r.Filter.Validate()
+	if r.Filter != nil {
+		return r.Filter.Validate()
+	}
+	return nil
 }
 
 // Prefix - a rule can either have prefix under <filter></filter> or under
 // <filter><and></and></filter>. This method returns the prefix from the
 // location where it is available
 func (r Rule) Prefix() string {
-	if r.Filter.Prefix != "" {
-		return r.Filter.Prefix
+	if r.Filter.Prefix != nil {
+		return *r.Filter.Prefix
 	}
-	if r.Filter.And.Prefix != "" {
-		return r.Filter.And.Prefix
+	if r.Filter.And.Prefix != nil {
+		return *r.Filter.And.Prefix
 	}
 	return ""
 }
@@ -110,18 +127,20 @@ func (r Rule) Prefix() string {
 // <filter><and></and></filter>. This method returns all the tags from the
 // rule in the format tag1=value1&tag2=value2
 func (r Rule) Tags() string {
-	if !r.Filter.Tag.IsEmpty() {
+	if r.Filter.Tag != nil && !r.Filter.Tag.IsEmpty() {
 		return r.Filter.Tag.String()
 	}
-	if len(r.Filter.And.Tags) != 0 {
-		var buf bytes.Buffer
-		for _, t := range r.Filter.And.Tags {
-			if buf.Len() > 0 {
-				buf.WriteString("&")
+	if r.Filter.And != nil {
+		if len(r.Filter.And.Tags) != 0 {
+			var buf bytes.Buffer
+			for _, t := range r.Filter.And.Tags {
+				if buf.Len() > 0 {
+					buf.WriteString("&")
+				}
+				buf.WriteString(t.String())
 			}
-			buf.WriteString(t.String())
+			return buf.String()
 		}
-		return buf.String()
 	}
 	return ""
 }
@@ -138,6 +157,9 @@ func (r Rule) Validate() error {
 		return err
 	}
 	if err := r.validateFilter(); err != nil {
+		return err
+	}
+	if err := r.validateNoncurrentVersion(); err != nil {
 		return err
 	}
 	return nil

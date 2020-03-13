@@ -18,6 +18,7 @@ package lifecycle
 
 import (
 	"encoding/xml"
+	. "github.com/journeymidnight/yig/error"
 	"strings"
 	"unicode/utf8"
 )
@@ -27,12 +28,6 @@ import (
 const (
 	maxTagKeyLength   = 128
 	maxTagValueLength = 256
-)
-
-// errors returned by tagging package
-var (
-	ErrInvalidTagKey   = Errorf("The TagKey you have provided is invalid")
-	ErrInvalidTagValue = Errorf("The TagValue you have provided is invalid")
 )
 
 // Tag - single tag
@@ -57,15 +52,15 @@ func (t Tag) Validate() error {
 func (t Tag) validateKey() error {
 	// cannot be longer than maxTagKeyLength characters
 	if utf8.RuneCountInString(t.Key) > maxTagKeyLength {
-		return ErrInvalidTagKey
+		return ErrInvalidLcTagKey
 	}
 	// cannot be empty
 	if len(t.Key) == 0 {
-		return ErrInvalidTagKey
+		return ErrInvalidLcTagKey
 	}
 	// Tag key shouldn't have "&"
 	if strings.Contains(t.Key, "&") {
-		return ErrInvalidTagKey
+		return ErrInvalidLcTagKey
 	}
 	return nil
 }
@@ -74,11 +69,11 @@ func (t Tag) validateKey() error {
 func (t Tag) validateValue() error {
 	// cannot be longer than maxTagValueLength characters
 	if utf8.RuneCountInString(t.Value) > maxTagValueLength {
-		return ErrInvalidTagValue
+		return ErrInvalidLcTagValue
 	}
 	// Tag value shouldn't have "&"
 	if strings.Contains(t.Value, "&") {
-		return ErrInvalidTagValue
+		return ErrInvalidLcTagValue
 	}
 	return nil
 }

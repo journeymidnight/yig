@@ -19,6 +19,7 @@ package lifecycle
 import (
 	"encoding/xml"
 	"fmt"
+	. "github.com/journeymidnight/yig/error"
 	"testing"
 )
 
@@ -32,19 +33,19 @@ func TestInvalidTransition(t *testing.T) {
 			inputXML: ` <Transition>
                                     <Days>0</Days>
                                     </Transition>`,
-			expectedErr: errLifecycleInvalidDays,
+			expectedErr: ErrInvalidLcDays,
 		},
 		{ // Transition with invalid date
 			inputXML: ` <Transition>
                                     <Date>invalid date</Date>
                                     </Transition>`,
-			expectedErr: errLifecycleInvalidDate,
+			expectedErr: ErrInvalidLcDate,
 		},
 		{ // Transition with both number of days nor a date
 			inputXML: `<Transition>
 		                    <Date>2019-04-20T00:01:00Z</Date>
 		                    </Transition>`,
-			expectedErr: errLifecycleDateNotMidnight,
+			expectedErr: ErrLcDateNotMidnight,
 		},
 	}
 
@@ -63,29 +64,36 @@ func TestInvalidTransition(t *testing.T) {
 		inputXML    string
 		expectedErr error
 	}{
-		{ // Transition with a valid ISO 8601 date
+		{ // Transition with a valid ISO 8601 date, but miss StorageClass
 			inputXML: `<Transition>
                                     <Date>2019-04-20T00:00:00Z</Date>
                                     </Transition>`,
-			expectedErr: nil,
+			expectedErr: ErrLcMissingStorageClass,
 		},
-		{ // Transition with a valid number of days
+		{ // Transition with a valid number of days, but miss StorageClass
 			inputXML: `<Transition>
                                     <Days>3</Days>
                                     </Transition>`,
-			expectedErr: nil,
+			expectedErr: ErrLcMissingStorageClass,
 		},
 		{ // Transition with neither number of days nor a date
 			inputXML: `<Transition>
                                     </Transition>`,
-			expectedErr: errLifecycleOfDateAndDays,
+			expectedErr: ErrInvalidLcUsingDateAndDays,
 		},
 		{ // Transition with both number of days nor a date
 			inputXML: `<Transition>
                                     <Days>3</Days>
                                     <Date>2019-04-20T00:00:00Z</Date>
                                     </Transition>`,
-			expectedErr: errLifecycleOfDateAndDays,
+			expectedErr: ErrInvalidLcUsingDateAndDays,
+		},
+		{ // Transition with both number of days nor a date
+			inputXML: `<Transition>
+                                    <Days>3</Days>
+                                    <StorageClass>GLACIER</StorageClass>
+                                    </Transition>`,
+			expectedErr: nil,
 		},
 	}
 	for i, tc := range validationTestCases {

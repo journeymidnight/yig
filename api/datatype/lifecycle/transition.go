@@ -18,6 +18,7 @@ package lifecycle
 
 import (
 	"encoding/xml"
+	. "github.com/journeymidnight/yig/error"
 	"time"
 )
 
@@ -33,7 +34,7 @@ func (tDays *TransitionDays) UnmarshalXML(d *xml.Decoder, startElement xml.Start
 		return err
 	}
 	if numDays <= 0 {
-		return errLifecycleInvalidDays
+		return ErrInvalidLcDays
 	}
 	*tDays = TransitionDays(numDays)
 	return nil
@@ -66,14 +67,14 @@ func (tDate *TransitionDate) UnmarshalXML(d *xml.Decoder, startElement xml.Start
 	// users to provide RFC 3339 compliant dates.
 	traDate, err := time.Parse(time.RFC3339, dateStr)
 	if err != nil {
-		return errLifecycleInvalidDate
+		return ErrInvalidLcDate
 	}
 	// Allow only date timestamp specifying midnight GMT
 	hr, min, sec := traDate.Clock()
 	nsec := traDate.Nanosecond()
 	loc := traDate.Location()
 	if !(hr == 0 && min == 0 && sec == 0 && nsec == 0 && loc.String() == time.UTC.String()) {
-		return errLifecycleDateNotMidnight
+		return ErrLcDateNotMidnight
 	}
 
 	*tDate = TransitionDate{traDate}
@@ -101,12 +102,17 @@ type Transition struct {
 func (t Transition) Validate() error {
 	// Neither expiration days or date is specified
 	if t.IsDaysNull() && t.IsDateNull() {
-		return errLifecycleOfDateAndDays
+		return ErrInvalidLcUsingDateAndDays
 	}
 
 	// Both expiration days and date are specified
 	if !t.IsDaysNull() && !t.IsDateNull() {
-		return errLifecycleOfDateAndDays
+		return ErrInvalidLcUsingDateAndDays
+	}
+
+	//StorageClass is specified
+	if t.IsStorageClassNull() {
+		return ErrLcMissingStorageClass
 	}
 
 	return nil

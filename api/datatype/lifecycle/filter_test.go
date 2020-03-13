@@ -19,6 +19,7 @@ package lifecycle
 import (
 	"encoding/xml"
 	"fmt"
+	. "github.com/journeymidnight/yig/error"
 	"testing"
 )
 
@@ -64,7 +65,7 @@ func TestUnsupportedFilters(t *testing.T) {
 								<Value>value2</Value>
 							</Tag>
 						</Filter>`,
-			expectedErr: errInvalidFilter,
+			expectedErr: ErrInvalidLcFilter,
 		},
 		{ // Filter with And, Prefix & multiple Tag tags
 			inputXML: ` <Filter>
@@ -105,7 +106,7 @@ func TestUnsupportedFilters(t *testing.T) {
 								<Value>value1</Value>
 							</Tag>
 						</Filter>`,
-			expectedErr: errInvalidFilter,
+			expectedErr: ErrInvalidLcFilter,
 		},
 		{ // Filter without And and single Tag tag
 			inputXML: ` <Filter>
@@ -121,7 +122,7 @@ func TestUnsupportedFilters(t *testing.T) {
 							</Tag>
 							</And>
 						</Filter>`,
-			expectedErr: errInvalidFilter,
+			expectedErr: ErrInvalidLcFilter,
 		},
 	}
 	for i, tc := range testCases {

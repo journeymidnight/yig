@@ -16,26 +16,26 @@
 
 package lifecycle
 
-import "encoding/xml"
-
+import (
+	"encoding/xml"
+	. "github.com/journeymidnight/yig/error"
+)
 // And - a tag to combine a prefix and multiple tags for lifecycle configuration rule.
 type And struct {
 	XMLName xml.Name `xml:"And"`
-	Prefix  string   `xml:"Prefix,omitempty"`
+	Prefix  *string  `xml:"Prefix,omitempty"`
 	Tags    []Tag    `xml:"Tag,omitempty"`
 }
 
-var errDuplicateTagKey = Errorf("Duplicate Tag Keys are not allowed")
-
 // isEmpty returns true if Tags field is null
-func (a And) isEmpty() bool {
-	return len(a.Tags) == 0 && a.Prefix == ""
+func (a *And) isEmpty() bool {
+	return len(a.Tags) == 0 && a.Prefix == nil
 }
 
 // Validate - validates the And field
 func (a And) Validate() error {
 	if a.ContainsDuplicateTag() {
-		return errDuplicateTagKey
+		return ErrDuplicateLcTagKey
 	}
 	for _, t := range a.Tags {
 		if err := t.Validate(); err != nil {

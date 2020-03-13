@@ -18,14 +18,13 @@ package lifecycle
 
 import (
 	"encoding/xml"
+	. "github.com/journeymidnight/yig/error"
 	"io"
 	"strings"
 	"time"
 )
 
 var (
-	errLifecycleTooManyRules      = Errorf("Lifecycle configuration allows a maximum of 100 rules")
-	errLifecycleNoRule            = Errorf("Lifecycle configuration should have at least one rule")
 	//errLifecycleOverlappingPrefix = Errorf("Lifecycle configuration has rules with overlapping prefix")
 )
 
@@ -72,12 +71,12 @@ func ParseLifecycleConfig(reader io.Reader) (*Lifecycle, error) {
 
 // Validate - validates the lifecycle configuration
 func (lc Lifecycle) Validate() error {
-		if len(lc.Rules) > RulesNumber {
-		return errLifecycleTooManyRules
+	if len(lc.Rules) > RulesNumber {
+		return ErrInvalidLcRulesNumbers
 	}
 	// Lifecycle config should have at least one rule
 	if len(lc.Rules) == 0 {
-		return errLifecycleNoRule
+		return ErrInvalidLcRulesNumbers
 	}
 	// Validate all the rules in the lifecycle config
 	for _, r := range lc.Rules {
@@ -86,6 +85,17 @@ func (lc Lifecycle) Validate() error {
 		}
 	}
 	return nil
+}
+
+func (lc Lifecycle) FiltrateRules() (prefixes []string) {
+	for _, rule := range lc.Rules {
+		if rule.Status == Disabled {
+			continue
+		}
+		//TODO:
+		prefixes = append(prefixes, rule.Prefix())
+	}
+	return prefixes
 }
 
 // FilterRuleActions returns the expiration and transition from the object name
@@ -98,14 +108,16 @@ func (lc Lifecycle) FilterRuleActions(objName, objTags string) (Expiration, Tran
 		if rule.Status == Disabled {
 			continue
 		}
-		tags := rule.Tags()
-		if strings.HasPrefix(objName, rule.Prefix()) {
-			if tags != "" {
-				if strings.Contains(objTags, tags) {
-					return rule.Expiration, Transition{}
+		if rule.Filter != nil {
+			tags := rule.Tags()
+			if strings.HasPrefix(objName, rule.Prefix()) {
+				if tags != "" {
+					if strings.Contains(objTags, tags) {
+						return *rule.Expiration, Transition{}
+					}
+				} else {
+					return *rule.Expiration, Transition{}
 				}
-			} else {
-				return rule.Expiration, Transition{}
 			}
 		}
 	}
