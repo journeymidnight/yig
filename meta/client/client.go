@@ -17,7 +17,7 @@ type Client interface {
 	GetObject(bucketName, objectName, version string) (object *Object, err error)
 	GetLatestObjectVersion(bucketName, objectName string) (object *Object, err error)
 	PutObject(object *Object, multipart *Multipart, updateUsage bool) error
-	UpdateObject(object *Object, multipart *Multipart, updateUsage bool) (err error)
+	UpdateObject(object *Object, multipart *Multipart, updateUsage bool, tx Tx) (err error)
 	UpdateFreezerObject(object *Object, tx Tx) (err error)
 	UpdateAppendObject(object *Object) error
 	RenameObject(object *Object, sourceObject string) (err error)
@@ -25,6 +25,7 @@ type Client interface {
 	ReplaceObjectMetas(object *Object, tx Tx) (err error)
 
 	DeleteObject(object *Object, tx Tx) error
+	DeleteObjectPart(object *Object, tx Tx) error
 	UpdateObjectAcl(object *Object) error
 	UpdateObjectAttrs(object *Object) error
 	//bucket

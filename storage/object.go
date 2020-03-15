@@ -1142,17 +1142,22 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 			}
 			result.VersionId = object.VersionId
 		} else {
-			// Add delete marker                                    |
-			if object == nil {
+			nullVersionExist := (object == nil)
+			if !nullVersionExist {
 				object = &meta.Object{
-					BucketName: bucketName,
-					Name:       objectName,
-					OwnerId:    credential.UserId,
+					BucketName:       bucketName,
+					Name:             objectName,
+					OwnerId:          credential.UserId,
+					DeleteMarker:     true,
+					LastModifiedTime: time.Now().UTC(),
+					VersionId:        meta.NullVersion,
+				}
+				err = yig.MetaStorage.AddDeleteMarker(object)
+				if err != nil {
+					return
 				}
 			}
-			object.DeleteMarker = true
-			object.LastModifiedTime = time.Now().UTC()
-			object.VersionId = object.GenVersionId(bucket.Versioning)
+
 			err = yig.MetaStorage.DeleteSuspendedObject(object)
 			if err != nil {
 				return

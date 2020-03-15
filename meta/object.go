@@ -2,6 +2,7 @@ package meta
 
 import (
 	. "database/sql/driver"
+	"time"
 
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/context"
@@ -54,9 +55,8 @@ func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multi
 		fallthrough
 	case datatype.BucketVersioningDisabled:
 		needUpdate := (reqCtx.ObjectInfo != nil)
-
 		if needUpdate {
-			return m.Client.UpdateObject(object, multipart, updateUsage)
+			return m.Client.UpdateObject(object, multipart, updateUsage, nil)
 		} else {
 			return m.Client.PutObject(object, multipart, updateUsage)
 		}
@@ -191,7 +191,7 @@ func (m *Meta) DeleteSuspendedObject(object *Object) (err error) {
 
 	// only put delete marker if null version does not exist
 	if !object.DeleteMarker {
-		err = m.Client.DeleteObject(object, tx)
+		err = m.Client.DeleteObjectPart(object, tx)
 		if err != nil {
 			return err
 		}
@@ -207,8 +207,11 @@ func (m *Meta) DeleteSuspendedObject(object *Object) (err error) {
 		}
 	}
 
-	//TODO:
-	return nil
+	// update to delete marker
+	object.DeleteMarker = true
+	object.LastModifiedTime = time.Now().UTC()
+	object.Parts = nil
+	return m.Client.UpdateObject(object, nil, false, tx)
 }
 
 func (m *Meta) AppendObject(object *Object, isExist bool) error {
