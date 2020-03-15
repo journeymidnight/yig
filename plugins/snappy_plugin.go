@@ -2,9 +2,11 @@ package main
 
 import (
 	"github.com/golang/snappy"
+	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/mods"
 	"io"
 	"strings"
+	"sync"
 )
 
 const pluginName = "snappy"
@@ -17,6 +19,8 @@ var Exported = YigPlugin{
 	Create:     GetCompressClient,
 }
 
+var downloadBufPool sync.Pool
+
 func GetCompressClient(config map[string]interface{}) (interface{}, error) {
 	snappy := SnappyCompress{}
 	return snappy, nil
@@ -25,32 +29,41 @@ func GetCompressClient(config map[string]interface{}) (interface{}, error) {
 type SnappyCompress struct{}
 
 func (s SnappyCompress) CompressReader(reader io.Reader) io.Reader {
-	return CompressReader{r: reader}
+	pipeReader, pipeWriter := io.Pipe()
+	go func() {
+		defer pipeWriter.Close()
+		downloadBufPool.New = func() interface{} {
+			return make([]byte, helper.CONFIG.DownloadBufPoolSize)
+		}
+		buffer := downloadBufPool.Get().([]byte)
+		_, err := io.CopyBuffer(snappy.NewBufferedWriter(pipeWriter), reader, buffer)
+		downloadBufPool.Put(buffer)
+		if err != nil {
+			helper.Logger.Error("Unable to read an object need compress:", err)
+			pipeWriter.CloseWithError(err)
+			return
+		}
+	}()
+	return pipeReader
 }
 
-type CompressReader struct {
-	r io.Reader
-}
-
-func (c CompressReader) Read(p []byte) (n int, err error) {
-	out := snappy.Encode(nil, p)
-	return c.r.Read(out)
-}
-
-func (s SnappyCompress) UnCompressReader(reader io.Reader) io.Reader {
-	return UnCompressReader{r: reader}
-}
-
-type UnCompressReader struct {
-	r io.Reader
-}
-
-func (c UnCompressReader) Read(p []byte) (n int, err error) {
-	out, err := snappy.Decode(nil, p)
-	if err != nil {
-		return
-	}
-	return c.r.Read(out)
+func (s SnappyCompress) CompressWriter(writer io.Writer) io.Writer {
+	pipeReader, pipeWriter := io.Pipe()
+	go func() {
+		defer pipeReader.Close()
+		downloadBufPool.New = func() interface{} {
+			return make([]byte, helper.CONFIG.DownloadBufPoolSize)
+		}
+		buffer := downloadBufPool.Get().([]byte)
+		_, err := io.CopyBuffer(writer, pipeReader, buffer)
+		downloadBufPool.Put(buffer)
+		if err != nil {
+			helper.Logger.Error("Unable to read an object need compress:", err)
+			pipeWriter.CloseWithError(err)
+			return
+		}
+	}()
+	return pipeWriter
 }
 
 func (s SnappyCompress) IsCompressible(objectName, mtype string) bool {
