@@ -618,7 +618,6 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 		StorageClass:         storageClass,
 	}
 	object.VersionId = object.GenVersionId(bucket.Versioning)
-
 	if object.StorageClass == meta.ObjectStorageClassGlacier {
 		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
 		if err == nil {
@@ -632,6 +631,9 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 	}
 
 	result.LastModified = object.LastModifiedTime
+	if object.VersionId != meta.NullVersion {
+		result.VersionId = object.VersionId
+	}
 	err = yig.MetaStorage.PutObject(reqCtx, object, nil, true)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
@@ -1103,21 +1105,23 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 			if err != nil {
 				return
 			}
-			result.VersionId = object.VersionId
 			if object.DeleteMarker {
 				result.DeleteMarker = true
 			}
+			result.VersionId = object.VersionId
+
 		} else {
+			// Add delete marker                                    |
 			if object == nil {
 				object = &meta.Object{
-					BucketName:       bucketName,
-					Name:             objectName,
-					OwnerId:          credential.UserId,
-					DeleteMarker:     true,
-					LastModifiedTime: time.Now().UTC(),
+					BucketName: bucketName,
+					Name:       objectName,
+					OwnerId:    credential.UserId,
 				}
 			}
-			object.VersionId = object.GenVersionId(datatype.BucketVersioningEnabled)
+			object.DeleteMarker = true
+			object.LastModifiedTime = time.Now().UTC()
+			object.VersionId = object.GenVersionId(bucket.Versioning)
 			err = yig.MetaStorage.AddDeleteMarker(object)
 			if err != nil {
 				return
@@ -1133,19 +1137,22 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 			if err != nil {
 				return
 			}
-			result.VersionId = reqVersion
 			if object.DeleteMarker {
 				result.DeleteMarker = true
 			}
+			result.VersionId = object.VersionId
 		} else {
+			// Add delete marker                                    |
 			if object == nil {
-				object = new(meta.Object)
-				object.BucketName = bucketName
-				object.Name = objectName
-				object.DeleteMarker = true
-				object.VersionId = meta.NullVersion
-				object.LastModifiedTime = time.Now().UTC()
+				object = &meta.Object{
+					BucketName: bucketName,
+					Name:       objectName,
+					OwnerId:    credential.UserId,
+				}
 			}
+			object.DeleteMarker = true
+			object.LastModifiedTime = time.Now().UTC()
+			object.VersionId = object.GenVersionId(bucket.Versioning)
 			err = yig.MetaStorage.DeleteSuspendedObject(object)
 			if err != nil {
 				return

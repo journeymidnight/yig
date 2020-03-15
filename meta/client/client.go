@@ -25,7 +25,6 @@ type Client interface {
 	ReplaceObjectMetas(object *Object, tx Tx) (err error)
 
 	DeleteObject(object *Object, tx Tx) error
-	AddDeleteMarker(marker *Object, tx Tx) error
 	UpdateObjectAcl(object *Object) error
 	UpdateObjectAttrs(object *Object) error
 	//bucket

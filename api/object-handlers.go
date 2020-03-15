@@ -220,6 +220,10 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	if object.DeleteMarker {
+		if reqCtx.VersionId != "" {
+			WriteErrorResponse(w, r, ErrMethodNotAllowed)
+			return
+		}
 		w.Header().Set("x-amz-delete-marker", "true")
 		WriteErrorResponse(w, r, ErrNoSuchKey)
 		return
@@ -1985,7 +1989,7 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 	reqCtx := GetRequestContext(r)
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
+	switch reqCtx.AuthType {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -2010,7 +2014,7 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 	if result.DeleteMarker {
 		w.Header().Set("x-amz-delete-marker", "true")
 	}
-	if result.VersionId != "" {
+	if result.VersionId != "" && result.VersionId != meta.NullVersion {
 		w.Header().Set("x-amz-version-id", result.VersionId)
 	}
 	// ResponseRecorder

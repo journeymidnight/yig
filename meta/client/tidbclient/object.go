@@ -9,6 +9,7 @@ import (
 	"time"
 
 	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
 )
 
@@ -88,9 +89,164 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (*Object,
 	return object, nil
 }
 
-func (t *TidbClient) GetLatestObjectVersion(bucketName, objectName string) (object *Object, err error) {
-	//TODO
-	return
+func (t *TidbClient) GetLatestObjectVersion(bucketName, objectName string) (*Object, error) {
+	var customattributes, acl, lastModifiedTime string
+	var err error
+	var row *sql.Row
+	var nullObjExists bool
+	tx, err := t.Client.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		}
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	sqltext := "select bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag,contenttype," +
+		"customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass,createtime from objects where bucketname=? and name=? and version=0"
+	row = tx.QueryRow(sqltext, bucketName, objectName)
+	nullObject := new(Object)
+	err = row.Scan(
+		&nullObject.BucketName,
+		&nullObject.Name,
+		&nullObject.VersionId,
+		&nullObject.Location,
+		&nullObject.Pool,
+		&nullObject.OwnerId,
+		&nullObject.Size,
+		&nullObject.ObjectId,
+		&lastModifiedTime,
+		&nullObject.Etag,
+		&nullObject.ContentType,
+		&customattributes,
+		&acl,
+		&nullObject.NullVersion,
+		&nullObject.DeleteMarker,
+		&nullObject.SseType,
+		&nullObject.EncryptionKey,
+		&nullObject.InitializationVector,
+		&nullObject.Type,
+		&nullObject.StorageClass,
+		&nullObject.CreateTime,
+	)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	if err != sql.ErrNoRows {
+		nullObjExists = true
+	}
+	if nullObjExists {
+		nullObject.LastModifiedTime, err = time.Parse("2006-01-02 15:04:05", lastModifiedTime)
+		if err != nil {
+			return nil, err
+		}
+		err = json.Unmarshal([]byte(acl), &nullObject.ACL)
+		if err != nil {
+			return nil, err
+		}
+		err = json.Unmarshal([]byte(customattributes), &nullObject.CustomAttributes)
+		if err != nil {
+			return nil, err
+		}
+		if nullObject.Type == ObjectTypeMultipart {
+			partVersion := math.MaxUint64 - nullObject.CreateTime
+			nullObject.Parts, err = getParts(nullObject.BucketName, nullObject.Name, partVersion, t.Client)
+			if err != nil {
+				return nil, err
+			}
+			//build simple index for multipart
+			if len(nullObject.Parts) != 0 {
+				var sortedPartNum = make([]int64, len(nullObject.Parts))
+				for k, v := range nullObject.Parts {
+					sortedPartNum[k-1] = v.Offset
+				}
+				nullObject.PartsIndex = &SimpleIndex{Index: sortedPartNum}
+			}
+		}
+	}
+
+	sqltext = "select bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag,contenttype," +
+		"customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass,createtime " +
+		"from objects where bucketname=? and name=? and version>0 order by version limit 1"
+	rows, err := tx.Query(sqltext, bucketName, objectName)
+	if err != nil {
+		return nil, err
+	}
+	var object *Object
+	for rows.Next() {
+		object = &Object{}
+		err = rows.Scan(
+			&object.BucketName,
+			&object.Name,
+			&object.VersionId,
+			&object.Location,
+			&object.Pool,
+			&object.OwnerId,
+			&object.Size,
+			&object.ObjectId,
+			&lastModifiedTime,
+			&object.Etag,
+			&object.ContentType,
+			&customattributes,
+			&acl,
+			&object.NullVersion,
+			&object.DeleteMarker,
+			&object.SseType,
+			&object.EncryptionKey,
+			&object.InitializationVector,
+			&object.Type,
+			&object.StorageClass,
+			&object.CreateTime,
+		)
+		if err != nil {
+			return nil, err
+		}
+		object.LastModifiedTime, err = time.Parse("2006-01-02 15:04:05", lastModifiedTime)
+		if err != nil {
+			return nil, err
+		}
+		err = json.Unmarshal([]byte(acl), &object.ACL)
+		if err != nil {
+			return nil, err
+		}
+		err = json.Unmarshal([]byte(customattributes), &object.CustomAttributes)
+		if err != nil {
+			return nil, err
+		}
+		if object.Type == ObjectTypeMultipart {
+			partVersion := math.MaxUint64 - object.CreateTime
+			object.Parts, err = getParts(object.BucketName, object.Name, partVersion, t.Client)
+			if err != nil {
+				return nil, err
+			}
+			//build simple index for multipart
+			if len(object.Parts) != 0 {
+				var sortedPartNum = make([]int64, len(object.Parts))
+				for k, v := range object.Parts {
+					sortedPartNum[k-1] = v.Offset
+				}
+				object.PartsIndex = &SimpleIndex{Index: sortedPartNum}
+			}
+		}
+	}
+	if !nullObjExists && object == nil {
+		return nil, ErrNoSuchKey
+	} else if !nullObjExists {
+		return object, nil
+	} else if object == nil {
+		return nullObject, nil
+	} else {
+		retObject := helper.Ternary(nullObject.LastModifiedTime.After(object.LastModifiedTime), nullObject, object)
+		return retObject.(*Object), nil
+	}
+
+	return object, nil
+
 }
 
 func (t *TidbClient) UpdateObjectAttrs(object *Object) error {

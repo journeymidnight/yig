@@ -1,7 +1,6 @@
 package types
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -9,7 +8,6 @@ import (
 	"time"
 
 	"github.com/journeymidnight/yig/api/datatype"
-	"github.com/xxtea/xxtea-go/xxtea"
 )
 
 const NullVersion = "0"
@@ -87,8 +85,7 @@ func (o *Object) GenVersionId(bucketVersionType datatype.BucketVersioningType) s
 		return NullVersion
 	}
 
-	timeData := []byte(strconv.FormatUint(uint64(o.LastModifiedTime.UnixNano()), 10))
-	return hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
+	return strconv.FormatUint(math.MaxUint64-uint64(o.LastModifiedTime.UnixNano()), 10)
 }
 
 //Tidb related function

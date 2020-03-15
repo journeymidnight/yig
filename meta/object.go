@@ -172,7 +172,7 @@ func (m *Meta) DeleteObject(object *Object) (err error) {
 }
 
 func (m *Meta) AddDeleteMarker(marker *Object) (err error) {
-	return m.Client.AddDeleteMarker(marker, nil)
+	return m.Client.PutObject(marker, nil, false)
 }
 
 func (m *Meta) DeleteSuspendedObject(object *Object) (err error) {
@@ -207,7 +207,8 @@ func (m *Meta) DeleteSuspendedObject(object *Object) (err error) {
 		}
 	}
 
-	return m.Client.AddDeleteMarker(object, tx)
+	//TODO:
+	return nil
 }
 
 func (m *Meta) AppendObject(object *Object, isExist bool) error {
