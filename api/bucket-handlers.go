@@ -134,7 +134,7 @@ func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	switch signature.GetRequestAuthType(r) {
+	switch reqCtx.AuthType {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)

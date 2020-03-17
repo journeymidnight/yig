@@ -200,7 +200,7 @@ type Object struct {
 	Key          string
 	LastModified string // time string of format "2006-01-02T15:04:05.000Z"
 	ETag         string
-	Size         uint64
+	Size         int64
 
 	Owner Owner
 

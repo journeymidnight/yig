@@ -223,7 +223,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 			var bucketname, name, ownerid string
 			var version, etag, lastModified string
 			var nullversion, deletemarker bool
-			var size uint64
+			var size int64
 			var storageClassType StorageClass
 			err = rows.Scan(
 				&bucketname,
@@ -325,11 +325,425 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 	return
 }
 
+func modifyMetaToObjectResult(objMeta Object) datatype.Object {
+	var o datatype.Object
+	o.Key = objMeta.Name
+	o.Owner = datatype.Owner{ID: objMeta.OwnerId}
+	o.ETag = objMeta.Etag
+	o.LastModified = objMeta.LastModifiedTime.Format(CREATE_TIME_LAYOUT)
+	o.Size = objMeta.Size
+	o.StorageClass = objMeta.StorageClass.ToString()
+	return o
+}
+
+func modifyMetaToVersionedObjectResult(objMeta Object) datatype.VersionedObject {
+	var o datatype.VersionedObject
+	o.Key = objMeta.Name
+	o.Owner = datatype.Owner{ID: objMeta.OwnerId}
+	o.ETag = objMeta.Etag
+	o.LastModified = objMeta.LastModifiedTime.Format(CREATE_TIME_LAYOUT)
+	o.Size = objMeta.Size
+	o.StorageClass = objMeta.StorageClass.ToString()
+	o.VersionId = objMeta.VersionId
+	o.DeleteMarker = objMeta.DeleteMarker
+	return o
+}
+
 func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (listInfo ListObjectsInfo, err error) {
+	var count int
+	var exit bool
+	objectMap := make(map[string]interface{})
+	commonPrefixes := make(map[string]interface{})
+	currentMarker := marker
+	for {
+		var sqltext string
+		var rows *sql.Rows
+		if currentMarker == "" {
+			sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size" +
+				" from objects where bucketName=? order by bucketname,name,version limit ?;"
+			rows, err = t.Client.Query(sqltext, bucketName, maxKeys)
+		} else {
+			sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size" +
+				" from objects where bucketName=? and name > ? order by bucketname,name,version limit ?;"
+
+			rows, err = t.Client.Query(sqltext, bucketName, currentMarker, maxKeys)
+		}
+		if err != nil {
+			return
+		}
+		defer rows.Close()
+
+		var loopCount int
+		var previousNullObject *datatype.Object
+		for rows.Next() {
+			loopCount += 1
+			//fetch related date
+			objMeta := Object{}
+			err = rows.Scan(
+				&objMeta.BucketName,
+				&objMeta.Name,
+				&objMeta.VersionId,
+				&objMeta.DeleteMarker,
+				&objMeta.OwnerId,
+				&objMeta.Etag,
+				&objMeta.LastModifiedTime,
+				&objMeta.StorageClass,
+				&objMeta.Size,
+			)
+			if err != nil {
+				return
+			}
+
+			// Compare which is the latest of null version object and versioned object
+			if previousNullObject != nil {
+				var o datatype.Object
+				if objMeta.Name != previousNullObject.Key {
+					o = *previousNullObject
+				} else {
+					verTime := objMeta.LastModifiedTime
+					nullTime, _ := time.Parse(CREATE_TIME_LAYOUT, previousNullObject.LastModified)
+					if nullTime.Before(verTime) {
+						o = modifyMetaToObjectResult(objMeta)
+					} else {
+						o = *previousNullObject
+					}
+				}
+
+				count++
+				if count == maxKeys {
+					listInfo.NextMarker = o.Key
+				}
+
+				if count > maxKeys {
+					listInfo.IsTruncated = true
+					exit = true
+					break
+				}
+				objectMap[objMeta.Name] = nil
+				listInfo.Objects = append(listInfo.Objects, o)
+				currentMarker = o.Key
+
+				if objMeta.Name == previousNullObject.Key {
+					previousNullObject = nil
+					continue
+				}
+			}
+
+			// If object key has in result of CommonPrefix or Objects, do continue
+			if _, ok := objectMap[objMeta.Name]; ok {
+				continue
+			}
+
+			if !strings.HasPrefix(objMeta.Name, prefix) {
+				continue
+			}
+
+			// If delete marker, do continue
+			if objMeta.DeleteMarker {
+				continue
+			}
+
+			//filter prefix by delimiter
+			if delimiter != "" {
+				subKey := strings.TrimPrefix(objMeta.Name, prefix)
+				sp := strings.SplitN(subKey, delimiter, 2)
+				if len(sp) == 2 {
+					prefixKey := prefix + sp[0] + delimiter
+					if _, ok := commonPrefixes[prefixKey]; !ok && prefixKey != marker {
+						count++
+						if count == maxKeys {
+							listInfo.NextMarker = prefixKey
+						}
+						if count > maxKeys {
+							listInfo.IsTruncated = true
+							exit = true
+							break
+						}
+						commonPrefixes[prefixKey] = nil
+						currentMarker = prefixKey
+					}
+					continue
+				}
+			}
+
+			var o = modifyMetaToObjectResult(objMeta)
+			if objMeta.VersionId == NullVersion {
+				previousNullObject = &o
+				continue
+			}
+
+			count++
+			if count == maxKeys {
+				listInfo.NextMarker = objMeta.Name
+			}
+
+			if count > maxKeys {
+				listInfo.IsTruncated = true
+				exit = true
+				break
+			}
+			objectMap[objMeta.Name] = nil
+			listInfo.Objects = append(listInfo.Objects, o)
+			currentMarker = o.Key
+		}
+		if loopCount == 0 {
+			exit = true
+		}
+		if exit {
+			break
+		}
+	}
+	// fill CommonPrefix
+	listInfo.Prefixes = helper.Keys(commonPrefixes)
 	return
 }
 
 func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefix, delimiter string, maxKeys int) (listInfo VersionedListObjectsInfo, err error) {
+	var count int
+	var exit bool
+	commonPrefixes := make(map[string]interface{})
+	currentKeyMarker := marker
+	currentVerIdMarker := verIdMarker
+	// Handle marker data first
+	if marker != "" {
+		var needCompareNull = true
+		nullObjMeta := Object{}
+		// Find null version first with specified marker
+		sqltext := "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size" +
+			" from objects where bucketName=? and name=? and version=0;"
+		row := t.Client.QueryRow(sqltext, bucketName, maxKeys)
+		err = row.Scan(
+			&nullObjMeta.BucketName,
+			&nullObjMeta.Name,
+			&nullObjMeta.VersionId,
+			&nullObjMeta.DeleteMarker,
+			&nullObjMeta.OwnerId,
+			&nullObjMeta.Etag,
+			&nullObjMeta.LastModifiedTime,
+			&nullObjMeta.StorageClass,
+			&nullObjMeta.Size,
+		)
+		if err != nil && err != sql.ErrNoRows {
+			return listInfo, err
+		}
+
+		if err == sql.ErrNoRows && verIdMarker == "null" {
+			return listInfo, nil
+		}
+		nullObj := modifyMetaToVersionedObjectResult(nullObjMeta)
+		// Calculate the null object version to compare with other versioned object
+		nullVerIdMarker := nullObjMeta.GenVersionId(datatype.BucketVersioningEnabled)
+		if currentVerIdMarker == "null" {
+			needCompareNull = false
+			currentVerIdMarker = nullVerIdMarker
+		} else if currentVerIdMarker > nullVerIdMarker {
+			needCompareNull = false
+		}
+
+		for {
+			var rows *sql.Rows
+			var o datatype.VersionedObject
+			sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size" +
+				" from objects where bucketName=? and name=? and version>? order by bucketname,name,version limit ?;"
+			rows, err = t.Client.Query(sqltext, bucketName, currentKeyMarker, currentVerIdMarker, maxKeys)
+			if err != nil {
+				return
+			}
+			defer rows.Close()
+			for rows.Next() {
+				VerObjMeta := Object{}
+				err = rows.Scan(
+					&VerObjMeta.BucketName,
+					&VerObjMeta.Name,
+					&VerObjMeta.VersionId,
+					&VerObjMeta.DeleteMarker,
+					&VerObjMeta.OwnerId,
+					&VerObjMeta.Etag,
+					&VerObjMeta.LastModifiedTime,
+					&VerObjMeta.StorageClass,
+					&VerObjMeta.Size,
+				)
+				if err != nil {
+					return
+				}
+
+				if needCompareNull {
+					if nullObjMeta.LastModifiedTime.After(VerObjMeta.LastModifiedTime) {
+						needCompareNull = false
+						o = nullObj
+					} else {
+						o = modifyMetaToVersionedObjectResult(VerObjMeta)
+					}
+					count++
+					if count == maxKeys {
+						listInfo.NextKeyMarker = o.Key
+						listInfo.NextVersionIdMarker = o.VersionId
+					}
+					if count > maxKeys {
+						listInfo.IsTruncated = true
+						exit = true
+						break
+					}
+					listInfo.Objects = append(listInfo.Objects, o)
+				}
+			}
+		}
+	}
+
+	if exit {
+		return listInfo, nil
+	}
+
+	// Begin to list other objects
+	for {
+		var sqltext string
+		var rows *sql.Rows
+		var previousNullObject *datatype.VersionedObject
+		needCompareNull := true
+		if currentKeyMarker == "" {
+			sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size" +
+				" from objects where bucketName=? order by bucketname,name,version limit ?;"
+			rows, err = t.Client.Query(sqltext, bucketName, maxKeys)
+		} else {
+			sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size" +
+				" from objects where bucketName=? and name > ? order by bucketname,name,version limit ?;"
+			rows, err = t.Client.Query(sqltext, bucketName, currentKeyMarker, maxKeys)
+		}
+		if err != nil {
+			return
+		}
+		defer rows.Close()
+
+		var loopCount int
+		for rows.Next() {
+			loopCount += 1
+			//fetch related date
+			objMeta := Object{}
+			err = rows.Scan(
+				&objMeta.BucketName,
+				&objMeta.Name,
+				&objMeta.VersionId,
+				&objMeta.DeleteMarker,
+				&objMeta.OwnerId,
+				&objMeta.Etag,
+				&objMeta.LastModifiedTime,
+				&objMeta.StorageClass,
+				&objMeta.Size,
+			)
+			if err != nil {
+				return
+			}
+
+			if previousNullObject != nil && objMeta.Name != previousNullObject.Key && needCompareNull {
+				// means previousNullObject is not handled
+				count++
+				if count == maxKeys {
+					listInfo.NextKeyMarker = previousNullObject.Key
+					listInfo.NextVersionIdMarker = previousNullObject.VersionId
+				}
+
+				if count > maxKeys {
+					listInfo.IsTruncated = true
+					exit = true
+					break
+				}
+
+				listInfo.Objects = append(listInfo.Objects, *previousNullObject)
+				currentKeyMarker = previousNullObject.Key
+				currentVerIdMarker = previousNullObject.VersionId
+				previousNullObject = nil
+			}
+
+			// Compare which is the latest of null version object and versioned object
+			if previousNullObject != nil && objMeta.Name == previousNullObject.Key && needCompareNull {
+				var o datatype.VersionedObject
+				verTime := objMeta.LastModifiedTime
+				nullTime, _ := time.Parse(CREATE_TIME_LAYOUT, previousNullObject.LastModified)
+				if nullTime.Before(verTime) {
+					o = modifyMetaToVersionedObjectResult(objMeta)
+				} else {
+					needCompareNull = false
+					o = *previousNullObject
+				}
+
+				count++
+				if count == maxKeys {
+					listInfo.NextKeyMarker = o.Key
+					listInfo.NextVersionIdMarker = o.VersionId
+				}
+
+				if count > maxKeys {
+					listInfo.IsTruncated = true
+					exit = true
+					break
+				}
+
+				listInfo.Objects = append(listInfo.Objects, o)
+				currentKeyMarker = o.Key
+				currentVerIdMarker = o.VersionId
+				continue
+			}
+
+			if !strings.HasPrefix(objMeta.Name, prefix) {
+				continue
+			}
+
+			//filter prefix by delimiter
+			if delimiter != "" {
+				subKey := strings.TrimPrefix(objMeta.Name, prefix)
+				sp := strings.SplitN(subKey, delimiter, 2)
+				if len(sp) == 2 {
+					prefixKey := prefix + sp[0] + delimiter
+					if _, ok := commonPrefixes[prefixKey]; !ok && prefixKey != marker {
+						count++
+						if count == maxKeys {
+							listInfo.NextKeyMarker = prefixKey
+							listInfo.NextVersionIdMarker = objMeta.VersionId
+						}
+						if count > maxKeys {
+							listInfo.IsTruncated = true
+							exit = true
+							break
+						}
+						commonPrefixes[prefixKey] = nil
+						currentKeyMarker = prefixKey
+						currentVerIdMarker = objMeta.VersionId
+					}
+					continue
+				}
+			}
+
+			o := modifyMetaToVersionedObjectResult(objMeta)
+
+			if o.VersionId == NullVersion {
+				previousNullObject = &o
+				continue
+			}
+
+			count++
+			if count == maxKeys {
+				listInfo.NextKeyMarker = objMeta.Name
+			}
+
+			if count > maxKeys {
+				listInfo.IsTruncated = true
+				exit = true
+				break
+			}
+
+			listInfo.Objects = append(listInfo.Objects, o)
+			currentKeyMarker = o.Key
+			currentVerIdMarker = o.VersionId
+		}
+		if loopCount == 0 {
+			exit = true
+		}
+		if exit {
+			break
+		}
+	}
+	// fill CommonPrefix
+	listInfo.Prefixes = helper.Keys(commonPrefixes)
 	return
 }
 

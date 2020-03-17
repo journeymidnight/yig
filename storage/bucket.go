@@ -581,22 +581,9 @@ func (yig *YigStorage) ListVersionedObjectsInternal(bucketName string,
 
 	var marker string
 	var verIdMarker string
-	if request.Versioned {
-		marker = request.KeyMarker
-		verIdMarker = request.VersionIdMarker
-	} else if request.Version == 2 {
-		if request.ContinuationToken != "" {
-			marker, err = util.Decrypt(request.ContinuationToken)
-			if err != nil {
-				err = ErrInvalidContinuationToken
-				return
-			}
-		} else {
-			marker = request.StartAfter
-		}
-	} else { // version 1
-		marker = request.Marker
-	}
+	marker = request.KeyMarker
+	verIdMarker = request.VersionIdMarker
+
 	helper.Logger.Info("Prefix:", request.Prefix, "Marker:", request.Marker, "MaxKeys:",
 		request.MaxKeys, "Delimiter:", request.Delimiter, "Version:", request.Version,
 		"keyMarker:", request.KeyMarker, "versionIdMarker:", request.VersionIdMarker)

@@ -55,6 +55,7 @@ func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multi
 		fallthrough
 	case datatype.BucketVersioningDisabled:
 		needUpdate := (reqCtx.ObjectInfo != nil)
+
 		if needUpdate {
 			return m.Client.UpdateObject(object, multipart, updateUsage, nil)
 		} else {
@@ -207,11 +208,11 @@ func (m *Meta) DeleteSuspendedObject(object *Object) (err error) {
 		}
 	}
 
+	// TODO: To be fixed
 	// update to delete marker
 	object.DeleteMarker = true
 	object.LastModifiedTime = time.Now().UTC()
-	object.Parts = nil
-	return m.Client.UpdateObject(object, nil, false, tx)
+	return m.Client.UpdateObject(object, nil, true, nil)
 }
 
 func (m *Meta) AppendObject(object *Object, isExist bool) error {
