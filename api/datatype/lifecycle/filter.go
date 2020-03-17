@@ -59,7 +59,7 @@ func (f Filter) Validate() error {
 }
 
 // isEmpty - returns true if Filter tag is empty
-func (f *Filter) isEmpty() bool {
+func (f Filter) isEmpty() bool {
 	return f.And.isEmpty() && f.Prefix == nil && f.Tag == nil
 }
 

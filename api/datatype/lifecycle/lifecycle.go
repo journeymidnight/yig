@@ -25,7 +25,7 @@ import (
 )
 
 var (
-	//errLifecycleOverlappingPrefix = Errorf("Lifecycle configuration has rules with overlapping prefix")
+//errLifecycleOverlappingPrefix = Errorf("Lifecycle configuration has rules with overlapping prefix")
 )
 
 const (
@@ -87,60 +87,161 @@ func (lc Lifecycle) Validate() error {
 	return nil
 }
 
-func (lc Lifecycle) FiltrateRules() (prefixes []string) {
-	for _, rule := range lc.Rules {
-		if rule.Status == Disabled {
-			continue
-		}
-		//TODO:
-		prefixes = append(prefixes, rule.Prefix())
+// ComputeAction returns the action to perform by evaluating all lifecycle rules
+// against the object name and its modification time.
+//
+//							The day LC run
+//												match					match						No
+// ----》 rule -----------》prefix X objectName --------》Tags X objTags -------》 IS Expiration ? --------》Select Transition from Transitions
+//		   ^		  			| not match	 	              	| not match				| Yes					| save/replace storageClass
+//		   |《-------------------								|						|						| GLACIER replace STANDARD_IA
+// 		   |《---------------------------------------------------						|						|
+//		   |																		Delete object				|
+//		   |《---------------------------------------------------------------------------------------------------
+//	FOR MANY LOOP RULES, IF NOT EXPIRATION, SHOULD BE TRANSITION(THE CHEAPEST CLASS)
+//
+func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, modTime time.Time, rules []Rule) (Action, StorageClass) {
+	var storageClass StorageClass
+	var action = NoneAction
+	if modTime.IsZero() || objName == "" {
+		return action, 0
 	}
-	return prefixes
-}
 
-// FilterRuleActions returns the expiration and transition from the object name
-// after evaluating all rules.
-func (lc Lifecycle) FilterRuleActions(objName, objTags string) (Expiration, Transition) {
-	if objName == "" {
-		return Expiration{}, Transition{}
-	}
-	for _, rule := range lc.Rules {
+	for _, rule := range rules {
 		if rule.Status == Disabled {
 			continue
 		}
-		if rule.Filter != nil {
-			tags := rule.Tags()
-			if strings.HasPrefix(objName, rule.Prefix()) {
-				if tags != "" {
-					if strings.Contains(objTags, tags) {
-						return *rule.Expiration, Transition{}
+		var prefix string
+		if rule.Filter == nil {
+			prefix = ""
+		} else {
+			prefix = rule.Prefix()
+		}
+
+		// prefix and tags pass
+		if strings.HasPrefix(objName, prefix) && rule.filterTags(objTags) {
+			// at the time, expiration is first,and then GLACIER
+			if rule.Expiration != nil {
+				if !rule.Expiration.IsDateNull() {
+					if time.Now().After(rule.Expiration.Date.Time) {
+						action = DeleteAction
 					}
-				} else {
-					return *rule.Expiration, Transition{}
+				}
+
+				if !rule.Expiration.IsDaysNull() {
+					if time.Now().After(modTime.Add(time.Duration(rule.Expiration.Days) * 24 * time.Hour)) {
+						action = DeleteAction
+					}
+				}
+				//TODO: DeleteMarker
+				return action, 0
+
+			} else if len(rule.Transitions) != 0 {
+				// to result transition conflict: GLACIER > STANDARD_IA
+				for _, transition := range rule.Transitions {
+					if !transition.IsDateNull() {
+						if time.Now().After(transition.Date.Time) {
+							action = TransitionAction
+							ruleStorageClass, _ := MatchStorageClassIndex(transition.StorageClass)
+							if storageClass < ruleStorageClass {
+								storageClass = ruleStorageClass
+							}
+						}
+					}
+
+					if !transition.IsDaysNull() {
+						if time.Now().After(modTime.Add(time.Duration(transition.Days) * 24 * time.Hour)) {
+							action = TransitionAction
+							ruleStorageClass, _ := MatchStorageClassIndex(transition.StorageClass)
+							if storageClass < ruleStorageClass {
+								storageClass = ruleStorageClass
+							}
+						}
+					}
+
 				}
 			}
 		}
 	}
-	return Expiration{}, Transition{}
+	return action, storageClass
 }
 
-// ComputeAction returns the action to perform by evaluating all lifecycle rules
-// against the object name and its modification time.
-func (lc Lifecycle) ComputeAction(objName, objTags string, modTime time.Time) Action {
+// Just like ComputeAction
+func (lc Lifecycle) ComputeActionFromNonCurrentVersion(objName string, objTags map[string]string, modTime time.Time, rules []Rule) (Action, StorageClass) {
+	var storageClass StorageClass
 	var action = NoneAction
-	if modTime.IsZero() {
-		return action
+	if modTime.IsZero() || objName == "" {
+		return action, 0
 	}
-	exp, _ := lc.FilterRuleActions(objName, objTags)
-	if !exp.IsDateNull() {
-		if time.Now().After(exp.Date.Time) {
-			action = DeleteAction
+
+	for _, rule := range rules {
+		var prefix string
+		if rule.Filter == nil {
+			prefix = ""
+		} else {
+			prefix = rule.Prefix()
+		}
+
+		// prefix and tags pass
+		if strings.HasPrefix(objName, prefix) /* && rule.filterTags(objTags)*/ { //TODO: add Tags condition
+			// at the time, expiration is first,and then GLACIER
+			if rule.NoncurrentVersionExpiration != nil {
+				if !rule.NoncurrentVersionExpiration.IsDaysNull() {
+					if time.Now().After(modTime.Add(time.Duration(rule.NoncurrentVersionExpiration.NoncurrentDays) * 24 * time.Hour)) {
+						action = DeleteAction
+					}
+				}
+				return action, 0
+
+			} else if len(rule.NoncurrentVersionTransitions) != 0 {
+				// to result transition conflict: GLACIER > STANDARD_IA
+				for _, transition := range rule.NoncurrentVersionTransitions {
+					if !transition.IsDaysNull() {
+						if time.Now().After(modTime.Add(time.Duration(transition.NoncurrentDays) * 24 * time.Hour)) {
+							action = TransitionAction
+							ruleStorageClass, _ := MatchStorageClassIndex(transition.StorageClass)
+							if storageClass < ruleStorageClass {
+								storageClass = ruleStorageClass
+							}
+						}
+					}
+
+				}
+			}
 		}
 	}
-	if !exp.IsDaysNull() {
-		if time.Now().After(modTime.Add(time.Duration(exp.Days) * 24 * time.Hour)) {
-			action = DeleteAction
+	return action, storageClass
+}
+
+// lcp finds the longest common prefix of the input strings.
+// It compares by bytes instead of runes (Unicode code points).
+// It's up to the caller to do Unicode normalization if desired
+// (e.g. see golang.org/x/text/unicode/norm).
+func Lcp(l []string) string {
+	// Special cases first
+	switch len(l) {
+	case 0:
+		return ""
+	case 1:
+		return l[0]
+	}
+	// LCP of min and max (lexigraphically)
+	// is the LCP of the whole set.
+	min, max := l[0], l[0]
+	for _, s := range l[1:] {
+		switch {
+		case s < min:
+			min = s
+		case s > max:
+			max = s
 		}
 	}
-	return action
+	for i := 0; i < len(min) && i < len(max); i++ {
+		if min[i] != max[i] {
+			return min[:i]
+		}
+	}
+	// In the case where lengths are not equal but all bytes
+	// are equal, min is the answer ("foo" < "foobar").
+	return min
 }

@@ -115,6 +115,11 @@ func (t Transition) Validate() error {
 		return ErrLcMissingStorageClass
 	}
 
+	_, err := MatchStorageClassIndex(t.StorageClass)
+	if err != nil {
+		return ErrInvalidStorageClass
+	}
+
 	return nil
 }
 

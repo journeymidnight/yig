@@ -28,7 +28,7 @@ const (
 							<NoncurrentVersionTransition>
                                     <NoncurrentDays>3</NoncurrentDays>
 									<StorageClass>GLACIER</StorageClass>
-                                    </NoncurrentVersionTransition>
+                            </NoncurrentVersionTransition>
   						</Rule>
   						<Rule>
     						<ID>id2</ID>
@@ -41,7 +41,7 @@ const (
     						</Expiration>
 							<NoncurrentVersionExpiration>
                                     <NoncurrentDays>3</NoncurrentDays>
-                                    </NoncurrentVersionExpiration>
+							</NoncurrentVersionExpiration>
   						</Rule>
 						<Rule>
     						<Filter>
@@ -88,7 +88,7 @@ func Test_RightLifecycleConfiguration(t *testing.T) {
 	}
 
 	var config = &lifecycle.Lifecycle{}
-	err = xml.Unmarshal([]byte(LiecycleConfiguration), config)
+	err = xml.Unmarshal([]byte(LifecycleWrongConfiguration), config)
 	if err != nil {
 		t.Fatal("Unmarshal lifecycle configuration err:", err)
 	}

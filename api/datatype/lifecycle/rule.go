@@ -17,7 +17,6 @@
 package lifecycle
 
 import (
-	"bytes"
 	"encoding/xml"
 	. "github.com/journeymidnight/yig/error"
 )
@@ -68,7 +67,8 @@ func (r Rule) validateStatus() error {
 }
 
 func (r Rule) validateAction() error {
-	if r.Expiration != nil || len(r.Transitions) != 0 {
+	if r.Expiration != nil || len(r.Transitions) != 0 ||
+		r.NoncurrentVersionExpiration != nil || len(r.NoncurrentVersionTransitions) != 0 {
 		if r.Expiration != nil {
 			if err := r.Expiration.Validate(); err != nil {
 				return err
@@ -81,26 +81,21 @@ func (r Rule) validateAction() error {
 			}
 		}
 
+		if r.NoncurrentVersionExpiration != nil {
+			if err := r.NoncurrentVersionExpiration.Validate(); err != nil {
+				return err
+			}
+		}
+
+		for _, nvTransition := range r.NoncurrentVersionTransitions {
+			if err := nvTransition.Validate(); err != nil {
+				return err
+			}
+		}
 		return nil
 	}
 
 	return ErrLcMissingAction
-}
-
-func (r Rule) validateNoncurrentVersion() error {
-	if r.NoncurrentVersionExpiration != nil {
-		if err := r.NoncurrentVersionExpiration.Validate(); err != nil {
-			return err
-		}
-	}
-
-	for _, nvTransition := range r.NoncurrentVersionTransitions {
-		if err := nvTransition.Validate(); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (r Rule) validateFilter() error {
@@ -123,26 +118,34 @@ func (r Rule) Prefix() string {
 	return ""
 }
 
-// Tags - a rule can either have tag under <filter></filter> or under
-// <filter><and></and></filter>. This method returns all the tags from the
-// rule in the format tag1=value1&tag2=value2
-func (r Rule) Tags() string {
-	if r.Filter.Tag != nil && !r.Filter.Tag.IsEmpty() {
-		return r.Filter.Tag.String()
-	}
-	if r.Filter.And != nil {
-		if len(r.Filter.And.Tags) != 0 {
-			var buf bytes.Buffer
-			for _, t := range r.Filter.And.Tags {
-				if buf.Len() > 0 {
-					buf.WriteString("&")
-				}
-				buf.WriteString(t.String())
+// Return whether rule tags are contained by object tags;
+func (r Rule) filterTags(objTags map[string]string) bool {
+	rTags := r.getTags()
+	if len(rTags) <= len(objTags) {
+		for rKey := range rTags {
+			if _, ok := objTags[rKey]; ok {
+				continue
 			}
-			return buf.String()
+			return false
+		}
+		return true
+	}
+	return false
+}
+
+// Return all tags by map
+func (r Rule) getTags() map[string]string {
+	tags := make(map[string]string)
+	if r.Filter.Tag != nil {
+		tags[r.Filter.Tag.Key] = r.Filter.Tag.Value
+	}
+	if r.Filter.And != nil && len(r.Filter.And.Tags) != 0 {
+		for _, tag := range r.Filter.And.Tags {
+			tags[tag.Key] = tag.Value
 		}
 	}
-	return ""
+
+	return tags
 }
 
 // Validate - validates the rule element
@@ -159,8 +162,6 @@ func (r Rule) Validate() error {
 	if err := r.validateFilter(); err != nil {
 		return err
 	}
-	if err := r.validateNoncurrentVersion(); err != nil {
-		return err
-	}
+
 	return nil
 }

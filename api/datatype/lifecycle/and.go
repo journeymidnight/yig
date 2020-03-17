@@ -28,7 +28,7 @@ type And struct {
 }
 
 // isEmpty returns true if Tags field is null
-func (a *And) isEmpty() bool {
+func (a And) isEmpty() bool {
 	return len(a.Tags) == 0 && a.Prefix == nil
 }
 

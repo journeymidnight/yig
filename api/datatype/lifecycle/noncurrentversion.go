@@ -90,6 +90,11 @@ func (n NoncurrentVersionTransition) Validate() error {
 		return ErrLcMissingStorageClass
 	}
 
+	_, err := MatchStorageClassIndex(n.StorageClass)
+	if err != nil {
+		return ErrInvalidStorageClass
+	}
+
 	return nil
 }
 
