@@ -1,6 +1,7 @@
 function prepare_ceph(){
 	docker exec ceph ceph osd pool create tiger 32
 	docker exec ceph ceph osd pool create rabbit 32
+	docker exec ceph ceph osd pool create turtle 32
 }
 
 function prepare_mysql(){
