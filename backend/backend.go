@@ -7,8 +7,9 @@ import (
 )
 
 const (
-	SMALL_FILE_POOLNAME = "rabbit"
-	BIG_FILE_POOLNAME   = "tiger"
+	SMALL_FILE_POOLNAME   = "rabbit"
+	BIG_FILE_POOLNAME     = "tiger"
+	GLACIER_FILE_POOLNAME = "turtle"
 )
 
 type Usage struct {
@@ -21,8 +22,8 @@ type Cluster interface {
 	// get cluster usage statistics
 	GetUsage() (Usage, error)
 	// put new object to storage Cluster
-	Put(poolName string, object io.Reader) (objectName string,
-		bytesWritten uint64, err error)
+	Put(poolname string, data io.Reader) (oid string,
+		size uint64, err error)
 	// append a new chunk to object, empty existName means new object
 	Append(poolName, existName string, objectChunk io.Reader,
 		offset int64) (objectName string, bytesWritten uint64, err error)

@@ -34,9 +34,10 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dustin/go-humanize v1.0.0
 	github.com/go-sql-driver/mysql v1.4.1
+	github.com/golang/snappy v0.0.1
 	github.com/gomodule/redigo v1.7.0
+	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/mux v1.6.2
-	github.com/hashicorp/vault/api v1.0.2
 	github.com/journeymidnight/aws-sdk-go v1.18.1
 	github.com/journeymidnight/radoshttpd v0.0.0-20190617133011-609666b51136
 	github.com/minio/highwayhash v1.0.0

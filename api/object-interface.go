@@ -81,8 +81,8 @@ type ObjectLayer interface {
 		metadata map[string]string, acl datatype.Acl,
 		sse datatype.SseRequest, storageClass meta.StorageClass, objInfo *meta.Object) (result datatype.AppendObjectResult, err error)
 
-	CopyObject(targetObject *meta.Object, source io.Reader, credential common.Credential,
-		sse datatype.SseRequest, isMetadataOnly bool) (result datatype.PutObjectResult, err error)
+	CopyObject(targetObject *meta.Object, sourceObject *meta.Object, source io.Reader, credential common.Credential,
+		sseRequest datatype.SseRequest, isMetadataOnly bool) (result datatype.PutObjectResult, err error)
 	RenameObject(targetObject *meta.Object, sourceObject string, credential common.Credential) (result datatype.RenameObjectResult, err error)
 	PutObjectMeta(bucket *meta.Bucket, targetObject *meta.Object, credential common.Credential) (err error)
 	SetObjectAcl(bucket string, object string, version string, policy datatype.AccessControlPolicy,
@@ -109,4 +109,10 @@ type ObjectLayer interface {
 	AbortMultipartUpload(credential common.Credential, bucket, object, uploadID string) error
 	CompleteMultipartUpload(credential common.Credential, bucket, object, uploadID string,
 		uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult, err error)
+
+	// Freezer operations.
+	GetFreezer(bucketName string, objectName string, version string) (freezer *meta.Freezer, err error)
+	GetFreezerStatus(bucketName string, objectName string, version string) (freezer *meta.Freezer, err error)
+	CreateFreezer(freezer *meta.Freezer) (err error)
+	UpdateFreezerDate(freezer *meta.Freezer, date int, isIncrement bool) (err error)
 }

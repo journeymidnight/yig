@@ -119,6 +119,43 @@ func (t *TidbClient) RemoveGarbageCollection(garbage GarbageCollection) (err err
 	return nil
 }
 
+func (t *TidbClient) PutFreezerToGarbageCollection(object *Freezer, tx DB) (err error) {
+	if tx == nil {
+		tx, err = t.Client.Begin()
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err == nil {
+				err = tx.(*sql.Tx).Commit()
+			}
+			if err != nil {
+				tx.(*sql.Tx).Rollback()
+			}
+		}()
+	}
+	o := GarbageCollectionFromFreeze(object)
+	var hasPart bool
+	if len(o.Parts) > 0 {
+		hasPart = true
+	}
+	mtime := o.MTime.Format(TIME_LAYOUT_TIDB)
+	version := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
+	sqltext := "insert ignore into gc(bucketname,objectname,version,location,pool,objectid,status,mtime,part,triedtimes) values(?,?,?,?,?,?,?,?,?,?);"
+	_, err = tx.Exec(sqltext, o.BucketName, o.ObjectName, version, o.Location, o.Pool, o.ObjectId, o.Status, mtime, hasPart, o.TriedTimes)
+	if err != nil {
+		return err
+	}
+	for _, p := range object.Parts {
+		psql, args := p.GetCreateGcSql(o.BucketName, o.ObjectName, version)
+		_, err = tx.Exec(psql, args...)
+		if err != nil {
+			return err
+		}
+	}
+	return
+}
+
 //util func
 func (t *TidbClient) GetGarbageCollection(bucketName, objectName, version string) (gc GarbageCollection, err error) {
 	sqltext := "select bucketname,objectname,version,location,pool,objectid,status,mtime,part,triedtimes from gc where bucketname=? and objectname=? and version=?;"
@@ -186,6 +223,19 @@ func GarbageCollectionFromObject(o *Object) (gc GarbageCollection) {
 	gc.Status = "Pending"
 	gc.MTime = time.Now().UTC()
 	gc.Parts = o.Parts
+	gc.TriedTimes = 0
+	return
+}
+
+func GarbageCollectionFromFreeze(f *Freezer) (gc GarbageCollection) {
+	gc.BucketName = f.BucketName
+	gc.ObjectName = f.Name
+	gc.Location = f.Location
+	gc.Pool = f.Pool
+	gc.ObjectId = f.ObjectId
+	gc.Status = "Pending"
+	gc.MTime = time.Now().UTC()
+	gc.Parts = f.Parts
 	gc.TriedTimes = 0
 	return
 }

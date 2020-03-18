@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/journeymidnight/yig/compression"
 	"github.com/journeymidnight/yig/crypto"
 	"math/rand"
 	"net/http"
@@ -77,6 +78,20 @@ func main() {
 		panic("failed to create message queue sender, sender is nil.")
 	}
 	helper.Logger.Info("Succeed to create message queue sender.")
+
+	// try to create compression if it is enabled.
+	if helper.CONFIG.EnableCompression == true {
+		compress, err := compression.InitCompression(allPluginMap)
+		if err != nil {
+			helper.Logger.Error("Failed to create compression unis, err:", err)
+			panic("failed to create compression unis")
+		}
+		if compress == nil {
+			helper.Logger.Error("Failed to create compression unis, unis is nil.")
+			panic("failed to create compression unis, unis is nil.")
+		}
+		helper.Logger.Info("Succeed to create compression unis.")
+	}
 
 	iam.InitializeIamClient(allPluginMap)
 

@@ -21,6 +21,7 @@ type Client interface {
 	RenameObject(object *Object, sourceObject string, tx DB) (err error)
 	ReplaceObjectMetas(object *Object, tx DB) (err error)
 	DeleteObject(object *Object, tx DB) error
+	UpdateObject(object *Object, tx DB) (err error)
 	UpdateObjectAcl(object *Object) error
 	UpdateObjectAttrs(object *Object) error
 	//bucket
@@ -54,6 +55,13 @@ type Client interface {
 	RemoveBucketForUser(bucketName string, userId string) (err error)
 	//gc
 	PutObjectToGarbageCollection(object *Object, tx DB) error
+	PutFreezerToGarbageCollection(object *Freezer, tx DB) (err error)
 	ScanGarbageCollection(limit int, startRowKey string) ([]GarbageCollection, error)
 	RemoveGarbageCollection(garbage GarbageCollection) error
+	//freezer
+	CreateFreezer(freezer *Freezer) (err error)
+	GetFreezer(bucketName, objectName, version string) (freezer *Freezer, err error)
+	GetFreezerStatus(bucketName, objectName, version string) (freezer *Freezer, err error)
+	UploadFreezerDate(bucketName, objectName string, lifetime int) (err error)
+	DeleteFreezer(bucketName, objectName string, tx DB) (err error)
 }
