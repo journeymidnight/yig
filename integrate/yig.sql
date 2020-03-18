@@ -190,6 +190,7 @@ CREATE TABLE `objects` (
   `contenttype` varchar(255) DEFAULT NULL,
   `customattributes` JSON DEFAULT NULL,
   `acl` JSON DEFAULT NULL,
+  `tagging` JSON DEFAULT NULL,
   `nullversion` tinyint(1) DEFAULT NULL,
   `deletemarker` tinyint(1) DEFAULT NULL,
   `ssetype` varchar(255) DEFAULT NULL,

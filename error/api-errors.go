@@ -69,6 +69,7 @@ const (
 	ErrInvalidPolicyDocument
 	ErrInvalidCorsDocument
 	ErrInvalidVersioning
+	ErrInvalidTag
 	ErrMalformedXML
 	ErrMissingContentLength
 	ErrMissingContentMD5
@@ -168,6 +169,7 @@ const (
 	ErrIndexDocumentNotAllowed
 	ErrInvalidIndexDocumentSuffix
 	ErrInvalidErrorDocumentKey
+	ErrMalformedTaggingConfiguration
 	ErrMalformedMetadataConfiguration
 	ErrMalformedEncryptionConfiguration
 	ErrMissingRuleInEncryption
@@ -285,6 +287,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidGlacierObject: {
 		AwsErrorCode:   "InvalidGlacierObject",
 		Description:    "Glacier objects need to be thawed before this operation can be performed.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidTag: {
+		AwsErrorCode:   "InvalidTagError",
+		Description:    "The tag provided was not a valid tag. This error can occur if the tag did not pass input validation.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrAccessDenied: {
@@ -791,6 +798,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrMetadataHeader: {
 		AwsErrorCode:   "InvalidMetaCommonHead",
 		Description:    "The head is no a valid head key can be set.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMalformedTaggingConfiguration: {
+		AwsErrorCode:   "MalformedXMLError",
+		Description:    "The XML provided does not match the schema.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrMalformedMetadataConfiguration: {
