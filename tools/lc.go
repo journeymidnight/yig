@@ -4,12 +4,15 @@ import (
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/lifecycle"
 	"github.com/journeymidnight/yig/crypto"
+	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/log"
-	"github.com/journeymidnight/yig/meta/types"
+	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/mods"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/storage"
+	"go/types"
 	"os"
 	"os/signal"
 	"sync"
@@ -25,7 +28,7 @@ const (
 
 var (
 	yig         *storage.YigStorage
-	taskQ       chan types.LifeCycle
+	taskQ       chan meta.LifeCycle
 	signalQueue chan os.Signal
 	waitgroup   sync.WaitGroup
 	empty       bool
@@ -63,28 +66,16 @@ func getLifeCycles() {
 
 }
 
-func checkIfExpiration(updateTime time.Time, days int) bool {
-	if helper.CONFIG.DebugMode == false {
-		return int(time.Since(updateTime).Seconds()) >= days*24*3600
-	} else {
-		return int(time.Since(updateTime).Seconds()) >= days
-	}
-}
-
 // If a rule has an empty prefix, the days in it will be consider as a default days for all objects that not specified in
 // other rules. For this reason, we have two conditions to check if a object has expired and should be deleted
-//  if defaultConfig == true
-//                    for each object           check if object name has a prifix
-//  list all objects --------------->loop rules---------------------------------->
-//                                                                      |     NO
-//                                                                      |--------> days = default days ---
-//                                                                      |     YES                         |->delete object if expired
-//                                                                      |--------> days = specify days ---
+//
+//
+//
 //
 //  if defaultConfig == false
 //                 for each rule get objects by prefix
 //  iterator rules ----------------------------------> loop objects-------->delete object if expired
-func lifecycleUnit(lc types.LifeCycle) error {
+func lifecycleUnit(lc meta.LifeCycle) error {
 	bucket, err := yig.MetaStorage.GetBucket(lc.BucketName, false)
 	if err != nil {
 		return err
@@ -123,14 +114,27 @@ func lifecycleUnit(lc types.LifeCycle) error {
 			if err != nil {
 				return nil
 			}
-			for _,object := range retObjests {
+			for _, object := range retObjests {
 				// Find the action that need to be executed			TODO: add tags
 				action, storageClass := bucketLC.ComputeAction(object.Name, nil, object.LastModifiedTime, cvRules)
-				if action == lifecycle.DeleteAction {
-					objects = append(objects, obj.Name)
-				}
 
+				//Delete or transition
+				if action == lifecycle.DeleteAction {
+					_, err = yig.DeleteObject(object.BucketName, object.Name, object.VersionId, common.Credential{})
+					if err != nil {
+						helper.Logger.Error(object.BucketName, object.Name, object.VersionId, err)
+						continue
+					}
+				}
+				if action == lifecycle.TransitionAction {
+					_, err = transitionObject(object, storageClass, common.Credential{})
+					if err != nil {
+						helper.Logger.Error(object.BucketName, object.Name, object.VersionId, err)
+						continue
+					}
+				}
 			}
+
 			if truncated == true {
 				request.KeyMarker = nextMarker
 				request.VersionIdMarker = nextVerIdMarker
@@ -142,6 +146,53 @@ func lifecycleUnit(lc types.LifeCycle) error {
 	}
 
 	return nil
+}
+
+func transitionObject(object *meta.Object, storageClass string, credential common.Credential) (result datatype.PutObjectResult, err error) {
+	var sseRequest datatype.SseRequest
+	sseRequest.Type = object.SseType
+
+	if object.StorageClass == meta.ObjectStorageClassGlacier || object.StorageClass == meta.ObjectStorageClassDeepArchive {
+		return result, ErrInvalidCopySourceStorageClass
+	}
+
+	targetStorageClass, err := meta.MatchStorageClassIndex(storageClass)
+	if err != nil {
+		return result, err
+	}
+
+	if targetStorageClass < object.StorageClass {
+		return result, ErrInvalidLcStorageClass
+	}
+
+	if targetStorageClass == meta.ObjectStorageClassGlacier {
+		err = yig.MetaStorage.UpdateGlacierObject(targetObject, sourceObject, true)
+		if err != nil {
+			helper.Logger.Error("Copy Object with same source and target with GLACIER object, sql fails:", err)
+			return result, ErrInternalError
+		}
+		result.LastModified = targetObject.LastModifiedTime
+		if bucket.Versioning == "Enabled" {
+			result.VersionId = targetObject.GetVersionId()
+		}
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
+		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
+		return result, nil
+	}
+	err = yig.MetaStorage.ReplaceObjectMetas(targetObject)
+	if err != nil {
+		helper.Logger.Error("Copy Object with same source and target, sql fails:", err)
+		return result, ErrInternalError
+	}
+	targetObject.LastModifiedTime = time.Now().UTC()
+	result.LastModified = targetObject.LastModifiedTime
+	if bucket.Versioning == "Enabled" {
+		result.VersionId = targetObject.GetVersionId()
+	}
+	yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
+	yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
+	return result, nil
+
 }
 
 func processLifecycle() {
@@ -191,7 +242,7 @@ func main() {
 	kms := crypto.NewKMS(allPluginMap)
 
 	yig = storage.New(helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache, kms)
-	taskQ = make(chan types.LifeCycle, SCAN_LIMIT)
+	taskQ = make(chan meta.LifeCycle, SCAN_LIMIT)
 	signal.Ignore()
 	signalQueue = make(chan os.Signal)
 

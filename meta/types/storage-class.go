@@ -11,23 +11,23 @@ const (
 	// ObjectStorageClassStandard is a ObjectStorageClass enum value
 	ObjectStorageClassStandard StorageClass = iota
 
-	// ObjectStorageClassReducedRedundancy is a ObjectStorageClass enum value
-	ObjectStorageClassReducedRedundancy
-
-	// ObjectStorageClassGlacier is a ObjectStorageClass enum value
-	ObjectStorageClassGlacier
-
 	// ObjectStorageClassStandardIa is a ObjectStorageClass enum value
 	ObjectStorageClassStandardIa
-
-	// ObjectStorageClassOnezoneIa is a ObjectStorageClass enum value
-	ObjectStorageClassOnezoneIa
 
 	// ObjectStorageClassIntelligentTiering is a ObjectStorageClass enum value
 	ObjectStorageClassIntelligentTiering
 
+	// ObjectStorageClassOnezoneIa is a ObjectStorageClass enum value
+	ObjectStorageClassOnezoneIa
+
+	// ObjectStorageClassGlacier is a ObjectStorageClass enum value
+	ObjectStorageClassGlacier
+
 	// ObjectStorageClassIntelligentTiering is a ObjectStorageClass enum value
 	ObjectStorageClassDeepArchive
+
+	// ObjectStorageClassReducedRedundancy is a ObjectStorageClass enum value
+	ObjectStorageClassReducedRedundancy
 )
 
 var (

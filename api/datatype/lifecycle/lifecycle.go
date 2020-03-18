@@ -87,6 +87,18 @@ func (lc Lifecycle) Validate() error {
 	return nil
 }
 
+func (lc Lifecycle) FilterRulesByNonCurrentVersion() (ncvRules, cvRules []Rule) {
+	for _, rule := range lc.Rules {
+		if rule.Expiration != nil || len(rule.Transitions) != 0 {
+			cvRules = append(cvRules, rule)
+		}
+		if rule.NoncurrentVersionExpiration != nil || len(rule.NoncurrentVersionTransitions) != 0 {
+			ncvRules = append(ncvRules, rule)
+		}
+	}
+	return
+}
+
 // ComputeAction returns the action to perform by evaluating all lifecycle rules
 // against the object name and its modification time.
 //
@@ -100,11 +112,11 @@ func (lc Lifecycle) Validate() error {
 //		   |《---------------------------------------------------------------------------------------------------
 //	FOR MANY LOOP RULES, IF NOT EXPIRATION, SHOULD BE TRANSITION(THE CHEAPEST CLASS)
 //
-func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, modTime time.Time, rules []Rule) (Action, StorageClass) {
+func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, modTime time.Time, rules []Rule) (Action, string) {
 	var storageClass StorageClass
 	var action = NoneAction
 	if modTime.IsZero() || objName == "" {
-		return action, 0
+		return action, ""
 	}
 
 	for _, rule := range rules {
@@ -134,7 +146,7 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, mod
 					}
 				}
 				//TODO: DeleteMarker
-				return action, 0
+				return action, ""
 
 			} else if len(rule.Transitions) != 0 {
 				// to result transition conflict: GLACIER > STANDARD_IA
@@ -163,7 +175,7 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, mod
 			}
 		}
 	}
-	return action, storageClass
+	return action, storageClass.ToString()
 }
 
 // Just like ComputeAction
