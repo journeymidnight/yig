@@ -311,8 +311,8 @@ func (t *TidbClient) UpdateAppendObject(object *Object) (err error) {
 	}()
 
 	lastModifiedTime := object.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
-	sql := "update objects set lastmodifiedtime=?, size=? where bucketname=? and name=? and version=?"
-	args := []interface{}{lastModifiedTime, object.Size, object.BucketName, object.Name, object.VersionId}
+	sql := "update objects set lastmodifiedtime=?, size=?, createtime=? where bucketname=? and name=? and version=?"
+	args := []interface{}{lastModifiedTime, object.Size, object.LastModifiedTime.UnixNano(), object.Name, object.VersionId}
 	_, err = tx.Exec(sql, args...)
 
 	return t.UpdateUsage(object.BucketName, object.Size, tx)
