@@ -3,16 +3,14 @@ package main
 import (
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/lifecycle"
-	"github.com/journeymidnight/yig/crypto"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/log"
 	meta "github.com/journeymidnight/yig/meta/types"
-	"github.com/journeymidnight/yig/mods"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/storage"
-	"go/types"
+	"github.com/robfig/cron"
 	"os"
 	"os/signal"
 	"sync"
@@ -31,7 +29,7 @@ var (
 	taskQ       chan meta.LifeCycle
 	signalQueue chan os.Signal
 	waitgroup   sync.WaitGroup
-	empty       bool
+	wait        bool
 	stop        bool
 )
 
@@ -49,7 +47,7 @@ func getLifeCycles() {
 		result, err := yig.MetaStorage.ScanLifeCycle(SCAN_LIMIT, marker)
 		if err != nil {
 			helper.Logger.Error("ScanLifeCycle failed:", err)
-			signalQueue <- syscall.SIGQUIT
+			wait = true
 			return
 		}
 		for _, entry := range result.Lcs {
@@ -58,23 +56,20 @@ func getLifeCycles() {
 		}
 
 		if result.Truncated == false {
-			empty = true
+			wait = true
 			return
 		}
-
 	}
-
 }
 
-// If a rule has an empty prefix, the days in it will be consider as a default days for all objects that not specified in
-// other rules. For this reason, we have two conditions to check if a object has expired and should be deleted
-//
-//
-//
-//
-//  if defaultConfig == false
-//                 for each rule get objects by prefix
-//  iterator rules ----------------------------------> loop objects-------->delete object if expired
+//																		 ---->Delete object
+//																		 |
+//					---->NoncurrentVersion Rules----->compute action---->|
+//					|													 ---->Transition object
+// LC---->Rules---->|													 ---->Delete object
+//					| 													 |
+// 					---->CurrentVersion Rules-------->compute action---->|
+//																		 ---->Transition object
 func lifecycleUnit(lc meta.LifeCycle) error {
 	bucket, err := yig.MetaStorage.GetBucket(lc.BucketName, false)
 	if err != nil {
@@ -83,23 +78,59 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 	bucketLC := bucket.Lifecycle
 
 	ncvRules, cvRules := bucketLC.FilterRulesByNonCurrentVersion()
+	// noncurrent version
 	if len(ncvRules) != 0 {
 		// Calculate the common prefix of all lifecycle rules
-		/*	var prefixes []string
-			for _, rule := range ncvRules {
-				prefixes = append(prefixes, rule.Prefix())
-			}
-			commonPrefix := lifecycle.Lcp(prefixes)
-
-			var request datatype.ListObjectsRequest
-		*/
-
+		//var prefixes []string
+		//for _, rule := range ncvRules {
+		//	prefixes = append(prefixes, rule.Prefix())
+		//}
+		//commonPrefix := lifecycle.Lcp(prefixes)
+		//
+		//var request datatype.ListObjectsRequest
+		//request.Versioned = true
+		//request.MaxKeys = RequestMaxKeys
+		//request.Prefix = commonPrefix
+		//
+		//for {
+		//	retObjests, _, truncated, nextMarker, nextVerIdMarker, err := yig.ListObjectsInternal(bucket.Name, request)
+		//	if err != nil {
+		//		return nil
+		//	}
+		//	for _, object := range retObjests {
+		//		// Find the action that need to be executed									TODO: add tags
+		//		action, storageClass := bucketLC.ComputeActionFromNonCurrentVersion(object.Name, nil, object.LastModifiedTime, cvRules)
+		//
+		//		//Delete or transition
+		//		if action == lifecycle.DeleteAction {
+		//			_, err = yig.DeleteObject(object.BucketName, object.Name, object.VersionId, common.Credential{})
+		//			if err != nil {
+		//				helper.Logger.Error(object.BucketName, object.Name, object.VersionId, err)
+		//				continue
+		//			}
+		//		}
+		//		if action == lifecycle.TransitionAction {
+		//			_, err = transitionObject(object, storageClass, common.Credential{})
+		//			if err != nil {
+		//				helper.Logger.Error(object.BucketName, object.Name, object.VersionId, err)
+		//				continue
+		//			}
+		//		}
+		//	}
+		//
+		//	if truncated == true {
+		//		request.KeyMarker = nextMarker
+		//		request.VersionIdMarker = nextVerIdMarker
+		//	} else {
+		//		break
+		//	}
+		//}
 	}
 
 	if len(cvRules) != 0 {
 		// Calculate the common prefix of all lifecycle rules
 		var prefixes []string
-		for _, rule := range ncvRules {
+		for _, rule := range cvRules {
 			prefixes = append(prefixes, rule.Prefix())
 		}
 		commonPrefix := lifecycle.Lcp(prefixes)
@@ -152,7 +183,8 @@ func transitionObject(object *meta.Object, storageClass string, credential commo
 	var sseRequest datatype.SseRequest
 	sseRequest.Type = object.SseType
 
-	if object.StorageClass == meta.ObjectStorageClassGlacier || object.StorageClass == meta.ObjectStorageClassDeepArchive {
+	// NOT support GLACIER and lower
+	if object.StorageClass >= meta.ObjectStorageClassGlacier {
 		return result, ErrInvalidCopySourceStorageClass
 	}
 
@@ -161,36 +193,19 @@ func transitionObject(object *meta.Object, storageClass string, credential commo
 		return result, err
 	}
 
-	if targetStorageClass < object.StorageClass {
+	if targetStorageClass <= object.StorageClass {
 		return result, ErrInvalidLcStorageClass
 	}
 
-	if targetStorageClass == meta.ObjectStorageClassGlacier {
-		err = yig.MetaStorage.UpdateGlacierObject(targetObject, sourceObject, true)
-		if err != nil {
-			helper.Logger.Error("Copy Object with same source and target with GLACIER object, sql fails:", err)
-			return result, ErrInternalError
-		}
-		result.LastModified = targetObject.LastModifiedTime
-		if bucket.Versioning == "Enabled" {
-			result.VersionId = targetObject.GetVersionId()
-		}
-		yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
-		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
-		return result, nil
-	}
-	err = yig.MetaStorage.ReplaceObjectMetas(targetObject)
+	object.StorageClass = targetStorageClass
+	//TODO:If GLACIER-->DEEP_ARCHIVE or more low,may be need to add
+	err = yig.MetaStorage.ReplaceObjectMetas(object)
 	if err != nil {
 		helper.Logger.Error("Copy Object with same source and target, sql fails:", err)
 		return result, ErrInternalError
 	}
-	targetObject.LastModifiedTime = time.Now().UTC()
-	result.LastModified = targetObject.LastModifiedTime
-	if bucket.Versioning == "Enabled" {
-		result.VersionId = targetObject.GetVersionId()
-	}
-	yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
-	yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.GetVersionId())
+	yig.MetaStorage.Cache.Remove(redis.ObjectTable, object.BucketName+":"+object.Name+":")
+	yig.DataCache.Remove(object.BucketName + ":" + object.Name + ":" + object.GetVersionId())
 	return result, nil
 
 }
@@ -213,9 +228,8 @@ func processLifecycle() {
 			}
 			helper.Logger.Info("Bucket lifecycle done:", item.BucketName)
 		default:
-			if empty == true {
+			if wait == true {
 				helper.Logger.Info("All bucket lifecycle handle complete. QUIT")
-				signalQueue <- syscall.SIGQUIT
 				waitgroup.Done()
 				return
 			}
@@ -224,9 +238,22 @@ func processLifecycle() {
 	}
 }
 
-func main() {
+func LifecycleStart() {
 	stop = false
+	wait = false
 
+	taskQ = make(chan meta.LifeCycle, SCAN_LIMIT)
+
+	numOfWorkers := helper.CONFIG.LcThread
+	helper.Logger.Info("start lc thread:", numOfWorkers)
+
+	for i := 0; i < numOfWorkers; i++ {
+		go processLifecycle()
+	}
+	go getLifeCycles()
+}
+
+func main() {
 	helper.SetupConfig()
 	logLevel := log.ParseLevel(helper.CONFIG.LogLevel)
 
@@ -237,22 +264,17 @@ func main() {
 		defer redis.Close()
 	}
 
-	// Read all *.so from plugins directory, and fill the variable allPlugins
-	allPluginMap := mods.InitialPlugins()
-	kms := crypto.NewKMS(allPluginMap)
+	yig = storage.New(helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache, nil)
 
-	yig = storage.New(helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache, kms)
-	taskQ = make(chan meta.LifeCycle, SCAN_LIMIT)
+	lc := LifecycleStart
+
+	c := cron.New()
+	c.AddFunc(helper.CONFIG.LifecycleSpec, lc)
+	c.Start()
+	defer c.Stop()
+
 	signal.Ignore()
 	signalQueue = make(chan os.Signal)
-
-	numOfWorkers := helper.CONFIG.LcThread
-	helper.Logger.Info("start lc thread:", numOfWorkers)
-	empty = false
-	for i := 0; i < numOfWorkers; i++ {
-		go processLifecycle()
-	}
-	go getLifeCycles()
 	signal.Notify(signalQueue, syscall.SIGINT, syscall.SIGTERM,
 		syscall.SIGQUIT, syscall.SIGHUP)
 	for {

@@ -179,11 +179,11 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, mod
 }
 
 // Just like ComputeAction
-func (lc Lifecycle) ComputeActionFromNonCurrentVersion(objName string, objTags map[string]string, modTime time.Time, rules []Rule) (Action, StorageClass) {
+func (lc Lifecycle) ComputeActionFromNonCurrentVersion(objName string, objTags map[string]string, modTime time.Time, rules []Rule) (Action, string) {
 	var storageClass StorageClass
 	var action = NoneAction
 	if modTime.IsZero() || objName == "" {
-		return action, 0
+		return action, ""
 	}
 
 	for _, rule := range rules {
@@ -195,7 +195,7 @@ func (lc Lifecycle) ComputeActionFromNonCurrentVersion(objName string, objTags m
 		}
 
 		// prefix and tags pass
-		if strings.HasPrefix(objName, prefix) /* && rule.filterTags(objTags)*/ { //TODO: add Tags condition
+		if strings.HasPrefix(objName, prefix) && rule.filterTags(objTags) {
 			// at the time, expiration is first,and then GLACIER
 			if rule.NoncurrentVersionExpiration != nil {
 				if !rule.NoncurrentVersionExpiration.IsDaysNull() {
@@ -203,7 +203,7 @@ func (lc Lifecycle) ComputeActionFromNonCurrentVersion(objName string, objTags m
 						action = DeleteAction
 					}
 				}
-				return action, 0
+				return action, ""
 
 			} else if len(rule.NoncurrentVersionTransitions) != 0 {
 				// to result transition conflict: GLACIER > STANDARD_IA
@@ -222,7 +222,7 @@ func (lc Lifecycle) ComputeActionFromNonCurrentVersion(objName string, objTags m
 			}
 		}
 	}
-	return action, storageClass
+	return action, storageClass.ToString()
 }
 
 // lcp finds the longest common prefix of the input strings.

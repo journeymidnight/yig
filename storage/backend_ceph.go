@@ -38,6 +38,25 @@ func New(metaCacheType int, enableDataCache bool, kms crypto.KMS) *YigStorage {
 	return &yig
 }
 
+func LCNew(metaCacheType int, enableDataCache bool) *YigStorage {
+	lc := YigStorage{
+		DataStorage: make(map[string]backend.Cluster),
+		DataCache:   newDataCache(enableDataCache),
+		MetaStorage: meta.New(meta.CacheType(metaCacheType)),
+		KMS:         nil,
+		Stopping:    false,
+		WaitGroup:   new(sync.WaitGroup),
+	}
+
+	lc.DataStorage = ceph.Initialize(helper.CONFIG)
+	if len(lc.DataStorage) == 0 {
+		panic("No data storage can be used!")
+	}
+
+	initializeRecycler(&lc)
+	return &lc
+}
+
 //TODO: Append Support Encryption
 func (yig *YigStorage) AppendObject(bucketName string, objectName string, credential common.Credential,
 	offset uint64, size int64, data io.ReadCloser, metadata map[string]string, acl datatype.Acl,
