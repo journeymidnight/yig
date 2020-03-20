@@ -88,7 +88,7 @@ func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
 
 	for rows.Next() {
 		var tmp Bucket
-		var acl, cors, logging, lc, policy, website, encryption, createTime string
+		var acl, cors, logging, lc, website, encryption, createTime string
 		err = rows.Scan(
 			&tmp.Name,
 			&acl,
@@ -96,7 +96,7 @@ func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
 			&logging,
 			&lc,
 			&tmp.OwnerId,
-			&policy,
+			&tmp.Policy,
 			&website,
 			&encryption,
 			&createTime,
@@ -125,10 +125,7 @@ func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
 		if err != nil {
 			return
 		}
-		err = json.Unmarshal([]byte(policy), &tmp.Policy)
-		if err != nil {
-			return
-		}
+
 		err = json.Unmarshal([]byte(website), &tmp.Website)
 		if err != nil {
 			return
