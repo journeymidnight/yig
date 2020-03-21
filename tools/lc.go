@@ -71,6 +71,7 @@ func getLifeCycles() {
 // 					---->CurrentVersion Rules-------->compute action---->|
 //																		 ---->Transition object
 func lifecycleUnit(lc meta.LifeCycle) error {
+	helper.Logger.Info("Lifecycle process...")
 	bucket, err := yig.MetaStorage.GetBucket(lc.BucketName, false)
 	if err != nil {
 		return err
@@ -264,6 +265,7 @@ func main() {
 		defer redis.Close()
 	}
 
+	helper.Logger.Info("Yig lifecycle start!")
 	yig = storage.New(helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache, nil)
 
 	lc := LifecycleStart
@@ -285,8 +287,10 @@ func main() {
 			helper.SetupConfig()
 		default:
 			// stop YIG server, order matters
+			helper.Logger.Info("Stopping LC")
 			stop = true
 			waitgroup.Wait()
+			helper.Logger.Info("Done!")
 			return
 		}
 	}

@@ -24,10 +24,6 @@ import (
 	"time"
 )
 
-var (
-//errLifecycleOverlappingPrefix = Errorf("Lifecycle configuration has rules with overlapping prefix")
-)
-
 const (
 	// Lifecycle config can't have more than 100 rules
 	RulesNumber = 100

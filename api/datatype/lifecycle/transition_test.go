@@ -43,7 +43,7 @@ func TestInvalidTransition(t *testing.T) {
 		},
 		{ // Transition with both number of days nor a date
 			inputXML: `<Transition>
-		                    <Date>2019-04-20T00:01:00Z</Date>
+		                    <Date>2019-04-20T00:01:00+08:00</Date>
 		                    </Transition>`,
 			expectedErr: ErrLcDateNotMidnight,
 		},
@@ -66,7 +66,7 @@ func TestInvalidTransition(t *testing.T) {
 	}{
 		{ // Transition with a valid ISO 8601 date, but miss StorageClass
 			inputXML: `<Transition>
-                                    <Date>2019-04-20T00:00:00Z</Date>
+                                    <Date>2019-04-20T00:00:00+08:00</Date>
                                     </Transition>`,
 			expectedErr: ErrLcMissingStorageClass,
 		},
@@ -84,7 +84,7 @@ func TestInvalidTransition(t *testing.T) {
 		{ // Transition with both number of days nor a date
 			inputXML: `<Transition>
                                     <Days>3</Days>
-                                    <Date>2019-04-20T00:00:00Z</Date>
+                                    <Date>2019-04-20T00:00:00+08:00</Date>
                                     </Transition>`,
 			expectedErr: ErrInvalidLcUsingDateAndDays,
 		},

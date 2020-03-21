@@ -19,6 +19,7 @@ package lifecycle
 import (
 	"encoding/xml"
 	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/helper"
 	"time"
 )
 
@@ -62,6 +63,7 @@ func (tDate *TransitionDate) UnmarshalXML(d *xml.Decoder, startElement xml.Start
 	if err != nil {
 		return err
 	}
+	helper.Logger.Info("dateStr:", dateStr)
 	// While AWS documentation mentions that the date specified
 	// must be present in ISO 8601 format, in reality they allow
 	// users to provide RFC 3339 compliant dates.
@@ -73,7 +75,8 @@ func (tDate *TransitionDate) UnmarshalXML(d *xml.Decoder, startElement xml.Start
 	hr, min, sec := traDate.Clock()
 	nsec := traDate.Nanosecond()
 	loc := traDate.Location()
-	if !(hr == 0 && min == 0 && sec == 0 && nsec == 0 && loc.String() == time.UTC.String()) {
+	if !(hr == 0 && min == 0 && sec == 0 && nsec == 0 && loc.String() == time.Local.String()) &&
+		!(hr == 16 && min == 0 && sec ==0 && nsec == 0 && loc.String() == time.UTC.String()) {
 		return ErrLcDateNotMidnight
 	}
 

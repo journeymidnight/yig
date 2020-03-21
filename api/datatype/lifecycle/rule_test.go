@@ -140,7 +140,7 @@ func TestInvalidRules(t *testing.T) {
                                     <Days>3</Days>
                                     </Transition>
 							<Transition>
-                                    <Date>2019-04-20T00:00:00Z</Date>
+                                    <Date>2019-04-20T00:00:00+08:00</Date>
                                     </Transition>
 	                    </Rule>`,
 			expectedErr: ErrLcMissingStorageClass,
@@ -157,7 +157,7 @@ func TestInvalidRules(t *testing.T) {
                                     </Transition>
 							<Transition>
                                     <Days>3</Days>
-									<Date>2019-04-20T00:00:00Z</Date>
+									<Date>2019-04-20T00:00:00+08:00</Date>
                                     </Transition>
 	                    </Rule>`,
 			expectedErr: ErrInvalidLcUsingDateAndDays,

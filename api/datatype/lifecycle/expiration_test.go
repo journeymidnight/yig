@@ -37,13 +37,13 @@ func TestInvalidExpiration(t *testing.T) {
 		},
 		{ // Expiration with invalid date
 			inputXML: ` <Expiration>
-                                    <Date>invalid date</Date>
+                                    <Date>2019/01/02 15:04:05</Date>
                                     </Expiration>`,
 			expectedErr: ErrInvalidLcDate,
 		},
 		{ // Expiration with both number of days nor a date
 			inputXML: `<Expiration>
-		                    <Date>2019-04-20T00:01:00Z</Date>
+		                    <Date>2019-04-20T00:01:00+08:00</Date>
 		                    </Expiration>`,
 			expectedErr: ErrLcDateNotMidnight,
 		},
@@ -66,7 +66,7 @@ func TestInvalidExpiration(t *testing.T) {
 	}{
 		{ // Expiration with a valid ISO 8601 date
 			inputXML: `<Expiration>
-                                    <Date>2019-04-20T00:00:00Z</Date>
+                                    <Date>2020-03-20T00:00:00+08:00</Date>
                                     </Expiration>`,
 			expectedErr: nil,
 		},
@@ -84,7 +84,7 @@ func TestInvalidExpiration(t *testing.T) {
 		{ // Expiration with both number of days nor a date
 			inputXML: `<Expiration>
                                     <Days>3</Days>
-                                    <Date>2019-04-20T00:00:00Z</Date>
+                                    <Date>2019-04-20T00:00:00+08:00</Date>
                                     </Expiration>`,
 			expectedErr: ErrInvalidLcUsingDateAndDays,
 		},
