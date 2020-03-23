@@ -1,5 +1,4 @@
 s3domain = ["s3.test.com", "s3-internal.test.com"]
-port = "8080"
 region = "cn-bj-1"
 log_path = "/var/log/yig/yig.log"
 access_log_path = "/var/log/yig/access.log"
@@ -18,6 +17,12 @@ debug_mode = true
 enable_pprof = false
 pprof_listener = "0.0.0.0:8730"
 reserved_origins = "s3.test.com,s3-internal.test.com"
+
+# LC
+lc_thread = 64
+# 10s
+lifecycle_spec = "*/20 * * * * ?"
+#lifecycle_spec = "@midnight"
 
 # Meta Config
 meta_cache_type = 2

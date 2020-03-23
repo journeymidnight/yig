@@ -2,34 +2,36 @@ package main
 
 import (
 	"github.com/journeymidnight/yig/api/datatype"
-	"github.com/journeymidnight/yig/crypto"
+	"github.com/journeymidnight/yig/api/datatype/lifecycle"
+	. "github.com/journeymidnight/yig/context"
+	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/log"
-	"github.com/journeymidnight/yig/meta/types"
-	"github.com/journeymidnight/yig/mods"
+	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/storage"
+	"github.com/robfig/cron"
 
 	"os"
 	"os/signal"
-	"strconv"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
 )
 
 const (
+	RequestMaxKeys      = 1000
 	SCAN_LIMIT          = 50
 	DEFAULT_LC_LOG_PATH = "/var/log/yig/lc.log"
 )
 
 var (
 	yig         *storage.YigStorage
-	taskQ       chan types.LifeCycle
+	taskQ       chan meta.LifeCycle
 	signalQueue chan os.Signal
 	waitgroup   sync.WaitGroup
-	empty       bool
+	wait        bool
 	stop        bool
 )
 
@@ -47,7 +49,7 @@ func getLifeCycles() {
 		result, err := yig.MetaStorage.ScanLifeCycle(SCAN_LIMIT, marker)
 		if err != nil {
 			helper.Logger.Error("ScanLifeCycle failed:", err)
-			signalQueue <- syscall.SIGQUIT
+			wait = true
 			return
 		}
 		for _, entry := range result.Lcs {
@@ -56,153 +58,188 @@ func getLifeCycles() {
 		}
 
 		if result.Truncated == false {
-			empty = true
+			wait = true
 			return
 		}
-
-	}
-
-}
-
-func checkIfExpiration(updateTime time.Time, days int) bool {
-	if helper.CONFIG.DebugMode == false {
-		return int(time.Since(updateTime).Seconds()) >= days*24*3600
-	} else {
-		return int(time.Since(updateTime).Seconds()) >= days
 	}
 }
 
-// If a rule has an empty prefix, the days in it will be consider as a default days for all objects that not specified in
-// other rules. For this reason, we have two conditions to check if a object has expired and should be deleted
-//  if defaultConfig == true
-//                    for each object           check if object name has a prifix
-//  list all objects --------------->loop rules---------------------------------->
-//                                                                      |     NO
-//                                                                      |--------> days = default days ---
-//                                                                      |     YES                         |->delete object if expired
-//                                                                      |--------> days = specify days ---
-//
-//  if defaultConfig == false
-//                 for each rule get objects by prefix
-//  iterator rules ----------------------------------> loop objects-------->delete object if expired
-func retrieveBucket(lc types.LifeCycle) error {
-	defaultConfig := false
-	defaultDays := 0
+//																		 ---->Delete object
+//																		 |
+//					---->NoncurrentVersion Rules----->compute action---->|
+//					|													 ---->Transition object
+// LC---->Rules---->|													 ---->Delete object
+//					| 													 |
+// 					---->CurrentVersion Rules-------->compute action---->|
+//																		 ---->Transition object
+func lifecycleUnit(lc meta.LifeCycle) error {
+	helper.Logger.Info("Lifecycle process...")
 	bucket, err := yig.MetaStorage.GetBucket(lc.BucketName, false)
 	if err != nil {
 		return err
 	}
-	rules := bucket.Lifecycle.Rule
-	for _, rule := range rules {
-		if rule.Prefix == "" {
-			defaultConfig = true
-			defaultDays, err = strconv.Atoi(rule.Expiration)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	var request datatype.ListObjectsRequest
-	request.Versioned = false
-	request.MaxKeys = 1000
-	if defaultConfig == true {
-		for {
-			info, err := yig.ListObjectsInternal(bucket, request)
-			if err != nil {
-				return err
-			}
+	bucketLC := bucket.Lifecycle
 
+	ncvRules, cvRules := bucketLC.FilterRulesByNonCurrentVersion()
+
+	var reqCtx RequestContext
+	reqCtx.BucketName = bucket.Name
+	reqCtx.BucketInfo = bucket
+
+	// noncurrent version
+	if bucket.Versioning != datatype.BucketVersioningDisabled && len(ncvRules) != 0 {
+		// Calculate the common prefix of all lifecycle rules
+		var prefixes []string
+		for _, rule := range ncvRules {
+			prefixes = append(prefixes, rule.Prefix())
+		}
+		commonPrefix := lifecycle.Lcp(prefixes)
+
+		var request datatype.ListObjectsRequest
+		request.Versioned = false
+		request.Version = 1
+		request.MaxKeys = RequestMaxKeys
+		request.Prefix = commonPrefix
+
+		for {
+			//retObjests, _, truncated, nextMarker, nextVerIdMarker, err := yig.ListObjectsInternal(bucket.Name, request)
+			info, err := yig.ListVersionedObjectsInternal(bucket.Name, request)
+			if err != nil {
+				return nil
+			}
 			for _, object := range info.Objects {
-				prefixMatch := false
-				matchDays := 0
-				for _, rule := range rules {
-					if rule.Prefix == "" {
-						continue
-					}
-					if strings.HasPrefix(object.Key, rule.Prefix) == false {
-						continue
-					}
-					prefixMatch = true
-					matchDays, err = strconv.Atoi(rule.Expiration)
-					if err != nil {
-						return err
-					}
-				}
-				days := 0
-				if prefixMatch == true {
-					days = matchDays
-				} else {
-					days = defaultDays
-				}
-				lastt, err := time.Parse(types.TIME_LAYOUT_TIDB, object.LastModified)
+				lastt, err := time.Parse(meta.TIME_LAYOUT_TIDB, object.LastModified)
 				if err != nil {
 					return err
 				}
-				if checkIfExpiration(lastt, days) {
-					o, err := yig.MetaStorage.GetObject(bucket.Name, object.Key, "", true)
+				// Find the action that need to be executed									TODO: add tags
+				action, storageClass := bucketLC.ComputeActionFromNonCurrentVersion(object.Key, nil, object.StorageClass, lastt, cvRules)
+
+				reqCtx.ObjectInfo, err = yig.MetaStorage.GetObject(bucket.Name, object.Key, object.VersionId, true)
+				if err != nil && err != ErrNoSuchKey {
+					return err
+				}
+				reqCtx.ObjectName = object.Key
+				reqCtx.VersionId = reqCtx.ObjectInfo.VersionId
+
+				//Delete or transition
+				if action == lifecycle.DeleteAction {
+					_, err = yig.DeleteObject(reqCtx, common.Credential{})
+					if err != nil {
+						helper.Logger.Error(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, err)
+						continue
+					}
+				}
+				if action == lifecycle.TransitionAction {
+					_, err = transitionObject(reqCtx.ObjectInfo, storageClass)
 					if err != nil {
 						helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
 						continue
 					}
-					err = yig.MetaStorage.DeleteObject(o)
-					if err != nil {
-						helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
-						continue
-					}
-					helper.Logger.Info("Deleted:", bucket.Name, object.Key, object.LastModified)
 				}
 			}
+
+			if info.IsTruncated == true {
+				request.KeyMarker = info.NextKeyMarker
+				request.VersionIdMarker = info.NextVersionIdMarker
+			} else {
+				break
+			}
+		}
+	}
+
+	if len(cvRules) != 0 {
+		// Calculate the common prefix of all lifecycle rules
+		var prefixes []string
+		for _, rule := range cvRules {
+			prefixes = append(prefixes, rule.Prefix())
+		}
+		commonPrefix := lifecycle.Lcp(prefixes)
+
+		var request datatype.ListObjectsRequest
+		request.Versioned = false
+		request.Version = 1
+		request.MaxKeys = RequestMaxKeys
+		request.Prefix = commonPrefix
+
+		for {
+			info, err := yig.ListObjectsInternal(bucket, request)
+			if err != nil {
+				return nil
+			}
+			for _, object := range info.Objects {
+				lastt, err := time.Parse(meta.TIME_LAYOUT_TIDB, object.LastModified)
+				if err != nil {
+					return err
+				}
+				// Find the action that need to be executed					TODO: add tags
+				action, storageClass := bucketLC.ComputeAction(object.Key, nil, object.StorageClass, lastt, cvRules)
+
+				reqCtx.ObjectInfo, err = yig.MetaStorage.GetObject(bucket.Name, object.Key, "", true)
+				if err != nil && err != ErrNoSuchKey {
+					return err
+				}
+				reqCtx.ObjectName = object.Key
+				reqCtx.VersionId = reqCtx.ObjectInfo.VersionId
+
+				//Delete or transition
+				if action == lifecycle.DeleteAction {
+					_, err = yig.DeleteObject(reqCtx, common.Credential{})
+					if err != nil {
+						helper.Logger.Error(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, err)
+						continue
+					}
+				}
+				if action == lifecycle.TransitionAction {
+					_, err = transitionObject(reqCtx.ObjectInfo, storageClass)
+					if err != nil {
+						helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
+						continue
+					}
+				}
+			}
+
 			if info.IsTruncated == true {
 				request.KeyMarker = info.NextMarker
 			} else {
 				break
 			}
 		}
-	} else {
-		for _, rule := range rules {
-			if rule.Prefix == "" {
-				continue
-			}
-			days, _ := strconv.Atoi(rule.Expiration)
-			if err != nil {
-				return err
-			}
-			request.Prefix = rule.Prefix
-			for {
-				info, err := yig.ListObjectsInternal(bucket, request)
-				if err != nil {
-					return err
-				}
-				for _, object := range info.Objects {
-					lastt, err := time.Parse(types.TIME_LAYOUT_TIDB, object.LastModified)
-					if err != nil {
-						return err
-					}
-					if checkIfExpiration(lastt, days) {
-						o, err := yig.MetaStorage.GetObject(bucket.Name, object.Key, "", true)
-						if err != nil {
-							helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
-							continue
-						}
-						err = yig.MetaStorage.DeleteObject(o)
-						if err != nil {
-							helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
-							continue
-						}
-						helper.Logger.Info(bucket.Name, object.Key, object.LastModified, err)
-					}
-				}
-				if info.IsTruncated == true {
-					request.KeyMarker = info.NextMarker
-				} else {
-					break
-				}
-
-			}
-		}
 
 	}
+
 	return nil
+}
+
+func transitionObject(object *meta.Object, storageClass string) (result datatype.PutObjectResult, err error) {
+	var sseRequest datatype.SseRequest
+	sseRequest.Type = object.SseType
+
+	// NOT support GLACIER and lower
+	if object.StorageClass >= meta.ObjectStorageClassGlacier {
+		return result, ErrInvalidCopySourceStorageClass
+	}
+
+	targetStorageClass, err := meta.MatchStorageClassIndex(storageClass)
+	if err != nil {
+		return result, err
+	}
+
+	if targetStorageClass <= object.StorageClass {
+		return result, ErrInvalidLcStorageClass
+	}
+
+	object.StorageClass = targetStorageClass
+	//TODO:If GLACIER-->DEEP_ARCHIVE or more low,may be need to add
+	err = yig.MetaStorage.ReplaceObjectMetas(object)
+	if err != nil {
+		helper.Logger.Error("Copy Object with same source and target, sql fails:", err)
+		return result, ErrInternalError
+	}
+	yig.MetaStorage.Cache.Remove(redis.ObjectTable, object.BucketName+":"+object.Name+":")
+	yig.DataCache.Remove(object.BucketName + ":" + object.Name + ":" + object.VersionId)
+	return result, nil
+
 }
 
 func processLifecycle() {
@@ -215,17 +252,16 @@ func processLifecycle() {
 		waitgroup.Add(1)
 		select {
 		case item := <-taskQ:
-			err := retrieveBucket(item)
+			err := lifecycleUnit(item)
 			if err != nil {
-				helper.Logger.Error("Bucket", item.BucketName, "retrieve error:", err)
+				helper.Logger.Error("Bucket", item.BucketName, "Lifecycle process error:", err)
 				waitgroup.Done()
 				continue
 			}
 			helper.Logger.Info("Bucket lifecycle done:", item.BucketName)
 		default:
-			if empty == true {
+			if wait == true {
 				helper.Logger.Info("All bucket lifecycle handle complete. QUIT")
-				signalQueue <- syscall.SIGQUIT
 				waitgroup.Done()
 				return
 			}
@@ -234,9 +270,22 @@ func processLifecycle() {
 	}
 }
 
-func main() {
+func LifecycleStart() {
 	stop = false
+	wait = false
 
+	taskQ = make(chan meta.LifeCycle, SCAN_LIMIT)
+
+	numOfWorkers := helper.CONFIG.LcThread
+	helper.Logger.Info("start lc thread:", numOfWorkers)
+
+	for i := 0; i < numOfWorkers; i++ {
+		go processLifecycle()
+	}
+	go getLifeCycles()
+}
+
+func main() {
 	helper.SetupConfig()
 	logLevel := log.ParseLevel(helper.CONFIG.LogLevel)
 
@@ -247,22 +296,18 @@ func main() {
 		defer redis.CloseAll()
 	}
 
-	// Read all *.so from plugins directory, and fill the variable allPlugins
-	allPluginMap := mods.InitialPlugins()
-	kms := crypto.NewKMS(allPluginMap)
+	helper.Logger.Info("Yig lifecycle start!")
+	yig = storage.New(helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache, nil)
 
-	yig = storage.New(helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache, kms)
-	taskQ = make(chan types.LifeCycle, SCAN_LIMIT)
+	lc := LifecycleStart
+
+	c := cron.New()
+	c.AddFunc(helper.CONFIG.LifecycleSpec, lc)
+	c.Start()
+	defer c.Stop()
+
 	signal.Ignore()
 	signalQueue = make(chan os.Signal)
-
-	numOfWorkers := helper.CONFIG.LcThread
-	helper.Logger.Info("start lc thread:", numOfWorkers)
-	empty = false
-	for i := 0; i < numOfWorkers; i++ {
-		go processLifecycle()
-	}
-	go getLifeCycles()
 	signal.Notify(signalQueue, syscall.SIGINT, syscall.SIGTERM,
 		syscall.SIGQUIT, syscall.SIGHUP)
 	for {
@@ -273,8 +318,10 @@ func main() {
 			helper.SetupConfig()
 		default:
 			// stop YIG server, order matters
+			helper.Logger.Info("Stopping LC")
 			stop = true
 			waitgroup.Wait()
+			helper.Logger.Info("Done!")
 			return
 		}
 	}

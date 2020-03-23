@@ -7,6 +7,7 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/api/datatype/lifecycle"
 )
 
 type Bucket struct {
@@ -18,7 +19,7 @@ type Bucket struct {
 	CORS          datatype.Cors
 	ACL           datatype.Acl
 	BucketLogging datatype.BucketLoggingStatus
-	Lifecycle     datatype.Lifecycle
+	Lifecycle     lifecycle.Lifecycle
 	Policy        []byte // need to MarshalJSON
 	Website       datatype.WebsiteConfiguration
 	Encryption    datatype.EncryptionConfiguration

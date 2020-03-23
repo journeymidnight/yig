@@ -20,6 +20,7 @@ import (
 	"io"
 
 	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/api/datatype/lifecycle"
 	"github.com/journeymidnight/yig/api/datatype/policy"
 	. "github.com/journeymidnight/yig/context"
 	"github.com/journeymidnight/yig/iam/common"
@@ -34,9 +35,9 @@ type ObjectLayer interface {
 		credential common.Credential) error
 	GetBucketLogging(reqCtx RequestContext, credential common.Credential) (datatype.BucketLoggingStatus, error)
 	MakeBucket(reqCtx RequestContext, acl datatype.Acl, credential common.Credential) error
-	SetBucketLifecycle(reqCtx RequestContext, config datatype.Lifecycle,
+	SetBucketLifecycle(reqCtx RequestContext, config lifecycle.Lifecycle,
 		credential common.Credential) error
-	GetBucketLifecycle(reqCtx RequestContext, credential common.Credential) (datatype.Lifecycle, error)
+	GetBucketLifecycle(reqCtx RequestContext, credential common.Credential) (lifecycle.Lifecycle, error)
 	DelBucketLifecycle(reqCtx RequestContext, credential common.Credential) error
 	SetBucketAcl(reqCtx RequestContext, policy datatype.AccessControlPolicy, acl datatype.Acl,
 		credential common.Credential) error

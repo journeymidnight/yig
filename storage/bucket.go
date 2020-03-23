@@ -8,6 +8,7 @@ import (
 	"github.com/journeymidnight/yig/crypto"
 
 	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/api/datatype/lifecycle"
 	"github.com/journeymidnight/yig/api/datatype/policy"
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
@@ -120,7 +121,7 @@ func (yig *YigStorage) GetBucketLogging(reqCtx RequestContext, credential common
 	return bucket.BucketLogging, nil
 }
 
-func (yig *YigStorage) SetBucketLifecycle(reqCtx RequestContext, lc datatype.Lifecycle,
+func (yig *YigStorage) SetBucketLifecycle(reqCtx RequestContext, lc lifecycle.Lifecycle,
 	credential common.Credential) error {
 	helper.Logger.Info("enter SetBucketLifecycle")
 	bucket := reqCtx.BucketInfo
@@ -147,19 +148,11 @@ func (yig *YigStorage) SetBucketLifecycle(reqCtx RequestContext, lc datatype.Lif
 	return nil
 }
 
-func (yig *YigStorage) GetBucketLifecycle(reqCtx RequestContext, credential common.Credential) (lc datatype.Lifecycle,
+func (yig *YigStorage) GetBucketLifecycle(reqCtx RequestContext, credential common.Credential) (lc lifecycle.Lifecycle,
 	err error) {
 	bucket := reqCtx.BucketInfo
 	if bucket == nil {
 		return lc, ErrNoSuchBucket
-	}
-	if bucket.OwnerId != credential.UserId {
-		err = ErrBucketAccessForbidden
-		return
-	}
-	if len(bucket.Lifecycle.Rule) == 0 {
-		err = ErrNoSuchBucketLc
-		return
 	}
 	return bucket.Lifecycle, nil
 }
@@ -172,7 +165,7 @@ func (yig *YigStorage) DelBucketLifecycle(reqCtx RequestContext, credential comm
 	if bucket.OwnerId != credential.UserId {
 		return ErrBucketAccessForbidden
 	}
-	bucket.Lifecycle = datatype.Lifecycle{}
+	bucket.Lifecycle = lifecycle.Lifecycle{}
 	err := yig.MetaStorage.Client.PutBucket(*bucket)
 	if err != nil {
 		return err
@@ -537,7 +530,7 @@ func (yig *YigStorage) DeleteBucket(reqCtx RequestContext, credential common.Cre
 		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
 	}
 
-	if bucket.Lifecycle.Rule != nil {
+	if bucket.Lifecycle.Rules != nil {
 		err = yig.MetaStorage.RemoveBucketFromLifeCycle(*bucket)
 		if err != nil {
 			helper.Logger.Warn("Remove bucket from lifeCycle error:", err)

@@ -151,7 +151,22 @@ const (
 	ErrUnsupportedAcl
 	ErrNonUTF8Encode
 	ErrInvalidBucketLogging
-	ErrInvalidLc
+	ErrInvalidLcTagKey
+	ErrInvalidLcTagValue
+	ErrDuplicateLcTagKey
+	ErrLcDateNotMidnight
+	ErrInvalidLcDate
+	ErrInvalidLcDays
+	ErrInvalidLcUsingDateAndDays
+	ErrInvalidLcFilter
+	ErrInvalidLcRulesNumbers
+	ErrLcMissingNoncurrentDays
+	ErrLcMissingStorageClass
+	ErrInvalidLcStorageClass
+	ErrInvalidLcRuleID
+	ErrInvalidLcRuleStatus
+	ErrLcMissingAction
+
 	ErrNoSuchBucketLc
 	ErrInvalidStorageClass
 	ErrInvalidWebsiteConfiguration
@@ -683,11 +698,82 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		Description:    "The specified bucket does not have LifeCycle configured.",
 		HttpStatusCode: http.StatusNotFound,
 	},
-	ErrInvalidLc: {
+	ErrInvalidLcTagKey: {
 		AwsErrorCode:   "IllegalLcConfigurationException",
-		Description:    "The Lifecycle configuration specified in the request is invalid.",
+		Description:    "The Lifecycle configuration TagKey you have provided is invalid.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
+	ErrInvalidLcTagValue: {
+		AwsErrorCode:   "IllegalLcConfigurationException",
+		Description:    "The Lifecycle configuration TagValue you have provided is invalid.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrDuplicateLcTagKey: {
+		AwsErrorCode:   "IllegalLcConfigurationException",
+		Description:    "The Lifecycle configuration is not allow duplicate Tag Keys.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrLcDateNotMidnight: {
+		AwsErrorCode:   "IllegalLcConfigurationException",
+		Description:    "The Lifecycle configuration 'Date' must be at midnight GMT.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidLcDate: {
+		AwsErrorCode:   "IllegalLcConfigurationException",
+		Description:    "The Lifecycle configuration date must be provided in ISO 8601 format.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidLcDays: {
+		AwsErrorCode:   "IllegalLcConfigurationException",
+		Description:    "The Lifecycle configuration days must be positive integer.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidLcUsingDateAndDays: {
+		AwsErrorCode:   "IllegalLcConfigurationException",
+		Description:    "The Lifecycle configuration date and days must be have only one.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidLcFilter: {
+		AwsErrorCode:   "IllegalLcConfigurationException",
+		Description:    "The Lifecycle configuration Filter must have exactly one of Prefix, Tag, or And specified.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidLcRulesNumbers: {
+		AwsErrorCode:   "IllegalLcConfigurationException",
+		Description:    "The Lifecycle configuration wrong number of rules.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrLcMissingNoncurrentDays: {
+		AwsErrorCode:   "IllegalLcConfigurationException",
+		Description:    "The Lifecycle configuration NoncurrentDays must be exist.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrLcMissingStorageClass: {
+		AwsErrorCode:   "IllegalLcConfigurationException",
+		Description:    "The Lifecycle configuration StorageClass must be exist.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidLcStorageClass: {
+		AwsErrorCode:   "IllegalLcConfigurationException",
+		Description:    "The Lifecycle configuration StorageClass should be more low.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidLcRuleID: {
+		AwsErrorCode:   "IllegalLcConfigurationException",
+		Description:    "The Lifecycle configuration ID must be less than 255 characters.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidLcRuleStatus: {
+		AwsErrorCode:   "IllegalLcConfigurationException",
+		Description:    "The Lifecycle configuration Status must be set to either Enabled or Disabled.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrLcMissingAction: {
+		AwsErrorCode:   "IllegalLcConfigurationException",
+		Description:    "The Lifecycle configuration expiration or transition action are not found.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+
 	ErrInvalidPosition: {
 		AwsErrorCode:   "InvalidPosition",
 		Description:    "The argument position specified in the request must be non-negative integer.",
