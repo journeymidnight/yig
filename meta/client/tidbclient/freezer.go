@@ -2,17 +2,11 @@ package tidbclient
 
 import (
 	"database/sql"
-<<<<<<< HEAD
-	. "github.com/journeymidnight/yig/error"
-	. "github.com/journeymidnight/yig/meta/types"
-	"time"
-=======
 	. "database/sql/driver"
 	"time"
 
 	. "github.com/journeymidnight/yig/error"
 	. "github.com/journeymidnight/yig/meta/types"
->>>>>>> b0a762811a08ccef3fe35333218408f6d523bbc3
 )
 
 func (t *TidbClient) CreateFreezer(freezer *Freezer) (err error) {
@@ -86,11 +80,7 @@ func (t *TidbClient) UploadFreezerDate(bucketName, objectName string, lifetime i
 	return nil
 }
 
-<<<<<<< HEAD
-func (t *TidbClient) DeleteFreezer(bucketName, objectName string, tx DB) (err error) {
-=======
 func (t *TidbClient) DeleteFreezer(bucketName, objectName string, tx Tx) (err error) {
->>>>>>> b0a762811a08ccef3fe35333218408f6d523bbc3
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		if err != nil {
@@ -105,25 +95,16 @@ func (t *TidbClient) DeleteFreezer(bucketName, objectName string, tx Tx) (err er
 			}
 		}()
 	}
-<<<<<<< HEAD
-	sqltext := "delete from restoreobjects where bucketname=? and objectname=?;"
-	_, err = tx.Exec(sqltext, bucketName, objectName)
-=======
 
 	txn := tx.(*sql.Tx)
 	sqltext := "delete from restoreobjects where bucketname=? and objectname=?;"
 	_, err = txn.Exec(sqltext, bucketName, objectName)
 
->>>>>>> b0a762811a08ccef3fe35333218408f6d523bbc3
 	if err != nil {
 		return err
 	}
 	sqltext = "delete from restoreobjectpart where objectname=? and bucketname=?;"
-<<<<<<< HEAD
-	_, err = tx.Exec(sqltext, bucketName, objectName)
-=======
 	_, err = txn.Exec(sqltext, bucketName, objectName)
->>>>>>> b0a762811a08ccef3fe35333218408f6d523bbc3
 	if err != nil {
 		return err
 	}
