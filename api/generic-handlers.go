@@ -281,11 +281,17 @@ func FillBucketAndObjectInfo(reqCtx *RequestContext, r *http.Request, meta *meta
 		if err != nil && err != ErrNoSuchBucket {
 			return err
 		}
-		if reqCtx.BucketInfo != nil {
+		if reqCtx.BucketInfo != nil && reqCtx.ObjectName != "" {
 			if reqCtx.BucketInfo.Versioning == datatype.BucketVersioningDisabled {
 				if reqCtx.VersionId != "" {
 					return ErrInvalidVersioning
 				}
+				reqCtx.ObjectInfo, err = meta.GetObject(reqCtx.BucketInfo.Name, reqCtx.ObjectName, types.NullVersion, true)
+				if err != nil && err != ErrNoSuchKey {
+					return err
+				}
+			} else if reqCtx.BucketInfo.Versioning == datatype.BucketVersioningSuspended &&
+				r.Method != http.MethodGet && r.Method != http.MethodHead {
 				reqCtx.ObjectInfo, err = meta.GetObject(reqCtx.BucketInfo.Name, reqCtx.ObjectName, types.NullVersion, true)
 				if err != nil && err != ErrNoSuchKey {
 					return err
