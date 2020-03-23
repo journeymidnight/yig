@@ -424,7 +424,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 					exit = true
 					break
 				}
-				objectMap[objMeta.Name] = nil
+				objectMap[meta.Name] = nil
 				listInfo.Objects = append(listInfo.Objects, o)
 				currentMarker = o.Key
 
@@ -540,7 +540,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				exit = true
 				break
 			}
-			objectMap[objMeta.Name] = nil
+			objectMap[meta.Name] = nil
 			listInfo.Objects = append(listInfo.Objects, o)
 			currentMarker = o.Key
 		}
