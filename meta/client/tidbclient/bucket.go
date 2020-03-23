@@ -532,6 +532,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			}
 			objectMap[objMeta.Name] = nil
 			listInfo.Objects = append(listInfo.Objects, o)
+			currentMarker = o.Key
 		}
 
 		if loopCount == 0 {
