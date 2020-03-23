@@ -394,6 +394,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			if err != nil {
 				return
 			}
+			helper.Logger.Info("$$$meta:", objMeta.Name, objMeta.VersionId, currentMarker)
 			objMeta.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
 			// Compare which is the latest of null version object and versioned object
 			if previousNullObjectMeta != nil {
@@ -410,10 +411,13 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				}
 
 				if meta.DeleteMarker {
+					currentMarker = meta.Name
+					objectMap[meta.Name] = nil
 					continue
 				}
 
 				o := modifyMetaToObjectResult(meta)
+
 				count++
 				if count == maxKeys {
 					listInfo.NextMarker = o.Key
@@ -526,6 +530,8 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			}
 
 			if meta.DeleteMarker {
+				currentMarker = meta.Name
+				objectMap[meta.Name] = nil
 				continue
 			}
 
