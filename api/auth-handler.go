@@ -1,12 +1,14 @@
 package api
 
 import (
+	"encoding/json"
 	"net"
 	"net/http"
 	"regexp"
 	"strings"
 
 	"github.com/journeymidnight/yig/api/datatype/policy"
+	"github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
@@ -21,7 +23,7 @@ import (
 // returns APIErrorCode if any to be replied to the client.
 func checkRequestAuth(r *http.Request, action policy.Action) (c common.Credential, err error) {
 	// TODO:Location constraint
-	ctx := getRequestContext(r)
+	ctx := context.GetRequestContext(r)
 	logger := ctx.Logger
 	authType := ctx.AuthType
 	switch authType {
@@ -56,7 +58,12 @@ func IsBucketPolicyAllowed(userId string, bucket *meta.Bucket, r *http.Request, 
 	if bucket.OwnerId == userId {
 		return false, nil
 	}
-	policyResult := bucket.Policy.IsAllowed(policy.Args{
+	var p policy.Policy
+	err = json.Unmarshal(bucket.Policy, &p)
+	if err != nil {
+		return false, err
+	}
+	policyResult := p.IsAllowed(policy.Args{
 		// TODO: Add IAM policy. Current account name is always useless.
 		AccountName:     userId,
 		Action:          action,

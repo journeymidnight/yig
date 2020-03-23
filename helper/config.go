@@ -7,9 +7,9 @@ import (
 )
 
 const (
-	YIG_CONF_PATH   = "/etc/yig/yig.toml"
-	MIN_BUFFER_SIZE = 512 << 10 // 512k
-	MAX_BUFEER_SIZE = 8 << 20   // 8M
+	YIG_CONF_PATH         = "/etc/yig/yig.toml"
+	MIN_BUFFER_SIZE int64 = 512 << 10 // 512k
+	MAX_BUFEER_SIZE int64 = 8 << 20   // 8M
 )
 
 type Config struct {
@@ -45,18 +45,19 @@ type Config struct {
 	EnableCompression      bool   `toml:"enable_compression"`
 
 	//About cache
-	EnableUsagePush       bool   `toml:"enable_usage_push"`
-	RedisAddress          string `toml:"redis_address"`           // redis connection string, e.g localhost:1234
-	RedisConnectionNumber int    `toml:"redis_connection_number"` // number of connections to redis(i.e max concurrent request number)
-	RedisPassword         string `toml:"redis_password"`          // redis auth password
-	MetaCacheType         int    `toml:"meta_cache_type"`
-	EnableDataCache       bool   `toml:"enable_data_cache"`
-	RedisConnectTimeout   int    `toml:"redis_connect_timeout"`
-	RedisReadTimeout      int    `toml:"redis_read_timeout"`
-	RedisWriteTimeout     int    `toml:"redis_write_timeout"`
-	RedisKeepAlive        int    `toml:"redis_keepalive"`
-	RedisPoolMaxIdle      int    `toml:"redis_pool_max_idle"`
-	RedisPoolIdleTimeout  int    `toml:"redis_pool_idle_timeout"`
+	EnableUsagePush       bool     `toml:"enable_usage_push"`
+	RedisAddress          string   `toml:"redis_address"` // redis connection string, e.g localhost:1234
+	RedisGroup            []string `toml:"redis_group"`
+	RedisConnectionNumber int      `toml:"redis_connection_number"` // number of connections to redis(i.e max concurrent request number)
+	RedisPassword         string   `toml:"redis_password"`          // redis auth password
+	MetaCacheType         int      `toml:"meta_cache_type"`
+	EnableDataCache       bool     `toml:"enable_data_cache"`
+	RedisConnectTimeout   int      `toml:"redis_connect_timeout"`
+	RedisReadTimeout      int      `toml:"redis_read_timeout"`
+	RedisWriteTimeout     int      `toml:"redis_write_timeout"`
+	RedisKeepAlive        int      `toml:"redis_keepalive"`
+	RedisPoolMaxIdle      int      `toml:"redis_pool_max_idle"`
+	RedisPoolIdleTimeout  int      `toml:"redis_pool_idle_timeout"`
 
 	// DB Connection parameters
 	DbMaxOpenConns       int `toml:"db_max_open_conns"`
@@ -141,6 +142,8 @@ func MarshalTOMLConfig() error {
 
 	CONFIG.EnableUsagePush = c.EnableUsagePush
 	CONFIG.RedisAddress = c.RedisAddress
+	CONFIG.EnableUsagePush = c.EnableUsagePush
+	CONFIG.RedisGroup = c.RedisGroup
 	CONFIG.RedisPassword = c.RedisPassword
 	CONFIG.RedisConnectionNumber = Ternary(c.RedisConnectionNumber == 0,
 		10, c.RedisConnectionNumber).(int)

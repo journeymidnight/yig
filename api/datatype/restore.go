@@ -21,7 +21,6 @@ func GetRestoreInfo(r *http.Request) (*Restore, error) {
 	restoreInfo := &Restore{}
 
 	body, err := ioutil.ReadAll(r.Body)
-	defer r.Body.Close()
 	if err != nil {
 		return nil, err
 	}

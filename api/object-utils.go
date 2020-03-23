@@ -17,11 +17,11 @@
 package api
 
 import (
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 	"unicode/utf8"
-	"fmt"
 )
 
 // validBucket regexp.

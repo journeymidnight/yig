@@ -145,7 +145,6 @@ const (
 	// Add new extended error codes here.
 	ContentNotModified // actually not an error
 	ErrInvalidHeader   // supplementary error for golang http lib
-	ErrInvalidStatus
 	ErrNoSuchBucketCors
 	ErrPolicyMissingFields
 	ErrInvalidAcl
@@ -174,6 +173,7 @@ const (
 	ErrExceededEncryptionRulesLimit
 	ErrMissingEncryptionByDefaultInEncryptionRule
 	ErrMissingSSEAlgorithmOrKMSMasterKeyIDInEncryptionRule
+	ErrInvalidStatus
 	ErrInvalidRestoreInfo
 	ErrCreateRestoreObject
 	ErrInvalidGlacierObject
@@ -192,14 +192,9 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		Description:    "Copy Source must mention the source bucket and key: sourcebucket/sourcekey.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
-	ErrInvalidRestoreInfo: {
-		AwsErrorCode:   "InvalidRestoreInfo",
-		Description:    "Defrost parameter setting error.",
-		HttpStatusCode: http.StatusBadRequest,
-	},
 	ErrInvalidCopySourceStorageClass: {
 		AwsErrorCode:   "InvalidCopySourceStorageClass",
-		Description:    "Storage class of copy source cannot be GLACIER or DEEP_ARCHIVE.",
+		Description:    "Storage class of copy source cannot be changed in version-enabled bucket.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidCopyRequest: {
@@ -280,11 +275,6 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidVersioning: {
 		AwsErrorCode:   "IllegalVersioningConfigurationException",
 		Description:    "The versioning configuration specified in the request is invalid.",
-		HttpStatusCode: http.StatusBadRequest,
-	},
-	ErrInvalidGlacierObject: {
-		AwsErrorCode:   "InvalidGlacierObject",
-		Description:    "Glacier objects need to be thawed before this operation can be performed.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrAccessDenied: {
@@ -659,12 +649,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		HttpStatusCode: http.StatusNotModified,
 	},
 	ErrInvalidHeader: {
-		AwsErrorCode:   "InvalidStatus",
-		Description:    "The status you specified in header is invalid.",
-		HttpStatusCode: http.StatusBadRequest,
-	},
-	ErrInvalidStatus: {
-		AwsErrorCode:   "InvalidStatus",
+		AwsErrorCode:   "InvalidRequest",
 		Description:    "This request is illegal because some header is malformed.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
@@ -821,6 +806,21 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrExceededEncryptionRulesLimit: {
 		AwsErrorCode:   "ExceededEncryptionRulesLimit",
 		Description:    "The quantity of the routing rules in the website configuration is exceeded.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidRestoreInfo: {
+		AwsErrorCode:   "InvalidRestoreInfo",
+		Description:    "Defrost parameter setting error.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidGlacierObject: {
+		AwsErrorCode:   "InvalidGlacierObject",
+		Description:    "Glacier objects need to be thawed before this operation can be performed.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidStatus: {
+		AwsErrorCode:   "InvalidStatus",
+		Description:    "The status you specified in header is invalid.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrCreateRestoreObject: {

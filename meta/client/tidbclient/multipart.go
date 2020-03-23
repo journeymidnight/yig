@@ -2,9 +2,11 @@ package tidbclient
 
 import (
 	"database/sql"
+	. "database/sql/driver"
 	"encoding/json"
 	"math"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -15,28 +17,22 @@ import (
 	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/iam/common"
 	. "github.com/journeymidnight/yig/meta/types"
-	"github.com/journeymidnight/yig/meta/util"
 )
 
 func (t *TidbClient) GetMultipart(bucketName, objectName, uploadId string) (multipart Multipart, err error) {
 	multipart.Parts = make(map[int]*Part)
-	timestampString, err := util.Decrypt(uploadId)
+	initialTime, err := GetInitialTimeFromUploadId(uploadId)
 	if err != nil {
 		return
 	}
-	uploadTime, err := strconv.ParseUint(timestampString, 10, 64)
-	if err != nil {
-		return
-	}
-	uploadTime = math.MaxUint64 - uploadTime
+	uploadTime := math.MaxUint64 - initialTime
 	sqltext := "select bucketname,objectname,uploadtime,initiatorid,ownerid,contenttype,location,pool,acl,sserequest," +
 		"encryption,COALESCE(cipher,\"\"),attrs,storageclass from multiparts where bucketname=? and objectname=? and uploadtime=?;"
-	var initialTime uint64
 	var acl, sseRequest, attrs string
 	err = t.Client.QueryRow(sqltext, bucketName, objectName, uploadTime).Scan(
 		&multipart.BucketName,
 		&multipart.ObjectName,
-		&initialTime,
+		&multipart.InitialTime,
 		&multipart.Metadata.InitiatorId,
 		&multipart.Metadata.OwnerId,
 		&multipart.Metadata.ContentType,
@@ -55,10 +51,8 @@ func (t *TidbClient) GetMultipart(bucketName, objectName, uploadId string) (mult
 	} else if err != nil {
 		return
 	}
-	rinitial := int64(math.MaxUint64 - initialTime)
-	s := rinitial / 1e9
-	ns := rinitial % 1e9
-	multipart.InitialTime = time.Unix(s, ns)
+
+	multipart.InitialTime = math.MaxUint64 - multipart.InitialTime
 	err = json.Unmarshal([]byte(acl), &multipart.Metadata.Acl)
 	if err != nil {
 		return
@@ -104,22 +98,30 @@ func (t *TidbClient) GetMultipart(bucketName, objectName, uploadId string) (mult
 
 func (t *TidbClient) CreateMultipart(multipart Multipart) (err error) {
 	m := multipart.Metadata
-	uploadtime := math.MaxUint64 - uint64(multipart.InitialTime.UnixNano())
+	uploadtime := math.MaxUint64 - multipart.InitialTime
 	acl, _ := json.Marshal(m.Acl)
 	sseRequest, _ := json.Marshal(m.SseRequest)
 	attrs, _ := json.Marshal(m.Attrs)
 	sqltext := "insert into multiparts(bucketname,objectname,uploadtime,initiatorid,ownerid,contenttype,location,pool,acl,sserequest,encryption,cipher,attrs,storageclass) " +
 		"values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-	_, err = t.Client.Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime, m.InitiatorId, m.OwnerId, m.ContentType, m.Location, m.Pool, acl, sseRequest, m.EncryptionKey,m.CipherKey, attrs, m.StorageClass)
+	_, err = t.Client.Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime, m.InitiatorId, m.OwnerId, m.ContentType, m.Location, m.Pool, acl, sseRequest, m.EncryptionKey, m.CipherKey, attrs, m.StorageClass)
 	return
 }
 
-func (t *TidbClient) PutObjectPart(multipart *Multipart, part *Part, tx DB) (err error) {
-	if tx == nil {
-		tx = t.Client
+func (t *TidbClient) PutObjectPart(multipart *Multipart, part *Part) (err error) {
+	tx, err := t.Client.Begin()
+	if err != nil {
+		return err
 	}
-
-	uploadtime := math.MaxUint64 - uint64(multipart.InitialTime.UnixNano())
+	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		}
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+	uploadtime := math.MaxUint64 - multipart.InitialTime
 	lastt, err := time.Parse(CREATE_TIME_LAYOUT, part.LastModified)
 	if err != nil {
 		return
@@ -127,11 +129,20 @@ func (t *TidbClient) PutObjectPart(multipart *Multipart, part *Part, tx DB) (err
 	lastModified := lastt.Format(TIME_LAYOUT_TIDB)
 	sqltext := "insert into multipartpart(partnumber,size,objectid,offset,etag,lastmodified,initializationvector,bucketname,objectname,uploadtime) " +
 		"values(?,?,?,?,?,?,?,?,?,?)"
+
+	var removedSize int64 = 0
+	if part, ok := multipart.Parts[part.PartNumber]; ok {
+		removedSize += part.Size
+	}
+	err = t.UpdateUsage(multipart.BucketName, part.Size-removedSize, tx)
+	if err != nil {
+		return
+	}
 	_, err = tx.Exec(sqltext, part.PartNumber, part.Size, part.ObjectId, part.Offset, part.Etag, lastModified, part.InitializationVector, multipart.BucketName, multipart.ObjectName, uploadtime)
 	return
 }
 
-func (t *TidbClient) DeleteMultipart(multipart *Multipart, tx DB) (err error) {
+func (t *TidbClient) DeleteMultipart(multipart *Multipart, tx Tx) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		if err != nil {
@@ -146,20 +157,23 @@ func (t *TidbClient) DeleteMultipart(multipart *Multipart, tx DB) (err error) {
 			}
 		}()
 	}
-	uploadtime := math.MaxUint64 - uint64(multipart.InitialTime.UnixNano())
+	uploadtime := math.MaxUint64 - multipart.InitialTime
 	sqltext := "delete from multiparts where bucketname=? and objectname=? and uploadtime=?;"
-	_, err = tx.Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime)
+	_, err = tx.(*sql.Tx).Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime)
 	if err != nil {
 		return
 	}
 	sqltext = "delete from multipartpart where bucketname=? and objectname=? and uploadtime=?;"
-	_, err = tx.Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime)
+	_, err = tx.(*sql.Tx).Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime)
 	return err
 }
 
-func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker, prefix, delimiter, encodingType string, maxUploads int) (uploads []datatype.Upload, prefixs []string, isTruncated bool, nextKeyMarker, nextUploadIdMarker string, err error) {
+func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker, prefix, delimiter, encodingType string, maxUploads int) (result datatype.ListMultipartUploadsResponse, err error) {
 	var count int
-	var exit bool
+	var exit, isTruncated bool
+	var nextKeyMarker, nextUploadIdMarker string
+	var uploads []datatype.Upload
+	var prefixes []string
 	commonPrefixes := make(map[string]struct{})
 	var uploadNum uint64
 	if uploadIdMarker != "" {
@@ -240,11 +254,11 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 				isTruncated = true
 				exit = true
 				nextKeyMarker = name
-				nextUploadIdMarker = GetMultipartUploadIdForTidb(uploadtime)
+				nextUploadIdMarker = GetMultipartUploadIdByDbTime(uploadtime)
 				exit = true
 				break
 			}
-			upload.UploadId = GetMultipartUploadIdForTidb(uploadtime)
+			upload.UploadId = GetMultipartUploadIdByDbTime(uploadtime)
 			upload.Key = name
 			if encodingType != "" {
 				upload.Key = url.QueryEscape(upload.Key)
@@ -277,15 +291,25 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 			break
 		}
 	}
-	prefixs = helper.Keys(commonPrefixes)
-	return
-}
+	prefixes = helper.Keys(commonPrefixes)
+	result.IsTruncated = isTruncated
+	result.Uploads = uploads
+	result.NextKeyMarker = nextKeyMarker
+	result.NextUploadIdMarker = nextUploadIdMarker
 
-func (t *TidbClient) RenameObjectPart(object *Object, sourceObject string, tx DB) (err error) {
-	if tx == nil {
-		tx = t.Client
+	sort.Strings(prefixes)
+	for _, prefix := range prefixes {
+		result.CommonPrefixes = append(result.CommonPrefixes, datatype.CommonPrefix{
+			Prefix: prefix,
+		})
 	}
-	sql, args := object.GetUpdateObjectPartNameSql(sourceObject)
-	_, err = tx.Exec(sql, args...)
-	return err
+
+	result.Bucket = bucketName
+	result.Delimiter = delimiter
+	result.KeyMarker = keyMarker
+	result.UploadIdMarker = uploadIdMarker
+	result.MaxUploads = maxUploads
+	result.Prefix = prefix
+
+	return
 }

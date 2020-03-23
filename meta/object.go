@@ -1,65 +1,29 @@
 package meta
 
 import (
-	"database/sql"
+	. "database/sql/driver"
+	"time"
+
+	"github.com/journeymidnight/yig/api/datatype"
+	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
 )
 
-func (m *Meta) GetObject(bucketName string, objectName string, willNeed bool) (object *Object, err error) {
-	getObject := func() (o interface{}, err error) {
-		helper.Logger.Info("GetObject CacheMiss. bucket:", bucketName,
-			"object:", objectName)
-		object, err := m.Client.GetObject(bucketName, objectName, "")
-		if err != nil {
-			return
-		}
-		helper.Logger.Info("GetObject object.Name:", object.Name)
-		if object.Name != objectName {
-			err = ErrNoSuchKey
-			return
-		}
-		return object, nil
-	}
-	unmarshaller := func(in []byte) (interface{}, error) {
-		var object Object
-		err := helper.MsgPackUnMarshal(in, &object)
-		return &object, err
-	}
-
-	o, err := m.Cache.Get(redis.ObjectTable, bucketName+":"+objectName+":",
-		getObject, unmarshaller, willNeed)
-	if err != nil {
-		return
-	}
-	object, ok := o.(*Object)
-	if !ok {
-		err = ErrInternalError
-		return
-	}
-	return object, nil
-}
-
-func (m *Meta) GetAllObject(bucketName string, objectName string) (object []*Object, err error) {
-	return m.Client.GetAllObject(bucketName, objectName, "")
-}
-
-func (m *Meta) GetObjectMap(bucketName, objectName string) (objMap *ObjMap, err error) {
-	m.Client.GetObjectMap(bucketName, objectName)
-	return
-}
-
-func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed bool) (object *Object, err error) {
+func (m *Meta) GetObject(bucketName, objectName, reqVersion string, willNeed bool) (object *Object, err error) {
 	getObjectVersion := func() (o interface{}, err error) {
-		object, err := m.Client.GetObject(bucketName, objectName, version)
-		if err != nil {
-			return
-		}
-		if object.Name != objectName {
-			err = ErrNoSuchKey
-			return
+		if reqVersion == "" {
+			object, err = m.Client.GetLatestObjectVersion(bucketName, objectName)
+			if err != nil {
+				return
+			}
+		} else {
+			object, err = m.Client.GetObject(bucketName, objectName, reqVersion)
+			if err != nil {
+				return
+			}
 		}
 		return object, nil
 	}
@@ -68,7 +32,7 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed
 		err := helper.MsgPackUnMarshal(in, &object)
 		return &object, err
 	}
-	o, err := m.Cache.Get(redis.ObjectTable, bucketName+":"+objectName+":"+version,
+	o, err := m.Cache.Get(redis.ObjectTable, bucketName+":"+objectName+":"+reqVersion,
 		getObjectVersion, unmarshaller, willNeed)
 	if err != nil {
 		return
@@ -81,47 +45,66 @@ func (m *Meta) GetObjectVersion(bucketName, objectName, version string, willNeed
 	return object, nil
 }
 
-func (m *Meta) PutObject(object *Object, multipart *Multipart, objMap *ObjMap, updateUsage bool) error {
-	tx, err := m.Client.NewTrans()
+func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multipart, updateUsage bool) error {
+	if reqCtx.BucketInfo == nil {
+		return ErrNoSuchBucket
+	}
+	switch reqCtx.BucketInfo.Versioning {
+	case datatype.BucketVersioningSuspended:
+		// TODO: Check SUSPEND Logic
+		fallthrough
+	case datatype.BucketVersioningDisabled:
+		needUpdate := (reqCtx.ObjectInfo != nil)
+
+		if needUpdate {
+			return m.Client.UpdateObject(object, multipart, updateUsage, nil)
+		} else {
+			return m.Client.PutObject(object, multipart, updateUsage)
+		}
+	case datatype.BucketVersioningEnabled:
+		return m.Client.PutObject(object, multipart, updateUsage)
+	}
+
+	return nil
+}
+
+func (m *Meta) UpdateGlacierObject(targetObject, sourceObject *Object, isFreezer bool) (err error) {
+	var tx Tx
+	tx, err = m.Client.NewTrans()
 	if err != nil {
 		return err
 	}
 	defer func() {
+		if err == nil {
+			err = m.Client.CommitTrans(tx)
+		}
 		if err != nil {
 			m.Client.AbortTrans(tx)
 		}
 	}()
 
-	err = m.Client.PutObject(object, tx)
+	if isFreezer {
+		err = m.Client.UpdateFreezerObject(targetObject, tx)
+		if err != nil {
+			return err
+		}
+
+		err = m.Client.DeleteFreezer(sourceObject.BucketName, sourceObject.Name, tx)
+		if err != nil {
+			return err
+		}
+	} else {
+		err = m.Client.PutObject(targetObject, nil, true)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = m.Client.PutObjectToGarbageCollection(sourceObject, tx)
 	if err != nil {
 		return err
 	}
 
-	if objMap != nil {
-		err = m.Client.PutObjectMap(objMap, tx)
-		if err != nil {
-			return err
-		}
-	}
-
-	if multipart != nil {
-		err = m.Client.DeleteMultipart(multipart, tx)
-		if err != nil {
-			return err
-		}
-	}
-
-	if updateUsage {
-		err = m.Client.UpdateUsage(object.BucketName, object.Size, tx)
-		if err != nil {
-			return err
-		}
-	}
-	return m.Client.CommitTrans(tx)
-}
-
-func (m *Meta) PutObjectEntry(object *Object) error {
-	err := m.Client.PutObject(object, nil)
 	return err
 }
 
@@ -136,7 +119,7 @@ func (m *Meta) UpdateObjectAttrs(object *Object) error {
 }
 
 func (m *Meta) RenameObject(object *Object, sourceObject string) error {
-	err := m.Client.RenameObject(object, sourceObject, nil)
+	err := m.Client.RenameObject(object, sourceObject)
 	return err
 }
 
@@ -145,14 +128,25 @@ func (m *Meta) ReplaceObjectMetas(object *Object) error {
 	return err
 }
 
-func (m *Meta) PutObjMapEntry(objMap *ObjMap) error {
-	err := m.Client.PutObjectMap(objMap, nil)
-	return err
+func (m *Meta) DeleteOldObject(object *Object) (err error) {
+	tx, err := m.Client.NewTrans()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = m.Client.CommitTrans(tx)
+		}
+		if err != nil {
+			m.Client.AbortTrans(tx)
+		}
+	}()
+
+	return m.Client.UpdateUsage(object.BucketName, -object.Size, tx)
 }
 
-func (m *Meta) DeleteObject(object *Object, DeleteMarker bool, objMap *ObjMap) (err error) {
-	var tx *sql.Tx
-	tx, err = m.Client.NewTrans()
+func (m *Meta) DeleteObject(object *Object) (err error) {
+	tx, err := m.Client.NewTrans()
 	if err != nil {
 		return err
 	}
@@ -170,17 +164,6 @@ func (m *Meta) DeleteObject(object *Object, DeleteMarker bool, objMap *ObjMap) (
 		return err
 	}
 
-	if objMap != nil {
-		err = m.Client.DeleteObjectMap(objMap, tx)
-		if err != nil {
-			return err
-		}
-	}
-
-	if DeleteMarker {
-		return nil
-	}
-
 	err = m.Client.PutObjectToGarbageCollection(object, tx)
 	if err != nil {
 		return err
@@ -189,9 +172,12 @@ func (m *Meta) DeleteObject(object *Object, DeleteMarker bool, objMap *ObjMap) (
 	return m.Client.UpdateUsage(object.BucketName, -object.Size, tx)
 }
 
-func (m *Meta) UpdateGlacierObject(targetObject, sourceObject *Object, isFreezer bool) (err error) {
-	var tx *sql.Tx
-	tx, err = m.Client.NewTrans()
+func (m *Meta) AddDeleteMarker(marker *Object) (err error) {
+	return m.Client.PutObject(marker, nil, false)
+}
+
+func (m *Meta) DeleteSuspendedObject(object *Object) (err error) {
+	tx, err := m.Client.NewTrans()
 	if err != nil {
 		return err
 	}
@@ -204,52 +190,35 @@ func (m *Meta) UpdateGlacierObject(targetObject, sourceObject *Object, isFreezer
 		}
 	}()
 
-	if isFreezer {
-		err = m.Client.UpdateObject(targetObject, tx)
+	// only put delete marker if null version does not exist
+	if !object.DeleteMarker {
+		err = m.Client.DeleteObjectPart(object, tx)
 		if err != nil {
 			return err
 		}
 
-		err = m.Client.DeleteFreezer(sourceObject.BucketName, sourceObject.Name, tx)
+		err = m.Client.PutObjectToGarbageCollection(object, tx)
 		if err != nil {
 			return err
 		}
-	} else {
-		err = m.Client.PutObject(targetObject, tx)
+
+		err = m.Client.UpdateUsage(object.BucketName, -object.Size, tx)
 		if err != nil {
 			return err
 		}
 	}
 
-	err = m.Client.PutObjectToGarbageCollection(sourceObject, tx)
-	if err != nil {
-		return err
-	}
-
-	return err
+	// TODO: To be fixed
+	// update to delete marker
+	object.DeleteMarker = true
+	object.LastModifiedTime = time.Now().UTC()
+	return m.Client.UpdateObject(object, nil, true, nil)
 }
 
 func (m *Meta) AppendObject(object *Object, isExist bool) error {
-	tx, err := m.Client.NewTrans()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err != nil {
-			m.Client.AbortTrans(tx)
-		}
-	}()
 	if !isExist {
-		err = m.Client.PutObject(object, tx)
+		return m.Client.PutObject(object, nil, true)
 	} else {
-		err = m.Client.UpdateAppendObject(object, tx)
+		return m.Client.UpdateAppendObject(object)
 	}
-	if err != nil {
-		return err
-	}
-	err = m.Client.UpdateUsage(object.BucketName, object.Size, tx)
-	if err != nil {
-		return err
-	}
-	return m.Client.CommitTrans(tx)
 }

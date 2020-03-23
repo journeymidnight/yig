@@ -1,7 +1,8 @@
 package meta
 
 import (
-	"database/sql"
+	. "database/sql/driver"
+
 	"github.com/journeymidnight/yig/meta/types"
 )
 
@@ -22,7 +23,7 @@ func (m *Meta) UpdateFreezerDate(freezer *types.Freezer) error {
 }
 
 func (m *Meta) DeleteFreezer(freezer *types.Freezer) (err error) {
-	var tx *sql.Tx
+	var tx Tx
 	tx, err = m.Client.NewTrans()
 	if err != nil {
 		return err

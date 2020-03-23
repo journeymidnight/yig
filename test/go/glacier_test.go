@@ -2,9 +2,11 @@ package _go
 
 import (
 	"encoding/xml"
+	"testing"
+
+	"github.com/journeymidnight/aws-sdk-go/service/s3"
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/test/go/lib"
-	"testing"
 )
 
 const (
@@ -26,12 +28,13 @@ const (
 func Test_PutObjectWithGlacier(t *testing.T) {
 	sc := NewS3()
 	err := sc.MakeBucket(TEST_BUCKET)
+	defer sc.CleanEnv()
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
 
-	err = sc.PutObjectWithStorageClass(TEST_BUCKET, TEST_KEY, TEST_VALUE, TEST_STORAGEGLACIER)
+	err = sc.PutObjectWithStorageClass(TEST_BUCKET, TEST_KEY, TEST_VALUE, s3.StorageClassGlacier)
 	if err != nil {
 		t.Fatal("PutObject err:", err)
 	}
@@ -40,9 +43,20 @@ func Test_PutObjectWithGlacier(t *testing.T) {
 
 func Test_RestoreObject(t *testing.T) {
 	sc := NewS3()
+	err := sc.MakeBucket(TEST_BUCKET)
+	defer sc.CleanEnv()
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+		panic(err)
+	}
 
+	err = sc.PutObjectWithStorageClass(TEST_BUCKET, TEST_KEY, TEST_VALUE, s3.ObjectStorageClassGlacier)
+	if err != nil {
+		t.Fatal("PutObject err:", err)
+	}
+	t.Log("PutObject Success!")
 	var config = &datatype.Restore{}
-	err := xml.Unmarshal([]byte(RESTOREXML1), config)
+	err = xml.Unmarshal([]byte(RESTOREXML1), config)
 	if err != nil {
 		t.Fatal("Unmarshal encryption configuration err:", err)
 	}
@@ -58,7 +72,7 @@ func Test_RestoreObject(t *testing.T) {
 	}
 	t.Log("RestoreObject Success!")
 
-	err = sc.DeleteObject(TEST_BUCKET,TEST_KEY)
+	err = sc.DeleteObject(TEST_BUCKET, TEST_KEY)
 	if err != nil {
 		t.Fatal("DeleteObject err:", err)
 	}

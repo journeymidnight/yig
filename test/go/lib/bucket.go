@@ -35,16 +35,26 @@ func (s3client *S3Client) HeadBucket(bucketName string) (err error) {
 	return
 }
 
-func (s3client *S3Client) ListObjects(bucketName string) (objects []*s3.Object, err error){
-	params := &s3.ListObjectsInput{
-		Bucket:  aws.String(bucketName),
-	}
-	result, err := s3client.Client.ListObjects(params)
+func (s3client *S3Client) ListBuckets() (buckets []string, err error) {
+	params := &s3.ListBucketsInput{}
+	out, err := s3client.Client.ListBuckets(params)
 	if err != nil {
-		return
+		return nil, err
 	}
-	if result != nil {
-		objects = result.Contents
+
+	for _, bucket := range out.Buckets {
+		buckets = append(buckets, *bucket.Name)
 	}
 	return
+}
+
+func (s3client *S3Client) ListObjects(bucketName, marker, prefix string, maxKeys int64) (*s3.ListObjectsOutput, error) {
+	params := &s3.ListObjectsInput{
+		Bucket:    aws.String(bucketName),
+		Marker:    aws.String(marker),
+		MaxKeys:   aws.Int64(maxKeys),
+		Prefix:    aws.String(prefix),
+		Delimiter: aws.String("/"),
+	}
+	return s3client.Client.ListObjects(params)
 }

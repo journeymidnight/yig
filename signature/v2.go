@@ -11,11 +11,13 @@ import (
 	"time"
 
 	"errors"
+
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/iam/common"
+
 	//	"net"
 	"strconv"
 )
@@ -73,7 +75,7 @@ func buildCanonicalizedResource(req *http.Request) string {
 	ans := ""
 	v := strings.Split(req.Host, ":")
 	hostWithOutPort := v[0]
-	ok, bucketName := helper.HasBucketInDomain(hostWithOutPort, ".", helper.CONFIG.S3Domain)
+	ok, bucketName := helper.HasBucketInDomain(hostWithOutPort, helper.CONFIG.S3Domain)
 	if ok {
 		ans += "/" + bucketName
 	}

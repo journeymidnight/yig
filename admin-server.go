@@ -107,8 +107,9 @@ func getObjectInfo(w http.ResponseWriter, r *http.Request) {
 	claims := r.Context().Value("claims").(jwt.MapClaims)
 	bucketName := claims["bucket"].(string)
 	objectName := claims["object"].(string)
+	version := claims["version"].(string)
 
-	object, err := adminServer.Yig.MetaStorage.GetObject(bucketName, objectName, true)
+	object, err := adminServer.Yig.MetaStorage.GetObject(bucketName, objectName, version, true)
 	if err != nil {
 		api.WriteErrorResponse(w, r, err)
 		return
@@ -154,7 +155,9 @@ func configureAdminHandler() http.Handler {
 	registry := prometheus.NewRegistry()
 	registry.MustRegister(metrics)
 
-	apiRouter.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
+	if helper.CONFIG.EnableUsagePush {
+		apiRouter.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
+	}
 
 	handle := RegisterHandlers(mux, handlerFns...)
 	return handle

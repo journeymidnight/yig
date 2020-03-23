@@ -8,6 +8,8 @@ delete
 getrediskeys
 yig
 integrate/cephconf
+integrate/data
+integrate/logs
 yig
 lc
 *.log

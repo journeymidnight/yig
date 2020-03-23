@@ -212,8 +212,8 @@ type VersionedObject struct {
 	XMLName   xml.Name
 	Key       string
 	VersionId string
-	// TODO: IsLatest
-	// IsLatest     bool
+
+	DeleteMarker bool
 	LastModified string // time string of format "2006-01-02T15:04:05.000Z"
 	ETag         string
 	Size         int64

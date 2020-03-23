@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	. "github.com/journeymidnight/yig/context"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/signature"
 )
@@ -172,7 +173,7 @@ func (r *replacer) getSubstitution(key string) string {
 	case "{request_uri}":
 		return r.request.Method + " " + r.request.URL.String() + " " + r.request.Proto
 	case "{request_id}":
-		return getRequestContext(r.request).RequestID
+		return GetRequestContext(r.request).RequestID
 	case "{operation_name}":
 		return r.responseRecorder.operationName
 	case "{host_name}":
@@ -180,20 +181,20 @@ func (r *replacer) getSubstitution(key string) string {
 	case "{region_id}":
 		return helper.CONFIG.Region
 	case "{bucket_name}":
-		bucketName := getRequestContext(r.request).BucketName
+		bucketName := GetRequestContext(r.request).BucketName
 		if bucketName == "" {
 			return "-"
 		}
 		return bucketName
 	case "{object_name}":
-		objectName := getRequestContext(r.request).ObjectName
+		objectName := GetRequestContext(r.request).ObjectName
 		if objectName == "" {
 			return "-"
 		}
 		return objectName
 	case "{object_size}":
 		var objectSize int64
-		objectInfo := getRequestContext(r.request).ObjectInfo
+		objectInfo := GetRequestContext(r.request).ObjectInfo
 		if objectInfo != nil {
 			objectSize = objectInfo.Size
 		}
@@ -206,7 +207,7 @@ func (r *replacer) getSubstitution(key string) string {
 		}
 		return requester_id
 	case "{project_id}":
-		bucketInfo := getRequestContext(r.request).BucketInfo
+		bucketInfo := GetRequestContext(r.request).BucketInfo
 		if bucketInfo == nil {
 			return "-"
 		}
@@ -263,7 +264,7 @@ func (r *replacer) getSubstitution(key string) string {
 		// Currently, the intranet domain name is formed by adding the "-internal" on the second-level domain name of the public network.
 		return strconv.FormatBool(strings.Contains(r.request.Host, "internal"))
 	case "{storage_class}":
-		objectInfo := getRequestContext(r.request).ObjectInfo
+		objectInfo := GetRequestContext(r.request).ObjectInfo
 		if objectInfo == nil {
 			return "-"
 		}
@@ -278,7 +279,7 @@ func (r *replacer) getSubstitution(key string) string {
 		}
 		return "-"
 	case "{bucket_logging}":
-		bl:= getRequestContext(r.request).BucketInfo
+		bl:= GetRequestContext(r.request).BucketInfo
 		if bl!=nil {
 			if bl.BucketLogging.LoggingEnabled.TargetBucket!="" && bl.BucketLogging.LoggingEnabled.TargetPrefix!="" {
 				return strconv.FormatBool(true)

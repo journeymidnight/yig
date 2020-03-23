@@ -8,7 +8,7 @@ import (
 
 type Compression interface {
 	CompressReader(reader io.Reader) io.Reader
-	CompressWriter(writer io.Writer) io.Writer
+	UnCompressReader(reader io.Reader) io.Reader
 	IsCompressible(objectName, mtype string) bool
 }
 
@@ -29,4 +29,16 @@ func InitCompression(plugins map[string]*mods.YigPlugin) (Compression, error) {
 		}
 	}
 	panic("Failed to initialize any Compression plugin, quiting...\n")
+}
+
+func CompressObject(objectName, objectType string, reader io.Reader) io.Reader {
+	if helper.CONFIG.EnableCompression {
+		isCompressible := Compress.IsCompressible(objectName, objectType)
+		if !isCompressible {
+			return reader
+		} else {
+			return Compress.CompressReader(reader)
+		}
+	}
+	return reader
 }

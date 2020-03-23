@@ -1,21 +1,16 @@
 package types
 
 import (
-	"crypto/aes"
-	"crypto/cipher"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
 	"math"
 	"strconv"
 	"time"
 
 	"github.com/journeymidnight/yig/api/datatype"
-	"github.com/journeymidnight/yig/meta/util"
-	"github.com/xxtea/xxtea-go/xxtea"
 )
+
+const NullVersion = "0"
 
 type Object struct {
 	Rowkey           []byte // Rowkey cache
@@ -46,6 +41,7 @@ type Object struct {
 	// ObjectType include `Normal`, `Appendable`, 'Multipart'
 	Type         ObjectType
 	StorageClass StorageClass
+	CreateTime   uint64 // Timestamp(nanosecond)
 }
 
 type ObjectType int
@@ -84,81 +80,40 @@ func (o *Object) String() (s string) {
 	return s
 }
 
-func (o *Object) GetVersionNumber() (uint64, error) {
-	decrypted, err := util.Decrypt(o.VersionId)
-	if err != nil {
-		return 0, err
-	}
-	version, err := strconv.ParseUint(decrypted, 10, 64)
-	if err != nil {
-		return 0, err
-	}
-	return version, nil
-}
-
-func (o *Object) encryptSseKey() (err error) {
-	// Don't encrypt if `EncryptionKey` is not set
-	if len(o.EncryptionKey) == 0 {
-		return
+func (o *Object) GenVersionId(bucketVersionType datatype.BucketVersioningType) string {
+	if bucketVersionType != datatype.BucketVersioningEnabled {
+		return NullVersion
 	}
 
-	if len(o.InitializationVector) == 0 {
-		o.InitializationVector = make([]byte, INITIALIZATION_VECTOR_LENGTH)
-		_, err = io.ReadFull(rand.Reader, o.InitializationVector)
-		if err != nil {
-			return
-		}
-	}
-
-	block, err := aes.NewCipher(SSE_S3_MASTER_KEY)
-	if err != nil {
-		return err
-	}
-
-	aesGcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return err
-	}
-
-	// InitializationVector is 16 bytes(because of CTR), but use only first 12 bytes in GCM
-	// for performance
-	o.EncryptionKey = aesGcm.Seal(nil, o.InitializationVector[:12], o.EncryptionKey, nil)
-	return nil
-}
-
-func (o *Object) GetVersionId() string {
-	if o.NullVersion {
-		return "null"
-	}
-	if o.VersionId != "" {
-		return o.VersionId
-	}
-	timeData := []byte(strconv.FormatUint(uint64(o.LastModifiedTime.UnixNano()), 10))
-	o.VersionId = hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
-	return o.VersionId
+	return strconv.FormatUint(math.MaxUint64-uint64(o.LastModifiedTime.UnixNano()), 10)
 }
 
 //Tidb related function
 
 func (o *Object) GetCreateSql() (string, []interface{}) {
-	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
+
 	customAttributes, _ := json.Marshal(o.CustomAttributes)
 	acl, _ := json.Marshal(o.ACL)
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
 	sql := "insert into objects(bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag," +
-		"contenttype,customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass) " +
-		"values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-	args := []interface{}{o.BucketName, o.Name, version, o.Location, o.Pool, o.OwnerId, o.Size, o.ObjectId,
+		"contenttype,customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass,createtime) " +
+		"values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+	args := []interface{}{o.BucketName, o.Name, o.VersionId, o.Location, o.Pool, o.OwnerId, o.Size, o.ObjectId,
 		lastModifiedTime, o.Etag, o.ContentType, customAttributes, acl, o.NullVersion, o.DeleteMarker,
-		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass}
+		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass, o.LastModifiedTime.UnixNano()}
 	return sql, args
 }
 
-func (o *Object) GetAppendSql() (string, []interface{}) {
-	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
+func (o *Object) GetUpdateSql() (string, []interface{}) {
+	customAttributes, _ := json.Marshal(o.CustomAttributes)
+	acl, _ := json.Marshal(o.ACL)
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
-	sql := "update objects set lastmodifiedtime=?, size=?, version=? where bucketname=? and name=?"
-	args := []interface{}{lastModifiedTime, o.Size, version, o.BucketName, o.Name}
+	sql := "update objects set location=?,pool=?,size=?,objectid=?,lastmodifiedtime=?,etag=?," +
+		"contenttype=?,customattributes=?,acl=?,ssetype=?,encryptionkey=?,initializationvector=?,type=?, storageclass=?, createtime=? " +
+		"where bucketname=? and name=? and version=?"
+	args := []interface{}{o.Location, o.Pool, o.Size, o.ObjectId,
+		lastModifiedTime, o.Etag, o.ContentType, customAttributes, acl,
+		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass, o.LastModifiedTime.UnixNano(), o.BucketName, o.Name, o.VersionId}
 	return sql, args
 }
 
@@ -171,10 +126,9 @@ func (o *Object) GetUpdateSql() (string, []interface{}) {
 }
 
 func (o *Object) GetUpdateAclSql() (string, []interface{}) {
-	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
 	acl, _ := json.Marshal(o.ACL)
 	sql := "update objects set acl=? where bucketname=? and name=? and version=?"
-	args := []interface{}{acl, o.BucketName, o.Name, version}
+	args := []interface{}{acl, o.BucketName, o.Name, o.VersionId}
 	return sql, args
 }
 
@@ -186,21 +140,24 @@ func (o *Object) GetUpdateAttrsSql() (string, []interface{}) {
 }
 
 func (o *Object) GetUpdateNameSql(sourceObject string) (string, []interface{}) {
+	sql := "update objects set name=? where bucketname=? and name=? and version=0"
+	args := []interface{}{o.Name, o.BucketName, sourceObject}
+	return sql, args
+}
+
+// TODO : with Version
+func (o *Object) GetReplaceObjectMetasSql() (string, []interface{}) {
+	customAttributes, _ := json.Marshal(o.CustomAttributes)
+	sql := "update objects set contenttype=?,customattributes=?,storageclass=? where bucketname=? and name=?"
+	args := []interface{}{o.ContentType, customAttributes, o.StorageClass, o.BucketName, o.Name}
+	return sql, args
+}
+
+func (o *Object) GetGlacierUpdateSql() (string, []interface{}) {
 	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
-	sql := "update objects set name=? where bucketname=? and name=? and version=?"
-	args := []interface{}{o.Name, o.BucketName, sourceObject, version}
-	return sql, args
-}
-
-func (o *Object) GetAddUsageSql() (string, []interface{}) {
-	sql := "update buckets set usages= usages + ? where bucketname=?"
-	args := []interface{}{o.Size, o.BucketName}
-	return sql, args
-}
-
-func (o *Object) GetSubUsageSql() (string, []interface{}) {
-	sql := "update buckets set usages= usages + ? where bucketname=?"
-	args := []interface{}{-o.Size, o.BucketName}
+	sql := "update objects set location=?,pool=?," +
+		"size=?,objectid=?,etag=?,initializationvector=?,storageclass=? where bucketname=? and name=? and version=?"
+	args := []interface{}{o.Location, o.Pool, o.Size, o.ObjectId, o.Etag, o.InitializationVector, o.StorageClass, o.BucketName, o.Name, version}
 	return sql, args
 }
 

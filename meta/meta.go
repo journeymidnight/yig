@@ -17,11 +17,14 @@ type Meta struct {
 
 func New(myCacheType CacheType) *Meta {
 	meta := Meta{
-		Cache:  newMetaCache(myCacheType),
+		Cache: newMetaCache(myCacheType),
 	}
-	if helper.CONFIG.MetaStore == "tidb" {
+	switch helper.CONFIG.MetaStore {
+	case "tidb":
 		meta.Client = tidbclient.NewTidbClient()
-	} else {
+	//case "tikv":
+	//	meta.Client = tikvclient.NewClient()
+	default:
 		panic("unsupport metastore")
 	}
 	return &meta

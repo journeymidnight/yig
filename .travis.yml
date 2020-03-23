@@ -6,7 +6,7 @@ go:
   - 1.13
 
 services:
-- docker
+  - docker
 
 before_install:
   - sudo -E apt-get -yq --no-install-suggests --no-install-recommends --force-yes install docker-ce
@@ -17,26 +17,26 @@ before_install:
   - sudo apt-get update
 
 install:
-- sudo apt-get install dnsmasq python librdkafka-dev -y
-- sudo pip install botocore
-- sudo sed -i "$ a\address=/.s3.test.com/10.5.0.18" /etc/dnsmasq.conf
-- sudo sed -i "$ a\address=/.s3-internal.test.com/10.5.0.18" /etc/dnsmasq.conf
-- sudo service dnsmasq restart
-- sudo sed -i "1 i\nameserver 127.0.0.1" /etc/resolv.conf
-- sudo ufw disable
+  - sudo apt-get install dnsmasq python librdkafka-dev -y
+  - sudo pip install botocore
+  - sudo sed -i "$ a\address=/.s3.test.com/10.5.0.18" /etc/dnsmasq.conf
+  - sudo sed -i "$ a\address=/.s3-internal.test.com/10.5.0.18" /etc/dnsmasq.conf
+  - sudo service dnsmasq restart
+  - sudo sed -i "1 i\nameserver 127.0.0.1" /etc/resolv.conf
+  - sudo ufw disable
 
 script:
-- export GOPROXY=https://goproxy.cn
-- export GO111MODULE=on
-- make integrate
+  - export GOPROXY=https://goproxy.cn
+  - export GO111MODULE=on
+  - make integrate
   # golang 1.12 will change the permission of go.mod and go.sum
   # use chmod to reset the permission of go.mod and go.sum to make go test happy
-- sudo chmod 644 go.mod go.sum
-- sudo python test/sanity.py
-- pushd test/go
-- go test -v
-- popd
-- cat lc.log
+  - sudo chmod 644 go.mod go.sum
+  - sudo python test/sanity.py
+  - pushd test/go
+  - go test -v
+  - popd
+  - cat lc.log
 
 before_deploy:
   - echo "prepare package"
@@ -47,7 +47,7 @@ deploy:
   - provider: releases
     api_key: $GithubToken
     file: $TRAVIS_BUILD_DIR/yig*.x86_64.rpm
-    file_glob: true 
+    file_glob: true
     skip_cleanup: true
     on:
       repo: journeymidnight/yig

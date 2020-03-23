@@ -45,8 +45,12 @@ const (
 	</AccessControlPolicy>`
 )
 
-func Test_ACL_Prepare(t *testing.T) {
+func Test_ACL(t *testing.T) {
 	sc := NewS3()
+	defer func() {
+		sc.DeleteObject(TEST_BUCKET, TEST_KEY)
+		sc.DeleteBucket(TEST_BUCKET)
+	}()
 	err := sc.MakeBucket(TEST_BUCKET)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
@@ -59,57 +63,38 @@ func Test_ACL_Prepare(t *testing.T) {
 		panic(err)
 	}
 	t.Log("PutObject Success.")
-}
 
-func Test_PutBucketAcl(t *testing.T) {
-	sc := NewS3()
-	err := sc.PutBucketAcl(TEST_BUCKET, BucketCannedACLPrivate)
+	err = sc.PutBucketAcl(TEST_BUCKET, BucketCannedACLPrivate)
 	if err != nil {
 		t.Fatal("PutBucketAcl err:", err)
 	}
 	t.Log("PutBucketAcl Success!")
-}
-
-func Test_GetBucketAcl(t *testing.T) {
-	sc := NewS3()
 	out, err := sc.GetBucketAcl(TEST_BUCKET)
 	if err != nil {
 		t.Fatal("GetBucketAcl err:", err)
 	}
 	t.Log("GetBucketAcl Success! out:", out)
-}
 
-func Test_PutObjectAclWithNoSuchObject(t *testing.T) {
-	sc := NewS3()
-	err := sc.PutObjectAcl(TEST_BUCKET, TEST_KEY+"NONE", BucketCannedACLPrivate)
+	err = sc.PutObjectAcl(TEST_BUCKET, TEST_KEY+"NONE", BucketCannedACLPrivate)
 	if err == nil {
 		t.Fatal("PutObjectAclWithNoSuchObject err: We have no such key", TEST_KEY)
 	}
 	t.Log("PutObjectAclWithNoSuchObject Success!")
-}
 
-func Test_PutObjectAcl(t *testing.T) {
-	sc := NewS3()
-	err := sc.PutObjectAcl(TEST_BUCKET, TEST_KEY, BucketCannedACLPrivate)
+	err = sc.PutObjectAcl(TEST_BUCKET, TEST_KEY, BucketCannedACLPrivate)
 	if err != nil {
 		t.Fatal("PutObjectAcl err:", err)
 	}
 	t.Log("PutObjectAcl Success!")
-}
 
-func Test_GetObjectAcl(t *testing.T) {
-	sc := NewS3()
-	out, err := sc.GetObjectAcl(TEST_BUCKET, TEST_KEY)
+	out, err = sc.GetObjectAcl(TEST_BUCKET, TEST_KEY)
 	if err != nil {
 		t.Fatal("GetObjectAcl err:", err)
 	}
 	t.Log("GetObjectAcl Success! out:", out)
-}
 
-// This test case is used to test whether the result of obtaining an Object by an external user is correct
-// before setting the public-read ACL and setting the public-read ACL.
-func Test_PutObjectPublicAclWithXml(t *testing.T) {
-	sc := NewS3()
+	// This test case is used to test whether the result of obtaining an Object by an external user is correct
+	// before setting the public-read ACL and setting the public-read ACL.
 	url := GenTestObjectUrl(sc)
 	// before set public-read ACL.
 	statusCode, _, err := HTTPRequestToGetObject(url)
@@ -138,7 +123,7 @@ func Test_PutObjectPublicAclWithXml(t *testing.T) {
 	}
 	t.Log("PutObjectAclWithXml Success!")
 
-	out, err := sc.GetObjectAcl(TEST_BUCKET, TEST_KEY)
+	out, err = sc.GetObjectAcl(TEST_BUCKET, TEST_KEY)
 	if err != nil {
 		t.Fatal("GetObjectAcl err:", err)
 	}
@@ -154,16 +139,13 @@ func Test_PutObjectPublicAclWithXml(t *testing.T) {
 		t.Fatal("StatusCode should be STATUS_OK(200), but the code is:", statusCode)
 	}
 	t.Log("Get object value:", string(data))
-}
 
-// This test case is used to test whether the result of obtaining an Object by an external user is correct
-// before setting the private ACL and setting the private ACL.
-func Test_PutObjectPrivateAclWithXml(t *testing.T) {
-	sc := NewS3()
-	url := GenTestObjectUrl(sc)
+	// This test case is used to test whether the result of obtaining an Object by an external user is correct
+	// before setting the private ACL and setting the private ACL.
+	url = GenTestObjectUrl(sc)
 
 	// before set private ACL.
-	statusCode, data, err := HTTPRequestToGetObject(url)
+	statusCode, data, err = HTTPRequestToGetObject(url)
 	if err != nil {
 		t.Fatal("GetObject err:", err)
 	}
@@ -174,12 +156,12 @@ func Test_PutObjectPrivateAclWithXml(t *testing.T) {
 	t.Log("Get object value:", string(data))
 
 	//set private ACL.
-	var policy = &datatype.AccessControlPolicy{}
+	policy = &datatype.AccessControlPolicy{}
 	err = xml.Unmarshal([]byte(AclPrivateXml), policy)
 	if err != nil {
 		t.Fatal("PutObjectPrivateAclWithXml err:", err)
 	}
-	acl := TransferToS3AccessControlPolicy(policy)
+	acl = TransferToS3AccessControlPolicy(policy)
 	if acl == nil {
 		t.Fatal("PutObjectPrivateAclWithXml err:", "empty acl!")
 	}
@@ -189,7 +171,7 @@ func Test_PutObjectPrivateAclWithXml(t *testing.T) {
 	}
 	t.Log("PutObjectAclWithXml Success!")
 
-	out, err := sc.GetObjectAcl(TEST_BUCKET, TEST_KEY)
+	out, err = sc.GetObjectAcl(TEST_BUCKET, TEST_KEY)
 	if err != nil {
 		t.Fatal("GetObjectAcl err:", err)
 	}
@@ -205,11 +187,8 @@ func Test_PutObjectPrivateAclWithXml(t *testing.T) {
 		t.Fatal("StatusCode should be AccessDenied(403), but the code is:", statusCode)
 	}
 	t.Log("GetObject With private ACL test Success.")
-}
 
-func Test_ACL_End(t *testing.T) {
-	sc := NewS3()
-	err := sc.DeleteObject(TEST_BUCKET, TEST_KEY)
+	err = sc.DeleteObject(TEST_BUCKET, TEST_KEY)
 	if err != nil {
 		t.Log("DeleteObject err:", err)
 	}

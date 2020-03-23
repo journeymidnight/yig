@@ -26,8 +26,8 @@ func (d DummyCompress) CompressReader(reader io.Reader) io.Reader {
 	return reader
 }
 
-func (d DummyCompress) CompressWriter(writer io.Writer) io.Writer {
-	return writer
+func (d DummyCompress) UnCompressReader(reader io.Reader) io.Reader {
+	return reader
 }
 
 func (d DummyCompress) IsCompressible(objectName, mtype string) bool {

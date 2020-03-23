@@ -1,9 +1,10 @@
 package _go
 
 import (
+	"testing"
+
 	"github.com/journeymidnight/aws-sdk-go/service/s3"
 	. "github.com/journeymidnight/yig/test/go/lib"
-	"testing"
 )
 
 type TestListObjectsCase struct {
@@ -14,7 +15,7 @@ type TestListObjectsCase struct {
 	Expected     string
 }
 
-func Test_ListObjects_With_StorageClass(t *testing.T)  {
+func Test_ListObjects_With_StorageClass(t *testing.T) {
 	testCases := []TestListObjectsCase{
 		{TEST_BUCKET, TEST_KEY, TEST_VALUE, s3.ObjectStorageClassStandard, s3.ObjectStorageClassStandard},
 		{TEST_BUCKET, TEST_KEY, TEST_VALUE, s3.ObjectStorageClassStandardIa, s3.ObjectStorageClassStandardIa},
@@ -32,8 +33,8 @@ func Test_ListObjects_With_StorageClass(t *testing.T)  {
 		if err != nil {
 			t.Fatal("PutObjectWithStorageClass err:", err)
 		}
-		objects, err := sc.ListObjects(c.BucketName)
-		for _, object := range objects {
+		out, err := sc.ListObjects(c.BucketName, "", "", 1000)
+		for _, object := range out.Contents {
 			if *object.Key == c.Key {
 				if *object.StorageClass != c.StorageClass {
 					t.Fatal("StorageClass is not correct. out:", *object.StorageClass, "expected:", c.Expected)

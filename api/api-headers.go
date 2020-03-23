@@ -23,6 +23,7 @@ import (
 	"strconv"
 
 	. "github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/helper"
 	meta "github.com/journeymidnight/yig/meta/types"
 )
 
@@ -35,7 +36,10 @@ func EncodeResponse(response interface{}) []byte {
 	var bytesBuffer bytes.Buffer
 	bytesBuffer.WriteString(xml.Header)
 	e := xml.NewEncoder(&bytesBuffer)
-	e.Encode(response)
+	err := e.Encode(response)
+	if err != nil {
+		helper.Logger.Error("Encode XML err:", err)
+	}
 	return bytesBuffer.Bytes()
 }
 
@@ -72,6 +76,15 @@ func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *
 		w.Header().Set("Content-Length", strconv.FormatInt(contentRange.GetLength(), 10))
 		w.Header().Set("Content-Range", contentRange.String())
 		w.WriteHeader(http.StatusPartialContent)
+	}
+
+	if object.VersionId != meta.NullVersion {
+		w.Header()["x-amz-version-id"] = []string{object.VersionId}
+	}
+
+	if object.DeleteMarker {
+		w.Header()["x-amz-delete-marker"] = []string{"true"}
+		statusCode = http.StatusNotFound
 	}
 
 	w.WriteHeader(statusCode)

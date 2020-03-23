@@ -1,15 +1,13 @@
 package types
 
 import (
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"math"
 	"strconv"
-	"time"
 
 	"github.com/journeymidnight/yig/api/datatype"
-	"github.com/xxtea/xxtea-go/xxtea"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/meta/util"
 )
 
 type Part struct {
@@ -42,47 +40,45 @@ type MultipartMetadata struct {
 type Multipart struct {
 	BucketName  string
 	ObjectName  string
-	InitialTime time.Time
+	InitialTime uint64
 	UploadId    string // upload id cache
 	Metadata    MultipartMetadata
 	Parts       map[int]*Part
 }
 
-
-func (m *Multipart) GetUploadId() (string, error) {
+func (m *Multipart) GenUploadId() error {
 	if m.UploadId != "" {
-		return m.UploadId, nil
+		return nil
 	}
-	if m.InitialTime.IsZero() {
-		return "", errors.New("Zero value InitialTime for Multipart")
+	if m.InitialTime == 0 {
+		return errors.New("Zero value InitialTime for Multipart")
 	}
 	m.UploadId = getMultipartUploadId(m.InitialTime)
-	return m.UploadId, nil
-}
-func getMultipartUploadId(t time.Time) string {
-	timeData := []byte(strconv.FormatUint(uint64(t.UnixNano()), 10))
-	return hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
+	return nil
 }
 
-func GetMultipartUploadIdForTidb(uploadtime uint64) string {
-	realUploadTime := math.MaxUint64 - uploadtime
-	timeData := []byte(strconv.FormatUint(realUploadTime, 10))
-	return hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
+// UploadId := hex.EncodeToString(xxtea.Encrypt(TIME_STRING, XXTEA_KEY))
+func getMultipartUploadId(initialTime uint64) string {
+	timeData := strconv.FormatUint(initialTime, 10)
+	helper.Logger.Info("timeData:")
+	return util.Encrypt(timeData)
 }
 
-func valuesForParts(parts map[int]*Part) (values map[string][]byte, err error) {
-	for partNumber, part := range parts {
-		var marshaled []byte
-		marshaled, err = json.Marshal(part)
-		if err != nil {
-			return
-		}
-		if values == nil {
-			values = make(map[string][]byte)
-		}
-		values[strconv.Itoa(partNumber)] = marshaled
+func GetInitialTimeFromUploadId(uploadId string) (uint64, error) {
+	timeStr, err := util.Decrypt(uploadId)
+	if err != nil {
+		return 0, err
 	}
-	return
+	initialTime, err := strconv.ParseUint(timeStr, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return initialTime, nil
+}
+
+func GetMultipartUploadIdByDbTime(uploadtime uint64) string {
+	initialTime := math.MaxUint64 - uploadtime
+	return getMultipartUploadId(initialTime)
 }
 
 func (p *Part) GetCreateSql(bucketname, objectname, version string) (string, []interface{}) {
@@ -100,7 +96,7 @@ func (p *Part) GetCreateGcSql(bucketname, objectname string, version uint64) (st
 }
 
 func (o *Object) GetUpdateObjectPartNameSql(sourceObject string) (string, []interface{}) {
-	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
+	version := math.MaxUint64 - o.CreateTime
 	sql := "update objectpart set objectname=? where bucketname=? and objectname=? and version=?"
 	args := []interface{}{o.Name, o.BucketName, sourceObject, version}
 	return sql, args

@@ -2,36 +2,36 @@ package tidbclient
 
 import (
 	"database/sql"
-	"encoding/hex"
+	. "database/sql/driver"
 	"encoding/json"
 	"math"
 	"strconv"
 	"time"
 
 	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
-	"github.com/xxtea/xxtea-go/xxtea"
 )
 
-func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *Object, err error) {
+func (t *TidbClient) GetObject(bucketName, objectName, version string) (*Object, error) {
 	var ibucketname, iname, customattributes, acl, lastModifiedTime string
 	var iversion uint64
-
+	var err error
 	var row *sql.Row
 	sqltext := "select bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag,contenttype," +
-		"customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass from objects where bucketname=? and name=? "
-	if version == "" {
-		sqltext += "order by bucketname,name,version limit 1;"
+		"customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass,createtime from objects where bucketname=? and name=? "
+	if version == NullVersion {
+		sqltext += "and version=0"
 		row = t.Client.QueryRow(sqltext, bucketName, objectName)
 	} else {
 		sqltext += "and version=?;"
 		row = t.Client.QueryRow(sqltext, bucketName, objectName, version)
 	}
-	object = &Object{}
+	object := &Object{}
 	err = row.Scan(
 		&ibucketname,
 		&iname,
-		&iversion,
+		&object.VersionId,
 		&object.Location,
 		&object.Pool,
 		&object.OwnerId,
@@ -49,68 +49,204 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 		&object.InitializationVector,
 		&object.Type,
 		&object.StorageClass,
+		&object.CreateTime,
 	)
 	if err == sql.ErrNoRows {
 		err = ErrNoSuchKey
-		return
+		return nil, ErrNoSuchKey
 	} else if err != nil {
-		return
+		return nil, err
 	}
-	rversion := math.MaxUint64 - iversion
-	s := int64(rversion) / 1e9
-	ns := int64(rversion) % 1e9
-	object.LastModifiedTime = time.Unix(s, ns)
+	object.LastModifiedTime, err = time.Parse("2006-01-02 15:04:05", lastModifiedTime)
+	if err != nil {
+		return nil, err
+	}
 	object.Name = objectName
 	object.BucketName = bucketName
 	err = json.Unmarshal([]byte(acl), &object.ACL)
 	if err != nil {
-		return
+		return nil, err
 	}
 	err = json.Unmarshal([]byte(customattributes), &object.CustomAttributes)
 	if err != nil {
-		return
+		return nil, err
 	}
-	object.Parts, err = getParts(object.BucketName, object.Name, iversion, t.Client)
-	//build simple index for multipart
-	if len(object.Parts) != 0 {
-		var sortedPartNum = make([]int64, len(object.Parts))
-		for k, v := range object.Parts {
-			sortedPartNum[k-1] = v.Offset
+	if object.Type == ObjectTypeMultipart {
+		iversion = math.MaxUint64 - object.CreateTime
+		object.Parts, err = getParts(object.BucketName, object.Name, iversion, t.Client)
+		if err != nil {
+			return nil, err
 		}
-		object.PartsIndex = &SimpleIndex{Index: sortedPartNum}
+		//build simple index for multipart
+		if len(object.Parts) != 0 {
+			var sortedPartNum = make([]int64, len(object.Parts))
+			for k, v := range object.Parts {
+				sortedPartNum[k-1] = v.Offset
+			}
+			object.PartsIndex = &SimpleIndex{Index: sortedPartNum}
+		}
 	}
-	var reversedTime uint64
-	timestamp := math.MaxUint64 - reversedTime
-	timeData := []byte(strconv.FormatUint(timestamp, 10))
-	object.VersionId = hex.EncodeToString(xxtea.Encrypt(timeData, XXTEA_KEY))
-	return
+	return object, nil
 }
 
-func (t *TidbClient) GetAllObject(bucketName, objectName, version string) (object []*Object, err error) {
-	sqltext := "select version from objects where bucketname=? and name=?;"
-	var versions []string
-	rows, err := t.Client.Query(sqltext, bucketName, objectName)
+func (t *TidbClient) GetLatestObjectVersion(bucketName, objectName string) (*Object, error) {
+	var customattributes, acl, lastModifiedTime string
+	var err error
+	var row *sql.Row
+	var nullObjExists bool
+	tx, err := t.Client.Begin()
 	if err != nil {
-		return
+		return nil, err
 	}
-	defer rows.Close()
+	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		}
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	sqltext := "select bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag,contenttype," +
+		"customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass,createtime from objects where bucketname=? and name=? and version=0"
+	row = tx.QueryRow(sqltext, bucketName, objectName)
+	nullObject := new(Object)
+	err = row.Scan(
+		&nullObject.BucketName,
+		&nullObject.Name,
+		&nullObject.VersionId,
+		&nullObject.Location,
+		&nullObject.Pool,
+		&nullObject.OwnerId,
+		&nullObject.Size,
+		&nullObject.ObjectId,
+		&lastModifiedTime,
+		&nullObject.Etag,
+		&nullObject.ContentType,
+		&customattributes,
+		&acl,
+		&nullObject.NullVersion,
+		&nullObject.DeleteMarker,
+		&nullObject.SseType,
+		&nullObject.EncryptionKey,
+		&nullObject.InitializationVector,
+		&nullObject.Type,
+		&nullObject.StorageClass,
+		&nullObject.CreateTime,
+	)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, err
+	}
+	if err != sql.ErrNoRows {
+		nullObjExists = true
+	}
+	if nullObjExists {
+		nullObject.LastModifiedTime, err = time.Parse("2006-01-02 15:04:05", lastModifiedTime)
+		if err != nil {
+			return nil, err
+		}
+		err = json.Unmarshal([]byte(acl), &nullObject.ACL)
+		if err != nil {
+			return nil, err
+		}
+		err = json.Unmarshal([]byte(customattributes), &nullObject.CustomAttributes)
+		if err != nil {
+			return nil, err
+		}
+		if nullObject.Type == ObjectTypeMultipart {
+			partVersion := math.MaxUint64 - nullObject.CreateTime
+			nullObject.Parts, err = getParts(nullObject.BucketName, nullObject.Name, partVersion, t.Client)
+			if err != nil {
+				return nil, err
+			}
+			//build simple index for multipart
+			if len(nullObject.Parts) != 0 {
+				var sortedPartNum = make([]int64, len(nullObject.Parts))
+				for k, v := range nullObject.Parts {
+					sortedPartNum[k-1] = v.Offset
+				}
+				nullObject.PartsIndex = &SimpleIndex{Index: sortedPartNum}
+			}
+		}
+	}
+
+	sqltext = "select bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag,contenttype," +
+		"customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass,createtime " +
+		"from objects where bucketname=? and name=? and version>0 order by version limit 1"
+	rows, err := tx.Query(sqltext, bucketName, objectName)
+	if err != nil {
+		return nil, err
+	}
+	var object *Object
 	for rows.Next() {
-		var sversion string
-		err = rows.Scan(&sversion)
+		object = &Object{}
+		err = rows.Scan(
+			&object.BucketName,
+			&object.Name,
+			&object.VersionId,
+			&object.Location,
+			&object.Pool,
+			&object.OwnerId,
+			&object.Size,
+			&object.ObjectId,
+			&lastModifiedTime,
+			&object.Etag,
+			&object.ContentType,
+			&customattributes,
+			&acl,
+			&object.NullVersion,
+			&object.DeleteMarker,
+			&object.SseType,
+			&object.EncryptionKey,
+			&object.InitializationVector,
+			&object.Type,
+			&object.StorageClass,
+			&object.CreateTime,
+		)
 		if err != nil {
-			return
+			return nil, err
 		}
-		versions = append(versions, sversion)
-	}
-	for _, v := range versions {
-		var obj *Object
-		obj, err = t.GetObject(bucketName, objectName, v)
+		object.LastModifiedTime, err = time.Parse("2006-01-02 15:04:05", lastModifiedTime)
 		if err != nil {
-			return
+			return nil, err
 		}
-		object = append(object, obj)
+		err = json.Unmarshal([]byte(acl), &object.ACL)
+		if err != nil {
+			return nil, err
+		}
+		err = json.Unmarshal([]byte(customattributes), &object.CustomAttributes)
+		if err != nil {
+			return nil, err
+		}
+		if object.Type == ObjectTypeMultipart {
+			partVersion := math.MaxUint64 - object.CreateTime
+			object.Parts, err = getParts(object.BucketName, object.Name, partVersion, t.Client)
+			if err != nil {
+				return nil, err
+			}
+			//build simple index for multipart
+			if len(object.Parts) != 0 {
+				var sortedPartNum = make([]int64, len(object.Parts))
+				for k, v := range object.Parts {
+					sortedPartNum[k-1] = v.Offset
+				}
+				object.PartsIndex = &SimpleIndex{Index: sortedPartNum}
+			}
+		}
 	}
-	return
+	if !nullObjExists && object == nil {
+		return nil, ErrNoSuchKey
+	} else if !nullObjExists {
+		return object, nil
+	} else if object == nil {
+		return nullObject, nil
+	} else {
+		retObject := helper.Ternary(nullObject.LastModifiedTime.After(object.LastModifiedTime), nullObject, object)
+		return retObject.(*Object), nil
+	}
+
+	return object, nil
+
 }
 
 func (t *TidbClient) UpdateObjectAttrs(object *Object) error {
@@ -125,48 +261,77 @@ func (t *TidbClient) UpdateObjectAcl(object *Object) error {
 	return err
 }
 
-func (t *TidbClient) RenameObject(object *Object, sourceObject string, tx DB) (err error) {
-	if tx == nil {
-		tx = t.Client
-	}
+func (t *TidbClient) RenameObject(object *Object, sourceObject string) (err error) {
 	sql, args := object.GetUpdateNameSql(sourceObject)
-	_, err = tx.Exec(sql, args...)
-	return
-}
-
-func (t *TidbClient) ReplaceObjectMetas(object *Object, tx DB) (err error) {
-	if tx == nil {
-		tx = t.Client
-	}
-	sql, args := object.GetReplaceObjectMetasSql()
-	_, err = tx.Exec(sql, args...)
-	return
-}
-
-func (t *TidbClient) UpdateAppendObject(object *Object, tx DB) (err error) {
-	if tx == nil {
-		tx = t.Client
-	}
-	sql, args := object.GetAppendSql()
-	_, err = tx.Exec(sql, args...)
-	return err
-}
-
-func (t *TidbClient) PutObject(object *Object, tx DB) (err error) {
-	if tx == nil {
-		tx, err = t.Client.Begin()
+	if len(object.Parts) != 0 {
+		tx, err := t.Client.Begin()
 		if err != nil {
 			return err
 		}
 		defer func() {
 			if err == nil {
-				err = tx.(*sql.Tx).Commit()
+				err = tx.Commit()
 			}
 			if err != nil {
-				tx.(*sql.Tx).Rollback()
+				tx.Rollback()
 			}
 		}()
+		_, err = tx.Exec(sql, args...)
+		if err != nil {
+			return err
+		}
+
+		// rename parts
+		sql, args = object.GetUpdateObjectPartNameSql(sourceObject)
+		_, err = tx.Exec(sql, args...)
+		return err
 	}
+	_, err = t.Client.Exec(sql, args...)
+	return
+}
+
+func (t *TidbClient) ReplaceObjectMetas(object *Object, tx Tx) (err error) {
+	sql, args := object.GetReplaceObjectMetasSql()
+	_, err = t.Client.Exec(sql, args...)
+	return
+}
+
+func (t *TidbClient) UpdateAppendObject(object *Object) (err error) {
+	tx, err := t.Client.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		}
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	lastModifiedTime := object.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
+	sql := "update objects set lastmodifiedtime=?, size=?, createtime=? where bucketname=? and name=? and version=?"
+	args := []interface{}{lastModifiedTime, object.Size, object.LastModifiedTime.UnixNano(), object.Name, object.VersionId}
+	_, err = tx.Exec(sql, args...)
+
+	return t.UpdateUsage(object.BucketName, object.Size, tx)
+}
+
+func (t *TidbClient) PutObject(object *Object, multipart *Multipart, updateUsage bool) (err error) {
+	tx, err := t.Client.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		}
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
 	sql, args := object.GetCreateSql()
 	_, err = tx.Exec(sql, args...)
 	if object.Parts != nil {
@@ -180,10 +345,19 @@ func (t *TidbClient) PutObject(object *Object, tx DB) (err error) {
 			}
 		}
 	}
-	return err
+
+	if multipart != nil {
+		return t.DeleteMultipart(multipart, tx)
+	}
+
+	if updateUsage {
+		return t.UpdateUsage(object.BucketName, object.Size, tx)
+	}
+
+	return nil
 }
 
-func (t *TidbClient) UpdateObject(object *Object, tx DB) (err error) {
+func (t *TidbClient) UpdateObject(object *Object, multipart *Multipart, updateUsage bool, tx Tx) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		if err != nil {
@@ -198,21 +372,69 @@ func (t *TidbClient) UpdateObject(object *Object, tx DB) (err error) {
 			}
 		}()
 	}
+	txn := tx.(*sql.Tx)
 
+	sql, args := object.GetUpdateSql()
+	_, err = txn.Exec(sql, args...)
+	if object.Parts != nil {
+		v := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
+		version := strconv.FormatUint(v, 10)
+		for _, p := range object.Parts {
+			psql, args := p.GetCreateSql(object.BucketName, object.Name, version)
+			_, err = txn.Exec(psql, args...)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	if multipart != nil {
+		err = t.DeleteMultipart(multipart, tx)
+		if err != nil {
+			return err
+		}
+	}
+
+	if updateUsage {
+		err = t.UpdateUsage(object.BucketName, object.Size, tx)
+		if err != nil {
+			return err
+		}
+	}
+
+	return err
+}
+
+func (t *TidbClient) UpdateFreezerObject(object *Object, tx Tx) (err error) {
+	if tx == nil {
+		tx, err = t.Client.Begin()
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err == nil {
+				err = tx.(*sql.Tx).Commit()
+			}
+			if err != nil {
+				tx.(*sql.Tx).Rollback()
+			}
+		}()
+	}
+	txn := tx.(*sql.Tx)
 	v := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
 	version := strconv.FormatUint(v, 10)
 	sqltext := "delete from objectpart where objectname=? and bucketname=? and version=?;"
-	_, err = tx.Exec(sqltext, object.Name, object.BucketName, version)
+	_, err = txn.Exec(sqltext, object.Name, object.BucketName, version)
 	if err != nil {
 		return err
 	}
 
-	sql, args := object.GetUpdateSql()
-	_, err = tx.Exec(sql, args...)
+	sql, args := object.GetGlacierUpdateSql()
+	_, err = txn.Exec(sql, args...)
 	if object.Parts != nil {
 		for _, p := range object.Parts {
 			psql, args := p.GetCreateSql(object.BucketName, object.Name, version)
-			_, err = tx.Exec(psql, args...)
+			_, err = txn.Exec(psql, args...)
 			if err != nil {
 				return err
 			}
@@ -221,7 +443,7 @@ func (t *TidbClient) UpdateObject(object *Object, tx DB) (err error) {
 	return nil
 }
 
-func (t *TidbClient) DeleteObject(object *Object, tx DB) (err error) {
+func (t *TidbClient) DeleteObject(object *Object, tx Tx) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		if err != nil {
@@ -237,15 +459,37 @@ func (t *TidbClient) DeleteObject(object *Object, tx DB) (err error) {
 		}()
 	}
 
-	v := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
-	version := strconv.FormatUint(v, 10)
 	sqltext := "delete from objects where name=? and bucketname=? and version=?;"
-	_, err = tx.Exec(sqltext, object.Name, object.BucketName, version)
+	_, err = tx.(*sql.Tx).Exec(sqltext, object.Name, object.BucketName, object.VersionId)
 	if err != nil {
 		return err
 	}
-	sqltext = "delete from objectpart where objectname=? and bucketname=? and version=?;"
-	_, err = tx.Exec(sqltext, object.Name, object.BucketName, version)
+
+	return t.DeleteObjectPart(object, tx)
+}
+
+func (t *TidbClient) DeleteObjectPart(object *Object, tx Tx) (err error) {
+	if object.Parts == nil {
+		return nil
+	}
+	if tx == nil {
+		tx, err = t.Client.Begin()
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err == nil {
+				err = tx.(*sql.Tx).Commit()
+			}
+			if err != nil {
+				tx.(*sql.Tx).Rollback()
+			}
+		}()
+	}
+
+	partVersion := strconv.FormatUint(math.MaxUint64-object.CreateTime, 10)
+	sqltext := "delete from objectpart where objectname=? and bucketname=? and version=?;"
+	_, err = tx.(*sql.Tx).Exec(sqltext, object.Name, object.BucketName, partVersion)
 	if err != nil {
 		return err
 	}
