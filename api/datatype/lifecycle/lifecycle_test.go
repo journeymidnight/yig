@@ -291,7 +291,7 @@ func TestComputeActions(t *testing.T) {
 			if err != nil {
 				t.Fatalf("%d: Got unexpected error: %v", i+1, err)
 			}
-			resultAction, _ := lc.ComputeAction(tc.objectName, tc.objectTags, tc.objectModTime, lc.Rules)
+			resultAction, _ := lc.ComputeAction(tc.objectName, tc.objectTags, "",tc.objectModTime, lc.Rules)
 			if resultAction != tc.expectedAction {
 				t.Fatalf("%d: Expected action: `%v`, got: `%v`", i+1, tc.expectedAction, resultAction)
 			}

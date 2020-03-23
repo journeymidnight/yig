@@ -100,7 +100,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 		//	}
 		//	for _, object := range retObjests {
 		//		// Find the action that need to be executed									TODO: add tags
-		//		action, storageClass := bucketLC.ComputeActionFromNonCurrentVersion(object.Name, nil, object.LastModifiedTime, cvRules)
+		//		action, storageClass := bucketLC.ComputeActionFromNonCurrentVersion(object.Name, nil, object.StorageClass.ToString(), object.LastModifiedTime, cvRules)
 		//
 		//		//Delete or transition
 		//		if action == lifecycle.DeleteAction {
@@ -148,7 +148,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 			}
 			for _, object := range retObjests {
 				// Find the action that need to be executed			TODO: add tags
-				action, storageClass := bucketLC.ComputeAction(object.Name, nil, object.LastModifiedTime, cvRules)
+				action, storageClass := bucketLC.ComputeAction(object.Name, nil, object.StorageClass.ToString(), object.LastModifiedTime, cvRules)
 
 				//Delete or transition
 				if action == lifecycle.DeleteAction {

@@ -108,7 +108,7 @@ func (lc Lifecycle) FilterRulesByNonCurrentVersion() (ncvRules, cvRules []Rule) 
 //		   |《---------------------------------------------------------------------------------------------------
 //	FOR MANY LOOP RULES, IF NOT EXPIRATION, SHOULD BE TRANSITION(THE CHEAPEST CLASS)
 //
-func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, modTime time.Time, rules []Rule) (Action, string) {
+func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, objStorageClass string, modTime time.Time, rules []Rule) (Action, string) {
 	var storageClass StorageClass
 	var action = NoneAction
 	if modTime.IsZero() || objName == "" {
@@ -171,11 +171,15 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, mod
 			}
 		}
 	}
+	osc, _ := MatchStorageClassIndex(objStorageClass)
+	if osc >= storageClass {
+		return NoneAction, ""
+	}
 	return action, storageClass.ToString()
 }
 
 // Just like ComputeAction
-func (lc Lifecycle) ComputeActionFromNonCurrentVersion(objName string, objTags map[string]string, modTime time.Time, rules []Rule) (Action, string) {
+func (lc Lifecycle) ComputeActionFromNonCurrentVersion(objName string, objTags map[string]string, objStorageClass string, modTime time.Time, rules []Rule) (Action, string) {
 	var storageClass StorageClass
 	var action = NoneAction
 	if modTime.IsZero() || objName == "" {
@@ -217,6 +221,10 @@ func (lc Lifecycle) ComputeActionFromNonCurrentVersion(objName string, objTags m
 				}
 			}
 		}
+	}
+	osc, _ := MatchStorageClassIndex(objStorageClass)
+	if osc >= storageClass {
+		return NoneAction, ""
 	}
 	return action, storageClass.ToString()
 }
