@@ -19,6 +19,8 @@ package api
 import (
 	"context"
 	"fmt"
+	"github.com/go-redis/redis/v7"
+	"github.com/go-redis/redis_rate/v8"
 	"net/http"
 	"strings"
 
@@ -273,6 +275,46 @@ func InReservedOrigins(origin string) bool {
 	return false
 }
 
+type QosHandler struct {
+	handler     http.Handler
+	meta        *meta.Meta
+	rateLimiter *redis_rate.Limiter
+}
+
+func (h QosHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := getRequestContext(r)
+	if len(ctx.BucketName) == 0 {
+		h.handler.ServeHTTP(w, r)
+		return
+	}
+	k := fmt.Sprintf("bucket_qps_%s", ctx.BucketName)
+	result, err := h.rateLimiter.Allow(k, redis_rate.PerSecond(10000))
+	if err == nil && !result.Allowed {
+		WriteErrorResponse(w, r, ErrRequestLimitExceeded)
+		return
+	}
+	if err != nil {
+		ctx.Logger.Error("rateLimiter:", err)
+		WriteErrorResponse(w, r, ErrInternalError)
+		return
+	}
+	h.handler.ServeHTTP(w, r)
+}
+
+func SetQosHandler(h http.Handler, meta *meta.Meta) http.Handler {
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     helper.CONFIG.RedisAddress,
+		Password: helper.CONFIG.RedisPassword,
+	})
+	limiter := redis_rate.NewLimiter(rdb)
+	qos := QosHandler{
+		handler:     h,
+		meta:        meta,
+		rateLimiter: limiter,
+	}
+	return qos
+}
+
 //// helpers
 
 func GetBucketAndObjectInfoFromRequest(r *http.Request) (bucketName string, objectName string, isBucketDomain bool) {
@@ -300,7 +342,7 @@ func getRequestContext(r *http.Request) RequestContext {
 		return ctx
 	}
 	return RequestContext{
-		Logger: r.Context().Value(ContextLoggerKey).(log.Logger),
+		Logger:    r.Context().Value(ContextLoggerKey).(log.Logger),
 		RequestID: r.Context().Value(RequestIdKey).(string),
 	}
 }

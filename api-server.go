@@ -71,6 +71,8 @@ func configureServerHandler(c *ServerConfig) http.Handler {
 
 		api.NewAccessLogHandler,
 
+		api.SetQosHandler,
+
 		api.SetGenerateContextHandler,
 
 		api.SetRequestIdHandler,

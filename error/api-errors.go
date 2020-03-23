@@ -177,6 +177,7 @@ const (
 	ErrInvalidRestoreInfo
 	ErrCreateRestoreObject
 	ErrInvalidGlacierObject
+	ErrRequestLimitExceeded
 )
 
 // error code to APIError structure, these fields carry respective
@@ -827,6 +828,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "CreateRestoreObjectError",
 		Description:    "Create object thaw operation failed",
 		HttpStatusCode: http.StatusInternalServerError,
+	},
+	ErrRequestLimitExceeded: {
+		AwsErrorCode:   "ErrRequestLimitExceeded",
+		Description:    "Request limit exceeded",
+		HttpStatusCode: http.StatusTooManyRequests,
 	},
 }
 
