@@ -399,7 +399,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			// Compare which is the latest of null version object and versioned object
 			if previousNullObjectMeta != nil {
 				var meta Object
-
+				helper.Logger.Info("$$$ previousNullObjectMeta != nil:", previousNullObjectMeta.Name, objMeta.Name, objMeta.VersionId, currentMarker)
 				if objMeta.Name != previousNullObjectMeta.Name {
 					meta = *previousNullObjectMeta
 				} else {
@@ -429,6 +429,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 					break
 				}
 				objectMap[meta.Name] = nil
+				helper.Logger.Info("$$$ append :", meta.Name, meta.VersionId)
 				listInfo.Objects = append(listInfo.Objects, o)
 				currentMarker = o.Key
 
@@ -500,6 +501,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 
 		// If the last one result is a null version
 		if previousNullObjectMeta != nil {
+
 			sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
 				" from objects where bucketName=? and name=? and version>0 order by bucketname,name,version limit 1;"
 			row := t.Client.QueryRow(sqltext, bucketName, previousNullObjectMeta.Name)
@@ -519,6 +521,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			if err != nil && err != sql.ErrNoRows {
 				return
 			}
+			helper.Logger.Info("$$$ previousNullObjectMeta != nil:", previousNullObjectMeta.Name, objMeta.Name, objMeta.VersionId, currentMarker)
 			objMeta.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
 			var meta Object
 			if err == sql.ErrNoRows {
@@ -547,6 +550,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				break
 			}
 			objectMap[meta.Name] = nil
+			helper.Logger.Info("$$$ append2 :", meta.Name, meta.VersionId)
 			listInfo.Objects = append(listInfo.Objects, o)
 			currentMarker = o.Key
 		}
