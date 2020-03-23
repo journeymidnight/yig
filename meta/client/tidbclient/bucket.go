@@ -516,15 +516,20 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				return
 			}
 			objMeta.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
-			var o datatype.Object
+			var meta Object
 			if err == sql.ErrNoRows {
-				o = modifyMetaToObjectResult(*previousNullObjectMeta)
+				meta = *previousNullObjectMeta
 			} else if objMeta.CreateTime > previousNullObjectMeta.CreateTime {
-				o = modifyMetaToObjectResult(objMeta)
+				meta = objMeta
 			} else {
-				o = modifyMetaToObjectResult(*previousNullObjectMeta)
+				meta = *previousNullObjectMeta
 			}
 
+			if meta.DeleteMarker {
+				continue
+			}
+
+			o := modifyMetaToObjectResult(meta)
 			count++
 			if count == maxKeys {
 				listInfo.NextMarker = o.Key
