@@ -394,6 +394,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			if err != nil {
 				return
 			}
+			currentMarker = objMeta.Name
 			helper.Logger.Info("$$$$ scan meta:", objMeta.Name, objMeta.VersionId, currentMarker)
 
 			objMeta.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
@@ -412,7 +413,6 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				}
 
 				if meta.DeleteMarker {
-					currentMarker = meta.Name
 					objectMap[meta.Name] = nil
 					continue
 				}
@@ -432,15 +432,15 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				objectMap[meta.Name] = nil
 				listInfo.Objects = append(listInfo.Objects, o)
 				helper.Logger.Info("$$$$ append", meta.Name, meta.VersionId)
-				currentMarker = o.Key
 
 				// Compare once
-				previousNullObjectMeta = nil
 
 				if objMeta.Name == previousNullObjectMeta.Name {
+					previousNullObjectMeta = nil
 					helper.Logger.Info("$$$$ cc1", objMeta.Name)
 					continue
 				}
+				previousNullObjectMeta = nil
 			}
 
 			// If object key has in result of CommonPrefix or Objects, do continue
@@ -477,7 +477,6 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 							break
 						}
 						commonPrefixes[prefixKey] = nil
-						currentMarker = prefixKey
 					}
 					continue
 				}
@@ -506,7 +505,6 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			objectMap[objMeta.Name] = nil
 			listInfo.Objects = append(listInfo.Objects, o)
 			helper.Logger.Info("$$$$ append2", objMeta.Name, objMeta.VersionId)
-			currentMarker = o.Key
 		}
 
 		// If the last one result is a null version
@@ -542,7 +540,6 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			}
 
 			if meta.DeleteMarker {
-				currentMarker = meta.Name
 				objectMap[meta.Name] = nil
 				continue
 			}
@@ -561,7 +558,6 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			objectMap[meta.Name] = nil
 			listInfo.Objects = append(listInfo.Objects, o)
 			helper.Logger.Info("$$$$ append3", objMeta.Name, objMeta.VersionId)
-			currentMarker = o.Key
 
 			previousNullObjectMeta = nil
 		}
