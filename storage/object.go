@@ -1142,7 +1142,7 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 			}
 			result.VersionId = object.VersionId
 		} else {
-			nullVersionExist := (object == nil)
+			nullVersionExist := (object != nil)
 			helper.Logger.Info("$$$ nullVersionExist:", nullVersionExist)
 			if !nullVersionExist {
 				object = &meta.Object{
