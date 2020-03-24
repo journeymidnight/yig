@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	TestLifecycleBucket1 = "mylifecyclebucket1"
+	TestLifecycleBucket1 = "fuxian"
 	TestLifecycleBucket2 = "mylifecyclebucket2"
 	TestLifecycleBucket3 = "mylifecyclebucket3"
 )
@@ -20,7 +20,7 @@ const (
   						<Rule>
     						<ID>id1</ID>
 							<Filter>
-									<Prefix>api/datatype/</Prefix>
+									<Prefix>meta/util/</Prefix>
     						</Filter>
     						<Status>Enabled</Status>
     						<Transition>
@@ -31,7 +31,7 @@ const (
 						<Rule>
     						<ID>id2</ID>
     						<Filter>
-       							<Prefix>api/datatype/lifecycle/</Prefix>
+       							<Prefix>meta/util/</Prefix>
     						</Filter>
     						<Status>Enabled</Status>
     						<Expiration>
@@ -41,7 +41,7 @@ const (
 						<Rule>
     						<ID>id1</ID>
 							<Filter>
-									<Prefix>api/datatype/policy/</Prefix>
+									<Prefix>meta/types/</Prefix>
     						</Filter>
     						<Status>Enabled</Status>
     						<Transition>
@@ -49,15 +49,24 @@ const (
       								<StorageClass>STANDARD_IA</StorageClass>
     						</Transition>
   						</Rule>
-  						
 						<Rule>
     						<Filter>
        							<Prefix>api/datatype/policy/</Prefix>
     						</Filter>
     						<Status>Enabled</Status>
     						<Expiration>
-      							<Days>1</Days>
+      							<Days>3</Days>
     						</Expiration>
+  						</Rule>
+						<Rule>
+    						<Filter>
+       							<Prefix>meta/client/</Prefix>
+    						</Filter>
+    						<Status>Enabled</Status>
+    						<Transition>
+      								<Date>2020-03-24T00:00:00+08:00</Date>
+      								<StorageClass>GLACIER</StorageClass>
+    						</Transition>
   						</Rule>
 	</LifecycleConfiguration>`
 
@@ -89,13 +98,13 @@ const (
 
 func Test_LifecycleConfiguration(t *testing.T) {
 	sc := NewS3()
-	err := sc.MakeBucket(TestLifecycleBucket1)
-	if err != nil {
-		t.Fatal("MakeBucket err:", err)
-		panic(err)
-	}
+	//err := sc.MakeBucket(TestLifecycleBucket1)
+	//if err != nil {
+	//	t.Fatal("MakeBucket err:", err)
+	//	panic(err)
+	//}
 
-	err = sc.PutObject(TestLifecycleBucket1, TEST_KEY, TEST_VALUE)
+	err := sc.PutObject(TestLifecycleBucket1, TEST_KEY, TEST_VALUE)
 	assert.Equal(t, err, nil, "PutObject err")
 
 	// open bucket version
@@ -126,17 +135,17 @@ func Test_LifecycleConfiguration(t *testing.T) {
 	}
 	t.Log("GetBucketLifecycle Success! out:", out)
 
-	out, err = sc.DeleteBucketLifecycle(TestLifecycleBucket1)
-	if err != nil {
-		t.Fatal("DeleteBucketLifecycle err:", err)
-	}
-	t.Log("DeleteBucketLifecycle Success! out:", out)
-
-	err = sc.DeleteBucket(TestLifecycleBucket1)
-	if err != nil {
-		t.Fatal("DeleteBucket err:", err)
-		panic(err)
-	}
+	//out, err = sc.DeleteBucketLifecycle(TestLifecycleBucket1)
+	//if err != nil {
+	//	t.Fatal("DeleteBucketLifecycle err:", err)
+	//}
+	//t.Log("DeleteBucketLifecycle Success! out:", out)
+	//
+	//err = sc.DeleteBucket(TestLifecycleBucket1)
+	//if err != nil {
+	//	t.Fatal("DeleteBucket err:", err)
+	//	panic(err)
+	//}
 }
 /*
 func Test_LifecycleConfigurationToVersion(t *testing.T) {

@@ -163,6 +163,7 @@ const (
 	ErrLcMissingNoncurrentDays
 	ErrLcMissingStorageClass
 	ErrInvalidLcStorageClass
+	ErrLcMissingDaysAfterInitiation
 	ErrInvalidLcRuleID
 	ErrInvalidLcRuleStatus
 	ErrLcMissingAction
@@ -756,6 +757,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidLcStorageClass: {
 		AwsErrorCode:   "IllegalLcConfigurationException",
 		Description:    "The Lifecycle configuration StorageClass should be more low.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrLcMissingDaysAfterInitiation: {
+		AwsErrorCode:   "IllegalLcConfigurationException",
+		Description:    "The Lifecycle configuration DaysAfterInitiation must be exist.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidLcRuleID: {
