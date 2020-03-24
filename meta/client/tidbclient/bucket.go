@@ -366,7 +366,6 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 		} else {
 			sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
 				" from objects where bucketName=? and name>? order by bucketname,name,version limit ?;"
-
 			rows, err = t.Client.Query(sqltext, bucketName, currentMarker, maxKeys)
 		}
 		if err != nil {
@@ -398,16 +397,24 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			objMeta.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
 			// Compare which is the latest of null version object and versioned object
 			if previousNullObjectMeta != nil {
-				var o datatype.Object
+				var meta Object
 				if objMeta.Name != previousNullObjectMeta.Name {
-					o = modifyMetaToObjectResult(*previousNullObjectMeta)
+					meta = *previousNullObjectMeta
 				} else {
 					if objMeta.CreateTime > previousNullObjectMeta.CreateTime {
-						o = modifyMetaToObjectResult(objMeta)
+						meta = objMeta
 					} else {
-						o = modifyMetaToObjectResult(*previousNullObjectMeta)
+						meta = *previousNullObjectMeta
 					}
 				}
+
+				if meta.DeleteMarker {
+					currentMarker = meta.Name
+					objectMap[meta.Name] = nil
+					continue
+				}
+
+				o := modifyMetaToObjectResult(meta)
 
 				count++
 				if count == maxKeys {
@@ -419,7 +426,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 					exit = true
 					break
 				}
-				objectMap[objMeta.Name] = nil
+				objectMap[meta.Name] = nil
 				listInfo.Objects = append(listInfo.Objects, o)
 				currentMarker = o.Key
 
@@ -470,6 +477,8 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			if objMeta.VersionId == NullVersion {
 				previousNullObjectMeta = &objMeta
 				continue
+			} else {
+				previousNullObjectMeta = nil
 			}
 
 			var o = modifyMetaToObjectResult(objMeta)
@@ -491,6 +500,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 
 		// If the last one result is a null version
 		if previousNullObjectMeta != nil {
+
 			sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
 				" from objects where bucketName=? and name=? and version>0 order by bucketname,name,version limit 1;"
 			row := t.Client.QueryRow(sqltext, bucketName, previousNullObjectMeta.Name)
@@ -511,15 +521,22 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				return
 			}
 			objMeta.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
-			var o datatype.Object
+			var meta Object
 			if err == sql.ErrNoRows {
-				o = modifyMetaToObjectResult(*previousNullObjectMeta)
+				meta = *previousNullObjectMeta
 			} else if objMeta.CreateTime > previousNullObjectMeta.CreateTime {
-				o = modifyMetaToObjectResult(objMeta)
+				meta = objMeta
 			} else {
-				o = modifyMetaToObjectResult(*previousNullObjectMeta)
+				meta = *previousNullObjectMeta
 			}
 
+			if meta.DeleteMarker {
+				currentMarker = meta.Name
+				objectMap[meta.Name] = nil
+				continue
+			}
+
+			o := modifyMetaToObjectResult(meta)
 			count++
 			if count == maxKeys {
 				listInfo.NextMarker = o.Key
@@ -530,8 +547,9 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				exit = true
 				break
 			}
-			objectMap[objMeta.Name] = nil
+			objectMap[meta.Name] = nil
 			listInfo.Objects = append(listInfo.Objects, o)
+			currentMarker = o.Key
 		}
 
 		if loopCount == 0 {

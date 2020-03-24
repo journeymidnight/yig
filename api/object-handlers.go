@@ -224,7 +224,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			WriteErrorResponse(w, r, ErrMethodNotAllowed)
 			return
 		}
-		w.Header().Set("x-amz-delete-marker", "true")
+		SetObjectHeaders(w, object, nil, http.StatusNotFound)
 		WriteErrorResponse(w, r, ErrNoSuchKey)
 		return
 	}
@@ -387,7 +387,10 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	if object.DeleteMarker {
-		w.Header().Set("x-amz-delete-marker", "true")
+		if reqCtx.VersionId != "" {
+			WriteErrorResponse(w, r, ErrMethodNotAllowed)
+			return
+		}
 		SetObjectHeaders(w, object, nil, http.StatusNotFound)
 		WriteErrorResponse(w, r, ErrNoSuchKey)
 		return

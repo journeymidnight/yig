@@ -709,21 +709,21 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 		return
 	}
 
-	bucket := reqCtx.BucketInfo
-	if bucket == nil {
+	targetBucket := reqCtx.BucketInfo
+	if targetBucket == nil {
 		return result, ErrNoSuchBucket
 	}
 
-	switch bucket.ACL.CannedAcl {
+	switch targetBucket.ACL.CannedAcl {
 	case "public-read-write":
 		break
 	default:
-		if bucket.OwnerId != credential.UserId {
+		if targetBucket.OwnerId != credential.UserId {
 			return result, ErrBucketAccessForbidden
 		}
 	}
 	targetObject.LastModifiedTime = time.Now().UTC()
-	targetObject.VersionId = targetObject.GenVersionId(bucket.Versioning)
+	targetObject.VersionId = targetObject.GenVersionId(targetBucket.Versioning)
 	if isMetadataOnly {
 		if sourceObject.StorageClass == meta.ObjectStorageClassGlacier {
 			err = yig.MetaStorage.UpdateGlacierObject(targetObject, sourceObject, true)
@@ -740,7 +740,7 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 		}
 
 		result.LastModified = targetObject.LastModifiedTime
-		if bucket.Versioning == datatype.BucketVersioningEnabled {
+		if targetBucket.Versioning == datatype.BucketVersioningEnabled {
 			result.VersionId = targetObject.VersionId
 		}
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":"+targetObject.VersionId)
@@ -756,7 +756,7 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 		targetObject.Name, targetObject.StorageClass, targetObject.Size, false)
 
 	if len(targetObject.Parts) != 0 {
-		var targetParts map[int]*meta.Part = make(map[int]*meta.Part, len(targetObject.Parts))
+		var targetParts = make(map[int]*meta.Part, len(targetObject.Parts))
 		//		etaglist := make([]string, len(sourceObject.Parts))
 		for i := 1; i <= len(targetObject.Parts); i++ {
 			part := targetObject.Parts[i]
@@ -867,7 +867,7 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 	targetObject.Location = cephCluster.ID()
 	targetObject.Pool = poolName
 	targetObject.OwnerId = credential.UserId
-	targetObject.NullVersion = helper.Ternary(bucket.Versioning == datatype.BucketVersioningEnabled, false, true).(bool)
+	targetObject.NullVersion = helper.Ternary(targetBucket.Versioning == datatype.BucketVersioningEnabled, false, true).(bool)
 	targetObject.DeleteMarker = false
 	targetObject.SseType = sseRequest.Type
 	targetObject.EncryptionKey = helper.Ternary(sseRequest.Type == crypto.S3.String(),
@@ -878,8 +878,10 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 		targetObject.LastModifiedTime = sourceObject.LastModifiedTime
 		result.LastModified = targetObject.LastModifiedTime
 		err = yig.MetaStorage.UpdateGlacierObject(targetObject, sourceObject, false)
+		helper.Logger.Error("$$$$ERROR1:", err)
 	} else {
 		err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, true)
+		helper.Logger.Error("$$$$ERROR2:", err, reqCtx.ObjectInfo == nil)
 	}
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
