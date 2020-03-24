@@ -194,11 +194,13 @@ func (m *Meta) DeleteSuspendedObject(object *Object) (err error) {
 	if !object.DeleteMarker {
 		err = m.Client.DeleteObjectPart(object, tx)
 		if err != nil {
+			helper.Logger.Info("$$$Error1")
 			return err
 		}
 
 		err = m.Client.PutObjectToGarbageCollection(object, tx)
 		if err != nil {
+			helper.Logger.Info("$$$Error2")
 			return err
 		}
 
@@ -212,7 +214,12 @@ func (m *Meta) DeleteSuspendedObject(object *Object) (err error) {
 	// update to delete marker
 	object.DeleteMarker = true
 	object.LastModifiedTime = time.Now().UTC()
-	return m.Client.UpdateObject(object, nil, true, nil)
+	err = m.Client.UpdateObject(object, nil, true, nil)
+	if err != nil {
+		helper.Logger.Info("$$$Error3")
+		return err
+	}
+	return nil
 }
 
 func (m *Meta) AppendObject(object *Object, isExist bool) error {
