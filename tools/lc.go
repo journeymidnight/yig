@@ -108,7 +108,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				return nil
 			}
 			for _, object := range info.Objects {
-				lastt, err := time.Parse(meta.TIME_LAYOUT_TIDB, object.LastModified)
+				lastt, err := time.Parse(time.RFC3339, object.LastModified)
 				if err != nil {
 					return err
 				}
@@ -163,19 +163,23 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 		request.Prefix = commonPrefix
 
 		for {
+			helper.Logger.Info("11111111111111111111111111111111111111111")
 			info, err := yig.ListObjectsInternal(bucket, request)
+			helper.Logger.Info("22222222222222222222222222222222222222222info:", info, " err:", err)
 			if err != nil {
 				return nil
 			}
 			for _, object := range info.Objects {
-				lastt, err := time.Parse(meta.TIME_LAYOUT_TIDB, object.LastModified)
+				helper.Logger.Info("############################", object)
+				lastt, err := time.Parse(time.RFC3339, object.LastModified)
 				if err != nil {
 					return err
 				}
 				// Find the action that need to be executed					TODO: add tags
 				action, storageClass := bucketLC.ComputeAction(object.Key, nil, object.StorageClass, lastt, cvRules)
-
+				helper.Logger.Info("4444444444444444444444444444444444444444action:", action, " storageClass:", storageClass)
 				reqCtx.ObjectInfo, err = yig.MetaStorage.GetObject(bucket.Name, object.Key, "", true)
+				helper.Logger.Info("555555555555555555555555555555555555555reqCtx.ObjectInfo:", reqCtx.ObjectInfo, " err:", err)
 				if err != nil && err != ErrNoSuchKey {
 					return err
 				}

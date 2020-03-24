@@ -110,7 +110,7 @@ func (lc Lifecycle) FilterRulesByNonCurrentVersion() (ncvRules, cvRules []Rule) 
 //
 func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, objStorageClass string, modTime time.Time, rules []Rule) (Action, string) {
 	var storageClass StorageClass
-	var action = NoneAction
+	var action Action
 	if modTime.IsZero() || objName == "" {
 		return action, ""
 	}
@@ -132,17 +132,16 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 			if rule.Expiration != nil {
 				if !rule.Expiration.IsDateNull() {
 					if time.Now().After(rule.Expiration.Date.Time) {
-						action = DeleteAction
+						return DeleteAction, ""
 					}
 				}
 
 				if !rule.Expiration.IsDaysNull() {
 					if time.Now().After(modTime.Add(time.Duration(rule.Expiration.Days) * 24 * time.Hour)) {
-						action = DeleteAction
+						return DeleteAction, ""
 					}
 				}
 				//TODO: DeleteMarker
-				return action, ""
 
 			} else if len(rule.Transitions) != 0 {
 				// to result transition conflict: GLACIER > STANDARD_IA
@@ -200,10 +199,9 @@ func (lc Lifecycle) ComputeActionFromNonCurrentVersion(objName string, objTags m
 			if rule.NoncurrentVersionExpiration != nil {
 				if !rule.NoncurrentVersionExpiration.IsDaysNull() {
 					if time.Now().After(modTime.Add(time.Duration(rule.NoncurrentVersionExpiration.NoncurrentDays) * 24 * time.Hour)) {
-						action = DeleteAction
+						return DeleteAction, ""
 					}
 				}
-				return action, ""
 
 			} else if len(rule.NoncurrentVersionTransitions) != 0 {
 				// to result transition conflict: GLACIER > STANDARD_IA
