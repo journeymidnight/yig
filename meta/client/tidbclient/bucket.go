@@ -394,7 +394,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			if err != nil {
 				return
 			}
-			helper.Logger.Info("$$$meta:", objMeta.Name, objMeta.VersionId, currentMarker)
+			helper.Logger.Info("$$$ scan meta:", objMeta.Name, objMeta.VersionId, currentMarker)
 			objMeta.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
 			// Compare which is the latest of null version object and versioned object
 			if previousNullObjectMeta != nil {
@@ -480,6 +480,8 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			if objMeta.VersionId == NullVersion {
 				previousNullObjectMeta = &objMeta
 				continue
+			} else {
+				previousNullObjectMeta = nil
 			}
 
 			var o = modifyMetaToObjectResult(objMeta)
