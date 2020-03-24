@@ -108,11 +108,11 @@ func (o *Object) GetUpdateSql() (string, []interface{}) {
 	customAttributes, _ := json.Marshal(o.CustomAttributes)
 	acl, _ := json.Marshal(o.ACL)
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
-	sql := "update objects set location=?,pool=?,size=?,objectid=?,lastmodifiedtime=?,etag=?," +
+	sql := "update objects set location=?,pool=?,size=?,objectid=?,lastmodifiedtime=?,etag=?,deletemarker=?," +
 		"contenttype=?,customattributes=?,acl=?,ssetype=?,encryptionkey=?,initializationvector=?,type=?, storageclass=?, createtime=? " +
 		"where bucketname=? and name=? and version=?"
 	args := []interface{}{o.Location, o.Pool, o.Size, o.ObjectId,
-		lastModifiedTime, o.Etag, o.ContentType, customAttributes, acl,
+		lastModifiedTime, o.Etag, o.DeleteMarker, o.ContentType, customAttributes, acl,
 		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass, o.LastModifiedTime.UnixNano(), o.BucketName, o.Name, o.VersionId}
 	return sql, args
 }
