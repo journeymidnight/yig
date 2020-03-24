@@ -68,7 +68,7 @@ func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multi
 	return nil
 }
 
-func (m *Meta) UpdateGlacierObject(targetObject, sourceObject *Object, isFreezer bool) (err error) {
+func (m *Meta) UpdateGlacierObject(reqCtx RequestContext, targetObject, sourceObject *Object, isFreezer bool) (err error) {
 	var tx Tx
 	tx, err = m.Client.NewTrans()
 	if err != nil {
@@ -94,7 +94,7 @@ func (m *Meta) UpdateGlacierObject(targetObject, sourceObject *Object, isFreezer
 			return err
 		}
 	} else {
-		err = m.Client.PutObject(targetObject, nil, true)
+		err = m.PutObject(reqCtx, targetObject, nil, true)
 		if err != nil {
 			return err
 		}
