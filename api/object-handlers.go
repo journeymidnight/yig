@@ -519,7 +519,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	logger.Info("Copying object from", sourceBucketName, sourceObjectName,
 		sourceVersion, "to", targetBucketName, targetObjectName)
 
-	sourceBucket, sourceObject, err := api.ObjectAPI.GetBucketAndObjectInfo(sourceBucketName, sourceObjectName,
+	_, sourceObject, err := api.ObjectAPI.GetBucketAndObjectInfo(sourceBucketName, sourceObjectName,
 		sourceVersion, credential)
 
 	if err != nil {
