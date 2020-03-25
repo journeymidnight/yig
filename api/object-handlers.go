@@ -465,6 +465,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	logger := reqCtx.Logger
 	targetBucketName := reqCtx.BucketName
 	targetObjectName := reqCtx.ObjectName
+	targetBucket := reqCtx.BucketInfo
 
 	var credential common.Credential
 	var err error
@@ -594,10 +595,14 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	var isMetadataOnly bool
-	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName {
+
+	// TODO: To be fixed
+	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName && targetBucket.Versioning == BucketVersioningDisabled {
 		if sourceObject.StorageClass == meta.ObjectStorageClassGlacier || targetStorageClass != meta.ObjectStorageClassGlacier {
 			isMetadataOnly = true
 		}
+	} else if targetBucket.Versioning == BucketVersioningSuspended && reqCtx.ObjectInfo != nil {
+		isMetadataOnly = true
 	}
 
 	pipeReader, pipeWriter := io.Pipe()
