@@ -762,7 +762,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrInvalidLcStorageClass: {
 		AwsErrorCode:   "IllegalLcConfigurationException",
-		Description:    "The Lifecycle configuration StorageClass should be more low.",
+		Description:    "The Lifecycle configuration StorageClass should be more low or object StorageClass is too low.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrLcMissingDaysAfterInitiation: {

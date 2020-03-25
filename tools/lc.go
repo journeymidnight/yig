@@ -216,7 +216,7 @@ func transitionObject(object *meta.Object, storageClass string) (result datatype
 
 	// NOT support GLACIER and lower
 	if object.StorageClass >= meta.ObjectStorageClassGlacier {
-		return result, ErrInvalidCopySourceStorageClass
+		return result, ErrInvalidLcStorageClass
 	}
 
 	targetStorageClass, err := meta.MatchStorageClassIndex(storageClass)
