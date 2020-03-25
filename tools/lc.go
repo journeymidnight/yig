@@ -101,15 +101,32 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 		request.MaxKeys = RequestMaxKeys
 		request.Prefix = commonPrefix
 
+		var objectTool datatype.VersionedObject
 		for {
 			info, err := yig.ListVersionedObjectsInternal(bucket.Name, request)
 			if err != nil {
 				return nil
 			}
-			for _, object := range info.Objects {
+			objectTool = info.Objects[0]
+			for _, object := range info.Objects[1:] {
 				lastt, err := time.Parse(time.RFC3339, object.LastModified)
 				if err != nil {
 					return err
+				}
+				// pass latest object
+				if object.Key != objectTool.Key {
+					objectTool = object
+					continue
+				} else {
+					ObjToolTime, err := time.Parse(time.RFC3339, object.LastModified)
+					if err != nil {
+						return err
+					}
+					if ObjToolTime.Before(lastt) {	//objectTool keep latest version
+						tempObj := objectTool
+						objectTool = object
+						object = tempObj
+					}
 				}
 				// Find the action that need to be executed									TODO: add tags
 				action, storageClass := bucketLC.ComputeActionFromNonCurrentVersion(object.Key, nil, object.StorageClass, lastt, cvRules)
@@ -160,7 +177,6 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 		request.Version = 1
 		request.MaxKeys = RequestMaxKeys
 		request.Prefix = commonPrefix
-
 		for {
 			info, err := yig.ListObjectsInternal(bucket, request)
 			if err != nil {
