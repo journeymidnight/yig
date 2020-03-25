@@ -38,6 +38,8 @@ const (
 	NoneAction Action = iota
 	// DeleteAction means the object needs to be removed after evaluating lifecycle rules
 	DeleteAction
+	// DeleteMarker means the object deleteMarker needs to be removed after evaluating lifecycle rules
+	DeleteMarker
 	//TransitionAction means the object storage class needs to be transitioned after evaluating lifecycle rules
 	TransitionAction
 )
@@ -132,16 +134,21 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 			if rule.Expiration != nil {
 				if !rule.Expiration.IsDateNull() {
 					if time.Now().After(rule.Expiration.Date.Time) {
+						if rule.Expiration.IsSetDeleteMarker() {
+							return DeleteMarker, ""
+						}
 						return DeleteAction, ""
 					}
 				}
 
 				if !rule.Expiration.IsDaysNull() {
 					if time.Now().After(modTime.Add(time.Duration(rule.Expiration.Days) * 24 * time.Hour)) {
+						if rule.Expiration.IsSetDeleteMarker() {
+							return DeleteMarker, ""
+						}
 						return DeleteAction, ""
 					}
 				}
-				//TODO: DeleteMarker
 
 			} else if len(rule.Transitions) != 0 {
 				// to result transition conflict: GLACIER > STANDARD_IA

@@ -154,6 +154,7 @@ const (
 	ErrInvalidLcTagKey
 	ErrInvalidLcTagValue
 	ErrDuplicateLcTagKey
+	ErrInvalidLcTagIsNotEmpty
 	ErrLcDateNotMidnight
 	ErrInvalidLcDate
 	ErrInvalidLcDays
@@ -712,6 +713,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrDuplicateLcTagKey: {
 		AwsErrorCode:   "IllegalLcConfigurationException",
 		Description:    "The Lifecycle configuration is not allow duplicate Tag Keys.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidLcTagIsNotEmpty: {
+		AwsErrorCode:   "IllegalLcConfigurationException",
+		Description:    "The Lifecycle configuration Tag should empty when set AbortIncompleteMultipartUpload or ExpiredObjectDeleteMarker",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrLcDateNotMidnight: {

@@ -11,7 +11,7 @@ import (
 
 const (
 	TestLifecycleBucket1 = "fuxian"
-	TestLifecycleBucket2 = "mylifecyclebucket2"
+	TestLifecycleBucket2 = "zztet"
 	TestLifecycleBucket3 = "mylifecyclebucket3"
 )
 
@@ -20,18 +20,21 @@ const (
   						<Rule>
     						<ID>id1</ID>
 							<Filter>
-									<Prefix>meta/util/</Prefix>
+									<Prefix>meta/</Prefix>
     						</Filter>
     						<Status>Enabled</Status>
     						<Transition>
       								<Date>2020-03-24T00:00:00+08:00</Date>
       								<StorageClass>GLACIER</StorageClass>
     						</Transition>
+							<NoncurrentVersionExpiration>
+                                    <NoncurrentDays>1</NoncurrentDays>
+							</NoncurrentVersionExpiration>
   						</Rule>
 						<Rule>
     						<ID>id2</ID>
     						<Filter>
-       							<Prefix>meta/util/</Prefix>
+       							<Prefix>meta/client/</Prefix>
     						</Filter>
     						<Status>Enabled</Status>
     						<Expiration>
@@ -46,16 +49,16 @@ const (
     						<Status>Enabled</Status>
     						<Transition>
       								<Date>2020-03-24T00:00:00+08:00</Date>
-      								<StorageClass>STANDARD_IA</StorageClass>
+      								<StorageClass>GLACIER</StorageClass>
     						</Transition>
   						</Rule>
 						<Rule>
     						<Filter>
-       							<Prefix>api/datatype/policy/</Prefix>
+       							<Prefix>meta/types/</Prefix>
     						</Filter>
     						<Status>Enabled</Status>
     						<Expiration>
-      							<Days>3</Days>
+      							<Date>2020-03-24T00:00:00+08:00</Date>
     						</Expiration>
   						</Rule>
 						<Rule>
@@ -67,6 +70,30 @@ const (
       								<Date>2020-03-24T00:00:00+08:00</Date>
       								<StorageClass>GLACIER</StorageClass>
     						</Transition>
+  						</Rule>
+	</LifecycleConfiguration>`
+
+	LiecycleConfigurationToTest = `<LifecycleConfiguration>
+  						<Rule>
+    						<ID>api/</ID>
+							<Filter>
+									<Prefix>meta/util/</Prefix>
+    						</Filter>
+    						<Status>Enabled</Status>
+    						<Transition>
+      								<Date>2020-03-24T00:00:00+08:00</Date>
+      								<StorageClass>GLACIER</StorageClass>
+    						</Transition>
+  						</Rule>
+						<Rule>
+    						<ID>id2</ID>
+    						<Filter>
+       							<Prefix>api/datatype/</Prefix>
+    						</Filter>
+    						<Status>Enabled</Status>
+    						<Expiration>
+      							<Date>2020-03-24T00:00:00+08:00</Date>
+    						</Expiration>
   						</Rule>
 	</LifecycleConfiguration>`
 
@@ -135,12 +162,12 @@ func Test_LifecycleConfiguration(t *testing.T) {
 	}
 	t.Log("GetBucketLifecycle Success! out:", out)
 
-	//out, err = sc.DeleteBucketLifecycle(TestLifecycleBucket1)
-	//if err != nil {
-	//	t.Fatal("DeleteBucketLifecycle err:", err)
-	//}
-	//t.Log("DeleteBucketLifecycle Success! out:", out)
-	//
+	out, err = sc.DeleteBucketLifecycle(TestLifecycleBucket2)
+	if err != nil {
+		t.Fatal("DeleteBucketLifecycle err:", err)
+	}
+	t.Log("DeleteBucketLifecycle Success! out:", out)
+
 	//err = sc.DeleteBucket(TestLifecycleBucket1)
 	//if err != nil {
 	//	t.Fatal("DeleteBucket err:", err)

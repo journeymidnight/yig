@@ -253,6 +253,22 @@ func TestComputeActions(t *testing.T) {
 			objectModTime:  time.Now().Local().Add(-24 * time.Hour), // Created 1 day ago
 			expectedAction: NoneAction,
 		},
+		// 13 Should transition (Tags match)
+		{
+			inputConfig:    `<LifecycleConfiguration><Rule><Filter><And><Prefix>foodir/</Prefix><Tag><Key>tag1</Key><Value>value1</Value><Key>tag2</Key><Value>value2</Value></Tag></And></Filter><Status>Enabled</Status><Transition><Date>` + time.Now().Truncate(24 * time.Hour).Local().Add(-32 * time.Hour).Format(time.RFC3339) + `</Date><StorageClass>GLACIER</StorageClass></Transition></Rule></LifecycleConfiguration>`,
+			objectName:     "foodir/fooobject",
+			objectTags:     map[string]string{"tag1": "value1", "tag2": "vaule2"},
+			objectModTime:  time.Now().Local().Add(-24 * time.Hour), // Created 1 day ago
+			expectedAction: TransitionAction,
+		},
+		// 13 Should remove (Tags match)
+		{
+			inputConfig:    `<LifecycleConfiguration><Rule><Filter><And><Prefix>foodir/</Prefix><Tag><Key>tag1</Key><Value>value1</Value><Key>tag2</Key><Value>value2</Value></Tag></And></Filter><Status>Enabled</Status><Expiration><Date>` + time.Now().Truncate(24 * time.Hour).Local().Add(-32 * time.Hour).Format(time.RFC3339) + `</Date></Expiration><Transition><Date>` + time.Now().Truncate(24 * time.Hour).Local().Add(-32 * time.Hour).Format(time.RFC3339) + `</Date><StorageClass>GLACIER</StorageClass></Transition></Rule></LifecycleConfiguration>`,
+			objectName:     "foodir/fooobject",
+			objectTags:     map[string]string{"tag1": "value1", "tag2": "vaule2"},
+			objectModTime:  time.Now().Local().Add(-24 * time.Hour), // Created 1 day ago
+			expectedAction: DeleteAction,
+		},
 		// Should not remove (Tags match, but prefix doesn't match)
 		{
 			inputConfig:    `<LifecycleConfiguration><Rule><Filter><And><Prefix>foodir/</Prefix><Tag><Key>tag1</Key><Value>value1</Value></Tag></And></Filter><Status>Enabled</Status><Expiration><Date>` + time.Now().Truncate(24 * time.Hour).Local().Add(-32 * time.Hour).Format(time.RFC3339) + `</Date></Expiration></Rule></LifecycleConfiguration>`,

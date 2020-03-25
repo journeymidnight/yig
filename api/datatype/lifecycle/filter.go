@@ -20,6 +20,7 @@ import (
 	"encoding/xml"
 	. "github.com/journeymidnight/yig/error"
 )
+
 // Filter - a filter for a lifecycle configuration Rule.
 type Filter struct {
 	XMLName xml.Name `xml:"Filter"`
@@ -35,7 +36,7 @@ func (f Filter) Validate() error {
 		if f.Prefix != nil {
 			return ErrInvalidLcFilter
 		}
-		if f.Tag!= nil {
+		if f.Tag != nil {
 			return ErrInvalidLcFilter
 		}
 		if err := f.And.Validate(); err != nil {
@@ -58,7 +59,18 @@ func (f Filter) Validate() error {
 	return nil
 }
 
-// isEmpty - returns true if Filter tag is empty
+// IsTagEmpty - return true if Filter tag is empty
+func (f Filter) IsTagEmpty() bool {
+	if f.Tag != nil {
+		return false
+	}
+	if f.And != nil && len(f.And.Tags) > 0 {
+			return false
+	}
+	return true
+}
+
+// isEmpty - returns true if Filter is empty
 func (f Filter) isEmpty() bool {
 	return f.And.isEmpty() && f.Prefix == nil && f.Tag == nil
 }

@@ -32,15 +32,15 @@ const (
 
 // Rule - a rule for lifecycle configuration.
 type Rule struct {
-	XMLName                      xml.Name                      `xml:"Rule"`
-	ID                           string                        `xml:"ID,omitempty"`
-	Status                       Status                        `xml:"Status"`
-	Filter                       *Filter                       `xml:"Filter,omitempty"`
-	Expiration                   *Expiration                   `xml:"Expiration,omitempty"`
-	Transitions                  []Transition                  `xml:"Transition,omitempty"`
-	NoncurrentVersionExpiration  *NoncurrentVersionExpiration  `xml:"NoncurrentVersionExpiration,omitempty"`
-	NoncurrentVersionTransitions []NoncurrentVersionTransition `xml:"NoncurrentVersionTransition,omitempty"`
-	// FIXME: add a type to catch unsupported AbortIncompleteMultipartUpload AbortIncompleteMultipartUpload `xml:"AbortIncompleteMultipartUpload,omitempty"`
+	XMLName                        xml.Name                        `xml:"Rule"`
+	ID                             string                          `xml:"ID,omitempty"`
+	Status                         Status                          `xml:"Status"`
+	Filter                         *Filter                         `xml:"Filter,omitempty"`
+	Expiration                     *Expiration                     `xml:"Expiration,omitempty"`
+	Transitions                    []Transition                    `xml:"Transition,omitempty"`
+	NoncurrentVersionExpiration    *NoncurrentVersionExpiration    `xml:"NoncurrentVersionExpiration,omitempty"`
+	NoncurrentVersionTransitions   []NoncurrentVersionTransition   `xml:"NoncurrentVersionTransition,omitempty"`
+	AbortIncompleteMultipartUpload *AbortIncompleteMultipartUpload `xml:"AbortIncompleteMultipartUpload,omitempty"`
 }
 
 // validateID - checks if ID is valid or not.
@@ -67,11 +67,24 @@ func (r Rule) validateStatus() error {
 }
 
 func (r Rule) validateAction() error {
-	if r.Expiration != nil || len(r.Transitions) != 0 ||
-		r.NoncurrentVersionExpiration != nil || len(r.NoncurrentVersionTransitions) != 0 {
+	if !r.isActionEmpty() {
+		if r.AbortIncompleteMultipartUpload != nil {
+			if err := r.AbortIncompleteMultipartUpload.Validate(); err != nil {
+				return err
+			}
+			if r.Filter != nil && !r.Filter.IsTagEmpty() {
+				return ErrInvalidLcTagIsNotEmpty
+			}
+		}
+
 		if r.Expiration != nil {
 			if err := r.Expiration.Validate(); err != nil {
 				return err
+			}
+			if r.Expiration.IsSetDeleteMarker() {
+				if r.Filter != nil && !r.Filter.IsTagEmpty() {
+					return ErrInvalidLcTagIsNotEmpty
+				}
 			}
 		}
 
@@ -164,4 +177,9 @@ func (r Rule) Validate() error {
 	}
 
 	return nil
+}
+
+func (r Rule) isActionEmpty() bool {
+	return r.AbortIncompleteMultipartUpload == nil && r.Expiration == nil && len(r.Transitions) == 0 &&
+		r.NoncurrentVersionExpiration == nil && len(r.NoncurrentVersionTransitions) == 0
 }

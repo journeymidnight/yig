@@ -63,7 +63,7 @@ func (eDate *ExpirationDate) UnmarshalXML(d *xml.Decoder, startElement xml.Start
 	if err != nil {
 		return err
 	}
-	helper.Logger.Info("DATESTR:",dateStr)
+	helper.Logger.Info("DATESTR:", dateStr)
 	// While AWS documentation mentions that the date specified
 	// must be present in ISO 8601 format, in reality they allow
 	// users to provide RFC 3339 compliant dates.
@@ -76,7 +76,7 @@ func (eDate *ExpirationDate) UnmarshalXML(d *xml.Decoder, startElement xml.Start
 	nsec := expDate.Nanosecond()
 	loc := expDate.Location()
 	if !(hr == 0 && min == 0 && sec == 0 && nsec == 0 && loc.String() == time.Local.String()) &&
-		!(hr == 16 && min == 0 && sec ==0 && nsec == 0 && loc.String() == time.UTC.String()) {
+		!(hr == 16 && min == 0 && sec == 0 && nsec == 0 && loc.String() == time.UTC.String()) {
 		return ErrLcDateNotMidnight
 	}
 
@@ -93,31 +93,31 @@ func (eDate *ExpirationDate) MarshalXML(e *xml.Encoder, startElement xml.StartEl
 	return e.EncodeElement(eDate.Format(time.RFC3339), startElement)
 }
 
-type DeleteMarker bool
+type ExpiredObjectDeleteMarker bool
 
 // UnmarshalXML parses delete marker from Expiration
-func (dMarker *DeleteMarker) UnmarshalXML(d *xml.Decoder, startElement xml.StartElement) error {
+func (dMarker *ExpiredObjectDeleteMarker) UnmarshalXML(d *xml.Decoder, startElement xml.StartElement) error {
 	var marker bool
 	err := d.DecodeElement(&marker, &startElement)
 	if err != nil {
 		return err
 	}
 
-	*dMarker = DeleteMarker(marker)
+	*dMarker = ExpiredObjectDeleteMarker(marker)
 	return nil
 }
 
 // MarshalXML encodes expiration delete marker
-func (dMarker *DeleteMarker) MarshalXML(e *xml.Encoder, startElement xml.StartElement) error {
+func (dMarker *ExpiredObjectDeleteMarker) MarshalXML(e *xml.Encoder, startElement xml.StartElement) error {
 	return e.EncodeElement(dMarker, startElement)
 }
 
 // Expiration - expiration actions for a rule in lifecycle configuration.
 type Expiration struct {
-	XMLName      xml.Name       `xml:"Expiration"`
-	Days         ExpirationDays `xml:"Days,omitempty"`
-	Date         ExpirationDate `xml:"Date,omitempty"`
-	DeleteMarker *DeleteMarker  `xml:"ExpiredObjectDeleteMarker,omitempty"`
+	XMLName                   xml.Name                   `xml:"Expiration"`
+	Days                      ExpirationDays             `xml:"Days,omitempty"`
+	Date                      ExpirationDate             `xml:"Date,omitempty"`
+	ExpiredObjectDeleteMarker *ExpiredObjectDeleteMarker `xml:"ExpiredObjectDeleteMarker,omitempty"`
 }
 
 // Validate - validates the "Expiration" element
@@ -135,6 +135,13 @@ func (e Expiration) Validate() error {
 		return ErrInvalidLcUsingDateAndDays
 	}
 	return nil
+}
+
+func (e Expiration) IsSetDeleteMarker() bool {
+	if e.ExpiredObjectDeleteMarker != nil {
+		return bool(*e.ExpiredObjectDeleteMarker)
+	}
+	return false
 }
 
 // IsDaysNull returns true if days field is null

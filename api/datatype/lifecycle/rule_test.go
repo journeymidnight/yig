@@ -23,47 +23,6 @@ import (
 	"testing"
 )
 
-// TestUnsupportedRules checks if Rule xml with unsuported tags return
-// appropriate errors on parsing
-func TestUnsupportedRules(t *testing.T) {
-	// NoncurrentVersionTransition, NoncurrentVersionExpiration
-	// and Transition tags aren't supported
-	unsupportedTestCases := []struct {
-		inputXML    string
-		expectedErr error
-	}{
-		{ // Rule with unsupported NoncurrentVersionTransition
-			inputXML: ` <Rule>
-	                     <NoncurrentVersionTransition></NoncurrentVersionTransition>
-	                    </Rule>`,
-			expectedErr: nil,
-		},
-		{ // Rule with unsupported NoncurrentVersionExpiration
-
-			inputXML: ` <Rule>
-	                     <NoncurrentVersionExpiration></NoncurrentVersionExpiration>
-	                    </Rule>`,
-			expectedErr: nil,
-		},
-		{ // Rule with unsupported Transition action
-			inputXML: ` <Rule>
-	                     <Transition></Transition>
-	                    </Rule>`,
-			expectedErr: nil,
-		},
-	}
-
-	for i, tc := range unsupportedTestCases {
-		t.Run(fmt.Sprintf("Test %d", i+1), func(t *testing.T) {
-			var rule Rule
-			err := xml.Unmarshal([]byte(tc.inputXML), &rule)
-			if err != tc.expectedErr {
-				t.Fatalf("%d: Expected %v but got %v", i+1, tc.expectedErr, err)
-			}
-		})
-	}
-}
-
 // TestInvalidRules checks if Rule xml with invalid elements returns
 // appropriate errors on validation
 func TestInvalidRules(t *testing.T) {
@@ -161,6 +120,68 @@ func TestInvalidRules(t *testing.T) {
                                     </Transition>
 	                    </Rule>`,
 			expectedErr: ErrInvalidLcUsingDateAndDays,
+		},
+		{ // set AbortIncompleteMultipartUpload should not have tag
+			inputXML: ` <Rule>
+							<AbortIncompleteMultipartUpload>
+         							<DaysAfterInitiation>7</DaysAfterInitiation>
+      						</AbortIncompleteMultipartUpload>
+						 	<Status>Enabled</Status>
+							<Filter>
+								<Tag>
+									<Key>key1</Key>
+									<Value>value1</Value>
+								</Tag>
+							</Filter>
+	                    	<Expiration>
+									<Days>3</Days>
+                                    </Expiration>
+							<Transition>
+                                    <Days>3</Days>
+									<StorageClass>GLACIER</StorageClass>
+                                    </Transition>
+	                    </Rule>`,
+			expectedErr: ErrInvalidLcTagIsNotEmpty,
+		},
+		{ // set deleteMarker should not have tag
+			inputXML: ` <Rule>
+						 	<Status>Enabled</Status>
+	                    	<Expiration>
+									<Days>3</Days>
+									<ExpiredObjectDeleteMarker>true</ExpiredObjectDeleteMarker>
+							</Expiration>
+							<Filter>
+								<Tag>
+									<Key>key1</Key>
+									<Value>value1</Value>
+								</Tag>
+							</Filter>
+							<Transition>
+                                    <Days>3</Days>
+									<StorageClass>GLACIER</StorageClass>
+                                    </Transition>
+							<Transition>
+                                    <Days>3</Days>
+                                    </Transition>
+	                    </Rule>`,
+			expectedErr: ErrInvalidLcTagIsNotEmpty,
+		},
+		{ // set deleteMarker should not have tag
+			inputXML: ` <Rule>
+						 	<Status>Enabled</Status>
+	                    	<Expiration>
+									<Days>3</Days>
+									<ExpiredObjectDeleteMarker>true</ExpiredObjectDeleteMarker>
+							</Expiration>
+							<Filter>
+								<Prefix>key-prefix</Prefix>
+							</Filter>
+							<Transition>
+                                    <Days>3</Days>
+									<StorageClass>GLACIER</StorageClass>
+                                    </Transition>
+	                    </Rule>`,
+			expectedErr: nil,
 		},
 	}
 

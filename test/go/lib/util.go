@@ -36,8 +36,8 @@ func TransferToS3AccessLifecycleConfiguration(config *lifecycle.Lifecycle) (lc *
 			} else {
 				rule.Expiration.Days = aws.Int64(int64(r.Expiration.Days))
 			}
-			if r.Expiration.DeleteMarker != nil {
-				rule.Expiration.ExpiredObjectDeleteMarker = (*bool)(r.Expiration.DeleteMarker)
+			if r.Expiration.ExpiredObjectDeleteMarker != nil {
+				rule.Expiration.ExpiredObjectDeleteMarker = (*bool)(r.Expiration.ExpiredObjectDeleteMarker)
 			}
 		}
 

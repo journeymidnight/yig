@@ -102,7 +102,6 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 		request.Prefix = commonPrefix
 
 		for {
-			//retObjests, _, truncated, nextMarker, nextVerIdMarker, err := yig.ListObjectsInternal(bucket.Name, request)
 			info, err := yig.ListVersionedObjectsInternal(bucket.Name, request)
 			if err != nil {
 				return nil
@@ -163,30 +162,26 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 		request.Prefix = commonPrefix
 
 		for {
-			helper.Logger.Info("11111111111111111111111111111111111111111")
 			info, err := yig.ListObjectsInternal(bucket, request)
-			helper.Logger.Info("22222222222222222222222222222222222222222info:", info, " err:", err)
 			if err != nil {
-				return nil
+				return err
 			}
 			for _, object := range info.Objects {
-				helper.Logger.Info("############################", object)
 				lastt, err := time.Parse(time.RFC3339, object.LastModified)
 				if err != nil {
 					return err
 				}
 				// Find the action that need to be executed					TODO: add tags
 				action, storageClass := bucketLC.ComputeAction(object.Key, nil, object.StorageClass, lastt, cvRules)
-				helper.Logger.Info("4444444444444444444444444444444444444444action:", action, " storageClass:", storageClass)
 				reqCtx.ObjectInfo, err = yig.MetaStorage.GetObject(bucket.Name, object.Key, "", true)
-				helper.Logger.Info("555555555555555555555555555555555555555reqCtx.ObjectInfo:", reqCtx.ObjectInfo, " err:", err)
-				if err != nil && err != ErrNoSuchKey {
-					return err
+				if err != nil {
+					helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
+					continue
 				}
 				reqCtx.ObjectName = object.Key
 				reqCtx.VersionId = reqCtx.ObjectInfo.VersionId
 
-				//Delete or transition
+				//process object
 				if action == lifecycle.DeleteAction {
 					_, err = yig.DeleteObject(reqCtx, common.Credential{})
 					if err != nil {
