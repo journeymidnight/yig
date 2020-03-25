@@ -173,6 +173,7 @@ func (m *Meta) DeleteObject(object *Object) (err error) {
 }
 
 func (m *Meta) AddDeleteMarker(marker *Object) (err error) {
+	marker.Size = int64(len(marker.Name))
 	return m.Client.PutObject(marker, nil, false)
 }
 
@@ -211,6 +212,7 @@ func (m *Meta) DeleteSuspendedObject(object *Object) (err error) {
 	// update to delete marker
 	object.DeleteMarker = true
 	object.LastModifiedTime = time.Now().UTC()
+	object.Size = int64(len(object.Name))
 	err = m.Client.UpdateObject(object, nil, true, nil)
 	if err != nil {
 		return err
