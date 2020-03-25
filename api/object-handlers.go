@@ -465,6 +465,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	logger := reqCtx.Logger
 	targetBucketName := reqCtx.BucketName
 	targetObjectName := reqCtx.ObjectName
+	targetBucket := reqCtx.BucketInfo
 
 	var credential common.Credential
 	var err error
@@ -519,7 +520,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	logger.Info("Copying object from", sourceBucketName, sourceObjectName,
 		sourceVersion, "to", targetBucketName, targetObjectName)
 
-	sourceBucket, sourceObject, err := api.ObjectAPI.GetBucketAndObjectInfo(sourceBucketName, sourceObjectName,
+	_, sourceObject, err := api.ObjectAPI.GetBucketAndObjectInfo(sourceBucketName, sourceObjectName,
 		sourceVersion, credential)
 
 	if err != nil {
@@ -555,11 +556,6 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	targetStorageClass, err = getStorageClassFromHeader(r)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
-		return
-	}
-
-	if sourceBucket.Versioning == BucketVersioningEnabled && sourceObject.StorageClass != targetStorageClass {
-		WriteErrorResponse(w, r, ErrInvalidCopySourceStorageClass)
 		return
 	}
 
@@ -599,10 +595,14 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	var isMetadataOnly bool
-	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName {
+
+	// TODO: To be fixed
+	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName && targetBucket.Versioning == BucketVersioningDisabled {
 		if sourceObject.StorageClass == meta.ObjectStorageClassGlacier || targetStorageClass != meta.ObjectStorageClassGlacier {
 			isMetadataOnly = true
 		}
+	} else if targetBucket.Versioning == BucketVersioningSuspended && reqCtx.ObjectInfo != nil {
+		isMetadataOnly = true
 	}
 
 	pipeReader, pipeWriter := io.Pipe()
@@ -971,16 +971,15 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	// if Content-Length is unknown/missing, deny the request
 	size := r.ContentLength
 	if authType == signature.AuthTypeStreamingSigned {
-		if sizeStr, ok := r.Header["X-Amz-Decoded-Content-Length"]; ok {
-			if sizeStr[0] == "" {
-				WriteErrorResponse(w, r, ErrMissingContentLength)
-				return
-			}
-			size, err = strconv.ParseInt(sizeStr[0], 10, 64)
+		if sizeStr := r.Header.Get("X-Amz-Decoded-Content-Length"); sizeStr != "" {
+			size, err = strconv.ParseInt(sizeStr, 10, 64)
 			if err != nil {
 				WriteErrorResponse(w, r, err)
 				return
 			}
+		} else {
+			WriteErrorResponse(w, r, ErrMissingContentLength)
+			return
 		}
 	}
 	if size == -1 {

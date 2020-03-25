@@ -878,10 +878,8 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 		targetObject.LastModifiedTime = sourceObject.LastModifiedTime
 		result.LastModified = targetObject.LastModifiedTime
 		err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, false)
-		helper.Logger.Error("$$$$ERROR1:", err)
 	} else {
 		err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, true)
-		helper.Logger.Error("$$$$ERROR2:", err, reqCtx.ObjectInfo == nil)
 	}
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
@@ -1144,7 +1142,7 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 			}
 			result.VersionId = object.VersionId
 		} else {
-			nullVersionExist := (object == nil)
+			nullVersionExist := (object != nil)
 			if !nullVersionExist {
 				object = &meta.Object{
 					BucketName:       bucketName,
@@ -1158,12 +1156,13 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 				if err != nil {
 					return
 				}
+			} else {
+				err = yig.MetaStorage.DeleteSuspendedObject(object)
+				if err != nil {
+					return
+				}
 			}
 
-			err = yig.MetaStorage.DeleteSuspendedObject(object)
-			if err != nil {
-				return
-			}
 		}
 	default:
 		helper.Logger.Error("Invalid bucket versioning:", bucketName)

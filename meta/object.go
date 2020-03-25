@@ -208,11 +208,14 @@ func (m *Meta) DeleteSuspendedObject(object *Object) (err error) {
 		}
 	}
 
-	// TODO: To be fixed
 	// update to delete marker
 	object.DeleteMarker = true
 	object.LastModifiedTime = time.Now().UTC()
-	return m.Client.UpdateObject(object, nil, true, nil)
+	err = m.Client.UpdateObject(object, nil, true, nil)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (m *Meta) AppendObject(object *Object, isExist bool) error {
