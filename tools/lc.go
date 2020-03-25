@@ -122,7 +122,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 					if err != nil {
 						return err
 					}
-					if ObjToolTime.Before(lastt) {	//objectTool keep latest version
+					if ObjToolTime.Before(lastt) { //objectTool keep latest version
 						tempObj := objectTool
 						objectTool = object
 						object = tempObj
@@ -195,7 +195,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 					continue
 				}
 				reqCtx.ObjectName = object.Key
-				reqCtx.VersionId = reqCtx.ObjectInfo.VersionId
+				reqCtx.VersionId = ""
 
 				//process object
 				if action == lifecycle.DeleteAction {

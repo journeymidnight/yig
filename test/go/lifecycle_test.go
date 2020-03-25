@@ -27,14 +27,12 @@ const (
       								<Date>2020-03-24T00:00:00+08:00</Date>
       								<StorageClass>GLACIER</StorageClass>
     						</Transition>
-							<NoncurrentVersionExpiration>
-                                    <NoncurrentDays>1</NoncurrentDays>
-							</NoncurrentVersionExpiration>
+
   						</Rule>
 						<Rule>
     						<ID>id2</ID>
     						<Filter>
-       							<Prefix>storage/</Prefix>
+       							<Prefix>test/</Prefix>
     						</Filter>
     						<Status>Enabled</Status>
     						<Expiration>
@@ -131,10 +129,6 @@ func Test_LifecycleConfiguration(t *testing.T) {
 	}
 	t.Log("GetBucketLifecycle Success! out:", out)
 
-	out, err = sc.DeleteBucketLifecycle(TestLifecycleBucket1)
-	if err != nil {
-		t.Fatal("PutBucketLifecycle err:", err,out)
-	}
 	//err = sc.DeleteBucket(TestLifecycleBucket1)
 	//if err != nil {
 	//	t.Fatal("DeleteBucket err:", err)
