@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/minio/highwayhash"
 	"github.com/cep21/circuit"
 	redigo "github.com/gomodule/redigo/redis"
 	"github.com/journeymidnight/yig/circuitbreak"
 	"github.com/journeymidnight/yig/helper"
+	"github.com/minio/highwayhash"
 )
 
 var (

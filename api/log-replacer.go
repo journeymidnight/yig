@@ -279,9 +279,9 @@ func (r *replacer) getSubstitution(key string) string {
 		}
 		return "-"
 	case "{bucket_logging}":
-		bl:= GetRequestContext(r.request).BucketInfo
-		if bl!=nil {
-			if bl.BucketLogging.LoggingEnabled.TargetBucket!="" && bl.BucketLogging.LoggingEnabled.TargetPrefix!="" {
+		bl := GetRequestContext(r.request).BucketInfo
+		if bl != nil {
+			if bl.BucketLogging.LoggingEnabled.TargetBucket != "" && bl.BucketLogging.LoggingEnabled.TargetPrefix != "" {
 				return strconv.FormatBool(true)
 			}
 		}

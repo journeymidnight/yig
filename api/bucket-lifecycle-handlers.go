@@ -47,10 +47,6 @@ func (api ObjectAPIHandlers) GetBucketLifeCycleHandler(w http.ResponseWriter, r 
 	var credential common.Credential
 	var err error
 	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
-		return
 	case signature.AuthTypeAnonymous:
 		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
@@ -59,6 +55,10 @@ func (api ObjectAPIHandlers) GetBucketLifeCycleHandler(w http.ResponseWriter, r 
 			WriteErrorResponse(w, r, err)
 			return
 		}
+	default:
+		// For all unknown auth types return error.
+		WriteErrorResponse(w, r, ErrAccessDenied)
+		return
 	}
 
 	lifecycle, err := api.ObjectAPI.GetBucketLifecycle(reqCtx, credential)

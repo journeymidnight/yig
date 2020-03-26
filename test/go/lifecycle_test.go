@@ -20,26 +20,29 @@ const (
   						<Rule>
     						<ID>id1</ID>
 							<Filter>
-									<Prefix>haha/</Prefix>
+									<Prefix></Prefix>
     						</Filter>
     						<Status>Enabled</Status>
-    						<Transition>
-      								<Date>2020-03-24T00:00:00+08:00</Date>
-      								<StorageClass>GLACIER</StorageClass>
-    						</Transition>
+							<NoncurrentVersionTransition>
+		                            <NoncurrentDays>1</NoncurrentDays>
+									<StorageClass>` + TEST_STORAGE_STANDARD_IA + `</StorageClass>
+							</NoncurrentVersionTransition>
+  						</Rule>
 
-  						</Rule>
-						<Rule>
-    						<ID>id2</ID>
-    						<Filter>
-       							<Prefix>test/</Prefix>
-    						</Filter>
-    						<Status>Enabled</Status>
-    						<Expiration>
-      							<Date>2020-03-24T00:00:00+08:00</Date>
-    						</Expiration>
-  						</Rule>
 	</LifecycleConfiguration>`
+
+	/*
+
+	  <Rule>
+	  <ID>id2</ID>
+	  <Filter>
+	  <Prefix>crypto/</Prefix>
+	  </Filter>
+	  <Status>Enabled</Status>
+	  <Expiration>
+	  <Date>2020-03-24T00:00:00+08:00</Date>
+	  </Expiration>
+	  </Rule>*/
 
 	LiecycleConfigurationToTest = `<LifecycleConfiguration>
   						<Rule>
@@ -50,7 +53,7 @@ const (
     						<Status>Enabled</Status>
     						<Transition>
       								<Date>2020-03-24T00:00:00+08:00</Date>
-      								<StorageClass>GLACIER</StorageClass>
+      								<StorageClass>` + TEST_STORAGE_GLACIER + `</StorageClass>
     						</Transition>
   						</Rule>
 						<Rule>
@@ -71,7 +74,7 @@ const (
     						<Status>Enabled</Status>
     						<Transition>
       								<Days>1</Days>
-      								<StorageClass>GLACIER</StorageClass>
+      								<StorageClass>` + TEST_STORAGE_GLACIER + `</StorageClass>
     						</Transition>
 							<NoncurrentVersionExpiration>
                                     <NoncurrentDays>3</NoncurrentDays>
@@ -94,7 +97,7 @@ const (
 func Test_OpenVersion(t *testing.T) {
 	sc := NewS3()
 	// open bucket version
-	err := sc.PutBucketVersion(TestLifecycleBucket3, s3.BucketVersioningStatusEnabled)
+	err := sc.PutBucketVersion(TestLifecycleBucket1, s3.BucketVersioningStatusEnabled)
 	assert.Equal(t, err, nil, "PutBucketVersion err")
 }
 
@@ -106,8 +109,11 @@ func Test_LifecycleConfiguration(t *testing.T) {
 	//	panic(err)
 	//}
 
+	err := sc.PutObject(TestLifecycleBucket2, TEST_KEY, TEST_VALUE)
+	assert.Equal(t, err, nil, "PutObject1 err")
+
 	var config = &lifecycle.Lifecycle{}
-	err := xml.Unmarshal([]byte(LiecycleConfiguration), config)
+	err = xml.Unmarshal([]byte(LiecycleConfiguration), config)
 	if err != nil {
 		t.Fatal("Unmarshal lifecycle configuration err:", err)
 	}
@@ -129,12 +135,17 @@ func Test_LifecycleConfiguration(t *testing.T) {
 	}
 	t.Log("GetBucketLifecycle Success! out:", out)
 
+	_, err = sc.DeleteBucketLifecycle(TestLifecycleBucket1)
+	if err != nil {
+		t.Fatal("GetBucketLifecycle err:", err)
+	}
 	//err = sc.DeleteBucket(TestLifecycleBucket1)
 	//if err != nil {
 	//	t.Fatal("DeleteBucket err:", err)
 	//	panic(err)
 	//}
 }
+
 /*
 func Test_LifecycleConfigurationToVersion(t *testing.T) {
 	sc := NewS3()

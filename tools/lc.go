@@ -129,14 +129,19 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 					}
 				}
 				// Find the action that need to be executed									TODO: add tags
-				action, storageClass := bucketLC.ComputeActionFromNonCurrentVersion(object.Key, nil, object.StorageClass, lastt, cvRules)
+				action, storageClass := bucketLC.ComputeActionFromNonCurrentVersion(object.Key, nil, object.StorageClass, lastt, ncvRules)
 
-				reqCtx.ObjectInfo, err = yig.MetaStorage.GetObject(bucket.Name, object.Key, object.VersionId, true)
-				if err != nil && err != ErrNoSuchKey {
-					return err
+				if !reqCtx.ObjectInfo.DeleteMarker {
+					reqCtx.ObjectInfo, err = yig.MetaStorage.GetObject(bucket.Name, object.Key, object.VersionId, true)
+					if err != nil && err != ErrNoSuchKey {
+						return err
+					}
+					reqCtx.ObjectName = object.Key
+					reqCtx.VersionId = reqCtx.ObjectInfo.VersionId
+				} else {
+					reqCtx.ObjectName = object.Key
+					reqCtx.VersionId = object.VersionId
 				}
-				reqCtx.ObjectName = object.Key
-				reqCtx.VersionId = reqCtx.ObjectInfo.VersionId
 
 				//Delete or transition
 				if action == lifecycle.DeleteAction {
@@ -147,6 +152,9 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 					}
 				}
 				if action == lifecycle.TransitionAction {
+					if reqCtx.ObjectInfo.DeleteMarker {
+						continue
+					}
 					_, err = transitionObject(reqCtx.ObjectInfo, storageClass)
 					if err != nil {
 						helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)

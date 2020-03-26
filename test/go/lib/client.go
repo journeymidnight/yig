@@ -18,15 +18,16 @@ const (
 	SecretKey        = "hehehehe"
 	Region           = "RegionHeHe"
 
-	TEST_BUCKET         = "mybucket"
-	TEST_COPY_BUCKET    = "mycopybucket"
-	TEST_KEY            = "testput"
-	TEST_KEY_SPECIAL    = "testputspecial:!@$%^&*()_+=-;?><| "
-	TEST_VALUE          = "valueput"
-	TEST_STORAGEGLACIER = "GLACIER "
-	TEST_ILLEGALREFERER = "http://www.thief.com/"
-	TEST_LEGALREFERER   = "http://www.genltemen.com/"
-	TEST_COMMONREFERER  = "http://www.common.com/"
+	TEST_BUCKET              = "mybucket"
+	TEST_COPY_BUCKET         = "mycopybucket"
+	TEST_KEY                 = "testput"
+	TEST_KEY_SPECIAL         = "testputspecial:!@$%^&*()_+=-;?><| "
+	TEST_VALUE               = "valueput"
+	TEST_STORAGE_GLACIER     = "GLACIER"
+	TEST_STORAGE_STANDARD_IA = "STANDARD_IA"
+	TEST_ILLEGALREFERER      = "http://www.thief.com/"
+	TEST_LEGALREFERER        = "http://www.genltemen.com/"
+	TEST_COMMONREFERER       = "http://www.common.com/"
 )
 
 func NewS3WithoutMD5() *S3Client {
