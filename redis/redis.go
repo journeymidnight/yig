@@ -61,7 +61,17 @@ func Initialize() {
 	if helper.CONFIG.RedisPassword != "" {
 		options = append(options, redigo.DialPassword(helper.CONFIG.RedisPassword))
 	}
-	redisPoolHR = NewHashRing(hashReplicationCount, New32())
+	key, err := hex.DecodeString(keyvalue)
+	if err != nil {
+		helper.Logger.Println("Get redis hash err:", err)
+		panic(err)
+	}
+	hash, err := highwayhash.New64(key)
+	if err != nil {
+		helper.Logger.Println("Get redis hash err:", err)
+		panic(err)
+	}
+	redisPoolHR = NewHashRing(hashReplicationCount, hash)
 	for i, addr := range helper.CONFIG.RedisGroup {
 		initPool(i, addr, options...)
 	}
