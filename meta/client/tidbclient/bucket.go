@@ -568,7 +568,6 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 	var count int
 	var exit bool
 	commonPrefixes := make(map[string]interface{})
-	objectMap := make(map[string]interface{})
 	currentKeyMarker := marker
 	currentVerIdMarker := verIdMarker
 	var previousNullObjectMeta *Object
@@ -716,6 +715,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 
 			currentKeyMarker = objMeta.Name
 			currentVerIdMarker = objMeta.VersionId
+			helper.Logger.Info("$$$ scan meta:", currentKeyMarker, currentVerIdMarker)
 			objMeta.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
 
 			if previousNullObjectMeta != nil {
@@ -736,9 +736,6 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 					o := modifyMetaToVersionedObjectResult(*previousNullObjectMeta)
 					listInfo.Objects = append(listInfo.Objects, o)
 					previousNullObjectMeta = nil
-					if _, ok := objectMap[o.Key]; !ok {
-						objectMap[o.Key] = nil
-					}
 				} else {
 					// Compare which is the latest of null version object and versioned object
 					var o datatype.VersionedObject
@@ -763,10 +760,8 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 					}
 
 					listInfo.Objects = append(listInfo.Objects, o)
+					helper.Logger.Info("$$$ append1:", o.Key, o.VersionId)
 
-					if _, ok := objectMap[o.Key]; !ok {
-						objectMap[o.Key] = nil
-					}
 					if !nullIsNewer {
 						continue
 					}
@@ -818,50 +813,19 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 				exit = true
 				break
 			}
-
+			helper.Logger.Info("$$$ append2:", o.Key, o.VersionId)
 			listInfo.Objects = append(listInfo.Objects, o)
-			if _, ok := objectMap[o.Key]; !ok {
-				objectMap[o.Key] = nil
-			}
+
 		}
 		if exit {
 			break
 		}
 
 		//  The last one result is a null version object and name is not same as the previous object
-		//  or The null version object has not handled yet.
-		if previousNullObjectMeta != nil && loopCount == 0 {
-			var o datatype.VersionedObject
-			if _, ok := objectMap[previousNullObjectMeta.Name]; !ok {
-				//// means The last one result is a null version object and name is not same as the previous object
-				//sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
-				//	" from objects where bucketName=? and name=? and version>0 order by bucketname,name,version limit 1;"
-				//row := t.Client.QueryRow(sqltext, bucketName, previousNullObjectMeta.Name)
-				//objMeta := Object{}
-				//err = row.Scan(
-				//	&objMeta.BucketName,
-				//	&objMeta.Name,
-				//	&objMeta.VersionId,
-				//	&objMeta.DeleteMarker,
-				//	&objMeta.OwnerId,
-				//	&objMeta.Etag,
-				//	&lastModifiedTime,
-				//	&objMeta.StorageClass,
-				//	&objMeta.Size,
-				//	&objMeta.CreateTime,
-				//)
-				//if err != nil && err != sql.ErrNoRows {
-				//	return
-				//}
-				//objMeta.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
-				//
-				//if err == sql.ErrNoRows {
-				//	o = modifyMetaToVersionedObjectResult(*previousNullObjectMeta)
-				//} else if objMeta.CreateTime > previousNullObjectMeta.CreateTime {
-				//	o = modifyMetaToVersionedObjectResult(objMeta)
-				//} else {
-				o = modifyMetaToVersionedObjectResult(*previousNullObjectMeta)
-				//}
+
+		if loopCount == 0 {
+			if previousNullObjectMeta != nil {
+				o := modifyMetaToVersionedObjectResult(*previousNullObjectMeta)
 
 				count++
 				if count == maxKeys {
@@ -874,12 +838,9 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 					exit = true
 					break
 				}
+				helper.Logger.Info("$$$ append3:", o.Key, o.VersionId)
 				listInfo.Objects = append(listInfo.Objects, o)
 			}
-
-		}
-
-		if loopCount == 0 {
 			exit = true
 		}
 		if exit {
