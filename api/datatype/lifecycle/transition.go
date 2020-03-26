@@ -76,7 +76,7 @@ func (tDate *TransitionDate) UnmarshalXML(d *xml.Decoder, startElement xml.Start
 	nsec := traDate.Nanosecond()
 	loc := traDate.Location()
 	if !(hr == 0 && min == 0 && sec == 0 && nsec == 0 && loc.String() == time.Local.String()) &&
-		!(hr == 16 && min == 0 && sec ==0 && nsec == 0 && loc.String() == time.UTC.String()) {
+		!(hr == 16 && min == 0 && sec == 0 && nsec == 0 && loc.String() == time.UTC.String()) {
 		return ErrLcDateNotMidnight
 	}
 

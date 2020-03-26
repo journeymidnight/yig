@@ -20,6 +20,7 @@ import (
 	"encoding/xml"
 	. "github.com/journeymidnight/yig/error"
 )
+
 // And - a tag to combine a prefix and multiple tags for lifecycle configuration rule.
 type And struct {
 	XMLName xml.Name `xml:"And"`

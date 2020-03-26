@@ -65,7 +65,7 @@ func (f Filter) IsTagEmpty() bool {
 		return false
 	}
 	if f.And != nil && len(f.And.Tags) > 0 {
-			return false
+		return false
 	}
 	return true
 }
