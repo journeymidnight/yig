@@ -375,8 +375,7 @@ func (yig *YigStorage) GetBucketAndObjectInfo(bucketName string, objectName stri
 	return
 }
 
-func (yig *YigStorage) GetObjectInfoByCtx(ctx RequestContext,
-	version string, credential common.Credential) (object *meta.Object, err error) {
+func (yig *YigStorage) GetObjectInfoByCtx(ctx RequestContext, credential common.Credential) (object *meta.Object, err error) {
 	bucket := ctx.BucketInfo
 	if bucket == nil {
 		return nil, ErrNoSuchBucket

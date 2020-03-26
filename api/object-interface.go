@@ -77,7 +77,7 @@ type ObjectLayer interface {
 	GetObject(object *meta.Object, startOffset int64, length int64, writer io.Writer,
 		sse datatype.SseRequest) (err error)
 	GetBucketAndObjectInfo(bucket, object, version string, credential common.Credential) (bucketInfo *meta.Bucket, objInfo *meta.Object, err error)
-	GetObjectInfoByCtx(reqCtx RequestContext, version string, credential common.Credential) (objInfo *meta.Object, err error)
+	GetObjectInfoByCtx(reqCtx RequestContext, credential common.Credential) (objInfo *meta.Object, err error)
 	PutObject(reqCtx RequestContext, credential common.Credential, size int64, data io.ReadCloser,
 		metadata map[string]string, acl datatype.Acl,
 		sse datatype.SseRequest, storageClass meta.StorageClass) (result datatype.PutObjectResult, err error)
