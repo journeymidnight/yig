@@ -208,7 +208,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 
 	reqVersion := reqCtx.VersionId
 	// Fetch object stat info.
-	object, err := api.ObjectAPI.GetObjectInfoByCtx(reqCtx, reqVersion, credential)
+	object, err := api.ObjectAPI.GetObjectInfoByCtx(reqCtx, credential)
 	if err != nil {
 		logger.Error("Unable to fetch object info:", err)
 		if err == ErrNoSuchKey {
@@ -361,7 +361,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	reqVersion := reqCtx.VersionId
-	object, err := api.ObjectAPI.GetObjectInfoByCtx(reqCtx, reqVersion, credential)
+	object, err := api.ObjectAPI.GetObjectInfoByCtx(reqCtx, credential)
 	if err != nil {
 		logger.Error("Unable to fetch object info:", err)
 		if err == ErrNoSuchKey {
@@ -1049,7 +1049,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 
 	// Check whether the object is exist or not
 	// Check whether the bucket is owned by the specified user
-	objInfo, err := api.ObjectAPI.GetObjectInfoByCtx(reqCtx, "", credential)
+	objInfo, err := api.ObjectAPI.GetObjectInfoByCtx(reqCtx, credential)
 	if err != nil && err != ErrNoSuchKey {
 		WriteErrorResponse(w, r, err)
 		return
@@ -1177,8 +1177,8 @@ func (api ObjectAPIHandlers) PutObjectMeta(w http.ResponseWriter, r *http.Reques
 }
 
 func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := GetRequestContext(r)
-	logger := ctx.Logger
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 	var credential common.Credential
 	var err error
 	if api.HandledByWebsite(w, r) {
@@ -1190,9 +1190,8 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		return
 	}
 
-	version := r.URL.Query().Get("versionId")
 	// Fetch object stat info.
-	object, err := api.ObjectAPI.GetObjectInfoByCtx(ctx, version, credential)
+	_, object, err := api.ObjectAPI.GetBucketAndObjectInfo(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, credential)
 	if err != nil {
 		logger.Error("Unable to fetch object info:", err)
 		if err == ErrNoSuchKey {
