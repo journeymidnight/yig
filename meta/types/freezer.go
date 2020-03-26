@@ -1,6 +1,9 @@
 package types
 
-import "time"
+import (
+	"github.com/journeymidnight/yig/meta/util"
+	"time"
+)
 
 type Freezer struct {
 	Rowkey           []byte // Rowkey cache
@@ -16,7 +19,7 @@ type Freezer struct {
 	Parts            map[int]*Part
 	PartsIndex       *SimpleIndex
 	VersionId        string // version cache
-	Status           Status
+	Status           util.Status
 	LifeTime         int
 }
 
@@ -28,7 +31,7 @@ func (o *Freezer) GetCreateSql() (string, []interface{}) {
 	return sql, args
 }
 
-func (o *Freezer) GetUpdateSql(status Status) (string, []interface{}) {
+func (o *Freezer) GetUpdateSql(status util.Status) (string, []interface{}) {
 	// TODO Multi-version control
 	// version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)

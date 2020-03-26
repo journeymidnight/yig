@@ -19,6 +19,7 @@ package lifecycle
 import (
 	"encoding/xml"
 	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/meta/util"
 )
 
 // NoncurrentDays is a type alias to unmarshal Days in NoncurrentVersionExpiration or NoncurrentVersionTransition
@@ -90,7 +91,7 @@ func (n NoncurrentVersionTransition) Validate() error {
 		return ErrLcMissingStorageClass
 	}
 
-	_, err := MatchStorageClassIndex(n.StorageClass)
+	_, err := util.MatchStorageClassIndex(n.StorageClass)
 	if err != nil {
 		return ErrInvalidStorageClass
 	}

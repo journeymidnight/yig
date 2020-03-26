@@ -3,6 +3,7 @@ package types
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/journeymidnight/yig/meta/util"
 	"math"
 	"strconv"
 	"time"
@@ -40,7 +41,7 @@ type Object struct {
 	InitializationVector []byte
 	// ObjectType include `Normal`, `Appendable`, 'Multipart'
 	Type         ObjectType
-	StorageClass StorageClass
+	StorageClass util.StorageClass
 	CreateTime   uint64 // Timestamp(nanosecond)
 }
 

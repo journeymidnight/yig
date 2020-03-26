@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	. "database/sql/driver"
 	"encoding/json"
+	"github.com/journeymidnight/yig/meta/util"
 	"math"
 	"net/url"
 	"sort"
@@ -208,7 +209,7 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 			loopnum += 1
 			var name, initiatorid, ownerid string
 			var uploadtime uint64
-			var storageClass StorageClass
+			var storageClass util.StorageClass
 			err = rows.Scan(
 				&name,
 				&uploadtime,

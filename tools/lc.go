@@ -9,6 +9,7 @@ import (
 	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/log"
 	meta "github.com/journeymidnight/yig/meta/types"
+	"github.com/journeymidnight/yig/meta/util"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/storage"
 	"github.com/robfig/cron"
@@ -239,11 +240,11 @@ func transitionObject(object *meta.Object, storageClass string) (result datatype
 	sseRequest.Type = object.SseType
 
 	// NOT support GLACIER and lower
-	if object.StorageClass >= meta.ObjectStorageClassGlacier {
+	if object.StorageClass >= util.ObjectStorageClassGlacier {
 		return result, ErrInvalidLcStorageClass
 	}
 
-	targetStorageClass, err := meta.MatchStorageClassIndex(storageClass)
+	targetStorageClass, err := util.MatchStorageClassIndex(storageClass)
 	if err != nil {
 		return result, err
 	}

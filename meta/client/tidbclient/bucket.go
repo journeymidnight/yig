@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	. "database/sql/driver"
 	"encoding/json"
+	"github.com/journeymidnight/yig/meta/util"
 	"strings"
 	"time"
 
@@ -221,7 +222,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 			var version, etag, lastModified string
 			var nullversion, deletemarker bool
 			var size int64
-			var storageClassType StorageClass
+			var storageClassType util.StorageClass
 			err = rows.Scan(
 				&bucketname,
 				&name,

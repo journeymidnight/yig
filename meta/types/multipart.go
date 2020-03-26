@@ -34,7 +34,7 @@ type MultipartMetadata struct {
 	EncryptionKey []byte
 	CipherKey     []byte
 	Attrs         map[string]string
-	StorageClass  StorageClass
+	StorageClass  util.StorageClass
 }
 
 type Multipart struct {

@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/xml"
+	"github.com/journeymidnight/yig/meta/util"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -58,15 +59,15 @@ func setGetRespHeaders(w http.ResponseWriter, reqParams url.Values) {
 	}
 }
 
-func getStorageClassFromHeader(r *http.Request) (meta.StorageClass, error) {
+func getStorageClassFromHeader(r *http.Request) (util.StorageClass, error) {
 	storageClassStr := r.Header.Get("X-Amz-Storage-Class")
 
 	if storageClassStr != "" {
 		helper.Logger.Info("Get storage class header:", storageClassStr)
-		return meta.MatchStorageClassIndex(storageClassStr)
+		return util.MatchStorageClassIndex(storageClassStr)
 	} else {
 		// If you don't specify this header, Amazon S3 uses STANDARD
-		return meta.ObjectStorageClassStandard, nil
+		return util.ObjectStorageClassStandard, nil
 	}
 }
 
@@ -229,7 +230,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if object.StorageClass == meta.ObjectStorageClassGlacier {
+	if object.StorageClass == util.ObjectStorageClassGlacier {
 		freezer, err := api.ObjectAPI.GetFreezer(reqCtx.BucketName, reqCtx.ObjectName, reqVersion)
 		if err != nil {
 			if err == ErrNoSuchKey {
@@ -241,7 +242,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
 			return
 		}
-		if freezer.Status != meta.ObjectHasRestored {
+		if freezer.Status != util.ObjectHasRestored {
 			logger.Error("Unable to get glacier object with no restore")
 			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
 			return
@@ -372,14 +373,14 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if object.StorageClass == meta.ObjectStorageClassGlacier {
+	if object.StorageClass == util.ObjectStorageClassGlacier {
 		freezer, err := api.ObjectAPI.GetFreezerStatus(object.BucketName, object.Name, reqVersion)
 		if err != nil && err != ErrNoSuchKey {
 			logger.Error("Unable to get restore object status", object.BucketName, object.Name, reqVersion,
 				"error:", err)
 			WriteErrorResponse(w, r, err)
 		}
-		if freezer.Status == meta.ObjectHasRestored {
+		if freezer.Status == util.ObjectHasRestored {
 			w.Header().Set("x-amz-restore", "ongoing-request='true'")
 		} else {
 			w.Header().Set("x-amz-restore", "ongoing-request='false'")
@@ -552,7 +553,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var targetStorageClass meta.StorageClass
+	var targetStorageClass util.StorageClass
 	targetStorageClass, err = getStorageClassFromHeader(r)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
@@ -560,7 +561,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	truelySourceObject := sourceObject
-	if sourceObject.StorageClass == meta.ObjectStorageClassGlacier {
+	if sourceObject.StorageClass == util.ObjectStorageClassGlacier {
 		freezer, err := api.ObjectAPI.GetFreezer(sourceBucketName, sourceObjectName, sourceVersion)
 		if err != nil {
 			if err == ErrNoSuchKey {
@@ -572,12 +573,12 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
 			return
 		}
-		if freezer.Status != meta.ObjectHasRestored || freezer.Pool == "" {
+		if freezer.Status != util.ObjectHasRestored || freezer.Pool == "" {
 			logger.Error("Unable to get glacier object with no restore")
 			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
 			return
 		}
-		if targetStorageClass != meta.ObjectStorageClassGlacier {
+		if targetStorageClass != util.ObjectStorageClassGlacier {
 			sourceObject.Etag = freezer.Etag
 			sourceObject.Size = freezer.Size
 			sourceObject.Parts = freezer.Parts
@@ -598,7 +599,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 
 	// TODO: To be fixed
 	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName && targetBucket.Versioning == BucketVersioningDisabled {
-		if sourceObject.StorageClass == meta.ObjectStorageClassGlacier || targetStorageClass != meta.ObjectStorageClassGlacier {
+		if sourceObject.StorageClass == util.ObjectStorageClassGlacier || targetStorageClass != util.ObjectStorageClassGlacier {
 			isMetadataOnly = true
 		}
 	} else if targetBucket.Versioning == BucketVersioningSuspended && reqCtx.ObjectInfo != nil {
@@ -1202,7 +1203,7 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		return
 	}
 
-	if object.StorageClass != meta.ObjectStorageClassGlacier {
+	if object.StorageClass != util.ObjectStorageClassGlacier {
 		WriteErrorResponse(w, r, ErrInvalidObjectName)
 		return
 	}
@@ -1226,7 +1227,7 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		WriteErrorResponse(w, r, err)
 	}
 	if err == ErrNoSuchKey || freezer.Name == "" {
-		status, err := meta.MatchStatusIndex("READY")
+		status, err := util.MatchStatusIndex("READY")
 		if err != nil {
 			logger.Error("Unable to get freezer status:", err)
 			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
@@ -1255,7 +1256,7 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 
 		WriteSuccessResponseWithStatus(w, nil, http.StatusAccepted)
 	}
-	if freezer.Status == meta.ObjectHasRestored {
+	if freezer.Status == util.ObjectHasRestored {
 		err = api.ObjectAPI.UpdateFreezerDate(freezer, info.Days, true)
 		if err != nil {
 			logger.Error("Unable to Update freezer date:", err)
@@ -1679,7 +1680,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
-	if sourceObject.StorageClass == meta.ObjectStorageClassGlacier {
+	if sourceObject.StorageClass == util.ObjectStorageClassGlacier {
 		freezer, err := api.ObjectAPI.GetFreezer(sourceBucketName, sourceObjectName, sourceVersion)
 		if err != nil {
 			if err == ErrNoSuchKey {
@@ -1691,7 +1692,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
 			return
 		}
-		if freezer.Status != meta.ObjectHasRestored {
+		if freezer.Status != util.ObjectHasRestored {
 			logger.Error("Unable to get glacier object with no restore")
 			err = ErrInvalidGlacierObject
 			return

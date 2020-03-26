@@ -19,6 +19,7 @@ package lifecycle
 import (
 	"encoding/xml"
 	. "github.com/journeymidnight/yig/error"
+	meta "github.com/journeymidnight/yig/meta/util"
 	"io"
 	"strings"
 	"time"
@@ -111,7 +112,7 @@ func (lc Lifecycle) FilterRulesByNonCurrentVersion() (ncvRules, cvRules []Rule) 
 //	FOR MANY LOOP RULES, IF NOT EXPIRATION, SHOULD BE TRANSITION(THE CHEAPEST CLASS)
 //
 func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, objStorageClass string, modTime time.Time, rules []Rule) (Action, string) {
-	var storageClass StorageClass
+	var storageClass meta.StorageClass
 	var action Action
 	if modTime.IsZero() || objName == "" {
 		return action, ""
@@ -156,7 +157,7 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 					if !transition.IsDateNull() {
 						if time.Now().After(transition.Date.Time) {
 							action = TransitionAction
-							ruleStorageClass, _ := MatchStorageClassIndex(transition.StorageClass)
+							ruleStorageClass, _ := meta.MatchStorageClassIndex(transition.StorageClass)
 							if storageClass < ruleStorageClass {
 								storageClass = ruleStorageClass
 							}
@@ -166,7 +167,7 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 					if !transition.IsDaysNull() {
 						if time.Now().After(modTime.Add(time.Duration(transition.Days) * 24 * time.Hour)) {
 							action = TransitionAction
-							ruleStorageClass, _ := MatchStorageClassIndex(transition.StorageClass)
+							ruleStorageClass, _ := meta.MatchStorageClassIndex(transition.StorageClass)
 							if storageClass < ruleStorageClass {
 								storageClass = ruleStorageClass
 							}
@@ -177,7 +178,7 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 			}
 		}
 	}
-	osc, _ := MatchStorageClassIndex(objStorageClass)
+	osc, _ := meta.MatchStorageClassIndex(objStorageClass)
 	if osc >= storageClass {
 		return NoneAction, ""
 	}
@@ -186,7 +187,7 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 
 // Just like ComputeAction
 func (lc Lifecycle) ComputeActionFromNonCurrentVersion(objName string, objTags map[string]string, objStorageClass string, modTime time.Time, rules []Rule) (Action, string) {
-	var storageClass StorageClass
+	var storageClass meta.StorageClass
 	var action = NoneAction
 	if modTime.IsZero() || objName == "" {
 		return action, ""
@@ -216,7 +217,7 @@ func (lc Lifecycle) ComputeActionFromNonCurrentVersion(objName string, objTags m
 					if !transition.IsDaysNull() {
 						if time.Now().After(modTime.Add(time.Duration(transition.NoncurrentDays) * 24 * time.Hour)) {
 							action = TransitionAction
-							ruleStorageClass, _ := MatchStorageClassIndex(transition.StorageClass)
+							ruleStorageClass, _ := meta.MatchStorageClassIndex(transition.StorageClass)
 							if storageClass < ruleStorageClass {
 								storageClass = ruleStorageClass
 							}
@@ -227,7 +228,7 @@ func (lc Lifecycle) ComputeActionFromNonCurrentVersion(objName string, objTags m
 			}
 		}
 	}
-	osc, _ := MatchStorageClassIndex(objStorageClass)
+	osc, _ := meta.MatchStorageClassIndex(objStorageClass)
 	if osc >= storageClass {
 		return NoneAction, ""
 	}

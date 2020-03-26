@@ -1,4 +1,4 @@
-package lifecycle
+package util
 
 import . "github.com/journeymidnight/yig/error"
 
@@ -63,4 +63,3 @@ func MatchStorageClassIndex(storageClass string) (StorageClass, error) {
 
 	}
 }
-

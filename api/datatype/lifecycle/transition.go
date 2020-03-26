@@ -20,6 +20,7 @@ import (
 	"encoding/xml"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/meta/util"
 	"time"
 )
 
@@ -118,7 +119,7 @@ func (t Transition) Validate() error {
 		return ErrLcMissingStorageClass
 	}
 
-	_, err := MatchStorageClassIndex(t.StorageClass)
+	_, err := util.MatchStorageClassIndex(t.StorageClass)
 	if err != nil {
 		return ErrInvalidStorageClass
 	}
