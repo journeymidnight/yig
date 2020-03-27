@@ -93,31 +93,12 @@ func (eDate *ExpirationDate) MarshalXML(e *xml.Encoder, startElement xml.StartEl
 	return e.EncodeElement(eDate.Format(time.RFC3339), startElement)
 }
 
-type ExpiredObjectDeleteMarker bool
-
-// UnmarshalXML parses delete marker from Expiration
-func (dMarker *ExpiredObjectDeleteMarker) UnmarshalXML(d *xml.Decoder, startElement xml.StartElement) error {
-	var marker bool
-	err := d.DecodeElement(&marker, &startElement)
-	if err != nil {
-		return err
-	}
-
-	*dMarker = ExpiredObjectDeleteMarker(marker)
-	return nil
-}
-
-// MarshalXML encodes expiration delete marker
-func (dMarker *ExpiredObjectDeleteMarker) MarshalXML(e *xml.Encoder, startElement xml.StartElement) error {
-	return e.EncodeElement(dMarker, startElement)
-}
-
 // Expiration - expiration actions for a rule in lifecycle configuration.
 type Expiration struct {
-	XMLName                   xml.Name                   `xml:"Expiration"`
-	Days                      ExpirationDays             `xml:"Days,omitempty"`
-	Date                      ExpirationDate             `xml:"Date,omitempty"`
-	ExpiredObjectDeleteMarker *ExpiredObjectDeleteMarker `xml:"ExpiredObjectDeleteMarker,omitempty"`
+	XMLName                   xml.Name       `xml:"Expiration"`
+	Days                      ExpirationDays `xml:"Days,omitempty"`
+	Date                      ExpirationDate `xml:"Date,omitempty"`
+	ExpiredObjectDeleteMarker *bool          `xml:"ExpiredObjectDeleteMarker,omitempty"`
 }
 
 // Validate - validates the "Expiration" element

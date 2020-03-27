@@ -154,6 +154,10 @@ func (yig *YigStorage) GetBucketLifecycle(reqCtx RequestContext, credential comm
 	if bucket == nil {
 		return lc, ErrNoSuchBucket
 	}
+	if bucket.OwnerId != credential.UserId {
+		err = ErrBucketAccessForbidden
+		return
+	}
 	return bucket.Lifecycle, nil
 }
 

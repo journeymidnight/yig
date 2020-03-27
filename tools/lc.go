@@ -13,6 +13,7 @@ import (
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/storage"
 	"github.com/robfig/cron"
+	"io"
 
 	"os"
 	"os/signal"
@@ -132,17 +133,13 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				// Find the action that need to be executed									TODO: add tags
 				action, storageClass := bucketLC.ComputeActionFromNonCurrentVersion(object.Key, nil, object.StorageClass, lastt, ncvRules)
 
-				if !reqCtx.ObjectInfo.DeleteMarker {
-					reqCtx.ObjectInfo, err = yig.MetaStorage.GetObject(bucket.Name, object.Key, object.VersionId, true)
-					if err != nil && err != ErrNoSuchKey {
-						return err
-					}
-					reqCtx.ObjectName = object.Key
-					reqCtx.VersionId = reqCtx.ObjectInfo.VersionId
-				} else {
-					reqCtx.ObjectName = object.Key
-					reqCtx.VersionId = object.VersionId
+				reqCtx.ObjectInfo, err = yig.MetaStorage.GetObject(bucket.Name, object.Key, object.VersionId, true)
+				if err != nil {
+					helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
+					continue
 				}
+				reqCtx.ObjectName = object.Key
+				reqCtx.VersionId = reqCtx.ObjectInfo.VersionId
 
 				//Delete or transition
 				if action == lifecycle.DeleteAction {
@@ -153,10 +150,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 					}
 				}
 				if action == lifecycle.TransitionAction {
-					if reqCtx.ObjectInfo.DeleteMarker {
-						continue
-					}
-					_, err = transitionObject(reqCtx.ObjectInfo, storageClass)
+					_, err = transitionObject(reqCtx, storageClass)
 					if err != nil {
 						helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
 						continue
@@ -203,11 +197,11 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 					helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
 					continue
 				}
-				reqCtx.ObjectName = object.Key
-				reqCtx.VersionId = ""
 
 				//process object
 				if action == lifecycle.DeleteAction {
+					reqCtx.ObjectName = object.Key
+					reqCtx.VersionId = ""
 					_, err = yig.DeleteObject(reqCtx, common.Credential{})
 					if err != nil {
 						helper.Logger.Error(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, err)
@@ -215,7 +209,9 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 					}
 				}
 				if action == lifecycle.TransitionAction {
-					_, err = transitionObject(reqCtx.ObjectInfo, storageClass)
+					reqCtx.ObjectName = object.Key
+					reqCtx.VersionId = reqCtx.ObjectInfo.VersionId
+					_, err = transitionObject(reqCtx, storageClass)
 					if err != nil {
 						helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
 						continue
@@ -235,12 +231,17 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 	return nil
 }
 
-func transitionObject(object *meta.Object, storageClass string) (result datatype.PutObjectResult, err error) {
+func transitionObject(reqCtx RequestContext, storageClass string) (result datatype.PutObjectResult, err error) {
+	sourceObject := reqCtx.ObjectInfo
+
+	var credential common.Credential
+	credential.UserId = sourceObject.OwnerId
+
 	var sseRequest datatype.SseRequest
-	sseRequest.Type = object.SseType
+	sseRequest.Type = sourceObject.SseType
 
 	// NOT support GLACIER and lower
-	if object.StorageClass >= util.ObjectStorageClassGlacier {
+	if sourceObject.StorageClass >= util.ObjectStorageClassGlacier {
 		return result, ErrInvalidLcStorageClass
 	}
 
@@ -249,19 +250,40 @@ func transitionObject(object *meta.Object, storageClass string) (result datatype
 		return result, err
 	}
 
-	if targetStorageClass <= object.StorageClass {
+	if targetStorageClass <= sourceObject.StorageClass {
 		return result, ErrInvalidLcStorageClass
 	}
 
-	object.StorageClass = targetStorageClass
-	//TODO:If GLACIER-->DEEP_ARCHIVE or more low,may be need to add
-	err = yig.MetaStorage.ReplaceObjectMetas(object)
-	if err != nil {
-		helper.Logger.Error("Copy Object with same source and target, sql fails:", err)
-		return result, ErrInternalError
+	var isMetadataOnly bool
+	if targetStorageClass != util.ObjectStorageClassGlacier {
+		isMetadataOnly = true
 	}
-	yig.MetaStorage.Cache.Remove(redis.ObjectTable, object.BucketName+":"+object.Name+":")
-	yig.DataCache.Remove(object.BucketName + ":" + object.Name + ":" + object.VersionId)
+
+	pipeReader, pipeWriter := io.Pipe()
+	if !isMetadataOnly {
+		go func() {
+			startOffset := int64(0) // Read the whole file.
+			// Get the object.
+			err = yig.GetObject(sourceObject, startOffset, sourceObject.Size,
+				pipeWriter, sseRequest)
+			if err != nil {
+				helper.Logger.Error("Unable to read an object:", err)
+				pipeWriter.CloseWithError(err)
+				return
+			}
+			pipeWriter.Close()
+		}()
+	}
+
+	// Note that sourceObject and targetObject are pointers
+	targetObject := sourceObject
+	targetObject.StorageClass = targetStorageClass
+
+	result, err = yig.TransformObject(reqCtx, targetObject, sourceObject, pipeReader, credential, sseRequest, isMetadataOnly)
+	if err != nil {
+		return result, err
+	}
+
 	return result, nil
 
 }
