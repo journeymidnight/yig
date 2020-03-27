@@ -32,10 +32,16 @@ func (m *Meta) GetObject(bucketName, objectName, reqVersion string, willNeed boo
 		err := helper.MsgPackUnMarshal(in, &object)
 		return &object, err
 	}
-	o, err := m.Cache.Get(redis.ObjectTable, bucketName+":"+objectName+":"+reqVersion,
-		getObjectVersion, unmarshaller, willNeed)
-	if err != nil {
-		return
+
+	var o interface{}
+	if reqVersion != "" {
+		o, err = m.Cache.Get(redis.ObjectTable, bucketName+":"+objectName+":"+reqVersion,
+			getObjectVersion, unmarshaller, willNeed)
+		if err != nil {
+			return
+		}
+	} else {
+		o, err = getObjectVersion()
 	}
 	object, ok := o.(*Object)
 	if !ok {
