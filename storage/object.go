@@ -726,7 +726,7 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 	targetObject.VersionId = targetObject.GenVersionId(targetBucket.Versioning)
 	if isMetadataOnly {
 		if sourceObject.StorageClass == util.ObjectStorageClassGlacier {
-			err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, true)
+			err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, true, false)
 			if err != nil {
 				helper.Logger.Error("Copy Object with same source and target with GLACIER object, sql fails:", err)
 				return result, ErrInternalError
@@ -877,7 +877,7 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 	if targetObject.StorageClass == util.ObjectStorageClassGlacier && targetObject.Name == sourceObject.Name && targetObject.BucketName == sourceObject.BucketName {
 		targetObject.LastModifiedTime = sourceObject.LastModifiedTime
 		result.LastModified = targetObject.LastModifiedTime
-		err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, false)
+		err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, false, false)
 	} else {
 		err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, true)
 	}
@@ -922,7 +922,7 @@ func (yig *YigStorage) TransformObject(reqCtx RequestContext, targetObject *meta
 	targetObject.VersionId = sourceObject.VersionId
 	if isMetadataOnly {
 		if sourceObject.StorageClass == util.ObjectStorageClassGlacier {
-			err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, true)
+			err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, true, true)
 			if err != nil {
 				helper.Logger.Error("Copy Object with same source and target with GLACIER object, sql fails:", err)
 				return result, ErrInternalError
@@ -1070,7 +1070,7 @@ func (yig *YigStorage) TransformObject(reqCtx RequestContext, targetObject *meta
 
 	result.LastModified = targetObject.LastModifiedTime
 	if targetObject.StorageClass == util.ObjectStorageClassGlacier && targetObject.Name == sourceObject.Name && targetObject.BucketName == sourceObject.BucketName {
-		err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, false)
+		err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, false, true)
 	} else {
 		err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, true)
 	}
@@ -1078,7 +1078,7 @@ func (yig *YigStorage) TransformObject(reqCtx RequestContext, targetObject *meta
 		RecycleQueue <- maybeObjectToRecycle
 		return
 	} else {
-		yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":")
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":"+targetObject.VersionId)
 		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.VersionId)
 		if reqCtx.ObjectInfo != nil && reqCtx.BucketInfo.Versioning != datatype.BucketVersioningEnabled {
 			go yig.removeOldObject(reqCtx.ObjectInfo)

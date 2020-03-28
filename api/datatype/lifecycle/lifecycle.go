@@ -151,7 +151,8 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 					}
 				}
 
-			} else if len(rule.Transitions) != 0 {
+			}
+			if len(rule.Transitions) != 0 {
 				// to result transition conflict: GLACIER > STANDARD_IA
 				for _, transition := range rule.Transitions {
 					if !transition.IsDateNull() {
@@ -179,7 +180,7 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 		}
 	}
 	osc, _ := meta.MatchStorageClassIndex(objStorageClass)
-	if osc >= storageClass {
+	if meta.StorageClassWeight[osc] >= meta.StorageClassWeight[storageClass] {
 		return NoneAction, ""
 	}
 	return action, storageClass.ToString()
@@ -211,7 +212,8 @@ func (lc Lifecycle) ComputeActionFromNonCurrentVersion(objName string, objTags m
 					}
 				}
 
-			} else if len(rule.NoncurrentVersionTransitions) != 0 {
+			}
+			if len(rule.NoncurrentVersionTransitions) != 0 {
 				// to result transition conflict: GLACIER > STANDARD_IA
 				for _, transition := range rule.NoncurrentVersionTransitions {
 					if !transition.IsDaysNull() {
@@ -229,7 +231,7 @@ func (lc Lifecycle) ComputeActionFromNonCurrentVersion(objName string, objTags m
 		}
 	}
 	osc, _ := meta.MatchStorageClassIndex(objStorageClass)
-	if osc >= storageClass {
+	if meta.StorageClassWeight[osc] >= meta.StorageClassWeight[storageClass] {
 		return NoneAction, ""
 	}
 	return action, storageClass.ToString()

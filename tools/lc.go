@@ -138,6 +138,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 					helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
 					continue
 				}
+				helper.Logger.Info("DeleteMarker:", reqCtx.ObjectInfo.DeleteMarker)
 				reqCtx.ObjectName = object.Key
 				reqCtx.VersionId = reqCtx.ObjectInfo.VersionId
 
@@ -150,6 +151,9 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 					}
 				}
 				if action == lifecycle.TransitionAction {
+					if reqCtx.ObjectInfo.DeleteMarker {
+						continue
+					}
 					_, err = transitionObject(reqCtx, storageClass)
 					if err != nil {
 						helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
@@ -185,13 +189,12 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 			if err != nil {
 				return err
 			}
-			helper.Logger.Info("After ListObjectInternal", info)
 			for _, object := range info.Objects {
 				lastt, err := time.Parse(time.RFC3339, object.LastModified)
 				if err != nil {
 					return err
 				}
-				helper.Logger.Info("2222222222222222222Action", object, bucket.Name)
+				helper.Logger.Info("Object info", object, bucket.Name)
 				// Find the action that need to be executed					TODO: add tags
 				action, storageClass := bucketLC.ComputeAction(object.Key, nil, object.StorageClass, lastt, cvRules)
 				reqCtx.ObjectInfo, err = yig.MetaStorage.GetObject(bucket.Name, object.Key, "", true)
@@ -199,8 +202,10 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 					helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
 					continue
 				}
-
-				helper.Logger.Info("33333333333333333333After GetObject", bucket.Name, reqCtx.ObjectInfo.Name, action)
+				helper.Logger.Info("DeleteMarker:", reqCtx.ObjectInfo.DeleteMarker)
+				if reqCtx.ObjectInfo.DeleteMarker {
+					continue
+				}
 				//process object
 				if action == lifecycle.DeleteAction {
 					reqCtx.ObjectName = object.Key
@@ -211,7 +216,6 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 						continue
 					}
 				}
-				helper.Logger.Info("44444444444444444444Before Transition", action, reqCtx)
 				if action == lifecycle.TransitionAction {
 					reqCtx.ObjectName = object.Key
 					reqCtx.VersionId = reqCtx.ObjectInfo.VersionId
@@ -222,7 +226,6 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 					}
 				}
 			}
-			helper.Logger.Info("555555555555555555555555After Transition", reqCtx.ObjectInfo)
 			if info.IsTruncated == true {
 				request.KeyMarker = info.NextMarker
 			} else {
@@ -237,7 +240,6 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 
 func transitionObject(reqCtx RequestContext, storageClass string) (result datatype.PutObjectResult, err error) {
 	sourceObject := reqCtx.ObjectInfo
-	helper.Logger.Info("#####################In transitionObject", reqCtx, storageClass)
 	var credential common.Credential
 	credential.UserId = sourceObject.OwnerId
 
@@ -280,9 +282,21 @@ func transitionObject(reqCtx RequestContext, storageClass string) (result dataty
 	}
 
 	// Note that sourceObject and targetObject are pointers
-	targetObject := sourceObject
+	targetObject := &meta.Object{}
+	targetObject.ACL = sourceObject.ACL
+	targetObject.BucketName = sourceObject.BucketName
+	targetObject.Name = sourceObject.Name
+	targetObject.Size = sourceObject.Size
+	targetObject.Etag = sourceObject.Etag
+	targetObject.Parts = sourceObject.Parts
+	targetObject.Type = sourceObject.Type
+	targetObject.ObjectId = sourceObject.ObjectId
+	targetObject.Pool = sourceObject.Pool
+	targetObject.Location = sourceObject.Location
+	targetObject.CustomAttributes = sourceObject.CustomAttributes
+	targetObject.ContentType = sourceObject.ContentType
 	targetObject.StorageClass = targetStorageClass
-	helper.Logger.Info("##################### after yig.TransformObject", targetObject, "LLLLLLLLLLLLLLLLLLLLL", sourceObject)
+
 	result, err = yig.TransformObject(reqCtx, targetObject, sourceObject, pipeReader, credential, sseRequest, isMetadataOnly)
 	if err != nil {
 		return result, err

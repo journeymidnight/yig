@@ -2,17 +2,15 @@ package _go
 
 import (
 	"encoding/xml"
-	"github.com/journeymidnight/aws-sdk-go/service/s3"
 	"github.com/journeymidnight/yig/api/datatype/lifecycle"
-	"github.com/journeymidnight/yig/test/go/assert"
 	. "github.com/journeymidnight/yig/test/go/lib"
 	"testing"
 )
 
 const (
-	TestLifecycleBucket1 = "fuxian"
-	TestLifecycleBucket2 = "zztet"
-	TestLifecycleBucket3 = "testversion"
+	TestLifecycleBucket1 = "testbucket1"
+	TestLifecycleBucket2 = "testbucket2"
+	TestLifecycleBucket3 = "testbucket3"
 )
 
 const (
@@ -20,35 +18,37 @@ const (
   						<Rule>
     						<ID>id1</ID>
 							<Filter>
-									<Prefix></Prefix>
+									<Prefix>log/</Prefix>
     						</Filter>
     						<Status>Enabled</Status>
-							<NoncurrentVersionTransition>
-		                            <NoncurrentDays>1</NoncurrentDays>
-									<StorageClass>` + TEST_STORAGE_STANDARD_IA + `</StorageClass>
-							</NoncurrentVersionTransition>
+							<Transition>
+      								<Date>2020-03-24T00:00:00+08:00</Date>
+      								<StorageClass>` + TEST_STORAGE_STANDARD_IA + `</StorageClass>
+    						</Transition>
+							<Expiration>
+      							<Date>2020-03-24T00:00:00+08:00</Date>
+    						</Expiration>
+							<NoncurrentVersionExpiration>
+                                    <NoncurrentDays>1</NoncurrentDays>
+							</NoncurrentVersionExpiration>
   						</Rule>
-
+						<Rule>
+							<ID>id2</ID>
+	  						<Filter>
+	 								<Prefix>document/</Prefix>
+	  						</Filter>
+	  						<Status>Enabled</Status>
+	  						<Expiration>
+	 								<Date>2020-03-24T00:00:00+08:00</Date>
+	  						</Expiration>
+	  					</Rule>
 	</LifecycleConfiguration>`
-
-	/*
-
-	  <Rule>
-	  <ID>id2</ID>
-	  <Filter>
-	  <Prefix>crypto/</Prefix>
-	  </Filter>
-	  <Status>Enabled</Status>
-	  <Expiration>
-	  <Date>2020-03-24T00:00:00+08:00</Date>
-	  </Expiration>
-	  </Rule>*/
 
 	LiecycleConfigurationToTest = `<LifecycleConfiguration>
   						<Rule>
-    						<ID>api/</ID>
+    						<ID>id2/</ID>
 							<Filter>
-									<Prefix>meta/util/</Prefix>
+									<Prefix>logs/</Prefix>
     						</Filter>
     						<Status>Enabled</Status>
     						<Transition>
@@ -59,7 +59,7 @@ const (
 						<Rule>
     						<ID>id2</ID>
     						<Filter>
-       							<Prefix>api/datatype/</Prefix>
+       							<Prefix>documents/</Prefix>
     						</Filter>
     						<Status>Enabled</Status>
     						<Expiration>
@@ -70,7 +70,7 @@ const (
 
 	LifecycleConfigurationToVersion = `<LifecycleConfiguration>
   						<Rule>
-    						<ID>id1</ID>
+    						<ID>id3</ID>
     						<Status>Enabled</Status>
     						<Transition>
       								<Days>1</Days>
@@ -85,7 +85,7 @@ const (
                             </NoncurrentVersionTransition>
   						</Rule>
   						<Rule>
-    						<ID>id2</ID>
+    						<ID>id4</ID>
     						<Status>Enabled</Status>
     						<Expiration>
       							<Days>2</Days>
@@ -94,23 +94,13 @@ const (
 	</LifecycleConfiguration>`
 )
 
-func Test_OpenVersion(t *testing.T) {
-	sc := NewS3()
-	// open bucket version
-	err := sc.PutBucketVersion(TestLifecycleBucket1, s3.BucketVersioningStatusEnabled)
-	assert.Equal(t, err, nil, "PutBucketVersion err")
-}
-
 func Test_LifecycleConfiguration(t *testing.T) {
 	sc := NewS3()
-	//err := sc.MakeBucket(TestLifecycleBucket1)
-	//if err != nil {
-	//	t.Fatal("MakeBucket err:", err)
-	//	panic(err)
-	//}
-
-	err := sc.PutObject(TestLifecycleBucket2, TEST_KEY, TEST_VALUE)
-	assert.Equal(t, err, nil, "PutObject1 err")
+	err := sc.MakeBucket(TestLifecycleBucket1)
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+		panic(err)
+	}
 
 	var config = &lifecycle.Lifecycle{}
 	err = xml.Unmarshal([]byte(LiecycleConfiguration), config)
@@ -123,27 +113,29 @@ func Test_LifecycleConfiguration(t *testing.T) {
 		t.Fatal("LifecycleConfiguration err:", "empty lifecycle!")
 	}
 
-	err = sc.PutBucketLifecycle(TestLifecycleBucket2, lc)
+	err = sc.PutBucketLifecycle(TestLifecycleBucket1, lc)
 	if err != nil {
 		t.Fatal("PutBucketLifecycle err:", err)
 	}
 	t.Log("PutBucketLifecycle Success!")
 
-	out, err := sc.GetBucketLifecycle(TestLifecycleBucket2)
+	out, err := sc.GetBucketLifecycle(TestLifecycleBucket1)
 	if err != nil {
 		t.Fatal("GetBucketLifecycle err:", err)
 	}
 	t.Log("GetBucketLifecycle Success! out:", out)
 
-	_, err = sc.DeleteBucketLifecycle(TestLifecycleBucket1)
+	out, err = sc.DeleteBucketLifecycle(TestLifecycleBucket1)
 	if err != nil {
-		t.Fatal("GetBucketLifecycle err:", err)
+		t.Fatal("DeleteBucketLifecycle err:", err)
 	}
-	//err = sc.DeleteBucket(TestLifecycleBucket1)
-	//if err != nil {
-	//	t.Fatal("DeleteBucket err:", err)
-	//	panic(err)
-	//}
+	t.Log("DeleteBucketLifecycle Success! out:", out)
+
+	err = sc.DeleteBucket(TestLifecycleBucket1)
+	if err != nil {
+		t.Fatal("DeleteBucket err:", err)
+		panic(err)
+	}
 }
 
 /*

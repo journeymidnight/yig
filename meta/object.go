@@ -74,7 +74,7 @@ func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multi
 	return nil
 }
 
-func (m *Meta) UpdateGlacierObject(reqCtx RequestContext, targetObject, sourceObject *Object, isFreezer bool) (err error) {
+func (m *Meta) UpdateGlacierObject(reqCtx RequestContext, targetObject, sourceObject *Object, isFreezer bool, onlyTranStorageClass bool) (err error) {
 	var tx Tx
 	tx, err = m.Client.NewTrans()
 	if err != nil {
@@ -96,6 +96,11 @@ func (m *Meta) UpdateGlacierObject(reqCtx RequestContext, targetObject, sourceOb
 		}
 
 		err = m.Client.DeleteFreezer(sourceObject.BucketName, sourceObject.Name, tx)
+		if err != nil {
+			return err
+		}
+	} else if onlyTranStorageClass {
+		err = m.Client.UpdateObject(targetObject, nil, true, nil)
 		if err != nil {
 			return err
 		}
