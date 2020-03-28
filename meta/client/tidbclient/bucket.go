@@ -716,7 +716,6 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 
 			currentKeyMarker = objMeta.Name
 			currentVerIdMarker = objMeta.VersionId
-			helper.Logger.Info("$$$ scan meta:", currentKeyMarker, currentVerIdMarker)
 			objMeta.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
 
 			if previousNullObjectMeta != nil {
@@ -761,7 +760,6 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 					}
 
 					listInfo.Objects = append(listInfo.Objects, o)
-					helper.Logger.Info("$$$ append1:", o.Key, o.VersionId)
 
 					if !nullIsNewer {
 						continue
@@ -814,7 +812,6 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 				exit = true
 				break
 			}
-			helper.Logger.Info("$$$ append2:", o.Key, o.VersionId)
 			listInfo.Objects = append(listInfo.Objects, o)
 
 		}
@@ -839,7 +836,6 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 					exit = true
 					break
 				}
-				helper.Logger.Info("$$$ append3:", o.Key, o.VersionId)
 				listInfo.Objects = append(listInfo.Objects, o)
 			}
 			exit = true

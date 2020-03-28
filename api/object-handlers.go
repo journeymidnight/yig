@@ -1364,7 +1364,6 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 		}
 	}
 
-	version := r.URL.Query().Get("versionId")
 	acl, err := api.ObjectAPI.GetObjectAcl(reqCtx, credential)
 	if err != nil {
 		logger.Error("Unable to fetch object acl:", err)
@@ -1380,8 +1379,8 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if version != "" {
-		w.Header().Set("x-amz-version-id", version)
+	if reqCtx.ObjectInfo.VersionId != meta.NullVersion {
+		w.Header().Set("x-amz-version-id", reqCtx.ObjectInfo.VersionId)
 	}
 
 	setXmlHeader(w)
