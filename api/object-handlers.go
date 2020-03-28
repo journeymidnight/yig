@@ -520,7 +520,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	logger.Info("Copying object from", sourceBucketName, sourceObjectName,
 		sourceVersion, "to", targetBucketName, targetObjectName)
 
-	_, sourceObject, err := api.ObjectAPI.GetBucketAndObjectInfo(sourceBucketName, sourceObjectName,
+	sourceObject, err := api.ObjectAPI.GetObjectInfo(sourceBucketName, sourceObjectName,
 		sourceVersion, credential)
 
 	if err != nil {
@@ -758,7 +758,7 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 	logger.Info("Bucket Multi-version is:", bucket.Versioning)
 
 	var sourceVersion string
-	_, sourceObject, err := api.ObjectAPI.GetBucketAndObjectInfo(reqCtx.BucketName, sourceObjectName,
+	sourceObject, err := api.ObjectAPI.GetObjectInfo(reqCtx.BucketName, sourceObjectName,
 		sourceVersion, credential)
 	if err != nil {
 		WriteErrorResponseWithResource(w, r, err, sourceObjectName)
@@ -1191,7 +1191,7 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 	}
 
 	// Fetch object stat info.
-	_, object, err := api.ObjectAPI.GetBucketAndObjectInfo(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, credential)
+	object, err := api.ObjectAPI.GetObjectInfo(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, credential)
 	if err != nil {
 		logger.Error("Unable to fetch object info:", err)
 		if err == ErrNoSuchKey {
@@ -1670,7 +1670,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
-	_, sourceObject, err := api.ObjectAPI.GetBucketAndObjectInfo(sourceBucketName, sourceObjectName,
+	sourceObject, err := api.ObjectAPI.GetObjectInfo(sourceBucketName, sourceObjectName,
 		sourceVersion, credential)
 	if err != nil {
 		logger.Error("Unable to fetch object info:", err)
