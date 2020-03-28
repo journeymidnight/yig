@@ -122,11 +122,13 @@ func (r Rule) validateFilter() error {
 // <filter><and></and></filter>. This method returns the prefix from the
 // location where it is available
 func (r Rule) Prefix() string {
-	if r.Filter.Prefix != nil {
-		return *r.Filter.Prefix
-	}
-	if r.Filter.And.Prefix != nil {
-		return *r.Filter.And.Prefix
+	if r.Filter != nil {
+		if r.Filter.Prefix != nil {
+			return *r.Filter.Prefix
+		}
+		if r.Filter.And != nil && r.Filter.And.Prefix != nil {
+			return *r.Filter.And.Prefix
+		}
 	}
 	return ""
 }
@@ -149,12 +151,14 @@ func (r Rule) filterTags(objTags map[string]string) bool {
 // Return all tags by map
 func (r Rule) getTags() map[string]string {
 	tags := make(map[string]string)
-	if r.Filter.Tag != nil {
-		tags[r.Filter.Tag.Key] = r.Filter.Tag.Value
-	}
-	if r.Filter.And != nil && len(r.Filter.And.Tags) != 0 {
-		for _, tag := range r.Filter.And.Tags {
-			tags[tag.Key] = tag.Value
+	if r.Filter != nil {
+		if r.Filter.Tag != nil {
+			tags[r.Filter.Tag.Key] = r.Filter.Tag.Value
+		}
+		if r.Filter.And != nil && len(r.Filter.And.Tags) != 0 {
+			for _, tag := range r.Filter.And.Tags {
+				tags[tag.Key] = tag.Value
+			}
 		}
 	}
 
