@@ -9,7 +9,7 @@ import (
 )
 
 // nodeIdx type implementing Sort Interface
-type nodeIdx []uint32
+type nodeIdx []uint64
 
 // Len returns the size of nodeIdx
 func (idx nodeIdx) Len() int {
@@ -28,36 +28,36 @@ func (idx nodeIdx) Less(i, j int) bool {
 
 // HashRing to hold the nodes and indexes
 type HashRing struct {
-	nodes        map[uint32]interface{} // map to idx -> node
+	nodes        map[uint64]interface{} // map to idx -> node
 	idx          nodeIdx                // sorted indexes
 	replicaCount int                    // replicas to be inserted
-	hash         hash.Hash32
+	hash         hash.Hash64
 	mu           sync.RWMutex // to protect above fields
 }
 
 // New returns a Hash ring with provided virtual node count and hash
-// If hash is nil, fvn32a is used instead
-func NewHashRing(replicaCount int, hash hash.Hash32) *HashRing {
+// If hash is nil, fvn64a is used instead
+func NewHashRing(replicaCount int, hash hash.Hash64) *HashRing {
 	if hash == nil {
-		hash = fnv.New32a()
+		hash = fnv.New64a()
 	}
 
 	return &HashRing{
-		nodes:        make(map[uint32]interface{}),
+		nodes:        make(map[uint64]interface{}),
 		replicaCount: replicaCount,
 		hash:         hash,
 	}
 }
 
-// getHash returns uint32 hash
-func getHash(hash hash.Hash32, key []byte) (uint32, error) {
+// getHash returns uint64 hash
+func getHash(hash hash.Hash64, key []byte) (uint64, error) {
 	hash.Reset()
 	_, err := hash.Write(key)
 	if err != nil {
 		return 0, err
 	}
 
-	return hash.Sum32(), nil
+	return hash.Sum64(), nil
 }
 
 // Add adds a node to Hash ring
@@ -81,7 +81,7 @@ func (hr *HashRing) Add(node interface{}) error {
 }
 
 // getKeys returns the keys of map m
-func getKeys(m map[uint32]interface{}) (idx nodeIdx) {
+func getKeys(m map[uint64]interface{}) (idx nodeIdx) {
 	for k := range m {
 		idx = append(idx, k)
 	}
