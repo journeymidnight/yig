@@ -9,23 +9,23 @@ const (
 	// ObjectStorageClassStandard is a ObjectStorageClass enum value
 	ObjectStorageClassStandard StorageClass = iota
 
-	// ObjectStorageClassStandardIa is a ObjectStorageClass enum value
-	ObjectStorageClassStandardIa
-
-	// ObjectStorageClassIntelligentTiering is a ObjectStorageClass enum value
-	ObjectStorageClassIntelligentTiering
-
-	// ObjectStorageClassOnezoneIa is a ObjectStorageClass enum value
-	ObjectStorageClassOnezoneIa
+	// ObjectStorageClassReducedRedundancy is a ObjectStorageClass enum value
+	ObjectStorageClassReducedRedundancy
 
 	// ObjectStorageClassGlacier is a ObjectStorageClass enum value
 	ObjectStorageClassGlacier
 
+	// ObjectStorageClassStandardIa is a ObjectStorageClass enum value
+	ObjectStorageClassStandardIa
+
+	// ObjectStorageClassOnezoneIa is a ObjectStorageClass enum value
+	ObjectStorageClassOnezoneIa
+
+	// ObjectStorageClassIntelligentTiering is a ObjectStorageClass enum value
+	ObjectStorageClassIntelligentTiering
+
 	// ObjectStorageClassIntelligentTiering is a ObjectStorageClass enum value
 	ObjectStorageClassDeepArchive
-
-	// ObjectStorageClassReducedRedundancy is a ObjectStorageClass enum value
-	ObjectStorageClassReducedRedundancy
 )
 
 var (
@@ -47,6 +47,16 @@ var (
 		"GLACIER":             ObjectStorageClassGlacier,
 		"DEEP_ARCHIVE":        ObjectStorageClassDeepArchive,
 		"RRS":                 ObjectStorageClassReducedRedundancy,
+	}
+
+	StorageClassWeight = map[StorageClass]int{
+		ObjectStorageClassStandard:           1,
+		ObjectStorageClassStandardIa:         2,
+		ObjectStorageClassIntelligentTiering: 3,
+		ObjectStorageClassOnezoneIa:          4,
+		ObjectStorageClassGlacier:            5,
+		ObjectStorageClassDeepArchive:        6,
+		ObjectStorageClassReducedRedundancy:  1,
 	}
 )
 
