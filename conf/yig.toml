@@ -20,6 +20,8 @@ reserved_origins = "s3.test.com,s3-internal.test.com"
 
 # LC
 lc_thread = 64
+# LC Debug
+lc_debug = true
 # 20s
 lifecycle_spec = "@every 20s"
 #lifecycle_spec = "@midnight"

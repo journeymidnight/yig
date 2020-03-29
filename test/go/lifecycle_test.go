@@ -22,11 +22,11 @@ const (
     						</Filter>
     						<Status>Enabled</Status>
 							<Transition>
-      								<Date>2020-03-24T00:00:00+08:00</Date>
+      								<Days>1</Days>
       								<StorageClass>` + TEST_STORAGE_STANDARD_IA + `</StorageClass>
     						</Transition>
 							<Expiration>
-      							<Date>2020-03-24T00:00:00+08:00</Date>
+      							<Days>1</Days>
     						</Expiration>
 							<NoncurrentVersionExpiration>
                                     <NoncurrentDays>1</NoncurrentDays>
@@ -39,7 +39,7 @@ const (
 	  						</Filter>
 	  						<Status>Enabled</Status>
 	  						<Expiration>
-	 								<Date>2020-03-24T00:00:00+08:00</Date>
+	 								<Days>1</Days>
 	  						</Expiration>
 	  					</Rule>
 	</LifecycleConfiguration>`

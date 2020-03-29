@@ -19,6 +19,7 @@ package lifecycle
 import (
 	"encoding/xml"
 	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/helper"
 	meta "github.com/journeymidnight/yig/meta/util"
 	"io"
 	"strings"
@@ -143,7 +144,13 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 				}
 
 				if !rule.Expiration.IsDaysNull() {
-					if time.Now().After(modTime.Add(time.Duration(rule.Expiration.Days) * 24 * time.Hour)) {
+					var days time.Duration
+					if helper.CONFIG.LifecycleDebug {
+						days = time.Duration(rule.Expiration.Days) * time.Minute
+					} else {
+						days = time.Duration(rule.Expiration.Days) * 24 * time.Hour
+					}
+					if time.Now().After(modTime.Add(days)) {
 						if rule.Expiration.IsSetDeleteMarker() {
 							return DeleteMarker, ""
 						}
@@ -166,7 +173,13 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 					}
 
 					if !transition.IsDaysNull() {
-						if time.Now().After(modTime.Add(time.Duration(transition.Days) * 24 * time.Hour)) {
+						var days time.Duration
+						if helper.CONFIG.LifecycleDebug {
+							days = time.Duration(rule.Expiration.Days) * time.Minute
+						} else {
+							days = time.Duration(rule.Expiration.Days) * 24 * time.Hour
+						}
+						if time.Now().After(modTime.Add(days)) {
 							action = TransitionAction
 							ruleStorageClass, _ := meta.MatchStorageClassIndex(transition.StorageClass)
 							if storageClass < ruleStorageClass {
@@ -207,7 +220,13 @@ func (lc Lifecycle) ComputeActionFromNonCurrentVersion(objName string, objTags m
 			// at the time, expiration is first,and then GLACIER
 			if rule.NoncurrentVersionExpiration != nil {
 				if !rule.NoncurrentVersionExpiration.IsDaysNull() {
-					if time.Now().After(modTime.Add(time.Duration(rule.NoncurrentVersionExpiration.NoncurrentDays) * 24 * time.Hour)) {
+					var days time.Duration
+					if helper.CONFIG.LifecycleDebug {
+						days = time.Duration(rule.NoncurrentVersionExpiration.NoncurrentDays) * time.Minute
+					} else {
+						days = time.Duration(rule.NoncurrentVersionExpiration.NoncurrentDays) * 24 * time.Hour
+					}
+					if time.Now().After(modTime.Add(days)) {
 						return DeleteAction, ""
 					}
 				}
@@ -217,7 +236,13 @@ func (lc Lifecycle) ComputeActionFromNonCurrentVersion(objName string, objTags m
 				// to result transition conflict: GLACIER > STANDARD_IA
 				for _, transition := range rule.NoncurrentVersionTransitions {
 					if !transition.IsDaysNull() {
-						if time.Now().After(modTime.Add(time.Duration(transition.NoncurrentDays) * 24 * time.Hour)) {
+						var days time.Duration
+						if helper.CONFIG.LifecycleDebug {
+							days = time.Duration(rule.NoncurrentVersionExpiration.NoncurrentDays) * time.Minute
+						} else {
+							days = time.Duration(rule.NoncurrentVersionExpiration.NoncurrentDays) * 24 * time.Hour
+						}
+						if time.Now().After(modTime.Add(days)) {
 							action = TransitionAction
 							ruleStorageClass, _ := meta.MatchStorageClassIndex(transition.StorageClass)
 							if storageClass < ruleStorageClass {
