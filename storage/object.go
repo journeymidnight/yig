@@ -327,17 +327,17 @@ func copyEncryptedPart(pool string, part *meta.Part, cluster backend.Cluster,
 	return err
 }
 
-func (yig *YigStorage) GetBucketAndObjectInfo(bucketName string, objectName string,
-	version string, credential common.Credential) (bucket *meta.Bucket, object *meta.Object, err error) {
+func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
+	version string, credential common.Credential) (object *meta.Object, err error) {
 
-	bucket, err = yig.MetaStorage.GetBucket(bucketName, true)
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
 		return
 	}
 
 	if bucket.Versioning == datatype.BucketVersioningDisabled {
 		if version != "" {
-			return nil, nil, ErrInvalidVersioning
+			return nil, ErrInvalidVersioning
 		}
 		object, err = yig.MetaStorage.GetObject(bucketName, objectName, meta.NullVersion, true)
 	} else {
@@ -348,7 +348,7 @@ func (yig *YigStorage) GetBucketAndObjectInfo(bucketName string, objectName stri
 	}
 
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	if !credential.AllowOtherUserAccess {

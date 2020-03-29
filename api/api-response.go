@@ -324,7 +324,9 @@ func WriteErrorResponseNoHeader(w http.ResponseWriter, req *http.Request, err er
 	encodedErrorResponse := EncodeResponse(errorResponse)
 
 	// ResponseRecorder
-	w.(*ResponseRecorder).size = int64(len(encodedErrorResponse))
+	if _, ok := w.(*ResponseRecorder); ok {
+		w.(*ResponseRecorder).size = int64(len(encodedErrorResponse))
+	}
 
 	w.Write(encodedErrorResponse)
 	w.(http.Flusher).Flush()

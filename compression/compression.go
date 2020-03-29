@@ -8,7 +8,7 @@ import (
 
 type Compression interface {
 	CompressReader(reader io.Reader) io.Reader
-	UnCompressReader(reader io.Reader) io.Reader
+	CompressWriter(writer io.Writer) io.Writer
 	IsCompressible(objectName, mtype string) bool
 }
 

@@ -468,15 +468,8 @@ func (yig *YigStorage) DeleteBucketEncryption(bucket *meta.Bucket) error {
 	return nil
 }
 
-func (yig *YigStorage) CheckBucketEncryption(bucketName string) (*datatype.ApplyServerSideEncryptionByDefault, bool) {
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
-	if err != nil {
-		return nil, false
-	}
+func (yig *YigStorage) CheckBucketEncryption(bucket *meta.Bucket) (*datatype.ApplyServerSideEncryptionByDefault, bool) {
 	bucketEncryption := bucket.Encryption
-	if err != nil {
-		return nil, false
-	}
 	if len(bucketEncryption.Rules) == 0 {
 		return nil, false
 	}

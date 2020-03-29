@@ -42,6 +42,9 @@ func (m *Meta) GetObject(bucketName, objectName, reqVersion string, willNeed boo
 		}
 	} else {
 		o, err = getObjectVersion()
+		if err != nil {
+			return
+		}
 	}
 	object, ok := o.(*Object)
 	if !ok {
