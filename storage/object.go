@@ -421,16 +421,25 @@ func (yig *YigStorage) GetObjectAcl(reqCtx RequestContext, credential common.Cre
 		return policy, ErrNoSuchKey
 	}
 
-	switch object.ACL.CannedAcl {
-	case "bucket-owner-full-control":
-		if bucket.OwnerId != credential.UserId {
-			err = ErrAccessDenied
-			return
-		}
-	default:
-		if object.OwnerId != credential.UserId {
-			err = ErrAccessDenied
-			return
+	if !credential.AllowOtherUserAccess {
+		switch object.ACL.CannedAcl {
+		case "public-read", "public-read-write":
+			break
+		case "authenticated-read":
+			if credential.UserId == "" {
+				err = ErrAccessDenied
+				return
+			}
+		case "bucket-owner-read", "bucket-owner-full-control":
+			if bucket.OwnerId != credential.UserId {
+				err = ErrAccessDenied
+				return
+			}
+		default:
+			if object.OwnerId != credential.UserId {
+				err = ErrAccessDenied
+				return
+			}
 		}
 	}
 
@@ -469,16 +478,14 @@ func (yig *YigStorage) SetObjectAcl(reqCtx RequestContext, policy datatype.Acces
 		acl = newCannedAcl
 	}
 
-	switch bucket.ACL.CannedAcl {
-	case "bucket-owner-full-control":
+	if bucket.ACL.CannedAcl == "bucket-owner-full-control" {
 		if bucket.OwnerId != credential.UserId {
 			return ErrAccessDenied
 		}
-	default:
-		if bucket.OwnerId != credential.UserId {
-			return ErrAccessDenied
-		}
-	} // TODO policy and fancy ACL
+	} else {
+		return ErrAccessDenied
+
+	}
 
 	object.ACL = acl
 	err := yig.MetaStorage.UpdateObjectAcl(object)
