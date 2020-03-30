@@ -222,7 +222,6 @@ func Get(table RedisDatabase, key string,
 			if err != nil {
 				return err
 			}
-			// Use table.String() + hashkey as Redis key
 			encodedValue, err = redigo.Bytes(c.Do("GET", table.String()+hashkey))
 			if err != nil {
 				if err == redigo.ErrNil {

@@ -36,6 +36,7 @@ type HashRing struct {
 }
 
 // New returns a Hash ring with provided virtual node count and hash
+
 // If hash is nil, fvn64a is used instead
 func NewHashRing(replicaCount int, hash hash.Hash64) *HashRing {
 	if hash == nil {
@@ -48,6 +49,7 @@ func NewHashRing(replicaCount int, hash hash.Hash64) *HashRing {
 		hash:         hash,
 	}
 }
+
 
 // getHash returns uint64 hash
 func getHash(hash hash.Hash64, key []byte) (uint64, error) {
