@@ -70,22 +70,13 @@ kms_secret = "your_secret"
 version = 0
 keyName = "yig"
 
-[plugins.encryption_kms]
-path = "/etc/yig/plugins/kms_plugin.so"
-enable = false
-[plugins.encryption_kms.args]
-url = "https://10.0.47.24:8011"
-keyName = "alias/yig"
-accessKey = "UYqO9JUqFFejWmO2"
-secretAccessKey = "0TsGg4snfyWMcn7KrfyeYKPZnLEm63"
-debug_mode = true
-token = "20cd173e-9d5a-431f-a26d-cdb1ad168c84"
 
 [plugins.dummy_encryption_kms]
 path = "/etc/yig/plugins/dummy_kms_plugin.so"
 enable = true
 [plugins.dummy_encryption_kms.args]
 url = "KMS"
+
 [plugins.dummy_mq]
 path = "/etc/yig/plugins/dummy_mq_plugin.so"
 enable = true
