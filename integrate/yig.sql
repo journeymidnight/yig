@@ -273,6 +273,14 @@ CREATE TABLE `users` (
   `userid` varchar(255) DEFAULT NULL,
   `bucketname` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
+DROP TABLE IF EXISTS `qos`;
+CREATE TABLE `qos` (
+    `userid` varchar(255) PRIMARY KEY NOT NULL DEFAULT '',
+    `qps` int NOT NULL DEFAULT 0 COMMENT 'query per second',
+    `bandwidth` int NOT NULL DEFAULT 0 COMMENT 'KiB per second'
+);
+
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 

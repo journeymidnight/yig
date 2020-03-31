@@ -23,6 +23,7 @@ import (
 	"github.com/go-redis/redis_rate/v8"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	. "github.com/journeymidnight/yig/error"
@@ -279,7 +280,15 @@ type QosHandler struct {
 	handler     http.Handler
 	meta        *meta.Meta
 	rateLimiter *redis_rate.Limiter
+	// Not using a mutex to protect bucketUser or userQpsLimit,
+	// since it's OK to read stale or empty values.
+	// bucket name -> user id
+	bucketUser map[string]string
+	// user id -> user qps limit
+	userQpsLimit map[string]types.UserQos
 }
+
+const defaultQps = 2000
 
 func (h QosHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := getRequestContext(r)
@@ -287,8 +296,13 @@ func (h QosHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.handler.ServeHTTP(w, r)
 		return
 	}
-	k := fmt.Sprintf("bucket_qps_%s", ctx.BucketName)
-	result, err := h.rateLimiter.Allow(k, redis_rate.PerSecond(10000))
+	userID := h.bucketUser[ctx.BucketName]
+	qps := h.userQpsLimit[userID].Qps
+	if qps <= 0 {
+		qps = defaultQps
+	}
+	k := fmt.Sprintf("bucket_qps_%s", userID)
+	result, err := h.rateLimiter.Allow(k, redis_rate.PerSecond(qps))
 	if err == nil && !result.Allowed {
 		WriteErrorResponse(w, r, ErrRequestLimitExceeded)
 		return
@@ -301,6 +315,30 @@ func (h QosHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.handler.ServeHTTP(w, r)
 }
 
+// I believe it's OK to load all data into memory when user count < 10k, so...
+func (h *QosHandler) inMemoryCacheSync() {
+	for {
+		bucketUser, err := h.meta.GetAllUserBuckets()
+		if err != nil {
+			helper.Logger.Error("GetAllUserBuckets error:", err)
+			bucketUser = nil
+		}
+		userQpsLimit, err := h.meta.GetAllUserQos()
+		if err != nil {
+			helper.Logger.Error("GetAllUserQos error:", err)
+			userQpsLimit = nil
+		}
+		if bucketUser != nil {
+			h.bucketUser = bucketUser
+		}
+		if userQpsLimit != nil {
+			h.userQpsLimit = userQpsLimit
+		}
+
+		time.Sleep(10 * time.Minute)
+	}
+}
+
 func SetQosHandler(h http.Handler, meta *meta.Meta) http.Handler {
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     helper.CONFIG.RedisAddress,
@@ -311,7 +349,10 @@ func SetQosHandler(h http.Handler, meta *meta.Meta) http.Handler {
 		handler:     h,
 		meta:        meta,
 		rateLimiter: limiter,
+		bucketUser: make(map[string]string),
+		userQpsLimit: make(map[string]types.UserQos),
 	}
+	go qos.inMemoryCacheSync()
 	return qos
 }
 

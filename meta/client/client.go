@@ -51,6 +51,7 @@ type Client interface {
 	ScanLifeCycle(limit int, marker string) (result ScanLifeCycleResult, err error)
 	//user
 	GetUserBuckets(userId string) (buckets []string, err error)
+	GetAllUserBuckets() (bucketUser map[string]string, err error)
 	AddBucketForUser(bucketName, userId string) (err error)
 	RemoveBucketForUser(bucketName string, userId string) (err error)
 	//gc
@@ -64,4 +65,6 @@ type Client interface {
 	GetFreezerStatus(bucketName, objectName, version string) (freezer *Freezer, err error)
 	UploadFreezerDate(bucketName, objectName string, lifetime int) (err error)
 	DeleteFreezer(bucketName, objectName string, tx DB) (err error)
+	//qos
+	GetAllUserQos() (userQos map[string]UserQos, err error)
 }
