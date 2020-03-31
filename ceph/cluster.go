@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"path/filepath"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -15,18 +16,7 @@ import (
 	"github.com/journeymidnight/yig/helper"
 )
 
-const (
-	MON_TIMEOUT                = "10"
-	OSD_TIMEOUT                = "10"
-	STRIPE_UNIT                = 512 << 10 /* 512K */
-	STRIPE_COUNT               = 2
-	OBJECT_SIZE                = 8 << 20 /* 8M */
-	AIO_CONCURRENT             = 4
-	DEFAULT_CEPHCONFIG_PATTERN = "conf/*.conf"
-	MIN_CHUNK_SIZE             = 512 << 10       // 512K
-	BUFFER_SIZE                = 1 << 20         // 1M
-	MAX_CHUNK_SIZE             = 8 * BUFFER_SIZE // 8M
-)
+const DEFAULT_CEPHCONFIG_PATTERN = "conf/*.conf"
 
 func Initialize(config helper.Config) map[string]backend.Cluster {
 	cephConfigPattern := config.CephConfigPattern
@@ -60,8 +50,8 @@ func NewCephStorage(configFile string) *CephCluster {
 	helper.Logger.Info("Loading Ceph file", configFile)
 
 	conn, err := rados.NewConn("admin")
-	conn.SetConfigOption("rados_mon_op_timeout", MON_TIMEOUT)
-	conn.SetConfigOption("rados_osd_op_timeout", OSD_TIMEOUT)
+	conn.SetConfigOption("rados_mon_op_timeout", strconv.Itoa(helper.CONFIG.CephMonTimeout))
+	conn.SetConfigOption("rados_osd_op_timeout", strconv.Itoa(helper.CONFIG.CephOsdTimeout))
 
 	err = conn.ReadConfigFile(configFile)
 	if err != nil {
@@ -96,13 +86,13 @@ func NewCephStorage(configFile string) *CephCluster {
 
 func setStripeLayout(p StriperPool) int {
 	var ret int = 0
-	if ret = p.SetLayoutStripeUnit(STRIPE_UNIT); ret < 0 {
+	if ret = p.SetLayoutStripeUnit(helper.CONFIG.CephStripeUnit); ret < 0 {
 		return ret
 	}
-	if ret = p.SetLayoutObjectSize(OBJECT_SIZE); ret < 0 {
+	if ret = p.SetLayoutObjectSize(helper.CONFIG.CephStripeObjectSize); ret < 0 {
 		return ret
 	}
-	if ret = p.SetLayoutStripeCount(STRIPE_COUNT); ret < 0 {
+	if ret = p.SetLayoutStripeCount(helper.CONFIG.CephStripeCount); ret < 0 {
 		return ret
 	}
 	return ret
@@ -289,7 +279,7 @@ func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
 			}
 		}
 
-		if pending.Len() > AIO_CONCURRENT {
+		if pending.Len() > helper.CONFIG.CephStripeAioConcurrent {
 			if ret := wait_pending_front(pending); ret < 0 {
 				drain_pending(pending)
 				return oid, 0,
@@ -554,7 +544,7 @@ func (cluster *CephCluster) Remove(poolname string, oid string) error {
 		return errors.New("Bad ioctx")
 	}
 	defer striper.Destroy()
-	// if we do not set our custom layout, rados will infer all objects filename from default layout setting, 
+	// if we do not set our custom layout, rados will infer all objects filename from default layout setting,
 	// and some sub objects will not be deleted
 	setStripeLayout(striper)
 

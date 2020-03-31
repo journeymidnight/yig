@@ -79,6 +79,13 @@ type Config struct {
 	DownloadBufPoolSize int64 `toml:"download_buf_pool_size"`
 	UploadMinChunkSize  int64 `toml:"upload_min_chunk_size"`
 	UploadMaxChunkSize  int64 `toml:"upload_max_chunk_size"`
+
+	CephMonTimeout          int  `toml:"ceph_mon_timeout"`    // "10"
+	CephOsdTimeout          int  `toml:"ceph_osd_timeout"`    // "10"
+	CephStripeUnit          uint `toml:"ceph_stripe_unit"`    // 512 << 10
+	CephStripeCount         uint `toml:"ceph_stripe_count"`   // 2
+	CephStripeObjectSize    uint `toml:"ceph_object_size"`    //               = 8 << 20 /* 8M */
+	CephStripeAioConcurrent int  `toml:"ceph_aio_concurrent"` // = 4
 }
 
 type PluginConfig struct {
@@ -170,6 +177,13 @@ func MarshalTOMLConfig() error {
 	CONFIG.DownloadBufPoolSize = Ternary(c.DownloadBufPoolSize < MIN_BUFFER_SIZE || c.DownloadBufPoolSize > MAX_BUFEER_SIZE, MIN_BUFFER_SIZE, c.DownloadBufPoolSize).(int64)
 	CONFIG.UploadMinChunkSize = Ternary(c.UploadMinChunkSize < MIN_BUFFER_SIZE || c.UploadMinChunkSize > MAX_BUFEER_SIZE, MIN_BUFFER_SIZE, c.UploadMinChunkSize).(int64)
 	CONFIG.UploadMaxChunkSize = Ternary(c.UploadMaxChunkSize < CONFIG.UploadMinChunkSize || c.UploadMaxChunkSize > MAX_BUFEER_SIZE, MAX_BUFEER_SIZE, c.UploadMaxChunkSize).(int64)
+
+	CONFIG.CephMonTimeout = Ternary(c.CephMonTimeout < 10, 10, c.CephMonTimeout).(int)
+	CONFIG.CephOsdTimeout = Ternary(c.CephMonTimeout < 10, 10, c.CephOsdTimeout).(int)
+	CONFIG.CephStripeUnit = Ternary(c.CephStripeUnit < (512<<10), 512<<10, c.CephStripeUnit).(uint)
+	CONFIG.CephStripeCount = Ternary(c.CephStripeCount < 1, 1, c.CephStripeCount).(uint)
+	CONFIG.CephStripeObjectSize = Ternary(c.CephStripeObjectSize < (8<<20), 8<<20, c.CephStripeObjectSize).(uint)
+	CONFIG.CephStripeAioConcurrent = Ternary(c.CephStripeAioConcurrent < 1, 1, c.CephStripeAioConcurrent).(int)
 
 	return nil
 }
