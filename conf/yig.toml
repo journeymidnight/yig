@@ -100,6 +100,14 @@ enable = true
 [plugins.dummy_iam.args]
 url="s3.test.com"
 
+[plugins.yig_iam]
+path = "/etc/yig/plugins/yig_iam_plugin.so"
+enable = false
+[plugins.yig_iam.args]
+EndPoint="http://127.0.0.1:8080/api/v1/yig/fetchsecretkey"
+ManageKey="key"
+ManageSecret="secret"
+
 [plugins.not_exist]
 path = "not_exist_so"
 enable = false
