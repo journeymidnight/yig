@@ -19,12 +19,6 @@ package api
 import (
 	"context"
 	"fmt"
-	"github.com/go-redis/redis/v7"
-	"github.com/go-redis/redis_rate/v8"
-	"net/http"
-	"strings"
-	"time"
-
 	"github.com/gorilla/mux"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
@@ -32,6 +26,8 @@ import (
 	"github.com/journeymidnight/yig/meta"
 	"github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/signature"
+	"net/http"
+	"strings"
 )
 
 // HandlerFunc - useful to chain different middleware http.Handler
@@ -277,19 +273,9 @@ func InReservedOrigins(origin string) bool {
 }
 
 type QosHandler struct {
-	handler     http.Handler
-	meta        *meta.Meta
-	rateLimiter *redis_rate.Limiter
-	// Not using a mutex to protect bucketUser or userQpsLimit,
-	// since it's OK to read stale or empty values.
-	// bucket name -> user id
-	bucketUser map[string]string
-	// user id -> user qps limit
-	userQpsLimit map[string]types.UserQos
+	handler http.Handler
+	meta    *meta.Meta
 }
-
-const defaultReadQps = 2000
-const defaultWriteQps = 1000
 
 func (h *QosHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := getRequestContext(r)
@@ -297,73 +283,24 @@ func (h *QosHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.handler.ServeHTTP(w, r)
 		return
 	}
-	userID := h.bucketUser[ctx.BucketName]
-	var key string
-	var qps int
+	var allow bool
 	if r.Method == "GET" || r.Method == "HEAD" { // read operations
-		qps = h.userQpsLimit[userID].ReadQps
-		if qps <= 0 {
-			qps = defaultReadQps
-		}
-		key = fmt.Sprintf("user_rqps_%s", userID)
+		allow = h.meta.QosMeta.AllowReadQuery(ctx.BucketName)
 	} else { // write operations
-		qps = h.userQpsLimit[userID].WriteQps
-		if qps <= 0 {
-			qps = defaultWriteQps
-		}
-		key = fmt.Sprintf("user_wqps_%s", userID)
+		allow = h.meta.QosMeta.AllowWriteQuery(ctx.BucketName)
 	}
-	// the key actually used in redis would have a prefix "rate:"
-	result, err := h.rateLimiter.Allow(key, redis_rate.PerSecond(qps))
-	if err == nil && !result.Allowed {
+	if !allow {
 		WriteErrorResponse(w, r, ErrRequestLimitExceeded)
 		return
-	}
-	if err != nil {
-		ctx.Logger.Error("rateLimiter:", err)
-		// don't return error here, allow by default
 	}
 	h.handler.ServeHTTP(w, r)
 }
 
-// I believe it's OK to load all data into memory when user count < 10k, so...
-func (h *QosHandler) inMemoryCacheSync() {
-	for {
-		bucketUser, err := h.meta.GetAllUserBuckets()
-		if err != nil {
-			helper.Logger.Error("GetAllUserBuckets error:", err)
-			bucketUser = nil
-		}
-		userQpsLimit, err := h.meta.GetAllUserQos()
-		if err != nil {
-			helper.Logger.Error("GetAllUserQos error:", err)
-			userQpsLimit = nil
-		}
-		if bucketUser != nil {
-			h.bucketUser = bucketUser
-		}
-		if userQpsLimit != nil {
-			h.userQpsLimit = userQpsLimit
-		}
-
-		time.Sleep(10 * time.Minute)
-	}
-}
-
 func SetQosHandler(h http.Handler, meta *meta.Meta) http.Handler {
-	redisClient := redis.NewClient(&redis.Options{
-		Addr:     helper.CONFIG.RedisAddress,
-		Password: helper.CONFIG.RedisPassword,
-	})
-	limiter := redis_rate.NewLimiter(redisClient)
 	qos := QosHandler{
-		handler:      h,
-		meta:         meta,
-		rateLimiter:  limiter,
-		bucketUser:   make(map[string]string),
-		userQpsLimit: make(map[string]types.UserQos),
+		handler: h,
+		meta:    meta,
 	}
-	go qos.inMemoryCacheSync()
 	return &qos
 }
 

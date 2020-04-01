@@ -32,11 +32,6 @@ func (m *Meta) GetUserBuckets(userId string, willNeed bool) (buckets []string, e
 	return buckets, nil
 }
 
-// Solely used for building in-memory cache, so not bother caching in Redis again
-func (m *Meta) GetAllUserBuckets() (bucketUser map[string]string, err error) {
-	return m.Client.GetAllUserBuckets()
-}
-
 func (m *Meta) AddBucketForUser(bucketName string, userId string) (err error) {
 	buckets, err := m.GetUserBuckets(userId, false)
 	if err != nil {
