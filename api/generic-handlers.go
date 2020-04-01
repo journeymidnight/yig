@@ -290,7 +290,7 @@ type QosHandler struct {
 
 const defaultQps = 2000
 
-func (h QosHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (h *QosHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := getRequestContext(r)
 	if len(ctx.BucketName) == 0 {
 		h.handler.ServeHTTP(w, r)
@@ -353,7 +353,7 @@ func SetQosHandler(h http.Handler, meta *meta.Meta) http.Handler {
 		userQpsLimit: make(map[string]types.UserQos),
 	}
 	go qos.inMemoryCacheSync()
-	return qos
+	return &qos
 }
 
 //// helpers
