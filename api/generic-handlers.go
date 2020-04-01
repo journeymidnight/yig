@@ -302,6 +302,7 @@ func (h *QosHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		qps = defaultQps
 	}
 	k := fmt.Sprintf("bucket_qps_%s", userID)
+	// the key actually used by "rateLimiter" in redis would be "rate:bucket_qps_%s"
 	result, err := h.rateLimiter.Allow(k, redis_rate.PerSecond(qps))
 	if err == nil && !result.Allowed {
 		WriteErrorResponse(w, r, ErrRequestLimitExceeded)
@@ -309,8 +310,7 @@ func (h *QosHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		ctx.Logger.Error("rateLimiter:", err)
-		WriteErrorResponse(w, r, ErrInternalError)
-		return
+		// don't return error here, allow by default
 	}
 	h.handler.ServeHTTP(w, r)
 }
