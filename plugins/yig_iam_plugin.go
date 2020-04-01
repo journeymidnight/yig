@@ -20,27 +20,27 @@ const pluginName = "yig_iam"
 var Exported = mods.YigPlugin{
 	Name:       pluginName,
 	PluginType: mods.IAM_PLUGIN,
-	Create:  GetIamClient,
+	Create:     GetIamClient,
 }
 
-type QueryRequest struct{
-	Acl string `json:"acl,omitempty"`
-	UserName string `json:"userName,omitempty"`
-	UserId string `json:"userId,omitempty"`
-	KeyName string `json:"keyName,omitempty"`
-	ProjectId string `json:"projectId,omitempty"`
-	ProjectName string `json:"projectName,omitempty"`
-	ProjectIds []string `json:"projects,omitempty"`
-	Password string `json:"password,omitempty"`
-	Description string `json:"description,omitempty"`
-	DisplayName string `json:"displayName,omitempty"`
-	Type string `json:"type,omitempty"`
-	Email string `json:"email,omitempty"`
-	Token string `json:"token,omitempty"`
-	AccessKey string `json:"accessKey,omitempty"`
-	AccessKeys []string `json:"accessKeys,omitempty"`
-	Limit int `json:"limit,omitempty"`
-	Offset int `json:"offset,omitempty"`
+type QueryRequest struct {
+	Acl         string   `json:"acl,omitempty"`
+	UserName    string   `json:"userName,omitempty"`
+	UserId      string   `json:"userId,omitempty"`
+	KeyName     string   `json:"keyName,omitempty"`
+	ProjectId   string   `json:"projectId,omitempty"`
+	ProjectName string   `json:"projectName,omitempty"`
+	ProjectIds  []string `json:"projects,omitempty"`
+	Password    string   `json:"password,omitempty"`
+	Description string   `json:"description,omitempty"`
+	DisplayName string   `json:"displayName,omitempty"`
+	Type        string   `json:"type,omitempty"`
+	Email       string   `json:"email,omitempty"`
+	Token       string   `json:"token,omitempty"`
+	AccessKey   string   `json:"accessKey,omitempty"`
+	AccessKeys  []string `json:"accessKeys,omitempty"`
+	Limit       int      `json:"limit,omitempty"`
+	Offset      int      `json:"offset,omitempty"`
 }
 
 type AccessKeyItem struct {
@@ -62,8 +62,8 @@ func GetIamClient(config map[string]interface{}) (interface{}, error) {
 	helper.Logger.Info("Get plugin config:", config)
 
 	c := YigIamClient{
-		Endpoint: config["EndPoint"].(string),
-		ManageKey: config["ManageKey"].(string),
+		Endpoint:     config["EndPoint"].(string),
+		ManageKey:    config["ManageKey"].(string),
 		ManageSecret: config["ManageSecret"].(string),
 	}
 
@@ -71,10 +71,10 @@ func GetIamClient(config map[string]interface{}) (interface{}, error) {
 }
 
 type YigIamClient struct {
-	httpClient  *circuitbreak.CircuitClient
-	Endpoint    string
-	ManageKey   string
-	ManageSecret    string
+	httpClient   *circuitbreak.CircuitClient
+	Endpoint     string
+	ManageKey    string
+	ManageSecret string
 }
 
 func (c YigIamClient) GetKeysByUid(uid string) (credentials []common.Credential, err error) {
@@ -84,7 +84,7 @@ func (c YigIamClient) GetKeysByUid(uid string) (credentials []common.Credential,
 	var slog = helper.Logger
 
 	url := c.Endpoint
-	slog.Println(20,"Url of GetKeysByUid send request to IAM :",url)
+	slog.Println(20, "Url of GetKeysByUid send request to IAM :", url)
 	var query QueryRequest
 	query.ProjectId = uid
 	body, err := json.Marshal(query)
@@ -107,7 +107,7 @@ func (c YigIamClient) GetKeysByUid(uid string) (credentials []common.Credential,
 	if err != nil {
 		return credentials, errors.New("failed to read from IAM: " + err.Error())
 	}
-	slog.Println(20,"GetKeysByUid to IAM return status ",response.Status)
+	slog.Println(20, "GetKeysByUid to IAM return status ", response.Status)
 	if response.StatusCode != 200 {
 		slog.Println(5, "GetKeysByUid to IAM failed return code = ", response.StatusCode)
 		return credentials, fmt.Errorf("GetKeysByUid to IAM failed retcode = %d", response.StatusCode)
@@ -131,7 +131,7 @@ func (c YigIamClient) GetCredential(accessKey string) (credential common.Credent
 	var slog = helper.Logger
 
 	url := c.Endpoint
-	slog.Println(20,"Url of GetCredential send request to IAM :",url)
+	slog.Println(20, "Url of GetCredential send request to IAM :", url)
 	var query QueryRequest
 	query.AccessKey = accessKey
 	body, err := json.Marshal(query)
@@ -153,7 +153,7 @@ func (c YigIamClient) GetCredential(accessKey string) (credential common.Credent
 	if err != nil {
 		return credential, errors.New("failed to read from IAM: " + err.Error())
 	}
-	slog.Println(20,"GetCredential to IAM return status ",response.Status)
+	slog.Println(20, "GetCredential to IAM return status ", response.Status)
 	if response.StatusCode != 200 {
 		slog.Println(5, "GetCredential to IAM failed return code = ", response.StatusCode)
 		return credential, fmt.Errorf("GetCredential to IAM failed retcode = %d", response.StatusCode)
