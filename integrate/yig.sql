@@ -277,8 +277,9 @@ CREATE TABLE `users` (
 DROP TABLE IF EXISTS `qos`;
 CREATE TABLE `qos` (
     `userid` varchar(255) PRIMARY KEY NOT NULL DEFAULT '',
-    `qps` int NOT NULL DEFAULT 0 COMMENT 'query per second',
-    `bandwidth` int NOT NULL DEFAULT 0 COMMENT 'KiB per second'
+    `read_qps` int NOT NULL DEFAULT 0 COMMENT 'read query per second',
+    `write_qps` int NOT NULL DEFAULT 0 COMMENT 'write query per second',
+    `bandwidth` int NOT NULL DEFAULT 0 COMMENT 'in KiB per second'
 );
 
 /*!40101 SET character_set_client = @saved_cs_client */;

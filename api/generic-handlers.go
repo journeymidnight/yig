@@ -288,7 +288,8 @@ type QosHandler struct {
 	userQpsLimit map[string]types.UserQos
 }
 
-const defaultQps = 2000
+const defaultReadQps = 2000
+const defaultWriteQps = 1000
 
 func (h *QosHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := getRequestContext(r)
@@ -297,13 +298,23 @@ func (h *QosHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userID := h.bucketUser[ctx.BucketName]
-	qps := h.userQpsLimit[userID].Qps
-	if qps <= 0 {
-		qps = defaultQps
+	var key string
+	var qps int
+	if r.Method == "GET" || r.Method == "HEAD" { // read operations
+		qps = h.userQpsLimit[userID].ReadQps
+		if qps <= 0 {
+			qps = defaultReadQps
+		}
+		key = fmt.Sprintf("user_rqps_%s", userID)
+	} else { // write operations
+		qps = h.userQpsLimit[userID].WriteQps
+		if qps <= 0 {
+			qps = defaultWriteQps
+		}
+		key = fmt.Sprintf("user_wqps_%s", userID)
 	}
-	k := fmt.Sprintf("bucket_qps_%s", userID)
-	// the key actually used by "rateLimiter" in redis would be "rate:bucket_qps_%s"
-	result, err := h.rateLimiter.Allow(k, redis_rate.PerSecond(qps))
+	// the key actually used in redis would have a prefix "rate:"
+	result, err := h.rateLimiter.Allow(key, redis_rate.PerSecond(qps))
 	if err == nil && !result.Allowed {
 		WriteErrorResponse(w, r, ErrRequestLimitExceeded)
 		return
@@ -340,16 +351,16 @@ func (h *QosHandler) inMemoryCacheSync() {
 }
 
 func SetQosHandler(h http.Handler, meta *meta.Meta) http.Handler {
-	rdb := redis.NewClient(&redis.Options{
+	redisClient := redis.NewClient(&redis.Options{
 		Addr:     helper.CONFIG.RedisAddress,
 		Password: helper.CONFIG.RedisPassword,
 	})
-	limiter := redis_rate.NewLimiter(rdb)
+	limiter := redis_rate.NewLimiter(redisClient)
 	qos := QosHandler{
-		handler:     h,
-		meta:        meta,
-		rateLimiter: limiter,
-		bucketUser: make(map[string]string),
+		handler:      h,
+		meta:         meta,
+		rateLimiter:  limiter,
+		bucketUser:   make(map[string]string),
 		userQpsLimit: make(map[string]types.UserQos),
 	}
 	go qos.inMemoryCacheSync()

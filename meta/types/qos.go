@@ -2,6 +2,7 @@ package types
 
 type UserQos struct {
 	UserID    string
-	Qps       int
+	ReadQps   int
+	WriteQps  int
 	Bandwidth int // in KiBps
 }
