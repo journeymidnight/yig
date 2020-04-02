@@ -81,11 +81,31 @@ func (m *QosMeta) ThrottleReader(bucketName string, reader io.Reader) ThrottleRe
 	if bandwidthKBps <= 0 {
 		bandwidthKBps = defaultBandwidthKBps
 	}
-	return ThrottleReader{
-		reader:      reader,
+	throttle := throttler{
 		rateLimiter: m.rateLimiter,
 		userID:      userID,
 		kbpsLimit:   bandwidthKBps,
+	}
+	return ThrottleReader{
+		reader:    reader,
+		throttler: throttle,
+	}
+}
+
+func (m *QosMeta) ThrottleWriter(bucketName string, writer io.Writer) ThrottleWriter {
+	userID := m.bucketUser[bucketName]
+	bandwidthKBps := m.userQosLimit[userID].Bandwidth
+	if bandwidthKBps <= 0 {
+		bandwidthKBps = defaultBandwidthKBps
+	}
+	throttle := throttler{
+		rateLimiter: m.rateLimiter,
+		userID:      userID,
+		kbpsLimit:   bandwidthKBps,
+	}
+	return ThrottleWriter{
+		writer:    writer,
+		throttler: throttle,
 	}
 }
 
@@ -113,18 +133,19 @@ func (m *QosMeta) inMemoryCacheSync() {
 	}
 }
 
-type ThrottleReader struct {
-	reader      io.Reader
+type throttler struct {
 	rateLimiter *redis_rate.Limiter
 	userID      string
 	kbpsLimit   int // KBps
 }
 
-func (r ThrottleReader) maybeWaitTokenN(n int) {
-	key := fmt.Sprintf("user_bandwidth_%s", r.userID)
+// Note by test, if 1024 * kbpsLimit < n, which is rare,
+// speed would always be 0, i.e. maybeWaitTokenN() would block forever
+func (t throttler) maybeWaitTokenN(n int) {
+	key := fmt.Sprintf("user_bandwidth_%s", t.userID)
 	for {
-		result, err := r.rateLimiter.AllowN(key,
-			redis_rate.PerSecond(r.kbpsLimit*1024), n)
+		result, err := t.rateLimiter.AllowN(key,
+			redis_rate.PerSecond(t.kbpsLimit*1024), n)
 		if err != nil {
 			helper.Logger.Error("ThrottleReader:", err)
 			return
@@ -136,11 +157,26 @@ func (r ThrottleReader) maybeWaitTokenN(n int) {
 	}
 }
 
-// Note by test, if 1024 * kbpsLimit < len(p), which is rare,
-// speed would always be 0, i.e. Read() would block forever
+type ThrottleReader struct {
+	reader io.Reader
+	throttler
+}
+
 func (r ThrottleReader) Read(p []byte) (int, error) {
 	r.maybeWaitTokenN(len(p))
 	n, err := r.reader.Read(p)
+	// TODO if n < len(p), we might need to refill tokens back
+	return n, err
+}
+
+type ThrottleWriter struct {
+	writer io.Writer
+	throttler
+}
+
+func (w ThrottleWriter) Write(p []byte) (int, error) {
+	w.maybeWaitTokenN(len(p))
+	n, err := w.writer.Write(p)
 	// TODO if n < len(p), we might need to refill tokens back
 	return n, err
 }
