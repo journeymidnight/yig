@@ -204,7 +204,7 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 		}
 	}
 	// throttle write speed as needed
-	writer = yig.MetaStorage.QosMeta.ThrottleWriter(object.BucketName, writer)
+	writer = yig.MetaStorage.QosMeta.NewThrottleWriter(object.BucketName, writer)
 
 	if len(object.Parts) == 0 { // this object has only one part
 		cephCluster, ok := yig.DataStorage[object.Location]
@@ -561,7 +561,7 @@ func (yig *YigStorage) PutObject(bucketName string, objectName string, credentia
 	if err != nil {
 		return
 	}
-	throttleReader := yig.MetaStorage.QosMeta.ThrottleReader(bucketName, storageReader)
+	throttleReader := yig.MetaStorage.QosMeta.NewThrottleReader(bucketName, storageReader)
 	objectId, bytesWritten, err := cluster.Put(poolName, throttleReader)
 	if err != nil {
 		return
@@ -821,7 +821,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, sourceObject *meta.
 					}
 				}
 				storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
-				throttleReader := yig.MetaStorage.QosMeta.ThrottleReader(bucket.Name, storageReader)
+				throttleReader := yig.MetaStorage.QosMeta.NewThrottleReader(bucket.Name, storageReader)
 				oid, bytesW, err = cephCluster.Put(poolName, throttleReader)
 				maybeObjectToRecycle = objectToRecycle{
 					location: cephCluster.ID(),
@@ -873,7 +873,7 @@ func (yig *YigStorage) CopyObject(targetObject *meta.Object, sourceObject *meta.
 			return
 		}
 		var bytesWritten uint64
-		throttleReader := yig.MetaStorage.QosMeta.ThrottleReader(bucket.Name, storageReader)
+		throttleReader := yig.MetaStorage.QosMeta.NewThrottleReader(bucket.Name, storageReader)
 		oid, bytesWritten, err = cephCluster.Put(poolName, throttleReader)
 		if err != nil {
 			return

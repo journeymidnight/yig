@@ -75,7 +75,7 @@ func (m *QosMeta) AllowWriteQuery(bucketName string) (allow bool) {
 	return result.Allowed
 }
 
-func (m *QosMeta) ThrottleReader(bucketName string, reader io.Reader) ThrottleReader {
+func (m *QosMeta) NewThrottleReader(bucketName string, reader io.Reader) *ThrottleReader {
 	userID := m.bucketUser[bucketName]
 	bandwidthKBps := m.userQosLimit[userID].Bandwidth
 	if bandwidthKBps <= 0 {
@@ -86,13 +86,13 @@ func (m *QosMeta) ThrottleReader(bucketName string, reader io.Reader) ThrottleRe
 		userID:      userID,
 		kbpsLimit:   bandwidthKBps,
 	}
-	return ThrottleReader{
+	return &ThrottleReader{
 		reader:    reader,
 		throttler: throttle,
 	}
 }
 
-func (m *QosMeta) ThrottleWriter(bucketName string, writer io.Writer) ThrottleWriter {
+func (m *QosMeta) NewThrottleWriter(bucketName string, writer io.Writer) *ThrottleWriter {
 	userID := m.bucketUser[bucketName]
 	bandwidthKBps := m.userQosLimit[userID].Bandwidth
 	if bandwidthKBps <= 0 {
@@ -103,7 +103,7 @@ func (m *QosMeta) ThrottleWriter(bucketName string, writer io.Writer) ThrottleWr
 		userID:      userID,
 		kbpsLimit:   bandwidthKBps,
 	}
-	return ThrottleWriter{
+	return &ThrottleWriter{
 		writer:    writer,
 		throttler: throttle,
 	}
@@ -117,16 +117,16 @@ func (m *QosMeta) inMemoryCacheSync() {
 			helper.Logger.Error("GetAllUserBuckets error:", err)
 			bucketUser = nil
 		}
-		userQpsLimit, err := m.client.GetAllUserQos()
+		userQosLimit, err := m.client.GetAllUserQos()
 		if err != nil {
 			helper.Logger.Error("GetAllUserQos error:", err)
-			userQpsLimit = nil
+			userQosLimit = nil
 		}
 		if bucketUser != nil {
 			m.bucketUser = bucketUser
 		}
-		if userQpsLimit != nil {
-			m.userQosLimit = userQpsLimit
+		if userQosLimit != nil {
+			m.userQosLimit = userQosLimit
 		}
 
 		time.Sleep(10 * time.Minute)
@@ -137,12 +137,19 @@ type throttler struct {
 	rateLimiter *redis_rate.Limiter
 	userID      string
 	kbpsLimit   int // KBps
+	refill      int // extra tokens consumed
 }
 
 // Note by test, if 1024 * kbpsLimit < n, which is rare,
 // speed would always be 0, i.e. maybeWaitTokenN() would block forever
-func (t throttler) maybeWaitTokenN(n int) {
+func (t *throttler) maybeWaitTokenN(n int) {
 	key := fmt.Sprintf("user_bandwidth_%s", t.userID)
+	if t.refill >= n {
+		t.refill -= n
+		return
+	}
+	n -= t.refill
+	t.refill = 0
 	for {
 		result, err := t.rateLimiter.AllowN(key,
 			redis_rate.PerSecond(t.kbpsLimit*1024), n)
@@ -162,10 +169,11 @@ type ThrottleReader struct {
 	throttler
 }
 
-func (r ThrottleReader) Read(p []byte) (int, error) {
+func (r *ThrottleReader) Read(p []byte) (int, error) {
 	r.maybeWaitTokenN(len(p))
 	n, err := r.reader.Read(p)
-	// TODO if n < len(p), we might need to refill tokens back
+	// we consumed len(p) tokens, but transferred n bytes
+	r.refill += len(p) - n
 	return n, err
 }
 
@@ -174,9 +182,10 @@ type ThrottleWriter struct {
 	throttler
 }
 
-func (w ThrottleWriter) Write(p []byte) (int, error) {
+func (w *ThrottleWriter) Write(p []byte) (int, error) {
 	w.maybeWaitTokenN(len(p))
 	n, err := w.writer.Write(p)
-	// TODO if n < len(p), we might need to refill tokens back
+	// we consumed len(p) tokens, but transferred n bytes
+	w.refill += len(p) - n
 	return n, err
 }
