@@ -478,13 +478,8 @@ func (yig *YigStorage) SetObjectAcl(reqCtx RequestContext, policy datatype.Acces
 		acl = newCannedAcl
 	}
 
-	if bucket.ACL.CannedAcl == "bucket-owner-full-control" {
-		if bucket.OwnerId != credential.UserId {
-			return ErrAccessDenied
-		}
-	} else {
+	if bucket.OwnerId != credential.UserId {
 		return ErrAccessDenied
-
 	}
 
 	object.ACL = acl
