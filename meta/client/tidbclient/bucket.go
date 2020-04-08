@@ -561,7 +561,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 	}
 	// fill CommonPrefix
 	listInfo.Prefixes = helper.Keys(commonPrefixes)
-	return
+	return listInfo, nil
 }
 
 func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefix, delimiter string, maxKeys int) (listInfo VersionedListObjectsInfo, err error) {
@@ -846,7 +846,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 	}
 	// fill CommonPrefix
 	listInfo.Prefixes = helper.Keys(commonPrefixes)
-	return
+	return listInfo, nil
 }
 
 func (t *TidbClient) DeleteBucket(bucket Bucket) error {
