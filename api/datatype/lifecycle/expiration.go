@@ -118,7 +118,7 @@ func (e Expiration) Validate() error {
 	return nil
 }
 
-func (e Expiration) IsSetDeleteMarker() bool {
+func (e Expiration) IsSetExpiredObjectDeleteMarker() bool {
 	if e.ExpiredObjectDeleteMarker != nil {
 		return bool(*e.ExpiredObjectDeleteMarker)
 	}

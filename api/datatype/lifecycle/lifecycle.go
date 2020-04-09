@@ -136,7 +136,7 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 			if rule.Expiration != nil {
 				if !rule.Expiration.IsDateNull() {
 					if time.Now().After(rule.Expiration.Date.Time) {
-						if rule.Expiration.IsSetDeleteMarker() {
+						if rule.Expiration.IsSetExpiredObjectDeleteMarker() {
 							return DeleteMarker, ""
 						}
 						return DeleteAction, ""
@@ -151,7 +151,7 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 						days = time.Duration(rule.Expiration.Days) * 24 * time.Hour
 					}
 					if time.Now().After(modTime.Add(days)) {
-						if rule.Expiration.IsSetDeleteMarker() {
+						if rule.Expiration.IsSetExpiredObjectDeleteMarker() {
 							return DeleteMarker, ""
 						}
 						return DeleteAction, ""
@@ -175,9 +175,9 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 					if !transition.IsDaysNull() {
 						var days time.Duration
 						if helper.CONFIG.LifecycleDebug {
-							days = time.Duration(rule.Expiration.Days) * time.Minute
+							days = time.Duration(transition.Days) * time.Minute
 						} else {
-							days = time.Duration(rule.Expiration.Days) * 24 * time.Hour
+							days = time.Duration(transition.Days) * 24 * time.Hour
 						}
 						if time.Now().After(modTime.Add(days)) {
 							action = TransitionAction
@@ -187,7 +187,6 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 							}
 						}
 					}
-
 				}
 			}
 		}
@@ -238,9 +237,9 @@ func (lc Lifecycle) ComputeActionFromNonCurrentVersion(objName string, objTags m
 					if !transition.IsDaysNull() {
 						var days time.Duration
 						if helper.CONFIG.LifecycleDebug {
-							days = time.Duration(rule.NoncurrentVersionExpiration.NoncurrentDays) * time.Minute
+							days = time.Duration(transition.NoncurrentDays) * time.Minute
 						} else {
-							days = time.Duration(rule.NoncurrentVersionExpiration.NoncurrentDays) * 24 * time.Hour
+							days = time.Duration(transition.NoncurrentDays) * 24 * time.Hour
 						}
 						if time.Now().After(modTime.Add(days)) {
 							action = TransitionAction

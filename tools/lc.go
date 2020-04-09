@@ -119,20 +119,11 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				if object.Key != objectTool.Key {
 					objectTool = object
 					continue
-				} else {
-					ObjToolTime, err := time.Parse(time.RFC3339, object.LastModified)
-					if err != nil {
-						return err
-					}
-					if ObjToolTime.Before(lastt) { //objectTool keep latest version
-						tempObj := objectTool
-						objectTool = object
-						object = tempObj
-					}
 				}
+				helper.Logger.Info("Object info", object, bucket.Name)
 				// Find the action that need to be executed									TODO: add tags
 				action, storageClass := bucketLC.ComputeActionFromNonCurrentVersion(object.Key, nil, object.StorageClass, lastt, ncvRules)
-
+				helper.Logger.Info("After ComputeActionFromNonCurrentVersion", action, storageClass)
 				reqCtx.ObjectInfo, err = yig.MetaStorage.GetObject(bucket.Name, object.Key, object.VersionId, true)
 				if err != nil {
 					helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
@@ -184,29 +175,63 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 		request.Version = 1
 		request.MaxKeys = RequestMaxKeys
 		request.Prefix = commonPrefix
+
+		var objectTool datatype.VersionedObject
 		for {
-			info, err := yig.ListObjectsInternal(bucket, request)
+			info, err := yig.ListVersionedObjectsInternal(bucket.Name, request)
 			if err != nil {
-				return err
+				return nil
 			}
 			for _, object := range info.Objects {
 				lastt, err := time.Parse(time.RFC3339, object.LastModified)
 				if err != nil {
 					return err
 				}
+				// pass old version object
+				if object.Key == objectTool.Key {
+					continue
+				} else {
+					objectTool = object
+				}
 				helper.Logger.Info("Object info", object, bucket.Name)
 				// Find the action that need to be executed					TODO: add tags
 				action, storageClass := bucketLC.ComputeAction(object.Key, nil, object.StorageClass, lastt, cvRules)
+				helper.Logger.Info("After computeAction", action, storageClass)
 				reqCtx.ObjectInfo, err = yig.MetaStorage.GetObject(bucket.Name, object.Key, "", true)
 				if err != nil {
 					helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
 					continue
 				}
 				helper.Logger.Info("DeleteMarker:", reqCtx.ObjectInfo.DeleteMarker)
+
+				// process expired object delete marker
 				if reqCtx.ObjectInfo.DeleteMarker {
+					if action == lifecycle.DeleteMarker {
+						var requestForPreviousVersion datatype.ListObjectsRequest
+						requestForPreviousVersion.Versioned = false
+						requestForPreviousVersion.Version = 1
+						requestForPreviousVersion.MaxKeys = 1
+						requestForPreviousVersion.Prefix = commonPrefix
+						requestForPreviousVersion.KeyMarker = reqCtx.ObjectInfo.Name
+						requestForPreviousVersion.VersionIdMarker = reqCtx.ObjectInfo.VersionId
+
+						tempInfo, err := yig.ListVersionedObjectsInternal(bucket.Name, requestForPreviousVersion)
+						if err != nil {
+							return nil
+						}
+						if tempInfo.Objects[0].Key != reqCtx.ObjectInfo.Name {
+							reqCtx.ObjectName = object.Key
+							reqCtx.VersionId = reqCtx.ObjectInfo.VersionId
+							_, err = yig.DeleteObject(reqCtx, common.Credential{})
+							if err != nil {
+								helper.Logger.Error(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, err)
+								continue
+							}
+						}
+					}
 					continue
 				}
-				//process object
+				// process expired object
 				if action == lifecycle.DeleteAction {
 					reqCtx.ObjectName = object.Key
 					reqCtx.VersionId = ""
@@ -216,6 +241,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 						continue
 					}
 				}
+				// process transition object
 				if action == lifecycle.TransitionAction {
 					reqCtx.ObjectName = object.Key
 					reqCtx.VersionId = reqCtx.ObjectInfo.VersionId
@@ -227,7 +253,8 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				}
 			}
 			if info.IsTruncated == true {
-				request.KeyMarker = info.NextMarker
+				request.KeyMarker = info.NextKeyMarker
+				request.VersionIdMarker = info.NextVersionIdMarker
 			} else {
 				break
 			}

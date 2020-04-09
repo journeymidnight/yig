@@ -81,7 +81,7 @@ func (r Rule) validateAction() error {
 			if err := r.Expiration.Validate(); err != nil {
 				return err
 			}
-			if r.Expiration.IsSetDeleteMarker() {
+			if r.Expiration.IsSetExpiredObjectDeleteMarker() {
 				if r.Filter != nil && !r.Filter.IsTagEmpty() {
 					return ErrInvalidLcTagIsNotEmpty
 				}
