@@ -22,7 +22,6 @@ import (
 
 	. "github.com/journeymidnight/yig/context"
 	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/signature"
 )
 
 const (
@@ -201,10 +200,7 @@ func (r *replacer) getSubstitution(key string) string {
 		return strconv.FormatInt(objectSize, 10)
 	case "{requester_id}":
 		requester_id := "-"
-		credential, err := signature.IsReqAuthenticated(r.request)
-		if err == nil {
-			requester_id = credential.UserId
-		}
+		// TODO: add requester_id
 		return requester_id
 	case "{project_id}":
 		bucketInfo := GetRequestContext(r.request).BucketInfo

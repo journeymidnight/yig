@@ -595,33 +595,6 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var isMetadataOnly bool
-
-	// TODO: To be fixed
-	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName && targetBucket.Versioning == BucketVersioningDisabled {
-		if sourceObject.StorageClass == util.ObjectStorageClassGlacier || targetStorageClass != util.ObjectStorageClassGlacier {
-			isMetadataOnly = true
-		}
-	} else if targetBucket.Versioning == BucketVersioningSuspended && reqCtx.ObjectInfo != nil {
-		isMetadataOnly = true
-	}
-
-	pipeReader, pipeWriter := io.Pipe()
-	if !isMetadataOnly {
-		go func() {
-			startOffset := int64(0) // Read the whole file.
-			// Get the object.
-			err = api.ObjectAPI.GetObject(sourceObject, startOffset, sourceObject.Size,
-				pipeWriter, sseRequest)
-			if err != nil {
-				logger.Error("Unable to read an object:", err)
-				pipeWriter.CloseWithError(err)
-				return
-			}
-			pipeWriter.Close()
-		}()
-	}
-
 	targetACL, err := getAclFromHeader(r.Header)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
@@ -657,6 +630,33 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	} else {
 		WriteErrorResponse(w, r, ErrInvalidCopyRequest)
 		return
+	}
+
+	var isMetadataOnly bool
+
+	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName &&
+		(sourceObject.StorageClass == util.ObjectStorageClassGlacier || targetObject.StorageClass != util.ObjectStorageClassGlacier) {
+		if targetBucket.Versioning == BucketVersioningDisabled {
+			isMetadataOnly = true
+		} else if targetBucket.Versioning == BucketVersioningSuspended && sourceObject.VersionId == meta.NullVersion {
+			isMetadataOnly = true
+		}
+	}
+
+	pipeReader, pipeWriter := io.Pipe()
+	if !isMetadataOnly {
+		go func() {
+			startOffset := int64(0) // Read the whole file.
+			// Get the object.
+			err = api.ObjectAPI.GetObject(sourceObject, startOffset, sourceObject.Size,
+				pipeWriter, sseRequest)
+			if err != nil {
+				logger.Error("Unable to read an object:", err)
+				pipeWriter.CloseWithError(err)
+				return
+			}
+			pipeWriter.Close()
+		}()
 	}
 
 	// Create the object.
@@ -1204,7 +1204,7 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 	}
 
 	if object.StorageClass != util.ObjectStorageClassGlacier {
-		WriteErrorResponse(w, r, ErrInvalidObjectName)
+		WriteErrorResponse(w, r, ErrInvalidStorageClass)
 		return
 	}
 
@@ -2038,11 +2038,7 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 	// be loaded in memory, the remaining being put in temporary files.
 
 	fileBody, formValues := reqCtx.Body, reqCtx.FormValues
-	if err != nil {
-		logger.Error("Unable to parse form values:", err)
-		WriteErrorResponse(w, r, ErrMalformedPOSTRequest)
-		return
-	}
+
 	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
 	formValues["Bucket"] = bucketName
 	if !isValidObjectName(objectName) {

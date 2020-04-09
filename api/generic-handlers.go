@@ -291,7 +291,7 @@ func FillBucketAndObjectInfo(reqCtx *RequestContext, r *http.Request, meta *meta
 					return err
 				}
 			} else if reqCtx.BucketInfo.Versioning == datatype.BucketVersioningSuspended &&
-				r.Method != http.MethodGet && r.Method != http.MethodHead {
+				r.Method != http.MethodGet && r.Method != http.MethodHead && reqCtx.VersionId == "" {
 				reqCtx.ObjectInfo, err = meta.GetObject(reqCtx.BucketInfo.Name, reqCtx.ObjectName, types.NullVersion, true)
 				if err != nil && err != ErrNoSuchKey {
 					return err

@@ -469,6 +469,9 @@ func (yig *YigStorage) DeleteBucketEncryption(bucket *meta.Bucket) error {
 }
 
 func (yig *YigStorage) CheckBucketEncryption(bucket *meta.Bucket) (*datatype.ApplyServerSideEncryptionByDefault, bool) {
+	if bucket == nil {
+		return nil, false
+	}
 	bucketEncryption := bucket.Encryption
 	if len(bucketEncryption.Rules) == 0 {
 		return nil, false

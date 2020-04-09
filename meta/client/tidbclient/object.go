@@ -347,11 +347,17 @@ func (t *TidbClient) PutObject(object *Object, multipart *Multipart, updateUsage
 	}
 
 	if multipart != nil {
-		return t.DeleteMultipart(multipart, tx)
+		err = t.DeleteMultipart(multipart, tx)
+		if err != nil {
+			return err
+		}
 	}
 
 	if updateUsage {
-		return t.UpdateUsage(object.BucketName, object.Size, tx)
+		err = t.UpdateUsage(object.BucketName, object.Size, tx)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

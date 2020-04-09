@@ -64,9 +64,25 @@ func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multi
 		fallthrough
 	case datatype.BucketVersioningDisabled:
 		needUpdate := (reqCtx.ObjectInfo != nil)
-
 		if needUpdate {
-			return m.Client.UpdateObject(object, multipart, updateUsage, nil)
+			var tx Tx
+			tx, err := m.Client.NewTrans()
+			if err != nil {
+				return err
+			}
+			defer func() {
+				if err == nil {
+					err = m.Client.CommitTrans(tx)
+				}
+				if err != nil {
+					m.Client.AbortTrans(tx)
+				}
+			}()
+			err = m.Client.DeleteObjectPart(reqCtx.ObjectInfo, tx)
+			if err != nil {
+				return err
+			}
+			return m.Client.UpdateObject(object, multipart, updateUsage, tx)
 		} else {
 			return m.Client.PutObject(object, multipart, updateUsage)
 		}

@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	. "database/sql/driver"
 	"encoding/json"
-	"github.com/journeymidnight/yig/meta/util"
 	"strings"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
+	"github.com/journeymidnight/yig/meta/util"
 )
 
 func (t *TidbClient) GetBucket(bucketName string) (bucket *Bucket, err error) {
@@ -562,7 +562,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 	}
 	// fill CommonPrefix
 	listInfo.Prefixes = helper.Keys(commonPrefixes)
-	return
+	return listInfo, nil
 }
 
 func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefix, delimiter string, maxKeys int) (listInfo VersionedListObjectsInfo, err error) {
@@ -847,7 +847,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 	}
 	// fill CommonPrefix
 	listInfo.Prefixes = helper.Keys(commonPrefixes)
-	return
+	return listInfo, nil
 }
 
 func (t *TidbClient) DeleteBucket(bucket Bucket) error {
