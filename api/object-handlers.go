@@ -612,10 +612,10 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	targetObject.ObjectId = sourceObject.ObjectId
 	targetObject.Pool = sourceObject.Pool
 	targetObject.Location = sourceObject.Location
+	targetObject.StorageClass = targetStorageClass
 
 	directive := r.Header.Get("X-Amz-Metadata-Directive")
 	if directive == "COPY" || directive == "" {
-		targetObject.StorageClass = sourceObject.StorageClass
 		targetObject.CustomAttributes = sourceObject.CustomAttributes
 		targetObject.ContentType = sourceObject.ContentType
 	} else if directive == "REPLACE" {
@@ -626,7 +626,6 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 			targetObject.ContentType = sourceObject.ContentType
 		}
 		targetObject.CustomAttributes = newMetadata
-		targetObject.StorageClass = targetStorageClass
 	} else {
 		WriteErrorResponse(w, r, ErrInvalidCopyRequest)
 		return
@@ -2038,11 +2037,7 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 	// be loaded in memory, the remaining being put in temporary files.
 
 	fileBody, formValues := reqCtx.Body, reqCtx.FormValues
-	if err != nil {
-		logger.Error("Unable to parse form values:", err)
-		WriteErrorResponse(w, r, ErrMalformedPOSTRequest)
-		return
-	}
+
 	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
 	formValues["Bucket"] = bucketName
 	if !isValidObjectName(objectName) {
