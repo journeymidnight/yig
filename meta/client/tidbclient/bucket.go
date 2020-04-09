@@ -570,7 +570,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 	var exit bool
 	commonPrefixes := make(map[string]interface{})
 	currentKeyMarker := marker
-	currentVerIdMarker := verIdMarker
+	currentVerIdMarker := helper.Ternary(verIdMarker == "null", NullVersion, verIdMarker).(string)
 	var previousNullObjectMeta *Object
 	var lastModifiedTime string
 	// Handle marker data first
@@ -597,70 +597,83 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 			return listInfo, err
 		}
 		nullObjMeta.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
-		if err == sql.ErrNoRows && currentVerIdMarker == "null" {
-			return listInfo, nil
-		}
-		// Calculate the null object version to compare with other versioned object
-		nullVerIdMarker := nullObjMeta.GenVersionId(datatype.BucketVersioningEnabled)
-		if currentVerIdMarker == "null" {
-			needCompareNull = false
-			currentVerIdMarker = nullVerIdMarker
-		} else if nullVerIdMarker < currentVerIdMarker {
-			// currentVerIdMarker is older than null object
-			needCompareNull = false
+		if err == sql.ErrNoRows {
+			if currentVerIdMarker == NullVersion {
+				return listInfo, nil
+			} else {
+				needCompareNull = false
+			}
+		} else {
+			// Calculate the null object version to compare with other versioned object
+			nullVerIdMarker := nullObjMeta.GenVersionId(datatype.BucketVersioningEnabled)
+			if currentVerIdMarker == NullVersion {
+				needCompareNull = false
+				currentVerIdMarker = nullVerIdMarker
+			} else if nullVerIdMarker < currentVerIdMarker {
+				// currentVerIdMarker is older than null object
+				needCompareNull = false
+			}
 		}
 
 		for {
-			var rows *sql.Rows
-			var o datatype.VersionedObject
-			sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
-				" from objects where bucketName=? and name=? and version>? order by bucketname,name,version limit ?;"
-			rows, err = t.Client.Query(sqltext, bucketName, currentKeyMarker, currentVerIdMarker, maxKeys)
-			if err != nil {
-				return
-			}
-			defer rows.Close()
-			for rows.Next() {
-				VerObjMeta := Object{}
-				err = rows.Scan(
-					&VerObjMeta.BucketName,
-					&VerObjMeta.Name,
-					&VerObjMeta.VersionId,
-					&VerObjMeta.DeleteMarker,
-					&VerObjMeta.OwnerId,
-					&VerObjMeta.Etag,
-					&lastModifiedTime,
-					&VerObjMeta.StorageClass,
-					&VerObjMeta.Size,
-					&VerObjMeta.CreateTime,
-				)
+			var loopCount int
+			func() {
+				var rows *sql.Rows
+				var o datatype.VersionedObject
+
+				sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
+					" from objects where bucketName=? and name=? and version>? order by bucketname,name,version limit ?;"
+				rows, err = t.Client.Query(sqltext, bucketName, currentKeyMarker, currentVerIdMarker, maxKeys)
 				if err != nil {
 					return
 				}
-				currentKeyMarker = VerObjMeta.Name
-				currentVerIdMarker = VerObjMeta.VersionId
-				VerObjMeta.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
-				if needCompareNull {
-					if nullObjMeta.CreateTime > VerObjMeta.CreateTime {
-						needCompareNull = false
-						currentVerIdMarker = nullObjMeta.VersionId
-						o = modifyMetaToVersionedObjectResult(nullObjMeta)
+				defer rows.Close()
+				for rows.Next() {
+					loopCount++
+					VerObjMeta := Object{}
+					err = rows.Scan(
+						&VerObjMeta.BucketName,
+						&VerObjMeta.Name,
+						&VerObjMeta.VersionId,
+						&VerObjMeta.DeleteMarker,
+						&VerObjMeta.OwnerId,
+						&VerObjMeta.Etag,
+						&lastModifiedTime,
+						&VerObjMeta.StorageClass,
+						&VerObjMeta.Size,
+						&VerObjMeta.CreateTime,
+					)
+					if err != nil {
+						return
+					}
+					currentKeyMarker = VerObjMeta.Name
+					currentVerIdMarker = VerObjMeta.VersionId
+					VerObjMeta.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
+					if needCompareNull {
+						if nullObjMeta.CreateTime > VerObjMeta.CreateTime {
+							needCompareNull = false
+							currentVerIdMarker = nullObjMeta.VersionId
+							o = modifyMetaToVersionedObjectResult(nullObjMeta)
 
-					} else {
-						o = modifyMetaToVersionedObjectResult(VerObjMeta)
+						} else {
+							o = modifyMetaToVersionedObjectResult(VerObjMeta)
+						}
+						count++
+						if count == maxKeys {
+							listInfo.NextKeyMarker = o.Key
+							listInfo.NextVersionIdMarker = o.VersionId
+						}
+						if count > maxKeys {
+							listInfo.IsTruncated = true
+							exit = true
+							break
+						}
+						listInfo.Objects = append(listInfo.Objects, o)
 					}
-					count++
-					if count == maxKeys {
-						listInfo.NextKeyMarker = o.Key
-						listInfo.NextVersionIdMarker = o.VersionId
-					}
-					if count > maxKeys {
-						listInfo.IsTruncated = true
-						exit = true
-						break
-					}
-					listInfo.Objects = append(listInfo.Objects, o)
 				}
+			}()
+			if loopCount == 0 {
+				break
 			}
 		}
 	}
@@ -695,7 +708,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 
 		var loopCount int
 		for rows.Next() {
-			loopCount += 1
+			loopCount++
 			//fetch related date
 			objMeta := Object{}
 			err = rows.Scan(
