@@ -179,6 +179,7 @@ var notImplementedBucketResourceNames = map[string]bool{
 // List of not implemented object queries
 var notImplementedObjectResourceNames = map[string]bool{
 	"torrent": true,
+	"tagging": true,
 }
 
 func ContextLogger(r *http.Request) log.Logger {
