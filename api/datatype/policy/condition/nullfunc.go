@@ -40,10 +40,10 @@ func (f nullFunc) evaluate(values map[string][]string) bool {
 	requestValue := values[f.k.Name()]
 
 	if f.value {
-		return len(requestValue) != 0
+		return len(requestValue) == 0
 	}
 
-	return len(requestValue) == 0
+	return len(requestValue) != 0
 }
 
 // key() - returns condition key which is used by this condition function.
