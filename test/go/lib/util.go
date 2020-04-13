@@ -27,8 +27,11 @@ func TransferToS3AccessLifecycleConfiguration(config *lifecycle.Lifecycle) (lc *
 	lc = new(s3.BucketLifecycleConfiguration)
 	for _, r := range config.Rules {
 		rule := new(s3.LifecycleRule)
-		//rule.AbortIncompleteMultipartUpload = new(s3.AbortIncompleteMultipartUpload)
-		//rule.AbortIncompleteMultipartUpload.DaysAfterInitiation = aws.Int64(int64(r.))
+		if r.AbortIncompleteMultipartUpload != nil {
+			rule.AbortIncompleteMultipartUpload = new(s3.AbortIncompleteMultipartUpload)
+			rule.AbortIncompleteMultipartUpload.DaysAfterInitiation = aws.Int64(int64(r.AbortIncompleteMultipartUpload.DaysAfterInitiation))
+		}
+
 		if r.Expiration != nil {
 			rule.Expiration = new(s3.LifecycleExpiration)
 			if r.Expiration.Days == 0 {

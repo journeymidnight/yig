@@ -82,7 +82,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 	}
 	bucketLC := bucket.Lifecycle
 
-	ncvRules, cvRules := bucketLC.FilterRulesByNonCurrentVersion()
+	ncvRules, cvRules, abortMultipartRules := bucketLC.FilterRulesByNonCurrentVersion()
 
 	var reqCtx RequestContext
 	reqCtx.BucketName = bucket.Name
@@ -120,22 +120,21 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 					objectTool = object
 					continue
 				}
-				helper.Logger.Info("Object info", object, bucket.Name)
+				helper.Logger.Info("Object info:", object, "\n BucketName:", bucket.Name)
 				// Find the action that need to be executed									TODO: add tags
-				action, storageClass := bucketLC.ComputeActionFromNonCurrentVersion(object.Key, nil, object.StorageClass, lastt, ncvRules)
-				helper.Logger.Info("After ComputeActionFromNonCurrentVersion", action, storageClass)
+				action, storageClass := bucketLC.ComputeActionForNonCurrentVersion(object.Key, nil, object.StorageClass, lastt, ncvRules)
+				helper.Logger.Info("After ComputeActionFromNonCurrentVersion:", action, storageClass)
 				reqCtx.ObjectInfo, err = yig.MetaStorage.GetObject(bucket.Name, object.Key, object.VersionId, true)
 				if err != nil {
 					helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
 					continue
 				}
-				helper.Logger.Info("DeleteMarker:", reqCtx.ObjectInfo.DeleteMarker)
 				reqCtx.ObjectName = object.Key
 				reqCtx.VersionId = reqCtx.ObjectInfo.VersionId
 
 				//Delete or transition
 				if action == lifecycle.DeleteAction {
-					_, err = yig.DeleteObject(reqCtx, common.Credential{})
+					_, err = yig.DeleteObject(reqCtx, common.Credential{UserId: bucket.OwnerId})
 					if err != nil {
 						helper.Logger.Error(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, err)
 						continue
@@ -157,6 +156,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				request.KeyMarker = info.NextKeyMarker
 				request.VersionIdMarker = info.NextVersionIdMarker
 			} else {
+				helper.Logger.Info("Process history objects over!")
 				break
 			}
 		}
@@ -193,10 +193,10 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				} else {
 					objectTool = object
 				}
-				helper.Logger.Info("Object info", object, bucket.Name)
+				helper.Logger.Info("Object info:", object, "\n BucketName:", bucket.Name)
 				// Find the action that need to be executed					TODO: add tags
 				action, storageClass := bucketLC.ComputeAction(object.Key, nil, object.StorageClass, lastt, cvRules)
-				helper.Logger.Info("After computeAction", action, storageClass)
+				helper.Logger.Info("After computeAction:", action, storageClass)
 				reqCtx.ObjectInfo, err = yig.MetaStorage.GetObject(bucket.Name, object.Key, "", true)
 				if err != nil {
 					helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
@@ -204,9 +204,10 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				}
 				helper.Logger.Info("DeleteMarker:", reqCtx.ObjectInfo.DeleteMarker)
 
-				// process expired object delete marker
+				// process expired object delete marker;
+				// If not set expiredObjectDeleteMarker,pass process
 				if reqCtx.ObjectInfo.DeleteMarker {
-					if action == lifecycle.DeleteMarker {
+					if action == lifecycle.DeleteMarkerAction {
 						var requestForPreviousVersion datatype.ListObjectsRequest
 						requestForPreviousVersion.Versioned = false
 						requestForPreviousVersion.Version = 1
@@ -219,10 +220,12 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 						if err != nil {
 							return nil
 						}
-						if tempInfo.Objects[0].Key != reqCtx.ObjectInfo.Name {
+						if len(tempInfo.Objects) != 0 && tempInfo.Objects[0].Key == reqCtx.ObjectInfo.Name {
+							continue
+						} else {
 							reqCtx.ObjectName = object.Key
 							reqCtx.VersionId = reqCtx.ObjectInfo.VersionId
-							_, err = yig.DeleteObject(reqCtx, common.Credential{})
+							_, err = yig.DeleteObject(reqCtx, common.Credential{UserId: bucket.OwnerId})
 							if err != nil {
 								helper.Logger.Error(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, err)
 								continue
@@ -235,7 +238,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				if action == lifecycle.DeleteAction {
 					reqCtx.ObjectName = object.Key
 					reqCtx.VersionId = ""
-					_, err = yig.DeleteObject(reqCtx, common.Credential{})
+					_, err = yig.DeleteObject(reqCtx, common.Credential{UserId: bucket.OwnerId})
 					if err != nil {
 						helper.Logger.Error(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, err)
 						continue
@@ -256,10 +259,61 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				request.KeyMarker = info.NextKeyMarker
 				request.VersionIdMarker = info.NextVersionIdMarker
 			} else {
+				helper.Logger.Info("Process current objects over!")
 				break
 			}
 		}
 
+	}
+
+	if len(abortMultipartRules) != 0 {
+		// Calculate the common prefix of all lifecycle rules
+		var prefixes []string
+		for _, rule := range ncvRules {
+			prefixes = append(prefixes, rule.Prefix())
+		}
+		commonPrefix := lifecycle.Lcp(prefixes)
+
+		var request datatype.ListUploadsRequest
+		request.MaxUploads = 1000
+		request.Prefix = commonPrefix
+
+		for {
+			result, err := yig.MetaStorage.Client.ListMultipartUploads(bucket.Name, request.KeyMarker,
+				request.UploadIdMarker, request.Prefix, request.Delimiter, request.EncodingType, request.MaxUploads)
+			if err != nil {
+				return nil
+			}
+			for _, object := range result.Uploads {
+				helper.Logger.Info("Object info:", object, bucket.Name)
+
+				lastt, err := time.Parse(time.RFC3339, object.Initiated)
+				if err != nil {
+					return err
+				}
+
+				action := bucketLC.ComputeActionForAbortIncompleteMultipartUpload(object.Key, nil, lastt, abortMultipartRules)
+				helper.Logger.Info("After ComputeActionForAbortIncompleteMultipartUpload:", action)
+
+				reqCtx.ObjectName = object.Key
+
+				// process abort object
+				if action == lifecycle.AbortMultipartUploadAction {
+					err = yig.AbortMultipartUpload(reqCtx, common.Credential{UserId: bucket.OwnerId}, object.UploadId)
+					if err != nil {
+						helper.Logger.Error(bucket.Name, object.Key, object.UploadId, err)
+						continue
+					}
+				}
+			}
+			if result.IsTruncated == true {
+				request.KeyMarker = result.NextKeyMarker
+				request.UploadIdMarker = result.UploadIdMarker
+			} else {
+				helper.Logger.Info("Process AbortIncompleteMultipartUpload over!")
+				break
+			}
+		}
 	}
 
 	return nil
@@ -333,7 +387,7 @@ func transitionObject(reqCtx RequestContext, storageClass string) (result dataty
 
 }
 
-func processLifecycle() {
+func processLifecycle(process_num int) {
 	time.Sleep(time.Second * 1)
 	for {
 		if stop {
@@ -343,6 +397,7 @@ func processLifecycle() {
 		waitgroup.Add(1)
 		select {
 		case item := <-taskQ:
+			helper.Logger.Info("process", process_num, "receive task:", item)
 			err := lifecycleUnit(item)
 			if err != nil {
 				helper.Logger.Error("Bucket", item.BucketName, "Lifecycle process error:", err)
@@ -371,7 +426,7 @@ func LifecycleStart() {
 	helper.Logger.Info("start lc thread:", numOfWorkers)
 
 	for i := 0; i < numOfWorkers; i++ {
-		go processLifecycle()
+		go processLifecycle(i)
 	}
 	go getLifeCycles()
 }

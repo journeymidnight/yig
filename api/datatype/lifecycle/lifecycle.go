@@ -41,9 +41,11 @@ const (
 	// DeleteAction means the object needs to be removed after evaluating lifecycle rules
 	DeleteAction
 	// DeleteMarker means the object deleteMarker needs to be removed after evaluating lifecycle rules
-	DeleteMarker
+	DeleteMarkerAction
 	//TransitionAction means the object storage class needs to be transitioned after evaluating lifecycle rules
 	TransitionAction
+	// AbortMultipartUploadAction means that abort incomplete multipart upload and delete all parts
+	AbortMultipartUploadAction
 )
 
 // Lifecycle - Configuration for bucket lifecycle.
@@ -87,13 +89,16 @@ func (lc Lifecycle) Validate() error {
 	return nil
 }
 
-func (lc Lifecycle) FilterRulesByNonCurrentVersion() (ncvRules, cvRules []Rule) {
+func (lc Lifecycle) FilterRulesByNonCurrentVersion() (ncvRules, cvRules, abortMultipartRules []Rule) {
 	for _, rule := range lc.Rules {
 		if rule.Expiration != nil || len(rule.Transitions) != 0 {
 			cvRules = append(cvRules, rule)
 		}
 		if rule.NoncurrentVersionExpiration != nil || len(rule.NoncurrentVersionTransitions) != 0 {
 			ncvRules = append(ncvRules, rule)
+		}
+		if rule.AbortIncompleteMultipartUpload != nil {
+			abortMultipartRules = append(abortMultipartRules, rule)
 		}
 	}
 	return
@@ -104,13 +109,13 @@ func (lc Lifecycle) FilterRulesByNonCurrentVersion() (ncvRules, cvRules []Rule) 
 //
 //							The day LC run
 //												match					match						No
-// ----》 rule -----------》prefix X objectName --------》Tags X objTags -------》 IS Expiration ? --------》Select Transition from Transitions
+// ----> rule ----------->prefix X objectName -------->Tags X objTags -------> IS Expiration ? -------->Select Transition from Transitions
 //		   ^		  			| not match	 	              	| not match				| Yes					| save/replace storageClass
-//		   |《-------------------								|						|						| GLACIER replace STANDARD_IA
-// 		   |《---------------------------------------------------						|						|
+//		   |<-------------------								|						|						| GLACIER replace STANDARD_IA
+// 		   |<---------------------------------------------------						|						|
 //		   |																		Delete object				|
-//		   |《---------------------------------------------------------------------------------------------------
-//	FOR MANY LOOP RULES, IF NOT EXPIRATION, SHOULD BE TRANSITION(THE CHEAPEST CLASS)
+//		   |<---------------------------------------------------------------------------------------------------
+//	FOR MANY LOOP RULES, IF NOT EXPIRATION, SHOULD BE TRANSITION(RETURN THE CHEAPEST CLASS)
 //
 func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, objStorageClass string, modTime time.Time, rules []Rule) (Action, string) {
 	var storageClass meta.StorageClass
@@ -137,7 +142,7 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 				if !rule.Expiration.IsDateNull() {
 					if time.Now().After(rule.Expiration.Date.Time) {
 						if rule.Expiration.IsSetExpiredObjectDeleteMarker() {
-							return DeleteMarker, ""
+							return DeleteMarkerAction, ""
 						}
 						return DeleteAction, ""
 					}
@@ -152,7 +157,7 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 					}
 					if time.Now().After(modTime.Add(days)) {
 						if rule.Expiration.IsSetExpiredObjectDeleteMarker() {
-							return DeleteMarker, ""
+							return DeleteMarkerAction, ""
 						}
 						return DeleteAction, ""
 					}
@@ -199,7 +204,7 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 }
 
 // Just like ComputeAction
-func (lc Lifecycle) ComputeActionFromNonCurrentVersion(objName string, objTags map[string]string, objStorageClass string, modTime time.Time, rules []Rule) (Action, string) {
+func (lc Lifecycle) ComputeActionForNonCurrentVersion(objName string, objTags map[string]string, objStorageClass string, modTime time.Time, rules []Rule) (Action, string) {
 	var storageClass meta.StorageClass
 	var action = NoneAction
 	if modTime.IsZero() || objName == "" {
@@ -259,6 +264,44 @@ func (lc Lifecycle) ComputeActionFromNonCurrentVersion(objName string, objTags m
 		return NoneAction, ""
 	}
 	return action, storageClass.ToString()
+}
+
+// ComputeAction for AbortIncompleteMultipartUpload
+func (lc Lifecycle) ComputeActionForAbortIncompleteMultipartUpload(objName string, objTags map[string]string, modTime time.Time, rules []Rule) Action {
+	var action Action
+	if modTime.IsZero() || objName == "" {
+		return action
+	}
+
+	for _, rule := range rules {
+		if rule.Status == Disabled {
+			continue
+		}
+		var prefix string
+		if rule.Filter == nil {
+			prefix = ""
+		} else {
+			prefix = rule.Prefix()
+		}
+
+		// prefix and tags pass
+		if strings.HasPrefix(objName, prefix) && rule.filterTags(objTags) {
+			if rule.AbortIncompleteMultipartUpload != nil {
+				if !rule.AbortIncompleteMultipartUpload.IsDaysNull() {
+					var days time.Duration
+					if helper.CONFIG.LifecycleDebug {
+						days = time.Duration(rule.AbortIncompleteMultipartUpload.DaysAfterInitiation) * time.Minute
+					} else {
+						days = time.Duration(rule.AbortIncompleteMultipartUpload.DaysAfterInitiation) * 24 * time.Hour
+					}
+					if time.Now().After(modTime.Add(days)) {
+						return AbortMultipartUploadAction
+					}
+				}
+			}
+		}
+	}
+	return action
 }
 
 // lcp finds the longest common prefix of the input strings.

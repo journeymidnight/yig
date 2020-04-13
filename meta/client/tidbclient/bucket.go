@@ -669,6 +669,19 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 							break
 						}
 						listInfo.Objects = append(listInfo.Objects, o)
+					} else {
+						o = modifyMetaToVersionedObjectResult(VerObjMeta)
+						count++
+						if count == maxKeys {
+							listInfo.NextKeyMarker = o.Key
+							listInfo.NextVersionIdMarker = o.VersionId
+						}
+						if count > maxKeys {
+							listInfo.IsTruncated = true
+							exit = true
+							break
+						}
+						listInfo.Objects = append(listInfo.Objects, o)
 					}
 				}
 			}()
