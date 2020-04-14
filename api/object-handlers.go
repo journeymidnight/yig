@@ -59,8 +59,8 @@ func setGetRespHeaders(w http.ResponseWriter, reqParams url.Values) {
 	}
 }
 
-func getStorageClassFromHeader(r *http.Request) (util.StorageClass, error) {
-	storageClassStr := r.Header.Get("X-Amz-Storage-Class")
+func getStorageClassFromHeader(header http.Header) (util.StorageClass, error) {
+	storageClassStr := header.Get("X-Amz-Storage-Class")
 
 	if storageClassStr != "" {
 		helper.Logger.Info("Get storage class header:", storageClassStr)
@@ -554,7 +554,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	var targetStorageClass util.StorageClass
-	targetStorageClass, err = getStorageClassFromHeader(r)
+	targetStorageClass, err = getStorageClassFromHeader(r.Header)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -829,7 +829,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	storageClass, err := getStorageClassFromHeader(r)
+	storageClass, err := getStorageClassFromHeader(r.Header)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -994,7 +994,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	storageClass, err := getStorageClassFromHeader(r)
+	storageClass, err := getStorageClassFromHeader(r.Header)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -1444,7 +1444,7 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 		//TODO:add kms
 	}
 
-	storageClass, err := getStorageClassFromHeader(r)
+	storageClass, err := getStorageClassFromHeader(r.Header)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -2071,7 +2071,7 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if err = signature.CheckPostPolicy(formValues, postPolicyType); err != nil {
+	if err = signature.CheckPostPolicy(formValues); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -2086,7 +2086,7 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 	metadata := extractMetadataFromHeader(headerfiedFormValues)
 
 	var acl Acl
-	acl.CannedAcl = headerfiedFormValues.Get("acl")
+	acl.CannedAcl = headerfiedFormValues.Get("Acl")
 	if acl.CannedAcl == "" {
 		acl.CannedAcl = "private"
 	}
@@ -2110,7 +2110,7 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	storageClass, err := getStorageClassFromHeader(r)
+	storageClass, err := getStorageClassFromHeader(headerfiedFormValues)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return

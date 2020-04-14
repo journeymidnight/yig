@@ -200,6 +200,8 @@ func (s3Client *S3Client) PostObject(pbi *PostObjectInput) error {
 	commons["x-amz-credential"] = cred
 	commons["x-amz-algorithm"] = "AWS4-HMAC-SHA256"
 	commons["x-amz-date"] = pbi.Date.Format(datatype.Iso8601Format)
+	// Support custom fields
+	commons["x:hehe"] = "hehe"
 
 	conditions["bucket"] = pbi.Bucket
 	for k, v := range commons {
