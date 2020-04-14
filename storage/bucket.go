@@ -513,7 +513,7 @@ func (yig *YigStorage) DeleteBucket(reqCtx RequestContext, credential common.Cre
 
 	bucketName := reqCtx.BucketName
 
-	isEmpty, err := yig.MetaStorage.Client.IsEmptyBucket(bucketName)
+	isEmpty, err := yig.MetaStorage.Client.IsEmptyBucket(reqCtx.BucketInfo)
 	if err != nil {
 		return err
 	}

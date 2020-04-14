@@ -896,16 +896,27 @@ func (t *TidbClient) DeleteBucket(bucket Bucket) error {
 }
 
 //TODO: Only find one object
-func (t *TidbClient) IsEmptyBucket(bucketName string) (bool, error) {
-	listInfo, err := t.ListObjects(bucketName, "", "", "", 1)
-	if err != nil {
-		return false, err
+func (t *TidbClient) IsEmptyBucket(bucket *Bucket) (bool, error) {
+	if bucket.Versioning == datatype.BucketVersioningDisabled {
+		listInfo, err := t.ListObjects(bucket.Name, "", "", "", 1)
+		if err != nil {
+			return false, err
+		}
+		if len(listInfo.Objects) != 0 && len(listInfo.Prefixes) != 0 {
+			return false, nil
+		}
+	} else {
+		listInfo, err := t.ListVersionedObjects(bucket.Name, "", "", "", "", 1)
+		if err != nil {
+			return false, err
+		}
+		if len(listInfo.Objects) != 0 && len(listInfo.Prefixes) != 0 {
+			return false, nil
+		}
 	}
-	if len(listInfo.Objects) != 0 {
-		return false, nil
-	}
+
 	// Check if object part is empty
-	result, err := t.ListMultipartUploads(bucketName, "", "", "", "", "", 1)
+	result, err := t.ListMultipartUploads(bucket.Name, "", "", "", "", "", 1)
 	if err != nil {
 		return false, err
 	}

@@ -40,7 +40,7 @@ type Client interface {
 	ListVersionedObjects(bucketName, marker, verIdMarker, prefix, delimiter string, maxKeys int) (listInfo VersionedListObjectsInfo, err error)
 
 	UpdateUsage(bucketName string, size int64, tx Tx) error
-	IsEmptyBucket(bucketName string) (isEmpty bool, err error)
+	IsEmptyBucket(bucket *Bucket) (isEmpty bool, err error)
 
 	//multipart
 	GetMultipart(bucketName, objectName, uploadId string) (multipart Multipart, err error)
