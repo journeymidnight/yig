@@ -226,7 +226,7 @@ func DoesPresignedSignatureMatchV2(r *http.Request) (credential common.Credentia
 func DoesPolicySignatureMatchV2(formValues map[string]string) (credential common.Credential,
 	err error) {
 
-	if accessKey, ok := formValues["Awsaccesskeyid"]; ok {
+	if accessKey, ok := formValues["AWSAccessKeyId"]; ok {
 		credential, err = iam.GetCredential(accessKey)
 		if err != nil {
 			return credential, ErrInvalidAccessKeyID

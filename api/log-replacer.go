@@ -271,7 +271,7 @@ func (r *replacer) getSubstitution(key string) string {
 		return objectInfo.StorageClass.ToString()
 	case "{target_storage_class}":
 		if r.request.Header.Get("X-Amz-Copy-Source") != "" && r.request.Header.Get("X-Amz-Metadata-Directive") != "" {
-			storageClassFromHeader, err := getStorageClassFromHeader(r.request)
+			storageClassFromHeader, err := getStorageClassFromHeader(r.request.Header)
 			if err != nil {
 				return "-"
 			}
