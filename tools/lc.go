@@ -73,7 +73,10 @@ func getLifeCycles() {
 // LC---->Rules---->|													 ---->Delete object
 //					| 													 |
 // 					---->CurrentVersion Rules-------->compute action---->|
-//																		 ---->Transition object
+//					|													 ---->Transition object
+//					|
+//					---->AbortIncompleteMultipartUpload Rules-------->compute action----->Abort object
+//
 func lifecycleUnit(lc meta.LifeCycle) error {
 	helper.Logger.Info("Lifecycle process...")
 	bucket, err := yig.MetaStorage.GetBucket(lc.BucketName, false)
@@ -111,19 +114,12 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 			}
 			objectTool = info.Objects[0]
 			for _, object := range info.Objects[1:] {
-				lastt, err := time.Parse(time.RFC3339, object.LastModified)
-				if err != nil {
-					return err
-				}
 				// pass latest object
 				if object.Key != objectTool.Key {
 					objectTool = object
 					continue
 				}
 				helper.Logger.Info("Object info:", object, "\n BucketName:", bucket.Name)
-				// Find the action that need to be executed									TODO: add tags
-				action, storageClass := bucketLC.ComputeActionForNonCurrentVersion(object.Key, nil, object.StorageClass, lastt, ncvRules)
-				helper.Logger.Info("After ComputeActionFromNonCurrentVersion:", action, storageClass)
 				reqCtx.ObjectInfo, err = yig.MetaStorage.GetObject(bucket.Name, object.Key, object.VersionId, true)
 				if err != nil {
 					helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
@@ -132,7 +128,11 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				reqCtx.ObjectName = object.Key
 				reqCtx.VersionId = reqCtx.ObjectInfo.VersionId
 
-				//Delete or transition
+				// Find the action that need to be executed									          TODO: add tags
+				action, storageClass := bucketLC.ComputeActionForNonCurrentVersion(reqCtx.ObjectName, nil,
+					reqCtx.ObjectInfo.StorageClass.ToString(), reqCtx.ObjectInfo.LastModifiedTime, ncvRules)
+				helper.Logger.Info("After ComputeActionFromNonCurrentVersion:", action, storageClass)
+				// Delete or transition
 				if action == lifecycle.DeleteAction {
 					_, err = yig.DeleteObject(reqCtx, common.Credential{UserId: bucket.OwnerId})
 					if err != nil {
@@ -183,7 +183,6 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				return nil
 			}
 			for _, object := range info.Objects {
-				lastt, err := time.Parse(time.RFC3339, object.LastModified)
 				if err != nil {
 					return err
 				}
@@ -194,9 +193,6 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 					objectTool = object
 				}
 				helper.Logger.Info("Object info:", object, "\n BucketName:", bucket.Name)
-				// Find the action that need to be executed					TODO: add tags
-				action, storageClass := bucketLC.ComputeAction(object.Key, nil, object.StorageClass, lastt, cvRules)
-				helper.Logger.Info("After computeAction:", action, storageClass)
 				reqCtx.ObjectInfo, err = yig.MetaStorage.GetObject(bucket.Name, object.Key, "", true)
 				if err != nil {
 					helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
@@ -204,39 +200,34 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				}
 				helper.Logger.Info("DeleteMarker:", reqCtx.ObjectInfo.DeleteMarker)
 
+				reqCtx.ObjectName = object.Key
+
+				var expiredObjectDeleteMarkerWork bool
+				if reqCtx.ObjectInfo.DeleteMarker {
+					ok, err := checkObjectOtherVersion(commonPrefix, reqCtx)
+					if err != nil {
+						return nil
+					}
+					expiredObjectDeleteMarkerWork = !ok
+				}
+				// Find the action that need to be executed					   TODO: add tags
+				action, storageClass := bucketLC.ComputeAction(reqCtx.ObjectName, nil, reqCtx.ObjectInfo.StorageClass.ToString(),
+					reqCtx.ObjectInfo.LastModifiedTime, expiredObjectDeleteMarkerWork, cvRules)
+				helper.Logger.Info("After computeAction:", action, storageClass)
+
 				// process expired object delete marker;
 				// If not set expiredObjectDeleteMarker,pass process
-				if reqCtx.ObjectInfo.DeleteMarker {
-					if action == lifecycle.DeleteMarkerAction {
-						var requestForPreviousVersion datatype.ListObjectsRequest
-						requestForPreviousVersion.Versioned = false
-						requestForPreviousVersion.Version = 1
-						requestForPreviousVersion.MaxKeys = 1
-						requestForPreviousVersion.Prefix = commonPrefix
-						requestForPreviousVersion.KeyMarker = reqCtx.ObjectInfo.Name
-						requestForPreviousVersion.VersionIdMarker = reqCtx.ObjectInfo.VersionId
-
-						tempInfo, err := yig.ListVersionedObjectsInternal(bucket.Name, requestForPreviousVersion)
-						if err != nil {
-							return nil
-						}
-						if len(tempInfo.Objects) != 0 && tempInfo.Objects[0].Key == reqCtx.ObjectInfo.Name {
-							continue
-						} else {
-							reqCtx.ObjectName = object.Key
-							reqCtx.VersionId = reqCtx.ObjectInfo.VersionId
-							_, err = yig.DeleteObject(reqCtx, common.Credential{UserId: bucket.OwnerId})
-							if err != nil {
-								helper.Logger.Error(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, err)
-								continue
-							}
-						}
+				if action == lifecycle.DeleteMarkerAction {
+					reqCtx.VersionId = reqCtx.ObjectInfo.VersionId
+					_, err = yig.DeleteObject(reqCtx, common.Credential{UserId: bucket.OwnerId})
+					if err != nil {
+						helper.Logger.Error(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, err)
+						continue
 					}
-					continue
 				}
+
 				// process expired object
 				if action == lifecycle.DeleteAction {
-					reqCtx.ObjectName = object.Key
 					reqCtx.VersionId = ""
 					_, err = yig.DeleteObject(reqCtx, common.Credential{UserId: bucket.OwnerId})
 					if err != nil {
@@ -246,11 +237,10 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				}
 				// process transition object
 				if action == lifecycle.TransitionAction {
-					reqCtx.ObjectName = object.Key
 					reqCtx.VersionId = reqCtx.ObjectInfo.VersionId
 					_, err = transitionObject(reqCtx, storageClass)
 					if err != nil {
-						helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
+						helper.Logger.Error(bucket.Name, reqCtx.ObjectName, reqCtx.ObjectInfo.LastModifiedTime, err)
 						continue
 					}
 				}
@@ -317,6 +307,26 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 	}
 
 	return nil
+}
+
+func checkObjectOtherVersion(commonPrefix string, reqCtx RequestContext) (bool, error) {
+	var requestForPreviousVersion datatype.ListObjectsRequest
+	requestForPreviousVersion.Versioned = false
+	requestForPreviousVersion.Version = 1
+	requestForPreviousVersion.MaxKeys = 1
+	requestForPreviousVersion.Prefix = commonPrefix
+	requestForPreviousVersion.KeyMarker = reqCtx.ObjectInfo.Name
+	requestForPreviousVersion.VersionIdMarker = reqCtx.ObjectInfo.VersionId
+
+	tempInfo, err := yig.ListVersionedObjectsInternal(reqCtx.BucketName, requestForPreviousVersion)
+	if err != nil {
+		return false, err
+	}
+	if len(tempInfo.Objects) != 0 && tempInfo.Objects[0].Key == reqCtx.ObjectInfo.Name {
+		return true, nil
+	} else {
+		return false, nil
+	}
 }
 
 func transitionObject(reqCtx RequestContext, storageClass string) (result datatype.PutObjectResult, err error) {

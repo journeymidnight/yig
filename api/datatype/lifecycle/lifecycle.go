@@ -117,7 +117,8 @@ func (lc Lifecycle) FilterRulesByNonCurrentVersion() (ncvRules, cvRules, abortMu
 //		   |<---------------------------------------------------------------------------------------------------
 //	FOR MANY LOOP RULES, IF NOT EXPIRATION, SHOULD BE TRANSITION(RETURN THE CHEAPEST CLASS)
 //
-func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, objStorageClass string, modTime time.Time, rules []Rule) (Action, string) {
+func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, objStorageClass string, modTime time.Time,
+	isExpiredObjectDeleteMarkerWork bool, rules []Rule) (Action, string) {
 	var storageClass meta.StorageClass
 	var action Action
 	if modTime.IsZero() || objName == "" {
@@ -141,10 +142,13 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 			if rule.Expiration != nil {
 				if !rule.Expiration.IsDateNull() {
 					if time.Now().After(rule.Expiration.Date.Time) {
-						if rule.Expiration.IsSetExpiredObjectDeleteMarker() {
-							return DeleteMarkerAction, ""
+						if !rule.Expiration.IsSetExpiredObjectDeleteMarker() {
+							return DeleteAction, ""
+						} else {
+							if isExpiredObjectDeleteMarkerWork {
+								return DeleteMarkerAction, ""
+							}
 						}
-						return DeleteAction, ""
 					}
 				}
 
@@ -156,10 +160,13 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 						days = time.Duration(rule.Expiration.Days) * 24 * time.Hour
 					}
 					if time.Now().After(modTime.Add(days)) {
-						if rule.Expiration.IsSetExpiredObjectDeleteMarker() {
-							return DeleteMarkerAction, ""
+						if !rule.Expiration.IsSetExpiredObjectDeleteMarker() {
+							return DeleteAction, ""
+						} else {
+							if isExpiredObjectDeleteMarkerWork {
+								return DeleteMarkerAction, ""
+							}
 						}
-						return DeleteAction, ""
 					}
 				}
 
@@ -187,7 +194,7 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 						if time.Now().After(modTime.Add(days)) {
 							action = TransitionAction
 							ruleStorageClass, _ := meta.MatchStorageClassIndex(transition.StorageClass)
-							if storageClass < ruleStorageClass {
+							if meta.StorageClassWeight[storageClass] < meta.StorageClassWeight[ruleStorageClass] {
 								storageClass = ruleStorageClass
 							}
 						}
@@ -204,7 +211,8 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 }
 
 // Just like ComputeAction
-func (lc Lifecycle) ComputeActionForNonCurrentVersion(objName string, objTags map[string]string, objStorageClass string, modTime time.Time, rules []Rule) (Action, string) {
+func (lc Lifecycle) ComputeActionForNonCurrentVersion(objName string, objTags map[string]string, objStorageClass string,
+	modTime time.Time, rules []Rule) (Action, string) {
 	var storageClass meta.StorageClass
 	var action = NoneAction
 	if modTime.IsZero() || objName == "" {
@@ -249,7 +257,7 @@ func (lc Lifecycle) ComputeActionForNonCurrentVersion(objName string, objTags ma
 						if time.Now().After(modTime.Add(days)) {
 							action = TransitionAction
 							ruleStorageClass, _ := meta.MatchStorageClassIndex(transition.StorageClass)
-							if storageClass < ruleStorageClass {
+							if meta.StorageClassWeight[storageClass] < meta.StorageClassWeight[ruleStorageClass] {
 								storageClass = ruleStorageClass
 							}
 						}
@@ -267,7 +275,8 @@ func (lc Lifecycle) ComputeActionForNonCurrentVersion(objName string, objTags ma
 }
 
 // ComputeAction for AbortIncompleteMultipartUpload
-func (lc Lifecycle) ComputeActionForAbortIncompleteMultipartUpload(objName string, objTags map[string]string, modTime time.Time, rules []Rule) Action {
+func (lc Lifecycle) ComputeActionForAbortIncompleteMultipartUpload(objName string, objTags map[string]string,
+	modTime time.Time, rules []Rule) Action {
 	var action Action
 	if modTime.IsZero() || objName == "" {
 		return action
