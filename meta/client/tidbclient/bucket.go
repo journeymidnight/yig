@@ -648,27 +648,25 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 					currentKeyMarker = VerObjMeta.Name
 					currentVerIdMarker = VerObjMeta.VersionId
 					VerObjMeta.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
-					if needCompareNull {
-						if nullObjMeta.CreateTime > VerObjMeta.CreateTime {
-							needCompareNull = false
-							currentVerIdMarker = nullObjMeta.VersionId
-							o = modifyMetaToVersionedObjectResult(nullObjMeta)
-
-						} else {
-							o = modifyMetaToVersionedObjectResult(VerObjMeta)
-						}
-						count++
-						if count == maxKeys {
-							listInfo.NextKeyMarker = o.Key
-							listInfo.NextVersionIdMarker = o.VersionId
-						}
-						if count > maxKeys {
-							listInfo.IsTruncated = true
-							exit = true
-							break
-						}
-						listInfo.Objects = append(listInfo.Objects, o)
+					if needCompareNull && nullObjMeta.CreateTime > VerObjMeta.CreateTime {
+						needCompareNull = false
+						currentVerIdMarker = nullObjMeta.VersionId
+						o = modifyMetaToVersionedObjectResult(nullObjMeta)
+					} else {
+						o = modifyMetaToVersionedObjectResult(VerObjMeta)
 					}
+					count++
+					if count == maxKeys {
+						listInfo.NextKeyMarker = o.Key
+						listInfo.NextVersionIdMarker = o.VersionId
+					}
+					if count > maxKeys {
+						listInfo.IsTruncated = true
+						exit = true
+						break
+					}
+					listInfo.Objects = append(listInfo.Objects, o)
+
 				}
 			}()
 			if loopCount == 0 {
