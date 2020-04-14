@@ -75,14 +75,20 @@ func extractMetadataFromHeader(header http.Header) map[string]string {
 	metadata := make(map[string]string)
 	// Save standard supported headers.
 	for _, supportedHeader := range supportedHeaders {
-		if h := header.Get(http.CanonicalHeaderKey(supportedHeader)); h != "" {
-			metadata[http.CanonicalHeaderKey(supportedHeader)] = h
+		if value, ok := header[http.CanonicalHeaderKey(supportedHeader)]; ok {
+			metadata[http.CanonicalHeaderKey(supportedHeader)] = value[0]
+		} else if value, ok := header[supportedHeader]; ok {
+			metadata[supportedHeader] = value[0]
 		}
 	}
 	// Go through all other headers for any additional headers that needs to be saved.
 	for key := range header {
 		if strings.HasPrefix(strings.ToLower(key), "x-amz-meta-") {
-			metadata[key] = header.Get(key)
+			value, ok := header[key]
+			if ok {
+				metadata[key] = strings.Join(value, ",")
+				break
+			}
 		}
 	}
 	// Return.
