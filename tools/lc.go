@@ -66,16 +66,16 @@ func getLifeCycles() {
 	}
 }
 
-//																		 ---->Delete object
-//																		 |
-//					---->NoncurrentVersion Rules----->compute action---->|
-//					|													 ---->Transition object
-// LC---->Rules---->|													 ---->Delete object
-//					| 													 |
-// 					---->CurrentVersion Rules-------->compute action---->|
-//					|													 ---->Transition object
-//					|
-//					---->AbortIncompleteMultipartUpload Rules-------->compute action----->Abort object
+//                                                                       ---->Delete object
+//                                                                       |
+//                  ---->NoncurrentVersion Rules----->compute action---->|
+//                  |                                                    ---->Transition object
+// LC---->Rules---->|                                                    ---->Delete object
+//                  |                                                    |
+//                  ---->CurrentVersion Rules-------->compute action---->|
+//                  |                                                    ---->Transition object
+//                  |
+//                  ---->AbortIncompleteMultipartUpload Rules-------->compute action----->Abort object
 //
 func lifecycleUnit(lc meta.LifeCycle) error {
 	helper.Logger.Info("Lifecycle process...")

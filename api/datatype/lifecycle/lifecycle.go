@@ -107,14 +107,14 @@ func (lc Lifecycle) FilterRulesByNonCurrentVersion() (ncvRules, cvRules, abortMu
 // ComputeAction returns the action to perform by evaluating all lifecycle rules
 // against the object name and its modification time.
 //
-//							The day LC run
-//												match					match						No
+//                          The day LC run
+//                                              match                  match                     No
 // ----> rule ----------->prefix X objectName -------->Tags X objTags -------> IS Expiration ? -------->Select Transition from Transitions
-//		   ^		  			| not match	 	              	| not match				| Yes					| save/replace storageClass
-//		   |<-------------------								|						|						| GLACIER replace STANDARD_IA
-// 		   |<---------------------------------------------------						|						|
-//		   |																		Delete object				|
-//		   |<---------------------------------------------------------------------------------------------------
+//         ^                   | not match	 	                | not match	            | Yes                   | save/replace storageClass
+//         |<-------------------                                |                       |                       | GLACIER replace STANDARD_IA
+//         |<---------------------------------------------------                        |                       |
+//         |                                                                       Delete object               |
+//         |<---------------------------------------------------------------------------------------------------
 //	FOR MANY LOOP RULES, IF NOT EXPIRATION, SHOULD BE TRANSITION(RETURN THE CHEAPEST CLASS)
 //
 func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, objStorageClass string, modTime time.Time,
