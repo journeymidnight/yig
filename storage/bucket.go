@@ -530,13 +530,6 @@ func (yig *YigStorage) DeleteBucket(reqCtx RequestContext, credential common.Cre
 		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
 	}
 
-	if bucket.Lifecycle.Rules != nil {
-		err = yig.MetaStorage.RemoveBucketFromLifeCycle(*bucket)
-		if err != nil {
-			helper.Logger.Warn("Remove bucket from lifeCycle error:", err)
-		}
-	}
-
 	return nil
 }
 

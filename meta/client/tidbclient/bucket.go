@@ -902,7 +902,7 @@ func (t *TidbClient) IsEmptyBucket(bucket *Bucket) (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		if len(listInfo.Objects) != 0 && len(listInfo.Prefixes) != 0 {
+		if len(listInfo.Objects) != 0 || len(listInfo.Prefixes) != 0 {
 			return false, nil
 		}
 	} else {
@@ -910,7 +910,7 @@ func (t *TidbClient) IsEmptyBucket(bucket *Bucket) (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		if len(listInfo.Objects) != 0 && len(listInfo.Prefixes) != 0 {
+		if len(listInfo.Objects) != 0 || len(listInfo.Prefixes) != 0 {
 			return false, nil
 		}
 	}
