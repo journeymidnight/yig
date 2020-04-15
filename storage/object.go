@@ -723,9 +723,10 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 			return result, ErrBucketAccessForbidden
 		}
 	}
-	targetObject.LastModifiedTime = time.Now().UTC()
-	targetObject.VersionId = targetObject.GenVersionId(targetBucket.Versioning)
+
 	if isMetadataOnly {
+		targetObject.LastModifiedTime = sourceObject.LastModifiedTime
+		targetObject.VersionId = sourceObject.VersionId
 		if sourceObject.StorageClass == meta.ObjectStorageClassGlacier {
 			err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, true)
 			if err != nil {
@@ -873,6 +874,8 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 	targetObject.SseType = sseRequest.Type
 	targetObject.EncryptionKey = helper.Ternary(sseRequest.Type == crypto.S3.String(),
 		cipherKey, []byte("")).([]byte)
+	targetObject.LastModifiedTime = time.Now().UTC()
+	targetObject.VersionId = targetObject.GenVersionId(targetBucket.Versioning)
 
 	result.LastModified = targetObject.LastModifiedTime
 	if targetObject.StorageClass == meta.ObjectStorageClassGlacier && targetObject.Name == sourceObject.Name && targetObject.BucketName == sourceObject.BucketName {
