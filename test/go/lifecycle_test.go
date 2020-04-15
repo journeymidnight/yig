@@ -27,15 +27,15 @@ const (
     						</Filter>
     						<Status>Enabled</Status>
 							<Transition>
-      								<Days>1</Days>
+      								<Days>10</Days>
       								<StorageClass>` + s3.StorageClassStandardIa + `</StorageClass>
     						</Transition>
 							<Transition>
-      								<Days>2</Days>
+      								<Days>20</Days>
       								<StorageClass>` + s3.StorageClassGlacier + `</StorageClass>
     						</Transition>
 							<Expiration>
-      							<Days>4</Days>
+      							<Days>40</Days>
     						</Expiration>
   						</Rule>
 						<Rule>
@@ -45,7 +45,7 @@ const (
 	  						</Filter>
 	  						<Status>Enabled</Status>
 							<Transition>
-      								<Days>2</Days>
+      								<Days>20</Days>
       								<StorageClass>` + s3.StorageClassStandardIa + `</StorageClass>
     						</Transition>
 	  					</Rule>
@@ -56,7 +56,7 @@ const (
 	  						</Filter>
 	  						<Status>Enabled</Status>
 							<Expiration>
-      							<Days>3</Days>
+      							<Days>30</Days>
     						</Expiration>
 	  					</Rule>
 	</LifecycleConfiguration>`
@@ -69,11 +69,11 @@ const (
     						</Filter>
     						<Status>Enabled</Status>
     						<Transition>
-      								<Days>1</Days>
+      								<Days>10</Days>
       								<StorageClass>` + s3.StorageClassGlacier + `</StorageClass>
     						</Transition>
 							<Expiration>
-      							<Days>1</Days>
+      							<Days>10</Days>
 								<ExpiredObjectDeleteMarker>true</ExpiredObjectDeleteMarker>
     						</Expiration>
   						</Rule>
@@ -84,7 +84,7 @@ const (
     						</Filter>
     						<Status>Enabled</Status>
     						<Expiration>
-      							<Days>2</Days>
+      							<Days>20</Days>
     						</Expiration>
   						</Rule>
 						<Rule>
@@ -94,7 +94,7 @@ const (
     						</Filter>
     						<Status>Enabled</Status>
     						<NoncurrentVersionTransition>
-                                    <NoncurrentDays>1</NoncurrentDays>
+                                    <NoncurrentDays>10</NoncurrentDays>
 									<StorageClass>` + s3.StorageClassStandardIa + `</StorageClass>
                             </NoncurrentVersionTransition>
   						</Rule>
@@ -105,7 +105,7 @@ const (
     						</Filter>
     						<Status>Enabled</Status>
     						<NoncurrentVersionExpiration>
-                                    <NoncurrentDays>2</NoncurrentDays>
+                                    <NoncurrentDays>20</NoncurrentDays>
 							</NoncurrentVersionExpiration>
   						</Rule>
 	</LifecycleConfiguration>`
@@ -141,17 +141,17 @@ func Test_LifecycleConfiguration(t *testing.T) {
 	t.Log("GetBucketLifecycle Success! out:", outLC)
 
 	// Sleep wait for LC process
-	time.Sleep(time.Second * 90)
+	time.Sleep(time.Second * 15)
 	out, err = sc.GetObjectOutPut(TestLifecycleBucket1, TestLifecycleKey1)
 	assert.Equal(t, err, nil, "GetObjectOutPut2 err")
 	assert.Equal(t, *out.StorageClass == s3.StorageClassStandardIa, true, "object StorageClass should be STANDARD_IA")
 
-	time.Sleep(time.Second * 60)
+	time.Sleep(time.Second * 25)
 	_, err = sc.GetObjectOutPut(TestLifecycleBucket1, TestLifecycleKey1)
 	assert.NotEqual(t, err, nil, "GetObjectOutPut3 err")
 	t.Log(err)
 
-	time.Sleep(time.Second * 210)
+	time.Sleep(time.Second * 35)
 	_, err = sc.GetObjectOutPut(TestLifecycleBucket1, TestLifecycleKey1)
 	assert.NotEqual(t, err, nil, "GetObjectOutPut4 err")
 	t.Log(err)
@@ -215,7 +215,7 @@ func Test_LifecycleConfigurationToVersion(t *testing.T) {
 	t.Log("GetBucketLifecycle Success! out:", outLC)
 
 	// Sleep wait for LC process
-	time.Sleep(time.Second * 90)
+	time.Sleep(time.Second * 15)
 	_, err = sc.GetObjectVersionOutPut(TestLifecycleBucket2, TestLifecycleKey2, versions[1])
 	assert.NotEqual(t, err, nil, "GetObjectVersionOutPut err")
 	t.Log(err)
@@ -226,14 +226,14 @@ func Test_LifecycleConfigurationToVersion(t *testing.T) {
 	assert.Equal(t, err, nil, "GetObjectVersionOutPut3 err")
 	assert.Equal(t, *getObjOut.StorageClass == s3.StorageClassStandardIa, true, "object StorageClass should be STANDARD_IA")
 
-	time.Sleep(time.Second * 90)
+	time.Sleep(time.Second * 15)
 	_, err = sc.GetObjectOutPut(TestLifecycleBucket2, TestLifecycleKey2)
 	assert.NotEqual(t, err, nil, "GetObjectOutPut err")
 	getObjOut, err = sc.GetObjectVersionOutPut(TestLifecycleBucket2, TestLifecycleKey2, versions[0])
 	assert.NotEqual(t, err, nil, "GetObjectVersionOutPut4 err")
 	t.Log(err)
 
-	time.Sleep(time.Second * 90)
+	time.Sleep(time.Second * 15)
 	listVersionOut, err := sc.ListObjectVersions(TestLifecycleBucket2, "", "", "version/", 100)
 	assert.Equal(t, err, nil, "ListObjects err")
 	t.Log(listVersionOut.String())

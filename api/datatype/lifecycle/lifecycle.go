@@ -155,7 +155,7 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 				if !rule.Expiration.IsDaysNull() {
 					var days time.Duration
 					if helper.CONFIG.LifecycleDebug {
-						days = time.Duration(rule.Expiration.Days) * time.Minute
+						days = time.Duration(rule.Expiration.Days) * time.Second
 					} else {
 						days = time.Duration(rule.Expiration.Days) * 24 * time.Hour
 					}
@@ -187,7 +187,7 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 					if !transition.IsDaysNull() {
 						var days time.Duration
 						if helper.CONFIG.LifecycleDebug {
-							days = time.Duration(transition.Days) * time.Minute
+							days = time.Duration(transition.Days) * time.Second
 						} else {
 							days = time.Duration(transition.Days) * 24 * time.Hour
 						}
@@ -234,7 +234,7 @@ func (lc Lifecycle) ComputeActionForNonCurrentVersion(objName string, objTags ma
 				if !rule.NoncurrentVersionExpiration.IsDaysNull() {
 					var days time.Duration
 					if helper.CONFIG.LifecycleDebug {
-						days = time.Duration(rule.NoncurrentVersionExpiration.NoncurrentDays) * time.Minute
+						days = time.Duration(rule.NoncurrentVersionExpiration.NoncurrentDays) * time.Second
 					} else {
 						days = time.Duration(rule.NoncurrentVersionExpiration.NoncurrentDays) * 24 * time.Hour
 					}
@@ -250,7 +250,7 @@ func (lc Lifecycle) ComputeActionForNonCurrentVersion(objName string, objTags ma
 					if !transition.IsDaysNull() {
 						var days time.Duration
 						if helper.CONFIG.LifecycleDebug {
-							days = time.Duration(transition.NoncurrentDays) * time.Minute
+							days = time.Duration(transition.NoncurrentDays) * time.Second
 						} else {
 							days = time.Duration(transition.NoncurrentDays) * 24 * time.Hour
 						}
@@ -299,7 +299,7 @@ func (lc Lifecycle) ComputeActionForAbortIncompleteMultipartUpload(objName strin
 				if !rule.AbortIncompleteMultipartUpload.IsDaysNull() {
 					var days time.Duration
 					if helper.CONFIG.LifecycleDebug {
-						days = time.Duration(rule.AbortIncompleteMultipartUpload.DaysAfterInitiation) * time.Minute
+						days = time.Duration(rule.AbortIncompleteMultipartUpload.DaysAfterInitiation) * time.Second
 					} else {
 						days = time.Duration(rule.AbortIncompleteMultipartUpload.DaysAfterInitiation) * 24 * time.Hour
 					}
