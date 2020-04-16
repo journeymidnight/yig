@@ -1076,6 +1076,8 @@ func (yig *YigStorage) TransformObject(reqCtx RequestContext, targetObject *meta
 
 	result.LastModified = targetObject.LastModifiedTime
 	if targetObject.StorageClass == util.ObjectStorageClassGlacier && targetObject.Name == sourceObject.Name && targetObject.BucketName == sourceObject.BucketName {
+		targetObject.LastModifiedTime = sourceObject.LastModifiedTime
+		result.LastModified = targetObject.LastModifiedTime
 		err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, false, true)
 	} else {
 		err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, true)
