@@ -38,7 +38,9 @@ require (
 	github.com/go-redis/redis_rate/v8 v8.0.0
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/golang/protobuf v1.3.4
+
 	github.com/golang/snappy v0.0.1
+
 	github.com/gomodule/redigo v1.7.0
 	github.com/gorilla/mux v1.7.4
 	github.com/journeymidnight/aws-sdk-go v1.18.1
@@ -49,7 +51,14 @@ require (
 	github.com/robfig/cron v1.2.0
 	github.com/stretchr/testify v1.4.0
 	github.com/ugorji/go v1.1.4
+	github.com/tikv/client-go v0.0.0-20200110101306-a3ebdb020c83
+	github.com/ugorji/go/codec v0.0.0-20190204201341-e444a5086c43
 	github.com/xxtea/xxtea-go v0.0.0-20170828040851-35c4b17eecf6
 	golang.org/x/sys v0.0.0-20191010194322-b09406accb47
+
 	google.golang.org/appengine v0.0.0-00010101000000-000000000000 // indirect
+
+	golang.org/x/crypto v0.0.0-20190325154230-a5d413f7728c // indirect
+	gopkg.in/bufio.v1 v1.0.0-20140618132640-567b2bfa514e
+	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 )

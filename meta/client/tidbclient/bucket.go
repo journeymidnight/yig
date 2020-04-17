@@ -173,23 +173,6 @@ func (t *TidbClient) PutNewBucket(bucket Bucket) error {
 	return err
 }
 
-func (t *TidbClient) CheckAndPutBucket(bucket Bucket) (bool, error) {
-	var processed bool
-	_, err := t.GetBucket(bucket.Name)
-	if err == nil {
-		processed = false
-		return processed, err
-	} else if err != nil && err != ErrNoSuchBucket {
-		processed = false
-		return processed, err
-	} else {
-		processed = true
-	}
-	sql, args := bucket.GetCreateSql()
-	_, err = t.Client.Exec(sql, args...)
-	return processed, err
-}
-
 func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (listInfo ListObjectsInfo, err error) {
 	var count int
 	var exit bool

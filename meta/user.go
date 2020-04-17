@@ -27,7 +27,3 @@ func (m *Meta) GetUserBuckets(userId string, willNeed bool) (buckets []string, e
 	}
 	return buckets, nil
 }
-
-func (m *Meta) RemoveBucketForUser(bucketName string, userId string) (err error) {
-	return m.Client.RemoveBucketForUser(bucketName, userId)
-}
