@@ -30,22 +30,25 @@ type Config struct {
 
 	InstanceId             string // if empty, generated one at server startup
 	ConcurrentRequestLimit int
-	DebugMode              bool   `toml:"debug_mode"`
-	EnablePProf            bool   `toml:"enable_pprof"`
-	BindPProfAddress       string `toml:"pprof_listener"`
-	AdminKey               string `toml:"admin_key"` //used for tools/admin to communicate with yig
-	GcThread               int    `toml:"gc_thread"`
-	LcThread               int    `toml:"lc_thread"` //used for tools/lc only, set worker numbers to do lc
-	MgThread               int    `toml:"mg_thread"`
-	MgScanInterval         int    `toml:"mg_scan_interval"`
-	MgObjectCooldown       int    `toml:"mg_object_cooldown"`
-	LogLevel               string `toml:"log_level"` // "info", "warn", "error"
-	CephConfigPattern      string `toml:"ceph_config_pattern"`
-	ReservedOrigins        string `toml:"reserved_origins"` // www.ccc.com,www.bbb.com,127.0.0.1
-	MetaStore              string `toml:"meta_store"`
-	TidbInfo               string `toml:"tidb_info"`
-	KeepAlive              bool   `toml:"keepalive"`
-	EnableCompression      bool   `toml:"enable_compression"`
+
+	MgThread         int `toml:"mg_thread"`
+	MgScanInterval   int `toml:"mg_scan_interval"`
+	MgObjectCooldown int `toml:"mg_object_cooldown"`
+
+	DebugMode         bool     `toml:"debug_mode"`
+	EnablePProf       bool     `toml:"enable_pprof"`
+	BindPProfAddress  string   `toml:"pprof_listener"`
+	AdminKey          string   `toml:"admin_key"` //used for tools/admin to communicate with yig
+	GcThread          int      `toml:"gc_thread"`
+	LcThread          int      //used for tools/lc only, set worker numbers to do lc
+	LogLevel          string   `toml:"log_level"` // "info", "warn", "error"
+	CephConfigPattern string   `toml:"ceph_config_pattern"`
+	ReservedOrigins   string   `toml:"reserved_origins"` // www.ccc.com,www.bbb.com,127.0.0.1
+	MetaStore         string   `toml:"meta_store"`
+	TidbInfo          string   `toml:"tidb_info"`
+	PdAddress         []string `toml:"pd_address"`
+	KeepAlive         bool     `toml:"keepalive"`
+	EnableCompression bool     `toml:"enable_compression"`
 
 	LifecycleSpec string `toml:"lifecycle_spec"` // use for Lifecycle timing
 
@@ -135,6 +138,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.CephConfigPattern = c.CephConfigPattern
 	CONFIG.ReservedOrigins = c.ReservedOrigins
 	CONFIG.TidbInfo = c.TidbInfo
+	CONFIG.PdAddress = c.PdAddress
 	CONFIG.KeepAlive = c.KeepAlive
 	CONFIG.EnableCompression = c.EnableCompression
 	CONFIG.InstanceId = Ternary(c.InstanceId == "",
