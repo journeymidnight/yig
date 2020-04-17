@@ -204,7 +204,7 @@ func (m *Meta) DeleteObject(object *Object) (err error) {
 
 func (m *Meta) AddDeleteMarker(marker *Object) (err error) {
 	marker.Size = int64(len(marker.Name))
-	return m.Client.PutObject(marker, nil, false)
+	return m.Client.PutObject(marker, nil, true)
 }
 
 func (m *Meta) DeleteSuspendedObject(object *Object) (err error) {

@@ -93,6 +93,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 
 	// noncurrent version
 	if bucket.Versioning != datatype.BucketVersioningDisabled && len(ncvRules) != 0 {
+		helper.Logger.Info("Noncurrent version process...")
 		// Calculate the common prefix of all lifecycle rules
 		var prefixes []string
 		for _, rule := range ncvRules {
@@ -111,6 +112,9 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 			info, err := yig.ListVersionedObjectsInternal(bucket.Name, request)
 			if err != nil {
 				return nil
+			}
+			if len(info.Objects) < 2 {
+				break
 			}
 			objectTool = info.Objects[0]
 			for _, object := range info.Objects[1:] {
@@ -163,6 +167,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 	}
 
 	if len(cvRules) != 0 {
+		helper.Logger.Info("Current version process...")
 		// Calculate the common prefix of all lifecycle rules
 		var prefixes []string
 		for _, rule := range cvRules {
@@ -257,6 +262,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 	}
 
 	if len(abortMultipartRules) != 0 {
+		helper.Logger.Info("Abort incomplete multipart upload...")
 		// Calculate the common prefix of all lifecycle rules
 		var prefixes []string
 		for _, rule := range ncvRules {
@@ -387,6 +393,7 @@ func transitionObject(reqCtx RequestContext, storageClass string) (result dataty
 	targetObject.CustomAttributes = sourceObject.CustomAttributes
 	targetObject.ContentType = sourceObject.ContentType
 	targetObject.StorageClass = targetStorageClass
+	targetObject.CreateTime = sourceObject.CreateTime
 
 	result, err = yig.TransformObject(reqCtx, targetObject, sourceObject, pipeReader, credential, sseRequest, isMetadataOnly)
 	if err != nil {

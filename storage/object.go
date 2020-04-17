@@ -1072,7 +1072,6 @@ func (yig *YigStorage) TransformObject(reqCtx RequestContext, targetObject *meta
 	targetObject.SseType = sseRequest.Type
 	targetObject.EncryptionKey = helper.Ternary(sseRequest.Type == crypto.S3.String(),
 		cipherKey, []byte("")).([]byte)
-	targetObject.CreateTime = sourceObject.CreateTime
 
 	result.LastModified = targetObject.LastModifiedTime
 	if targetObject.StorageClass == util.ObjectStorageClassGlacier && targetObject.Name == sourceObject.Name && targetObject.BucketName == sourceObject.BucketName {
