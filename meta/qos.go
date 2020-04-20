@@ -53,7 +53,6 @@ func (m *QosMeta) AllowReadQuery(bucketName string) (allow bool) {
 	// the key actually used in redis would have a prefix "rate:"
 	result, err := m.rateLimiter.Allow(key, redis_rate.PerSecond(qps))
 	if err != nil {
-		helper.Logger.Error("AllowReadQuery:", err)
 		return true
 	}
 	return result.Allowed
@@ -69,7 +68,6 @@ func (m *QosMeta) AllowWriteQuery(bucketName string) (allow bool) {
 	// the key actually used in redis would have a prefix "rate:"
 	result, err := m.rateLimiter.Allow(key, redis_rate.PerSecond(qps))
 	if err != nil {
-		helper.Logger.Error("AllowWriteQuery:", err)
 		return true
 	}
 	return result.Allowed
@@ -154,7 +152,6 @@ func (t *throttler) maybeWaitTokenN(n int) {
 		result, err := t.rateLimiter.AllowN(key,
 			redis_rate.PerSecond(t.kbpsLimit*1024), n)
 		if err != nil {
-			helper.Logger.Error("ThrottleReader:", err)
 			return
 		}
 		if result.Allowed {
