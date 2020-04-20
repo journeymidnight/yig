@@ -2,6 +2,7 @@ package tikvclient
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/journeymidnight/yig/helper"
 	"github.com/tikv/client-go/config"
@@ -75,6 +76,9 @@ func (c *TiKVClient) TxExist(k []byte) (bool, error) {
 }
 
 func (c *TiKVClient) TxPut(args ...interface{}) error {
+	if len(args)%2 != 0 {
+		return fmt.Errorf("tikv txn put need parameters of two or multiples of two.")
+	}
 	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
 		return err
