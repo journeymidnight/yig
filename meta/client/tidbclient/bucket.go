@@ -10,7 +10,8 @@ import (
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/meta/common"
+	. "github.com/journeymidnight/yig/meta/client"
+	. "github.com/journeymidnight/yig/meta/common"
 	. "github.com/journeymidnight/yig/meta/types"
 )
 
@@ -205,7 +206,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 			var version, etag, lastModified string
 			var nullversion, deletemarker bool
 			var size int64
-			var storageClassType common.StorageClass
+			var storageClassType StorageClass
 			err = rows.Scan(
 				&bucketname,
 				&name,
@@ -306,33 +307,6 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 	return
 }
 
-func modifyMetaToObjectResult(objMeta Object) datatype.Object {
-	var o datatype.Object
-	o.Key = objMeta.Name
-	o.Owner = datatype.Owner{ID: objMeta.OwnerId}
-	o.ETag = objMeta.Etag
-	o.LastModified = objMeta.LastModifiedTime.Format(CREATE_TIME_LAYOUT)
-	o.Size = objMeta.Size
-	o.StorageClass = objMeta.StorageClass.ToString()
-	return o
-}
-
-func modifyMetaToVersionedObjectResult(objMeta Object) datatype.VersionedObject {
-	var o datatype.VersionedObject
-	o.Key = objMeta.Name
-	o.Owner = datatype.Owner{ID: objMeta.OwnerId}
-	o.ETag = objMeta.Etag
-	o.LastModified = objMeta.LastModifiedTime.Format(CREATE_TIME_LAYOUT)
-	o.Size = objMeta.Size
-	o.StorageClass = objMeta.StorageClass.ToString()
-	if objMeta.VersionId == NullVersion {
-		objMeta.VersionId = "null"
-	}
-	o.VersionId = objMeta.VersionId
-	o.DeleteMarker = objMeta.DeleteMarker
-	return o
-}
-
 func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (listInfo ListObjectsInfo, err error) {
 	var count int
 	var exit bool
@@ -399,7 +373,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 					continue
 				}
 
-				o := modifyMetaToObjectResult(meta)
+				o := ModifyMetaToObjectResult(meta)
 
 				count++
 				if count == maxKeys {
@@ -467,7 +441,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				previousNullObjectMeta = nil
 			}
 
-			var o = modifyMetaToObjectResult(objMeta)
+			var o = ModifyMetaToObjectResult(objMeta)
 
 			count++
 			if count == maxKeys {
@@ -520,7 +494,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				continue
 			}
 
-			o := modifyMetaToObjectResult(meta)
+			o := ModifyMetaToObjectResult(meta)
 			previousNullObjectMeta = nil
 
 			count++
@@ -642,9 +616,9 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 					if needCompareNull && nullObjMeta.CreateTime > VerObjMeta.CreateTime {
 						needCompareNull = false
 						currentVerIdMarker = nullObjMeta.VersionId
-						o = modifyMetaToVersionedObjectResult(nullObjMeta)
+						o = ModifyMetaToVersionedObjectResult(nullObjMeta)
 					} else {
-						o = modifyMetaToVersionedObjectResult(VerObjMeta)
+						o = ModifyMetaToVersionedObjectResult(VerObjMeta)
 					}
 					count++
 					if count == maxKeys {
@@ -737,7 +711,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 						break
 					}
 
-					o := modifyMetaToVersionedObjectResult(*previousNullObjectMeta)
+					o := ModifyMetaToVersionedObjectResult(*previousNullObjectMeta)
 					listInfo.Objects = append(listInfo.Objects, o)
 
 				} else {
@@ -746,10 +720,11 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 
 					nullIsLatest := previousNullObjectMeta.CreateTime > objMeta.CreateTime
 					if nullIsLatest {
-						o = modifyMetaToVersionedObjectResult(*previousNullObjectMeta)
+						o = ModifyMetaToVersionedObjectResult(*previousNullObjectMeta)
+
 						previousNullObjectMeta = nil
 					} else {
-						o = modifyMetaToVersionedObjectResult(objMeta)
+						o = ModifyMetaToVersionedObjectResult(objMeta)
 					}
 
 					count++
@@ -801,7 +776,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 				continue
 			}
 
-			o := modifyMetaToVersionedObjectResult(objMeta)
+			o := ModifyMetaToVersionedObjectResult(objMeta)
 
 			count++
 			if count == maxKeys {
@@ -823,7 +798,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 		//  The last one result is a null version object and name is not same as the previous object
 		if loopCount == 1 {
 			if previousNullObjectMeta != nil {
-				o := modifyMetaToVersionedObjectResult(*previousNullObjectMeta)
+				o := ModifyMetaToVersionedObjectResult(*previousNullObjectMeta)
 
 				count++
 				if count == maxKeys {
