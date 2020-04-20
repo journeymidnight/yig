@@ -465,7 +465,11 @@ func main() {
 	lc := LifecycleStart
 
 	c := cron.New()
-	c.AddFunc(helper.CONFIG.LifecycleSpec, lc)
+	if helper.CONFIG.DebugMode {
+		c.AddFunc(lifecycle.DebugSpec, lc)
+	} else {
+		c.AddFunc(helper.CONFIG.LifecycleSpec, lc)
+	}
 	c.Start()
 	defer c.Stop()
 

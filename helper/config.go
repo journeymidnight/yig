@@ -44,9 +44,7 @@ type Config struct {
 	KeepAlive              bool   `toml:"keepalive"`
 	EnableCompression      bool   `toml:"enable_compression"`
 
-	//About lifecycle
-	LifecycleDebug bool   `toml:"lc_debug"`
-	LifecycleSpec  string `toml:"lifecycle_spec"` // use for Lifecycle timing
+	LifecycleSpec string `toml:"lifecycle_spec"` // use for Lifecycle timing
 
 	//About cache
 	EnableUsagePush       bool     `toml:"enable_usage_push"`
@@ -144,7 +142,6 @@ func MarshalTOMLConfig() error {
 	CONFIG.LogLevel = Ternary(len(c.LogLevel) == 0, "info", c.LogLevel).(string)
 	CONFIG.MetaStore = Ternary(c.MetaStore == "", "tidb", c.MetaStore).(string)
 
-	CONFIG.LifecycleDebug = c.LifecycleDebug
 	CONFIG.LifecycleSpec = Ternary(c.LifecycleSpec == "", "@midnight", c.LifecycleSpec).(string)
 
 	CONFIG.EnableUsagePush = c.EnableUsagePush

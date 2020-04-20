@@ -27,6 +27,12 @@ import (
 )
 
 const (
+	DebugSpec = "@every 5s"
+	// DebugTime for test: 1 day == 1 second
+	DebugTime = time.Second
+)
+
+const (
 	// Lifecycle config can't have more than 100 rules
 	RulesNumber = 100
 )
@@ -154,8 +160,8 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 
 				if !rule.Expiration.IsDaysNull() {
 					var days time.Duration
-					if helper.CONFIG.LifecycleDebug {
-						days = time.Duration(rule.Expiration.Days) * time.Second
+					if helper.CONFIG.DebugMode {
+						days = time.Duration(rule.Expiration.Days) * DebugTime
 					} else {
 						days = time.Duration(rule.Expiration.Days) * 24 * time.Hour
 					}
@@ -186,8 +192,8 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 
 					if !transition.IsDaysNull() {
 						var days time.Duration
-						if helper.CONFIG.LifecycleDebug {
-							days = time.Duration(transition.Days) * time.Second
+						if helper.CONFIG.DebugMode {
+							days = time.Duration(transition.Days) * DebugTime
 						} else {
 							days = time.Duration(transition.Days) * 24 * time.Hour
 						}
@@ -233,8 +239,8 @@ func (lc Lifecycle) ComputeActionForNonCurrentVersion(objName string, objTags ma
 			if rule.NoncurrentVersionExpiration != nil {
 				if !rule.NoncurrentVersionExpiration.IsDaysNull() {
 					var days time.Duration
-					if helper.CONFIG.LifecycleDebug {
-						days = time.Duration(rule.NoncurrentVersionExpiration.NoncurrentDays) * time.Second
+					if helper.CONFIG.DebugMode {
+						days = time.Duration(rule.NoncurrentVersionExpiration.NoncurrentDays) * DebugTime
 					} else {
 						days = time.Duration(rule.NoncurrentVersionExpiration.NoncurrentDays) * 24 * time.Hour
 					}
@@ -249,8 +255,8 @@ func (lc Lifecycle) ComputeActionForNonCurrentVersion(objName string, objTags ma
 				for _, transition := range rule.NoncurrentVersionTransitions {
 					if !transition.IsDaysNull() {
 						var days time.Duration
-						if helper.CONFIG.LifecycleDebug {
-							days = time.Duration(transition.NoncurrentDays) * time.Second
+						if helper.CONFIG.DebugMode {
+							days = time.Duration(transition.NoncurrentDays) * DebugTime
 						} else {
 							days = time.Duration(transition.NoncurrentDays) * 24 * time.Hour
 						}
@@ -298,8 +304,8 @@ func (lc Lifecycle) ComputeActionForAbortIncompleteMultipartUpload(objName strin
 			if rule.AbortIncompleteMultipartUpload != nil {
 				if !rule.AbortIncompleteMultipartUpload.IsDaysNull() {
 					var days time.Duration
-					if helper.CONFIG.LifecycleDebug {
-						days = time.Duration(rule.AbortIncompleteMultipartUpload.DaysAfterInitiation) * time.Second
+					if helper.CONFIG.DebugMode {
+						days = time.Duration(rule.AbortIncompleteMultipartUpload.DaysAfterInitiation) * DebugTime
 					} else {
 						days = time.Duration(rule.AbortIncompleteMultipartUpload.DaysAfterInitiation) * 24 * time.Hour
 					}

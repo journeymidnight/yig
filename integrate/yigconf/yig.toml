@@ -20,10 +20,6 @@ reserved_origins = "s3.test.com,s3-internal.test.com"
 
 # LC
 lc_thread = 64
-# LC Debug
-lc_debug = true
-# 5s for pass CI
-lifecycle_spec = "@every 5s"
 #lifecycle_spec = "@midnight"
 
 # Meta Config

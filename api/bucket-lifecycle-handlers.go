@@ -69,6 +69,11 @@ func (api ObjectAPIHandlers) GetBucketLifeCycleHandler(w http.ResponseWriter, r 
 		return
 	}
 
+	if lifecycle.IsEmpty() {
+		logger.Info("The bucket does not have LifeCycle configured!")
+		WriteErrorResponse(w, r, ErrNoSuchBucketLc)
+	}
+
 	lcBuffer, err := xmlFormat(lifecycle)
 	if err != nil {
 		logger.Error("Failed to marshal lifecycle XML for bucket", reqCtx.BucketName,
