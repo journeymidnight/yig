@@ -17,6 +17,19 @@ func (t *TidbClient) PutBucketToLifeCycle(lifeCycle LifeCycle) error {
 	return nil
 }
 
+func (t *TidbClient) GetBucketLifeCycle(bucket Bucket) (*LifeCycle, error) {
+	lc := LifeCycle{}
+	sqltext := "select bucketname,status from lifecycle where bucketname=?;"
+	err := t.Client.QueryRow(sqltext, bucket.Name).Scan(
+		&lc.BucketName,
+		&lc.Status,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &lc, nil
+}
+
 func (t *TidbClient) RemoveBucketFromLifeCycle(bucket Bucket) error {
 	sqltext := "delete from lifecycle where bucketname=?;"
 	_, err := t.Client.Exec(sqltext, bucket.Name)

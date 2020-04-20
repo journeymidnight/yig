@@ -10,11 +10,11 @@ func LifeCycleFromBucket(b Bucket) (lc LifeCycle) {
 
 func (m *Meta) PutBucketToLifeCycle(bucket Bucket) error {
 	lifeCycle := LifeCycleFromBucket(bucket)
-	err := m.Client.RemoveBucketFromLifeCycle(bucket)
-	if err != nil {
-		return err
-	}
 	return m.Client.PutBucketToLifeCycle(lifeCycle)
+}
+
+func (m *Meta) GetBucketLifeCycle(bucket Bucket) (lifeCycle *LifeCycle, err error) {
+	return m.Client.GetBucketLifeCycle(bucket)
 }
 
 func (m *Meta) RemoveBucketFromLifeCycle(bucket Bucket) error {

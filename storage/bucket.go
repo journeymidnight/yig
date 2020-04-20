@@ -140,10 +140,14 @@ func (yig *YigStorage) SetBucketLifecycle(reqCtx RequestContext, lc lifecycle.Li
 		yig.MetaStorage.Cache.Remove(redis.BucketTable, reqCtx.BucketName)
 	}
 
-	err = yig.MetaStorage.PutBucketToLifeCycle(*bucket)
-	if err != nil {
-		helper.Logger.Error("Error Put bucket to lifecycle table:", err)
-		return err
+	// check the lifecycle table for bucket info
+	getLC, err := yig.MetaStorage.GetBucketLifeCycle(*bucket)
+	if getLC == nil {
+		err = yig.MetaStorage.PutBucketToLifeCycle(*bucket)
+		if err != nil {
+			helper.Logger.Error("Error Put bucket to lifecycle table:", err)
+			return err
+		}
 	}
 	return nil
 }
