@@ -9,6 +9,7 @@ import (
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
+	. "github.com/journeymidnight/yig/meta/client"
 	. "github.com/journeymidnight/yig/meta/types"
 	"github.com/tikv/client-go/key"
 	"github.com/tikv/client-go/txnkv/kv"
@@ -127,17 +128,12 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 			}
 		}
 		var o Object
-		var info_o datatype.Object
 		err = helper.MsgPackUnMarshal(v, &o)
 		if err != nil {
 			return info, err
 		}
-		info_o.Key = o.Name
-		info_o.Owner = datatype.Owner{ID: o.OwnerId}
-		info_o.ETag = o.Etag
-		info_o.LastModified = o.LastModifiedTime.UTC().Format(CREATE_TIME_LAYOUT)
-		info_o.Size = o.Size
-		info_o.StorageClass = o.StorageClass.ToString()
+
+		info_o := ModifyMetaToObjectResult(o)
 		count++
 		if count == maxKeys {
 			info.NextMarker = objKey
@@ -230,7 +226,7 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 	var currentNullObj, currentVerObj Object
 	var isNullPrefix, isVerPrefix bool
 	for {
-		var o *Object
+		var o Object
 		if nNext {
 			currentNullObj, isNullPrefix, err = c.FindNextObject(itNull, marker, prefix, delimiter, commonPrefixes)
 			if err != nil {
@@ -252,30 +248,30 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 		if currentVerObj.Name == "" && currentNullObj.Name == "" {
 			return
 		} else if currentVerObj.Name == "" {
-			o = &currentNullObj
+			o = currentNullObj
 			nNext = false
 		} else if currentNullObj.Name == "" {
-			o = &currentVerObj
+			o = currentVerObj
 			vNext = false
 		} else {
 			// The result will be 0 if a==b, -1 if a < b, and +1 if a > b.
 			r := strings.Compare(currentVerObj.Name, currentNullObj.Name)
 			if r < 0 {
-				o = &currentVerObj
+				o = currentVerObj
 				vNext = false
 			} else if r > 0 {
-				o = &currentNullObj
-				vNext = false
+				o = currentNullObj
+				nNext = false
 			} else {
 				if isNullPrefix && isVerPrefix {
-					o = &currentNullObj
+					o = currentNullObj
 					vNext, nNext = true, true
 				}
 				if currentNullObj.LastModifiedTime.After(currentVerObj.LastModifiedTime) {
-					o = &currentNullObj
+					o = currentNullObj
 					nNext = false
 				} else {
-					o = &currentVerObj
+					o = currentVerObj
 					vNext = false
 				}
 			}
@@ -302,13 +298,7 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			continue
 		}
 
-		var info_o datatype.Object
-		info_o.Key = o.Name
-		info_o.Owner = datatype.Owner{ID: o.OwnerId}
-		info_o.ETag = o.Etag
-		info_o.LastModified = o.LastModifiedTime.UTC().Format(CREATE_TIME_LAYOUT)
-		info_o.Size = o.Size
-		info_o.StorageClass = o.StorageClass.ToString()
+		info_o := ModifyMetaToObjectResult(o)
 		count++
 		if count == maxKeys {
 			info.NextMarker = o.Name
@@ -414,7 +404,7 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 	count := 0
 
 	for {
-		var o *Object
+		var o Object
 		if nNext {
 			currentNullObj, isNullPrefix, err = c.FindNextObject(itNull, marker, prefix, delimiter, commonPrefixes)
 			if err != nil {
@@ -438,33 +428,33 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 		if currentVerObj.Name == "" && currentNullObj.Name == "" {
 			return
 		} else if currentVerObj.Name == "" {
-			o = &currentNullObj
+			o = currentNullObj
 			vNext = false
 		} else if currentNullObj.Name == "" {
-			o = &currentVerObj
+			o = currentVerObj
 			nNext = false
 		} else {
 			// The result will be 0 if a==b, -1 if a < b, and +1 if a > b.
 			r := strings.Compare(currentVerObj.Name, currentNullObj.Name)
 			if r < 0 {
-				o = &currentVerObj
+				o = currentVerObj
 				vNext = true
 				nNext = false
 			} else if r > 0 {
-				o = &currentNullObj
+				o = currentNullObj
 				nNext = true
 				vNext = false
 			} else {
 				if isNullPrefix && isVerPrefix {
-					o = &currentNullObj
+					o = currentNullObj
 					vNext, nNext = true, true
 				}
 				if currentNullObj.LastModifiedTime.After(currentVerObj.LastModifiedTime) {
-					o = &currentNullObj
+					o = currentNullObj
 					nNext = true
 					vNext = false
 				} else {
-					o = &currentVerObj
+					o = currentVerObj
 					vNext = true
 					nNext = false
 				}
@@ -492,15 +482,7 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 			continue
 		}
 
-		var info_o datatype.VersionedObject
-		info_o.Key = o.Name
-		info_o.Owner = datatype.Owner{ID: o.OwnerId}
-		info_o.ETag = o.Etag
-		info_o.LastModified = o.LastModifiedTime.UTC().Format(CREATE_TIME_LAYOUT)
-		info_o.Size = o.Size
-		info_o.StorageClass = o.StorageClass.ToString()
-		info_o.VersionId = o.VersionId
-		info_o.DeleteMarker = o.DeleteMarker
+		info_o := ModifyMetaToVersionedObjectResult(o)
 		count++
 		if count == maxKeys {
 			info.NextKeyMarker = o.Name
@@ -561,23 +543,30 @@ func (c *TiKVClient) UpdateUsage(bucketName string, size int64, tx Tx) error {
 }
 
 func (c *TiKVClient) IsEmptyBucket(bucket *Bucket) (isEmpty bool, err error) {
-	bucketName := bucket.Name
-	bucketStartKey := GenKey(bucketName, TableMinKeySuffix)
-	bucketEndKey := GenKey(bucketName, TableMaxKeySuffix)
-	partStartKey := GenKey(TableObjectPartPrefix, bucketName, TableMinKeySuffix)
-	partEndKey := GenKey(TableObjectPartPrefix, bucketName, TableMaxKeySuffix)
-	r, err := c.TxScan(bucketStartKey, bucketEndKey, 1)
+	if bucket.Versioning == datatype.BucketVersioningDisabled {
+		listInfo, err := c.ListObjects(bucket.Name, "", "", "", 1)
+		if err != nil {
+			return false, err
+		}
+		if len(listInfo.Objects) != 0 || len(listInfo.Prefixes) != 0 {
+			return false, nil
+		}
+	} else {
+		listInfo, err := c.ListVersionedObjects(bucket.Name, "", "", "", "", 1)
+		if err != nil {
+			return false, err
+		}
+		if len(listInfo.Objects) != 0 || len(listInfo.Prefixes) != 0 {
+			return false, nil
+		}
+	}
+
+	// Check if object part is empty
+	result, err := c.ListMultipartUploads(bucket.Name, "", "", "", "", "", 1)
 	if err != nil {
 		return false, err
 	}
-	if len(r) > 0 {
-		return false, nil
-	}
-	r, err = c.TxScan(partStartKey, partEndKey, 1)
-	if err != nil {
-		return false, err
-	}
-	if len(r) > 0 {
+	if len(result.Uploads) != 0 {
 		return false, nil
 	}
 	return true, nil
