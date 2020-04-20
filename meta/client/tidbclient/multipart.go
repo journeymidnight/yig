@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	. "database/sql/driver"
 	"encoding/json"
-	"github.com/journeymidnight/yig/meta/util"
 	"math"
 	"net/url"
 	"sort"
@@ -17,6 +16,7 @@ import (
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/iam/common"
+	meta "github.com/journeymidnight/yig/meta/common"
 	. "github.com/journeymidnight/yig/meta/types"
 )
 
@@ -209,7 +209,7 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 			loopnum += 1
 			var name, initiatorid, ownerid string
 			var uploadtime uint64
-			var storageClass util.StorageClass
+			var storageClass meta.StorageClass
 			err = rows.Scan(
 				&name,
 				&uploadtime,

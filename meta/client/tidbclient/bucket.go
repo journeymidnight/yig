@@ -10,8 +10,8 @@ import (
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/meta/common"
 	. "github.com/journeymidnight/yig/meta/types"
-	"github.com/journeymidnight/yig/meta/util"
 )
 
 func (t *TidbClient) GetBucket(bucketName string) (bucket *Bucket, err error) {
@@ -222,7 +222,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 			var version, etag, lastModified string
 			var nullversion, deletemarker bool
 			var size int64
-			var storageClassType util.StorageClass
+			var storageClassType common.StorageClass
 			err = rows.Scan(
 				&bucketname,
 				&name,

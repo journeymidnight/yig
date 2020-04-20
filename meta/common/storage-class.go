@@ -1,4 +1,4 @@
-package util
+package common
 
 import . "github.com/journeymidnight/yig/error"
 

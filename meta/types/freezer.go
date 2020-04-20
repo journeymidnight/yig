@@ -1,7 +1,7 @@
 package types
 
 import (
-	"github.com/journeymidnight/yig/meta/util"
+	"github.com/journeymidnight/yig/meta/common"
 	"time"
 )
 
@@ -19,7 +19,7 @@ type Freezer struct {
 	Parts            map[int]*Part
 	PartsIndex       *SimpleIndex
 	VersionId        string // version cache
-	Status           util.Status
+	Status           common.Status
 	LifeTime         int
 }
 
@@ -31,7 +31,7 @@ func (o *Freezer) GetCreateSql() (string, []interface{}) {
 	return sql, args
 }
 
-func (o *Freezer) GetUpdateSql(status util.Status) (string, []interface{}) {
+func (o *Freezer) GetUpdateSql(status common.Status) (string, []interface{}) {
 	// TODO Multi-version control
 	// version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)

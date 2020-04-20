@@ -20,7 +20,7 @@ import (
 	"encoding/xml"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
-	meta "github.com/journeymidnight/yig/meta/util"
+	meta "github.com/journeymidnight/yig/meta/common"
 	"io"
 	"strings"
 	"time"

@@ -15,8 +15,8 @@ import (
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/iam/common"
+	. "github.com/journeymidnight/yig/meta/common"
 	meta "github.com/journeymidnight/yig/meta/types"
-	"github.com/journeymidnight/yig/meta/util"
 	"github.com/journeymidnight/yig/redis"
 )
 
@@ -545,7 +545,7 @@ func (yig *YigStorage) ListObjectsInternal(bucket *meta.Bucket, request datatype
 		marker = request.KeyMarker
 	} else if request.Version == 2 {
 		if request.ContinuationToken != "" {
-			marker, err = util.Decrypt(request.ContinuationToken)
+			marker, err = Decrypt(request.ContinuationToken)
 			if err != nil {
 				err = ErrInvalidContinuationToken
 				return
@@ -609,7 +609,7 @@ func (yig *YigStorage) ListObjects(reqCtx RequestContext, credential common.Cred
 		result.NextMarker = info.NextMarker
 	}
 	if request.Version == 2 {
-		result.NextMarker = util.Encrypt(result.NextMarker)
+		result.NextMarker = Encrypt(result.NextMarker)
 	}
 	objects := make([]datatype.Object, 0, len(info.Objects))
 	for _, obj := range info.Objects {
