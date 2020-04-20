@@ -188,9 +188,6 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				return nil
 			}
 			for _, object := range info.Objects {
-				if err != nil {
-					return err
-				}
 				// pass old version object
 				if object.Key == objectTool.Key {
 					continue
@@ -198,7 +195,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 					objectTool = object
 				}
 				helper.Logger.Info("Object info:", object, "\n BucketName:", bucket.Name)
-				reqCtx.ObjectInfo, err = yig.MetaStorage.GetObject(bucket.Name, object.Key, "", true)
+				reqCtx.ObjectInfo, err = yig.MetaStorage.GetObject(bucket.Name, object.Key, object.VersionId, true)
 				if err != nil {
 					helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
 					continue
@@ -207,13 +204,18 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 
 				reqCtx.ObjectName = object.Key
 
+				// DM & have other version: continue
+				// DM & have not other version: expiredObjectDeleteMarkerWork == true
 				var expiredObjectDeleteMarkerWork bool
 				if reqCtx.ObjectInfo.DeleteMarker {
 					ok, err := checkObjectOtherVersion(commonPrefix, reqCtx)
 					if err != nil {
 						return nil
 					}
-					expiredObjectDeleteMarkerWork = !ok
+					if ok {
+						continue
+					}
+					expiredObjectDeleteMarkerWork = true
 				}
 				// Find the action that need to be executed					   TODO: add tags
 				action, storageClass := bucketLC.ComputeAction(reqCtx.ObjectName, nil, reqCtx.ObjectInfo.StorageClass.ToString(),

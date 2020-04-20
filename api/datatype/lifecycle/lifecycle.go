@@ -148,12 +148,13 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 			if rule.Expiration != nil {
 				if !rule.Expiration.IsDateNull() {
 					if time.Now().After(rule.Expiration.Date.Time) {
-						if !rule.Expiration.IsSetExpiredObjectDeleteMarker() {
-							return DeleteAction, ""
-						} else {
-							if isExpiredObjectDeleteMarkerWork {
+						if isExpiredObjectDeleteMarkerWork {
+							if rule.Expiration.IsSetExpiredObjectDeleteMarker() {
 								return DeleteMarkerAction, ""
 							}
+							return NoneAction, ""
+						} else {
+							return DeleteAction, ""
 						}
 					}
 				}
@@ -166,12 +167,13 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 						days = time.Duration(rule.Expiration.Days) * 24 * time.Hour
 					}
 					if time.Now().After(modTime.Add(days)) {
-						if !rule.Expiration.IsSetExpiredObjectDeleteMarker() {
-							return DeleteAction, ""
-						} else {
-							if isExpiredObjectDeleteMarkerWork {
+						if isExpiredObjectDeleteMarkerWork {
+							if rule.Expiration.IsSetExpiredObjectDeleteMarker() {
 								return DeleteMarkerAction, ""
 							}
+							return NoneAction, ""
+						} else {
+							return DeleteAction, ""
 						}
 					}
 				}
