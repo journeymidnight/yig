@@ -16,18 +16,18 @@ import (
 	"github.com/tikv/client-go/key"
 )
 
-// **Key**: m\\{BucketName}\\{ObjectName}\\{UploadTime}
-// encodedTime = BigEndian(MaxUint64 - multipart.InitialTime)
-// UploadTime = hex.EncodeToString(encodedTime)
+// **Key**: m\{BucketName}\{ObjectName}\{EncodedTime}
+// UploadTime = MaxUint64 - multipart.InitialTime
+// EncodedTime = hex.EncodeToString(BigEndian(UploadTime)）
 func genMultipartKey(bucketName, objectName string, initialTime uint64) []byte {
-	//encodedTime := EncodeTime(initialTime)
-	//TODO
-	return GenKey(TableMultipartPrefix, bucketName, objectName, hex.EncodeToString(nil))
+	encodedTime := hex.EncodeToString(EncodeUint64(math.MaxUint64 - initialTime))
+	return GenKey(TableMultipartPrefix, bucketName, objectName, encodedTime)
 }
 
-// Key: p\{BucketName}\{ObjectName}\{UploadId}\{PartNumber}
+// **Key**: p\{BucketName}\{ObjectName}\{UploadId}\{EncodePartNumber}
+// EncodePartNumber = hex.EncodeToString(BigEndian({PartNumber}))
 func genObjectPartKey(bucketName, objectName, uploadId string, partNumber int) []byte {
-	return GenKey(TableObjectPartPrefix, bucketName, objectName, uploadId, hex.EncodeToString(nil))
+	return GenKey(TableObjectPartPrefix, bucketName, objectName, uploadId, hex.EncodeToString(EncodeUint64(uint64(partNumber))))
 }
 
 const MaxPartLimit = 1000

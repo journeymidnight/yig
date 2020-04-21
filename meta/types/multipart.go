@@ -1,13 +1,13 @@
 package types
 
 import (
+	"encoding/binary"
 	"errors"
 	"math"
 	"strconv"
 
 	"github.com/journeymidnight/yig/api/datatype"
-	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/meta/common"
+	. "github.com/journeymidnight/yig/meta/common"
 )
 
 type Part struct {
@@ -34,7 +34,7 @@ type MultipartMetadata struct {
 	EncryptionKey []byte
 	CipherKey     []byte
 	Attrs         map[string]string
-	StorageClass  common.StorageClass
+	StorageClass  StorageClass
 }
 
 type Multipart struct {
@@ -60,12 +60,11 @@ func (m *Multipart) GenUploadId() error {
 // UploadId := hex.EncodeToString(xxtea.Encrypt(TIME_STRING, XXTEA_KEY))
 func getMultipartUploadId(initialTime uint64) string {
 	timeData := strconv.FormatUint(initialTime, 10)
-	helper.Logger.Info("timeData:")
-	return common.Encrypt(timeData)
+	return Encrypt(timeData)
 }
 
 func GetInitialTimeFromUploadId(uploadId string) (uint64, error) {
-	timeStr, err := common.Decrypt(uploadId)
+	timeStr, err := Decrypt(uploadId)
 	if err != nil {
 		return 0, err
 	}
@@ -79,6 +78,16 @@ func GetInitialTimeFromUploadId(uploadId string) (uint64, error) {
 func GetMultipartUploadIdByDbTime(uploadtime uint64) string {
 	initialTime := math.MaxUint64 - uploadtime
 	return getMultipartUploadId(initialTime)
+}
+
+func EncodeUint64(i uint64) []byte {
+	var bin [8]byte
+	binary.BigEndian.PutUint64(bin[:], i)
+	return bin[:]
+}
+
+func DecodeUint64(bin []byte) uint64 {
+	return binary.BigEndian.Uint64(bin)
 }
 
 func (p *Part) GetCreateSql(bucketname, objectname, version string) (string, []interface{}) {
