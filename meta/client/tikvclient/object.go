@@ -182,17 +182,16 @@ func (c *TiKVClient) UpdateObjectAttrs(object *Object) error {
 	return c.PutObject(object, nil, true)
 }
 
-//================================================================
-//TODO
-
-func (t *TiKVClient) ReplaceObjectMetas(object *Object, tx Tx) (err error) {
-	return
+func (c *TiKVClient) DeleteObjectPart(object *Object, tx Tx) (err error) {
+	// This function will do nothing in TiKV because object parts will be replaced when update object.
+	object.Parts = nil
+	return nil
 }
 
-func (t *TiKVClient) UpdateFreezerObject(object *Object, tx Tx) (err error) {
-	return
+func (c *TiKVClient) ReplaceObjectMetas(object *Object, tx Tx) (err error) {
+	return c.PutObject(object, nil, false)
 }
 
-func (t *TiKVClient) DeleteObjectPart(object *Object, tx Tx) (err error) {
-	return
+func (c *TiKVClient) UpdateFreezerObject(object *Object, tx Tx) (err error) {
+	return c.PutObject(object, nil, true)
 }

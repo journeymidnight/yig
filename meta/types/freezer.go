@@ -56,5 +56,6 @@ func (f *Freezer) ToObject() (o Object) {
 	o.Parts = f.Parts
 	o.PartsIndex = f.PartsIndex
 	o.VersionId = f.VersionId
+	o.CreateTime = f.CreateTime
 	return
 }

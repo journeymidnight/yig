@@ -491,8 +491,7 @@ func (t *TidbClient) UpdateFreezerObject(object *Object, tx Tx) (err error) {
 		}()
 	}
 	txn := tx.(*sql.Tx)
-	sqltext := "delete from objectpart where objectname=? and bucketname=? and version=?;"
-	_, err = txn.Exec(sqltext, object.Name, object.BucketName, object.VersionId)
+	err = t.DeleteObjectPart(object, tx)
 	if err != nil {
 		return err
 	}

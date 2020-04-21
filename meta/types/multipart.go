@@ -105,7 +105,11 @@ func (p *Part) GetCreateGcSql(bucketname, objectname string, version uint64) (st
 }
 
 func (o *Object) GetUpdateObjectPartNameSql(sourceObject string) (string, []interface{}) {
+<<<<<<< HEAD
 	partVersion := math.MaxUint64 - o.CreateTime
+=======
+	partVersion := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
+>>>>>>> fix freezer bug. finish object.
 	sql := "update objectpart set objectname=? where bucketname=? and objectname=? and version=?"
 	args := []interface{}{o.Name, o.BucketName, sourceObject, partVersion}
 	return sql, args
