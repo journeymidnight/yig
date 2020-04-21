@@ -10,9 +10,9 @@ import (
 	"github.com/tikv/client-go/key"
 )
 
-// **Key**: {BucketName}\\{ObjectName}
-// **Versioned Key**: v\\{BucketName}\\{ObjectName}\\{Version}
-// Version = hex.EncodeToString(BigEndian(MaxUint64 - multipart.InitialTime))
+// **Key**: {BucketName}\{ObjectName}
+// **Versioned Key**: v\{BucketName}\{ObjectName}\{Version}
+// Version = hex.EncodeToString(BigEndian(MaxUint64 - object.LastModifiedTime.UnixNano()))
 func genObjectKey(bucketName, objectName, version string) []byte {
 	if version == NullVersion {
 		return GenKey(bucketName, objectName)
