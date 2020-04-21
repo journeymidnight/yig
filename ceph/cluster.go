@@ -4,14 +4,15 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
-	"github.com/journeymidnight/radoshttpd/rados"
-	"github.com/journeymidnight/yig/backend"
-	"github.com/journeymidnight/yig/helper"
 	"io"
 	"io/ioutil"
 	"path/filepath"
 	"sync/atomic"
 	"time"
+
+	"github.com/journeymidnight/radoshttpd/rados"
+	"github.com/journeymidnight/yig/backend"
+	"github.com/journeymidnight/yig/helper"
 )
 
 const (
@@ -348,10 +349,6 @@ func (cluster *CephCluster) Append(poolname string, existName string, data io.Re
 	oid = existName
 	if len(oid) == 0 {
 		oid = cluster.getUniqUploadName()
-	}
-	if poolname != backend.BIG_FILE_POOLNAME {
-		return oid, 0,
-			errors.New("specified pool must be used for storing big file.")
 	}
 
 	pool, err := cluster.Conn.OpenPool(poolname)

@@ -26,7 +26,7 @@ import (
 var latestQueryTime [3]time.Time // 0 is for SMALL_FILE_POOLNAME, 1 is for BIG_FILE_POOLNAME, 2 is for GLACIER_FILE_POOLNAME
 const (
 	CLUSTER_MAX_USED_SPACE_PERCENT = 85
-	BIG_FILE_THRESHOLD             = 128 << 10 /* 128K */
+	BIG_FILE_THRESHOLD             = 1 << 20 /* 1M */
 )
 
 func (yig *YigStorage) pickRandomCluster() (cluster backend.Cluster) {
@@ -47,7 +47,7 @@ func (yig *YigStorage) pickClusterAndPool(bucket string, object string, storageC
 		poolName = backend.GLACIER_FILE_POOLNAME
 		idx = 2
 	} else {
-		if isAppend {
+		if isAppend && size >= BIG_FILE_THRESHOLD {
 			poolName = backend.BIG_FILE_POOLNAME
 			idx = 1
 		} else if size < 0 { // request.ContentLength is -1 if length is unknown

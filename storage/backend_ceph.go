@@ -3,6 +3,10 @@ package storage
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"io"
+	"sync"
+	"time"
+
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/backend"
 	"github.com/journeymidnight/yig/ceph"
@@ -14,9 +18,6 @@ import (
 	"github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/signature"
-	"io"
-	"sync"
-	"time"
 )
 
 func New(metaCacheType int, enableDataCache bool, kms crypto.KMS) *YigStorage {
@@ -70,7 +71,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 	if objInfo != nil {
 		cephCluster = yig.DataStorage[objInfo.Location]
 		// Every appendable file must be treated as a big file
-		poolName = backend.BIG_FILE_POOLNAME
+		poolName = objInfo.Pool
 		oid = objInfo.ObjectId
 		initializationVector = objInfo.InitializationVector
 		objSize = objInfo.Size
@@ -79,7 +80,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 	} else {
 		// New appendable object
 		cephCluster, poolName = yig.pickClusterAndPool(bucketName, objectName, storageClass, size, true)
-		if cephCluster == nil || poolName != backend.BIG_FILE_POOLNAME {
+		if cephCluster == nil {
 			helper.Logger.Warn("PickOneClusterAndPool error")
 			return result, ErrInternalError
 		}
