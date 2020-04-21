@@ -37,7 +37,6 @@ func (t *TidbClient) PutObjectToGarbageCollection(object *Object, tx Tx) (err er
 	if err != nil {
 		return err
 	}
-
 	partVersion := math.MaxUint64 - object.CreateTime
 	for _, p := range object.Parts {
 		psql, args := p.GetCreateGcSql(o.BucketName, o.ObjectName, partVersion)
@@ -73,14 +72,15 @@ func (t *TidbClient) PutFreezerToGarbageCollection(f *Freezer, tx Tx) (err error
 		hasPart = true
 	}
 	mtime := o.MTime.Format(TIME_LAYOUT_TIDB)
+
 	sqltext := "insert ignore into gc(bucketname,objectname,version,location,pool,objectid,status,mtime,part,triedtimes) values(?,?,?,?,?,?,?,?,?,?);"
-	_, err = txn.Exec(sqltext, o.BucketName, o.ObjectName, o.VersionId, o.Location, o.Pool, o.ObjectId, o.Status, mtime, hasPart, o.TriedTimes)
+	_, err = txn.Exec(sqltext, o.BucketName, o.ObjectName, f.VersionId, o.Location, o.Pool, o.ObjectId, o.Status, mtime, hasPart, o.TriedTimes)
 
 	if err != nil {
 		return err
 	}
 
-	partVersion := math.MaxUint64 - uint64(o.MTime.UnixNano())
+	partVersion := math.MaxUint64 - object.CreateTime
 	for _, p := range object.Parts {
 		psql, args := p.GetCreateGcSql(o.BucketName, o.ObjectName, partVersion)
 		_, err = txn.Exec(psql, args...)
