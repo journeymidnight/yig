@@ -40,3 +40,20 @@ func (o *Freezer) GetUpdateSql(status common.Status) (string, []interface{}) {
 
 	return sql, args
 }
+
+func (f *Freezer) ToObject() (o Object) {
+	o.Rowkey = f.Rowkey
+	o.Name = f.Name
+	o.BucketName = f.BucketName
+	o.Location = f.Location
+	o.Pool = f.Pool
+	o.OwnerId = f.OwnerId
+	o.Size = f.Size
+	o.ObjectId = f.ObjectId
+	o.LastModifiedTime = f.LastModifiedTime
+	o.Etag = f.Etag
+	o.Parts = f.Parts
+	o.PartsIndex = f.PartsIndex
+	o.VersionId = f.VersionId
+	return
+}

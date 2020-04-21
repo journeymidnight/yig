@@ -9,6 +9,7 @@ import (
 	. "github.com/journeymidnight/yig/meta/types"
 )
 
+// **Key**: g\{PoolName}\{Fsid}\{ObjectId}
 func genGcKey(fsid, poolName, objectId string) []byte {
 	return GenKey(TableGcPrefix, poolName, fsid, objectId)
 }
@@ -28,7 +29,6 @@ func (c *TiKVClient) PutObjectToGarbageCollection(object *Object, tx Tx) error {
 	return txn.Set(key, v)
 }
 
-//Key: g\{PoolName}\{Fsid}\{Backend}\{ObjectId}
 func (c *TiKVClient) ScanGarbageCollection(limit int) (gcs []GarbageCollection, err error) {
 	startKey := GenKey(TableGcPrefix, TableMinKeySuffix)
 	endKey := GenKey(TableGcPrefix, TableMaxKeySuffix)
@@ -42,7 +42,7 @@ func (c *TiKVClient) ScanGarbageCollection(limit int) (gcs []GarbageCollection, 
 		key, val := kv.K, kv.V
 		err = helper.MsgPackUnMarshal(val, &gc)
 		sp := strings.Split(string(key), TableSeparator)
-		if len(sp) != 5 {
+		if len(sp) != 4 {
 			return nil, errors.New("Invalid gc key:" + string(key))
 		}
 		gcs = append(gcs, gc)

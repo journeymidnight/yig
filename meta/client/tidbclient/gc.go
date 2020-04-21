@@ -50,7 +50,7 @@ func (t *TidbClient) PutObjectToGarbageCollection(object *Object, tx Tx) (err er
 	return nil
 }
 
-func (t *TidbClient) PutFreezerToGarbageCollection(object *Freezer, tx Tx) (err error) {
+func (t *TidbClient) PutFreezerToGarbageCollection(f *Freezer, tx Tx) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		if err != nil {
@@ -66,7 +66,8 @@ func (t *TidbClient) PutFreezerToGarbageCollection(object *Freezer, tx Tx) (err 
 		}()
 	}
 	txn := tx.(*sql.Tx)
-	o := GarbageCollectionFromFreeze(object)
+	object := f.ToObject()
+	o := GetGcInfoFromObject(&object)
 	var hasPart bool
 	if len(o.Parts) > 0 {
 		hasPart = true
@@ -205,31 +206,5 @@ func getGcParts(bucketname, objectname, version string, cli *sql.DB) (parts map[
 		)
 		parts[p.PartNumber] = p
 	}
-	return
-}
-
-func GarbageCollectionFromObject(o *Object) (gc GarbageCollection) {
-	gc.BucketName = o.BucketName
-	gc.ObjectName = o.Name
-	gc.Location = o.Location
-	gc.Pool = o.Pool
-	gc.ObjectId = o.ObjectId
-	gc.Status = "Pending"
-	gc.MTime = time.Now().UTC()
-	gc.Parts = o.Parts
-	gc.TriedTimes = 0
-	return
-}
-
-func GarbageCollectionFromFreeze(f *Freezer) (gc GarbageCollection) {
-	gc.BucketName = f.BucketName
-	gc.ObjectName = f.Name
-	gc.Location = f.Location
-	gc.Pool = f.Pool
-	gc.ObjectId = f.ObjectId
-	gc.Status = "Pending"
-	gc.MTime = time.Now().UTC()
-	gc.Parts = f.Parts
-	gc.TriedTimes = 0
 	return
 }
