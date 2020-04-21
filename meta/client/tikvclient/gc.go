@@ -47,7 +47,6 @@ func (c *TiKVClient) ScanGarbageCollection(limit int) (gcs []GarbageCollection, 
 		}
 		gcs = append(gcs, gc)
 	}
-
 	return
 }
 
@@ -56,6 +55,17 @@ func (c *TiKVClient) RemoveGarbageCollection(garbage GarbageCollection) error {
 	return c.TxDelete(key)
 }
 
-func (c *TiKVClient) PutFreezerToGarbageCollection(object *Freezer, tx Tx) (err error) {
-	return
+func (c *TiKVClient) PutFreezerToGarbageCollection(f *Freezer, tx Tx) (err error) {
+	key := genGcKey(f.Location, f.Pool, f.ObjectId)
+	object := f.ToObject()
+	gc := GetGcInfoFromObject(&object)
+	if tx == nil {
+		return c.TxPut(key, gc)
+	}
+	txn := tx.(*TikvTx).tx
+	v, err := helper.MsgPackMarshal(gc)
+	if err != nil {
+		return err
+	}
+	return txn.Set(key, v)
 }
