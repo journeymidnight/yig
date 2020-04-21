@@ -2,33 +2,33 @@ package common
 
 import . "github.com/journeymidnight/yig/error"
 
-type Status uint8
+type RestoreStatus uint8
 
 const (
-	ObjectNeedRestore Status = iota
+	ObjectNeedRestore RestoreStatus = iota
 	ObjectRestoring
 	ObjectHasRestored
 )
 
 var (
-	StatusIndexMap = map[Status]string{
+	StatusIndexMap = map[RestoreStatus]string{
 		ObjectNeedRestore: "READY",
 		ObjectRestoring:   "RESTORING",
 		ObjectHasRestored: "FINISH",
 	}
 
-	StatusStringMap = map[string]Status{
+	StatusStringMap = map[string]RestoreStatus{
 		"READY":     ObjectNeedRestore,
 		"RESTORING": ObjectRestoring,
 		"FINISH":    ObjectHasRestored,
 	}
 )
 
-func (s Status) ToString() string {
+func (s RestoreStatus) ToString() string {
 	return StatusIndexMap[s]
 }
 
-func MatchStatusIndex(status string) (Status, error) {
+func MatchStatusIndex(status string) (RestoreStatus, error) {
 	if index, ok := StatusStringMap[status]; ok {
 		return index, nil
 	} else {
