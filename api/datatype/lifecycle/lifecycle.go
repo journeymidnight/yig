@@ -148,13 +148,19 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 			if rule.Expiration != nil {
 				if !rule.Expiration.IsDateNull() {
 					if time.Now().After(rule.Expiration.Date.Time) {
-						if isExpiredObjectDeleteMarkerWork {
-							if rule.Expiration.IsSetExpiredObjectDeleteMarker() {
-								return DeleteMarkerAction, ""
+						// not set EODM, only DM ==> NoneAction
+						// not set EODM, only DM ==> DeleteAction
+						// set EODM, only DM ==> DeleteMarkerAction
+						// set EODM, not DM ==> pass Expiration
+						if !rule.Expiration.IsSetExpiredObjectDeleteMarker() {
+							if !isExpiredObjectDeleteMarkerWork {
+								return DeleteAction, ""
 							}
 							return NoneAction, ""
 						} else {
-							return DeleteAction, ""
+							if isExpiredObjectDeleteMarkerWork {
+								return DeleteMarkerAction, ""
+							}
 						}
 					}
 				}
@@ -167,13 +173,15 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 						days = time.Duration(rule.Expiration.Days) * 24 * time.Hour
 					}
 					if time.Now().After(modTime.Add(days)) {
-						if isExpiredObjectDeleteMarkerWork {
-							if rule.Expiration.IsSetExpiredObjectDeleteMarker() {
-								return DeleteMarkerAction, ""
+						if !rule.Expiration.IsSetExpiredObjectDeleteMarker() {
+							if !isExpiredObjectDeleteMarkerWork {
+								return DeleteAction, ""
 							}
 							return NoneAction, ""
 						} else {
-							return DeleteAction, ""
+							if isExpiredObjectDeleteMarkerWork {
+								return DeleteMarkerAction, ""
+							}
 						}
 					}
 				}
