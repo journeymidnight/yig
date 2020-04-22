@@ -29,12 +29,12 @@ const (
 )
 
 var (
-	yig         *storage.YigStorage
-	taskQ       chan meta.LifeCycle
-	signalQueue chan os.Signal
-	waitgroup   sync.WaitGroup
-	wait        bool
-	stop        bool
+	yig             *storage.YigStorage
+	taskQ           chan meta.LifeCycle
+	signalQueue     chan os.Signal
+	waitgroup       sync.WaitGroup
+	lcHandlerIsOver bool
+	stop            bool
 )
 
 func getLifeCycles() {
@@ -51,7 +51,7 @@ func getLifeCycles() {
 		result, err := yig.MetaStorage.ScanLifeCycle(SCAN_LIMIT, marker)
 		if err != nil {
 			helper.Logger.Error("ScanLifeCycle failed:", err)
-			wait = true
+			lcHandlerIsOver = true
 			return
 		}
 		for _, entry := range result.Lcs {
@@ -60,7 +60,7 @@ func getLifeCycles() {
 		}
 
 		if result.Truncated == false {
-			wait = true
+			lcHandlerIsOver = true
 			return
 		}
 	}
@@ -425,7 +425,7 @@ func processLifecycle(process_num int) {
 			}
 			helper.Logger.Info("Bucket lifecycle done:", item.BucketName)
 		default:
-			if wait == true {
+			if lcHandlerIsOver == true {
 				helper.Logger.Info("All bucket lifecycle handle complete. QUIT")
 				waitgroup.Done()
 				return
@@ -437,7 +437,7 @@ func processLifecycle(process_num int) {
 
 func LifecycleStart() {
 	stop = false
-	wait = false
+	lcHandlerIsOver = false
 
 	taskQ = make(chan meta.LifeCycle, SCAN_LIMIT)
 
