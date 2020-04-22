@@ -45,6 +45,13 @@ type Object struct {
 	CreateTime   uint64 // Timestamp(nanosecond)
 }
 
+type ScanHotObjectsResult struct {
+	NextBMarker string
+	NextOMarker string
+	NextVMarker string
+	Objects     []Object
+}
+
 type ObjectType int
 
 const (
@@ -105,6 +112,20 @@ func (o *Object) GetCreateSql() (string, []interface{}) {
 	return sql, args
 }
 
+func (o *Object) GetCreateHotSql() (string, []interface{}) {
+
+	customAttributes, _ := json.Marshal(o.CustomAttributes)
+	acl, _ := json.Marshal(o.ACL)
+	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
+	sql := "insert into hotobjects(bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag," +
+		"contenttype,customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass,createtime) " +
+		"values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+	args := []interface{}{o.BucketName, o.Name, o.VersionId, o.Location, o.Pool, o.OwnerId, o.Size, o.ObjectId,
+		lastModifiedTime, o.Etag, o.ContentType, customAttributes, acl, o.NullVersion, o.DeleteMarker,
+		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass, o.LastModifiedTime.UnixNano()}
+	return sql, args
+}
+
 func (o *Object) GetUpdateSql() (string, []interface{}) {
 	customAttributes, _ := json.Marshal(o.CustomAttributes)
 	acl, _ := json.Marshal(o.ACL)
@@ -115,6 +136,26 @@ func (o *Object) GetUpdateSql() (string, []interface{}) {
 	args := []interface{}{o.Location, o.Pool, o.Size, o.ObjectId,
 		lastModifiedTime, o.Etag, o.DeleteMarker, o.ContentType, customAttributes, acl,
 		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass, o.LastModifiedTime.UnixNano(), o.BucketName, o.Name, o.VersionId}
+	return sql, args
+}
+
+func (o *Object) GetUpdateHotSql() (string, []interface{}) {
+	customAttributes, _ := json.Marshal(o.CustomAttributes)
+	acl, _ := json.Marshal(o.ACL)
+	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
+	sql := "update hotobjects set location=?,pool=?,size=?,objectid=?,lastmodifiedtime=?,etag=?,deletemarker=?," +
+		"contenttype=?,customattributes=?,acl=?,ssetype=?,encryptionkey=?,initializationvector=?,type=?, storageclass=?, createtime=? " +
+		"where bucketname=? and name=? and version=?"
+	args := []interface{}{o.Location, o.Pool, o.Size, o.ObjectId,
+		lastModifiedTime, o.Etag, o.DeleteMarker, o.ContentType, customAttributes, acl,
+		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass, o.LastModifiedTime.UnixNano(), o.BucketName, o.Name, o.VersionId}
+	return sql, args
+}
+
+func (o *Object) GetRemoveHotSql() (string, []interface{}) {
+	sql := "delete from hotobjects " +
+		"where bucketname=? and name=? and version=?"
+	args := []interface{}{o.BucketName, o.Name, o.VersionId}
 	return sql, args
 }
 

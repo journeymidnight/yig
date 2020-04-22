@@ -1,0 +1,17 @@
+[Unit]
+Description=yig migrate process
+After=network.target
+
+[Service]
+LimitAS=infinity
+LimitRSS=infinity
+LimitCORE=infinity
+LimitNOFILE=65535
+Type=simple
+StartLimitIntervalSec=60
+ExecStart=/usr/bin/yig_migrate_daemon
+ExecStop=/usr/bin/kill $MAINPID
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

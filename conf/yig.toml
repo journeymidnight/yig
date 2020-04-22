@@ -55,6 +55,12 @@ db_conn_max_life_seconds = 300
 download_buf_pool_size = 8388608 #8MB
 upload_min_chunk_size = 524288 #512KB
 upload_max_chunk_size = 8388608 #8MB
+big_file_threshold = 1048576 #1MB
+
+# Migrate Config
+mg_thread = 1
+mg_scan_interval = 600
+mg_object_cooldown = 3600
 
 # Ceph Config
 ceph_config_pattern = "/etc/ceph/*.conf"

@@ -203,6 +203,40 @@ CREATE TABLE `objects` (
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
+-- Table structure for table `hotobjects`
+--
+
+DROP TABLE IF EXISTS `hotobjects`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `hotobjects` (
+  `bucketname` varchar(255) DEFAULT NULL,
+  `name` varchar(255) DEFAULT NULL,
+  `version` bigint(20) UNSIGNED DEFAULT NULL,
+  `location` varchar(255) DEFAULT NULL,
+  `pool` varchar(255) DEFAULT NULL,
+  `ownerid` varchar(255) DEFAULT NULL,
+  `size` bigint(20) DEFAULT NULL,
+  `objectid` varchar(255) DEFAULT NULL,
+  `lastmodifiedtime` datetime DEFAULT NULL,
+  `etag` varchar(255) DEFAULT NULL,
+  `contenttype` varchar(255) DEFAULT NULL,
+  `customattributes` JSON DEFAULT NULL,
+  `acl` JSON DEFAULT NULL,
+  `nullversion` tinyint(1) DEFAULT NULL,
+  `deletemarker` tinyint(1) DEFAULT NULL,
+  `ssetype` varchar(255) DEFAULT NULL,
+  `encryptionkey` blob DEFAULT NULL,
+  `initializationvector` blob DEFAULT NULL,
+  `type` tinyint(1) DEFAULT 0,
+  `storageclass` tinyint(1) DEFAULT 0,
+  `createtime` bigint(20) UNSIGNED DEFAULT NULL,
+   UNIQUE KEY `rowkey` (`bucketname`,`name`,`version`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+
+--
 -- Table structure for table `restoreobjectpart`
 --
 

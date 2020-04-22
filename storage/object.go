@@ -26,13 +26,13 @@ import (
 
 var cMap sync.Map
 var latestQueryTime [3]time.Time // 0 is for SMALL_FILE_POOLNAME, 1 is for BIG_FILE_POOLNAME, 2 is for GLACIER_FILE_POOLNAME
+
 const (
 	CLUSTER_MAX_USED_SPACE_PERCENT = 85
-	BIG_FILE_THRESHOLD             = 128 << 10 /* 128K */
 )
 
 func (yig *YigStorage) pickRandomCluster() (cluster backend.Cluster) {
-	helper.Logger.Warn("Error picking cluster from table cluster in DB, " +
+	helper.Logger.Info("Error picking cluster from table cluster in DB, " +
 		"use first cluster in config to write.")
 	for _, c := range yig.DataStorage {
 		cluster = c
@@ -41,21 +41,87 @@ func (yig *YigStorage) pickRandomCluster() (cluster backend.Cluster) {
 	return
 }
 
+func (yig *YigStorage) PickSpecificCluster(poolName string) (cluster backend.Cluster) {
+	var idx int
+	if poolName == backend.BIG_FILE_POOLNAME {
+		idx = 1
+	} else {
+		idx = 0
+	}
+
+	if v, ok := cMap.Load(poolName); ok {
+		return v.(backend.Cluster)
+	}
+
+	// TODO: Add Ticker to change Map
+	var needCheck bool
+	queryTime := latestQueryTime[idx]
+	if time.Since(queryTime).Hours() > 24 { // check used space every 24 hours
+		latestQueryTime[idx] = time.Now()
+		needCheck = true
+	}
+	var totalWeight int
+	clusterWeights := make(map[string]int, len(yig.DataStorage))
+	metaClusters, err := yig.MetaStorage.GetClusters()
+	if err != nil {
+		cluster = yig.pickRandomCluster()
+		return
+	}
+	for _, cluster := range metaClusters {
+		if cluster.Weight == 0 {
+			continue
+		}
+		if cluster.Pool != poolName {
+			continue
+		}
+		if needCheck {
+			usage, err := yig.DataStorage[cluster.Fsid].GetUsage()
+			if err != nil {
+				helper.Logger.Warn("Error getting used space: ", err,
+					"fsid: ", cluster.Fsid)
+				continue
+			}
+			if usage.UsedSpacePercent > CLUSTER_MAX_USED_SPACE_PERCENT {
+				helper.Logger.Warn("Cluster used space exceed ",
+					CLUSTER_MAX_USED_SPACE_PERCENT, cluster.Fsid)
+				continue
+			}
+		}
+		totalWeight += cluster.Weight
+		clusterWeights[cluster.Fsid] = cluster.Weight
+	}
+	if len(clusterWeights) == 0 || totalWeight == 0 {
+		cluster = yig.pickRandomCluster()
+		return
+	}
+	N := rand.Intn(totalWeight)
+	n := 0
+	for fsid, weight := range clusterWeights {
+		n += weight
+		if n > N {
+			cluster = yig.DataStorage[fsid]
+			break
+		}
+	}
+
+	cMap.Store(poolName, cluster)
+	return
+}
+
 func (yig *YigStorage) pickClusterAndPool(bucket string, object string, storageClass StorageClass,
 	size int64, isAppend bool) (cluster backend.Cluster, poolName string) {
-
 	var idx int
 	if storageClass == ObjectStorageClassGlacier {
 		poolName = backend.GLACIER_FILE_POOLNAME
 		idx = 2
 	} else {
-		if isAppend {
+		if isAppend && size >= helper.CONFIG.BigFileThreshold {
 			poolName = backend.BIG_FILE_POOLNAME
 			idx = 1
 		} else if size < 0 { // request.ContentLength is -1 if length is unknown
 			poolName = backend.BIG_FILE_POOLNAME
 			idx = 1
-		} else if size < BIG_FILE_THRESHOLD {
+		} else if size < helper.CONFIG.BigFileThreshold {
 			poolName = backend.SMALL_FILE_POOLNAME
 			idx = 0
 		} else {
@@ -974,7 +1040,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 	if objInfo != nil {
 		cephCluster = yig.DataStorage[objInfo.Location]
 		// Every appendable file must be treated as a big file
-		poolName = backend.BIG_FILE_POOLNAME
+		poolName = objInfo.Pool
 		oid = objInfo.ObjectId
 		initializationVector = objInfo.InitializationVector
 		objSize = objInfo.Size
@@ -983,7 +1049,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 	} else {
 		// New appendable object
 		cephCluster, poolName = yig.pickClusterAndPool(bucketName, objectName, storageClass, size, true)
-		if cephCluster == nil || poolName != backend.BIG_FILE_POOLNAME {
+		if cephCluster == nil {
 			helper.Logger.Warn("PickOneClusterAndPool error")
 			return result, ErrInternalError
 		}
@@ -1065,6 +1131,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":"+meta.NullVersion)
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.VersionId)
 	}
+
 	return result, nil
 }
 
