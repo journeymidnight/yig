@@ -289,6 +289,121 @@ func (t *TidbClient) ReplaceObjectMetas(object *Object, tx Tx) (err error) {
 	return
 }
 
+func (t *TidbClient) AppendObject(object *Object, updateUsage bool) (err error) {
+	tx, err := t.Client.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		}
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	sql, args := object.GetCreateSql()
+	_, err = tx.Exec(sql, args...)
+
+	sql, args = object.GetCreateHotSql()
+	_, err = tx.Exec(sql, args...)
+
+	if updateUsage {
+		err = t.UpdateUsage(object.BucketName, object.Size, tx)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (t *TidbClient) ScanHotObjects(limit int, bMarker, oMarker, vMarker string) (result ScanHotObjectsResult, err error) {
+	var count int
+	var customattributes, acl, lastModifiedTime string
+	var sqltext string
+	var rows *sql.Rows
+	if bMarker == "" && oMarker == "" && vMarker == "" {
+		sqltext = "select bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag,contenttype," +
+			"customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass,createtime" +
+			" from hotobjects order by bucketname,name,version limit ?;"
+		helper.Logger.Info("sqltext0", sqltext)
+		rows, err = t.Client.Query(sqltext, limit)
+	} else {
+		sqltext = "select bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag,contenttype," +
+			"customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass,createtime" +
+			" from hotobjects where bucketname>=? and name >=? and version >=? order by bucketname,name,version limit ?;"
+		helper.Logger.Info("sqltext1", sqltext)
+		rows, err = t.Client.Query(sqltext, bMarker, oMarker, vMarker, limit+1)
+	}
+	if err != nil {
+		if err == sql.ErrNoRows {
+			err = nil
+			return
+		}
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		//fetch related date
+		object := &Object{}
+		err = rows.Scan(
+			&object.BucketName,
+			&object.Name,
+			&object.VersionId,
+			&object.Location,
+			&object.Pool,
+			&object.OwnerId,
+			&object.Size,
+			&object.ObjectId,
+			&lastModifiedTime,
+			&object.Etag,
+			&object.ContentType,
+			&customattributes,
+			&acl,
+			&object.NullVersion,
+			&object.DeleteMarker,
+			&object.SseType,
+			&object.EncryptionKey,
+			&object.InitializationVector,
+			&object.Type,
+			&object.StorageClass,
+			&object.CreateTime,
+		)
+		if err != nil {
+			return
+		}
+
+		if object.BucketName == bMarker && object.Name == oMarker && object.VersionId == vMarker {
+			continue
+		}
+
+		object.LastModifiedTime, err = time.Parse("2006-01-02 15:04:05", lastModifiedTime)
+		if err != nil {
+			return
+		}
+		err = json.Unmarshal([]byte(acl), &object.ACL)
+		if err != nil {
+			return
+		}
+		err = json.Unmarshal([]byte(customattributes), &object.CustomAttributes)
+		if err != nil {
+			return
+		}
+
+		count += 1
+		if count == limit {
+			result.NextBMarker = object.BucketName
+			result.NextOMarker = object.Name
+			result.NextVMarker = object.VersionId
+		}
+		result.Objects = append(result.Objects, *object)
+	}
+
+	return
+}
+
 func (t *TidbClient) UpdateAppendObject(object *Object) (err error) {
 	tx, err := t.Client.Begin()
 	if err != nil {
@@ -303,12 +418,38 @@ func (t *TidbClient) UpdateAppendObject(object *Object) (err error) {
 		}
 	}()
 
-	lastModifiedTime := object.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
-	sql := "update objects set lastmodifiedtime=?, size=?, createtime=? where bucketname=? and name=? and version=?"
-	args := []interface{}{lastModifiedTime, object.Size, object.CreateTime, object.BucketName, object.Name, object.VersionId}
+	sql, args := object.GetUpdateSql()
 	_, err = tx.Exec(sql, args...)
 
+	if object.Pool == "rabbit" {
+		sql, args = object.GetUpdateHotSql()
+		_, err = tx.Exec(sql, args...)
+	}
+
 	return t.UpdateUsage(object.BucketName, object.Size, tx)
+}
+
+func (t *TidbClient) MigrateObject(object *Object) (err error) {
+	tx, err := t.Client.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		}
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	sql, args := object.GetUpdateSql()
+	_, err = tx.Exec(sql, args...)
+
+	sql, args = object.GetRemoveHotSql()
+	_, err = tx.Exec(sql, args...)
+
+	return
 }
 
 func (t *TidbClient) PutObject(object *Object, multipart *Multipart, updateUsage bool) (err error) {

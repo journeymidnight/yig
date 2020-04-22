@@ -17,9 +17,11 @@ type Client interface {
 	GetObject(bucketName, objectName, version string) (object *Object, err error)
 	GetLatestObjectVersion(bucketName, objectName string) (object *Object, err error)
 	PutObject(object *Object, multipart *Multipart, updateUsage bool) error
+	AppendObject(object *Object, updateUsage bool) error
 	UpdateObject(object *Object, multipart *Multipart, updateUsage bool, tx Tx) (err error)
 	UpdateFreezerObject(object *Object, tx Tx) (err error)
 	UpdateAppendObject(object *Object) error
+	MigrateObject(object *Object) error
 	RenameObject(object *Object, sourceObject string) (err error)
 
 	ReplaceObjectMetas(object *Object, tx Tx) (err error)
@@ -28,6 +30,7 @@ type Client interface {
 	DeleteObjectPart(object *Object, tx Tx) error
 	UpdateObjectAcl(object *Object) error
 	UpdateObjectAttrs(object *Object) error
+	ScanHotObjects(limit int, bMarker, oMarker, vMarker string) (result ScanHotObjectsResult, err error)
 	//bucket
 	GetBucket(bucketName string) (bucket *Bucket, err error)
 	GetBuckets() (buckets []Bucket, err error)

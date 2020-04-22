@@ -36,6 +36,9 @@ type Config struct {
 	AdminKey               string `toml:"admin_key"` //used for tools/admin to communicate with yig
 	GcThread               int    `toml:"gc_thread"`
 	LcThread               int    `toml:"lc_thread"` //used for tools/lc only, set worker numbers to do lc
+	MgThread               int    `toml:"mg_thread"`
+	MgScanInterval         int    `toml:"mg_scan_interval"`
+	MgObjectCooldown       int    `toml:"mg_object_cooldown"`
 	LogLevel               string `toml:"log_level"` // "info", "warn", "error"
 	CephConfigPattern      string `toml:"ceph_config_pattern"`
 	ReservedOrigins        string `toml:"reserved_origins"` // www.ccc.com,www.bbb.com,127.0.0.1
@@ -81,6 +84,7 @@ type Config struct {
 	DownloadBufPoolSize int64 `toml:"download_buf_pool_size"`
 	UploadMinChunkSize  int64 `toml:"upload_min_chunk_size"`
 	UploadMaxChunkSize  int64 `toml:"upload_max_chunk_size"`
+	BigFileThreshold    int64 `toml:"big_file_threshold"`
 }
 
 type PluginConfig struct {
@@ -139,6 +143,12 @@ func MarshalTOMLConfig() error {
 		1, c.GcThread).(int)
 	CONFIG.LcThread = Ternary(c.LcThread == 0,
 		1, c.LcThread).(int)
+	CONFIG.MgThread = Ternary(c.MgThread == 0,
+		1, c.MgThread).(int)
+	CONFIG.MgScanInterval = Ternary(c.MgScanInterval == 0,
+		600, c.MgScanInterval).(int)
+	CONFIG.MgObjectCooldown = Ternary(c.MgObjectCooldown == 0,
+		3600, c.MgObjectCooldown).(int)
 	CONFIG.LogLevel = Ternary(len(c.LogLevel) == 0, "info", c.LogLevel).(string)
 	CONFIG.MetaStore = Ternary(c.MetaStore == "", "tidb", c.MetaStore).(string)
 
@@ -174,6 +184,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.DownloadBufPoolSize = Ternary(c.DownloadBufPoolSize < MIN_BUFFER_SIZE || c.DownloadBufPoolSize > MAX_BUFEER_SIZE, MIN_BUFFER_SIZE, c.DownloadBufPoolSize).(int64)
 	CONFIG.UploadMinChunkSize = Ternary(c.UploadMinChunkSize < MIN_BUFFER_SIZE || c.UploadMinChunkSize > MAX_BUFEER_SIZE, MIN_BUFFER_SIZE, c.UploadMinChunkSize).(int64)
 	CONFIG.UploadMaxChunkSize = Ternary(c.UploadMaxChunkSize < CONFIG.UploadMinChunkSize || c.UploadMaxChunkSize > MAX_BUFEER_SIZE, MAX_BUFEER_SIZE, c.UploadMaxChunkSize).(int64)
-
+	CONFIG.BigFileThreshold = Ternary(c.BigFileThreshold == 0,
+		1048576, c.BigFileThreshold).(int64)
 	return nil
 }

@@ -171,6 +171,26 @@ func (cluster *CephCluster) doSmallPut(poolname string, oid string, data io.Read
 	return size, nil
 }
 
+func (cluster *CephCluster) doSmallAppend(poolname string, oid string, offset uint64, data io.Reader) (size uint64, err error) {
+	pool, err := cluster.Conn.OpenPool(poolname)
+	if err != nil {
+		return 0, errors.New("Bad poolname")
+	}
+	defer pool.Destroy()
+
+	buf, err := ioutil.ReadAll(data)
+	size = uint64(len(buf))
+	if err != nil {
+		return 0, errors.New("Read from client failed")
+	}
+	err = pool.Write(oid, buf, offset)
+	if err != nil {
+		return 0, err
+	}
+
+	return size, nil
+}
+
 type RadosSmallDownloader struct {
 	oid       string
 	offset    int64
@@ -350,9 +370,13 @@ func (cluster *CephCluster) Append(poolname string, existName string, data io.Re
 	if len(oid) == 0 {
 		oid = cluster.getUniqUploadName()
 	}
-	if poolname != backend.BIG_FILE_POOLNAME {
-		return oid, 0,
-			errors.New("specified pool must be used for storing big file.")
+
+	//this should be take care what if the fisrt time append data is
+	//less than BigFileThreshold, but later data to be append is extremely
+	//huge, then doSmallAppend may not be proper
+	if poolname == backend.SMALL_FILE_POOLNAME {
+		size, err = cluster.doSmallAppend(poolname, oid, uint64(offset), data)
+		return oid, size, err
 	}
 
 	pool, err := cluster.Conn.OpenPool(poolname)

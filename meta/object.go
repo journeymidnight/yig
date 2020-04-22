@@ -252,8 +252,16 @@ func (m *Meta) DeleteSuspendedObject(object *Object) (err error) {
 
 func (m *Meta) AppendObject(object *Object, isExist bool) error {
 	if !isExist {
-		return m.Client.PutObject(object, nil, true)
+		return m.Client.AppendObject(object, true)
 	} else {
 		return m.Client.UpdateAppendObject(object)
 	}
+}
+
+func (m *Meta) MigrateObject(object *Object) error {
+	return m.Client.MigrateObject(object)
+}
+
+func (m *Meta) ScanHotObjects(limit int, bMarker, oMarker, vMarker string) (result ScanHotObjectsResult, err error) {
+	return m.Client.ScanHotObjects(limit, bMarker, oMarker, vMarker)
 }
