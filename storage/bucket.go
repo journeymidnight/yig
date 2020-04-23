@@ -472,6 +472,9 @@ func (yig *YigStorage) DeleteBucketEncryption(bucket *meta.Bucket) error {
 }
 
 func (yig *YigStorage) CheckBucketEncryption(bucket *meta.Bucket) (*datatype.ApplyServerSideEncryptionByDefault, bool) {
+	if bucket == nil {
+		return nil, false
+	}
 	bucketEncryption := bucket.Encryption
 	if len(bucketEncryption.Rules) == 0 {
 		return nil, false
@@ -513,7 +516,7 @@ func (yig *YigStorage) DeleteBucket(reqCtx RequestContext, credential common.Cre
 
 	bucketName := reqCtx.BucketName
 
-	isEmpty, err := yig.MetaStorage.Client.IsEmptyBucket(bucketName)
+	isEmpty, err := yig.MetaStorage.Client.IsEmptyBucket(reqCtx.BucketInfo)
 	if err != nil {
 		return err
 	}
@@ -528,13 +531,6 @@ func (yig *YigStorage) DeleteBucket(reqCtx RequestContext, credential common.Cre
 	if err == nil {
 		yig.MetaStorage.Cache.Remove(redis.UserTable, credential.UserId)
 		yig.MetaStorage.Cache.Remove(redis.BucketTable, bucketName)
-	}
-
-	if bucket.Lifecycle.Rule != nil {
-		err = yig.MetaStorage.RemoveBucketFromLifeCycle(*bucket)
-		if err != nil {
-			helper.Logger.Warn("Remove bucket from lifeCycle error:", err)
-		}
 	}
 
 	return nil

@@ -22,7 +22,6 @@ import (
 
 	. "github.com/journeymidnight/yig/context"
 	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/signature"
 )
 
 const (
@@ -201,10 +200,7 @@ func (r *replacer) getSubstitution(key string) string {
 		return strconv.FormatInt(objectSize, 10)
 	case "{requester_id}":
 		requester_id := "-"
-		credential, err := signature.IsReqAuthenticated(r.request)
-		if err == nil {
-			requester_id = credential.UserId
-		}
+		// TODO: add requester_id
 		return requester_id
 	case "{project_id}":
 		bucketInfo := GetRequestContext(r.request).BucketInfo
@@ -271,7 +267,7 @@ func (r *replacer) getSubstitution(key string) string {
 		return objectInfo.StorageClass.ToString()
 	case "{target_storage_class}":
 		if r.request.Header.Get("X-Amz-Copy-Source") != "" && r.request.Header.Get("X-Amz-Metadata-Directive") != "" {
-			storageClassFromHeader, err := getStorageClassFromHeader(r.request)
+			storageClassFromHeader, err := getStorageClassFromHeader(r.request.Header)
 			if err != nil {
 				return "-"
 			}
@@ -279,9 +275,9 @@ func (r *replacer) getSubstitution(key string) string {
 		}
 		return "-"
 	case "{bucket_logging}":
-		bl:= GetRequestContext(r.request).BucketInfo
-		if bl!=nil {
-			if bl.BucketLogging.LoggingEnabled.TargetBucket!="" && bl.BucketLogging.LoggingEnabled.TargetPrefix!="" {
+		bl := GetRequestContext(r.request).BucketInfo
+		if bl != nil {
+			if bl.BucketLogging.LoggingEnabled.TargetBucket != "" && bl.BucketLogging.LoggingEnabled.TargetPrefix != "" {
 				return strconv.FormatBool(true)
 			}
 		}

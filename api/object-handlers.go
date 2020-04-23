@@ -58,8 +58,8 @@ func setGetRespHeaders(w http.ResponseWriter, reqParams url.Values) {
 	}
 }
 
-func getStorageClassFromHeader(r *http.Request) (meta.StorageClass, error) {
-	storageClassStr := r.Header.Get("X-Amz-Storage-Class")
+func getStorageClassFromHeader(header http.Header) (meta.StorageClass, error) {
+	storageClassStr := header.Get("X-Amz-Storage-Class")
 
 	if storageClassStr != "" {
 		helper.Logger.Info("Get storage class header:", storageClassStr)
@@ -553,7 +553,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	var targetStorageClass meta.StorageClass
-	targetStorageClass, err = getStorageClassFromHeader(r)
+	targetStorageClass, err = getStorageClassFromHeader(r.Header)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -594,33 +594,6 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var isMetadataOnly bool
-
-	// TODO: To be fixed
-	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName && targetBucket.Versioning == BucketVersioningDisabled {
-		if sourceObject.StorageClass == meta.ObjectStorageClassGlacier || targetStorageClass != meta.ObjectStorageClassGlacier {
-			isMetadataOnly = true
-		}
-	} else if targetBucket.Versioning == BucketVersioningSuspended && reqCtx.ObjectInfo != nil {
-		isMetadataOnly = true
-	}
-
-	pipeReader, pipeWriter := io.Pipe()
-	if !isMetadataOnly {
-		go func() {
-			startOffset := int64(0) // Read the whole file.
-			// Get the object.
-			err = api.ObjectAPI.GetObject(sourceObject, startOffset, sourceObject.Size,
-				pipeWriter, sseRequest)
-			if err != nil {
-				logger.Error("Unable to read an object:", err)
-				pipeWriter.CloseWithError(err)
-				return
-			}
-			pipeWriter.Close()
-		}()
-	}
-
 	targetACL, err := getAclFromHeader(r.Header)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
@@ -656,6 +629,33 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	} else {
 		WriteErrorResponse(w, r, ErrInvalidCopyRequest)
 		return
+	}
+
+	var isMetadataOnly bool
+
+	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName &&
+		(sourceObject.StorageClass == meta.ObjectStorageClassGlacier || targetObject.StorageClass != meta.ObjectStorageClassGlacier) {
+		if targetBucket.Versioning == BucketVersioningDisabled {
+			isMetadataOnly = true
+		} else if targetBucket.Versioning == BucketVersioningSuspended && sourceObject.VersionId == meta.NullVersion {
+			isMetadataOnly = true
+		}
+	}
+
+	pipeReader, pipeWriter := io.Pipe()
+	if !isMetadataOnly {
+		go func() {
+			startOffset := int64(0) // Read the whole file.
+			// Get the object.
+			err = api.ObjectAPI.GetObject(sourceObject, startOffset, sourceObject.Size,
+				pipeWriter, sseRequest)
+			if err != nil {
+				logger.Error("Unable to read an object:", err)
+				pipeWriter.CloseWithError(err)
+				return
+			}
+			pipeWriter.Close()
+		}()
 	}
 
 	// Create the object.
@@ -828,7 +828,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	storageClass, err := getStorageClassFromHeader(r)
+	storageClass, err := getStorageClassFromHeader(r.Header)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -993,7 +993,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	storageClass, err := getStorageClassFromHeader(r)
+	storageClass, err := getStorageClassFromHeader(r.Header)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -1443,7 +1443,7 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 		//TODO:add kms
 	}
 
-	storageClass, err := getStorageClassFromHeader(r)
+	storageClass, err := getStorageClassFromHeader(r.Header)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -2037,11 +2037,7 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 	// be loaded in memory, the remaining being put in temporary files.
 
 	fileBody, formValues := reqCtx.Body, reqCtx.FormValues
-	if err != nil {
-		logger.Error("Unable to parse form values:", err)
-		WriteErrorResponse(w, r, ErrMalformedPOSTRequest)
-		return
-	}
+
 	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
 	formValues["Bucket"] = bucketName
 	if !isValidObjectName(objectName) {
@@ -2074,7 +2070,7 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if err = signature.CheckPostPolicy(formValues, postPolicyType); err != nil {
+	if err = signature.CheckPostPolicy(formValues); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -2089,7 +2085,7 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 	metadata := extractMetadataFromHeader(headerfiedFormValues)
 
 	var acl Acl
-	acl.CannedAcl = headerfiedFormValues.Get("acl")
+	acl.CannedAcl = headerfiedFormValues.Get("Acl")
 	if acl.CannedAcl == "" {
 		acl.CannedAcl = "private"
 	}
@@ -2113,7 +2109,7 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	storageClass, err := getStorageClassFromHeader(r)
+	storageClass, err := getStorageClassFromHeader(headerfiedFormValues)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
