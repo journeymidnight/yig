@@ -1,0 +1,42 @@
+
+# bytes-per-sync = "0MB"
+# wal-bytes-per-sync = "0KB"
+
+# info-log-max-size = "1GB"
+# info-log-roll-time = "0"
+# info-log-keep-log-file-num = 10
+# info-log-dir = ""
+
+[raftdb.defaultcf]
+# compression-per-level = ["no", "no", "lz4", "lz4", "lz4", "zstd", "zstd"]
+# block-size = "64KB"
+# write-buffer-size = "128MB"
+# max-write-buffer-number = 5
+# min-write-buffer-number-to-merge = 1
+# max-bytes-for-level-base = "512MB"
+# target-file-size-base = "8MB"
+
+# should tune to 256MB~2GB.
+# block-cache-size = "256MB"
+# level0-file-num-compaction-trigger = 4
+# level0-slowdown-writes-trigger = 20
+# level0-stop-writes-trigger = 36
+# cache-index-and-filter-blocks = true
+# pin-l0-filter-and-index-blocks = true
+# compaction-pri = 0
+# read-amp-bytes-per-bit = 0
+# dynamic-level-bytes = true
+
+[security]
+# set the path for certificates. Empty string means disabling secure connectoins.
+# ca-path = ""
+# cert-path = ""
+# key-path = ""
+
+[import]
+# the directory to store importing kv data.
+# import-dir = "/tmp/tikv/import"
+# number of threads to handle RPC requests.
+# num-threads = 8
+# stream channel window size, stream will be blocked on channel full.
+# stream-channel-window = 128
