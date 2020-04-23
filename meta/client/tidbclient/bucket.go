@@ -258,6 +258,10 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 			var o *Object
 			Strver := strconv.FormatUint(version, 10)
 			o, err = t.GetObject(bucketname, name, Strver)
+			if err == ErrNoSuchKey {
+				// it's possible the object is already deleted
+				continue
+			}
 			if err != nil {
 				return
 			}
