@@ -35,7 +35,7 @@ func (o *Freezer) GetUpdateSql(status common.Status) (string, []interface{}) {
 	// TODO Multi-version control
 	// version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
-	sql := "update restoreobjects set status,=?,lastmodifiedtime=?,location=?,pool=?," +
+	sql := "update restoreobjects set status=?,lastmodifiedtime=?,location=?,pool=?," +
 		"ownerid=?,size=?,etag=? where bucketname=? and objectname=? and status=?"
 	args := []interface{}{status, lastModifiedTime, o.Location, o.Pool, o.OwnerId, o.Size, o.Etag, o.BucketName, o.Name, o.Status}
 

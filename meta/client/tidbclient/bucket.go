@@ -697,7 +697,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 			rows, err = t.Client.Query(sqltext, bucketName, currentKeyMarker, maxKeys)
 		} else {
 			sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
-				" from objects where bucketName=? and name>=? and version>? order by bucketname,name,version limit ?;"
+				" from objects where bucketName=? and name>=? and version>=? order by bucketname,name,version limit ?;"
 			rows, err = t.Client.Query(sqltext, bucketName, currentKeyMarker, currentVerIdMarker, maxKeys)
 		}
 		if err != nil {
@@ -726,6 +726,9 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 				return
 			}
 
+			if currentKeyMarker == objMeta.Name && currentVerIdMarker == objMeta.VersionId {
+				continue
+			}
 			currentKeyMarker = objMeta.Name
 			currentVerIdMarker = objMeta.VersionId
 			objMeta.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
@@ -833,7 +836,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 
 		//  The last one result is a null version object and name is not same as the previous object
 
-		if loopCount == 0 {
+		if loopCount == 1 {
 			if previousNullObjectMeta != nil {
 				o := modifyMetaToVersionedObjectResult(*previousNullObjectMeta)
 
