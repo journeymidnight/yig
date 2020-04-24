@@ -660,7 +660,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	// Create the object.
-	result, err := api.ObjectAPI.CopyObject(reqCtx, targetObject, truelySourceObject, pipeReader, credential, sseRequest, isMetadataOnly)
+	result, err := api.ObjectAPI.CopyObject(reqCtx, targetObject, truelySourceObject, pipeReader, credential, sseRequest, isMetadataOnly, false)
 	if err != nil {
 		logger.Error("CopyObject failed:", err)
 		WriteErrorResponse(w, r, err)

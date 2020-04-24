@@ -87,9 +87,7 @@ type ObjectLayer interface {
 		sse datatype.SseRequest, storageClass StorageClass, objInfo *meta.Object) (result datatype.AppendObjectResult, err error)
 
 	CopyObject(reqCtx RequestContext, targetObject *meta.Object, sourceObject *meta.Object, source io.Reader, credential common.Credential,
-		sseRequest datatype.SseRequest, isMetadataOnly bool) (result datatype.PutObjectResult, err error)
-	TransformObject(reqCtx RequestContext, targetObject *meta.Object, sourceObject *meta.Object, source io.Reader, credential common.Credential,
-		sseRequest datatype.SseRequest, isMetadataOnly bool) (result datatype.PutObjectResult, err error)
+		sseRequest datatype.SseRequest, isMetadataOnly, isTranStorageClassOnly bool) (result datatype.PutObjectResult, err error)
 	RenameObject(reqCtx RequestContext, targetObject *meta.Object, sourceObject string, credential common.Credential) (result datatype.RenameObjectResult, err error)
 	PutObjectMeta(bucket *meta.Bucket, targetObject *meta.Object, credential common.Credential) (err error)
 	SetObjectAcl(reqCtx RequestContext, policy datatype.AccessControlPolicy,

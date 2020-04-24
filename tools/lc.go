@@ -397,7 +397,7 @@ func transitionObject(reqCtx RequestContext, storageClass string) (result dataty
 	targetObject.StorageClass = targetStorageClass
 	targetObject.CreateTime = sourceObject.CreateTime
 
-	result, err = yig.TransformObject(reqCtx, targetObject, sourceObject, pipeReader, credential, sseRequest, isMetadataOnly)
+	result, err = yig.CopyObject(reqCtx, targetObject, sourceObject, pipeReader, credential, sseRequest, isMetadataOnly, true)
 	if err != nil {
 		return result, err
 	}
