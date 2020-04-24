@@ -19,9 +19,6 @@ package api
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"strings"
-
 	"github.com/gorilla/mux"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
@@ -29,6 +26,8 @@ import (
 	"github.com/journeymidnight/yig/meta"
 	"github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/signature"
+	"net/http"
+	"strings"
 )
 
 // HandlerFunc - useful to chain different middleware http.Handler
@@ -274,6 +273,38 @@ func InReservedOrigins(origin string) bool {
 	return false
 }
 
+type QosHandler struct {
+	handler http.Handler
+	meta    *meta.Meta
+}
+
+func (h *QosHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := getRequestContext(r)
+	if len(ctx.BucketName) == 0 {
+		h.handler.ServeHTTP(w, r)
+		return
+	}
+	var allow bool
+	if r.Method == "GET" || r.Method == "HEAD" { // read operations
+		allow = h.meta.QosMeta.AllowReadQuery(ctx.BucketName)
+	} else { // write operations
+		allow = h.meta.QosMeta.AllowWriteQuery(ctx.BucketName)
+	}
+	if !allow {
+		WriteErrorResponse(w, r, ErrRequestLimitExceeded)
+		return
+	}
+	h.handler.ServeHTTP(w, r)
+}
+
+func SetQosHandler(h http.Handler, meta *meta.Meta) http.Handler {
+	qos := QosHandler{
+		handler: h,
+		meta:    meta,
+	}
+	return &qos
+}
+
 //// helpers
 
 func GetBucketAndObjectInfoFromRequest(r *http.Request) (bucketName string, objectName string, isBucketDomain bool) {
@@ -301,7 +332,7 @@ func getRequestContext(r *http.Request) RequestContext {
 		return ctx
 	}
 	return RequestContext{
-		Logger: r.Context().Value(ContextLoggerKey).(log.Logger),
+		Logger:    r.Context().Value(ContextLoggerKey).(log.Logger),
 		RequestID: r.Context().Value(RequestIdKey).(string),
 	}
 }

@@ -26,6 +26,26 @@ func (t *TidbClient) GetUserBuckets(userId string) (buckets []string, err error)
 	return
 }
 
+func (t *TidbClient) GetAllUserBuckets() (bucketUser map[string]string, err error) {
+	// bucket name -> user id
+	bucketUser = make(map[string]string)
+	rows, err := t.Client.Query("select userid, bucketname from users")
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var userID, bucketName string
+		err = rows.Scan(&userID, &bucketName)
+		if err != nil {
+			return
+		}
+		bucketUser[bucketName] = userID
+	}
+	return
+}
+
 func (t *TidbClient) AddBucketForUser(bucketName, userId string) (err error) {
 	sql := "insert into users(userid,bucketname) values(?,?)"
 	_, err = t.Client.Exec(sql, userId, bucketName)

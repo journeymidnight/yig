@@ -98,7 +98,8 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 	if err != nil {
 		return
 	}
-	oid, bytesWritten, err := cephCluster.Append(poolName, oid, storageReader, int64(offset))
+	throttleReader := yig.MetaStorage.QosMeta.NewThrottleReader(bucketName, storageReader)
+	oid, bytesWritten, err := cephCluster.Append(poolName, oid, throttleReader, int64(offset))
 	if err != nil {
 		helper.Logger.Error("cephCluster.Append err:", err, poolName, oid, offset)
 		return

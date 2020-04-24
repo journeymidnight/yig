@@ -67,6 +67,8 @@ func configureServerHandler(c *ServerConfig) http.Handler {
 		api.SetIgnoreResourcesHandler,
 		// Add new handlers here.
 
+		api.SetQosHandler,
+
 		api.SetLogHandler,
 
 		api.NewAccessLogHandler,

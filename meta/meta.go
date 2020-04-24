@@ -11,18 +11,20 @@ const (
 )
 
 type Meta struct {
-	Client client.Client
-	Cache  MetaCache
+	Client  client.Client
+	Cache   MetaCache
+	QosMeta *QosMeta
 }
 
 func New(myCacheType CacheType) *Meta {
 	meta := Meta{
-		Cache:  newMetaCache(myCacheType),
+		Cache: newMetaCache(myCacheType),
 	}
 	if helper.CONFIG.MetaStore == "tidb" {
 		meta.Client = tidbclient.NewTidbClient()
 	} else {
 		panic("unsupport metastore")
 	}
+	meta.QosMeta = NewQosMeta(meta.Client)
 	return &meta
 }
