@@ -882,6 +882,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 		}
 
 		//  The last one result is a null version object and name is not same as the previous object
+
 		if loopCount == 1 {
 			if previousNullObjectMeta != nil {
 				o := ModifyMetaToVersionedObjectResult(*previousNullObjectMeta)
