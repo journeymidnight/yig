@@ -107,17 +107,47 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 		request.MaxKeys = RequestMaxKeys
 		request.Prefix = commonPrefix
 
-		var objectTool datatype.VersionedObject
+		var (
+			objectTool       datatype.VersionedObject
+			processGroupInfo meta.VersionedListObjectsInfo
+			safeGroupInfo    meta.VersionedListObjectsInfo
+			isLoopOver       bool
+		)
+		safeGroupIsNull := true
 		for {
-			info, err := yig.ListVersionedObjectsInternal(bucket.Name, request)
-			if err != nil {
-				return nil
+			if safeGroupIsNull {
+				if isLoopOver {
+					helper.Logger.Info("Process history objects over!")
+					break
+				}
+				processGroupInfo, err = yig.ListVersionedObjectsInternal(bucket.Name, request)
+				if err != nil {
+					return nil
+				}
+			} else {
+				processGroupInfo = safeGroupInfo
 			}
-			if len(info.Objects) < 2 {
+
+			if processGroupInfo.IsTruncated == true {
+				request.KeyMarker = processGroupInfo.NextKeyMarker
+				request.VersionIdMarker = processGroupInfo.NextVersionIdMarker
+				//save next list object info to avoid can not list by without marker
+				safeGroupInfo, err = yig.ListVersionedObjectsInternal(bucket.Name, request)
+				if err != nil {
+					return nil
+				}
+				safeGroupIsNull = false
+				isLoopOver = false
+			} else {
+				safeGroupIsNull = true
+				isLoopOver = true
+			}
+
+			if len(processGroupInfo.Objects) < 2 {
 				break
 			}
-			objectTool = info.Objects[0]
-			for _, object := range info.Objects[1:] {
+			objectTool = processGroupInfo.Objects[0]
+			for _, object := range processGroupInfo.Objects[1:] {
 				// pass latest object
 				if object.Key != objectTool.Key {
 					objectTool = object
@@ -156,13 +186,6 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				}
 			}
 
-			if info.IsTruncated == true {
-				request.KeyMarker = info.NextKeyMarker
-				request.VersionIdMarker = info.NextVersionIdMarker
-			} else {
-				helper.Logger.Info("Process history objects over!")
-				break
-			}
 		}
 	}
 
@@ -181,13 +204,42 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 		request.MaxKeys = RequestMaxKeys
 		request.Prefix = commonPrefix
 
-		var objectTool datatype.VersionedObject
+		var (
+			objectTool       datatype.VersionedObject
+			processGroupInfo meta.VersionedListObjectsInfo
+			safeGroupInfo    meta.VersionedListObjectsInfo
+			isLoopOver       bool
+		)
+		safeGroupIsNull := true
 		for {
-			info, err := yig.ListVersionedObjectsInternal(bucket.Name, request)
-			if err != nil {
-				return nil
+			if safeGroupIsNull {
+				if isLoopOver {
+					helper.Logger.Info("Process current objects over!")
+					break
+				}
+				processGroupInfo, err = yig.ListVersionedObjectsInternal(bucket.Name, request)
+				if err != nil {
+					return nil
+				}
+			} else {
+				processGroupInfo = safeGroupInfo
 			}
-			for _, object := range info.Objects {
+
+			if processGroupInfo.IsTruncated == true {
+				request.KeyMarker = processGroupInfo.NextKeyMarker
+				request.VersionIdMarker = processGroupInfo.NextVersionIdMarker
+				//save next list object info to avoid can not list by without marker
+				safeGroupInfo, err = yig.ListVersionedObjectsInternal(bucket.Name, request)
+				if err != nil {
+					return nil
+				}
+				safeGroupIsNull = false
+				isLoopOver = false
+			} else {
+				safeGroupIsNull = true
+				isLoopOver = true
+			}
+			for _, object := range processGroupInfo.Objects {
 				// pass old version object
 				if object.Key == objectTool.Key {
 					continue
@@ -210,6 +262,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				if reqCtx.ObjectInfo.DeleteMarker {
 					ok, err := checkObjectOtherVersion(commonPrefix, reqCtx)
 					if err != nil {
+						helper.Logger.Info("checkObjectOtherVersion err:", err)
 						return nil
 					}
 					if ok {
@@ -252,13 +305,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 					}
 				}
 			}
-			if info.IsTruncated == true {
-				request.KeyMarker = info.NextKeyMarker
-				request.VersionIdMarker = info.NextVersionIdMarker
-			} else {
-				helper.Logger.Info("Process current objects over!")
-				break
-			}
+
 		}
 
 	}
