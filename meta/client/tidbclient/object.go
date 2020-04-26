@@ -19,14 +19,8 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (*Object,
 	var err error
 	var row *sql.Row
 	sqltext := "select bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag,contenttype," +
-		"customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass,createtime from objects where bucketname=? and name=? "
-	if version == NullVersion {
-		sqltext += "and version=0"
-		row = t.Client.QueryRow(sqltext, bucketName, objectName)
-	} else {
-		sqltext += "and version=?;"
-		row = t.Client.QueryRow(sqltext, bucketName, objectName, version)
-	}
+		"customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass,createtime from objects where bucketname=? and name=? and version=?;"
+	row = t.Client.QueryRow(sqltext, bucketName, objectName, version)
 	object := &Object{}
 	err = row.Scan(
 		&ibucketname,
@@ -57,7 +51,7 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (*Object,
 	} else if err != nil {
 		return nil, err
 	}
-	object.LastModifiedTime, err = time.Parse("2006-01-02 15:04:05", lastModifiedTime)
+	object.LastModifiedTime, err = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
 	if err != nil {
 		return nil, err
 	}

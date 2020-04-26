@@ -619,7 +619,7 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 		StorageClass:         storageClass,
 	}
 	object.VersionId = object.GenVersionId(bucket.Versioning)
-	if object.StorageClass == meta.ObjectStorageClassGlacier {
+	if object.StorageClass == meta.ObjectStorageClassGlacier && bucket.Versioning != datatype.BucketVersioningEnabled {
 		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
 		if err == nil {
 			err = yig.MetaStorage.DeleteFreezer(freezer)
@@ -914,7 +914,7 @@ func (yig *YigStorage) removeOldObject(object *meta.Object) (err error) {
 	}
 
 	if object.StorageClass == meta.ObjectStorageClassGlacier {
-		freezer, err := yig.GetFreezer(object.BucketName, object.Name, "")
+		freezer, err := yig.GetFreezer(object.BucketName, object.Name, object.VersionId)
 		if err == nil {
 			if freezer.Name == object.Name {
 				err = yig.MetaStorage.DeleteFreezer(freezer)

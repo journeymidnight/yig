@@ -244,31 +244,8 @@ CREATE TABLE `restoreobjects` (
   `size` bigint(20) DEFAULT NULL,
   `objectid` varchar(255) DEFAULT NULL,
   `etag` varchar(255) DEFAULT NULL,
-  UNIQUE KEY `rowkey` (`bucketname`,`objectname`,`version`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
-
---
--- Table structure for table `restoreobjects`
---
-
-DROP TABLE IF EXISTS `restoreobjects`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `restoreobjects` (
-  `bucketname` varchar(255) DEFAULT NULL,
-  `objectname` varchar(255) DEFAULT NULL,
-  `version` bigint(20) unsigned DEFAULT NULL,
-  `status` tinyint(1) DEFAULT '0',
-  `lifetime` tinyint(2) DEFAULT '1',
-  `lastmodifiedtime` datetime DEFAULT NULL,
-  `location` varchar(255) DEFAULT NULL,
-  `pool` varchar(255) DEFAULT NULL,
-  `ownerid` varchar(255) DEFAULT NULL,
-  `size` bigint(20) DEFAULT NULL,
-  `objectid` varchar(255) DEFAULT NULL,
-  `etag` varchar(255) DEFAULT NULL,
+  `type` tinyint(1) DEFAULT 0,
+  `createtime` bigint(20) UNSIGNED DEFAULT NULL,
   UNIQUE KEY `rowkey` (`bucketname`,`objectname`,`version`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;

@@ -18,23 +18,22 @@ type Freezer struct {
 	VersionId        string // version cache
 	Status           Status
 	LifeTime         int
+	Type             ObjectType
+	CreateTime       uint64 // Timestamp(nanosecond)
 }
 
 func (o *Freezer) GetCreateSql() (string, []interface{}) {
-	// TODO Multi-version control
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
-	sql := "insert into restoreobjects(bucketname,objectname,status,lifetime,lastmodifiedtime) values(?,?,?,?,?)"
-	args := []interface{}{o.BucketName, o.Name, o.Status, o.LifeTime, lastModifiedTime}
+	sql := "insert into restoreobjects(bucketname,objectname,version,status,lifetime,lastmodifiedtime,type,createtime) values(?,?,?,?,?,?,?,?)"
+	args := []interface{}{o.BucketName, o.Name, o.VersionId, o.Status, o.LifeTime, lastModifiedTime, o.Type, o.CreateTime}
 	return sql, args
 }
 
 func (o *Freezer) GetUpdateSql(status Status) (string, []interface{}) {
-	// TODO Multi-version control
-	// version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
-	sql := "update restoreobjects set status,=?,lastmodifiedtime=?,location=?,pool=?," +
-		"ownerid=?,size=?,etag=? where bucketname=? and objectname=? and status=?"
-	args := []interface{}{status, lastModifiedTime, o.Location, o.Pool, o.OwnerId, o.Size, o.Etag, o.BucketName, o.Name, o.Status}
+	sql := "update restoreobjects set status=?,lastmodifiedtime=?,location=?,pool=?," +
+		"ownerid=?,size=?,etag=? where bucketname=? and objectname=? and version=? and status=?"
+	args := []interface{}{status, lastModifiedTime, o.Location, o.Pool, o.OwnerId, o.Size, o.Etag, o.BucketName, o.Name, o.VersionId, o.Status}
 
 	return sql, args
 }

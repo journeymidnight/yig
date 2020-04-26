@@ -114,7 +114,7 @@ func (m *Meta) UpdateGlacierObject(reqCtx RequestContext, targetObject, sourceOb
 			return err
 		}
 
-		err = m.Client.DeleteFreezer(sourceObject.BucketName, sourceObject.Name, tx)
+		err = m.Client.DeleteFreezer(sourceObject.BucketName, sourceObject.Name, sourceObject.VersionId, sourceObject.Type, sourceObject.CreateTime, tx)
 		if err != nil {
 			return err
 		}

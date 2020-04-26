@@ -11,15 +11,15 @@ func (m *Meta) CreateFreezer(freezer *types.Freezer) error {
 }
 
 func (m *Meta) GetFreezer(bucketName string, objectName string, version string) (freezer *types.Freezer, err error) {
-	return m.Client.GetFreezer(bucketName, objectName, "")
+	return m.Client.GetFreezer(bucketName, objectName, version)
 }
 
 func (m *Meta) GetFreezerStatus(bucketName string, objectName string, version string) (freezer *types.Freezer, err error) {
-	return m.Client.GetFreezerStatus(bucketName, objectName, "")
+	return m.Client.GetFreezerStatus(bucketName, objectName, version)
 }
 
 func (m *Meta) UpdateFreezerDate(freezer *types.Freezer) error {
-	return m.Client.UploadFreezerDate(freezer.BucketName, freezer.Name, freezer.LifeTime)
+	return m.Client.UploadFreezerDate(freezer.BucketName, freezer.Name, freezer.VersionId, freezer.LifeTime)
 }
 
 func (m *Meta) DeleteFreezer(freezer *types.Freezer) (err error) {
@@ -37,7 +37,7 @@ func (m *Meta) DeleteFreezer(freezer *types.Freezer) (err error) {
 		}
 	}()
 
-	err = m.Client.DeleteFreezer(freezer.BucketName, freezer.Name, tx)
+	err = m.Client.DeleteFreezer(freezer.BucketName, freezer.Name, freezer.VersionId, freezer.Type, freezer.CreateTime, tx)
 	if err != nil {
 		return err
 	}
