@@ -580,7 +580,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 		// Find null version first with specified marker
 		sqltext := "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
 			" from objects where bucketName=? and name=? and version=0;"
-		row := t.Client.QueryRow(sqltext, bucketName, maxKeys)
+		row := t.Client.QueryRow(sqltext, bucketName, currentKeyMarker)
 		err = row.Scan(
 			&nullObjMeta.BucketName,
 			&nullObjMeta.Name,
