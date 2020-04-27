@@ -30,7 +30,7 @@ type Client interface {
 	DeleteObjectPart(object *Object, tx Tx) error
 	UpdateObjectAcl(object *Object) error
 	UpdateObjectAttrs(object *Object) error
-	ScanHotObjects(limit int, bMarker, oMarker, vMarker string) (result ScanHotObjectsResult, err error)
+
 	//bucket
 	GetBucket(bucketName string) (bucket *Bucket, err error)
 	GetBuckets() (buckets []Bucket, err error)
