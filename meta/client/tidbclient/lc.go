@@ -8,21 +8,35 @@ import (
 )
 
 func (t *TidbClient) PutBucketToLifeCycle(lifeCycle LifeCycle) error {
-	sqltext := "insert into lifecycle(bucketname,status) values (?,?);"
-	_, err := t.Client.Exec(sqltext, lifeCycle.BucketName, lifeCycle.Status)
+	tx, err := t.Client.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		}
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+	sqltext, args := lifeCycle.GetCreateSql()
+	_, err = tx.Exec(sqltext, args...)
 	if err != nil {
 		helper.Logger.Error("Failed to execute:", sqltext, "err:", err)
-		return nil
+		return err
 	}
 	return nil
 }
 
 func (t *TidbClient) GetBucketLifeCycle(bucket Bucket) (*LifeCycle, error) {
 	lc := LifeCycle{}
-	sqltext := "select bucketname,status from lifecycle where bucketname=?;"
+	sqltext := "select bucketname,status,starttime,endtime from lifecycle where bucketname=?;"
 	err := t.Client.QueryRow(sqltext, bucket.Name).Scan(
 		&lc.BucketName,
 		&lc.Status,
+		&lc.StartTime,
+		&lc.EndTime,
 	)
 	if err != nil {
 		return nil, err
@@ -42,7 +56,7 @@ func (t *TidbClient) RemoveBucketFromLifeCycle(bucket Bucket) error {
 
 func (t *TidbClient) ScanLifeCycle(limit int, marker string) (result ScanLifeCycleResult, err error) {
 	result.Truncated = false
-	sqltext := "select bucketname,status from lifecycle where bucketname > ? limit ?;"
+	sqltext := "select bucketname,status,starttime,endtime from lifecycle where bucketname > ? order by bucketname limit ?;"
 	rows, err := t.Client.Query(sqltext, marker, limit)
 	if err == sql.ErrNoRows {
 		helper.Logger.Error("Failed in sql.ErrNoRows:", sqltext, "err:", err)
@@ -57,7 +71,9 @@ func (t *TidbClient) ScanLifeCycle(limit int, marker string) (result ScanLifeCyc
 	for rows.Next() {
 		err = rows.Scan(
 			&lc.BucketName,
-			&lc.Status)
+			&lc.Status,
+			&lc.StartTime,
+			&lc.EndTime)
 		if err != nil {
 			helper.Logger.Error("Failed in scan LifeCycle:", err)
 			return
