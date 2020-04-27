@@ -4,6 +4,7 @@ WORKDIR=$1
 sudo docker rm --force lc
 if [ -x "$BASEDIR/lc" ]; then 
     sudo docker run -d --name lc \
+             -v /etc/localtime:/etc/localtime:ro \
 			 -v ${BASEDIR}/integrate/cephconf:/etc/ceph/ \
 			 -v ${BASEDIR}/integrate/yigconf:/etc/yig/ \
 			 -v ${BASEDIR}:/var/log/yig \

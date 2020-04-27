@@ -47,7 +47,7 @@ plugin_internal:
 	bash plugins/build_plugins_internal.sh
 
 
-integrate: env build run 
+integrate: env build run runlc
 
 clean:
 	cd integrate && docker-compose stop && docker-compose rm --force &&rm -rf cephconf

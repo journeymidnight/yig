@@ -31,7 +31,6 @@ script:
   - make integrate
   # golang 1.12 will change the permission of go.mod and go.sum
   # use chmod to reset the permission of go.mod and go.sum to make go test happy
-
   - sudo chmod 644 go.mod go.sum
   - sudo python test/sanity.py
   - pushd test/go

@@ -149,7 +149,7 @@ func (t *TidbClient) RemoveGarbageCollection(garbage GarbageCollection) (err err
 	return nil
 }
 
-//util func
+//common func
 func (t *TidbClient) GetGarbageCollection(bucketName, objectName, version string) (gc GarbageCollection, err error) {
 	sqltext := "select bucketname,objectname,version,location,pool,objectid,status,mtime,part,triedtimes from gc where bucketname=? and objectname=? and version=?;"
 	var hasPart bool

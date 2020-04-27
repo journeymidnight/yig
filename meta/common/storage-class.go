@@ -1,8 +1,6 @@
-package types
-
+package common
 
 import . "github.com/journeymidnight/yig/error"
-
 
 type StorageClass uint8
 
@@ -50,6 +48,16 @@ var (
 		"DEEP_ARCHIVE":        ObjectStorageClassDeepArchive,
 		"RRS":                 ObjectStorageClassReducedRedundancy,
 	}
+
+	StorageClassWeight = map[StorageClass]int{
+		ObjectStorageClassStandard:           1,
+		ObjectStorageClassStandardIa:         2,
+		ObjectStorageClassIntelligentTiering: 3,
+		ObjectStorageClassOnezoneIa:          4,
+		ObjectStorageClassGlacier:            5,
+		ObjectStorageClassDeepArchive:        6,
+		ObjectStorageClassReducedRedundancy:  1,
+	}
 )
 
 func (s StorageClass) ToString() string {
@@ -61,7 +69,7 @@ func MatchStorageClassIndex(storageClass string) (StorageClass, error) {
 		return index, nil
 	} else {
 
-	return 0, ErrInvalidStorageClass
+		return 0, ErrInvalidStorageClass
 
 	}
 }
