@@ -299,8 +299,8 @@ CREATE TABLE `users` (
 
 DROP TABLE IF EXISTS `lifecycle`;
 CREATE TABLE `lifecycle` (
-  `bucketname` varchar(255) DEFAULT NULL,
-  `status` varchar(255) DEFAULT NULL,
+  `bucketname` varchar(255) NOT NULL,
+  `status` varchar(255) NOT NULL,
   `starttime` bigint(20) UNSIGNED NOT NULL,
   `endtime` bigint(20) UNSIGNED NOT NULL,
   UNIQUE KEY `rowkey` (`bucketname`)
