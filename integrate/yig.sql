@@ -244,8 +244,6 @@ CREATE TABLE `restoreobjects` (
   `size` bigint(20) DEFAULT NULL,
   `objectid` varchar(255) DEFAULT NULL,
   `etag` varchar(255) DEFAULT NULL,
-  `type` tinyint(1) DEFAULT 0,
-  `createtime` bigint(20) UNSIGNED DEFAULT NULL,
   UNIQUE KEY `rowkey` (`bucketname`,`objectname`,`version`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;

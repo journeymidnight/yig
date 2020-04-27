@@ -1250,6 +1250,7 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		targetFreezer.LifeTime = lifeTime
 		targetFreezer.Type = object.Type
 		targetFreezer.CreateTime = object.CreateTime
+		targetFreezer.VersionId = object.VersionId
 		err = api.ObjectAPI.CreateFreezer(targetFreezer)
 		if err != nil {
 			logger.Error("Unable to create freezer:", err)
