@@ -597,6 +597,7 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 		}
 	}
 	// TODO validate bucket policy and fancy ACL
+	now := time.Now().UTC()
 	object := &meta.Object{
 		Name:             objectName,
 		BucketName:       bucketName,
@@ -605,7 +606,7 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 		OwnerId:          credential.UserId,
 		Size:             int64(bytesWritten),
 		ObjectId:         objectId,
-		LastModifiedTime: time.Now().UTC(),
+		LastModifiedTime: now,
 		Etag:             calculatedMd5,
 		ContentType:      metadata["Content-Type"],
 		ACL:              acl,
@@ -618,6 +619,7 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 		CustomAttributes:     metadata,
 		Type:                 meta.ObjectTypeNormal,
 		StorageClass:         storageClass,
+		CreateTime:           uint64(now.UnixNano()),
 	}
 	object.VersionId = object.GenVersionId(bucket.Versioning)
 	if object.StorageClass == ObjectStorageClassGlacier {
@@ -876,6 +878,7 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 	targetObject.EncryptionKey = helper.Ternary(sseRequest.Type == crypto.S3.String(),
 		cipherKey, []byte("")).([]byte)
 	targetObject.LastModifiedTime = time.Now().UTC()
+	targetObject.CreateTime = uint64(targetObject.LastModifiedTime.UnixNano())
 	if isTranStorageClassOnly {
 		targetObject.VersionId = sourceObject.VersionId
 	} else {
@@ -1130,6 +1133,7 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 			}
 			object.DeleteMarker = true
 			object.LastModifiedTime = time.Now().UTC()
+			object.CreateTime = uint64(object.LastModifiedTime.UnixNano())
 			object.VersionId = object.GenVersionId(bucket.Versioning)
 			err = yig.MetaStorage.AddDeleteMarker(object)
 			if err != nil {

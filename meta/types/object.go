@@ -86,7 +86,7 @@ func (o *Object) GenVersionId(bucketVersionType datatype.BucketVersioningType) s
 		return NullVersion
 	}
 
-	return strconv.FormatUint(math.MaxUint64-uint64(o.LastModifiedTime.UnixNano()), 10)
+	return strconv.FormatUint(math.MaxUint64-o.CreateTime, 10)
 }
 
 //Tidb related function

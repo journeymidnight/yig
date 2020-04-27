@@ -559,6 +559,7 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 
 	// Add to objects table
 	contentType := multipart.Metadata.ContentType
+	now := time.Now().UTC()
 	object := &meta.Object{
 		Name:             objectName,
 		BucketName:       bucketName,
@@ -566,7 +567,7 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 		Pool:             multipart.Metadata.Pool,
 		Location:         multipart.Metadata.Location,
 		Size:             totalSize,
-		LastModifiedTime: time.Now().UTC(),
+		LastModifiedTime: now,
 		Etag:             result.ETag,
 		ContentType:      contentType,
 		Parts:            multipart.Parts,
@@ -578,6 +579,7 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 		CustomAttributes: multipart.Metadata.Attrs,
 		Type:             meta.ObjectTypeMultipart,
 		StorageClass:     multipart.Metadata.StorageClass,
+		CreateTime:       uint64(now.UnixNano()),
 	}
 	object.VersionId = object.GenVersionId(bucket.Versioning)
 	if object.StorageClass == ObjectStorageClassGlacier {

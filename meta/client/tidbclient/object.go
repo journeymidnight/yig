@@ -311,7 +311,7 @@ func (t *TidbClient) UpdateAppendObject(object *Object) (err error) {
 
 	lastModifiedTime := object.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
 	sql := "update objects set lastmodifiedtime=?, size=?, createtime=? where bucketname=? and name=? and version=?"
-	args := []interface{}{lastModifiedTime, object.Size, object.LastModifiedTime.UnixNano(), object.BucketName, object.Name, object.VersionId}
+	args := []interface{}{lastModifiedTime, object.Size, object.CreateTime, object.BucketName, object.Name, object.VersionId}
 	_, err = tx.Exec(sql, args...)
 
 	return t.UpdateUsage(object.BucketName, object.Size, tx)
@@ -334,7 +334,7 @@ func (t *TidbClient) PutObject(object *Object, multipart *Multipart, updateUsage
 	sql, args := object.GetCreateSql()
 	_, err = tx.Exec(sql, args...)
 	if object.Parts != nil {
-		v := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
+		v := math.MaxUint64 - object.CreateTime
 		version := strconv.FormatUint(v, 10)
 		for _, p := range object.Parts {
 			psql, args := p.GetCreateSql(object.BucketName, object.Name, version)
@@ -426,10 +426,8 @@ func (t *TidbClient) UpdateFreezerObject(object *Object, tx Tx) (err error) {
 		}()
 	}
 	txn := tx.(*sql.Tx)
-	v := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
-	version := strconv.FormatUint(v, 10)
 	sqltext := "delete from objectpart where objectname=? and bucketname=? and version=?;"
-	_, err = txn.Exec(sqltext, object.Name, object.BucketName, version)
+	_, err = txn.Exec(sqltext, object.Name, object.BucketName, object.VersionId)
 	if err != nil {
 		return err
 	}
