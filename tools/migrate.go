@@ -1,6 +1,8 @@
 package main
 
 import (
+	"database/sql"
+	"encoding/json"
 	"io"
 	"os"
 	"os/signal"
@@ -13,6 +15,7 @@ import (
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/meta"
+	"github.com/journeymidnight/yig/meta/client/tidbclient"
 	"github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/mods"
 	"github.com/journeymidnight/yig/redis"
@@ -65,8 +68,8 @@ func checkAndDoMigrate(index int) {
 		}
 		if bytesWritten != uint64(object.Size) {
 			destCluster.Remove(backend.BIG_FILE_POOLNAME, newOid)
-			helper.Logger.Error("cephCluster.Append write length to hdd not equel the object size:", newOid)
-			goto quit
+			helper.Logger.Error("cephCluster.Append write length to hdd not equel the object size:", newOid, bytesWritten, object.Size)
+			goto release
 		}
 		//update object fileds
 		object.Location = destCluster.ID()
@@ -98,44 +101,86 @@ func checkAndDoMigrate(index int) {
 }
 
 func getHotObjects() {
-	var bMarker, oMarker, vMarker string
 	helper.Logger.Info("getHotObjects thread start")
-	var objects []types.Object
+	var customattributes, acl, lastModifiedTime string
+	var sqltext string
+	var rows *sql.Rows
+	var err error
+	client := tidbclient.NewTidbClient()
 	for {
 		if mgStop {
 			helper.Logger.Info("shutting down...")
 			return
 		}
-	wait:
-		if len(mgTaskQ) >= WATER_LOW {
-			time.Sleep(time.Duration(10) * time.Millisecond)
-			goto wait
-		}
 
-		objects = objects[:0]
-		helper.Logger.Info("start to scan hotobjects", bMarker, oMarker, vMarker)
-		result, err := yigs[0].MetaStorage.ScanHotObjects(SCAN_LIMIT, bMarker, oMarker, vMarker)
+		sqltext = "select bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag,contenttype," +
+			"customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass,createtime" +
+			" from hotobjects order by bucketname,name,version;"
+		rows, err = client.Client.Query(sqltext)
+		helper.Logger.Info("sqltext0", err)
 		if err != nil {
-			helper.Logger.Info("getHotObjects quit of error...", err.Error())
-			signalQueue <- syscall.SIGQUIT
-			return
+			goto quit
 		}
 
-		for _, object := range result.Objects {
-			mgTaskQ <- object
-			bMarker = object.BucketName
-			oMarker = object.Name
-			vMarker = object.VersionId
-		}
+		for rows.Next() {
+			//fetch related date
+			object := &types.Object{}
+			err = rows.Scan(
+				&object.BucketName,
+				&object.Name,
+				&object.VersionId,
+				&object.Location,
+				&object.Pool,
+				&object.OwnerId,
+				&object.Size,
+				&object.ObjectId,
+				&lastModifiedTime,
+				&object.Etag,
+				&object.ContentType,
+				&customattributes,
+				&acl,
+				&object.NullVersion,
+				&object.DeleteMarker,
+				&object.SseType,
+				&object.EncryptionKey,
+				&object.InitializationVector,
+				&object.Type,
+				&object.StorageClass,
+				&object.CreateTime,
+			)
+			if err != nil {
+				goto quit
+			}
+			object.LastModifiedTime, err = time.Parse("2006-01-02 15:04:05", lastModifiedTime)
+			if err != nil {
+				goto quit
+			}
+			err = json.Unmarshal([]byte(acl), &object.ACL)
+			if err != nil {
+				goto quit
+			}
+			err = json.Unmarshal([]byte(customattributes), &object.CustomAttributes)
+			if err != nil {
+				goto quit
+			}
+			mgTaskQ <- *object
 
-		if len(result.Objects) < SCAN_LIMIT {
-			bMarker = ""
-			oMarker = ""
-			vMarker = ""
-			helper.Logger.Info("scan job end success, sleep seconds:", helper.CONFIG.MgScanInterval)
-			time.Sleep(time.Duration(helper.CONFIG.MgScanInterval) * time.Second)
+			for len(mgTaskQ) >= WATER_LOW {
+				time.Sleep(time.Duration(10) * time.Millisecond)
+			}
+		}
+		for i := 0; i < helper.CONFIG.MgScanInterval; i++ {
+			time.Sleep(time.Duration(1) * time.Second)
+			if mgStop {
+				helper.Logger.Info("shutting down...")
+				return
+			}
 		}
 	}
+quit:
+	rows.Close()
+	signalQueue <- syscall.SIGQUIT
+	return
 }
 
 func main() {

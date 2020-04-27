@@ -261,7 +261,3 @@ func (m *Meta) AppendObject(object *Object, isExist bool) error {
 func (m *Meta) MigrateObject(object *Object) error {
 	return m.Client.MigrateObject(object)
 }
-
-func (m *Meta) ScanHotObjects(limit int, bMarker, oMarker, vMarker string) (result ScanHotObjectsResult, err error) {
-	return m.Client.ScanHotObjects(limit, bMarker, oMarker, vMarker)
-}
