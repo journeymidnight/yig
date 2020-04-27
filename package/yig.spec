@@ -68,7 +68,7 @@ rm -rf %{buildroot}
 /usr/bin/yig
 /usr/bin/yig_delete_daemon
 /usr/bin/yig_getrediskeys
-/usr/bin/yig_lifecyle_daemon
+/usr/bin/yig_lifecycle_daemon
 /etc/logrotate.d/yig.logrotate
 /etc/logrotate.d/access.logrotate
 /etc/logrotate.d/yig_delete.logrotate
