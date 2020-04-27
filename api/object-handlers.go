@@ -589,7 +589,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 				WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
 				return
 			}
-			if freezer.Status != meta.ObjectHasRestored || freezer.Pool == "" {
+			if freezer.Status != ObjectHasRestored || freezer.Pool == "" {
 				logger.Error("Unable to get glacier object with no restore")
 				WriteErrorResponse(w, r, ErrInvalidGlacierObject)
 				return
