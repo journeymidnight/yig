@@ -8,14 +8,15 @@ import (
 	"github.com/journeymidnight/yig/crypto"
 
 	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/api/datatype/lifecycle"
 	"github.com/journeymidnight/yig/api/datatype/policy"
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/iam/common"
+	. "github.com/journeymidnight/yig/meta/common"
 	meta "github.com/journeymidnight/yig/meta/types"
-	"github.com/journeymidnight/yig/meta/util"
 	"github.com/journeymidnight/yig/redis"
 )
 
@@ -120,7 +121,7 @@ func (yig *YigStorage) GetBucketLogging(reqCtx RequestContext, credential common
 	return bucket.BucketLogging, nil
 }
 
-func (yig *YigStorage) SetBucketLifecycle(reqCtx RequestContext, lc datatype.Lifecycle,
+func (yig *YigStorage) SetBucketLifecycle(reqCtx RequestContext, lc lifecycle.Lifecycle,
 	credential common.Credential) error {
 	helper.Logger.Info("enter SetBucketLifecycle")
 	bucket := reqCtx.BucketInfo
@@ -139,15 +140,19 @@ func (yig *YigStorage) SetBucketLifecycle(reqCtx RequestContext, lc datatype.Lif
 		yig.MetaStorage.Cache.Remove(redis.BucketTable, reqCtx.BucketName)
 	}
 
-	err = yig.MetaStorage.PutBucketToLifeCycle(*bucket)
-	if err != nil {
-		helper.Logger.Error("Error Put bucket to lifecycle table:", err)
-		return err
+	// check the lifecycle table for bucket info
+	getLC, err := yig.MetaStorage.GetBucketLifeCycle(*bucket)
+	if getLC == nil {
+		err = yig.MetaStorage.PutBucketToLifeCycle(*bucket)
+		if err != nil {
+			helper.Logger.Error("Error Put bucket to lifecycle table:", err)
+			return err
+		}
 	}
 	return nil
 }
 
-func (yig *YigStorage) GetBucketLifecycle(reqCtx RequestContext, credential common.Credential) (lc datatype.Lifecycle,
+func (yig *YigStorage) GetBucketLifecycle(reqCtx RequestContext, credential common.Credential) (lc lifecycle.Lifecycle,
 	err error) {
 	bucket := reqCtx.BucketInfo
 	if bucket == nil {
@@ -155,10 +160,6 @@ func (yig *YigStorage) GetBucketLifecycle(reqCtx RequestContext, credential comm
 	}
 	if bucket.OwnerId != credential.UserId {
 		err = ErrBucketAccessForbidden
-		return
-	}
-	if len(bucket.Lifecycle.Rule) == 0 {
-		err = ErrNoSuchBucketLc
 		return
 	}
 	return bucket.Lifecycle, nil
@@ -172,7 +173,7 @@ func (yig *YigStorage) DelBucketLifecycle(reqCtx RequestContext, credential comm
 	if bucket.OwnerId != credential.UserId {
 		return ErrBucketAccessForbidden
 	}
-	bucket.Lifecycle = datatype.Lifecycle{}
+	bucket.Lifecycle = lifecycle.Lifecycle{}
 	err := yig.MetaStorage.Client.PutBucket(*bucket)
 	if err != nil {
 		return err
@@ -544,7 +545,7 @@ func (yig *YigStorage) ListObjectsInternal(bucket *meta.Bucket, request datatype
 		marker = request.KeyMarker
 	} else if request.Version == 2 {
 		if request.ContinuationToken != "" {
-			marker, err = util.Decrypt(request.ContinuationToken)
+			marker, err = Decrypt(request.ContinuationToken)
 			if err != nil {
 				err = ErrInvalidContinuationToken
 				return
@@ -608,7 +609,7 @@ func (yig *YigStorage) ListObjects(reqCtx RequestContext, credential common.Cred
 		result.NextMarker = info.NextMarker
 	}
 	if request.Version == 2 {
-		result.NextMarker = util.Encrypt(result.NextMarker)
+		result.NextMarker = Encrypt(result.NextMarker)
 	}
 	objects := make([]datatype.Object, 0, len(info.Objects))
 	for _, obj := range info.Objects {

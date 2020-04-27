@@ -53,6 +53,7 @@ type Client interface {
 	GetClusters() (cluster []Cluster, err error)
 	//lc
 	PutBucketToLifeCycle(lifeCycle LifeCycle) error
+	GetBucketLifeCycle(bucket Bucket) (lifeCycle *LifeCycle, err error)
 	RemoveBucketFromLifeCycle(bucket Bucket) error
 	ScanLifeCycle(limit int, marker string) (result ScanLifeCycleResult, err error)
 	//user

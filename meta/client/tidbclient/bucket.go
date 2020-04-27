@@ -10,6 +10,7 @@ import (
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/meta/common"
 	. "github.com/journeymidnight/yig/meta/types"
 )
 
@@ -221,7 +222,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 			var version, etag, lastModified string
 			var nullversion, deletemarker bool
 			var size int64
-			var storageClassType StorageClass
+			var storageClassType common.StorageClass
 			err = rows.Scan(
 				&bucketname,
 				&name,
@@ -579,7 +580,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 		// Find null version first with specified marker
 		sqltext := "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
 			" from objects where bucketName=? and name=? and version=0;"
-		row := t.Client.QueryRow(sqltext, bucketName, maxKeys)
+		row := t.Client.QueryRow(sqltext, bucketName, currentKeyMarker)
 		err = row.Scan(
 			&nullObjMeta.BucketName,
 			&nullObjMeta.Name,
@@ -659,6 +660,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 					if count == maxKeys {
 						listInfo.NextKeyMarker = o.Key
 						listInfo.NextVersionIdMarker = o.VersionId
+
 					}
 					if count > maxKeys {
 						listInfo.IsTruncated = true
@@ -695,7 +697,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 			rows, err = t.Client.Query(sqltext, bucketName, currentKeyMarker, maxKeys)
 		} else {
 			sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
-				" from objects where bucketName=? and name>=? and version>? order by bucketname,name,version limit ?;"
+				" from objects where bucketName=? and name>=? and version>=? order by bucketname,name,version limit ?;"
 			rows, err = t.Client.Query(sqltext, bucketName, currentKeyMarker, currentVerIdMarker, maxKeys)
 		}
 		if err != nil {
@@ -724,6 +726,9 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 				return
 			}
 
+			if currentKeyMarker == objMeta.Name && currentVerIdMarker == objMeta.VersionId {
+				continue
+			}
 			currentKeyMarker = objMeta.Name
 			currentVerIdMarker = objMeta.VersionId
 			objMeta.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
@@ -830,8 +835,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 		}
 
 		//  The last one result is a null version object and name is not same as the previous object
-
-		if loopCount == 0 {
+		if loopCount == 1 {
 			if previousNullObjectMeta != nil {
 				o := modifyMetaToVersionedObjectResult(*previousNullObjectMeta)
 
@@ -848,6 +852,8 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 				}
 				listInfo.Objects = append(listInfo.Objects, o)
 			}
+			exit = true
+		} else if loopCount == 0 {
 			exit = true
 		}
 		if exit {

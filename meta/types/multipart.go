@@ -7,7 +7,7 @@ import (
 
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/helper"
-	"github.com/journeymidnight/yig/meta/util"
+	"github.com/journeymidnight/yig/meta/common"
 )
 
 type Part struct {
@@ -34,7 +34,7 @@ type MultipartMetadata struct {
 	EncryptionKey []byte
 	CipherKey     []byte
 	Attrs         map[string]string
-	StorageClass  StorageClass
+	StorageClass  common.StorageClass
 }
 
 type Multipart struct {
@@ -61,11 +61,11 @@ func (m *Multipart) GenUploadId() error {
 func getMultipartUploadId(initialTime uint64) string {
 	timeData := strconv.FormatUint(initialTime, 10)
 	helper.Logger.Info("timeData:")
-	return util.Encrypt(timeData)
+	return common.Encrypt(timeData)
 }
 
 func GetInitialTimeFromUploadId(uploadId string) (uint64, error) {
-	timeStr, err := util.Decrypt(uploadId)
+	timeStr, err := common.Decrypt(uploadId)
 	if err != nil {
 		return 0, err
 	}
