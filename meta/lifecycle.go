@@ -9,8 +9,8 @@ func (m *Meta) PutBucketToLifeCycle(bucket Bucket) error {
 	lifeCycle := LifeCycle{
 		BucketName: bucket.Name,
 		Status:     LcPending,
-		StartTime:  uint64(time.Time{}.UnixNano()),
-		EndTime:    uint64(time.Time{}.UnixNano()),
+		StartTime:  uint64(time.Now().Local().UnixNano()),
+		EndTime:    uint64(time.Now().Local().UnixNano()),
 	}
 	return m.Client.PutBucketToLifeCycle(lifeCycle)
 }
