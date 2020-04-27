@@ -18,6 +18,7 @@ import (
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/iam/common"
+	. "github.com/journeymidnight/yig/meta/common"
 	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/signature"
@@ -40,11 +41,11 @@ func (yig *YigStorage) pickRandomCluster() (cluster backend.Cluster) {
 	return
 }
 
-func (yig *YigStorage) pickClusterAndPool(bucket string, object string, storageClass meta.StorageClass,
+func (yig *YigStorage) pickClusterAndPool(bucket string, object string, storageClass StorageClass,
 	size int64, isAppend bool) (cluster backend.Cluster, poolName string) {
 
 	var idx int
-	if storageClass == meta.ObjectStorageClassGlacier {
+	if storageClass == ObjectStorageClassGlacier {
 		poolName = backend.GLACIER_FILE_POOLNAME
 		idx = 2
 	} else {
@@ -507,7 +508,7 @@ func (yig *YigStorage) SetObjectAcl(reqCtx RequestContext, policy datatype.Acces
 // Encryptor is enabled when user set SSE headers
 func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Credential,
 	size int64, data io.ReadCloser, metadata map[string]string, acl datatype.Acl,
-	sseRequest datatype.SseRequest, storageClass meta.StorageClass) (result datatype.PutObjectResult, err error) {
+	sseRequest datatype.SseRequest, storageClass StorageClass) (result datatype.PutObjectResult, err error) {
 	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
 	defer data.Close()
 	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, bucketName, objectName)
@@ -619,7 +620,7 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 		StorageClass:         storageClass,
 	}
 	object.VersionId = object.GenVersionId(bucket.Versioning)
-	if object.StorageClass == meta.ObjectStorageClassGlacier && bucket.Versioning != datatype.BucketVersioningEnabled {
+	if object.StorageClass == ObjectStorageClassGlacier && bucket.Versioning != datatype.BucketVersioningEnabled {
 		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
 		if err == nil {
 			err = yig.MetaStorage.DeleteFreezer(freezer)
@@ -701,7 +702,7 @@ func (yig *YigStorage) RenameObject(reqCtx RequestContext, targetObject *meta.Ob
 }
 
 func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Object, sourceObject *meta.Object, source io.Reader, credential common.Credential,
-	sseRequest datatype.SseRequest, isMetadataOnly bool) (result datatype.PutObjectResult, err error) {
+	sseRequest datatype.SseRequest, isMetadataOnly, isTranStorageClassOnly bool) (result datatype.PutObjectResult, err error) {
 	var oid string
 	var maybeObjectToRecycle objectToRecycle
 	var encryptionKey []byte
@@ -727,8 +728,8 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 	if isMetadataOnly {
 		targetObject.LastModifiedTime = sourceObject.LastModifiedTime
 		targetObject.VersionId = sourceObject.VersionId
-		if sourceObject.StorageClass == meta.ObjectStorageClassGlacier {
-			err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, true)
+		if sourceObject.StorageClass == ObjectStorageClassGlacier {
+			err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, true, false)
 			if err != nil {
 				helper.Logger.Error("Copy Object with same source and target with GLACIER object, sql fails:", err)
 				return result, ErrInternalError
@@ -875,13 +876,17 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 	targetObject.EncryptionKey = helper.Ternary(sseRequest.Type == crypto.S3.String(),
 		cipherKey, []byte("")).([]byte)
 	targetObject.LastModifiedTime = time.Now().UTC()
-	targetObject.VersionId = targetObject.GenVersionId(targetBucket.Versioning)
+	if isTranStorageClassOnly {
+		targetObject.VersionId = sourceObject.VersionId
+	} else {
+		targetObject.VersionId = targetObject.GenVersionId(targetBucket.Versioning)
+	}
 
 	result.LastModified = targetObject.LastModifiedTime
-	if targetObject.StorageClass == meta.ObjectStorageClassGlacier && targetObject.Name == sourceObject.Name && targetObject.BucketName == sourceObject.BucketName {
+	if targetObject.StorageClass == ObjectStorageClassGlacier && targetObject.Name == sourceObject.Name && targetObject.BucketName == sourceObject.BucketName {
 		targetObject.LastModifiedTime = sourceObject.LastModifiedTime
 		result.LastModified = targetObject.LastModifiedTime
-		err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, false)
+		err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, false, isTranStorageClassOnly)
 	} else {
 		err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, true)
 	}
@@ -913,7 +918,7 @@ func (yig *YigStorage) removeOldObject(object *meta.Object) (err error) {
 		return err
 	}
 
-	if object.StorageClass == meta.ObjectStorageClassGlacier {
+	if object.StorageClass == ObjectStorageClassGlacier {
 		freezer, err := yig.GetFreezer(object.BucketName, object.Name, object.VersionId)
 		if err == nil {
 			if freezer.Name == object.Name {
@@ -937,7 +942,7 @@ func (yig *YigStorage) removeObjectVersion(bucketName, objectName, version strin
 //TODO: Append Support Encryption
 func (yig *YigStorage) AppendObject(bucketName string, objectName string, credential common.Credential,
 	offset uint64, size int64, data io.ReadCloser, metadata map[string]string, acl datatype.Acl,
-	sseRequest datatype.SseRequest, storageClass meta.StorageClass, objInfo *meta.Object) (result datatype.AppendObjectResult, err error) {
+	sseRequest datatype.SseRequest, storageClass StorageClass, objInfo *meta.Object) (result datatype.AppendObjectResult, err error) {
 
 	defer data.Close()
 	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, bucketName, objectName)

@@ -93,7 +93,7 @@ func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multi
 	return nil
 }
 
-func (m *Meta) UpdateGlacierObject(reqCtx RequestContext, targetObject, sourceObject *Object, isFreezer bool) (err error) {
+func (m *Meta) UpdateGlacierObject(reqCtx RequestContext, targetObject, sourceObject *Object, isFreezer bool, onlyTranStorageClass bool) (err error) {
 	var tx Tx
 	tx, err = m.Client.NewTrans()
 	if err != nil {
@@ -115,6 +115,11 @@ func (m *Meta) UpdateGlacierObject(reqCtx RequestContext, targetObject, sourceOb
 		}
 
 		err = m.Client.DeleteFreezer(sourceObject.BucketName, sourceObject.Name, sourceObject.VersionId, sourceObject.Type, sourceObject.CreateTime, tx)
+		if err != nil {
+			return err
+		}
+	} else if onlyTranStorageClass {
+		err = m.Client.UpdateObject(targetObject, nil, true, nil)
 		if err != nil {
 			return err
 		}
@@ -199,7 +204,7 @@ func (m *Meta) DeleteObject(object *Object) (err error) {
 
 func (m *Meta) AddDeleteMarker(marker *Object) (err error) {
 	marker.Size = int64(len(marker.Name))
-	return m.Client.PutObject(marker, nil, false)
+	return m.Client.PutObject(marker, nil, true)
 }
 
 func (m *Meta) DeleteSuspendedObject(object *Object) (err error) {

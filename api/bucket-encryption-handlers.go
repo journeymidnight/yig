@@ -10,7 +10,7 @@ import (
 	"net/http"
 )
 
-func (api ObjectAPIHandlers) PutBucketEncryption(w http.ResponseWriter, r *http.Request) {
+func (api ObjectAPIHandlers) PutBucketEncryptionHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := GetRequestContext(r)
 	logger := ctx.Logger
 
@@ -62,7 +62,7 @@ func (api ObjectAPIHandlers) PutBucketEncryption(w http.ResponseWriter, r *http.
 
 }
 
-func (api ObjectAPIHandlers) GetBucketEncryption(w http.ResponseWriter, r *http.Request) {
+func (api ObjectAPIHandlers) GetBucketEncryptionHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := GetRequestContext(r)
 	logger := ctx.Logger
 
@@ -110,7 +110,7 @@ func (api ObjectAPIHandlers) GetBucketEncryption(w http.ResponseWriter, r *http.
 	WriteSuccessResponse(w, encodedSuccessResponse)
 }
 
-func (api ObjectAPIHandlers) DeleteBucketEncryption(w http.ResponseWriter, r *http.Request) {
+func (api ObjectAPIHandlers) DeleteBucketEncryptionHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := GetRequestContext(r)
 
 	var credential common.Credential

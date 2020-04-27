@@ -496,7 +496,7 @@ func (t *TidbClient) DeleteObjectPart(object *Object, tx Tx) (err error) {
 	return nil
 }
 
-//util function
+//common function
 func getParts(bucketName, objectName string, version uint64, cli *sql.DB) (parts map[int]*Part, err error) {
 	parts = make(map[int]*Part)
 	sqltext := "select partnumber,size,objectid,offset,etag,lastmodified,initializationvector from objectpart where bucketname=? and objectname=? and version=?;"

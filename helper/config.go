@@ -35,7 +35,7 @@ type Config struct {
 	BindPProfAddress       string `toml:"pprof_listener"`
 	AdminKey               string `toml:"admin_key"` //used for tools/admin to communicate with yig
 	GcThread               int    `toml:"gc_thread"`
-	LcThread               int    //used for tools/lc only, set worker numbers to do lc
+	LcThread               int    `toml:"lc_thread"` //used for tools/lc only, set worker numbers to do lc
 	LogLevel               string `toml:"log_level"` // "info", "warn", "error"
 	CephConfigPattern      string `toml:"ceph_config_pattern"`
 	ReservedOrigins        string `toml:"reserved_origins"` // www.ccc.com,www.bbb.com,127.0.0.1
@@ -43,6 +43,8 @@ type Config struct {
 	TidbInfo               string `toml:"tidb_info"`
 	KeepAlive              bool   `toml:"keepalive"`
 	EnableCompression      bool   `toml:"enable_compression"`
+
+	LifecycleSpec string `toml:"lifecycle_spec"` // use for Lifecycle timing
 
 	//About cache
 	EnableUsagePush       bool     `toml:"enable_usage_push"`
@@ -139,6 +141,8 @@ func MarshalTOMLConfig() error {
 		1, c.LcThread).(int)
 	CONFIG.LogLevel = Ternary(len(c.LogLevel) == 0, "info", c.LogLevel).(string)
 	CONFIG.MetaStore = Ternary(c.MetaStore == "", "tidb", c.MetaStore).(string)
+
+	CONFIG.LifecycleSpec = Ternary(c.LifecycleSpec == "", "@midnight", c.LifecycleSpec).(string)
 
 	CONFIG.EnableUsagePush = c.EnableUsagePush
 	CONFIG.RedisAddress = c.RedisAddress

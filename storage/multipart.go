@@ -17,6 +17,7 @@ import (
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/iam/common"
+	. "github.com/journeymidnight/yig/meta/common"
 	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/signature"
@@ -67,7 +68,7 @@ func (yig *YigStorage) ListMultipartUploads(reqCtx RequestContext, credential co
 
 func (yig *YigStorage) NewMultipartUpload(reqCtx RequestContext, credential common.Credential,
 	metadata map[string]string, acl datatype.Acl,
-	sseRequest datatype.SseRequest, storageClass meta.StorageClass) (uploadId string, err error) {
+	sseRequest datatype.SseRequest, storageClass StorageClass) (uploadId string, err error) {
 	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
 	bucket := reqCtx.BucketInfo
 	if bucket == nil {
@@ -579,7 +580,7 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 		StorageClass:     multipart.Metadata.StorageClass,
 	}
 	object.VersionId = object.GenVersionId(bucket.Versioning)
-	if object.StorageClass == meta.ObjectStorageClassGlacier && bucket.Versioning != datatype.BucketVersioningEnabled {
+	if object.StorageClass == ObjectStorageClassGlacier && bucket.Versioning != datatype.BucketVersioningEnabled {
 		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
 		if err == nil {
 			err = yig.MetaStorage.DeleteFreezer(freezer)

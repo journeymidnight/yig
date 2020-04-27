@@ -1,6 +1,9 @@
 package types
 
-import "time"
+import (
+	"github.com/journeymidnight/yig/meta/common"
+	"time"
+)
 
 type Freezer struct {
 	Rowkey           []byte // Rowkey cache
@@ -16,7 +19,7 @@ type Freezer struct {
 	Parts            map[int]*Part
 	PartsIndex       *SimpleIndex
 	VersionId        string // version cache
-	Status           Status
+	Status           common.Status
 	LifeTime         int
 	Type             ObjectType
 	CreateTime       uint64 // Timestamp(nanosecond)
@@ -29,7 +32,7 @@ func (o *Freezer) GetCreateSql() (string, []interface{}) {
 	return sql, args
 }
 
-func (o *Freezer) GetUpdateSql(status Status) (string, []interface{}) {
+func (o *Freezer) GetUpdateSql(status common.Status) (string, []interface{}) {
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
 	sql := "update restoreobjects set status=?,lastmodifiedtime=?,location=?,pool=?," +
 		"ownerid=?,size=?,etag=? where bucketname=? and objectname=? and version=? and status=?"

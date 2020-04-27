@@ -145,7 +145,7 @@ func (t *TidbClient) DeleteFreezerPart(bucketName, objectName string, createTime
 	return nil
 }
 
-//util function
+//common function
 func getFreezerParts(bucketName, objectName string, iversion uint64, cli *sql.DB) (parts map[int]*Part, err error) {
 	parts = make(map[int]*Part)
 	sqltext := "select partnumber,size,objectid,offset,etag,lastmodified,initializationvector from restoreobjectpart where bucketname=? and objectname=? and version=?;"

@@ -10,6 +10,7 @@ import (
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/meta/common"
 	. "github.com/journeymidnight/yig/meta/types"
 )
 
@@ -221,7 +222,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 			var version, etag, lastModified string
 			var nullversion, deletemarker bool
 			var size int64
-			var storageClassType StorageClass
+			var storageClassType common.StorageClass
 			err = rows.Scan(
 				&bucketname,
 				&name,
@@ -659,6 +660,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 					if count == maxKeys {
 						listInfo.NextKeyMarker = o.Key
 						listInfo.NextVersionIdMarker = o.VersionId
+
 					}
 					if count > maxKeys {
 						listInfo.IsTruncated = true

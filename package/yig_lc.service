@@ -9,7 +9,7 @@ LimitCORE=infinity
 LimitNOFILE=65535
 Type=simple
 StartLimitIntervalSec=60
-ExecStart=/usr/bin/yig_lifecyle_daemon
+ExecStart=/usr/bin/yig_lifecycle_daemon
 ExecStop=/usr/bin/kill $MAINPID
 Restart=always
 
