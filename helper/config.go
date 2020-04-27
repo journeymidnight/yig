@@ -83,6 +83,8 @@ type Config struct {
 	CacheCircuitExecTimeout       uint  `toml:"cache_circuit_exec_timeout"`
 	CacheCircuitExecMaxConcurrent int64 `toml:"cache_circuit_exec_max_concurrent"`
 
+	StsEncryptionKey string `toml:"sts_encryption_key"`
+
 	DownloadBufPoolSize int64 `toml:"download_buf_pool_size"`
 	UploadMinChunkSize  int64 `toml:"upload_min_chunk_size"`
 	UploadMaxChunkSize  int64 `toml:"upload_max_chunk_size"`

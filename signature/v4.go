@@ -28,6 +28,7 @@ import (
 	"bytes"
 	"crypto/subtle"
 	"encoding/hex"
+	"github.com/journeymidnight/yig/sts"
 	"net/http"
 	"net/url"
 	"sort"
@@ -190,9 +191,17 @@ func DoesPresignedSignatureMatchV4(r *http.Request,
 		return credential, err
 	}
 
-	credential, e := iam.GetCredential(preSignValues.Credential.accessKey)
-	if e != nil {
-		return credential, ErrInvalidAccessKeyID
+	if securityToken := r.Header.Get(sts.SecurityTokenHeader); securityToken != "" {
+		credential, err = sts.VerifyToken(preSignValues.Credential.accessKey,
+			securityToken)
+	} else {
+		credential, err = iam.GetCredential(preSignValues.Credential.accessKey)
+		if err != nil {
+			err = ErrInvalidAccessKeyID
+		}
+	}
+	if err != nil {
+		return common.Credential{}, err
 	}
 
 	if preSignValues.Expires > PresignedUrlExpireLimit {
@@ -261,12 +270,16 @@ func getCredentialUnverified(r *http.Request) (credential common.Credential, err
 		return credential, err
 	}
 
-	credential, e := iam.GetCredential(signV4Values.Credential.accessKey)
-	if e != nil {
-		return credential, ErrInvalidAccessKeyID
+	if securityToken := r.Header.Get(sts.SecurityTokenHeader); securityToken != "" {
+		credential, err = sts.VerifyToken(signV4Values.Credential.accessKey,
+			securityToken)
+	} else {
+		credential, err = iam.GetCredential(signV4Values.Credential.accessKey)
+		if err != nil {
+			err = ErrInvalidAccessKeyID
+		}
 	}
-
-	return credential, nil
+	return credential, err
 }
 
 // doesSignatureMatch - Verify authorization header with calculated header in accordance with
@@ -334,9 +347,17 @@ func DoesSignatureMatchV4(hashedPayload string, r *http.Request,
 	// Get string to sign from canonical request.
 	stringToSign := getStringToSign(canonicalRequest, t, region)
 
-	credential, e := iam.GetCredential(signV4Values.Credential.accessKey)
-	if e != nil {
-		return credential, ErrInvalidAccessKeyID
+	if securityToken := r.Header.Get(sts.SecurityTokenHeader); securityToken != "" {
+		credential, err = sts.VerifyToken(signV4Values.Credential.accessKey,
+			securityToken)
+	} else {
+		credential, err = iam.GetCredential(signV4Values.Credential.accessKey)
+		if err != nil {
+			err = ErrInvalidAccessKeyID
+		}
+	}
+	if err != nil {
+		return credential, err
 	}
 	// Get hmac signing key.
 	signingKey := getSigningKey(credential.SecretAccessKey, t, region)
