@@ -37,9 +37,10 @@ func (t *TidbClient) PutObjectToGarbageCollection(object *Object, tx Tx) (err er
 	if err != nil {
 		return err
 	}
-	version := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
+
+	partVersion := math.MaxUint64 - object.CreateTime
 	for _, p := range object.Parts {
-		psql, args := p.GetCreateGcSql(o.BucketName, o.ObjectName, version)
+		psql, args := p.GetCreateGcSql(o.BucketName, o.ObjectName, partVersion)
 		_, err = tx.(*sql.Tx).Exec(psql, args...)
 		if err != nil {
 			return err

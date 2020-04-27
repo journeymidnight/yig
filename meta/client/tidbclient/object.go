@@ -15,7 +15,6 @@ import (
 
 func (t *TidbClient) GetObject(bucketName, objectName, version string) (*Object, error) {
 	var ibucketname, iname, customattributes, acl, lastModifiedTime string
-	var iversion uint64
 	var err error
 	var row *sql.Row
 	sqltext := "select bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag,contenttype," +
@@ -72,8 +71,8 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (*Object,
 		return nil, err
 	}
 	if object.Type == ObjectTypeMultipart {
-		iversion = math.MaxUint64 - object.CreateTime
-		object.Parts, err = getParts(object.BucketName, object.Name, iversion, t.Client)
+		partVersion := math.MaxUint64 - object.CreateTime
+		object.Parts, err = getParts(object.BucketName, object.Name, partVersion, t.Client)
 		if err != nil {
 			return nil, err
 		}
@@ -383,10 +382,10 @@ func (t *TidbClient) UpdateObject(object *Object, multipart *Multipart, updateUs
 	sql, args := object.GetUpdateSql()
 	_, err = txn.Exec(sql, args...)
 	if object.Parts != nil {
-		v := math.MaxUint64 - uint64(object.LastModifiedTime.UnixNano())
-		version := strconv.FormatUint(v, 10)
+		v := math.MaxUint64 - object.CreateTime
+		partVersion := strconv.FormatUint(v, 10)
 		for _, p := range object.Parts {
-			psql, args := p.GetCreateSql(object.BucketName, object.Name, version)
+			psql, args := p.GetCreateSql(object.BucketName, object.Name, partVersion)
 			_, err = txn.Exec(psql, args...)
 			if err != nil {
 				return err
@@ -438,8 +437,10 @@ func (t *TidbClient) UpdateFreezerObject(object *Object, tx Tx) (err error) {
 	sql, args := object.GetGlacierUpdateSql()
 	_, err = txn.Exec(sql, args...)
 	if object.Parts != nil {
+		partVersion := math.MaxUint64 - object.CreateTime
+		v := strconv.FormatUint(partVersion, 10)
 		for _, p := range object.Parts {
-			psql, args := p.GetCreateSql(object.BucketName, object.Name, version)
+			psql, args := p.GetCreateSql(object.BucketName, object.Name, v)
 			_, err = txn.Exec(psql, args...)
 			if err != nil {
 				return err
@@ -493,7 +494,7 @@ func (t *TidbClient) DeleteObjectPart(object *Object, tx Tx) (err error) {
 		}()
 	}
 
-	partVersion := strconv.FormatUint(math.MaxUint64-object.CreateTime, 10)
+	partVersion := math.MaxUint64 - object.CreateTime
 	sqltext := "delete from objectpart where objectname=? and bucketname=? and version=?;"
 	_, err = tx.(*sql.Tx).Exec(sqltext, object.Name, object.BucketName, partVersion)
 	if err != nil {
