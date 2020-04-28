@@ -22,6 +22,7 @@ type Client interface {
 	UpdateFreezerObject(object *Object, tx Tx) (err error)
 	UpdateAppendObject(object *Object) error
 	MigrateObject(object *Object) error
+	RemoveHotObject(object *Object) error
 	RenameObject(object *Object, sourceObject string) (err error)
 
 	ReplaceObjectMetas(object *Object, tx Tx) (err error)
