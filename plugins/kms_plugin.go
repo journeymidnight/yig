@@ -14,11 +14,11 @@ import (
 )
 
 const (
-	pluginName                          = "encryption_kms"
-	MaxPageSize                         = 100
-	NUMBEROFPALIN                       = 24
-	KeyDescription						= "Use to encrypt sse-s3 plaintext"
-	KMSResponseCodeOfTokenInvalid       = "0x00000054"
+	pluginName                    = "encryption_kms"
+	MaxPageSize                   = 100
+	NUMBEROFPALIN                 = 24
+	KeyDescription                = "Use to encrypt sse-s3 plaintext"
+	KMSResponseCodeOfTokenInvalid = "0x00000054"
 )
 
 type SDKMSConfig struct {

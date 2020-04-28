@@ -120,7 +120,7 @@ func parseSignedHeadersContent(signedHeader string, headers http.Header,
 	//  Host
 	//  Content-Type(required if present in request, not needed in presigned auth)
 	//  X-Amz-* headers
-	for k, _ := range headers {
+	for k := range headers {
 		lower := strings.ToLower(k)
 		if strings.HasPrefix(lower, "x-amz-") {
 			if !headerSigned(lower, signedHeaders) {

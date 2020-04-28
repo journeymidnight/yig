@@ -136,7 +136,7 @@ func main() {
 
 	// Read all *.so from plugins directory, and fill the variable allPlugins
 	allPluginMap := mods.InitialPlugins()
-  	kms := crypto.NewKMS(allPluginMap)
+	kms := crypto.NewKMS(allPluginMap)
 
 	numOfWorkers := helper.CONFIG.GcThread
 	yigs = make([]*storage.YigStorage, helper.CONFIG.GcThread+1)

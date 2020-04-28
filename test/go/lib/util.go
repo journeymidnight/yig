@@ -28,7 +28,7 @@ func TransferToS3AccessEncryptionConfiguration(config *datatype.EncryptionConfig
 		rule.ApplyServerSideEncryptionByDefault = new(s3.ServerSideEncryptionByDefault)
 		rule.ApplyServerSideEncryptionByDefault.SSEAlgorithm = aws.String(e.ApplyServerSideEncryptionByDefault.SSEAlgorithm)
 		rule.ApplyServerSideEncryptionByDefault.KMSMasterKeyID = aws.String(e.ApplyServerSideEncryptionByDefault.KMSMasterKeyID)
-		encryption.Rules = append(encryption.Rules,rule)
+		encryption.Rules = append(encryption.Rules, rule)
 	}
 	return
 }

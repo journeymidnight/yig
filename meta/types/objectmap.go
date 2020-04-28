@@ -7,4 +7,3 @@ type ObjMap struct {
 	NullVerNum uint64
 	NullVerId  string
 }
-

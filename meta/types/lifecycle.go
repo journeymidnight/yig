@@ -11,4 +11,3 @@ type ScanLifeCycleResult struct {
 	// List of LifeCycles info for this request.
 	Lcs []LifeCycle
 }
-

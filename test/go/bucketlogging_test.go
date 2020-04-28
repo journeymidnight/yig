@@ -1,8 +1,9 @@
 package _go
+
 import (
-	. "github.com/journeymidnight/yig/test/go/lib"
-	"github.com/journeymidnight/aws-sdk-go/service/s3"
 	"github.com/journeymidnight/aws-sdk-go/aws"
+	"github.com/journeymidnight/aws-sdk-go/service/s3"
+	. "github.com/journeymidnight/yig/test/go/lib"
 	"testing"
 )
 
@@ -32,7 +33,7 @@ func Test_PutBucketLogging(t *testing.T) {
 
 func Test_GetBucketLogging(t *testing.T) {
 	sc := NewS3()
-	out,err := sc.GetBucketLogging(TEST_BUCKET)
+	out, err := sc.GetBucketLogging(TEST_BUCKET)
 	if err != nil {
 		t.Fatal("GetBucketLogging err:", err)
 		panic(err)

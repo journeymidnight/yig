@@ -17,7 +17,7 @@ type Meta struct {
 
 func New(myCacheType CacheType) *Meta {
 	meta := Meta{
-		Cache:  newMetaCache(myCacheType),
+		Cache: newMetaCache(myCacheType),
 	}
 	if helper.CONFIG.MetaStore == "tidb" {
 		meta.Client = tidbclient.NewTidbClient()

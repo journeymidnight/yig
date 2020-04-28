@@ -63,4 +63,3 @@ func removeFailed(yig *YigStorage) {
 		}
 	}
 }
-

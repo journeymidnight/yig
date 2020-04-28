@@ -301,7 +301,7 @@ func getRequestContext(r *http.Request) RequestContext {
 		return ctx
 	}
 	return RequestContext{
-		Logger: r.Context().Value(ContextLoggerKey).(log.Logger),
+		Logger:    r.Context().Value(ContextLoggerKey).(log.Logger),
 		RequestID: r.Context().Value(RequestIdKey).(string),
 	}
 }

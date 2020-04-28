@@ -35,9 +35,9 @@ func (s3client *S3Client) HeadBucket(bucketName string) (err error) {
 	return
 }
 
-func (s3client *S3Client) ListObjects(bucketName string) (objects []*s3.Object, err error){
+func (s3client *S3Client) ListObjects(bucketName string) (objects []*s3.Object, err error) {
 	params := &s3.ListObjectsInput{
-		Bucket:  aws.String(bucketName),
+		Bucket: aws.String(bucketName),
 	}
 	result, err := s3client.Client.ListObjects(params)
 	if err != nil {

@@ -14,7 +14,7 @@ type TestListObjectsCase struct {
 	Expected     string
 }
 
-func Test_ListObjects_With_StorageClass(t *testing.T)  {
+func Test_ListObjects_With_StorageClass(t *testing.T) {
 	testCases := []TestListObjectsCase{
 		{TEST_BUCKET, TEST_KEY, TEST_VALUE, s3.ObjectStorageClassStandard, s3.ObjectStorageClassStandard},
 		{TEST_BUCKET, TEST_KEY, TEST_VALUE, s3.ObjectStorageClassStandardIa, s3.ObjectStorageClassStandardIa},

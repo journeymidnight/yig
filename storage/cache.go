@@ -25,7 +25,6 @@ type DataCache interface {
 }
 
 type enabledDataCache struct {
-
 }
 
 type disabledDataCache struct{}
@@ -56,7 +55,7 @@ func (d *enabledDataCache) WriteFromCache(object *meta.Object, startOffset int64
 		return err
 	}
 
-	helper.Logger.Info("File cache MISS. key:", cacheKey , "range:", startOffset, startOffset+length-1)
+	helper.Logger.Info("File cache MISS. key:", cacheKey, "range:", startOffset, startOffset+length-1)
 
 	var buffer bytes.Buffer
 	onCacheMiss(&buffer)
