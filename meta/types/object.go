@@ -45,13 +45,6 @@ type Object struct {
 	CreateTime   uint64 // Timestamp(nanosecond)
 }
 
-type ScanHotObjectsResult struct {
-	NextBMarker string
-	NextOMarker string
-	NextVMarker string
-	Objects     []Object
-}
-
 type ObjectType int
 
 const (
