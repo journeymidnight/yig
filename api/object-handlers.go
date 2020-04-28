@@ -560,32 +560,49 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	var isMetadataOnly bool
+
+	// If the object metadata is modified or the object storage type is converted, the following conditions are met
+	// For non-archive storage object modification metadata and type conversion, no copy operation is required
+	// For objects that were originally archived and stored for metadata modification and storage type modification, only database metadata needs to be modified.
+	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName &&
+		(sourceObject.StorageClass == ObjectStorageClassGlacier || targetStorageClass != ObjectStorageClassGlacier) {
+		if targetBucket.Versioning == BucketVersioningDisabled {
+			isMetadataOnly = true
+		} else if targetBucket.Versioning == BucketVersioningSuspended && sourceObject.VersionId == meta.NullVersion {
+			isMetadataOnly = true
+		}
+	}
+
 	truelySourceObject := sourceObject
 	if sourceObject.StorageClass == ObjectStorageClassGlacier {
-		freezer, err := api.ObjectAPI.GetFreezer(sourceBucketName, sourceObjectName, sourceVersion)
-		if err != nil {
-			if err == ErrNoSuchKey {
+		// When only modifying object metadata, there is no need to unfreeze the object
+		if !(isMetadataOnly && targetStorageClass == ObjectStorageClassGlacier) {
+			freezer, err := api.ObjectAPI.GetFreezer(sourceBucketName, sourceObjectName, sourceVersion)
+			if err != nil {
+				if err == ErrNoSuchKey {
+					logger.Error("Unable to get glacier object with no restore")
+					WriteErrorResponse(w, r, ErrInvalidGlacierObject)
+					return
+				}
+				logger.Error("Unable to get glacier object info err:", err)
+				WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
+				return
+			}
+			if freezer.Status != ObjectHasRestored || freezer.Pool == "" {
 				logger.Error("Unable to get glacier object with no restore")
 				WriteErrorResponse(w, r, ErrInvalidGlacierObject)
 				return
 			}
-			logger.Error("Unable to get glacier object info err:", err)
-			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
-			return
-		}
-		if freezer.Status != ObjectHasRestored || freezer.Pool == "" {
-			logger.Error("Unable to get glacier object with no restore")
-			WriteErrorResponse(w, r, ErrInvalidGlacierObject)
-			return
-		}
-		if targetStorageClass != ObjectStorageClassGlacier {
-			sourceObject.Etag = freezer.Etag
-			sourceObject.Size = freezer.Size
-			sourceObject.Parts = freezer.Parts
-			sourceObject.Pool = freezer.Pool
-			sourceObject.Location = freezer.Location
-			sourceObject.ObjectId = freezer.ObjectId
-			sourceObject.VersionId = freezer.VersionId
+			if targetStorageClass != ObjectStorageClassGlacier {
+				sourceObject.Etag = freezer.Etag
+				sourceObject.Size = freezer.Size
+				sourceObject.Parts = freezer.Parts
+				sourceObject.Pool = freezer.Pool
+				sourceObject.Location = freezer.Location
+				sourceObject.ObjectId = freezer.ObjectId
+				sourceObject.VersionId = freezer.VersionId
+			}
 		}
 	}
 
@@ -630,17 +647,6 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	} else {
 		WriteErrorResponse(w, r, ErrInvalidCopyRequest)
 		return
-	}
-
-	var isMetadataOnly bool
-
-	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName &&
-		(sourceObject.StorageClass == ObjectStorageClassGlacier || targetObject.StorageClass != ObjectStorageClassGlacier) {
-		if targetBucket.Versioning == BucketVersioningDisabled {
-			isMetadataOnly = true
-		} else if targetBucket.Versioning == BucketVersioningSuspended && sourceObject.VersionId == meta.NullVersion {
-			isMetadataOnly = true
-		}
 	}
 
 	pipeReader, pipeWriter := io.Pipe()
@@ -1243,6 +1249,9 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		targetFreezer.Name = object.Name
 		targetFreezer.Status = status
 		targetFreezer.LifeTime = lifeTime
+		targetFreezer.Type = object.Type
+		targetFreezer.CreateTime = object.CreateTime
+		targetFreezer.VersionId = object.VersionId
 		err = api.ObjectAPI.CreateFreezer(targetFreezer)
 		if err != nil {
 			logger.Error("Unable to create freezer:", err)

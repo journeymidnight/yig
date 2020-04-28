@@ -138,7 +138,6 @@ func (o *Object) GetUpdateNameSql(sourceObject string) (string, []interface{}) {
 	return sql, args
 }
 
-// TODO : with Version
 func (o *Object) GetReplaceObjectMetasSql() (string, []interface{}) {
 	customAttributes, _ := json.Marshal(o.CustomAttributes)
 	sql := "update objects set contenttype=?,customattributes=?,storageclass=? where bucketname=? and name=? and version=?"
