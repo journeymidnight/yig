@@ -46,7 +46,7 @@ func HTTPRequestToGetObjectWithSpecialIP(url string, ipAddress string) (status i
 		return 0, nil, errors.New("httpNewRequest err: " + err.Error() + "url: " + url)
 	}
 
-	request.Header.Set("X-Real-Ip",ipAddress)
+	request.Header.Set("X-Real-Ip", ipAddress)
 
 	res, err := client.Do(request)
 	if err != nil {

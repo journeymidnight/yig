@@ -22,4 +22,3 @@ func ReadJsonBody(body io.ReadCloser, out interface{}) (err error) {
 	}
 	return nil
 }
-

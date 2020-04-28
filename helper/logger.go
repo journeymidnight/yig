@@ -8,7 +8,7 @@ import (
 var Logger log.Logger
 var AccessLogger log.Logger
 
-func PanicOnError(err error, message string)  {
+func PanicOnError(err error, message string) {
 	if err != nil {
 		panic(message + " " + err.Error())
 	}
