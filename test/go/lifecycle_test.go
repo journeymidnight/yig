@@ -2,12 +2,13 @@ package _go
 
 import (
 	"encoding/xml"
+	"testing"
+	"time"
+
 	"github.com/journeymidnight/aws-sdk-go/service/s3"
 	"github.com/journeymidnight/yig/api/datatype/lifecycle"
 	"github.com/journeymidnight/yig/test/go/assert"
 	. "github.com/journeymidnight/yig/test/go/lib"
-	"testing"
-	"time"
 )
 
 const (
@@ -113,6 +114,11 @@ const (
 
 func Test_LifecycleConfiguration(t *testing.T) {
 	sc := NewS3()
+	defer func() {
+		sc.DeleteObject(TestLifecycleBucket1, TestLifecycleKey1)
+		sc.DeleteBucket(TestLifecycleBucket1)
+	}()
+
 	err := sc.MakeBucket(TestLifecycleBucket1)
 	assert.Equal(t, err, nil, "MakeBucket err")
 
@@ -167,7 +173,10 @@ func Test_LifecycleConfiguration(t *testing.T) {
 func Test_LifecycleConfigurationToVersion(t *testing.T) {
 	sc := NewS3()
 	var versions []string
-
+	defer func() {
+		sc.DeleteObject(TestLifecycleBucket2, TestLifecycleKey2)
+		sc.DeleteBucket(TestLifecycleBucket2)
+	}()
 	err := sc.MakeBucket(TestLifecycleBucket2)
 	assert.Equal(t, err, nil, "MakeBucket err")
 
