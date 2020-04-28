@@ -35,6 +35,9 @@ stop:
 rundelete:
 	cd integrate && sudo bash rundelete.sh $(WORKDIR)
 
+runmigrate:
+	cd integrate && sudo bash runmigrate.sh $(WORKDIR)
+
 runlc:
 	cd integrate && sudo bash runlc.sh $(WORKDIR)
 
@@ -48,7 +51,7 @@ plugin_internal:
 	bash plugins/build_plugins_internal.sh
 
 
-integrate: env build run runlc
+integrate: env build run runlc runmigrate
 
 clean:
 	cd integrate && docker-compose stop && docker-compose rm --force &&rm -rf cephconf

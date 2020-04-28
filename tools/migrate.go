@@ -12,6 +12,7 @@ import (
 
 	"github.com/journeymidnight/yig/backend"
 	"github.com/journeymidnight/yig/crypto"
+	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/meta"
@@ -30,11 +31,13 @@ const (
 )
 
 var (
-	yigs        []*storage.YigStorage
-	signalQueue chan os.Signal
-	mgWaitgroup sync.WaitGroup
-	mgStop      bool
-	mgTaskQ     chan types.Object
+	yigs             []*storage.YigStorage
+	signalQueue      chan os.Signal
+	mgWaitgroup      sync.WaitGroup
+	mgStop           bool
+	mgTaskQ          chan types.Object
+	mgObjectCoolDown int
+	mgScanInterval   int
 )
 
 func checkAndDoMigrate(index int) {
@@ -48,15 +51,26 @@ func checkAndDoMigrate(index int) {
 		var err error
 		var sourceCluster, destCluster backend.Cluster
 		var reader io.ReadCloser
+		var sourceObject *types.Object
 		object := <-mgTaskQ
 		mgWaitgroup.Add(1)
-		if object.LastModifiedTime.Add(time.Second * time.Duration(helper.CONFIG.MgObjectCooldown)).After(time.Now()) {
+		if object.LastModifiedTime.Add(time.Second * time.Duration(mgObjectCoolDown)).After(time.Now()) {
 			goto release
 		}
-		sourceCluster = yigs[index].DataStorage[object.Location]
-		reader, err = sourceCluster.GetReader(object.Pool, object.ObjectId, 0, uint64(object.Size))
+
+		sourceObject, err = yigs[index].MetaStorage.GetObject(object.BucketName, object.Name, object.VersionId, true)
 		if err != nil {
-			helper.Logger.Info("checkIfNeedMigrate GetReader failed:", object.Pool, object.ObjectId, err.Error())
+			if err == ErrNoSuchKey {
+				yigs[index].MetaStorage.RemoveHotObject(&object)
+				goto release
+			}
+			goto quit
+		}
+
+		sourceCluster = yigs[index].DataStorage[sourceObject.Location]
+		reader, err = sourceCluster.GetReader(sourceObject.Pool, sourceObject.ObjectId, 0, uint64(sourceObject.Size))
+		if err != nil {
+			helper.Logger.Info("checkIfNeedMigrate GetReader failed:", sourceObject.Pool, sourceObject.ObjectId, err.Error())
 			goto quit
 		}
 
@@ -66,18 +80,18 @@ func checkAndDoMigrate(index int) {
 			helper.Logger.Error("cephCluster.Append err:", err, newOid)
 			goto quit
 		}
-		if bytesWritten != uint64(object.Size) {
+		if bytesWritten != uint64(sourceObject.Size) {
 			destCluster.Remove(backend.BIG_FILE_POOLNAME, newOid)
-			helper.Logger.Error("cephCluster.Append write length to hdd not equel the object size:", newOid, bytesWritten, object.Size)
+			helper.Logger.Error("cephCluster.Append write length to hdd not equel the object size:", newOid, bytesWritten, sourceObject.Size)
 			goto release
 		}
 		//update object fileds
-		object.Location = destCluster.ID()
-		object.Pool = backend.BIG_FILE_POOLNAME
-		oid = object.ObjectId
-		object.ObjectId = newOid
+		sourceObject.Location = destCluster.ID()
+		sourceObject.Pool = backend.BIG_FILE_POOLNAME
+		oid = sourceObject.ObjectId
+		sourceObject.ObjectId = newOid
 		//update objects table and remove entry from hotobjects
-		err = yigs[index].MetaStorage.MigrateObject(&object)
+		err = yigs[index].MetaStorage.MigrateObject(sourceObject)
 		if err != nil {
 			destCluster.Remove(backend.BIG_FILE_POOLNAME, newOid)
 			helper.Logger.Error("cephCluster.Append MigrateObject failed:", err.Error())
@@ -90,8 +104,8 @@ func checkAndDoMigrate(index int) {
 			goto quit
 		}
 		//invalid redis cache
-		yigs[index].MetaStorage.Cache.Remove(redis.ObjectTable, object.BucketName+":"+object.Name+":"+object.VersionId)
-		yigs[index].DataCache.Remove(object.BucketName + ":" + object.Name + ":" + object.VersionId)
+		yigs[index].MetaStorage.Cache.Remove(redis.ObjectTable, sourceObject.BucketName+":"+sourceObject.Name+":"+sourceObject.VersionId)
+		yigs[index].DataCache.Remove(sourceObject.BucketName + ":" + sourceObject.Name + ":" + sourceObject.VersionId)
 		goto release
 	quit:
 		signalQueue <- syscall.SIGQUIT
@@ -169,7 +183,7 @@ func getHotObjects() {
 				time.Sleep(time.Duration(10) * time.Millisecond)
 			}
 		}
-		for i := 0; i < helper.CONFIG.MgScanInterval; i++ {
+		for i := 0; i < mgScanInterval; i++ {
 			time.Sleep(time.Duration(1) * time.Second)
 			if mgStop {
 				helper.Logger.Info("shutting down...")
@@ -206,6 +220,13 @@ func main() {
 	yigs = make([]*storage.YigStorage, helper.CONFIG.MgThread+1)
 	yigs[0] = storage.New(int(meta.NoCache), false, kms)
 	helper.Logger.Info("start migrate thread:", numOfWorkers)
+	if helper.CONFIG.DebugMode == true {
+		mgObjectCoolDown = 1
+		mgScanInterval = 5
+	} else {
+		mgObjectCoolDown = helper.CONFIG.MgObjectCooldown
+		mgScanInterval = helper.CONFIG.MgScanInterval
+	}
 	for i := 0; i < numOfWorkers; i++ {
 		yigs[i+1] = storage.New(helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache, kms)
 		if helper.CONFIG.CacheCircuitCheckInterval != 0 && helper.CONFIG.MetaCacheType != 0 {

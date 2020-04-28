@@ -367,6 +367,13 @@ func (t *TidbClient) MigrateObject(object *Object) (err error) {
 	return
 }
 
+func (t *TidbClient) RemoveHotObject(object *Object) (err error) {
+	sql, args := object.GetRemoveHotSql()
+	_, err = t.Client.Exec(sql, args...)
+
+	return
+}
+
 func (t *TidbClient) PutObject(object *Object, multipart *Multipart, updateUsage bool) (err error) {
 	tx, err := t.Client.Begin()
 	if err != nil {

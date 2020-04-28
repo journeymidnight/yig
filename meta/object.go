@@ -261,3 +261,7 @@ func (m *Meta) AppendObject(object *Object, isExist bool) error {
 func (m *Meta) MigrateObject(object *Object) error {
 	return m.Client.MigrateObject(object)
 }
+
+func (m *Meta) RemoveHotObject(object *Object) error {
+	return m.Client.RemoveHotObject(object)
+}
