@@ -2,7 +2,7 @@ BASEDIR=$(dirname $(pwd))
 echo ${BASEDIR}
 WORKDIR=$1
 sudo docker rm --force migrate
-if [ -x "$BASEDIR/lc" ]; then 
+if [ -x "$BASEDIR/migrate" ]; then 
     sudo docker run -d --name migrate \
              -v /etc/localtime:/etc/localtime:ro \
 			 -v ${BASEDIR}/integrate/cephconf:/etc/ceph/ \

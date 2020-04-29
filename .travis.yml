@@ -35,6 +35,8 @@ script:
   - sudo chmod 644 go.mod go.sum
   - docker exec yig cat yig.log
   - docker logs yig
+  - docker exec migrate cat migrate.log
+  - docker logs migrate
   - sudo python test/sanity.py
   - pushd test/go
   - go test -v

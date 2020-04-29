@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/backend"
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
@@ -192,6 +193,14 @@ func (m *Meta) DeleteObject(object *Object) (err error) {
 	err = m.Client.DeleteObject(object, tx)
 	if err != nil {
 		return err
+	}
+
+	//delete object meta in hotobjects table
+	if object.Type == ObjectTypeAppendable && object.Pool == backend.SMALL_FILE_POOLNAME {
+		err = m.Client.RemoveHotObject(object)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = m.Client.PutObjectToGarbageCollection(object, tx)
