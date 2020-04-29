@@ -135,7 +135,7 @@ func getHotObjects() {
 		if err != nil {
 			goto quit
 		}
-
+		helper.Logger.Info("query tidb success")
 		for rows.Next() {
 			//fetch related date
 			object := &types.Object{}
@@ -227,13 +227,14 @@ func main() {
 		mgObjectCoolDown = helper.CONFIG.MgObjectCooldown
 		mgScanInterval = helper.CONFIG.MgScanInterval
 	}
+	helper.Logger.Info("migrate service parameters:", mgObjectCoolDown, mgScanInterval)
 	for i := 0; i < numOfWorkers; i++ {
 		yigs[i+1] = storage.New(helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache, kms)
 		if helper.CONFIG.CacheCircuitCheckInterval != 0 && helper.CONFIG.MetaCacheType != 0 {
 			for j := 0; j < len(helper.CONFIG.RedisGroup); j++ {
-				go func(j int) {
+				go func(i, j int) {
 					yigs[i+1].PingCache(time.Duration(helper.CONFIG.CacheCircuitCheckInterval)*time.Second, j)
-				}(j)
+				}(i, j)
 			}
 		}
 		go checkAndDoMigrate(i + 1)
