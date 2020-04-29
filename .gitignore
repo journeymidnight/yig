@@ -12,6 +12,7 @@ integrate/data
 integrate/logs
 yig
 lc
+migrate
 *.log
 *.swp
 yig
