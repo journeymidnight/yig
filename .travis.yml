@@ -26,6 +26,7 @@ install:
   - sudo ufw disable
 
 script:
+  - diff -u <(echo -n) <(gofmt -d .)
   - export GOPROXY=https://goproxy.cn
   - export GO111MODULE=on
   - make integrate

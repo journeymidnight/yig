@@ -2,7 +2,7 @@ package api
 
 import (
 	"github.com/journeymidnight/yig/api/datatype"
-	."github.com/journeymidnight/yig/context"
+	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/signature"

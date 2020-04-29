@@ -1,14 +1,14 @@
 package _go
 
 import (
-	"testing"
 	redigo "github.com/gomodule/redigo/redis"
+	"testing"
 	"time"
 )
 
 const (
 	RedisInAddress = "localhost:6379"
-	RedisPassword = "hehehehe"
+	RedisPassword  = "hehehehe"
 )
 
 func Test_RedisConn(t *testing.T) {

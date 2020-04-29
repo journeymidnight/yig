@@ -79,17 +79,17 @@ type Grantee struct {
 }
 
 type AccessControlPolicyResponse struct {
-	XMLName           xml.Name `xml:"AccessControlPolicy"`
-	Xmlns             string   `xml:"xmlns,attr,omitempty"`
-	ID                string   `xml:"Owner>ID"`
-	DisplayName       string   `xml:"Owner>DisplayName"`
-	AccessControlList []GrantResponse  `xml:"AccessControlList>Grant"`
+	XMLName           xml.Name        `xml:"AccessControlPolicy"`
+	Xmlns             string          `xml:"xmlns,attr,omitempty"`
+	ID                string          `xml:"Owner>ID"`
+	DisplayName       string          `xml:"Owner>DisplayName"`
+	AccessControlList []GrantResponse `xml:"AccessControlList>Grant"`
 }
 
 type GrantResponse struct {
-	XMLName    xml.Name `xml:"Grant"`
-	Grantee    GranteeResponse  `xml:"Grantee"`
-	Permission string   `xml:"Permission"`
+	XMLName    xml.Name        `xml:"Grant"`
+	Grantee    GranteeResponse `xml:"Grantee"`
+	Permission string          `xml:"Permission"`
 }
 
 type GranteeResponse struct {

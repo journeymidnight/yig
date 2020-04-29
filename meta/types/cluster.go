@@ -5,4 +5,3 @@ type Cluster struct {
 	Pool   string
 	Weight int
 }
-
