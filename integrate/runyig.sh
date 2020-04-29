@@ -7,7 +7,7 @@ if [ -x "$BASEDIR/yig" ]; then
 			 -p 8080:8080 \
 			 -p 9000:9000 \
 			 -p 8730:8730 \
-			 -v /etc/localtime:/etc/localtime:ro \
+			 -v ${BASEDIR}/integrate/timezone:/etc/localtime:ro \
 			 -v ${BASEDIR}/integrate/cephconf:/etc/ceph/ \
 			 -v ${BASEDIR}/integrate/yigconf:/etc/yig/ \
 			 -v ${BASEDIR}:/var/log/yig \
@@ -21,7 +21,7 @@ else
 			 -p 8080:8080 \
 			 -p 9000:9000 \
 			 -p 8730:8730 \
-			 -v /etc/localtime:/etc/localtime:ro \
+			 -v ${BASEDIR}/integrate/timezone:/etc/localtime:ro \
 			 -v ${BASEDIR}/integrate/cephconf:/etc/ceph/ \
 			 -v ${BASEDIR}/integrate/yigconf:/etc/yig/ \
 			 -v ${BASEDIR}:/var/log/yig \
