@@ -191,7 +191,7 @@ func DoesPresignedSignatureMatchV4(r *http.Request,
 		return credential, err
 	}
 
-	if securityToken := r.Header.Get(sts.SecurityTokenHeader); securityToken != "" {
+	if securityToken := r.URL.Query().Get(sts.SecurityTokenHeader); securityToken != "" {
 		credential, err = sts.VerifyToken(preSignValues.Credential.accessKey,
 			securityToken)
 	} else {
