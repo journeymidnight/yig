@@ -83,6 +83,12 @@ func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multi
 			if err != nil {
 				return err
 			}
+			if reqCtx.ObjectInfo.Type == ObjectTypeAppendable && reqCtx.ObjectInfo.Pool == backend.SMALL_FILE_POOLNAME {
+				err = m.Client.RemoveHotObject(reqCtx.ObjectInfo, tx)
+				if err != nil {
+					return err
+				}
+			}
 			return m.Client.UpdateObject(object, multipart, updateUsage, tx)
 		} else {
 			return m.Client.PutObject(object, multipart, updateUsage)
@@ -197,7 +203,7 @@ func (m *Meta) DeleteObject(object *Object) (err error) {
 
 	//delete object meta in hotobjects table
 	if object.Type == ObjectTypeAppendable && object.Pool == backend.SMALL_FILE_POOLNAME {
-		err = m.Client.RemoveHotObject(object)
+		err = m.Client.RemoveHotObject(object, tx)
 		if err != nil {
 			return err
 		}
@@ -271,6 +277,6 @@ func (m *Meta) MigrateObject(object *Object) error {
 	return m.Client.MigrateObject(object)
 }
 
-func (m *Meta) RemoveHotObject(object *Object) error {
-	return m.Client.RemoveHotObject(object)
+func (m *Meta) RemoveHotObject(object *Object, tx Tx) error {
+	return m.Client.RemoveHotObject(object, tx)
 }
