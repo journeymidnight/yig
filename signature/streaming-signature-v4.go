@@ -24,6 +24,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"github.com/journeymidnight/yig/sts"
 	"hash"
 	"io"
 	"net/http"
@@ -95,9 +96,17 @@ func CalculateSeedSignature(r *http.Request) (credential common.Credential, sign
 		return
 	}
 
-	credential, e := iam.GetCredential(signV4Values.Credential.accessKey)
-	if e != nil {
-		return credential, "", "", time.Time{}, ErrInvalidAccessKeyID
+	if securityToken := r.Header.Get(sts.SecurityTokenHeader); securityToken != "" {
+		credential, err = sts.VerifyToken(signV4Values.Credential.accessKey,
+			securityToken)
+	} else {
+		credential, err = iam.GetCredential(signV4Values.Credential.accessKey)
+		if err != nil {
+			err = ErrInvalidAccessKeyID
+		}
+	}
+	if err != nil {
+		return credential, "", "", time.Time{}, err
 	}
 
 	// Verify if region is valid.
