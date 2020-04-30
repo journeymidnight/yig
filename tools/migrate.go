@@ -61,7 +61,7 @@ func checkAndDoMigrate(index int) {
 		sourceObject, err = yigs[index].MetaStorage.GetObject(object.BucketName, object.Name, object.VersionId, true)
 		if err != nil {
 			if err == ErrNoSuchKey {
-				yigs[index].MetaStorage.RemoveHotObject(&object)
+				yigs[index].MetaStorage.RemoveHotObject(&object, nil)
 				goto release
 			}
 			goto quit
