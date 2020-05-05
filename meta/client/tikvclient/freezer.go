@@ -21,10 +21,10 @@ func (c *TiKVClient) GetFreezerStatus(bucketName, objectName, version string) (f
 	return
 }
 
-func (c *TiKVClient) UploadFreezerDate(bucketName, objectName string, lifetime int) (err error) {
+func (c *TiKVClient) UploadFreezerDate(bucketName, objectName, version string, lifetime int) (err error) {
 	return
 }
 
-func (c *TiKVClient) DeleteFreezer(bucketName, objectName string, tx Tx) (err error) {
+func (c *TiKVClient) DeleteFreezer(bucketName, objectName, versionId string, objectType ObjectType, createTime uint64, tx Tx) (err error) {
 	return
 }
