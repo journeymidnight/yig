@@ -53,8 +53,6 @@ require (
 	github.com/ugorji/go/codec v0.0.0-20190204201341-e444a5086c43
 	github.com/xxtea/xxtea-go v0.0.0-20170828040851-35c4b17eecf6
 
-	google.golang.org/appengine v0.0.0-00010101000000-000000000000 // indirect
-
 	golang.org/x/crypto v0.0.0-20190325154230-a5d413f7728c // indirect
 	gopkg.in/bufio.v1 v1.0.0-20140618132640-567b2bfa514e
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127

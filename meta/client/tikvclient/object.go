@@ -195,3 +195,11 @@ func (c *TiKVClient) ReplaceObjectMetas(object *Object, tx Tx) (err error) {
 func (c *TiKVClient) UpdateFreezerObject(object *Object, tx Tx) (err error) {
 	return c.PutObject(object, nil, true)
 }
+
+func (c *TiKVClient) AppendObject(object *Object, updateUsage bool) (err error) {
+	return nil
+}
+
+func (c *TiKVClient) MigrateObject(object *Object) (err error) {
+	return nil
+}
