@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/journeymidnight/yig/api/datatype"
-	"github.com/journeymidnight/yig/meta/common"
+	. "github.com/journeymidnight/yig/meta/common"
 )
 
 const NullVersion = "0"
@@ -41,7 +41,7 @@ type Object struct {
 	InitializationVector []byte
 	// ObjectType include `Normal`, `Appendable`, 'Multipart'
 	Type         ObjectType
-	StorageClass common.StorageClass
+	StorageClass StorageClass
 	CreateTime   uint64 // Timestamp(nanosecond)
 }
 
