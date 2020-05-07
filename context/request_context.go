@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/bsm/redislock"
 	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/signature"
@@ -33,6 +34,7 @@ type RequestContext struct {
 	Body           io.ReadCloser
 	FormValues     map[string]string
 	VersionId      string
+	Mutex          *redislock.Lock
 }
 
 func GetRequestContext(r *http.Request) RequestContext {

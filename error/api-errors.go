@@ -194,6 +194,8 @@ const (
 	ErrInvalidRestoreInfo
 	ErrCreateRestoreObject
 	ErrInvalidGlacierObject
+	ErrObjectMovedPermanently
+	ErrObjectMutexProtexted
 )
 
 // error code to APIError structure, these fields carry respective
@@ -925,6 +927,16 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "CreateRestoreObjectError",
 		Description:    "Create object thaw operation failed",
 		HttpStatusCode: http.StatusInternalServerError,
+	},
+	ErrObjectMovedPermanently: {
+		AwsErrorCode:   "ObjectMovedPermanently",
+		Description:    "Object has been moved from ssd to hdd, should query again",
+		HttpStatusCode: http.StatusMovedPermanently,
+	},
+	ErrObjectMutexProtexted: {
+		AwsErrorCode:   "ObjectMutexProtexted",
+		Description:    "Object has been protect by a mutex, should query later",
+		HttpStatusCode: http.StatusConflict,
 	},
 }
 

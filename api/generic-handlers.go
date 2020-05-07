@@ -23,11 +23,15 @@ import (
 	"mime/multipart"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/bsm/redislock"
 	"github.com/gorilla/mux"
 	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/backend"
 	"github.com/journeymidnight/yig/meta"
 	"github.com/journeymidnight/yig/meta/types"
+	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/signature"
 
 	. "github.com/journeymidnight/yig/context"
@@ -223,6 +227,7 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	reqCtx.Logger = logger
 	reqCtx.VersionId = helper.Ternary(r.URL.Query().Get("versionId") == "null", types.NullVersion, r.URL.Query().Get("versionId")).(string)
 	err := FillBucketAndObjectInfo(&reqCtx, r, h.meta)
+
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -234,11 +239,32 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		return
 	}
 	reqCtx.AuthType = authType
+	reqCtx.Mutex = nil
 
 	ctx := context.WithValue(r.Context(), RequestContextKey, reqCtx)
 	logger.Info("BucketName:", reqCtx.BucketName, "ObjectName:", reqCtx.ObjectName, "BucketExist:",
 		reqCtx.BucketInfo != nil, "ObjectExist:", reqCtx.ObjectInfo != nil, "AuthType:", authType, "VersionId:", reqCtx.VersionId)
+	//if it is a modification operation to a appendable object, lock it
+	if reqCtx.ObjectInfo != nil {
+		if reqCtx.ObjectInfo.Type == types.ObjectTypeAppendable && reqCtx.ObjectInfo.Pool == backend.SMALL_FILE_POOLNAME && r.Method != http.MethodGet {
+			// as this request is sent to ssd, 10 seconds should be enough
+			reqCtx.Mutex, err = redis.Locker.Obtain(redis.GenMutexKey(reqCtx.ObjectInfo), 10*time.Second, nil)
+			if err == redislock.ErrNotObtained {
+				helper.Logger.Error("Lock object failed:", reqCtx.ObjectInfo.BucketName, reqCtx.ObjectInfo.ObjectId, reqCtx.ObjectInfo.VersionId)
+				WriteErrorResponse(w, r, ErrObjectMutexProtexted)
+				return
+			} else if err != nil {
+				helper.Logger.Error("Lock seems does not work, check redis config and aliveness", err.Error())
+				WriteErrorResponse(w, r, err)
+				return
+			}
+		}
+	}
+
 	h.handler.ServeHTTP(w, r.WithContext(ctx))
+	if reqCtx.Mutex != nil {
+		reqCtx.Mutex.Release()
+	}
 }
 
 func FillBucketAndObjectInfo(reqCtx *RequestContext, r *http.Request, meta *meta.Meta) error {

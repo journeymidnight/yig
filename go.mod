@@ -29,6 +29,7 @@ replace (
 require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/DATA-DOG/go-sqlmock v1.3.3
+	github.com/bsm/redislock v0.5.0
 	github.com/cep21/circuit v0.0.0-20181030180945-e893c027dc21
 	github.com/confluentinc/confluent-kafka-go v1.0.0 //indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
