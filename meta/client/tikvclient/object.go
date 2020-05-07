@@ -17,7 +17,7 @@ func genObjectKey(bucketName, objectName, version string) []byte {
 	if version == NullVersion {
 		return GenKey(bucketName, objectName)
 	} else {
-		return GenKey(TableVersionObjectPrefix, bucketName, objectName, version)
+		return GenKey(bucketName, objectName, version)
 	}
 }
 
