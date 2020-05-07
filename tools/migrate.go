@@ -61,7 +61,7 @@ func checkAndDoMigrate(index int) {
 		sourceObject, err = yigs[index].MetaStorage.GetObject(object.BucketName, object.Name, object.VersionId, true)
 		if err != nil {
 			if err == ErrNoSuchKey {
-				yigs[index].MetaStorage.RemoveHotObject(&object)
+				yigs[index].MetaStorage.RemoveHotObject(&object, nil)
 				goto release
 			}
 			goto quit
@@ -210,7 +210,7 @@ func main() {
 	signalQueue = make(chan os.Signal)
 	if helper.CONFIG.MetaCacheType > 0 || helper.CONFIG.EnableDataCache {
 		redis.Initialize()
-		defer redis.CloseAll()
+		defer redis.RedisConn.Close()
 	}
 	// Read all *.so from plugins directory, and fill the variable allPlugins
 	allPluginMap := mods.InitialPlugins()
@@ -231,11 +231,9 @@ func main() {
 	for i := 0; i < numOfWorkers; i++ {
 		yigs[i+1] = storage.New(helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache, kms)
 		if helper.CONFIG.CacheCircuitCheckInterval != 0 && helper.CONFIG.MetaCacheType != 0 {
-			for j := 0; j < len(helper.CONFIG.RedisGroup); j++ {
-				go func(i, j int) {
-					yigs[i+1].PingCache(time.Duration(helper.CONFIG.CacheCircuitCheckInterval)*time.Second, j)
-				}(i, j)
-			}
+			go func(i int) {
+				yigs[i+1].PingCache(time.Duration(helper.CONFIG.CacheCircuitCheckInterval) * time.Second)
+			}(i)
 		}
 		go checkAndDoMigrate(i + 1)
 	}

@@ -49,7 +49,7 @@ func (d *enabledDataCache) WriteFromCache(object *meta.Object, startOffset int64
 
 	cacheKey := object.BucketName + ":" + object.Name + ":" + object.VersionId
 
-	file, err := redis.GetBytes(cacheKey, startOffset, startOffset+length-1)
+	file, err := redis.RedisConn.GetBytes(cacheKey, startOffset, startOffset+length-1)
 	if err == nil && file != nil && int64(len(file)) == length {
 		helper.Logger.Info("File cache HIT. key:", cacheKey, "range:", startOffset, startOffset+length-1)
 		_, err := out.Write(file)
@@ -61,7 +61,7 @@ func (d *enabledDataCache) WriteFromCache(object *meta.Object, startOffset int64
 	var buffer bytes.Buffer
 	onCacheMiss(&buffer)
 
-	redis.SetBytes(cacheKey, buffer.Bytes())
+	redis.RedisConn.SetBytes(cacheKey, buffer.Bytes())
 	_, err = out.Write(buffer.Bytes()[startOffset : startOffset+length])
 	return err
 }
@@ -90,7 +90,7 @@ func (d *enabledDataCache) GetAlignedReader(object *meta.Object, startOffset int
 
 	cacheKey := object.BucketName + ":" + object.Name + ":" + object.VersionId
 
-	file, err := redis.GetBytes(cacheKey, startOffset, startOffset+length-1)
+	file, err := redis.RedisConn.GetBytes(cacheKey, startOffset, startOffset+length-1)
 	if err == nil && file != nil && int64(len(file)) == length {
 		helper.Logger.Info("File cache HIT")
 		r := newReadCloser(file)
@@ -102,7 +102,7 @@ func (d *enabledDataCache) GetAlignedReader(object *meta.Object, startOffset int
 	var buffer bytes.Buffer
 	onCacheMiss(&buffer)
 
-	redis.SetBytes(cacheKey, buffer.Bytes())
+	redis.RedisConn.SetBytes(cacheKey, buffer.Bytes())
 	r := newReadCloser(buffer.Bytes()[startOffset : startOffset+length])
 	return r, nil
 }
@@ -115,7 +115,7 @@ func (d *disabledDataCache) GetAlignedReader(object *meta.Object, startOffset in
 }
 
 func (d *enabledDataCache) Remove(key string) {
-	redis.Remove(redis.FileTable, key)
+	redis.RedisConn.Remove(redis.FileTable, key)
 }
 
 func (d *disabledDataCache) Remove(key string) {

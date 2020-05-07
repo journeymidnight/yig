@@ -367,10 +367,15 @@ func (t *TidbClient) MigrateObject(object *Object) (err error) {
 	return
 }
 
-func (t *TidbClient) RemoveHotObject(object *Object) (err error) {
-	sql, args := object.GetRemoveHotSql()
-	_, err = t.Client.Exec(sql, args...)
-
+func (t *TidbClient) RemoveHotObject(object *Object, tx Tx) (err error) {
+	if tx == nil {
+		sql, args := object.GetRemoveHotSql()
+		_, err = t.Client.Exec(sql, args...)
+	} else {
+		txn := tx.(*sql.Tx)
+		sql, args := object.GetRemoveHotSql()
+		_, err = txn.Exec(sql, args...)
+	}
 	return
 }
 

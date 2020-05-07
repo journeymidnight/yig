@@ -70,7 +70,7 @@ func (m *enabledSimpleMetaCache) Get(table redis.RedisDatabase, key string,
 	unmarshaller func([]byte) (interface{}, error), willNeed bool) (value interface{}, err error) {
 
 	helper.Logger.Info("enabledSimpleMetaCache.Get table:", table, "key:", key)
-	value, err = redis.Get(table, key, unmarshaller)
+	value, err = redis.RedisConn.Get(table, key, unmarshaller)
 	if err != nil {
 		helper.Logger.Info("enabledSimpleMetaCache.Get err:", err,
 			"table:", table, "key:", key)
@@ -91,7 +91,7 @@ func (m *enabledSimpleMetaCache) Get(table redis.RedisDatabase, key string,
 		}
 
 		if willNeed == true {
-			err = redis.Set(table, key, value)
+			err = redis.RedisConn.Set(table, key, value)
 			if err != nil {
 				helper.Logger.Warn("redis is down!")
 				//do nothing, even if redis is down.
@@ -104,7 +104,7 @@ func (m *enabledSimpleMetaCache) Get(table redis.RedisDatabase, key string,
 }
 
 func (m *enabledSimpleMetaCache) Remove(table redis.RedisDatabase, key string) {
-	redis.Remove(table, key)
+	redis.RedisConn.Remove(table, key)
 }
 
 func (m *enabledSimpleMetaCache) GetCacheHitRatio() float64 {
