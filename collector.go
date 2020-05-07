@@ -79,7 +79,7 @@ func (c *Metrics) GenerateBucketUsageData() (GaugeMetricData map[string][]UsageD
 	GaugeMetricData = make(map[string][]UsageDataWithBucket)
 	for _, bucket := range buckets {
 		key := BucketUsagePrefix + bucket.Name
-		usageCache, err := redis.GetUsage(key)
+		usageCache, err := redis.RedisConn.GetUsage(key)
 		if err != nil {
 			helper.Logger.Error("Get usage data from redis for prometheus failed:",
 				err.Error())
@@ -110,7 +110,7 @@ func (c *Metrics) GenerateUserUsageData() (GaugeMetricData map[string][]UsageDat
 	for _, bucket := range buckets {
 		if len(GaugeMetricData[bucket.OwnerId]) == 0 {
 			key := PidUsagePrefix + bucket.OwnerId
-			usageCache, err := redis.GetUsage(key)
+			usageCache, err := redis.RedisConn.GetUsage(key)
 			if err != nil {
 				helper.Logger.Error("Get usage data from redis for prometheus failed:",
 					err.Error())

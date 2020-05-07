@@ -1,10 +1,10 @@
 package storage
 
 import (
-	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"github.com/journeymidnight/yig/redis"
 	"io"
 	"path"
 	"sync"
@@ -12,12 +12,10 @@ import (
 
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/backend"
-	"github.com/journeymidnight/yig/circuitbreak"
 	"github.com/journeymidnight/yig/crypto"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/meta"
-	"github.com/journeymidnight/yig/redis"
 )
 
 const (
@@ -44,31 +42,12 @@ func (y *YigStorage) Stop() {
 }
 
 // check cache health per one second if enable cache
-func (y *YigStorage) PingCache(interval time.Duration, i int) {
+func (y *YigStorage) PingCache(interval time.Duration) {
 	tick := time.NewTicker(interval)
 	for {
 		select {
 		case <-tick.C:
-			redis.Circuits[i].Execute(
-				context.Background(),
-				func(ctx context.Context) (err error) {
-					c, err := redis.GetClient(ctx, i)
-					if err != nil {
-						return err
-					}
-					defer c.Close()
-					// Use table.String() + key as Redis key
-					_, err = c.Do("PING")
-					if err != nil {
-						helper.Logger.Error("Ping redis error:", err)
-					}
-					return err
-				},
-				nil,
-			)
-			if redis.Circuits[i].IsOpen() {
-				helper.Logger.Warn(circuitbreak.CacheCircuitIsOpenErr)
-			}
+			redis.RedisConn.Check()
 		}
 	}
 }

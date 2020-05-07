@@ -505,7 +505,7 @@ func main() {
 	defer helper.Logger.Close()
 	if helper.CONFIG.MetaCacheType > 0 || helper.CONFIG.EnableDataCache {
 		redis.Initialize()
-		defer redis.CloseAll()
+		defer redis.RedisConn.Close()
 	}
 
 	helper.Logger.Info("Yig lifecycle start!")
