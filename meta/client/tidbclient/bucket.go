@@ -417,6 +417,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				}
 
 				o := modifyMetaToObjectResult(meta)
+				previousNullObjectMeta = nil
 
 				count++
 				if count == maxKeys {
@@ -437,7 +438,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 					previousNullObjectMeta = nil
 					continue
 				}
-				previousNullObjectMeta = nil
+
 			}
 
 			// If object key has in result of CommonPrefix or Objects, do continue
@@ -537,6 +538,8 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			}
 
 			o := modifyMetaToObjectResult(meta)
+			previousNullObjectMeta = nil
+
 			count++
 			if count == maxKeys {
 				listInfo.NextMarker = o.Key
@@ -550,7 +553,6 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			objectMap[meta.Name] = nil
 			listInfo.Objects = append(listInfo.Objects, o)
 
-			previousNullObjectMeta = nil
 		}
 
 		if loopCount == 0 {
@@ -570,11 +572,16 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 	var exit bool
 	commonPrefixes := make(map[string]interface{})
 	currentKeyMarker := marker
-	currentVerIdMarker := helper.Ternary(verIdMarker == "null", NullVersion, verIdMarker).(string)
+	if verIdMarker == "null" {
+		verIdMarker = NullVersion
+	}
+	currentVerIdMarker := verIdMarker
 	var previousNullObjectMeta *Object
 	var lastModifiedTime string
-	// Handle marker data first
-	if currentKeyMarker != "" {
+
+	isPrefixMarker := (delimiter != "" && strings.HasSuffix(currentKeyMarker, delimiter))
+	// Handle marker data first, and sure `currentKeyMarker` is not commonPrefix.
+	if currentKeyMarker != "" && !isPrefixMarker {
 		var needCompareNull = true
 		nullObjMeta := Object{}
 		// Find null version first with specified marker
@@ -668,20 +675,19 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 						break
 					}
 					listInfo.Objects = append(listInfo.Objects, o)
-
 				}
 			}()
 			if loopCount == 0 {
 				break
 			}
 		}
+		// clear version marker to scan next key.
+		currentVerIdMarker = ""
 	}
 
 	if exit {
 		return listInfo, nil
 	}
-	// clear verion marker
-	currentVerIdMarker = ""
 
 	// Begin to list other objects
 	for {
@@ -735,6 +741,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 
 			if previousNullObjectMeta != nil {
 				if objMeta.Name != previousNullObjectMeta.Name {
+					previousNullObjectMeta = nil
 					// fill in previous NullObject
 					count++
 					if count == maxKeys {
@@ -750,12 +757,13 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 
 					o := modifyMetaToVersionedObjectResult(*previousNullObjectMeta)
 					listInfo.Objects = append(listInfo.Objects, o)
-					previousNullObjectMeta = nil
+
 				} else {
 					// Compare which is the latest of null version object and versioned object
 					var o datatype.VersionedObject
-					nullIsNewer := previousNullObjectMeta.CreateTime > objMeta.CreateTime
-					if nullIsNewer {
+
+					nullIsLatest := previousNullObjectMeta.CreateTime > objMeta.CreateTime
+					if nullIsLatest {
 						o = modifyMetaToVersionedObjectResult(*previousNullObjectMeta)
 						previousNullObjectMeta = nil
 					} else {
@@ -776,7 +784,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 
 					listInfo.Objects = append(listInfo.Objects, o)
 
-					if !nullIsNewer {
+					if !nullIsLatest {
 						continue
 					}
 				}
