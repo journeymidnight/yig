@@ -4,15 +4,18 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"github.com/cep21/circuit"
-	"github.com/go-redis/redis/v7"
-	"github.com/journeymidnight/yig/circuitbreak"
-	"github.com/journeymidnight/yig/helper"
-	"github.com/minio/highwayhash"
 	"io"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/bsm/redislock"
+	"github.com/cep21/circuit"
+	"github.com/go-redis/redis/v7"
+	"github.com/journeymidnight/yig/circuitbreak"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/meta/types"
+	"github.com/minio/highwayhash"
 )
 
 type Redis interface {
@@ -41,6 +44,8 @@ type Redis interface {
 }
 
 var RedisConn Redis
+var RedisClient redislock.RedisClient
+var Locker *redislock.Client
 
 const (
 	InvalidQueueName = "InvalidQueue"
@@ -68,6 +73,10 @@ const (
 var MetadataTables = []RedisDatabase{UserTable, BucketTable, ObjectTable, ClusterTable}
 var DataTables = []RedisDatabase{FileTable}
 
+func GenMutexKey(object *types.Object) string {
+	return object.BucketName + ":" + object.ObjectId + ":" + object.VersionId
+}
+
 func Initialize() {
 	switch helper.CONFIG.RedisStore {
 	case "single":
@@ -79,6 +88,7 @@ func Initialize() {
 		r := InitializeCluster()
 		RedisConn = r.(Redis)
 	}
+	Locker = redislock.New(RedisClient)
 }
 
 type SingleRedis struct {
@@ -105,6 +115,7 @@ func InitializeSingle() interface{} {
 	}
 	cb = circuitbreak.NewCacheCircuit()
 	client = redis.NewClient(options)
+	RedisClient = client
 	r := &SingleRedis{
 		client:  client,
 		circuit: cb,
@@ -355,6 +366,7 @@ func InitializeCluster() interface{} {
 
 	cb = circuitbreak.NewCacheCircuit()
 	cluster = redis.NewClusterClient(clusterRedis)
+	RedisClient = cluster
 	r := &ClusterRedis{
 		cluster: cluster,
 		circuit: cb,

@@ -30,6 +30,7 @@ import (
 
 	. "github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/policy"
+	"github.com/journeymidnight/yig/backend"
 	. "github.com/journeymidnight/yig/context"
 	"github.com/journeymidnight/yig/crypto"
 	. "github.com/journeymidnight/yig/error"
@@ -329,6 +330,19 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	// Reads the object at startOffset and writes to mw.
 	if err := api.ObjectAPI.GetObject(object, startOffset, length, writer, sseRequest); err != nil {
 		logger.Error("GetObject error:", err)
+		if object.Type == meta.ObjectTypeAppendable && object.Pool == backend.SMALL_FILE_POOLNAME {
+			info, err := api.ObjectAPI.GetObjectInfo(object.BucketName, object.ObjectId, object.VersionId, credential)
+			if err != nil {
+				logger.Error("Unable to fetch object info:", err)
+				WriteErrorResponse(w, r, err)
+				return
+			}
+			if info.Pool == backend.BIG_FILE_POOLNAME {
+				logger.Error("Found a object that been fetched during migrating :", err.Error())
+				WriteErrorResponse(w, r, ErrObjectMovedPermanently)
+				return
+			}
+		}
 		if !writer.dataWritten {
 			// Error response only if no data has been written to client yet. i.e if
 			// partial data has already been written before an error

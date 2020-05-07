@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bsm/redislock"
+	"github.com/journeymidnight/radoshttpd/rados"
 	"github.com/journeymidnight/yig/backend"
 	"github.com/journeymidnight/yig/crypto"
 	. "github.com/journeymidnight/yig/error"
@@ -38,7 +40,32 @@ var (
 	mgTaskQ          chan types.Object
 	mgObjectCoolDown int
 	mgScanInterval   int
+	mutexs           map[string]*redislock.Lock
 )
+
+func autoRefreshLock() {
+	c := time.Tick(3 * time.Second)
+	for {
+		<-c
+		if mgStop {
+			helper.Logger.Info("Shutting down...")
+			return
+		}
+		for key, lock := range mutexs {
+			err := lock.Refresh(10*time.Second, nil)
+			if err != nil {
+				if err == redislock.ErrNotObtained {
+					helper.Logger.Info("No longer hold lock ...", key)
+				} else {
+					helper.Logger.Info("Refresh lock failed ...", key, err.Error())
+				}
+				delete(mutexs, key)
+				continue
+			}
+			helper.Logger.Info("Refresh lock success...", key)
+		}
+	}
+}
 
 func checkAndDoMigrate(index int) {
 	for {
@@ -52,8 +79,24 @@ func checkAndDoMigrate(index int) {
 		var sourceCluster, destCluster backend.Cluster
 		var reader io.ReadCloser
 		var sourceObject *types.Object
+		var mutex *redislock.Lock
 		object := <-mgTaskQ
 		mgWaitgroup.Add(1)
+
+		// Try to obtain lock.
+		mutex, err = redis.Locker.Obtain(redis.GenMutexKey(&object), 10*time.Second, nil)
+		if err == redislock.ErrNotObtained {
+			helper.Logger.Error("Lock object failed:", object.BucketName, object.ObjectId, object.VersionId)
+			goto release
+		} else if err != nil {
+			helper.Logger.Error("Lock seems does not work, so quit", err.Error())
+			goto quit
+		}
+
+		//add lock to mutexs map
+		mutexs[mutex.Key()] = mutex
+
+		//check if object is cooldown
 		if object.LastModifiedTime.Add(time.Second * time.Duration(mgObjectCoolDown)).After(time.Now()) {
 			goto release
 		}
@@ -85,6 +128,7 @@ func checkAndDoMigrate(index int) {
 			helper.Logger.Error("cephCluster.Append write length to hdd not equel the object size:", newOid, bytesWritten, sourceObject.Size)
 			goto release
 		}
+
 		//update object fileds
 		sourceObject.Location = destCluster.ID()
 		sourceObject.Pool = backend.BIG_FILE_POOLNAME
@@ -99,7 +143,7 @@ func checkAndDoMigrate(index int) {
 		}
 		//remove data from ssd cluster
 		err = sourceCluster.Remove(backend.SMALL_FILE_POOLNAME, oid)
-		if err != nil {
+		if err != nil && err != rados.RadosError(int(-2)) {
 			helper.Logger.Error("cephCluster.Append Remove data from rabbit failed:", err.Error())
 			goto quit
 		}
@@ -110,6 +154,7 @@ func checkAndDoMigrate(index int) {
 	quit:
 		signalQueue <- syscall.SIGQUIT
 	release:
+		mutex.Release()
 		mgWaitgroup.Done()
 	}
 }
@@ -228,6 +273,7 @@ func main() {
 		mgScanInterval = helper.CONFIG.MgScanInterval
 	}
 	helper.Logger.Info("migrate service parameters:", mgObjectCoolDown, mgScanInterval)
+	mutexs = make(map[string]*redislock.Lock)
 	for i := 0; i < numOfWorkers; i++ {
 		yigs[i+1] = storage.New(helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache, kms)
 		if helper.CONFIG.CacheCircuitCheckInterval != 0 && helper.CONFIG.MetaCacheType != 0 {
@@ -238,6 +284,7 @@ func main() {
 		go checkAndDoMigrate(i + 1)
 	}
 	go getHotObjects()
+	go autoRefreshLock()
 	signal.Notify(signalQueue, syscall.SIGINT, syscall.SIGTERM,
 		syscall.SIGQUIT, syscall.SIGHUP)
 	for {
