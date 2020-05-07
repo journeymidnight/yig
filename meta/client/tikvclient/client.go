@@ -12,15 +12,14 @@ import (
 )
 
 const (
-	TableClusterPrefix       = "c"
-	TableBucketPrefix        = "b"
-	TableUserBucketPrefix    = "u"
-	TableMultipartPrefix     = "m"
-	TableObjectPartPrefix    = "p"
-	TableLifeCyclePrefix     = "l"
-	TableGcPrefix            = "g"
-	TableVersionObjectPrefix = "v"
-	TableFreezerPrefix       = "f"
+	TableClusterPrefix    = "c"
+	TableBucketPrefix     = "b"
+	TableUserBucketPrefix = "u"
+	TableMultipartPrefix  = "m"
+	TableObjectPartPrefix = "p"
+	TableLifeCyclePrefix  = "l"
+	TableGcPrefix         = "g"
+	TableFreezerPrefix    = "f"
 )
 
 var (
