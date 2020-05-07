@@ -373,7 +373,6 @@ func (c *ClusterRedis) Set(table RedisDatabase, key string, value interface{}) e
 		context.Background(),
 		func(ctx context.Context) error {
 			conn := c.cluster.WithContext(ctx)
-			defer conn.Close()
 			encodedValue, err := helper.MsgPackMarshal(value)
 			if err != nil {
 				return err
@@ -405,7 +404,6 @@ func (c *ClusterRedis) Get(table RedisDatabase, key string,
 		context.Background(),
 		func(ctx context.Context) error {
 			conn := c.cluster.WithContext(ctx)
-			defer conn.Close()
 			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
@@ -436,7 +434,6 @@ func (c *ClusterRedis) Remove(table RedisDatabase, key string) error {
 		context.Background(),
 		func(ctx context.Context) error {
 			conn := c.cluster.WithContext(ctx)
-			defer conn.Close()
 			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
@@ -462,7 +459,6 @@ func (c *ClusterRedis) GetUsage(key string) (value string, err error) {
 		context.Background(),
 		func(ctx context.Context) error {
 			conn := c.cluster.WithContext(ctx)
-			defer conn.Close()
 			encodedValue, err = conn.Get(key).Result()
 			if err != nil {
 				if err == redis.Nil {
@@ -485,7 +481,6 @@ func (c *ClusterRedis) SetBytes(key string, value []byte) (err error) {
 		context.Background(),
 		func(ctx context.Context) error {
 			conn := c.cluster.WithContext(ctx)
-			defer conn.Close()
 			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
@@ -511,7 +506,6 @@ func (c *ClusterRedis) GetBytes(key string, start int64, end int64) ([]byte, err
 		context.Background(),
 		func(ctx context.Context) error {
 			conn := c.cluster.WithContext(ctx)
-			defer conn.Close()
 			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
@@ -539,7 +533,6 @@ func (c *ClusterRedis) Invalid(table RedisDatabase, key string) (err error) {
 		context.Background(),
 		func(ctx context.Context) error {
 			conn := c.cluster.WithContext(ctx)
-			defer conn.Close()
 			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
