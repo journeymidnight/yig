@@ -34,7 +34,18 @@ func TestBucketVersioning(t *testing.T) {
 
 func TestObjectVersionEnabled(t *testing.T) {
 	sc := NewS3()
-
+	defer func() {
+		sc.DeleteObject(TEST_BUCKET, TEST_KEY)
+		sc.DeleteObjectVersion(TEST_BUCKET, TEST_KEY, "null")
+		out, _ := sc.ListObjectVersions(TEST_BUCKET, "", "", "", 1000)
+		for _, v := range out.Versions {
+			sc.DeleteObjectVersion(TEST_BUCKET, TEST_KEY, *v.VersionId)
+		}
+		for _, v := range out.DeleteMarkers {
+			sc.DeleteObjectVersion(TEST_BUCKET, TEST_KEY, *v.VersionId)
+		}
+		sc.DeleteBucket(TEST_BUCKET)
+	}()
 	err := sc.MakeBucket(TEST_BUCKET)
 	assert.Equal(t, err, nil, "MakeBucket err")
 
@@ -113,11 +124,15 @@ func TestObjectVersionEnabled(t *testing.T) {
 
 func TestListObjectVersions(t *testing.T) {
 	sc := NewS3()
-	var versions []string
 	defer func() {
+		sc.DeleteObject(TEST_BUCKET, TEST_KEY)
 		sc.DeleteObjectVersion(TEST_BUCKET, TEST_KEY, "null")
-		for _, version := range versions {
-			sc.DeleteObjectVersion(TEST_BUCKET, TEST_KEY, version)
+		out, _ := sc.ListObjectVersions(TEST_BUCKET, "", "", "", 1000)
+		for _, v := range out.Versions {
+			sc.DeleteObjectVersion(TEST_BUCKET, TEST_KEY, *v.VersionId)
+		}
+		for _, v := range out.DeleteMarkers {
+			sc.DeleteObjectVersion(TEST_BUCKET, TEST_KEY, *v.VersionId)
 		}
 		sc.DeleteBucket(TEST_BUCKET)
 	}()
@@ -135,10 +150,9 @@ func TestListObjectVersions(t *testing.T) {
 		assert.Equal(t, err, nil, "PutObject err")
 		assert.NotEqual(t, putObjOut.VersionId, nil, "PutObject err")
 		t.Log("VersionId", i, ":", *putObjOut.VersionId)
-		versions = append(versions, *putObjOut.VersionId)
 	}
 
-	listOut, err := sc.ListObjects(TEST_BUCKET, "", "", 100)
+	listOut, err := sc.ListObjectVersions(TEST_BUCKET, "", "", "", 100)
 	assert.Equal(t, err, nil, "ListObjects err")
 	t.Log(listOut.String())
 
