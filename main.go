@@ -49,7 +49,7 @@ func main() {
 
 	if helper.CONFIG.MetaCacheType > 0 || helper.CONFIG.EnableDataCache {
 		redis.Initialize()
-		defer redis.CloseAll()
+		defer redis.RedisConn.Close()
 	}
 
 	// Read all *.so from plugins directory, and fill the variable allPlugins
@@ -64,11 +64,9 @@ func main() {
 		Yig:     yig,
 	}
 	if helper.CONFIG.CacheCircuitCheckInterval != 0 && helper.CONFIG.MetaCacheType != 0 {
-		for i := 0; i < len(helper.CONFIG.RedisGroup); i++ {
-			go func(i int) {
-				yig.PingCache(time.Duration(helper.CONFIG.CacheCircuitCheckInterval)*time.Second, i)
-			}(i)
-		}
+		go func() {
+			yig.PingCache(time.Duration(helper.CONFIG.CacheCircuitCheckInterval) * time.Second)
+		}()
 	}
 
 	// try to create message queue sender if message bus is enabled.

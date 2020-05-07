@@ -51,12 +51,14 @@ type Config struct {
 
 	//About cache
 	EnableUsagePush       bool     `toml:"enable_usage_push"`
+	RedisStore            string   `toml:"redis_store"`   // Choose redis connection method
 	RedisAddress          string   `toml:"redis_address"` // redis connection string, e.g localhost:1234
 	RedisGroup            []string `toml:"redis_group"`
 	RedisConnectionNumber int      `toml:"redis_connection_number"` // number of connections to redis(i.e max concurrent request number)
 	RedisPassword         string   `toml:"redis_password"`          // redis auth password
 	MetaCacheType         int      `toml:"meta_cache_type"`
 	EnableDataCache       bool     `toml:"enable_data_cache"`
+	RedisMaxRetries       int      `toml:"redis_max_retries"`
 	RedisConnectTimeout   int      `toml:"redis_connect_timeout"`
 	RedisReadTimeout      int      `toml:"redis_read_timeout"`
 	RedisWriteTimeout     int      `toml:"redis_write_timeout"`
@@ -155,6 +157,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.LifecycleSpec = Ternary(c.LifecycleSpec == "", "@midnight", c.LifecycleSpec).(string)
 
 	CONFIG.EnableUsagePush = c.EnableUsagePush
+	CONFIG.RedisStore = Ternary(c.RedisStore == "", "single", c.RedisStore).(string)
 	CONFIG.RedisAddress = c.RedisAddress
 	CONFIG.EnableUsagePush = c.EnableUsagePush
 	CONFIG.RedisGroup = c.RedisGroup
@@ -162,6 +165,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.RedisConnectionNumber = Ternary(c.RedisConnectionNumber == 0,
 		10, c.RedisConnectionNumber).(int)
 	CONFIG.EnableDataCache = c.EnableDataCache
+	CONFIG.RedisMaxRetries = Ternary(c.RedisMaxRetries < 0, 1000, c.RedisMaxRetries).(int)
 	CONFIG.MetaCacheType = c.MetaCacheType
 	CONFIG.RedisConnectTimeout = Ternary(c.RedisConnectTimeout < 0, 0, c.RedisConnectTimeout).(int)
 	CONFIG.RedisReadTimeout = Ternary(c.RedisReadTimeout < 0, 0, c.RedisReadTimeout).(int)
