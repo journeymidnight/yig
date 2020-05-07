@@ -415,6 +415,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 					continue
 				}
 
+				previousNullObjectMeta = nil
 				o := ModifyMetaToObjectResult(meta)
 
 				count++
@@ -536,6 +537,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				continue
 			}
 
+			previousNullObjectMeta = nil
 			o := ModifyMetaToObjectResult(meta)
 			previousNullObjectMeta = nil
 
@@ -758,6 +760,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 			objMeta.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
 			if previousNullObjectMeta != nil {
 				if objMeta.Name != previousNullObjectMeta.Name {
+					previousNullObjectMeta = nil
 					// fill in previous NullObject
 					count++
 					if count == maxKeys {
