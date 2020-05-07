@@ -67,7 +67,12 @@ func (c *TiKVClient) GetLatestObjectVersion(bucketName, objectName string) (obje
 	} else if len(kvs) == 0 {
 		return &o, nil
 	} else {
-		retObj := helper.Ternary(o.LastModifiedTime.After(vo.LastModifiedTime), &o, &vo)
+		err = helper.MsgPackUnMarshal(kvs[0].V, &vo)
+		if err != nil {
+			return nil, err
+		}
+		return &vo, nil
+		retObj := helper.Ternary(o.CreateTime > vo.CreateTime, &o, &vo)
 		return retObj.(*Object), nil
 	}
 }
