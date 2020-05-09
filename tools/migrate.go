@@ -41,6 +41,7 @@ var (
 	mgObjectCoolDown int
 	mgScanInterval   int
 	mutexs           map[string]*redislock.Lock
+	mux              sync.Mutex
 )
 
 func autoRefreshLock() {
@@ -59,7 +60,9 @@ func autoRefreshLock() {
 				} else {
 					helper.Logger.Info("Refresh lock failed ...", key, err.Error())
 				}
+				mux.Lock()
 				delete(mutexs, key)
+				mux.Unlock()
 				continue
 			}
 			helper.Logger.Info("Refresh lock success...", key)
@@ -94,7 +97,9 @@ func checkAndDoMigrate(index int) {
 		}
 
 		//add lock to mutexs map
+		mux.Lock()
 		mutexs[mutex.Key()] = mutex
+		mux.Unlock()
 
 		//check if object is cooldown
 		if object.LastModifiedTime.Add(time.Second * time.Duration(mgObjectCoolDown)).After(time.Now()) {
