@@ -195,7 +195,7 @@ const (
 	ErrCreateRestoreObject
 	ErrInvalidGlacierObject
 	ErrObjectMovedPermanently
-	ErrObjectMutexProtexted
+	ErrObjectMutexProtected
 )
 
 // error code to APIError structure, these fields carry respective
@@ -933,8 +933,8 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		Description:    "Object has been moved from ssd to hdd, should query again",
 		HttpStatusCode: http.StatusMovedPermanently,
 	},
-	ErrObjectMutexProtexted: {
-		AwsErrorCode:   "ObjectMutexProtexted",
+	ErrObjectMutexProtected: {
+		AwsErrorCode:   "ObjectMutexProtected",
 		Description:    "Object has been protect by a mutex, should query later",
 		HttpStatusCode: http.StatusConflict,
 	},

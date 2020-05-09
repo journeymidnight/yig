@@ -251,20 +251,21 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 			reqCtx.Mutex, err = redis.Locker.Obtain(redis.GenMutexKey(reqCtx.ObjectInfo), 10*time.Second, nil)
 			if err == redislock.ErrNotObtained {
 				helper.Logger.Error("Lock object failed:", reqCtx.ObjectInfo.BucketName, reqCtx.ObjectInfo.ObjectId, reqCtx.ObjectInfo.VersionId)
-				WriteErrorResponse(w, r, ErrObjectMutexProtexted)
+				WriteErrorResponse(w, r, ErrObjectMutexProtected)
 				return
 			} else if err != nil {
-				helper.Logger.Error("Lock seems does not work, check redis config and aliveness", err.Error())
-				WriteErrorResponse(w, r, err)
-				return
+				helper.Logger.Error("Lock seems does not work, check redis config and aliveness, but continue this request", err.Error())
 			}
 		}
 	}
 
+	defer func() {
+		if reqCtx.Mutex != nil {
+			reqCtx.Mutex.Release()
+		}
+	}()
 	h.handler.ServeHTTP(w, r.WithContext(ctx))
-	if reqCtx.Mutex != nil {
-		reqCtx.Mutex.Release()
-	}
+
 }
 
 func FillBucketAndObjectInfo(reqCtx *RequestContext, r *http.Request, meta *meta.Meta) error {
