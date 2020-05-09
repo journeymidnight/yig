@@ -4,7 +4,7 @@ WORKDIR=$1
 sudo docker rm --force migrate
 if [ -x "$BASEDIR/migrate" ]; then 
     sudo docker run -d --name migrate \
-             -v /etc/localtime:/etc/localtime:ro \
+             -v ${BASEDIR}/integrate/timezone:/etc/localtime:ro \
 			 -v ${BASEDIR}/integrate/cephconf:/etc/ceph/ \
 			 -v ${BASEDIR}/integrate/yigconf:/etc/yig/ \
 			 -v ${BASEDIR}:/var/log/yig \

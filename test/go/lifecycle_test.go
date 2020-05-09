@@ -116,6 +116,14 @@ func Test_LifecycleConfiguration(t *testing.T) {
 	sc := NewS3()
 	defer func() {
 		sc.DeleteObject(TestLifecycleBucket1, TestLifecycleKey1)
+		sc.DeleteObjectVersion(TestLifecycleBucket1, TestLifecycleKey1, "null")
+		out, _ := sc.ListObjectVersions(TestLifecycleBucket1, "", "", "", 1000)
+		for _, v := range out.Versions {
+			sc.DeleteObjectVersion(TestLifecycleBucket1, TestLifecycleKey1, *v.VersionId)
+		}
+		for _, v := range out.DeleteMarkers {
+			sc.DeleteObjectVersion(TestLifecycleBucket1, TestLifecycleKey1, *v.VersionId)
+		}
 		sc.DeleteBucket(TestLifecycleBucket1)
 	}()
 
@@ -175,6 +183,14 @@ func Test_LifecycleConfigurationToVersion(t *testing.T) {
 	var versions []string
 	defer func() {
 		sc.DeleteObject(TestLifecycleBucket2, TestLifecycleKey2)
+		sc.DeleteObjectVersion(TestLifecycleBucket2, TestLifecycleKey2, "null")
+		out, _ := sc.ListObjectVersions(TestLifecycleBucket2, "", "", "version/", 1000)
+		for _, v := range out.Versions {
+			sc.DeleteObjectVersion(TestLifecycleBucket2, TestLifecycleKey2, *v.VersionId)
+		}
+		for _, v := range out.DeleteMarkers {
+			sc.DeleteObjectVersion(TestLifecycleBucket2, TestLifecycleKey2, *v.VersionId)
+		}
 		sc.DeleteBucket(TestLifecycleBucket2)
 	}()
 	err := sc.MakeBucket(TestLifecycleBucket2)

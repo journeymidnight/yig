@@ -417,7 +417,6 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				}
 
 				o := modifyMetaToObjectResult(meta)
-				previousNullObjectMeta = nil
 
 				count++
 				if count == maxKeys {
@@ -425,6 +424,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				}
 
 				if count > maxKeys {
+					previousNullObjectMeta = nil
 					listInfo.IsTruncated = true
 					exit = true
 					break
@@ -738,10 +738,8 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 			currentKeyMarker = objMeta.Name
 			currentVerIdMarker = objMeta.VersionId
 			objMeta.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
-
 			if previousNullObjectMeta != nil {
 				if objMeta.Name != previousNullObjectMeta.Name {
-					previousNullObjectMeta = nil
 					// fill in previous NullObject
 					count++
 					if count == maxKeys {
@@ -750,6 +748,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 					}
 
 					if count > maxKeys {
+						previousNullObjectMeta = nil
 						listInfo.IsTruncated = true
 						exit = true
 						break
@@ -789,11 +788,9 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 					}
 				}
 			}
-
 			if !strings.HasPrefix(objMeta.Name, prefix) {
 				continue
 			}
-
 			//filter prefix by delimiter
 			if delimiter != "" {
 				subKey := strings.TrimPrefix(objMeta.Name, prefix)
@@ -816,7 +813,6 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 					continue
 				}
 			}
-
 			if objMeta.VersionId == NullVersion {
 				previousNullObjectMeta = &objMeta
 				continue
@@ -836,7 +832,6 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 				break
 			}
 			listInfo.Objects = append(listInfo.Objects, o)
-
 		}
 		if exit {
 			break
