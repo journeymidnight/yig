@@ -45,7 +45,7 @@ var (
 )
 
 func autoRefreshLock() {
-	c := time.Tick(3 * time.Second)
+	c := time.Tick(5 * time.Second)
 	for {
 		<-c
 		if mgStop {
@@ -160,6 +160,9 @@ func checkAndDoMigrate(index int) {
 		signalQueue <- syscall.SIGQUIT
 	release:
 		mutex.Release()
+		mux.Lock()
+		delete(mutexs, mutex.Key())
+		mux.Unlock()
 		mgWaitgroup.Done()
 	}
 }
