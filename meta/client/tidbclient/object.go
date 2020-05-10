@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/journeymidnight/yig/backend"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
@@ -306,8 +307,10 @@ func (t *TidbClient) AppendObject(object *Object, updateUsage bool) (err error) 
 	sql, args := object.GetCreateSql()
 	_, err = tx.Exec(sql, args...)
 
-	sql, args = object.GetCreateHotSql()
-	_, err = tx.Exec(sql, args...)
+	if object.Pool == backend.SMALL_FILE_POOLNAME {
+		sql, args = object.GetCreateHotSql()
+		_, err = tx.Exec(sql, args...)
+	}
 
 	if updateUsage {
 		err = t.UpdateUsage(object.BucketName, object.Size, tx)
