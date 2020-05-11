@@ -86,25 +86,26 @@ func checkAndDoMigrate(index int) {
 		object := <-mgTaskQ
 		mgWaitgroup.Add(1)
 
+		//check if object is cooldown
+		if object.LastModifiedTime.Add(time.Second * time.Duration(mgObjectCoolDown)).After(time.Now()) {
+			goto loop
+		}
+
 		// Try to obtain lock.
 		mutex, err = redis.Locker.Obtain(redis.GenMutexKey(&object), 10*time.Second, nil)
 		if err == redislock.ErrNotObtained {
 			helper.Logger.Error("Lock object failed:", object.BucketName, object.ObjectId, object.VersionId)
-			goto release
+			goto loop
 		} else if err != nil {
 			helper.Logger.Error("Lock seems does not work, so quit", err.Error())
-			goto quit
+			signalQueue <- syscall.SIGQUIT
+			return
 		}
 
 		//add lock to mutexs map
 		mux.Lock()
 		mutexs[mutex.Key()] = mutex
 		mux.Unlock()
-
-		//check if object is cooldown
-		if object.LastModifiedTime.Add(time.Second * time.Duration(mgObjectCoolDown)).After(time.Now()) {
-			goto release
-		}
 
 		sourceObject, err = yigs[index].MetaStorage.GetObject(object.BucketName, object.Name, object.VersionId, true)
 		if err != nil {
@@ -163,6 +164,7 @@ func checkAndDoMigrate(index int) {
 		mux.Lock()
 		delete(mutexs, mutex.Key())
 		mux.Unlock()
+	loop:
 		mgWaitgroup.Done()
 	}
 }
