@@ -172,7 +172,6 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 	}
 	var count int
 	var exit bool
-	objectMap := make(map[string]struct{})
 	objectNum := make(map[string]int)
 	commonPrefixes := make(map[string]struct{})
 	omarker := marker
@@ -190,7 +189,6 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 		if err != nil {
 			return
 		}
-		defer rows.Close()
 		for rows.Next() {
 			loopcount += 1
 			//fetch related date
@@ -205,6 +203,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 				&deletemarker,
 			)
 			if err != nil {
+				_ = rows.Close()
 				return
 			}
 			//prepare next marker
@@ -221,9 +220,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 				continue
 			}
 			//filte by objectname
-			if _, ok := objectMap[name]; !ok {
-				objectMap[name] = struct{}{}
-			} else {
+			if objectNum[name] > 1 {
 				continue
 			}
 			//filte by deletemarker
@@ -238,7 +235,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 				subStr := strings.TrimPrefix(name, prefix)
 				n := strings.Index(subStr, delimiter)
 				if n != -1 {
-					prefixKey := prefix + string([]byte(subStr)[0:(n+1)])
+					prefixKey := prefix + subStr[0:(n+1)]
 					if prefixKey == omarker {
 						continue
 					}
@@ -259,6 +256,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 			Strver := strconv.FormatUint(version, 10)
 			o, err = t.GetObject(bucketname, name, Strver)
 			if err != nil {
+				_ = rows.Close()
 				return
 			}
 			count += 1
@@ -275,6 +273,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, verIdMarker, prefix, delimi
 			}
 			retObjects = append(retObjects, o)
 		}
+		_ = rows.Close()
 		if loopcount == 0 {
 			exit = true
 		}
