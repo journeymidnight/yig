@@ -415,7 +415,6 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 					continue
 				}
 
-				previousNullObjectMeta = nil
 				o := ModifyMetaToObjectResult(meta)
 
 				count++
@@ -492,6 +491,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			}
 
 			if count > maxKeys {
+				previousNullObjectMeta = nil
 				listInfo.IsTruncated = true
 				exit = true
 				break
@@ -537,9 +537,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				continue
 			}
 
-			previousNullObjectMeta = nil
 			o := ModifyMetaToObjectResult(meta)
-			previousNullObjectMeta = nil
 
 			count++
 			if count == maxKeys {
@@ -760,7 +758,6 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 			objMeta.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
 			if previousNullObjectMeta != nil {
 				if objMeta.Name != previousNullObjectMeta.Name {
-					previousNullObjectMeta = nil
 					// fill in previous NullObject
 					count++
 					if count == maxKeys {
@@ -777,7 +774,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 
 					o := ModifyMetaToVersionedObjectResult(*previousNullObjectMeta)
 					listInfo.Objects = append(listInfo.Objects, o)
-
+					previousNullObjectMeta = nil
 				} else {
 					// Compare which is the latest of null version object and versioned object
 					var o datatype.VersionedObject
