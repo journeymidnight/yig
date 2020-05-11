@@ -26,6 +26,7 @@ import (
 
 	. "github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
 )
 
@@ -121,9 +122,9 @@ func parseSignedHeadersContent(signedHeader string, headers http.Header,
 	//  Content-Type(required if present in request, not needed in presigned auth)
 	//  X-Amz-* headers
 	for k := range headers {
-		lower := strings.ToLower(k)
-		if strings.HasPrefix(lower, "x-amz-") {
-			if !headerSigned(lower, signedHeaders) {
+		if strings.HasPrefix(k, "X-Amz-") {
+			if !helper.StringInSliceCustomCompare(k, signedHeaders,
+				helper.CaseInsensitiveEqual) {
 				return nil, ErrMissingRequiredSignedHeader
 			}
 		}

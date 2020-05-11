@@ -21,39 +21,35 @@ func StringInSlice(s string, ss []string) bool {
 	return false
 }
 
-func CopiedBytes(source []byte) (destination []byte) {
-	destination = make([]byte, len(source), len(source))
-	copy(destination, source)
-	return destination
+// compare 2 strings case-insensitively, only handle ASCII
+func CaseInsensitiveEqual(a, b string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := 0; i < len(a); i++ {
+		aChar := a[i]
+		bChar := b[i]
+		if aChar == bChar {
+			continue
+		}
+		if 'A' <= aChar && aChar <= 'Z' && aChar+'a'-'A' == bChar {
+			continue
+		}
+		if 'A' <= bChar && bChar <= 'Z' && bChar+'a'-'A' == aChar {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
-func UnicodeIndex(str, substr string) int {
-	result := strings.Index(str, substr)
-	if result >= 0 {
-		prefix := []byte(str)[0:result]
-		rs := []rune(string(prefix))
-		result = len(rs)
-	}
-	return result
-}
+func StringInSliceCustomCompare(s string, ss []string,
+	compare func(string, string) bool) bool {
 
-func SubString(str string, begin, length int) (substr string) {
-	rs := []rune(str)
-	lth := len(rs)
-	if begin < 0 {
-		begin = 0
+	for _, x := range ss {
+		if compare(x, s) {
+			return true
+		}
 	}
-	if begin >= lth {
-		begin = lth
-	}
-	var end int
-	if length == -1 {
-		end = lth
-	} else {
-		end = begin + length
-	}
-	if end > lth {
-		end = lth
-	}
-	return string(rs[begin:end])
+	return false
 }

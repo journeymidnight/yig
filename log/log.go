@@ -70,8 +70,8 @@ func getCaller(skipCallDepth int) string {
 	if !ok {
 		return ""
 	}
-	fileParts := strings.Split(fullPath, "/")
-	file := fileParts[len(fileParts)-1]
+	i := strings.LastIndex(fullPath, "/")
+	file := fullPath[i+1:]
 	return fmt.Sprintf("%s:%d", file, line)
 }
 
