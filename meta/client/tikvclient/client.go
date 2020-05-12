@@ -20,6 +20,7 @@ const (
 	TableLifeCyclePrefix  = "l"
 	TableGcPrefix         = "g"
 	TableFreezerPrefix    = "f"
+	TableHotObjectPrefix  = "h"
 )
 
 var (
