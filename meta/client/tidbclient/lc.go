@@ -7,7 +7,7 @@ import (
 	. "github.com/journeymidnight/yig/meta/types"
 )
 
-func (t *TidbClient) PutBucketToLifeCycle(lifeCycle LifeCycle) error {
+func (t *TidbClient) PutBucketToLifeCycle(bucket Bucket, lifeCycle LifeCycle) error {
 	tx, err := t.Client.Begin()
 	if err != nil {
 		return err
@@ -20,6 +20,10 @@ func (t *TidbClient) PutBucketToLifeCycle(lifeCycle LifeCycle) error {
 			tx.Rollback()
 		}
 	}()
+
+	bucketSql, bucketArgs := bucket.GetUpdateSql()
+	_, err = tx.Exec(bucketSql, bucketArgs...)
+
 	sqltext, args := lifeCycle.GetCreateSql()
 	_, err = tx.Exec(sqltext, args...)
 	if err != nil {
@@ -38,15 +42,35 @@ func (t *TidbClient) GetBucketLifeCycle(bucket Bucket) (*LifeCycle, error) {
 		&lc.StartTime,
 		&lc.EndTime,
 	)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		return nil, err
+	}
+	if err == sql.ErrNoRows {
+		return nil, nil
 	}
 	return &lc, nil
 }
 
 func (t *TidbClient) RemoveBucketFromLifeCycle(bucket Bucket) error {
+	tx, err := t.Client.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = tx.Commit()
+		}
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	bucketSql, bucketArgs := bucket.GetUpdateSql()
+	_, err = tx.Exec(bucketSql, bucketArgs...)
+
 	sqltext := "delete from lifecycle where bucketname=?;"
-	_, err := t.Client.Exec(sqltext, bucket.Name)
+	_, err = tx.Exec(sqltext, bucket.Name)
+
 	if err != nil {
 		helper.Logger.Error("Failed to execute:", sqltext, "err:", err)
 		return nil

@@ -123,7 +123,6 @@ func (yig *YigStorage) GetBucketLogging(reqCtx RequestContext, credential common
 
 func (yig *YigStorage) SetBucketLifecycle(reqCtx RequestContext, lc lifecycle.Lifecycle,
 	credential common.Credential) error {
-	helper.Logger.Info("enter SetBucketLifecycle")
 	bucket := reqCtx.BucketInfo
 	if bucket == nil {
 		return ErrNoSuchBucket
@@ -132,23 +131,27 @@ func (yig *YigStorage) SetBucketLifecycle(reqCtx RequestContext, lc lifecycle.Li
 		return ErrBucketAccessForbidden
 	}
 	bucket.Lifecycle = lc
-	err := yig.MetaStorage.Client.PutBucket(*bucket)
+
+	getLC, err := yig.MetaStorage.GetBucketLifeCycle(*bucket)
 	if err != nil {
 		return err
 	}
-	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.BucketTable, reqCtx.BucketName)
-	}
 
 	// check the lifecycle table for bucket info
-	getLC, err := yig.MetaStorage.GetBucketLifeCycle(*bucket)
+	// if not exist, add record to lc table
 	if getLC == nil {
 		err = yig.MetaStorage.PutBucketToLifeCycle(*bucket)
 		if err != nil {
-			helper.Logger.Error("Error Put bucket to lifecycle table:", err)
+			return err
+		}
+	} else {
+		err := yig.MetaStorage.Client.PutBucket(*bucket)
+		if err != nil {
 			return err
 		}
 	}
+
+	yig.MetaStorage.Cache.Remove(redis.BucketTable, reqCtx.BucketName)
 	return nil
 }
 
@@ -174,14 +177,8 @@ func (yig *YigStorage) DelBucketLifecycle(reqCtx RequestContext, credential comm
 		return ErrBucketAccessForbidden
 	}
 	bucket.Lifecycle = lifecycle.Lifecycle{}
-	err := yig.MetaStorage.Client.PutBucket(*bucket)
-	if err != nil {
-		return err
-	}
-	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.BucketTable, reqCtx.BucketName)
-	}
-	err = yig.MetaStorage.RemoveBucketFromLifeCycle(*bucket)
+
+	err := yig.MetaStorage.RemoveBucketFromLifeCycle(*bucket)
 	if err != nil {
 		helper.Logger.Error("Remove bucket From lifecycle table error:", err)
 		return err

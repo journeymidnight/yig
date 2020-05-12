@@ -1,8 +1,9 @@
 package meta
 
 import (
-	. "github.com/journeymidnight/yig/meta/types"
 	"time"
+
+	. "github.com/journeymidnight/yig/meta/types"
 )
 
 func (m *Meta) PutBucketToLifeCycle(bucket Bucket) error {
@@ -12,7 +13,7 @@ func (m *Meta) PutBucketToLifeCycle(bucket Bucket) error {
 		StartTime:  uint64(time.Now().Local().UnixNano()),
 		EndTime:    uint64(time.Now().Local().UnixNano()),
 	}
-	return m.Client.PutBucketToLifeCycle(lifeCycle)
+	return m.Client.PutBucketToLifeCycle(bucket, lifeCycle)
 }
 
 func (m *Meta) GetBucketLifeCycle(bucket Bucket) (lifeCycle *LifeCycle, err error) {
