@@ -77,6 +77,10 @@ func (c *TiKVClient) GetLatestObjectVersion(bucketName, objectName string) (obje
 	}
 }
 
+func (t *TiKVClient) RemoveHotObject(object *Object, tx Tx) (err error) {
+	return nil
+}
+
 func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage bool) (err error) {
 	objectKey := genObjectKey(object.BucketName, object.Name, object.VersionId)
 
