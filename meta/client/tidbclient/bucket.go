@@ -200,15 +200,44 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 		var loopcount int
 		var sqltext string
 		var rows *sql.Rows
-		if marker == "" {
-			sqltext = "select bucketname,name,version,nullversion,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size" +
-				" from objects where bucketName=? order by bucketname,name,version limit ?;"
-			rows, err = t.Client.Query(sqltext, bucketName, maxKeys)
-		} else {
-			sqltext = "select bucketname,name,version,nullversion,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size" +
-				" from objects where bucketName=? and name >=? order by bucketname,name,version limit ?,?;"
-
-			rows, err = t.Client.Query(sqltext, bucketName, marker, objectNum[marker], objectNum[marker]+maxKeys)
+		if prefix == "" {
+			if marker == "" {
+				sqltext = `select bucketname,name,version,nullversion,deletemarker 
+					from objects 
+					where bucketName=? 
+					order by bucketname,name,version 
+					limit ?`
+				rows, err = t.Client.Query(sqltext, bucketName, maxKeys)
+			} else {
+				sqltext = `select bucketname,name,version,nullversion,deletemarker 
+					from objects 
+					where bucketName=? 
+					and name >=? 
+					order by bucketname,name,version 
+					limit ?,?`
+				rows, err = t.Client.Query(sqltext, bucketName, marker, objectNum[marker], objectNum[marker]+maxKeys)
+			}
+		} else { // prefix not empty
+			prefixPattern := prefix + "%"
+			if marker == "" {
+				sqltext = `select bucketname,name,version,nullversion,deletemarker 
+					from objects 
+					where bucketName=? 
+					and name like ?
+					order by bucketname,name,version 
+					limit ?`
+				rows, err = t.Client.Query(sqltext, bucketName, prefixPattern, maxKeys)
+			} else {
+				sqltext = `select bucketname,name,version,nullversion,deletemarker 
+					from objects 
+					where bucketName=? 
+					and name >=? 
+					and name like ?
+					order by bucketname,name,version 
+					limit ?,?`
+				rows, err = t.Client.Query(sqltext, bucketName, marker, prefixPattern,
+					objectNum[marker], objectNum[marker]+maxKeys)
+			}
 		}
 		if err != nil {
 			return
