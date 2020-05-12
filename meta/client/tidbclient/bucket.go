@@ -193,7 +193,6 @@ func (t *TidbClient) CheckAndPutBucket(bucket Bucket) (bool, error) {
 func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (listInfo ListObjectsInfo, err error) {
 	var count int
 	var exit bool
-	objectMap := make(map[string]struct{})
 	objectNum := make(map[string]int)
 	commonPrefixes := make(map[string]struct{})
 	omarker := marker
@@ -214,7 +213,6 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 		if err != nil {
 			return
 		}
-		defer rows.Close()
 		for rows.Next() {
 			loopcount += 1
 			//fetch related date
@@ -236,6 +234,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 				&size,
 			)
 			if err != nil {
+				_ = rows.Close()
 				return
 			}
 			//prepare next marker
@@ -252,9 +251,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 				continue
 			}
 			//filte by objectname
-			if _, ok := objectMap[name]; !ok {
-				objectMap[name] = struct{}{}
-			} else {
+			if objectNum[name] > 1 {
 				continue
 			}
 			//filte by deletemarker
@@ -269,7 +266,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 				subStr := strings.TrimPrefix(name, prefix)
 				n := strings.Index(subStr, delimiter)
 				if n != -1 {
-					prefixKey := prefix + string([]byte(subStr)[0:(n+1)])
+					prefixKey := prefix + subStr[0:(n+1)]
 					if prefixKey == omarker {
 						continue
 					}
@@ -292,6 +289,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 			o.ETag = etag
 			lastt, err := time.Parse(TIME_LAYOUT_TIDB, lastModified)
 			if err != nil {
+				_ = rows.Close()
 				return listInfo, err
 			}
 			o.LastModified = lastt.UTC().Format(CREATE_TIME_LAYOUT)
@@ -312,6 +310,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 			}
 			listInfo.Objects = append(listInfo.Objects, o)
 		}
+		_ = rows.Close()
 		if loopcount == 0 {
 			exit = true
 		}
