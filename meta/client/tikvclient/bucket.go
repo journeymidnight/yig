@@ -74,7 +74,7 @@ func (c *TiKVClient) PutNewBucket(bucket Bucket) error {
 func (c *TiKVClient) DeleteBucket(bucket Bucket) error {
 	bucketKey := genBucketKey(bucket.Name)
 	userBucketKey := genUserBucketKey(bucket.OwnerId, bucket.Name)
-	lifeCycleKey := genLifecycleKey()
+	lifeCycleKey := genLifecycleKey(bucket.Name)
 	return c.TxDelete(bucketKey, userBucketKey, lifeCycleKey)
 }
 
@@ -192,7 +192,6 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				continue
 			}
 
-			previousNullObjectMeta = nil
 			o := ModifyMetaToObjectResult(meta)
 
 			count++
@@ -201,6 +200,7 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			}
 
 			if count > maxKeys {
+				previousNullObjectMeta = nil
 				listInfo.IsTruncated = true
 				break
 			}
