@@ -247,7 +247,9 @@ func getHotObjects() {
 		}
 	}
 quit:
-	rows.Close()
+	if rows != nil {
+		rows.Close()
+	}
 	signalQueue <- syscall.SIGQUIT
 	return
 }
