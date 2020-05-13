@@ -3,7 +3,6 @@ package tikvclient
 import (
 	"context"
 
-	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
 	"github.com/tikv/client-go/key"

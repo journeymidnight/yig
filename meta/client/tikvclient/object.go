@@ -4,6 +4,7 @@ import (
 	"context"
 	. "database/sql/driver"
 
+	"github.com/journeymidnight/yig/backend"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
@@ -18,6 +19,14 @@ func genObjectKey(bucketName, objectName, version string) []byte {
 		return GenKey(bucketName, objectName)
 	} else {
 		return GenKey(bucketName, objectName, version)
+	}
+}
+
+func genHotObjectKey(bucketName, objectName, version string) []byte {
+	if version == NullVersion {
+		return GenKey(TableHotObjectPrefix, bucketName, objectName)
+	} else {
+		return GenKey(TableHotObjectPrefix, bucketName, objectName, version)
 	}
 }
 
@@ -77,10 +86,6 @@ func (c *TiKVClient) GetLatestObjectVersion(bucketName, objectName string) (obje
 	}
 }
 
-func (t *TiKVClient) RemoveHotObject(object *Object, tx Tx) (err error) {
-	return nil
-}
-
 func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage bool) (err error) {
 	objectKey := genObjectKey(object.BucketName, object.Name, object.VersionId)
 
@@ -124,10 +129,6 @@ func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage
 
 func (c *TiKVClient) UpdateObject(object *Object, multipart *Multipart, updateUsage bool, tx Tx) (err error) {
 	return c.PutObject(object, multipart, updateUsage)
-}
-
-func (c *TiKVClient) UpdateAppendObject(object *Object) error {
-	return c.PutObject(object, nil, true)
 }
 
 func (c *TiKVClient) RenameObject(object *Object, sourceObject string) (err error) {
@@ -206,9 +207,119 @@ func (c *TiKVClient) UpdateFreezerObject(object *Object, tx Tx) (err error) {
 }
 
 func (c *TiKVClient) AppendObject(object *Object, updateUsage bool) (err error) {
+	objectKey := genObjectKey(object.BucketName, object.Name, object.VersionId)
+	hotKey := genHotObjectKey(object.BucketName, object.Name, object.VersionId)
+	tx, err := c.NewTrans()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = c.CommitTrans(tx)
+		}
+		if err != nil {
+			c.AbortTrans(tx)
+		}
+	}()
+
+	txn := tx.(*TikvTx).tx
+
+	v, err := helper.MsgPackMarshal(*object)
+	if err != nil {
+		return err
+	}
+	err = txn.Set(objectKey, v)
+	if err != nil {
+		return err
+	}
+
+	if object.Pool == backend.SMALL_FILE_POOLNAME {
+		err = txn.Set(hotKey, v)
+		if err != nil {
+			return err
+		}
+	}
+	if updateUsage {
+		err = c.UpdateUsage(object.BucketName, object.Size, tx)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func (c *TiKVClient) MigrateObject(object *Object) (err error) {
+	objectKey := genObjectKey(object.BucketName, object.Name, object.VersionId)
+	hotKey := genHotObjectKey(object.BucketName, object.Name, object.VersionId)
+	tx, err := c.NewTrans()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = c.CommitTrans(tx)
+		}
+		if err != nil {
+			c.AbortTrans(tx)
+		}
+	}()
+
+	txn := tx.(*TikvTx).tx
+	v, err := helper.MsgPackMarshal(*object)
+	if err != nil {
+		return err
+	}
+	err = txn.Set(objectKey, v)
+	if err != nil {
+		return err
+	}
+	err = txn.Delete(hotKey)
+	if err != nil {
+		return err
+	}
 	return nil
+}
+
+func (c *TiKVClient) RemoveHotObject(object *Object, tx Tx) (err error) {
+	hotKey := genHotObjectKey(object.BucketName, object.Name, object.VersionId)
+	if tx == nil {
+		return c.TxDelete(hotKey)
+	} else {
+		txn := tx.(*TikvTx).tx
+		return txn.Delete(hotKey)
+	}
+}
+
+func (c *TiKVClient) UpdateAppendObject(object *Object) error {
+	objectKey := genObjectKey(object.BucketName, object.Name, object.VersionId)
+	hotKey := genHotObjectKey(object.BucketName, object.Name, object.VersionId)
+	tx, err := c.NewTrans()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = c.CommitTrans(tx)
+		}
+		if err != nil {
+			c.AbortTrans(tx)
+		}
+	}()
+
+	txn := tx.(*TikvTx).tx
+	v, err := helper.MsgPackMarshal(*object)
+	if err != nil {
+		return err
+	}
+	err = txn.Set(objectKey, v)
+	if err != nil {
+		return err
+	}
+	if object.Pool == backend.SMALL_FILE_POOLNAME {
+		err = txn.Set(hotKey, v)
+		if err != nil {
+			return err
+		}
+	}
+	return c.UpdateUsage(object.BucketName, object.Size, tx)
 }
