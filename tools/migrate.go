@@ -184,8 +184,8 @@ func getHotObjects() {
 			"customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass,createtime" +
 			" from hotobjects order by bucketname,name,version;"
 		rows, err = client.Client.Query(sqltext)
-		helper.Logger.Info("sqltext0", err)
 		if err != nil {
+			helper.Logger.Error("getHotObjects err:", err)
 			goto quit
 		}
 		helper.Logger.Info("query tidb success")
