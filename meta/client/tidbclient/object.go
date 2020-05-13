@@ -339,7 +339,7 @@ func (t *TidbClient) UpdateAppendObject(object *Object) (err error) {
 	sql, args := object.GetUpdateSql()
 	_, err = tx.Exec(sql, args...)
 
-	if object.Pool == "rabbit" {
+	if object.Pool == backend.SMALL_FILE_POOLNAME {
 		sql, args = object.GetUpdateHotSql()
 		_, err = tx.Exec(sql, args...)
 	}
