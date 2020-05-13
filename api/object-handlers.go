@@ -609,6 +609,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 				return
 			}
 			if targetStorageClass != ObjectStorageClassGlacier {
+				sourceObject.OwnerId = freezer.OwnerId
 				sourceObject.Etag = freezer.Etag
 				sourceObject.Size = freezer.Size
 				sourceObject.Parts = freezer.Parts
@@ -635,6 +636,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	// Note that sourceObject and targetObject are pointers
 	targetObject := &meta.Object{}
 	targetObject.ACL = targetACL
+	targetObject.OwnerId = sourceObject.OwnerId
 	targetObject.BucketName = targetBucketName
 	targetObject.Name = targetObjectName
 	targetObject.Size = sourceObject.Size
