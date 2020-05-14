@@ -408,7 +408,6 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 		}
 		if previousNullObjectMeta != nil {
 			if objMeta.Name != previousNullObjectMeta.Name {
-				previousNullObjectMeta = nil
 				// fill in previous NullObject
 				count++
 				if count == maxKeys {
@@ -417,6 +416,7 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 				}
 
 				if count > maxKeys {
+					previousNullObjectMeta = nil
 					listInfo.IsTruncated = true
 					exit = true
 					break
@@ -424,7 +424,7 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 
 				o := ModifyMetaToVersionedObjectResult(*previousNullObjectMeta)
 				listInfo.Objects = append(listInfo.Objects, o)
-
+				previousNullObjectMeta = nil
 			} else {
 				// Compare which is the latest of null version object and versioned object
 				var o datatype.VersionedObject
@@ -481,12 +481,14 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 					}
 					commonPrefixes[prefixKey] = nil
 				}
+				it.Next(context.TODO())
 				continue
 			}
 		}
 
 		if objMeta.VersionId == NullVersion {
 			previousNullObjectMeta = &objMeta
+			it.Next(context.TODO())
 			continue
 		}
 
