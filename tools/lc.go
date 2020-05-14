@@ -1,6 +1,8 @@
 package main
 
 import (
+	"io"
+
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/lifecycle"
 	. "github.com/journeymidnight/yig/context"
@@ -13,7 +15,6 @@ import (
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/storage"
 	"github.com/robfig/cron"
-	"io"
 
 	"os"
 	"os/signal"
@@ -330,7 +331,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				return nil
 			}
 			for _, object := range result.Uploads {
-				helper.Logger.Info("Object info:", object, bucket.Name)
+				helper.Logger.Info("Object info:", bucket.Name, object.Key, object.StorageClass, object.Owner, object.UploadId, object.Initiator, object.Initiated)
 
 				lastt, err := time.Parse(time.RFC3339, object.Initiated)
 				if err != nil {
@@ -430,6 +431,7 @@ func transitionObject(reqCtx RequestContext, storageClass string) (result dataty
 	// Note that sourceObject and targetObject are pointers
 	targetObject := &meta.Object{}
 	targetObject.ACL = sourceObject.ACL
+	targetObject.OwnerId = sourceObject.OwnerId
 	targetObject.BucketName = sourceObject.BucketName
 	targetObject.Name = sourceObject.Name
 	targetObject.Size = sourceObject.Size
