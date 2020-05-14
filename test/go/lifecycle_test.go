@@ -221,8 +221,8 @@ func Test_LifecycleConfigurationToVersion(t *testing.T) {
 	t.Log("VersionId:", *putObjOut.VersionId)
 	versions = append(versions, *putObjOut.VersionId)
 
-	listOut, err := sc.ListObjects(TestLifecycleBucket2, "", "version/", 100)
-	assert.Equal(t, err, nil, "ListObjects err")
+	listOut, err := sc.ListObjectVersions(TestLifecycleBucket2, "", "", "version/", 100)
+	assert.Equal(t, err, nil, "ListObjectVersions err")
 	t.Log(listOut.String())
 
 	// put lifecycle configuration
