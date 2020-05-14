@@ -280,6 +280,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				// If not set expiredObjectDeleteMarker,pass process
 				if action == lifecycle.DeleteMarkerAction {
 					reqCtx.VersionId = reqCtx.ObjectInfo.VersionId
+					helper.Logger.Info("$%$%$%$% deletemarker", reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId)
 					_, err = yig.DeleteObject(reqCtx, common.Credential{UserId: bucket.OwnerId})
 					if err != nil {
 						helper.Logger.Error(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, err)
@@ -378,7 +379,9 @@ func checkObjectOtherVersion(commonPrefix string, reqCtx RequestContext) (bool, 
 	if err != nil {
 		return false, err
 	}
+	helper.Logger.Info("$%$%$%$% len(tempInfo.Objects)", len(tempInfo.Objects))
 	if len(tempInfo.Objects) != 0 && tempInfo.Objects[0].Key == reqCtx.ObjectInfo.Name {
+		helper.Logger.Info("$%$%$%$%", tempInfo.Objects, tempInfo.Objects[0].Key, reqCtx.ObjectInfo.Name)
 		return true, nil
 	} else {
 		return false, nil
@@ -446,6 +449,7 @@ func transitionObject(reqCtx RequestContext, storageClass string) (result dataty
 	targetObject.StorageClass = targetStorageClass
 	targetObject.CreateTime = sourceObject.CreateTime
 
+	//TODO: change version when glacier transition?
 	result, err = yig.CopyObject(reqCtx, targetObject, sourceObject, pipeReader, credential, sseRequest, isMetadataOnly, true)
 	if err != nil {
 		return result, err
