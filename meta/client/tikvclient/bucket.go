@@ -362,6 +362,10 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 			if err != nil {
 				return listInfo, err
 			}
+			if VerObjMeta.Name == marker && VerObjMeta.VersionId == verIdMarker {
+				it.Next(context.TODO())
+				continue
+			}
 			var o datatype.VersionedObject
 			if needCompareNull && nullObjMeta.CreateTime > VerObjMeta.CreateTime {
 				needCompareNull = false
