@@ -1,7 +1,6 @@
 # YIG
 [![Build Status](https://travis-ci.org/journeymidnight/yig.svg?branch=master)](https://travis-ci.org/journeymidnight/yig)
 [![license](https://img.shields.io/github/license/journeymidnight/yig.svg)](https://github.com/journeymidnight/yig/blob/master/LICENSE)
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fjourneymidnight%2Fyig.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fjourneymidnight%2Fyig?ref=badge_shield)
 
 *Y*et *a*nother *I*ndex *G*ateway 
 
