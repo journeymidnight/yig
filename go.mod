@@ -1,4 +1,4 @@
-\module github.com/journeymidnight/yig
+module github.com/journeymidnight/yig
 
 go 1.12
 
