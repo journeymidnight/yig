@@ -602,7 +602,6 @@ func Test_CopyObjectPartWithSSES3(t *testing.T) {
 	}
 	t.Log("CopyObject Success!")
 
-
 	//verify them
 	v1, err := svc.GetEncryptObjectWithSSES3(TEST_BUCKET, TEST_KEY)
 	if err != nil {

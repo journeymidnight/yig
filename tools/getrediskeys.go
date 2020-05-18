@@ -1,13 +1,13 @@
 package main
 
 import (
-	"os"
-	"strconv"
 	"fmt"
+	redigo "github.com/gomodule/redigo/redis"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/meta/types"
 	yigredis "github.com/journeymidnight/yig/redis"
-	redigo "github.com/gomodule/redigo/redis"
+	"os"
+	"strconv"
 	"time"
 )
 

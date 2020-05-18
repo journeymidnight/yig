@@ -1,9 +1,9 @@
 package cache
 
 import (
+	"github.com/journeymidnight/yig/iam/common"
 	"sync"
 	"time"
-	"github.com/journeymidnight/yig/iam/common"
 )
 
 const (

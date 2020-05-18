@@ -12,7 +12,7 @@ import (
 
 const (
 	MaxObjectMetaConfigurationSize = 2 * humanize.KiByte
-	CustomizeMetadataHeader          = "X-Amz-Meta-"
+	CustomizeMetadataHeader        = "X-Amz-Meta-"
 )
 
 var supportedCommonMetaHeaders = []string{
@@ -32,13 +32,13 @@ type MetaConfiguration struct {
 }
 
 type Headers struct {
-	XMLName  xml.Name `xml:"Headers"`
-	MetaData []MetaData   `xml:"MetaData,omitempty"`
+	XMLName  xml.Name   `xml:"Headers"`
+	MetaData []MetaData `xml:"MetaData,omitempty"`
 }
 
 type MetaData struct {
-	Key     string   `xml:"key"`
-	Value   string   `xml:"value"`
+	Key   string `xml:"key"`
+	Value string `xml:"value"`
 }
 
 type MetaDataReq struct {
@@ -62,10 +62,10 @@ func (w *MetaConfiguration) parse() (MetaDataReq, error) {
 			customizeMeta := strings.HasPrefix(reqHeader.Key, CustomizeMetadataHeader)
 			if !customizeMeta {
 				for n, supportHeader := range supportedCommonMetaHeaders {
-					if reqHeader.Key == supportHeader{
+					if reqHeader.Key == supportHeader {
 						break
 					}
-					if reqHeader.Key != supportHeader && n == len(supportedCommonMetaHeaders)  {
+					if reqHeader.Key != supportHeader && n == len(supportedCommonMetaHeaders) {
 						return metaDataReq, ErrMetadataHeader
 					}
 				}
@@ -73,7 +73,7 @@ func (w *MetaConfiguration) parse() (MetaDataReq, error) {
 			metaDataReq.Data[reqHeader.Key] = reqHeader.Value
 		}
 	}
-	return metaDataReq,nil
+	return metaDataReq, nil
 }
 
 func ParseMetaConfig(reader io.Reader) (metaDataReq MetaDataReq, err error) {

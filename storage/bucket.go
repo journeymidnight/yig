@@ -112,8 +112,8 @@ func (yig *YigStorage) SetBucketLogging(bucketName string, bl datatype.BucketLog
 func (yig *YigStorage) GetBucketLogging(bucketName string) (bl datatype.BucketLoggingStatus,
 	err error) {
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
-	helper.Logger.Info(20,"Setting bucketlogging1::",bucket)
-	helper.Logger.Info(20,"Setting bucketlogging2::",bucket.BucketLogging)
+	helper.Logger.Info(20, "Setting bucketlogging1::", bucket)
+	helper.Logger.Info(20, "Setting bucketlogging2::", bucket.BucketLogging)
 	if err != nil {
 		return bl, err
 	}

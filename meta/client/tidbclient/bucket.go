@@ -85,7 +85,7 @@ func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
 
 	for rows.Next() {
 		var tmp Bucket
-		var acl, cors, logging, lc, policy, website,encryption, createTime string
+		var acl, cors, logging, lc, policy, website, encryption, createTime string
 		err = rows.Scan(
 			&tmp.Name,
 			&acl,

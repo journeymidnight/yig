@@ -110,7 +110,7 @@ func (t *TidbClient) CreateMultipart(multipart Multipart) (err error) {
 	attrs, _ := json.Marshal(m.Attrs)
 	sqltext := "insert into multiparts(bucketname,objectname,uploadtime,initiatorid,ownerid,contenttype,location,pool,acl,sserequest,encryption,cipher,attrs,storageclass) " +
 		"values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
-	_, err = t.Client.Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime, m.InitiatorId, m.OwnerId, m.ContentType, m.Location, m.Pool, acl, sseRequest, m.EncryptionKey,m.CipherKey, attrs, m.StorageClass)
+	_, err = t.Client.Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime, m.InitiatorId, m.OwnerId, m.ContentType, m.Location, m.Pool, acl, sseRequest, m.EncryptionKey, m.CipherKey, attrs, m.StorageClass)
 	return
 }
 

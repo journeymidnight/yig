@@ -1,11 +1,11 @@
 package _go
 
 import (
-	"testing"
 	. "github.com/journeymidnight/yig/test/go/lib"
+	"testing"
 )
 
-func Test_MultiDomain(t *testing.T)  {
+func Test_MultiDomain(t *testing.T) {
 	sc := NewS3Internal()
 	err := sc.MakeBucket(TEST_BUCKET)
 	if err != nil {

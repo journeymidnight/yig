@@ -53,7 +53,7 @@ func verifyNotExpires(dateString string) (bool, error) {
 
 func buildCanonicalizedAmzHeaders(headers *http.Header) string {
 	var amzHeaders []string
-	for k, _ := range *headers {
+	for k := range *headers {
 		if strings.HasPrefix(strings.ToLower(k), "x-amz-") {
 			amzHeaders = append(amzHeaders, k)
 		}

@@ -6,7 +6,6 @@ import (
 	"github.com/journeymidnight/yig/mods"
 )
 
-
 const pluginName = "dummy_iam"
 
 //The variable MUST be named as Exported.
@@ -14,9 +13,8 @@ const pluginName = "dummy_iam"
 var Exported = mods.YigPlugin{
 	Name:       pluginName,
 	PluginType: mods.IAM_PLUGIN,
-	Create:  GetIamClient,
+	Create:     GetIamClient,
 }
-
 
 func GetIamClient(config map[string]interface{}) (interface{}, error) {
 
@@ -45,4 +43,3 @@ func (d DebugIamClient) GetCredential(accessKey string) (c common.Credential, er
 		SecretAccessKey: "hehehehe",
 	}, nil // For test now
 }
-

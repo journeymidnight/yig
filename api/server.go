@@ -9,12 +9,15 @@ import (
 )
 
 type RequestContextKeyType string
+
 const RequestContextKey RequestContextKeyType = "RequestContext"
 
 type RequestIdKeyType string
+
 const RequestIdKey RequestIdKeyType = "RequestID"
 
 type ContextLoggerKeyType string
+
 const ContextLoggerKey ContextLoggerKeyType = "ContextLogger"
 
 type RequestContext struct {

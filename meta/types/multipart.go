@@ -48,7 +48,6 @@ type Multipart struct {
 	Parts       map[int]*Part
 }
 
-
 func (m *Multipart) GetUploadId() (string, error) {
 	if m.UploadId != "" {
 		return m.UploadId, nil
