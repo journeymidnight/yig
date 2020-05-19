@@ -54,7 +54,7 @@ func (c *TiKVClient) GetObject(bucketName, objectName, version string) (*Object,
 
 func (c *TiKVClient) GetLatestObjectVersion(bucketName, objectName string) (object *Object, err error) {
 	objKey := genObjectKey(bucketName, objectName, NullVersion)
-	var o, vo Object
+	var o, vo, retObj Object
 	nullObjExist, err := c.TxGet(objKey, &o)
 	if err != nil {
 		return nil, err
@@ -72,18 +72,26 @@ func (c *TiKVClient) GetLatestObjectVersion(bucketName, objectName string) (obje
 		if err != nil {
 			return nil, err
 		}
-		return &vo, nil
+		retObj = vo
 	} else if len(kvs) == 0 {
-		return &o, nil
+		retObj = o
 	} else {
 		err = helper.MsgPackUnMarshal(kvs[0].V, &vo)
 		if err != nil {
 			return nil, err
 		}
-		return &vo, nil
-		retObj := helper.Ternary(o.CreateTime > vo.CreateTime, &o, &vo)
-		return retObj.(*Object), nil
+		ro := helper.Ternary(o.CreateTime > vo.CreateTime, o, vo)
+		retObj = ro.(Object)
 	}
+
+	if retObj.Parts != nil && len(retObj.Parts) != 0 {
+		var sortedPartNum = make([]int64, len(retObj.Parts))
+		for k, v := range retObj.Parts {
+			sortedPartNum[k-1] = v.Offset
+		}
+		retObj.PartsIndex = &SimpleIndex{Index: sortedPartNum}
+	}
+	return &retObj, nil
 }
 
 func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage bool) (err error) {
