@@ -208,13 +208,7 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			listInfo.Objects = append(listInfo.Objects, o)
 
 			// Compare once
-
-			if objMeta.Name == previousNullObjectMeta.Name {
-				previousNullObjectMeta = nil
-				it.Next(context.TODO())
-				continue
-			}
-
+			previousNullObjectMeta = nil
 		}
 
 		// extract object key
