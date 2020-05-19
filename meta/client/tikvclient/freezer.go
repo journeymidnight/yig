@@ -53,7 +53,7 @@ func (c *TiKVClient) GetFreezerStatus(bucketName, objectName, version string) (f
 		return nil, err
 	}
 	if !ok {
-		return nil, ErrNoSuchKey
+		return &f, ErrNoSuchKey
 	}
 	return &f, nil
 }
