@@ -14,6 +14,9 @@ import (
 )
 
 func (m *Meta) GetObject(bucketName, objectName, reqVersion string, willNeed bool) (object *Object, err error) {
+	if reqVersion == "null" {
+		reqVersion = NullVersion
+	}
 	getObjectVersion := func() (o interface{}, err error) {
 		if reqVersion == "" {
 			object, err = m.Client.GetLatestObjectVersion(bucketName, objectName)
