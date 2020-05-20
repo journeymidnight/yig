@@ -1009,17 +1009,30 @@ func (yig *YigStorage) removeObjectVersion(bucketName, objectName, version strin
 }
 
 //TODO: Append Support Encryption
-func (yig *YigStorage) AppendObject(bucketName string, objectName string, credential common.Credential,
+func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Credential,
 	offset uint64, size int64, data io.ReadCloser, metadata map[string]string, acl datatype.Acl,
 	sseRequest datatype.SseRequest, storageClass StorageClass, objInfo *meta.Object) (result datatype.AppendObjectResult, err error) {
-
+	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
 	defer data.Close()
 	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, bucketName, objectName)
-	helper.Logger.Println(10, "get encryptionKey:", encryptionKey, "cipherKey:", cipherKey, "err:", err)
+	helper.Logger.Info("get encryptionKey:", encryptionKey, "cipherKey:", cipherKey, "err:", err)
 	if err != nil {
 		return
 	}
 
+	bucket := reqCtx.BucketInfo
+	if bucket == nil {
+		return result, ErrNoSuchBucket
+	}
+
+	switch bucket.ACL.CannedAcl {
+	case "public-read-write":
+		break
+	default:
+		if bucket.OwnerId != credential.UserId {
+			return result, ErrBucketAccessForbidden
+		}
+	}
 	//TODO: Append Support Encryption
 	encryptionKey = nil
 

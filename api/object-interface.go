@@ -82,7 +82,7 @@ type ObjectLayer interface {
 	PutObject(reqCtx RequestContext, credential common.Credential, size int64, data io.ReadCloser,
 		metadata map[string]string, acl datatype.Acl,
 		sse datatype.SseRequest, storageClass StorageClass) (result datatype.PutObjectResult, err error)
-	AppendObject(bucket, object string, credential common.Credential, offset uint64, size int64, data io.ReadCloser,
+	AppendObject(reqCtx RequestContext, credential common.Credential, offset uint64, size int64, data io.ReadCloser,
 		metadata map[string]string, acl datatype.Acl,
 		sse datatype.SseRequest, storageClass StorageClass, objInfo *meta.Object) (result datatype.AppendObjectResult, err error)
 

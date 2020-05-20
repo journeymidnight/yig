@@ -1120,7 +1120,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	}
 
 	var result AppendObjectResult
-	result, err = api.ObjectAPI.AppendObject(bucketName, objectName, credential, position, size, dataReadCloser,
+	result, err = api.ObjectAPI.AppendObject(reqCtx, credential, position, size, dataReadCloser,
 		metadata, acl, sseRequest, storageClass, objInfo)
 	if err != nil {
 		logger.Error("Unable to append object", objectName, "error:", err)

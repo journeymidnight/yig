@@ -34,6 +34,7 @@ require (
 	github.com/confluentinc/confluent-kafka-go v1.0.0 //indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dustin/go-humanize v1.0.0
+	github.com/go-redis/redis/v7 v7.2.0
 	github.com/go-redis/redis_rate/v8 v8.0.0
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/golang/protobuf v1.3.4
@@ -46,7 +47,7 @@ require (
 	github.com/minio/highwayhash v1.0.0
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
 	github.com/robfig/cron v1.2.0
-	github.com/stretchr/testify v1.3.0
+	github.com/stretchr/testify v1.4.0
 	github.com/ugorji/go v1.1.4
 	github.com/xxtea/xxtea-go v0.0.0-20170828040851-35c4b17eecf6
 	google.golang.org/appengine v0.0.0-00010101000000-000000000000 // indirect
