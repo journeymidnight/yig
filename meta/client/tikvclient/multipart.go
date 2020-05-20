@@ -137,7 +137,9 @@ func (c *TiKVClient) DeleteMultipart(multipart *Multipart, tx Tx) error {
 			txn.Rollback()
 			return err
 		}
-		it.Next(context.TODO())
+		if err := it.Next(context.TODO()); err != nil {
+			return err
+		}
 	}
 	return txn.Delete(multipartKey)
 }
@@ -179,18 +181,24 @@ func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 	for it.Valid() {
 		k, v := string(it.Key()), it.Value()
 		if k == string(startKey) {
-			it.Next(context.TODO())
+			if err := it.Next(context.TODO()); err != nil {
+				return result, err
+			}
 			continue
 		}
 		sp := strings.Split(k, TableSeparator)
 		if len(sp) != 4 {
 			helper.Logger.Error("Invalid multipart key:", k)
-			it.Next(context.TODO())
+			if err := it.Next(context.TODO()); err != nil {
+				return result, err
+			}
 			continue
 		}
 		objectName := sp[2]
 		if !strings.HasPrefix(objectName, prefix) {
-			it.Next(context.TODO())
+			if err := it.Next(context.TODO()); err != nil {
+				return result, err
+			}
 			continue
 		}
 
@@ -198,7 +206,9 @@ func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 			subKey := strings.TrimPrefix(objectName, prefix)
 			sp := strings.Split(subKey, delimiter)
 			if len(sp) > 2 {
-				it.Next(context.TODO())
+				if err := it.Next(context.TODO()); err != nil {
+					return result, err
+				}
 				continue
 			} else if len(sp) == 2 {
 				if sp[1] == "" {
@@ -208,10 +218,14 @@ func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 					if count == maxUploads {
 						break
 					}
-					it.Next(context.TODO())
+					if err := it.Next(context.TODO()); err != nil {
+						return result, err
+					}
 					continue
 				} else {
-					it.Next(context.TODO())
+					if err := it.Next(context.TODO()); err != nil {
+						return result, err
+					}
 					continue
 				}
 			}
@@ -239,7 +253,9 @@ func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 		if count == maxUploads {
 			break
 		}
-		it.Next(context.TODO())
+		if err := it.Next(context.TODO()); err != nil {
+			return result, err
+		}
 		continue
 	}
 	sort.Strings(commonPrefixes)
@@ -248,7 +264,9 @@ func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 			Prefix: prefix,
 		})
 	}
-	it.Next(context.TODO())
+	if err := it.Next(context.TODO()); err != nil {
+		return result, err
+	}
 	if it.Valid() {
 		result.NextKeyMarker = lastKey
 		result.IsTruncated = true

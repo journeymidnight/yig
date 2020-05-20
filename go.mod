@@ -61,7 +61,6 @@ require (
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
 	github.com/robfig/cron v1.2.0
 	github.com/stretchr/testify v1.4.0
-	github.com/ugorji/go v1.1.4
 	github.com/tikv/client-go v0.0.0-20200110101306-a3ebdb020c83
 	github.com/ugorji/go/codec v0.0.0-20190204201341-e444a5086c43
 	github.com/xxtea/xxtea-go v0.0.0-20170828040851-35c4b17eecf6
