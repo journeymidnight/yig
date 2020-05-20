@@ -132,7 +132,7 @@ func (c *TiKVClient) DeleteMultipart(multipart *Multipart, tx Tx) error {
 	}
 	defer it.Close()
 	for it.Valid() {
-		err := txn.Delete(it.Key()[:])
+		err := txn.Delete(it.Key())
 		if err != nil {
 			txn.Rollback()
 			return err
@@ -177,7 +177,7 @@ func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 	lastUploadId := ""
 	// Key: m\\{BucketName}\\{ObjectName}\\{UploadTime}
 	for it.Valid() {
-		k, v := string(it.Key()[:]), it.Value()
+		k, v := string(it.Key()), it.Value()
 		if k == string(startKey) {
 			it.Next(context.TODO())
 			continue

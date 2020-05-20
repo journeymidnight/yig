@@ -95,7 +95,7 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 
 	count := 0
 	for it.Valid() {
-		k, v := string(it.Key()[:]), it.Value()
+		k, v := string(it.Key()), it.Value()
 		if k == string(startKey) {
 			it.Next(context.TODO())
 			continue
@@ -167,7 +167,7 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 	objectMap := make(map[string]interface{})
 	var previousNullObjectMeta *Object
 	for it.Valid() {
-		k, v := string(it.Key()[:]), it.Value()
+		k, v := string(it.Key()), it.Value()
 		var objMeta Object
 		err = helper.MsgPackUnMarshal(v, &objMeta)
 		if err != nil {
