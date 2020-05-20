@@ -393,6 +393,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 			logger.Error("Unable to get restore object status", object.BucketName, object.Name, reqVersion,
 				"error:", err)
 			WriteErrorResponse(w, r, err)
+			return
 		}
 		if freezer.Status == ObjectHasRestored {
 			w.Header().Set("x-amz-restore", "ongoing-request='true'")
