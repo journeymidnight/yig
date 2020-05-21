@@ -36,9 +36,8 @@ require (
 	github.com/dustin/go-humanize v1.0.0
 
 	github.com/go-redis/redis/v7 v7.2.0
-	github.com/go-redis/redis_rate/v8 v8.0.0
 	github.com/go-sql-driver/mysql v1.4.1
-	github.com/golang/protobuf v1.3.4
+	github.com/golang/protobuf v1.3.2
 
 	github.com/golang/snappy v0.0.1
 
@@ -50,7 +49,7 @@ require (
 	github.com/minio/highwayhash v1.0.0
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
 	github.com/robfig/cron v1.2.0
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.3.0
 	github.com/tikv/client-go v0.0.0-20200110101306-a3ebdb020c83
 	github.com/ugorji/go/codec v0.0.0-20190204201341-e444a5086c43
 	github.com/xxtea/xxtea-go v0.0.0-20170828040851-35c4b17eecf6
