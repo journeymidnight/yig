@@ -247,8 +247,8 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	//if it is a modification operation to a appendable object, lock it
 	if reqCtx.ObjectInfo != nil {
 		if reqCtx.ObjectInfo.Type == types.ObjectTypeAppendable && reqCtx.ObjectInfo.Pool == backend.SMALL_FILE_POOLNAME && r.Method != http.MethodGet {
-			// as this request is sent to ssd, 10 seconds should be enough
-			reqCtx.Mutex, err = redis.Locker.Obtain(redis.GenMutexKey(reqCtx.ObjectInfo), 10*time.Second, nil)
+			// as this request is sent to ssd, 5 seconds should be enough
+			reqCtx.Mutex, err = redis.Locker.Obtain(redis.GenMutexKey(reqCtx.ObjectInfo), 5*time.Second, nil)
 			if err == redislock.ErrNotObtained {
 				helper.Logger.Error("Lock object failed:", reqCtx.ObjectInfo.BucketName, reqCtx.ObjectInfo.ObjectId, reqCtx.ObjectInfo.VersionId)
 				WriteErrorResponse(w, r, ErrObjectMutexProtected)
