@@ -202,14 +202,14 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 		var rows *sql.Rows
 		if prefix == "" {
 			if marker == "" {
-				sqltext = `select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime
+				sqltext = `select bucketname,name,version,nullversion,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size
 					from objects 
 					where bucketName=? 
 					order by bucketname,name,version 
 					limit ?`
 				rows, err = t.Client.Query(sqltext, bucketName, maxKeys)
 			} else {
-				sqltext = `select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime
+				sqltext = `select bucketname,name,version,nullversion,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size
 					from objects 
 					where bucketName=? 
 					and name >=? 
@@ -220,7 +220,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 		} else { // prefix not empty
 			prefixPattern := prefix + "%"
 			if marker == "" {
-				sqltext = `select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime
+				sqltext = `select bucketname,name,version,nullversion,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size
 					from objects 
 					where bucketName=? 
 					and name like ?
@@ -228,7 +228,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 					limit ?`
 				rows, err = t.Client.Query(sqltext, bucketName, prefixPattern, maxKeys)
 			} else {
-				sqltext = `select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime
+				sqltext = `select bucketname,name,version,nullversion,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size
 					from objects 
 					where bucketName=? 
 					and name >=? 
