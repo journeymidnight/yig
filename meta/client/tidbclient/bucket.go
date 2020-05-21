@@ -388,19 +388,32 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 	for {
 		var sqltext string
 		var rows *sql.Rows
-		if currentMarker == "" {
-			sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
-				" from objects where bucketName=? order by bucketname,name,version limit ?;"
-			rows, err = t.Client.Query(sqltext, bucketName, maxKeys)
-		} else {
-			sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
-				" from objects where bucketName=? and name>? order by bucketname,name,version limit ?;"
-			rows, err = t.Client.Query(sqltext, bucketName, currentMarker, maxKeys)
+		if prefix == "" {
+			if currentMarker == "" {
+				sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
+					" from objects where bucketName=? order by bucketname,name,version limit ?;"
+				rows, err = t.Client.Query(sqltext, bucketName, maxKeys)
+			} else {
+				sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
+					" from objects where bucketName=? and name>? order by bucketname,name,version limit ?;"
+				rows, err = t.Client.Query(sqltext, bucketName, currentMarker, maxKeys)
+			}
+		} else { // prefix not empty
+			prefixPattern := prefix + "%"
+			if currentMarker == "" {
+				sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
+					" from objects where bucketName=? and name like ? order by bucketname,name,version limit ?;"
+				rows, err = t.Client.Query(sqltext, bucketName, prefixPattern, maxKeys)
+			} else {
+				sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
+					" from objects where bucketName=? and name>? and name like ? order by bucketname,name,version limit ?;"
+				rows, err = t.Client.Query(sqltext, bucketName, currentMarker, prefixPattern, maxKeys)
+			}
 		}
+
 		if err != nil {
 			return
 		}
-		defer rows.Close()
 
 		var loopCount int
 		var previousNullObjectMeta *Object
@@ -421,6 +434,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				&objMeta.CreateTime,
 			)
 			if err != nil {
+				_ = rows.Close()
 				return
 			}
 			currentMarker = objMeta.Name
@@ -527,7 +541,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			objectMap[objMeta.Name] = nil
 			listInfo.Objects = append(listInfo.Objects, o)
 		}
-
+		_ = rows.Close()
 		// If the last one result is a null version
 		if previousNullObjectMeta != nil {
 
