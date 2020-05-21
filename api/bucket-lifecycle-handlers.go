@@ -1,13 +1,14 @@
 package api
 
 import (
+	"io"
+	"net/http"
+
 	. "github.com/journeymidnight/yig/api/datatype/lifecycle"
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/signature"
-	"io"
-	"net/http"
 )
 
 func (api ObjectAPIHandlers) PutBucketLifeCycleHandler(w http.ResponseWriter, r *http.Request) {
@@ -72,6 +73,7 @@ func (api ObjectAPIHandlers) GetBucketLifeCycleHandler(w http.ResponseWriter, r 
 	if lifecycle.IsEmpty() {
 		logger.Info("The bucket does not have LifeCycle configured!")
 		WriteErrorResponse(w, r, ErrNoSuchBucketLc)
+		return
 	}
 
 	lcBuffer, err := xmlFormat(lifecycle)
@@ -86,7 +88,6 @@ func (api ObjectAPIHandlers) GetBucketLifeCycleHandler(w http.ResponseWriter, r 
 	//ResponseRecorder
 	w.(*ResponseRecorder).operationName = "GetBucketLifeCycle"
 	WriteSuccessResponse(w, lcBuffer)
-
 }
 
 func (api ObjectAPIHandlers) DelBucketLifeCycleHandler(w http.ResponseWriter, r *http.Request) {
