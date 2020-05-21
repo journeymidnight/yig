@@ -666,59 +666,59 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 
 		for {
 			var loopCount int
-			func() {
-				var rows *sql.Rows
-				var o datatype.VersionedObject
 
-				sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
-					" from objects where bucketName=? and name=? and version>? order by bucketname,name,version limit ?;"
-				rows, err = t.Client.Query(sqltext, bucketName, currentKeyMarker, currentVerIdMarker, maxKeys)
+			var rows *sql.Rows
+			var o datatype.VersionedObject
+
+			sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
+				" from objects where bucketName=? and name=? and version>? order by bucketname,name,version limit ?;"
+			rows, err = t.Client.Query(sqltext, bucketName, currentKeyMarker, currentVerIdMarker, maxKeys)
+			if err != nil {
+				return
+			}
+			for rows.Next() {
+				loopCount++
+				VerObjMeta := Object{}
+				err = rows.Scan(
+					&VerObjMeta.BucketName,
+					&VerObjMeta.Name,
+					&VerObjMeta.VersionId,
+					&VerObjMeta.DeleteMarker,
+					&VerObjMeta.OwnerId,
+					&VerObjMeta.Etag,
+					&lastModifiedTime,
+					&VerObjMeta.StorageClass,
+					&VerObjMeta.Size,
+					&VerObjMeta.CreateTime,
+				)
 				if err != nil {
+					_ = rows.Close()
 					return
 				}
-				defer rows.Close()
-				for rows.Next() {
-					loopCount++
-					VerObjMeta := Object{}
-					err = rows.Scan(
-						&VerObjMeta.BucketName,
-						&VerObjMeta.Name,
-						&VerObjMeta.VersionId,
-						&VerObjMeta.DeleteMarker,
-						&VerObjMeta.OwnerId,
-						&VerObjMeta.Etag,
-						&lastModifiedTime,
-						&VerObjMeta.StorageClass,
-						&VerObjMeta.Size,
-						&VerObjMeta.CreateTime,
-					)
-					if err != nil {
-						return
-					}
-					currentKeyMarker = VerObjMeta.Name
-					currentVerIdMarker = VerObjMeta.VersionId
-					VerObjMeta.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
-					if needCompareNull && nullObjMeta.CreateTime > VerObjMeta.CreateTime {
-						needCompareNull = false
-						currentVerIdMarker = nullObjMeta.VersionId
-						o = modifyMetaToVersionedObjectResult(nullObjMeta)
-					} else {
-						o = modifyMetaToVersionedObjectResult(VerObjMeta)
-					}
-					count++
-					if count == maxKeys {
-						listInfo.NextKeyMarker = o.Key
-						listInfo.NextVersionIdMarker = o.VersionId
-
-					}
-					if count > maxKeys {
-						listInfo.IsTruncated = true
-						exit = true
-						break
-					}
-					listInfo.Objects = append(listInfo.Objects, o)
+				currentKeyMarker = VerObjMeta.Name
+				currentVerIdMarker = VerObjMeta.VersionId
+				VerObjMeta.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
+				if needCompareNull && nullObjMeta.CreateTime > VerObjMeta.CreateTime {
+					needCompareNull = false
+					currentVerIdMarker = nullObjMeta.VersionId
+					o = modifyMetaToVersionedObjectResult(nullObjMeta)
+				} else {
+					o = modifyMetaToVersionedObjectResult(VerObjMeta)
 				}
-			}()
+				count++
+				if count == maxKeys {
+					listInfo.NextKeyMarker = o.Key
+					listInfo.NextVersionIdMarker = o.VersionId
+
+				}
+				if count > maxKeys {
+					listInfo.IsTruncated = true
+					exit = true
+					break
+				}
+				listInfo.Objects = append(listInfo.Objects, o)
+			}
+			_ = rows.Close()
 			if loopCount == 0 {
 				break
 			}
@@ -735,23 +735,40 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 	for {
 		var sqltext string
 		var rows *sql.Rows
-		if currentKeyMarker == "" {
-			sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
-				" from objects where bucketName=? order by bucketname,name,version limit ?;"
-			rows, err = t.Client.Query(sqltext, bucketName, maxKeys)
-		} else if currentVerIdMarker == "" {
-			sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
-				" from objects where bucketName=? and name>? order by bucketname,name,version limit ?;"
-			rows, err = t.Client.Query(sqltext, bucketName, currentKeyMarker, maxKeys)
-		} else {
-			sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
-				" from objects where bucketName=? and name>=? and version>=? order by bucketname,name,version limit ?;"
-			rows, err = t.Client.Query(sqltext, bucketName, currentKeyMarker, currentVerIdMarker, maxKeys)
+		if prefix == "" {
+			if currentKeyMarker == "" {
+				sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
+					" from objects where bucketName=? order by bucketname,name,version limit ?;"
+				rows, err = t.Client.Query(sqltext, bucketName, maxKeys)
+			} else if currentVerIdMarker == "" {
+				sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
+					" from objects where bucketName=? and name>? order by bucketname,name,version limit ?;"
+				rows, err = t.Client.Query(sqltext, bucketName, currentKeyMarker, maxKeys)
+			} else {
+				sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
+					" from objects where bucketName=? and name>=? and version>=? order by bucketname,name,version limit ?;"
+				rows, err = t.Client.Query(sqltext, bucketName, currentKeyMarker, currentVerIdMarker, maxKeys)
+			}
+		} else { // prefix not empty
+			prefixPattern := prefix + "%"
+			if currentKeyMarker == "" {
+				sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
+					" from objects where bucketName=? and name like ? order by bucketname,name,version limit ?;"
+				rows, err = t.Client.Query(sqltext, bucketName, prefixPattern, maxKeys)
+			} else if currentVerIdMarker == "" {
+				sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
+					" from objects where bucketName=? and name>? and name like ? order by bucketname,name,version limit ?;"
+				rows, err = t.Client.Query(sqltext, bucketName, currentKeyMarker, prefixPattern, maxKeys)
+			} else {
+				sqltext = "select bucketname,name,version,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size,createtime" +
+					" from objects where bucketName=? and name>=? and name like ? and version>=? order by bucketname,name,version limit ?;"
+				rows, err = t.Client.Query(sqltext, bucketName, currentKeyMarker, prefixPattern, currentVerIdMarker, maxKeys)
+			}
 		}
+
 		if err != nil {
 			return
 		}
-		defer rows.Close()
 
 		var loopCount int
 		for rows.Next() {
@@ -771,6 +788,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 				&objMeta.CreateTime,
 			)
 			if err != nil {
+				_ = rows.Close()
 				return
 			}
 
@@ -875,6 +893,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 			}
 			listInfo.Objects = append(listInfo.Objects, o)
 		}
+		_ = rows.Close()
 		if exit {
 			break
 		}
