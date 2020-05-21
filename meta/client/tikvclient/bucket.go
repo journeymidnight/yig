@@ -97,7 +97,7 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 	for it.Valid() {
 		k, v := string(it.Key()), it.Value()
 		if k == string(startKey) {
-			if err := it.Next(context.TODO()); err != nil {
+			if err := it.Next(context.TODO()); err != nil && it.Valid() {
 				return info, err
 			}
 			continue
@@ -105,7 +105,7 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 		// extract object key
 		objKey := strings.SplitN(k, TableSeparator, 2)[1]
 		if !strings.HasPrefix(objKey, prefix) {
-			if err := it.Next(context.TODO()); err != nil {
+			if err := it.Next(context.TODO()); err != nil && it.Valid() {
 				return info, err
 			}
 			continue
@@ -126,7 +126,7 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 					}
 					commonPrefixes[prefixKey] = nil
 				}
-				if err := it.Next(context.TODO()); err != nil {
+				if err := it.Next(context.TODO()); err != nil && it.Valid() {
 					return info, err
 				}
 				continue
@@ -148,7 +148,7 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 			break
 		}
 		info.Objects = append(info.Objects, info_o)
-		if err := it.Next(context.TODO()); err != nil {
+		if err := it.Next(context.TODO()); err != nil && it.Valid() {
 			return info, err
 		}
 	}
@@ -196,7 +196,7 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 
 			if meta.DeleteMarker {
 				objectMap[meta.Name] = nil
-				if err := it.Next(context.TODO()); err != nil {
+				if err := it.Next(context.TODO()); err != nil && it.Valid() {
 					return listInfo, err
 				}
 				continue
@@ -226,21 +226,21 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 		objKey := keySp[1]
 
 		if objKey == marker {
-			if err := it.Next(context.TODO()); err != nil {
+			if err := it.Next(context.TODO()); err != nil && it.Valid() {
 				return listInfo, err
 			}
 			continue
 		}
 
 		if _, ok := objectMap[objKey]; ok {
-			if err := it.Next(context.TODO()); err != nil {
+			if err := it.Next(context.TODO()); err != nil && it.Valid() {
 				return listInfo, err
 			}
 			continue
 		}
 
 		if !strings.HasPrefix(objKey, prefix) {
-			if err := it.Next(context.TODO()); err != nil {
+			if err := it.Next(context.TODO()); err != nil && it.Valid() {
 				return listInfo, err
 			}
 			continue
@@ -248,7 +248,7 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 
 		// If delete marker, do continue
 		if objMeta.DeleteMarker {
-			if err := it.Next(context.TODO()); err != nil {
+			if err := it.Next(context.TODO()); err != nil && it.Valid() {
 				return listInfo, err
 			}
 			continue
@@ -270,7 +270,7 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 					}
 					commonPrefixes[prefixKey] = nil
 				}
-				if err := it.Next(context.TODO()); err != nil {
+				if err := it.Next(context.TODO()); err != nil && it.Valid() {
 					return listInfo, err
 				}
 				continue
@@ -280,7 +280,7 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 		// null version object
 		if len(keySp) == 2 {
 			previousNullObjectMeta = &objMeta
-			if err := it.Next(context.TODO()); err != nil {
+			if err := it.Next(context.TODO()); err != nil && it.Valid() {
 				return listInfo, err
 			}
 			continue
@@ -301,7 +301,7 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 		}
 		objectMap[objMeta.Name] = nil
 		listInfo.Objects = append(listInfo.Objects, o)
-		if err := it.Next(context.TODO()); err != nil {
+		if err := it.Next(context.TODO()); err != nil && it.Valid() {
 			return listInfo, err
 		}
 	}
@@ -381,7 +381,7 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 				return listInfo, err
 			}
 			if VerObjMeta.Name == marker && VerObjMeta.VersionId == verIdMarker {
-				if err := it.Next(context.TODO()); err != nil {
+				if err := it.Next(context.TODO()); err != nil && it.Valid() {
 					return listInfo, err
 				}
 				continue
@@ -404,7 +404,7 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 				break
 			}
 			listInfo.Objects = append(listInfo.Objects, o)
-			if err := it.Next(context.TODO()); err != nil {
+			if err := it.Next(context.TODO()); err != nil && it.Valid() {
 				return listInfo, err
 			}
 		}
@@ -477,7 +477,7 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 				listInfo.Objects = append(listInfo.Objects, o)
 
 				if !nullIsLatest {
-					if err := it.Next(context.TODO()); err != nil {
+					if err := it.Next(context.TODO()); err != nil && it.Valid() {
 						return listInfo, err
 					}
 					continue
@@ -486,7 +486,7 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 		}
 
 		if !strings.HasPrefix(objMeta.Name, prefix) {
-			if err := it.Next(context.TODO()); err != nil {
+			if err := it.Next(context.TODO()); err != nil && it.Valid() {
 				return listInfo, err
 			}
 			continue
@@ -511,7 +511,7 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 					}
 					commonPrefixes[prefixKey] = nil
 				}
-				if err := it.Next(context.TODO()); err != nil {
+				if err := it.Next(context.TODO()); err != nil && it.Valid() {
 					return listInfo, err
 				}
 				continue
@@ -520,7 +520,7 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 
 		if objMeta.VersionId == NullVersion {
 			previousNullObjectMeta = &objMeta
-			if err := it.Next(context.TODO()); err != nil {
+			if err := it.Next(context.TODO()); err != nil && it.Valid() {
 				return listInfo, err
 			}
 			continue
@@ -539,7 +539,7 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 			break
 		}
 		listInfo.Objects = append(listInfo.Objects, o)
-		if err := it.Next(context.TODO()); err != nil {
+		if err := it.Next(context.TODO()); err != nil && it.Valid() {
 			return listInfo, err
 		}
 	}

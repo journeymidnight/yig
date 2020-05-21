@@ -145,7 +145,7 @@ func (c *TiKVClient) TxScan(keyPrefix []byte, upperBound []byte, limit int) ([]K
 	for it.Valid() && limit > 0 {
 		ret = append(ret, KV{K: it.Key(), V: it.Value()})
 		limit--
-		if err := it.Next(context.TODO()); err != nil {
+		if err := it.Next(context.TODO()); err != nil && it.Valid() {
 			return nil, err
 		}
 	}

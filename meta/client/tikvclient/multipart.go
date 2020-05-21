@@ -137,7 +137,7 @@ func (c *TiKVClient) DeleteMultipart(multipart *Multipart, tx Tx) error {
 			txn.Rollback()
 			return err
 		}
-		if err := it.Next(context.TODO()); err != nil {
+		if err := it.Next(context.TODO()); err != nil && it.Valid() {
 			return err
 		}
 	}
@@ -181,7 +181,7 @@ func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 	for it.Valid() {
 		k, v := string(it.Key()), it.Value()
 		if k == string(startKey) {
-			if err := it.Next(context.TODO()); err != nil {
+			if err := it.Next(context.TODO()); err != nil && it.Valid() {
 				return result, err
 			}
 			continue
@@ -189,14 +189,14 @@ func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 		sp := strings.Split(k, TableSeparator)
 		if len(sp) != 4 {
 			helper.Logger.Error("Invalid multipart key:", k)
-			if err := it.Next(context.TODO()); err != nil {
+			if err := it.Next(context.TODO()); err != nil && it.Valid() {
 				return result, err
 			}
 			continue
 		}
 		objectName := sp[2]
 		if !strings.HasPrefix(objectName, prefix) {
-			if err := it.Next(context.TODO()); err != nil {
+			if err := it.Next(context.TODO()); err != nil && it.Valid() {
 				return result, err
 			}
 			continue
@@ -206,7 +206,7 @@ func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 			subKey := strings.TrimPrefix(objectName, prefix)
 			sp := strings.Split(subKey, delimiter)
 			if len(sp) > 2 {
-				if err := it.Next(context.TODO()); err != nil {
+				if err := it.Next(context.TODO()); err != nil && it.Valid() {
 					return result, err
 				}
 				continue
@@ -218,12 +218,12 @@ func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 					if count == maxUploads {
 						break
 					}
-					if err := it.Next(context.TODO()); err != nil {
+					if err := it.Next(context.TODO()); err != nil && it.Valid() {
 						return result, err
 					}
 					continue
 				} else {
-					if err := it.Next(context.TODO()); err != nil {
+					if err := it.Next(context.TODO()); err != nil && it.Valid() {
 						return result, err
 					}
 					continue
@@ -253,7 +253,7 @@ func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 		if count == maxUploads {
 			break
 		}
-		if err := it.Next(context.TODO()); err != nil {
+		if err := it.Next(context.TODO()); err != nil && it.Valid() {
 			return result, err
 		}
 		continue
@@ -264,7 +264,7 @@ func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 			Prefix: prefix,
 		})
 	}
-	if err := it.Next(context.TODO()); err != nil {
+	if err := it.Next(context.TODO()); err != nil && it.Valid() {
 		return result, err
 	}
 	if it.Valid() {

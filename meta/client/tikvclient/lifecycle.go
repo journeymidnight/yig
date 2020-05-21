@@ -96,7 +96,7 @@ func (c *TiKVClient) ScanLifeCycle(limit int, marker string) (result ScanLifeCyc
 			result.Truncated = true
 			break
 		}
-		if err := it.Next(context.TODO()); err != nil {
+		if err := it.Next(context.TODO()); err != nil && it.Valid() {
 			return result, err
 		}
 	}
