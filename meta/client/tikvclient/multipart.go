@@ -4,6 +4,7 @@ import (
 	"context"
 	. "database/sql/driver"
 	"encoding/hex"
+	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -27,7 +28,7 @@ func genMultipartKey(bucketName, objectName string, initialTime uint64) []byte {
 // **Key**: p\{BucketName}\{ObjectName}\{UploadId}\{EncodePartNumber}
 // EncodePartNumber = hex.EncodeToString(BigEndian({PartNumber}))
 func genObjectPartKey(bucketName, objectName, uploadId string, partNumber int) []byte {
-	return GenKey(TableObjectPartPrefix, bucketName, objectName, uploadId, hex.EncodeToString(EncodeUint64(uint64(partNumber))))
+	return GenKey(TableObjectPartPrefix, bucketName, objectName, uploadId, fmt.Sprintf("%04d", partNumber))
 }
 
 const MaxPartLimit = 1000
