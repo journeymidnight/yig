@@ -72,6 +72,6 @@ type Client interface {
 	CreateFreezer(freezer *Freezer) (err error)
 	GetFreezer(bucketName, objectName, version string) (freezer *Freezer, err error)
 	GetFreezerStatus(bucketName, objectName, version string) (freezer *Freezer, err error)
-	UploadFreezerDate(bucketName, objectName, version string, lifetime int) (err error)
+	UpdateFreezerDate(bucketName, objectName, version string, lifetime int) (err error)
 	DeleteFreezer(bucketName, objectName, versionId string, objectType ObjectType, createTime uint64, tx Tx) (err error)
 }

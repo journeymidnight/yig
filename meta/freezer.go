@@ -19,7 +19,7 @@ func (m *Meta) GetFreezerStatus(bucketName string, objectName string, version st
 }
 
 func (m *Meta) UpdateFreezerDate(freezer *types.Freezer) error {
-	return m.Client.UploadFreezerDate(freezer.BucketName, freezer.Name, freezer.VersionId, freezer.LifeTime)
+	return m.Client.UpdateFreezerDate(freezer.BucketName, freezer.Name, freezer.VersionId, freezer.LifeTime)
 }
 
 func (m *Meta) DeleteFreezer(freezer *types.Freezer) (err error) {

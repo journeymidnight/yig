@@ -82,7 +82,7 @@ func (t *TidbClient) GetFreezerStatus(bucketName, objectName, version string) (f
 	return
 }
 
-func (t *TidbClient) UploadFreezerDate(bucketName, objectName, version string, lifetime int) (err error) {
+func (t *TidbClient) UpdateFreezerDate(bucketName, objectName, version string, lifetime int) (err error) {
 	sqltext := "update restoreobjects set lifetime=? where bucketname=? and objectname=? and version=?;"
 	_, err = t.Client.Exec(sqltext, lifetime, bucketName, objectName, version)
 	if err != nil {
