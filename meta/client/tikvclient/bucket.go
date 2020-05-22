@@ -78,17 +78,27 @@ func (c *TiKVClient) DeleteBucket(bucket Bucket) error {
 	return c.TxDelete(bucketKey, userBucketKey, lifeCycleKey)
 }
 
-func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (info ListObjectsInfo, err error) {
-	startKey := genObjectKey(bucketName, marker, NullVersion)
-	endKey := genObjectKey(bucketName, TableMaxKeySuffix, NullVersion)
+func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (listInfo ListObjectsInfo, err error) {
+	var startVersion = TableMaxKeySuffix
+	if prefix != "" {
+		if marker == "" || strings.Compare(marker, prefix) < 0 {
+			marker = prefix
+			startVersion = NullVersion
+		} else if !strings.HasPrefix(marker, prefix) && strings.Compare(marker, prefix) > 0 {
+			return listInfo, err
+		}
+	}
+
+	startKey := genObjectKey(bucketName, marker, startVersion)
+	endKey := genObjectKey(bucketName, TableMaxKeySuffix, TableMaxKeySuffix)
 
 	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
-		return info, err
+		return listInfo, err
 	}
 	it, err := tx.Iter(context.TODO(), key.Key(startKey), key.Key(endKey))
 	if err != nil {
-		return info, err
+		return listInfo, err
 	}
 	defer it.Close()
 	commonPrefixes := make(map[string]interface{})
@@ -98,7 +108,7 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 		k, v := string(it.Key()), it.Value()
 		if k == string(startKey) {
 			if err := it.Next(context.TODO()); err != nil && it.Valid() {
-				return info, err
+				return listInfo, err
 			}
 			continue
 		}
@@ -106,9 +116,9 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 		objKey := strings.SplitN(k, TableSeparator, 2)[1]
 		if !strings.HasPrefix(objKey, prefix) {
 			if err := it.Next(context.TODO()); err != nil && it.Valid() {
-				return info, err
+				return listInfo, err
 			}
-			continue
+			break
 		}
 		if delimiter != "" {
 			subKey := strings.TrimPrefix(objKey, prefix)
@@ -118,16 +128,16 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 				if _, ok := commonPrefixes[prefixKey]; !ok && prefixKey != marker {
 					count++
 					if count == maxKeys {
-						info.NextMarker = prefixKey
+						listInfo.NextMarker = prefixKey
 					}
 					if count > maxKeys {
-						info.IsTruncated = true
+						listInfo.IsTruncated = true
 						break
 					}
 					commonPrefixes[prefixKey] = nil
 				}
 				if err := it.Next(context.TODO()); err != nil && it.Valid() {
-					return info, err
+					return listInfo, err
 				}
 				continue
 			}
@@ -135,30 +145,40 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 		var o Object
 		err = helper.MsgPackUnMarshal(v, &o)
 		if err != nil {
-			return info, err
+			return listInfo, err
 		}
 
 		info_o := ModifyMetaToObjectResult(o)
 		count++
 		if count == maxKeys {
-			info.NextMarker = objKey
+			listInfo.NextMarker = objKey
 		}
 		if count > maxKeys {
-			info.IsTruncated = true
+			listInfo.IsTruncated = true
 			break
 		}
-		info.Objects = append(info.Objects, info_o)
+		listInfo.Objects = append(listInfo.Objects, info_o)
 		if err := it.Next(context.TODO()); err != nil && it.Valid() {
-			return info, err
+			return listInfo, err
 		}
 	}
-	info.Prefixes = helper.Keys(commonPrefixes)
+	listInfo.Prefixes = helper.Keys(commonPrefixes)
 	return
 }
 
 func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (listInfo ListObjectsInfo, err error) {
-	startKey := genObjectKey(bucketName, marker, TableMaxKeySuffix)
-	endKey := genObjectKey(bucketName, TableMaxKeySuffix, NullVersion)
+	var startVersion = TableMaxKeySuffix
+	if prefix != "" {
+		if marker == "" || strings.Compare(marker, prefix) < 0 {
+			marker = prefix
+			startVersion = NullVersion
+		} else if !strings.HasPrefix(marker, prefix) && strings.Compare(marker, prefix) > 0 {
+			return listInfo, err
+		}
+	}
+
+	startKey := genObjectKey(bucketName, marker, startVersion)
+	endKey := genObjectKey(bucketName, TableMaxKeySuffix, TableMaxKeySuffix)
 
 	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
@@ -243,7 +263,7 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			if err := it.Next(context.TODO()); err != nil && it.Valid() {
 				return listInfo, err
 			}
-			continue
+			break
 		}
 
 		// If delete marker, do continue
@@ -327,6 +347,17 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 
 func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefix, delimiter string,
 	maxKeys int) (listInfo VersionedListObjectsInfo, err error) {
+	var startVersion = TableMaxKeySuffix
+	var needCheckMarker = true
+	if prefix != "" {
+		if marker == "" || strings.Compare(marker, prefix) < 0 {
+			marker = prefix
+			startVersion = NullVersion
+			needCheckMarker = false
+		} else if !strings.HasPrefix(marker, prefix) && strings.Compare(marker, prefix) > 0 {
+			return listInfo, err
+		}
+	}
 
 	commonPrefixes := make(map[string]interface{})
 	var count int
@@ -335,7 +366,7 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 	var startKey, endKey []byte
 
 	isPrefixMarker := (delimiter != "" && strings.HasSuffix(marker, delimiter))
-	if marker != "" && !isPrefixMarker {
+	if marker != "" && !isPrefixMarker && needCheckMarker {
 		var needCompareNull = true
 		var nullObjMeta *Object
 		nullObjMeta, err = c.GetObject(bucketName, marker, NullVersion)
@@ -414,7 +445,7 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 		return listInfo, nil
 	}
 
-	startKey = genObjectKey(bucketName, marker, TableMaxKeySuffix)
+	startKey = genObjectKey(bucketName, marker, startVersion)
 	endKey = genObjectKey(bucketName, TableMaxKeySuffix, NullVersion)
 	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {

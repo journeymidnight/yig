@@ -58,7 +58,7 @@ func (c *TiKVClient) GetFreezerStatus(bucketName, objectName, version string) (f
 	return &f, nil
 }
 
-func (c *TiKVClient) UploadFreezerDate(bucketName, objectName, version string, lifetime int) (err error) {
+func (c *TiKVClient) UpdateFreezerDate(bucketName, objectName, version string, lifetime int) (err error) {
 	key := genFreezerKey(bucketName, objectName, version)
 	tx, err := c.NewTrans()
 	if err != nil {
