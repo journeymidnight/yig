@@ -1,5 +1,5 @@
 compress
-/var/log/yig/access.log {
+/var/log/yig/access.log* {
     daily
     rotate 7
     missingok

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/journeymidnight/yig/compression"
 	"github.com/journeymidnight/yig/crypto"
 	"math/rand"
@@ -36,14 +37,17 @@ func main() {
 
 	helper.SetupConfig()
 
+	pid := os.Getpid()
 	// yig log
 	logLevel := log.ParseLevel(helper.CONFIG.LogLevel)
-	helper.Logger = log.NewFileLogger(helper.CONFIG.LogPath, logLevel)
+	helper.Logger = log.NewFileLogger(
+		fmt.Sprintf("%s.%d", helper.CONFIG.LogPath, pid), logLevel)
 	defer helper.Logger.Close()
 	helper.Logger.Info("YIG conf:", helper.CONFIG)
 	helper.Logger.Info("YIG instance ID:", helper.CONFIG.InstanceId)
 	// access log
-	helper.AccessLogger = log.NewFileLogger(helper.CONFIG.AccessLogPath, log.InfoLevel)
+	helper.AccessLogger = log.NewFileLogger(
+		fmt.Sprintf("%s.%d", helper.CONFIG.AccessLogPath, pid), log.InfoLevel)
 	defer helper.AccessLogger.Close()
 
 	if helper.CONFIG.MetaCacheType > 0 || helper.CONFIG.EnableDataCache {
