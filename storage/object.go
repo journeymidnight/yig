@@ -955,6 +955,7 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 	if targetObject.StorageClass == ObjectStorageClassGlacier && targetObject.Name == sourceObject.Name && targetObject.BucketName == sourceObject.BucketName {
 		targetObject.LastModifiedTime = sourceObject.LastModifiedTime
 		result.LastModified = targetObject.LastModifiedTime
+		targetObject.CreateTime = sourceObject.CreateTime
 		err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, false, isTranStorageClassOnly)
 	} else {
 		err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, true)
@@ -1108,6 +1109,7 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 	}
 
 	// TODO validate bucket policy and fancy ACL
+	now := time.Now().UTC()
 	object := &meta.Object{
 		Name:                 objectName,
 		BucketName:           bucketName,
@@ -1116,7 +1118,7 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 		OwnerId:              credential.UserId,
 		Size:                 objSize + int64(bytesWritten),
 		ObjectId:             oid,
-		LastModifiedTime:     time.Now().UTC(),
+		LastModifiedTime:     now,
 		Etag:                 calculatedMd5,
 		ContentType:          metadata["Content-Type"],
 		ACL:                  acl,
@@ -1129,6 +1131,7 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 		Type:                 meta.ObjectTypeAppendable,
 		StorageClass:         storageClass,
 		VersionId:            meta.NullVersion,
+		CreateTime:           uint64(now.UnixNano()),
 	}
 
 	result.LastModified = object.LastModifiedTime
@@ -1237,13 +1240,15 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 		} else {
 			nullVersionExist := (object != nil)
 			if !nullVersionExist {
+				now := time.Now().UTC()
 				object = &meta.Object{
 					BucketName:       bucketName,
 					Name:             objectName,
 					OwnerId:          credential.UserId,
 					DeleteMarker:     true,
-					LastModifiedTime: time.Now().UTC(),
+					LastModifiedTime: now,
 					VersionId:        meta.NullVersion,
+					CreateTime:       uint64(now.UnixNano()),
 				}
 				err = yig.MetaStorage.AddDeleteMarker(object)
 				if err != nil {
