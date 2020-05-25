@@ -27,7 +27,7 @@ func (c *TiKVClient) CreateFreezer(freezer *Freezer) (err error) {
 func (c *TiKVClient) GetFreezer(bucketName, objectName, version string) (freezer *Freezer, err error) {
 	key := genFreezerKey(bucketName, objectName, version)
 	var f Freezer
-	ok, err := c.TxGet(key, &f)
+	ok, err := c.TxGet(key, &f, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func (c *TiKVClient) GetFreezer(bucketName, objectName, version string) (freezer
 func (c *TiKVClient) GetFreezerStatus(bucketName, objectName, version string) (freezer *Freezer, err error) {
 	key := genFreezerKey(bucketName, objectName, version)
 	var f Freezer
-	ok, err := c.TxGet(key, &f)
+	ok, err := c.TxGet(key, &f, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -40,8 +40,23 @@ func (c *TiKVClient) GetMultipart(bucketName, objectName, uploadId string) (Mult
 	if err != nil {
 		return multipart, err
 	}
+
+	tx, err := c.NewTrans()
+	if err != nil {
+		return multipart, err
+	}
+	defer func() {
+		if err == nil {
+			err = c.CommitTrans(tx)
+		}
+		if err != nil {
+			c.AbortTrans(tx)
+		}
+	}()
+	txn := tx.(*TikvTx).tx
+
 	multipartKey := genMultipartKey(bucketName, objectName, initialTime)
-	ok, err := c.TxGet(multipartKey, &multipart)
+	ok, err := c.TxGet(multipartKey, &multipart, txn)
 	if err != nil {
 		return multipart, err
 	}
@@ -51,7 +66,7 @@ func (c *TiKVClient) GetMultipart(bucketName, objectName, uploadId string) (Mult
 
 	objectPartStartKey := genObjectPartKey(bucketName, objectName, uploadId, 0)
 	objectPartEndKey := genObjectPartKey(bucketName, objectName, uploadId, MaxPartLimit)
-	kvs, err := c.TxScan(objectPartStartKey, objectPartEndKey, MaxPartLimit)
+	kvs, err := c.TxScan(objectPartStartKey, objectPartEndKey, MaxPartLimit, txn)
 	if err != nil {
 		return multipart, err
 	}
@@ -90,9 +105,9 @@ func (c *TiKVClient) PutObjectPart(multipart *Multipart, part *Part) (err error)
 			c.AbortTrans(tx)
 		}
 	}()
+	txn := tx.(*TikvTx).tx
 
 	partKey := genObjectPartKey(multipart.BucketName, multipart.ObjectName, multipart.UploadId, part.PartNumber)
-	txn := tx.(*TikvTx).tx
 	partVal, err := helper.MsgPackMarshal(part)
 	if err != nil {
 		return err

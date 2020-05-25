@@ -22,7 +22,7 @@ func genBucketKey(bucketName string) []byte {
 func (c *TiKVClient) GetBucket(bucketName string) (*Bucket, error) {
 	bucketKey := genBucketKey(bucketName)
 	var b Bucket
-	ok, err := c.TxGet(bucketKey, &b)
+	ok, err := c.TxGet(bucketKey, &b, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +36,7 @@ func (c *TiKVClient) GetBucket(bucketName string) (*Bucket, error) {
 func (c *TiKVClient) GetBuckets() (buckets []Bucket, err error) {
 	startKey := GenKey(TableBucketPrefix, TableMinKeySuffix)
 	endKey := GenKey(TableBucketPrefix, TableMaxKeySuffix)
-	kvs, err := c.TxScan(startKey, endKey, math.MaxInt64)
+	kvs, err := c.TxScan(startKey, endKey, math.MaxInt64, nil)
 	for _, kv := range kvs {
 		var b Bucket
 		err = helper.MsgPackUnMarshal(kv.V, &b)
@@ -599,43 +599,50 @@ func (c *TiKVClient) UpdateUsage(bucketName string, size int64, tx Tx) error {
 		return nil
 	}
 
-	bucket, err := c.GetBucket(bucketName)
+	if tx == nil {
+		tx, err := c.NewTrans()
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err == nil {
+				err = c.CommitTrans(tx)
+			}
+			if err != nil {
+				c.AbortTrans(tx)
+			}
+		}()
+	}
+
+	txn := tx.(*TikvTx).tx
+
+	bucketKey := genBucketKey(bucketName)
+	var bucket Bucket
+	ok, err := c.TxGet(bucketKey, &bucket, txn)
 	if err != nil {
 		return err
+	}
+	if !ok {
+		return ErrNoSuchBucket
 	}
 
 	userBucketKey := genUserBucketKey(bucket.OwnerId, bucket.Name)
 	var usage int64
 
-	if tx == nil {
-		ok, err := c.TxGet(userBucketKey, &usage)
-		if err != nil {
-			return err
-		}
-		if !ok {
-			return ErrNoSuchBucket
-		}
-		usage += size
-		return c.TxPut(userBucketKey, usage)
-	}
-
-	v, err := tx.(*TikvTx).tx.Get(context.TODO(), userBucketKey)
+	ok, err = c.TxGet(userBucketKey, &usage, txn)
 	if err != nil {
 		return err
 	}
-
-	err = helper.MsgPackUnMarshal(v, &usage)
-	if err != nil {
-		return err
+	if !ok {
+		return ErrNoSuchBucket
 	}
-
 	usage += size
 
-	v, err = helper.MsgPackMarshal(usage)
+	v, err := helper.MsgPackMarshal(usage)
 	if err != nil {
 		return err
 	}
-	return tx.(*TikvTx).tx.Set(userBucketKey, v)
+	return txn.Set(userBucketKey, v)
 }
 
 func (c *TiKVClient) IsEmptyBucket(bucket *Bucket) (isEmpty bool, err error) {

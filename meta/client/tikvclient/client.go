@@ -46,10 +46,13 @@ func NewClient() *TiKVClient {
 	return &TiKVClient{TxnCli}
 }
 
-func (c *TiKVClient) TxGet(k []byte, ref interface{}) (bool, error) {
-	tx, err := c.TxnCli.Begin(context.TODO())
-	if err != nil {
-		return false, err
+func (c *TiKVClient) TxGet(k []byte, ref interface{}, tx *txnkv.Transaction) (bool, error) {
+	var err error
+	if tx == nil {
+		tx, err = c.TxnCli.Begin(context.TODO())
+		if err != nil {
+			return false, err
+		}
 	}
 	v, err := tx.Get(context.TODO(), k)
 	if err != nil && !kv.IsErrNotFound(err) {
@@ -131,10 +134,13 @@ func (c *TiKVClient) TxDelete(keys ...[]byte) error {
 	return nil
 }
 
-func (c *TiKVClient) TxScan(keyPrefix []byte, upperBound []byte, limit int) ([]KV, error) {
-	tx, err := c.TxnCli.Begin(context.TODO())
-	if err != nil {
-		return nil, err
+func (c *TiKVClient) TxScan(keyPrefix []byte, upperBound []byte, limit int, tx *txnkv.Transaction) ([]KV, error) {
+	var err error
+	if tx == nil {
+		tx, err = c.TxnCli.Begin(context.TODO())
+		if err != nil {
+			return nil, err
+		}
 	}
 	it, err := tx.Iter(context.TODO(), key.Key(keyPrefix), key.Key(upperBound))
 	if err != nil {
