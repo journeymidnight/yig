@@ -101,7 +101,7 @@ func (o *Object) GetCreateSql() (string, []interface{}) {
 		"values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
 	args := []interface{}{o.BucketName, o.Name, o.VersionId, o.Location, o.Pool, o.OwnerId, o.Size, o.ObjectId,
 		lastModifiedTime, o.Etag, o.ContentType, customAttributes, acl, o.NullVersion, o.DeleteMarker,
-		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass, o.LastModifiedTime.UnixNano()}
+		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass, o.CreateTime}
 	return sql, args
 }
 
@@ -115,7 +115,7 @@ func (o *Object) GetCreateHotSql() (string, []interface{}) {
 		"values(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
 	args := []interface{}{o.BucketName, o.Name, o.VersionId, o.Location, o.Pool, o.OwnerId, o.Size, o.ObjectId,
 		lastModifiedTime, o.Etag, o.ContentType, customAttributes, acl, o.NullVersion, o.DeleteMarker,
-		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass, o.LastModifiedTime.UnixNano()}
+		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass, o.CreateTime}
 	return sql, args
 }
 
@@ -128,7 +128,7 @@ func (o *Object) GetUpdateSql() (string, []interface{}) {
 		"where bucketname=? and name=? and version=?"
 	args := []interface{}{o.Location, o.Pool, o.Size, o.ObjectId,
 		lastModifiedTime, o.Etag, o.DeleteMarker, o.ContentType, customAttributes, acl,
-		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass, o.LastModifiedTime.UnixNano(), o.BucketName, o.Name, o.VersionId}
+		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass, o.CreateTime, o.BucketName, o.Name, o.VersionId}
 	return sql, args
 }
 
@@ -141,7 +141,7 @@ func (o *Object) GetUpdateHotSql() (string, []interface{}) {
 		"where bucketname=? and name=? and version=?"
 	args := []interface{}{o.Location, o.Pool, o.Size, o.ObjectId,
 		lastModifiedTime, o.Etag, o.DeleteMarker, o.ContentType, customAttributes, acl,
-		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass, o.LastModifiedTime.UnixNano(), o.BucketName, o.Name, o.VersionId}
+		o.SseType, o.EncryptionKey, o.InitializationVector, o.Type, o.StorageClass, o.CreateTime, o.BucketName, o.Name, o.VersionId}
 	return sql, args
 }
 
