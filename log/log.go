@@ -135,7 +135,9 @@ func (l Logger) ReopenLogFile() {
 	if err != nil {
 		panic(fmt.Sprintln("ReopenLogFile:", l.filePath, err))
 	}
+	newLogger := log.New(newFile, "", logFlags)
 	oldFile := l.out
 	l.out = newFile
+	l.logger = newLogger
 	_ = oldFile.Close()
 }
