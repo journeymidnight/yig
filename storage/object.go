@@ -1059,7 +1059,7 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 		initializationVector = objInfo.InitializationVector
 		objSize = objInfo.Size
 		storageClass = objInfo.StorageClass
-		helper.Logger.Println(20, "request append oid:", oid, "iv:", initializationVector, "size:", objSize)
+		helper.Logger.Info("request append oid:", oid, "iv:", initializationVector, "size:", objSize)
 	} else {
 		// New appendable object
 		cephCluster, poolName = yig.pickClusterAndPool(bucketName, objectName, storageClass, size, true)
@@ -1073,7 +1073,7 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 				return
 			}
 		}
-		helper.Logger.Println(20, "request first append oid:", oid, "iv:", initializationVector, "size:", objSize)
+		helper.Logger.Info("request first append oid:", oid, "iv:", initializationVector, "size:", objSize)
 	}
 
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
@@ -1136,7 +1136,7 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 
 	result.LastModified = object.LastModifiedTime
 	result.NextPosition = object.Size
-	helper.Logger.Println(20, "Append info.", "bucket:", bucketName, "objName:", objectName, "oid:", oid,
+	helper.Logger.Info("Append info.", "bucket:", bucketName, "objName:", objectName, "oid:", oid,
 		"objSize:", object.Size, "bytesWritten:", bytesWritten, "storageClass:", storageClass)
 	err = yig.MetaStorage.AppendObject(object, objInfo != nil)
 	if err != nil {

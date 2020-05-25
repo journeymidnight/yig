@@ -2,10 +2,11 @@ package api
 
 import (
 	"fmt"
-	. "github.com/journeymidnight/yig/context"
 	"net/http"
 	"strings"
 	"time"
+
+	. "github.com/journeymidnight/yig/context"
 
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/meta"
