@@ -31,6 +31,7 @@ func ParseLevel(levelString string) Level {
 }
 
 type Logger struct {
+	filePath  string // the underlying log file path
 	out       io.WriteCloser
 	level     Level
 	logger    *log.Logger
@@ -44,7 +45,9 @@ func NewFileLogger(path string, logLevel Level) Logger {
 	if err != nil {
 		panic("Failed to open log file " + path)
 	}
-	return NewLogger(f, logLevel)
+	l := NewLogger(f, logLevel)
+	l.filePath = path
+	return l
 }
 
 func NewLogger(out io.WriteCloser, logLevel Level) Logger {
@@ -122,4 +125,18 @@ func (l Logger) Println(args ...interface{}) {
 
 func (l Logger) Close() error {
 	return l.out.Close()
+}
+
+func (l Logger) ReopenLogFile() {
+	if len(l.filePath) == 0 {
+		return
+	}
+	newFile, err := os.OpenFile(l.filePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		l.Error("ReopenLogFile:", l.filePath, err)
+		return
+	}
+	oldFile := l.out
+	l.out = newFile
+	_ = oldFile.Close()
 }

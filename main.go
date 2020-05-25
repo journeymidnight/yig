@@ -9,7 +9,6 @@ import (
 	_ "net/http/pprof"
 	"os"
 	"os/signal"
-	"runtime"
 	"syscall"
 	"time"
 
@@ -22,14 +21,6 @@ import (
 	"github.com/journeymidnight/yig/storage"
 )
 
-func DumpStacks() {
-	buf := make([]byte, 1<<16)
-	stackLen := runtime.Stack(buf, true)
-	helper.Logger.Error("Received SIGQUIT, goroutine dump:")
-	helper.Logger.Error(buf[:stackLen])
-	helper.Logger.Error("*** dump end")
-}
-
 func main() {
 	// Errors should cause panic so as to log to stderr for initialization functions
 
@@ -41,13 +32,13 @@ func main() {
 	// yig log
 	logLevel := log.ParseLevel(helper.CONFIG.LogLevel)
 	helper.Logger = log.NewFileLogger(
-		fmt.Sprintf("%s.%d", helper.CONFIG.LogPath, pid), logLevel)
+		fmt.Sprintf("%d.%s", pid, helper.CONFIG.LogPath), logLevel)
 	defer helper.Logger.Close()
 	helper.Logger.Info("YIG conf:", helper.CONFIG)
 	helper.Logger.Info("YIG instance ID:", helper.CONFIG.InstanceId)
 	// access log
 	helper.AccessLogger = log.NewFileLogger(
-		fmt.Sprintf("%s.%d", helper.CONFIG.AccessLogPath, pid), log.InfoLevel)
+		fmt.Sprintf("%d.%s", pid, helper.CONFIG.AccessLogPath), log.InfoLevel)
 	defer helper.AccessLogger.Close()
 
 	if helper.CONFIG.MetaCacheType > 0 || helper.CONFIG.EnableDataCache {
@@ -103,7 +94,7 @@ func main() {
 	if helper.CONFIG.EnablePProf {
 		go func() {
 			err := http.ListenAndServe("0.0.0.0:8730", nil)
-			helper.Logger.Error("Start ppof err:", err)
+			helper.Logger.Error("Start pprof err:", err)
 		}()
 	}
 
@@ -118,19 +109,20 @@ func main() {
 	}
 	startApiServer(apiServerConfig)
 
-	// ignore signal handlers set by Iris
 	signal.Ignore()
-	signalQueue := make(chan os.Signal)
+	signalQueue := make(chan os.Signal, 10)
 	signal.Notify(signalQueue, syscall.SIGINT, syscall.SIGTERM,
-		syscall.SIGQUIT, syscall.SIGHUP, syscall.SIGUSR1)
+		syscall.SIGQUIT, syscall.SIGHUP, syscall.SIGUSR1, syscall.SIGUSR2)
 	for {
 		s := <-signalQueue
 		switch s {
 		case syscall.SIGHUP:
 			// reload config file
 			helper.SetupConfig()
-		case syscall.SIGUSR1:
-			go DumpStacks()
+		case syscall.SIGUSR1: // reopen log file, for log rotate
+			helper.Logger.ReopenLogFile()
+		case syscall.SIGUSR2: // reopen log file, for log rotate
+			helper.AccessLogger.ReopenLogFile()
 		default:
 			// stop YIG server, order matters
 			stopAdminServer()
