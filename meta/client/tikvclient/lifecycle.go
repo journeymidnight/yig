@@ -23,7 +23,7 @@ func (c *TiKVClient) PutBucketToLifeCycle(bucket Bucket, lifeCycle LifeCycle) er
 func (c *TiKVClient) GetBucketLifeCycle(bucket Bucket) (*LifeCycle, error) {
 	key := genLifecycleKey(bucket.Name)
 	var lc LifeCycle
-	ok, err := c.TxGet(key, &lc)
+	ok, err := c.TxGet(key, &lc, nil)
 	if err != nil {
 		return nil, err
 	}

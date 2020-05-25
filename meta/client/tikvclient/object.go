@@ -34,7 +34,7 @@ func genHotObjectKey(bucketName, objectName, version string) []byte {
 func (c *TiKVClient) GetObject(bucketName, objectName, version string) (*Object, error) {
 	key := genObjectKey(bucketName, objectName, version)
 	var o Object
-	ok, err := c.TxGet(key, &o)
+	ok, err := c.TxGet(key, &o, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -55,13 +55,27 @@ func (c *TiKVClient) GetObject(bucketName, objectName, version string) (*Object,
 func (c *TiKVClient) GetLatestObjectVersion(bucketName, objectName string) (object *Object, err error) {
 	objKey := genObjectKey(bucketName, objectName, NullVersion)
 	var o, vo, retObj Object
-	nullObjExist, err := c.TxGet(objKey, &o)
+	tx, err := c.NewTrans()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err == nil {
+			err = c.CommitTrans(tx)
+		}
+		if err != nil {
+			c.AbortTrans(tx)
+		}
+	}()
+	txn := tx.(*TikvTx).tx
+
+	nullObjExist, err := c.TxGet(objKey, &o, txn)
 	if err != nil {
 		return nil, err
 	}
 	versionStartKey := genObjectKey(bucketName, objectName, TableMinKeySuffix)
 	versionEndKey := genObjectKey(bucketName, objectName, TableMaxKeySuffix)
-	kvs, err := c.TxScan(key.Key(versionStartKey), key.Key(versionEndKey), 1)
+	kvs, err := c.TxScan(key.Key(versionStartKey), key.Key(versionEndKey), 1, txn)
 	if err != nil {
 		return nil, err
 	}
