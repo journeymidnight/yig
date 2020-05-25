@@ -167,7 +167,7 @@ func startAdminServer(c *adminServerConfig) {
 	adminServer = c
 	serverAddress := c.Address
 	host, port, _ := net.SplitHostPort(serverAddress)
-	// If port empty, default to port '80'
+	// If port empty, default to port 9000
 	if port == "" {
 		port = "9000"
 	}
@@ -191,10 +191,10 @@ func startAdminServer(c *adminServerConfig) {
 	printListenIPs(false, hosts, port)
 
 	go func() {
-		var err error
-		// Configure TLS if certs are available.
-		err = adminServer.ListenAndServe()
-		helper.PanicOnError(err, "API server error.")
+		listener, err := helper.ReusePortListener(host, port)
+		helper.PanicOnError(err, "Admin server error.")
+		err = adminServer.Serve(listener)
+		helper.PanicOnError(err, "Admin server error.")
 	}()
 }
 

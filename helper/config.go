@@ -1,7 +1,10 @@
 package helper
 
 import (
+	"fmt"
 	"io/ioutil"
+	"os"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 )
@@ -120,8 +123,8 @@ func MarshalTOMLConfig() error {
 	CONFIG.Region = c.Region
 	CONFIG.Plugins = c.Plugins
 	CONFIG.PiggybackUpdateUsage = c.PiggybackUpdateUsage
-	CONFIG.LogPath = c.LogPath
-	CONFIG.AccessLogPath = c.AccessLogPath
+	CONFIG.LogPath = logFilePathWithPid(c.LogPath)
+	CONFIG.AccessLogPath = logFilePathWithPid(c.AccessLogPath)
 	CONFIG.AccessLogFormat = c.AccessLogFormat
 	CONFIG.PanicLogPath = c.PanicLogPath
 	CONFIG.PidFile = c.PidFile
@@ -193,4 +196,13 @@ func MarshalTOMLConfig() error {
 	CONFIG.UploadMaxChunkSize = Ternary(c.UploadMaxChunkSize < CONFIG.UploadMinChunkSize || c.UploadMaxChunkSize > MAX_BUFEER_SIZE, MAX_BUFEER_SIZE, c.UploadMaxChunkSize).(int64)
 	CONFIG.BigFileThreshold = Ternary(c.BigFileThreshold == 0, int64(1048576), c.BigFileThreshold).(int64)
 	return nil
+}
+
+// Convert from "/var/log/yig/yig.log" to something like "/var/log/yig/49106.yig.log"
+// Only support UNIX style path
+func logFilePathWithPid(rawPath string) string {
+	pid := os.Getpid()
+	parts := strings.Split(rawPath, "/")
+	parts[len(parts)-1] = fmt.Sprintf("%d.%s", pid, parts[len(parts)-1])
+	return strings.Join(parts, "/")
 }
