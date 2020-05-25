@@ -133,8 +133,7 @@ func (l Logger) ReopenLogFile() {
 	}
 	newFile, err := os.OpenFile(l.filePath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
-		l.Error("ReopenLogFile:", l.filePath, err)
-		return
+		panic(fmt.Sprintln("ReopenLogFile:", l.filePath, err))
 	}
 	oldFile := l.out
 	l.out = newFile
