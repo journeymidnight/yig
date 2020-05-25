@@ -127,7 +127,7 @@ func (l Logger) Close() error {
 	return l.out.Close()
 }
 
-func (l Logger) ReopenLogFile() {
+func (l *Logger) ReopenLogFile() {
 	if len(l.filePath) == 0 {
 		return
 	}
