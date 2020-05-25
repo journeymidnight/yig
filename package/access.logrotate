@@ -1,9 +1,11 @@
 compress
-/var/log/yig/access.log {
+/var/log/yig/*.access.log {
     daily
     rotate 7
     missingok
     compress
     minsize 100k
-    copytruncate
+	postrotate
+		ps -ef|grep yig$|awk '{print $2}'|xargs kill -SIGUSR2
+	endscript
 }

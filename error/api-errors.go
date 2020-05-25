@@ -118,6 +118,7 @@ const (
 	ErrObjectNotAppendable
 	ErrPositionNotEqualToLength
 	ErrMetadataHeader
+	ErrMaintenance
 	// Add new error codes here.
 
 	// SSE-S3 related API errors
@@ -827,6 +828,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "CreateRestoreObjectError",
 		Description:    "Create object thaw operation failed",
 		HttpStatusCode: http.StatusInternalServerError,
+	},
+	ErrMaintenance: {
+		AwsErrorCode: "ServiceTemporaryMaintenance",
+		Description: "Temporary maintenance, please retry your request",
+		HttpStatusCode: http.StatusServiceUnavailable,
 	},
 }
 
