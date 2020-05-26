@@ -192,7 +192,7 @@ func (cluster *CephCluster) doSmallAppend(poolname string, oid string, offset ui
 		return 0, err
 	}
 	writeEnd := time.Now()
-	helper.Logger.Info("Append info  doSmallAppend oid:", oid, " offset:", offset, " sise:", size, " read cost:", readEnd.Sub(readStart).Milliseconds(), " write cost:", writeEnd.Sub(writeStart).Milliseconds())
+	helper.Logger.Println(20, "Append info  doSmallAppend oid:", oid, " offset:", offset, " sise:", size, " read cost:", readEnd.Sub(readStart).Milliseconds(), " write cost:", writeEnd.Sub(writeStart).Milliseconds())
 
 	return size, nil
 }
