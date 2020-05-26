@@ -177,16 +177,22 @@ func (cluster *CephCluster) doSmallAppend(poolname string, oid string, offset ui
 		return 0, errors.New("Bad poolname")
 	}
 	defer pool.Destroy()
-
+	readStart := time.Now()
 	buf, err := ioutil.ReadAll(data)
+	readEnd := time.Now()
+
 	size = uint64(len(buf))
 	if err != nil {
 		return 0, errors.New("Read from client failed")
 	}
+	writeStart := time.Now()
+
 	err = pool.Write(oid, buf, offset)
 	if err != nil {
 		return 0, err
 	}
+	writeEnd := time.Now()
+	helper.Logger.Info("Append info  doSmallAppend oid:", oid, " offset:", offset, " sise:", size, " read cost:", readEnd.Sub(readStart).Milliseconds(), " write cost:", writeEnd.Sub(writeStart).Milliseconds())
 
 	return size, nil
 }
