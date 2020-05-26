@@ -28,15 +28,10 @@ import (
 	"github.com/bsm/redislock"
 	"github.com/gorilla/mux"
 	"github.com/journeymidnight/yig/api/datatype"
-<<<<<<< HEAD
 	"github.com/journeymidnight/yig/backend"
 	"github.com/journeymidnight/yig/meta"
 	"github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
-=======
-	"github.com/journeymidnight/yig/meta"
-	"github.com/journeymidnight/yig/meta/types"
->>>>>>> 08f0ead45eac53bb1635902a8b05301df9951a84
 	"github.com/journeymidnight/yig/signature"
 
 	. "github.com/journeymidnight/yig/context"
@@ -244,10 +239,7 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		return
 	}
 	reqCtx.AuthType = authType
-<<<<<<< HEAD
 	reqCtx.Mutex = nil
-=======
->>>>>>> 08f0ead45eac53bb1635902a8b05301df9951a84
 
 	ctx := context.WithValue(r.Context(), RequestContextKey, reqCtx)
 	logger.Info("BucketName:", reqCtx.BucketName, "ObjectName:", reqCtx.ObjectName, "BucketExist:",
