@@ -118,6 +118,7 @@ const (
 	ErrObjectNotAppendable
 	ErrPositionNotEqualToLength
 	ErrMetadataHeader
+	ErrMaintenance
 	// Add new error codes here.
 
 	// SSE-S3 related API errors
@@ -937,6 +938,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "ObjectMutexProtected",
 		Description:    "Object has been protect by a mutex, should query later",
 		HttpStatusCode: http.StatusConflict,
+	},
+	ErrMaintenance: {
+		AwsErrorCode:   "ServiceTemporaryMaintenance",
+		Description:    "Temporary maintenance, please retry your request",
+		HttpStatusCode: http.StatusServiceUnavailable,
 	},
 }
 

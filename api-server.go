@@ -65,6 +65,8 @@ func configureServerHandler(c *ServerConfig) http.Handler {
 		// Validates all incoming URL resources, for invalid/unsupported
 		// resources client receives a HTTP error.
 		api.SetIgnoreResourcesHandler,
+		// graceful shutdown
+		api.SetGracefulStopHandler,
 		// Add new handlers here.
 
 		api.SetLogHandler,
@@ -251,13 +253,14 @@ func startApiServer(c *ServerConfig) {
 	printListenIPs(tls, hosts, port)
 
 	go func() {
-		var err error
+		listener, err := helper.ReusePortListener(host, port)
+		helper.PanicOnError(err, "API server error.")
 		// Configure TLS if certs are available.
 		if isSSL(c) {
-			err = apiServer.Server.ListenAndServeTLS(c.CertFilePath, c.KeyFilePath)
+			err = apiServer.Server.ServeTLS(listener, c.CertFilePath, c.KeyFilePath)
 		} else {
 			// Fallback to http.
-			err = apiServer.Server.ListenAndServe()
+			err = apiServer.Server.Serve(listener)
 		}
 		helper.PanicOnError(err, "API server error.")
 	}()
