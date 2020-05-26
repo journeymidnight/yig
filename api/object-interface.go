@@ -36,9 +36,15 @@ type ObjectLayer interface {
 		credential common.Credential) error
 	GetBucketLogging(reqCtx RequestContext, credential common.Credential) (datatype.BucketLoggingStatus, error)
 	MakeBucket(reqCtx RequestContext, acl datatype.Acl, credential common.Credential) error
+<<<<<<< HEAD
 	SetBucketLifecycle(reqCtx RequestContext, config lifecycle.Lifecycle,
 		credential common.Credential) error
 	GetBucketLifecycle(reqCtx RequestContext, credential common.Credential) (lifecycle.Lifecycle, error)
+=======
+	SetBucketLifecycle(reqCtx RequestContext, config datatype.Lifecycle,
+		credential common.Credential) error
+	GetBucketLifecycle(reqCtx RequestContext, credential common.Credential) (datatype.Lifecycle, error)
+>>>>>>> 08f0ead45eac53bb1635902a8b05301df9951a84
 	DelBucketLifecycle(reqCtx RequestContext, credential common.Credential) error
 	SetBucketAcl(reqCtx RequestContext, policy datatype.AccessControlPolicy, acl datatype.Acl,
 		credential common.Credential) error

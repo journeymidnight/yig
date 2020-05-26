@@ -231,7 +231,11 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+<<<<<<< HEAD
 	if object.StorageClass == ObjectStorageClassGlacier {
+=======
+	if object.StorageClass == meta.ObjectStorageClassGlacier {
+>>>>>>> 08f0ead45eac53bb1635902a8b05301df9951a84
 		freezer, err := api.ObjectAPI.GetFreezer(reqCtx.BucketName, reqCtx.ObjectName, reqVersion)
 		if err != nil {
 			if err == ErrNoSuchKey {
@@ -387,7 +391,11 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+<<<<<<< HEAD
 	if object.StorageClass == ObjectStorageClassGlacier {
+=======
+	if object.StorageClass == meta.ObjectStorageClassGlacier {
+>>>>>>> 08f0ead45eac53bb1635902a8b05301df9951a84
 		freezer, err := api.ObjectAPI.GetFreezerStatus(object.BucketName, object.Name, reqVersion)
 		if err != nil && err != ErrNoSuchKey {
 			logger.Error("Unable to get restore object status", object.BucketName, object.Name, reqVersion,
@@ -568,6 +576,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+<<<<<<< HEAD
 	var targetStorageClass StorageClass
 	targetStorageClass, err = getStorageClassFromHeader(r.Header)
 	if err != nil {
@@ -587,6 +596,13 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		} else if targetBucket.Versioning == BucketVersioningSuspended && sourceObject.VersionId == meta.NullVersion {
 			isMetadataOnly = true
 		}
+=======
+	var targetStorageClass meta.StorageClass
+	targetStorageClass, err = getStorageClassFromHeader(r)
+	if err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+>>>>>>> 08f0ead45eac53bb1635902a8b05301df9951a84
 	}
 
 	truelySourceObject := sourceObject
@@ -609,6 +625,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 				WriteErrorResponse(w, r, ErrInvalidGlacierObject)
 				return
 			}
+<<<<<<< HEAD
 			if targetStorageClass != ObjectStorageClassGlacier {
 				sourceObject.OwnerId = freezer.OwnerId
 				sourceObject.Etag = freezer.Etag
@@ -619,6 +636,25 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 				sourceObject.ObjectId = freezer.ObjectId
 				sourceObject.VersionId = freezer.VersionId
 			}
+=======
+			logger.Error("Unable to get glacier object info err:", err)
+			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
+			return
+		}
+		if freezer.Status != meta.ObjectHasRestored || freezer.Pool == "" {
+			logger.Error("Unable to get glacier object with no restore")
+			WriteErrorResponse(w, r, ErrInvalidGlacierObject)
+			return
+		}
+		if targetStorageClass != meta.ObjectStorageClassGlacier {
+			sourceObject.Etag = freezer.Etag
+			sourceObject.Size = freezer.Size
+			sourceObject.Parts = freezer.Parts
+			sourceObject.Pool = freezer.Pool
+			sourceObject.Location = freezer.Location
+			sourceObject.ObjectId = freezer.ObjectId
+			sourceObject.VersionId = freezer.VersionId
+>>>>>>> 08f0ead45eac53bb1635902a8b05301df9951a84
 		}
 	}
 
@@ -628,6 +664,36 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+<<<<<<< HEAD
+=======
+	var isMetadataOnly bool
+
+	// TODO: To be fixed
+	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName && targetBucket.Versioning == BucketVersioningDisabled {
+		if sourceObject.StorageClass == meta.ObjectStorageClassGlacier || targetStorageClass != meta.ObjectStorageClassGlacier {
+			isMetadataOnly = true
+		}
+	} else if targetBucket.Versioning == BucketVersioningSuspended && reqCtx.ObjectInfo != nil {
+		isMetadataOnly = true
+	}
+
+	pipeReader, pipeWriter := io.Pipe()
+	if !isMetadataOnly {
+		go func() {
+			startOffset := int64(0) // Read the whole file.
+			// Get the object.
+			err = api.ObjectAPI.GetObject(sourceObject, startOffset, sourceObject.Size,
+				pipeWriter, sseRequest)
+			if err != nil {
+				logger.Error("Unable to read an object:", err)
+				pipeWriter.CloseWithError(err)
+				return
+			}
+			pipeWriter.Close()
+		}()
+	}
+
+>>>>>>> 08f0ead45eac53bb1635902a8b05301df9951a84
 	targetACL, err := getAclFromHeader(r.Header)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
@@ -1227,7 +1293,11 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		return
 	}
 
+<<<<<<< HEAD
 	if object.StorageClass != ObjectStorageClassGlacier {
+=======
+	if object.StorageClass != meta.ObjectStorageClassGlacier {
+>>>>>>> 08f0ead45eac53bb1635902a8b05301df9951a84
 		WriteErrorResponse(w, r, ErrInvalidStorageClass)
 		return
 	}

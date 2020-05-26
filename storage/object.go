@@ -792,7 +792,8 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 			return result, ErrBucketAccessForbidden
 		}
 	}
-
+	targetObject.LastModifiedTime = time.Now().UTC()
+	targetObject.VersionId = targetObject.GenVersionId(targetBucket.Versioning)
 	if isMetadataOnly {
 		targetObject.LastModifiedTime = sourceObject.LastModifiedTime
 		targetObject.VersionId = sourceObject.VersionId
