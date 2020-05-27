@@ -3,6 +3,7 @@ package tikvclient
 import (
 	"context"
 	. "database/sql/driver"
+	"sync"
 
 	"github.com/journeymidnight/yig/backend"
 	. "github.com/journeymidnight/yig/error"
@@ -53,8 +54,6 @@ func (c *TiKVClient) GetObject(bucketName, objectName, version string) (*Object,
 }
 
 func (c *TiKVClient) GetLatestObjectVersion(bucketName, objectName string) (object *Object, err error) {
-	objKey := genObjectKey(bucketName, objectName, NullVersion)
-	var o, vo, retObj Object
 	tx, err := c.NewTrans()
 	if err != nil {
 		return nil, err
@@ -69,31 +68,43 @@ func (c *TiKVClient) GetLatestObjectVersion(bucketName, objectName string) (obje
 	}()
 	txn := tx.(*TikvTx).tx
 
-	nullObjExist, err := c.TxGet(objKey, &o, txn)
-	if err != nil {
-		return nil, err
+	var o, vo, retObj Object
+	var nullObjExist bool
+	var kvs []KV
+	var e1, e2 error
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		objKey := genObjectKey(bucketName, objectName, NullVersion)
+		nullObjExist, e1 = c.TxGet(objKey, &o, txn)
+	}()
+
+	go func() {
+		defer wg.Done()
+		versionStartKey := genObjectKey(bucketName, objectName, TableMinKeySuffix)
+		versionEndKey := genObjectKey(bucketName, objectName, TableMaxKeySuffix)
+		kvs, e2 = c.TxScan(key.Key(versionStartKey), key.Key(versionEndKey), 1, txn)
+		if e2 != nil {
+			return
+		}
+		e2 = helper.MsgPackUnMarshal(kvs[0].V, &vo)
+	}()
+	wg.Wait()
+
+	if e1 != nil {
+		return nil, e1
+	} else if e2 != nil {
+		return nil, e2
 	}
-	versionStartKey := genObjectKey(bucketName, objectName, TableMinKeySuffix)
-	versionEndKey := genObjectKey(bucketName, objectName, TableMaxKeySuffix)
-	kvs, err := c.TxScan(key.Key(versionStartKey), key.Key(versionEndKey), 1, txn)
-	if err != nil {
-		return nil, err
-	}
+
 	if !nullObjExist && len(kvs) == 0 {
 		return nil, ErrNoSuchKey
 	} else if !nullObjExist {
-		err = helper.MsgPackUnMarshal(kvs[0].V, &vo)
-		if err != nil {
-			return nil, err
-		}
 		retObj = vo
 	} else if len(kvs) == 0 {
 		retObj = o
 	} else {
-		err = helper.MsgPackUnMarshal(kvs[0].V, &vo)
-		if err != nil {
-			return nil, err
-		}
 		ro := helper.Ternary(o.CreateTime > vo.CreateTime, o, vo)
 		retObj = ro.(Object)
 	}
