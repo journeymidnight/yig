@@ -313,7 +313,7 @@ func (t *TidbClient) AppendObject(object *Object, updateUsage bool) (err error) 
 	}
 
 	if updateUsage {
-		err = t.UpdateUsage(object.BucketName, object.Size, tx)
+		err = t.UpdateUsage(object.BucketName, object.DeltaSize, tx)
 		if err != nil {
 			return err
 		}
@@ -344,7 +344,7 @@ func (t *TidbClient) UpdateAppendObject(object *Object, olderObject *Object) (er
 		_, err = tx.Exec(sql, args...)
 	}
 
-	return t.UpdateUsage(object.BucketName, object.Size-olderObject.Size, tx)
+	return t.UpdateUsage(object.BucketName, object.DeltaSize, tx)
 }
 
 func (t *TidbClient) MigrateObject(object *Object) (err error) {
@@ -466,7 +466,7 @@ func (t *TidbClient) UpdateObject(object *Object, multipart *Multipart, updateUs
 	}
 
 	if updateUsage {
-		err = t.UpdateUsage(object.BucketName, object.Size, tx)
+		err = t.UpdateUsage(object.BucketName, object.DeltaSize, tx)
 		if err != nil {
 			return err
 		}

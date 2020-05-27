@@ -35,24 +35,13 @@ require (
 	github.com/confluentinc/confluent-kafka-go v1.0.0 //ct
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dustin/go-humanize v1.0.0
-
 	github.com/go-redis/redis/v7 v7.2.0
-	github.com/go-sql-driver/mysql v1.4.1
-
-	github.com/golang/protobuf v1.3.4
-
-	github.com/golang/snappy v0.0.1
-	github.com/gomodule/redigo v2.0.0+incompatible
-	github.com/google/uuid v1.1.1 // indirect
-
-
 	github.com/go-redis/redis_rate/v8 v8.0.0
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/golang/protobuf v1.3.4
 	github.com/golang/snappy v0.0.1
-
-	github.com/gomodule/redigo v1.7.0
-
+	github.com/gomodule/redigo v2.0.0+incompatible
+	github.com/google/uuid v1.1.1 // indirect
 	github.com/gorilla/mux v1.7.4
 	github.com/journeymidnight/aws-sdk-go v1.18.1
 	github.com/journeymidnight/radoshttpd v0.0.0-20190617133011-609666b51136
@@ -61,18 +50,13 @@ require (
 	github.com/minio/highwayhash v1.0.0
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
 	github.com/robfig/cron v1.2.0
-	github.com/stretchr/testify v1.3.0
+	github.com/stretchr/testify v1.4.0
 	github.com/tikv/client-go v0.0.0-20200110101306-a3ebdb020c83
 	github.com/ugorji/go/codec v0.0.0-20190204201341-e444a5086c43
 	github.com/xxtea/xxtea-go v0.0.0-20170828040851-35c4b17eecf6
-	golang.org/x/sys v0.0.0-20191010194322-b09406accb47
-
-	google.golang.org/appengine v0.0.0-00010101000000-000000000000 // indirect
-	gopkg.in/bufio.v1 v1.0.0-20140618132640-567b2bfa514e
-
 	golang.org/x/crypto v0.0.0-20190325154230-a5d413f7728c // indirect
+	golang.org/x/sys v0.0.0-20191010194322-b09406accb47
 	gopkg.in/bufio.v1 v1.0.0-20140618132640-567b2bfa514e
-
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15
 
 )

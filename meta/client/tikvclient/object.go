@@ -150,7 +150,45 @@ func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage
 }
 
 func (c *TiKVClient) UpdateObject(object *Object, multipart *Multipart, updateUsage bool, tx Tx) (err error) {
-	return c.PutObject(object, multipart, updateUsage)
+	objectKey := genObjectKey(object.BucketName, object.Name, object.VersionId)
+	if tx == nil {
+		tx, err = c.NewTrans()
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err == nil {
+				err = c.CommitTrans(tx)
+			}
+			if err != nil {
+				c.AbortTrans(tx)
+			}
+		}()
+	}
+
+	txn := tx.(*TikvTx).tx
+	if multipart != nil {
+		object.Parts = multipart.Parts
+		err := c.DeleteMultipart(multipart, tx)
+		if err != nil {
+			return err
+		}
+	}
+
+	objectVal, err := helper.MsgPackMarshal(object)
+	if err != nil {
+		return err
+	}
+
+	err = txn.Set(objectKey, objectVal)
+	if err != nil {
+		return err
+	}
+
+	if updateUsage {
+		return c.UpdateUsage(object.BucketName, object.DeltaSize, tx)
+	}
+	return nil
 }
 
 func (c *TiKVClient) RenameObject(object *Object, sourceObject string) (err error) {
@@ -262,7 +300,7 @@ func (c *TiKVClient) AppendObject(object *Object, updateUsage bool) (err error) 
 		}
 	}
 	if updateUsage {
-		err = c.UpdateUsage(object.BucketName, object.Size, tx)
+		err = c.UpdateUsage(object.BucketName, object.DeltaSize, tx)
 		if err != nil {
 			return err
 		}
@@ -343,5 +381,5 @@ func (c *TiKVClient) UpdateAppendObject(object *Object) error {
 			return err
 		}
 	}
-	return c.UpdateUsage(object.BucketName, object.Size, tx)
+	return c.UpdateUsage(object.BucketName, object.DeltaSize, tx)
 }

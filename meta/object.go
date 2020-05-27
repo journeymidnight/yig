@@ -95,6 +95,7 @@ func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multi
 					return deltaInfo, err
 				}
 			}
+
 			err = m.Client.UpdateObject(object, multipart, updateUsage, tx)
 			if err != nil {
 				return deltaInfo, err

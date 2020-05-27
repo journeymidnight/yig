@@ -1179,6 +1179,7 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 		StorageClass:         storageClass,
 		VersionId:            meta.NullVersion,
 		CreateTime:           uint64(now.UnixNano()),
+		DeltaSize:            int64(bytesWritten),
 	}
 
 	result.LastModified = object.LastModifiedTime
