@@ -53,9 +53,9 @@ require (
 	github.com/tikv/client-go v0.0.0-20200110101306-a3ebdb020c83
 	github.com/ugorji/go/codec v0.0.0-20190204201341-e444a5086c43
 	github.com/xxtea/xxtea-go v0.0.0-20170828040851-35c4b17eecf6
-	golang.org/x/sys v0.0.0-20191010194322-b09406accb47
 
 	golang.org/x/crypto v0.0.0-20190325154230-a5d413f7728c // indirect
+	golang.org/x/sys v0.0.0-20191010194322-b09406accb47
 	gopkg.in/bufio.v1 v1.0.0-20140618132640-567b2bfa514e
 	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15
 )

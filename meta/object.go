@@ -92,6 +92,7 @@ func (m *Meta) PutObject(reqCtx RequestContext, object *Object, multipart *Multi
 					return err
 				}
 			}
+			object.DeltaSize = object.Size - reqCtx.ObjectInfo.Size
 			return m.Client.UpdateObject(object, multipart, updateUsage, tx)
 		} else {
 			return m.Client.PutObject(object, multipart, updateUsage)

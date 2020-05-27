@@ -117,8 +117,11 @@ func (c *TiKVClient) PutObjectPart(multipart *Multipart, part *Part) (err error)
 	if err != nil {
 		return err
 	}
-
-	return c.UpdateUsage(multipart.BucketName, part.Size, tx)
+	var removedSize int64 = 0
+	if part, ok := multipart.Parts[part.PartNumber]; ok {
+		removedSize += part.Size
+	}
+	return c.UpdateUsage(multipart.BucketName, part.Size-removedSize, tx)
 }
 
 func (c *TiKVClient) DeleteMultipart(multipart *Multipart, tx Tx) error {

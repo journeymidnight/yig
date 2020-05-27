@@ -43,6 +43,8 @@ type Object struct {
 	Type         ObjectType
 	StorageClass StorageClass
 	CreateTime   uint64 // Timestamp(nanosecond)
+
+	DeltaSize int64 // record delta size when update
 }
 
 type ObjectType int
