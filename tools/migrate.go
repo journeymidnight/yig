@@ -30,6 +30,7 @@ const (
 	TASKQ_MAX_LENGTH    = 200
 	SCAN_LIMIT          = 50
 	DEFAULT_MG_LOG_PATH = "/var/log/yig/migrate.log"
+	MIGRATE_JOB_MUTEX   = "MIGRATE_JOB_MUTEX"
 )
 
 var (
@@ -170,11 +171,38 @@ func checkAndDoMigrate(index int) {
 }
 
 func getHotObjects() {
+
 	helper.Logger.Info("getHotObjects thread start")
 	var customattributes, acl, lastModifiedTime string
 	var sqltext string
 	var rows *sql.Rows
 	var err error
+	var mutex *redislock.Lock
+
+	for {
+		// Try to obtain lock.
+		mutex, err = redis.Locker.Obtain(MIGRATE_JOB_MUTEX, 10*time.Second, nil)
+		if err == redislock.ErrNotObtained {
+			helper.Logger.Info("Lock object failed, sleep 30s:", MIGRATE_JOB_MUTEX)
+			time.Sleep(30 * time.Second)
+			continue
+		} else if err != nil {
+			helper.Logger.Error("Lock seems does not work, so quit", err.Error())
+			signalQueue <- syscall.SIGQUIT
+			return
+		}
+		break
+	}
+	defer func() {
+		mutex.Release()
+		mux.Lock()
+		delete(mutexs, mutex.Key())
+		mux.Unlock()
+	}()
+
+	mux.Lock()
+	mutexs[mutex.Key()] = mutex
+	mux.Unlock()
 	client := tidbclient.NewTidbClient()
 	for {
 		if mgStop {
