@@ -88,7 +88,9 @@ func (c *TiKVClient) GetLatestObjectVersion(bucketName, objectName string) (obje
 		if e2 != nil {
 			return
 		}
-		e2 = helper.MsgPackUnMarshal(kvs[0].V, &vo)
+		if len(kvs) != 0 {
+			e2 = helper.MsgPackUnMarshal(kvs[0].V, &vo)
+		}
 	}()
 	wg.Wait()
 
