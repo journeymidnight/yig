@@ -74,4 +74,8 @@ type Client interface {
 	GetFreezerStatus(bucketName, objectName, version string) (freezer *Freezer, err error)
 	UpdateFreezerDate(bucketName, objectName, version string, lifetime int) (err error)
 	DeleteFreezer(bucketName, objectName, versionId string, objectType ObjectType, createTime uint64, tx Tx) (err error)
+
+	//qos
+	GetAllUserQos() (userQos map[string]UserQos, err error)
+	GetAllUserBuckets() (bucketUser map[string]string, err error)
 }

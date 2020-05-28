@@ -182,7 +182,9 @@ func (yig *YigStorage) PutObjectPart(reqCtx RequestContext, credential common.Cr
 	if err != nil {
 		return
 	}
-	objectId, bytesWritten, err := cluster.Put(poolName, storageReader)
+
+	throttleReader := yig.MetaStorage.QosMeta.NewThrottleReader(bucketName, storageReader)
+	objectId, bytesWritten, err := cluster.Put(poolName, throttleReader)
 	if err != nil {
 		return
 	}
@@ -296,7 +298,9 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	if err != nil {
 		return
 	}
-	objectId, bytesWritten, err := cephCluster.Put(poolName, storageReader)
+
+	throttleReader := yig.MetaStorage.QosMeta.NewThrottleReader(bucketName, storageReader)
+	objectId, bytesWritten, err := cephCluster.Put(poolName, throttleReader)
 	if err != nil {
 		return
 	}

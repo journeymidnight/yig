@@ -197,6 +197,7 @@ const (
 	ErrInvalidGlacierObject
 	ErrObjectMovedPermanently
 	ErrObjectMutexProtected
+	ErrRequestLimitExceeded
 )
 
 // error code to APIError structure, these fields carry respective
@@ -943,6 +944,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "ServiceTemporaryMaintenance",
 		Description:    "Temporary maintenance, please retry your request",
 		HttpStatusCode: http.StatusServiceUnavailable,
+	},
+	ErrRequestLimitExceeded: {
+		AwsErrorCode:   "ErrRequestLimitExceeded",
+		Description:    "Request limit exceeded",
+		HttpStatusCode: http.StatusTooManyRequests,
 	},
 }
 

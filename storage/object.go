@@ -279,6 +279,9 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 		}
 	}
 
+	// throttle write speed as needed
+	writer = yig.MetaStorage.QosMeta.NewThrottleWriter(object.BucketName, writer)
+
 	if len(object.Parts) == 0 { // this object has only one part
 		cephCluster, ok := yig.DataStorage[object.Location]
 		if !ok {
@@ -626,7 +629,9 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 	if err != nil {
 		return
 	}
-	objectId, bytesWritten, err := cluster.Put(poolName, storageReader)
+
+	throttleReader := yig.MetaStorage.QosMeta.NewThrottleReader(bucketName, storageReader)
+	objectId, bytesWritten, err := cluster.Put(poolName, throttleReader)
 	if err != nil {
 		return
 	}
@@ -855,7 +860,8 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 					}
 				}
 				storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
-				oid, bytesW, err = cephCluster.Put(poolName, storageReader)
+				throttleReader := yig.MetaStorage.QosMeta.NewThrottleReader(targetBucket.Name, storageReader)
+				oid, bytesW, err = cephCluster.Put(poolName, throttleReader)
 				maybeObjectToRecycle = objectToRecycle{
 					location: cephCluster.ID(),
 					pool:     poolName,
@@ -907,7 +913,8 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 			return
 		}
 		var bytesWritten uint64
-		oid, bytesWritten, err = cephCluster.Put(poolName, storageReader)
+		throttleReader := yig.MetaStorage.QosMeta.NewThrottleReader(targetBucket.Name, storageReader)
+		oid, bytesWritten, err = cephCluster.Put(poolName, throttleReader)
 		if err != nil {
 			return
 		}
@@ -1082,7 +1089,9 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 	if err != nil {
 		return
 	}
-	oid, bytesWritten, err := cephCluster.Append(poolName, oid, storageReader, int64(offset))
+
+	throttleReader := yig.MetaStorage.QosMeta.NewThrottleReader(bucketName, storageReader)
+	oid, bytesWritten, err := cephCluster.Append(poolName, oid, throttleReader, int64(offset))
 	if err != nil {
 		helper.Logger.Error("cephCluster.Append err:", err, poolName, oid, offset)
 		return

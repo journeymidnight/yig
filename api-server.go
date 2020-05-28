@@ -69,6 +69,8 @@ func configureServerHandler(c *ServerConfig) http.Handler {
 		api.SetGracefulStopHandler,
 		// Add new handlers here.
 
+		api.SetQosHandler,
+
 		api.SetLogHandler,
 
 		api.NewAccessLogHandler,

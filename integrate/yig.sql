@@ -316,3 +316,11 @@ CREATE TABLE `lifecycle` (
   `endtime` bigint(20) UNSIGNED NOT NULL,
   UNIQUE KEY `rowkey` (`bucketname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
+
+DROP TABLE IF EXISTS `qos`;
+CREATE TABLE `qos` (
+    `userid` varchar(255) PRIMARY KEY NOT NULL DEFAULT '',
+    `read_qps` int NOT NULL DEFAULT 0 COMMENT 'read query per second',
+    `write_qps` int NOT NULL DEFAULT 0 COMMENT 'write query per second',
+    `bandwidth` int NOT NULL DEFAULT 0 COMMENT 'in KiB per second'
+);
