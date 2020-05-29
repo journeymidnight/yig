@@ -1,0 +1,38 @@
+# the config of yig-restore
+log_path = "/var/log/yig/restore.log"
+log_level = "info"
+piggyback_update_usage = true
+enable_compression = false
+
+enable_restore_object_cron = true
+restore_object_spec = "@hourly"
+lock_time = 45          # 45min, Note that the time set here must be greater than the refresh time, otherwise it will cause the lock to be released in advance to complete the operation
+refresh_lock_time = 30  # @every 30m
+
+# Ceph Config
+ceph_config_pattern = "/etc/ceph/*.conf"
+download_buf_pool_size = 8388608 #8MB
+upload_min_chunk_size = 524288 #512KB
+upload_max_chunk_size = 8388608 #8MB
+
+# Database Config
+db_store = "tidb"
+tidb_info = "root:@tcp(10.5.0.17:4000)/yig"
+db_max_open_conns = 10240
+db_max_idle_conns = 1024
+db_conn_max_life_seconds = 300
+
+# Cache Config
+redis_store = "single"
+redis_address = "redis:6379"
+redis_group = ["redis:6379"]
+redis_password = "hehehehe"
+redis_connect_timeout = 1
+redis_read_timeout = 1
+redis_write_timeout = 1
+redis_pool_idle_timeout = 30
+
+# Plugin Config
+[plugins.snappy]
+path = "/etc/yig/plugins/snappy_restore_plugin.so"
+enable = true

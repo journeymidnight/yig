@@ -1,0 +1,16 @@
+[Unit]
+Description=yig-restore
+After=network.target
+
+[Service]
+LimitAS=infinity
+LimitRSS=infinity
+LimitCORE=infinity
+LimitNOFILE=65535
+Type=simple
+ExecStart=/usr/bin/yig-restore
+ExecStop=/usr/bin/kill $MAINPID
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
