@@ -21,6 +21,7 @@ const (
 	TableGcPrefix         = "g"
 	TableFreezerPrefix    = "f"
 	TableHotObjectPrefix  = "h"
+	TableQoSPrefix        = "q"
 )
 
 var (
