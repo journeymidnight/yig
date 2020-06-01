@@ -13,7 +13,7 @@ import (
 )
 
 // **Key**: {BucketName}\{ObjectName}
-// **Versioned Key**: v\{BucketName}\{ObjectName}\{Version}
+// **Versioned Key**: {BucketName}\{ObjectName}\{Version}
 // Version = hex.EncodeToString(BigEndian(MaxUint64 - object.LastModifiedTime.UnixNano()))
 func genObjectKey(bucketName, objectName, version string) []byte {
 	if version == NullVersion {

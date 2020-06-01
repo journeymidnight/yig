@@ -14,6 +14,7 @@ import (
 	"github.com/tikv/client-go/key"
 )
 
+// **Key**: b\{BucketName}
 func genBucketKey(bucketName string) []byte {
 	return GenKey(TableBucketPrefix, bucketName)
 }

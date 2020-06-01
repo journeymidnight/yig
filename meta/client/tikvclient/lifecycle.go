@@ -8,7 +8,7 @@ import (
 	"github.com/tikv/client-go/key"
 )
 
-// **Key**: {BucketName}\{ObjectName}
+// **Key**: l\{BucketName}
 func genLifecycleKey(bucketName string) []byte {
 	return GenKey(TableLifeCyclePrefix, bucketName)
 }
