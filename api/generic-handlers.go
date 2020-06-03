@@ -241,7 +241,6 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	reqCtx.AuthType = authType
 	reqCtx.Mutex = nil
 
-	ctx := context.WithValue(r.Context(), RequestContextKey, reqCtx)
 	logger.Info("BucketName:", reqCtx.BucketName, "ObjectName:", reqCtx.ObjectName, "BucketExist:",
 		reqCtx.BucketInfo != nil, "ObjectExist:", reqCtx.ObjectInfo != nil, "AuthType:", authType, "VersionId:", reqCtx.VersionId)
 	//if it is a modification operation to a appendable object, lock it
@@ -258,12 +257,7 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 			}
 		}
 	}
-
-	defer func() {
-		if reqCtx.Mutex != nil {
-			reqCtx.Mutex.Release()
-		}
-	}()
+	ctx := context.WithValue(r.Context(), RequestContextKey, reqCtx)
 	h.handler.ServeHTTP(w, r.WithContext(ctx))
 
 }
