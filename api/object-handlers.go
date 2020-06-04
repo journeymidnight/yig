@@ -1150,7 +1150,9 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "AppendObject"
-
+	if reqCtx.Mutex != nil {
+		reqCtx.Mutex.Release()
+	}
 	WriteSuccessResponse(w, nil)
 }
 

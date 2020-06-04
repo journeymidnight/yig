@@ -249,6 +249,10 @@ func WriteSuccessNoContent(w http.ResponseWriter) {
 
 // writeErrorResponse write error headers
 func WriteErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
+	reqCtx := GetRequestContext(r)
+	if reqCtx.Mutex != nil {
+		reqCtx.Mutex.Release()
+	}
 	handled := WriteErrorResponseHeaders(w, r, err)
 	if !handled {
 		WriteErrorResponseNoHeader(w, r, err, r.URL.Path)
