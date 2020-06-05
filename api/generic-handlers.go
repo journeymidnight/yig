@@ -100,7 +100,7 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			WriteErrorResponse(w, r, ErrInvalidHeader)
 			return
 		}
-		WriteSuccessResponse(w, nil)
+		WriteSuccessResponse(w, r, nil)
 		return
 	}
 
@@ -257,6 +257,7 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 			}
 		}
 	}
+
 	ctx := context.WithValue(r.Context(), RequestContextKey, reqCtx)
 	h.handler.ServeHTTP(w, r.WithContext(ctx))
 
