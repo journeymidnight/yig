@@ -66,7 +66,7 @@ func (api ObjectAPIHandlers) GetBucketLocationHandler(w http.ResponseWriter, r *
 	})
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "GetBucketLocation"
-	WriteSuccessResponse(w, encodedSuccessResponse)
+	WriteSuccessResponse(w, r, encodedSuccessResponse)
 }
 
 // ListMultipartUploadsHandler - GET Bucket (List Multipart uploads)
@@ -114,7 +114,7 @@ func (api ObjectAPIHandlers) ListMultipartUploadsHandler(w http.ResponseWriter, 
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "ListMultipartUploads"
 	// write success response.
-	WriteSuccessResponse(w, encodedSuccessResponse)
+	WriteSuccessResponse(w, r, encodedSuccessResponse)
 }
 
 // ListObjectsHandler - GET Bucket (List Objects)
@@ -168,7 +168,7 @@ func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "ListObjects"
 	// Write success response.
-	WriteSuccessResponse(w, encodedSuccessResponse)
+	WriteSuccessResponse(w, r, encodedSuccessResponse)
 	return
 }
 
@@ -213,7 +213,7 @@ func (api ObjectAPIHandlers) ListVersionedObjectsHandler(w http.ResponseWriter, 
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "ListVersionedObjects"
 	// Write success response.
-	WriteSuccessResponse(w, encodedSuccessResponse)
+	WriteSuccessResponse(w, r, encodedSuccessResponse)
 	return
 }
 
@@ -242,7 +242,7 @@ func (api ObjectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.R
 	response := GenerateListBucketsResponse(bucketsInfo, credential)
 	encodedSuccessResponse := EncodeResponse(response)
 	// write response
-	WriteSuccessResponse(w, encodedSuccessResponse)
+	WriteSuccessResponse(w, r, encodedSuccessResponse)
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "ListBuckets"
 	return
@@ -351,7 +351,7 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "DeleteMultipleObjects"
 	// Write success response.
-	WriteSuccessResponse(w, encodedSuccessResponse)
+	WriteSuccessResponse(w, r, encodedSuccessResponse)
 }
 
 // PutBucketHandler - PUT Bucket
@@ -399,7 +399,7 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 	w.Header().Set("Location", GetLocation(r))
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "PutBucket"
-	WriteSuccessResponse(w, nil)
+	WriteSuccessResponse(w, r, nil)
 }
 
 func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *http.Request) {
@@ -435,7 +435,7 @@ func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *h
 	}
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "PutBucketLogging"
-	WriteSuccessResponse(w, nil)
+	WriteSuccessResponse(w, r, nil)
 }
 
 func (api ObjectAPIHandlers) GetBucketLoggingHandler(w http.ResponseWriter, r *http.Request) {
@@ -489,7 +489,7 @@ func (api ObjectAPIHandlers) GetBucketLoggingHandler(w http.ResponseWriter, r *h
 	setXmlHeader(w)
 	//ResponseRecorder
 	w.(*ResponseRecorder).operationName = "GetBucketLogging"
-	WriteSuccessResponse(w, blBuffer)
+	WriteSuccessResponse(w, r, blBuffer)
 
 }
 
@@ -536,7 +536,7 @@ func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.
 	}
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "PutBucketAcl"
-	WriteSuccessResponse(w, nil)
+	WriteSuccessResponse(w, r, nil)
 }
 
 func (api ObjectAPIHandlers) GetBucketAclHandler(w http.ResponseWriter, r *http.Request) {
@@ -580,7 +580,7 @@ func (api ObjectAPIHandlers) GetBucketAclHandler(w http.ResponseWriter, r *http.
 	setXmlHeader(w)
 	//ResponseRecorder
 	w.(*ResponseRecorder).operationName = "GetBucketAcl"
-	WriteSuccessResponse(w, aclBuffer)
+	WriteSuccessResponse(w, r, aclBuffer)
 }
 
 func (api ObjectAPIHandlers) PutBucketCorsHandler(w http.ResponseWriter, r *http.Request) {
@@ -626,7 +626,7 @@ func (api ObjectAPIHandlers) PutBucketCorsHandler(w http.ResponseWriter, r *http
 	}
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "PutBucketCors"
-	WriteSuccessResponse(w, nil)
+	WriteSuccessResponse(w, r, nil)
 }
 
 func (api ObjectAPIHandlers) DeleteBucketCorsHandler(w http.ResponseWriter, r *http.Request) {
@@ -678,7 +678,7 @@ func (api ObjectAPIHandlers) GetBucketCorsHandler(w http.ResponseWriter, r *http
 	setXmlHeader(w)
 	//ResponseRecorder
 	w.(*ResponseRecorder).operationName = "GetBucketCors"
-	WriteSuccessResponse(w, corsBuffer)
+	WriteSuccessResponse(w, r, corsBuffer)
 }
 
 func (api ObjectAPIHandlers) GetBucketVersioningHandler(w http.ResponseWriter, r *http.Request) {
@@ -710,7 +710,7 @@ func (api ObjectAPIHandlers) GetBucketVersioningHandler(w http.ResponseWriter, r
 	setXmlHeader(w)
 	//ResponseRecorder
 	w.(*ResponseRecorder).operationName = "GetBucketVersioning"
-	WriteSuccessResponse(w, versioningBuffer)
+	WriteSuccessResponse(w, r, versioningBuffer)
 }
 
 func (api ObjectAPIHandlers) PutBucketVersioningHandler(w http.ResponseWriter, r *http.Request) {
@@ -757,7 +757,7 @@ func (api ObjectAPIHandlers) PutBucketVersioningHandler(w http.ResponseWriter, r
 	}
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "PutBucketVersioning"
-	WriteSuccessResponse(w, nil)
+	WriteSuccessResponse(w, r, nil)
 }
 
 // HeadBucketHandler - HEAD Bucket
@@ -794,7 +794,7 @@ func (api ObjectAPIHandlers) HeadBucketHandler(w http.ResponseWriter, r *http.Re
 	}
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "HeadBucket"
-	WriteSuccessResponse(w, nil)
+	WriteSuccessResponse(w, r, nil)
 }
 
 // DeleteBucketHandler - Delete bucket

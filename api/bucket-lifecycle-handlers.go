@@ -38,7 +38,7 @@ func (api ObjectAPIHandlers) PutBucketLifeCycleHandler(w http.ResponseWriter, r 
 	}
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "PutBucketLifeCycle"
-	WriteSuccessResponse(w, nil)
+	WriteSuccessResponse(w, r, nil)
 }
 
 func (api ObjectAPIHandlers) GetBucketLifeCycleHandler(w http.ResponseWriter, r *http.Request) {
@@ -87,7 +87,7 @@ func (api ObjectAPIHandlers) GetBucketLifeCycleHandler(w http.ResponseWriter, r 
 	setXmlHeader(w)
 	//ResponseRecorder
 	w.(*ResponseRecorder).operationName = "GetBucketLifeCycle"
-	WriteSuccessResponse(w, lcBuffer)
+	WriteSuccessResponse(w, r, lcBuffer)
 }
 
 func (api ObjectAPIHandlers) DelBucketLifeCycleHandler(w http.ResponseWriter, r *http.Request) {
