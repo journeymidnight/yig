@@ -1020,6 +1020,7 @@ func (yig *YigStorage) removeObjectVersion(bucketName, objectName, version strin
 func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Credential,
 	offset uint64, size int64, data io.ReadCloser, metadata map[string]string, acl datatype.Acl,
 	sseRequest datatype.SseRequest, storageClass StorageClass, objInfo *meta.Object) (result datatype.AppendObjectResult, err error) {
+	prepareStart := time.Now()
 	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
 	defer data.Close()
 	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, bucketName, objectName)
@@ -1091,12 +1092,13 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 	}
 
 	throttleReader := yig.MetaStorage.QosMeta.NewThrottleReader(bucketName, storageReader)
+	prepareEnd := time.Now()
 	oid, bytesWritten, err := cephCluster.Append(poolName, oid, throttleReader, int64(offset), size)
 	if err != nil {
 		helper.Logger.Error("cephCluster.Append err:", err, poolName, oid, offset)
 		return
 	}
-
+	appendEnd := time.Now()
 	if int64(bytesWritten) < size {
 		return result, ErrIncompleteBody
 	}
@@ -1145,18 +1147,24 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 
 	result.LastModified = object.LastModifiedTime
 	result.NextPosition = object.Size
-	helper.Logger.Info("Append info.", "bucket:", bucketName, "objName:", objectName, "oid:", oid,
-		"objSize:", object.Size, "bytesWritten:", bytesWritten, "storageClass:", storageClass)
+	md5End := time.Now()
 	err = yig.MetaStorage.AppendObject(object, objInfo != nil)
 	if err != nil {
 		return
 	}
-
+	metaEnd := time.Now()
 	if err == nil {
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":"+meta.NullVersion)
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.VersionId)
 	}
-
+	redisEnd := time.Now()
+	helper.Logger.Info("Append info.", "bucket:", bucketName, "objName:", objectName, "oid:", oid,
+		"objSize:", object.Size, "bytesWritten:", bytesWritten, "storageClass:", storageClass,
+		"prepareCost:", prepareEnd.Sub(prepareStart).Milliseconds(),
+		"appendCost:", appendEnd.Sub(prepareEnd).Milliseconds(),
+		"md5Cost:", md5End.Sub(appendEnd).Milliseconds(),
+		"metaCost:", metaEnd.Sub(md5End).Milliseconds(),
+		"redisCost:", redisEnd.Sub(metaEnd).Milliseconds())
 	return result, nil
 }
 

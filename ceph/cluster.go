@@ -207,21 +207,25 @@ func (cluster *CephCluster) doSmallAppend(poolname string, oid string, offset ui
 	var slice = wBuf[:]
 	for {
 		singltReadStart := time.Now()
-		count, _ := data.Read(slice)
+		count, err := data.Read(slice)
 		singltReadEnd := time.Now()
-		if count == 0 {
-			break
+		if err != io.EOF && err != nil {
+			return 0, errors.New("Read from client failed")
 		}
-		helper.Logger.Info("Append info doSmallAppend count", count, " ", singltReadEnd.Sub(singltReadStart).Milliseconds())
+		helper.Logger.Info("Append info doSmallAppend oid:", oid, " count: ", count, " spend: ", singltReadEnd.Sub(singltReadStart).Milliseconds())
 		// it's used to calculate next upload window
 		slice_offset += count
 		slice = wBuf[slice_offset:]
+		if err == io.EOF {
+			break
+		}
 	}
 
-	if (err != io.EOF && err != nil) || slice_offset < int(length) {
-		helper.Logger.Info("Append info doSmallAppend *************************", slice_offset, length)
-		return 0, errors.New("Read from client failed")
+	if slice_offset < int(length) {
+		helper.Logger.Error("Append info doSmallAppend read data less than content-length", slice_offset, length)
+		return 0, errors.New("Read data less than content-length")
 	}
+
 	readEnd := time.Now()
 	size = uint64(len(wBuf))
 
@@ -231,7 +235,7 @@ func (cluster *CephCluster) doSmallAppend(poolname string, oid string, offset ui
 	if err != nil {
 		return 0, err
 	}
-	helper.Logger.Info("Append info  doSmallAppend oid:", oid, " offset:", offset, " sise:", size, " make cost:", makePoint.Sub(readStart).Milliseconds(), " read cost:", readEnd.Sub(readStart).Milliseconds(), " write cost:", writeEnd.Sub(writeStart).Milliseconds())
+	helper.Logger.Info("Append info doSmallAppend oid:", oid, " offset:", offset, " sise:", size, " make cost:", makePoint.Sub(readStart).Milliseconds(), " read cost:", readEnd.Sub(readStart).Milliseconds(), " write cost:", writeEnd.Sub(writeStart).Milliseconds())
 	return size, nil
 }
 

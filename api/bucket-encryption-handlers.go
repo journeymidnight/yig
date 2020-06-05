@@ -1,13 +1,14 @@
 package api
 
 import (
+	"io"
+	"net/http"
+
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/signature"
-	"io"
-	"net/http"
 )
 
 func (api ObjectAPIHandlers) PutBucketEncryptionHandler(w http.ResponseWriter, r *http.Request) {
@@ -58,7 +59,7 @@ func (api ObjectAPIHandlers) PutBucketEncryptionHandler(w http.ResponseWriter, r
 
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "PutBucketEncryption"
-	WriteSuccessResponse(w, nil)
+	WriteSuccessResponse(w, r, nil)
 
 }
 
@@ -107,7 +108,7 @@ func (api ObjectAPIHandlers) GetBucketEncryptionHandler(w http.ResponseWriter, r
 	//ResponseRecorder
 	w.(*ResponseRecorder).operationName = "GetBucketEncryption"
 	// Write to client.
-	WriteSuccessResponse(w, encodedSuccessResponse)
+	WriteSuccessResponse(w, r, encodedSuccessResponse)
 }
 
 func (api ObjectAPIHandlers) DeleteBucketEncryptionHandler(w http.ResponseWriter, r *http.Request) {
