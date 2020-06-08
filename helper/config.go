@@ -95,6 +95,10 @@ type Config struct {
 	UploadMinChunkSize  int64 `toml:"upload_min_chunk_size"`
 	UploadMaxChunkSize  int64 `toml:"upload_max_chunk_size"`
 	BigFileThreshold    int64 `toml:"big_file_threshold"`
+
+	DefaultReadOps       int `toml:"default_read_ops"`
+	DefaultWriteOps      int `toml:"default_write_ops"`
+	DefaultBandwidthKBps int `toml:"default_bandwidth_kbps"`
 }
 
 type PluginConfig struct {
@@ -199,6 +203,10 @@ func MarshalTOMLConfig() error {
 	CONFIG.UploadMinChunkSize = Ternary(c.UploadMinChunkSize < MIN_BUFFER_SIZE || c.UploadMinChunkSize > MAX_BUFEER_SIZE, MIN_BUFFER_SIZE, c.UploadMinChunkSize).(int64)
 	CONFIG.UploadMaxChunkSize = Ternary(c.UploadMaxChunkSize < CONFIG.UploadMinChunkSize || c.UploadMaxChunkSize > MAX_BUFEER_SIZE, MAX_BUFEER_SIZE, c.UploadMaxChunkSize).(int64)
 	CONFIG.BigFileThreshold = Ternary(c.BigFileThreshold == 0, int64(1048576), c.BigFileThreshold).(int64)
+
+	CONFIG.DefaultReadOps = Ternary(c.DefaultReadOps <= 0, 2000, c.DefaultReadOps).(int)
+	CONFIG.DefaultWriteOps = Ternary(c.DefaultWriteOps <= 0, 1000, c.DefaultWriteOps).(int)
+	CONFIG.DefaultBandwidthKBps = Ternary(c.DefaultBandwidthKBps <= 0, 102400, c.DefaultBandwidthKBps).(int)
 	return nil
 }
 
