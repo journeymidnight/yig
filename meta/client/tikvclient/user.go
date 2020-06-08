@@ -34,6 +34,7 @@ func (c *TiKVClient) GetUserBuckets(userId string) (buckets []string, err error)
 }
 
 func (c *TiKVClient) GetAllUserBuckets() (bucketUser map[string]string, err error) {
+	bucketUser = make(map[string]string)
 	startKey := GenKey(TableUserBucketPrefix, TableMinKeySuffix)
 	endKey := GenKey(TableUserBucketPrefix, TableMaxKeySuffix)
 	kvs, err := c.TxScan(startKey, endKey, math.MaxInt64, nil)
