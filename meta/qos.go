@@ -13,12 +13,6 @@ import (
 	"github.com/journeymidnight/yig/meta/types"
 )
 
-const (
-	defaultReadQps       = 2000
-	defaultWriteQps      = 1000
-	defaultBandwidthKBps = 100 * 1024 // 100 MBps
-)
-
 type QosMeta struct {
 	client      client.Client
 	rateLimiter *redis_rate.Limiter
@@ -68,7 +62,7 @@ func (m *QosMeta) AllowReadQuery(bucketName string) (allow bool) {
 	userID := m.bucketUser[bucketName]
 	qps := m.userQosLimit[userID].ReadQps
 	if qps <= 0 {
-		qps = defaultReadQps
+		qps = helper.CONFIG.DefaultReadOps
 	}
 	key := fmt.Sprintf("user_rqps_%s", userID)
 	// the key actually used in redis would have a prefix "rate:"
@@ -83,7 +77,7 @@ func (m *QosMeta) AllowWriteQuery(bucketName string) (allow bool) {
 	userID := m.bucketUser[bucketName]
 	qps := m.userQosLimit[userID].WriteQps
 	if qps <= 0 {
-		qps = defaultWriteQps
+		qps = helper.CONFIG.DefaultWriteOps
 	}
 	key := fmt.Sprintf("user_wqps_%s", userID)
 	// the key actually used in redis would have a prefix "rate:"
@@ -98,7 +92,7 @@ func (m *QosMeta) newThrottler(bucketName string, defaultBufferSize int64) throt
 	userID := m.bucketUser[bucketName]
 	bandwidthKBps := m.userQosLimit[userID].Bandwidth
 	if bandwidthKBps <= 0 {
-		bandwidthKBps = defaultBandwidthKBps
+		bandwidthKBps = helper.CONFIG.DefaultBandwidthKBps
 	}
 	t := throttler{
 		rateLimiter:  m.rateLimiter,

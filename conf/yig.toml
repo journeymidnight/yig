@@ -66,6 +66,11 @@ mg_thread = 1
 mg_scan_interval = 600
 mg_object_cooldown = 3600
 
+# Qos
+default_read_ops = 2000
+default_write_ops = 1000
+default_bandwidth_kbps = 102400 # 100MB
+
 # Ceph Config
 ceph_config_pattern = "/etc/ceph/*.conf"
 
