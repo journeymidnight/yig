@@ -245,7 +245,8 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		reqCtx.BucketInfo != nil, "ObjectExist:", reqCtx.ObjectInfo != nil, "AuthType:", authType, "VersionId:", reqCtx.VersionId)
 	//if it is a modification operation to a appendable object, lock it
 	if reqCtx.ObjectInfo != nil {
-		if reqCtx.ObjectInfo.Type == types.ObjectTypeAppendable && reqCtx.ObjectInfo.Pool == backend.SMALL_FILE_POOLNAME && r.Method != http.MethodGet {
+		if reqCtx.ObjectInfo.Type == types.ObjectTypeAppendable && reqCtx.ObjectInfo.Pool == backend.SMALL_FILE_POOLNAME &&
+			(r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodDelete) {
 			// as this request is sent to ssd, 5 seconds should be enough
 			reqCtx.Mutex, err = redis.Locker.Obtain(redis.GenMutexKey(reqCtx.ObjectInfo), 5*time.Second, nil)
 			if err == redislock.ErrNotObtained {
@@ -254,7 +255,10 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 				return
 			} else if err != nil {
 				helper.Logger.Error("Lock seems does not work, check redis config and aliveness, but continue this request", err.Error())
+			} else {
+				helper.Logger.Info("Lock object success", reqCtx.ObjectInfo.BucketName, reqCtx.ObjectName, reqCtx.ObjectInfo.ObjectId, reqCtx.ObjectInfo.VersionId)
 			}
+
 		}
 	}
 
