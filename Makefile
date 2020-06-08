@@ -55,4 +55,6 @@ integrate: env build run runlc runmigrate
 
 clean:
 	cd integrate && docker-compose stop && docker-compose rm --force &&rm -rf cephconf
-	rm -rf build
+	docker stop yig
+    docker stop lc
+   	rm -rf build

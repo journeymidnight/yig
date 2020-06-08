@@ -1,10 +1,95 @@
+---
 kind: pipeline
-type: docker
-name: default
+type: exec
+name: yig
+
+platform:
+  os: linux
+  arch: amd64
+
+clone:
+  disable: true
 
 steps:
-- name: greeting
-  image: alpine
+- name: build & test
   commands:
-  - echo hello
-  - echo world
+  - git clone http://10.0.45.221/Storage-oss-service/yig.git .
+  - git fetch origin develop
+  - git checkout $DRONE_COMMIT
+  - docker version
+  - sudo yum update golang -y
+  - cp integrate/resources/* /etc/yum.repos.d/
+  - yum makecache
+  - sudo yum install dnsmasq python librdkafka-dev python2-botocore.noarch -y
+  - sudo sed -i "$ a\address=/.s3.test.com/10.5.0.18" /etc/dnsmasq.conf
+  - sudo sed -i "$ a\address=/.s3-internal.test.com/10.5.0.18" /etc/dnsmasq.conf
+  - sudo service dnsmasq restart
+  - sudo sed -i "1 i\nameserver 127.0.0.1" /etc/resolv.conf
+  - export GOPROXY=https://goproxy.cn
+  - make build
+  - bash integrate/check_8080.sh
+  - make env
+  - make run
+  - make runlc
+  - make runmigrate
+  - sudo python test/sanity.py
+  - pushd test/go
+  - go test -v
+  - popd
+  - make clean
+  when:
+    event:
+    - push
+
+- name: build and test package
+  commands:
+  - git clone http://10.0.45.221/Storage-oss-service/yig.git .
+  - git fetch origin develop
+  - git checkout $DRONE_COMMIT
+  - export GOPROXY=https://goproxy.cn
+  - make build
+  - bash integrate/check_8080.sh
+  - make env
+  - make run
+  - make runlc
+  - make runmigrate
+  - sudo python test/sanity.py
+  - pushd test/go
+  - go test -v
+  - popd
+  - make clean
+  - make pkg
+  when:
+    event:
+    - tag
+    - pull_request
+  depends_on:
+    - build & test
+
+- name: update package to ftp
+  commands:
+  - cd package
+  - bash update.sh
+  when:
+    branch:
+    - develop
+    event:
+    - pull_request
+  depends_on:
+  - build and test package
+
+- name: update package to s3
+  commands:
+  - curDate=$(date "+%Y%m%d")
+  - s3cmd put *.x86_64.rpm s3://published-packages/yig/$curDate/
+  when:
+    event:
+    - tag
+  depends_on:
+  - build and test package
+
+trigger:
+  event:
+  - push
+  - tag
+  - pull_request
