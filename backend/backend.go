@@ -1,9 +1,10 @@
 package backend
 
 import (
+	"io"
+
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
-	"io"
 )
 
 const (
@@ -26,7 +27,7 @@ type Cluster interface {
 		bytesWritten uint64, err error)
 	// append a new chunk to object, empty existName means new object
 	Append(poolName, existName string, objectChunk io.Reader,
-		offset int64) (objectName string, bytesWritten uint64, err error)
+		offset int64, length int64) (objectName string, bytesWritten uint64, err error)
 	// get a ReadCloser for object, length == 0 means get the whole object
 	GetReader(poolName, objectName string,
 		offset int64, length uint64) (io.ReadCloser, error)

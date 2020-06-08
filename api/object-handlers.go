@@ -27,6 +27,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	. "github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/policy"
@@ -719,7 +720,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	w.(*ResponseRecorder).operationName = "CopyObject"
 
 	// write success response.
-	WriteSuccessResponse(w, encodedSuccessResponse)
+	WriteSuccessResponse(w, r, encodedSuccessResponse)
 	// Explicitly close the reader, to avoid fd leaks.
 	pipeReader.Close()
 }
@@ -804,7 +805,7 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "RenameObject"
 	// write success response.
-	WriteSuccessResponse(w, encodedSuccessResponse)
+	WriteSuccessResponse(w, r, encodedSuccessResponse)
 }
 
 // PutObjectHandler - PUT Object
@@ -959,7 +960,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "PutObject"
 
-	WriteSuccessResponse(w, nil)
+	WriteSuccessResponse(w, r, nil)
 }
 
 // AppendObjectHandler - Append Object
@@ -972,6 +973,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	objectName := reqCtx.ObjectName
 
 	logger.Info("Appending object:", bucketName, objectName)
+	handleStart := time.Now()
 
 	var authType = signature.GetRequestAuthType(r)
 	var err error
@@ -1150,8 +1152,9 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "AppendObject"
-
-	WriteSuccessResponse(w, nil)
+	WriteSuccessResponse(w, r, nil)
+	handleEnd := time.Now()
+	logger.Info("Appending object finish response, cost:", bucketName, objectName, position, size, handleEnd.Sub(handleStart).Milliseconds())
 }
 
 func (api ObjectAPIHandlers) PutObjectMeta(w http.ResponseWriter, r *http.Request) {
@@ -1198,7 +1201,7 @@ func (api ObjectAPIHandlers) PutObjectMeta(w http.ResponseWriter, r *http.Reques
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "PutObjectMeta"
 
-	WriteSuccessResponse(w, nil)
+	WriteSuccessResponse(w, r, nil)
 }
 
 func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http.Request) {
@@ -1292,7 +1295,7 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 
 		// ResponseRecorder
 		w.(*ResponseRecorder).operationName = "RestoreObject"
-		WriteSuccessResponse(w, nil)
+		WriteSuccessResponse(w, r, nil)
 	} else {
 		if freezer.LifeTime != info.Days {
 			err = api.ObjectAPI.UpdateFreezerDate(freezer, info.Days, false)
@@ -1366,7 +1369,7 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "PutObjectAcl"
 
-	WriteSuccessResponse(w, nil)
+	WriteSuccessResponse(w, r, nil)
 }
 
 func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.Request) {
@@ -1414,7 +1417,7 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "GetObjectAcl"
-	WriteSuccessResponse(w, aclBuffer)
+	WriteSuccessResponse(w, r, aclBuffer)
 }
 
 // Multipart objectAPIHandlers
@@ -1502,7 +1505,7 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 	w.(*ResponseRecorder).operationName = "NewMultipartUpload"
 
 	// write success response.
-	WriteSuccessResponse(w, encodedSuccessResponse)
+	WriteSuccessResponse(w, r, encodedSuccessResponse)
 }
 
 // PutObjectPartHandler - Upload part
@@ -1606,7 +1609,7 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 	//ResponseRecorder
 	w.(*ResponseRecorder).operationName = "PutObjectPart"
 
-	WriteSuccessResponse(w, nil)
+	WriteSuccessResponse(w, r, nil)
 }
 
 // Upload part - copy
@@ -1815,7 +1818,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 	w.(*ResponseRecorder).operationName = "CopyObjectPart"
 
 	// write success response.
-	WriteSuccessResponse(w, encodedSuccessResponse)
+	WriteSuccessResponse(w, r, encodedSuccessResponse)
 }
 
 // AbortMultipartUploadHandler - Abort multipart upload
@@ -1896,7 +1899,7 @@ func (api ObjectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 	w.(*ResponseRecorder).operationName = "ListObjectParts"
 
 	// Write success response.
-	WriteSuccessResponse(w, encodedSuccessResponse)
+	WriteSuccessResponse(w, r, encodedSuccessResponse)
 }
 
 // CompleteMultipartUploadHandler - Complete multipart upload
@@ -2007,7 +2010,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	//ResponseRecorder
 	w.(*ResponseRecorder).operationName = "CompleteMultipartUpload"
 	// write success response.
-	WriteSuccessResponse(w, encodedSuccessResponse)
+	WriteSuccessResponse(w, r, encodedSuccessResponse)
 }
 
 // Delete objectAPIHandlers

@@ -125,7 +125,7 @@ func checkAndDoMigrate(index int) {
 		}
 
 		destCluster = yigs[index].PickSpecificCluster(backend.BIG_FILE_POOLNAME)
-		newOid, bytesWritten, err = destCluster.Append(backend.BIG_FILE_POOLNAME, newOid, reader, 0)
+		newOid, bytesWritten, err = destCluster.Append(backend.BIG_FILE_POOLNAME, newOid, reader, 0, 0)
 		if err != nil {
 			helper.Logger.Error("cephCluster.Append err:", err, newOid)
 			goto quit

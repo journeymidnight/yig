@@ -1,6 +1,7 @@
 package ceph
 
 import (
+	"bytes"
 	"container/list"
 	"errors"
 	"fmt"
@@ -171,23 +172,70 @@ func (cluster *CephCluster) doSmallPut(poolname string, oid string, data io.Read
 	return size, nil
 }
 
-func (cluster *CephCluster) doSmallAppend(poolname string, oid string, offset uint64, data io.Reader) (size uint64, err error) {
+func readAll(r io.Reader, capacity int64) (b []byte, err error) {
+	var buf bytes.Buffer
+	// If the buffer overflows, we will get bytes.ErrTooLarge.
+	// Return that as an error. Any other panic remains.
+	defer func() {
+		e := recover()
+		if e == nil {
+			return
+		}
+		if panicErr, ok := e.(error); ok && panicErr == bytes.ErrTooLarge {
+			err = panicErr
+		} else {
+			panic(e)
+		}
+	}()
+	if int64(int(capacity)) == capacity {
+		buf.Grow(int(capacity))
+	}
+	_, err = buf.ReadFrom(r)
+	return buf.Bytes(), err
+}
+
+func (cluster *CephCluster) doSmallAppend(poolname string, oid string, offset uint64, length int64, data io.Reader) (size uint64, err error) {
 	pool, err := cluster.Conn.OpenPool(poolname)
 	if err != nil {
 		return 0, errors.New("Bad poolname")
 	}
 	defer pool.Destroy()
-
-	buf, err := ioutil.ReadAll(data)
-	size = uint64(len(buf))
-	if err != nil {
-		return 0, errors.New("Read from client failed")
+	readStart := time.Now()
+	wBuf := make([]byte, length, length)
+	makePoint := time.Now()
+	slice_offset := 0
+	var slice = wBuf[:]
+	for {
+		singltReadStart := time.Now()
+		count, err := data.Read(slice)
+		singltReadEnd := time.Now()
+		if err != io.EOF && err != nil {
+			return 0, errors.New("Read from client failed")
+		}
+		helper.Logger.Info("Append info doSmallAppend oid:", oid, " count: ", count, " spend: ", singltReadEnd.Sub(singltReadStart).Milliseconds())
+		// it's used to calculate next upload window
+		slice_offset += count
+		slice = wBuf[slice_offset:]
+		if err == io.EOF {
+			break
+		}
 	}
-	err = pool.Write(oid, buf, offset)
+
+	if slice_offset < int(length) {
+		helper.Logger.Error("Append info doSmallAppend read data less than content-length", slice_offset, length)
+		return 0, errors.New("Read data less than content-length")
+	}
+
+	readEnd := time.Now()
+	size = uint64(len(wBuf))
+
+	writeStart := time.Now()
+	err = pool.Write(oid, wBuf, offset)
+	writeEnd := time.Now()
 	if err != nil {
 		return 0, err
 	}
-
+	helper.Logger.Info("Append info doSmallAppend oid:", oid, " offset:", offset, " sise:", size, " make cost:", makePoint.Sub(readStart).Milliseconds(), " read cost:", readEnd.Sub(readStart).Milliseconds(), " write cost:", writeEnd.Sub(writeStart).Milliseconds())
 	return size, nil
 }
 
@@ -364,7 +412,7 @@ func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
 }
 
 func (cluster *CephCluster) Append(poolname string, existName string, data io.Reader,
-	offset int64) (oid string, size uint64, err error) {
+	offset int64, length int64) (oid string, size uint64, err error) {
 
 	oid = existName
 	if len(oid) == 0 {
@@ -375,7 +423,7 @@ func (cluster *CephCluster) Append(poolname string, existName string, data io.Re
 	//less than BigFileThreshold, but later data to be append is extremely
 	//huge, then doSmallAppend may not be proper
 	if poolname == backend.SMALL_FILE_POOLNAME {
-		size, err = cluster.doSmallAppend(poolname, oid, uint64(offset), data)
+		size, err = cluster.doSmallAppend(poolname, oid, uint64(offset), length, data)
 		return oid, size, err
 	}
 
