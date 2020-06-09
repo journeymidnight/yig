@@ -63,7 +63,7 @@ func (api ObjectAPIHandlers) PutBucketWebsiteHandler(w http.ResponseWriter, r *h
 		WriteErrorResponse(w, r, err)
 		return
 	}
-	WriteSuccessResponse(w, nil)
+	WriteSuccessResponse(w, r, nil)
 }
 
 func (api ObjectAPIHandlers) GetBucketWebsiteHandler(w http.ResponseWriter, r *http.Request) {
@@ -113,7 +113,7 @@ func (api ObjectAPIHandlers) GetBucketWebsiteHandler(w http.ResponseWriter, r *h
 
 	setXmlHeader(w)
 	// Write to client.
-	WriteSuccessResponse(w, encodedSuccessResponse)
+	WriteSuccessResponse(w, r, encodedSuccessResponse)
 }
 
 func (api ObjectAPIHandlers) DeleteBucketWebsiteHandler(w http.ResponseWriter, r *http.Request) {

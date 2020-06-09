@@ -69,7 +69,7 @@ steps:
 - name: update package to ftp
   commands:
   - cd package
-  - bash update.sh
+  - bash update
   when:
     branch:
     - develop
