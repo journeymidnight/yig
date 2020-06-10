@@ -4,11 +4,10 @@ PACKAGENAME=$1
 echo Building RPMs..
 GITROOT=`git rev-parse --show-toplevel`
 cd $GITROOT
-VER=1.1
+VER=$VER_DRONE
 echo "Git get full depth..."
 git fetch --unshallow
-REL=`git rev-parse --short HEAD`git
-REL=`git log --oneline|wc -l`.$REL
+REL=$REL_DRONE
 BUILDROOT=$2
 RPMTOPDIR=$GITROOT/$BUILDROOT
 echo "Ver: $VER, Release: $REL"
