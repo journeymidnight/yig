@@ -106,6 +106,13 @@ steps:
   depends_on:
   - build and test package for publish
 
+- name: clean up env
+  commands:
+  - make clean
+  when:
+    status:
+      - failure
+
 trigger:
   event:
   - push
