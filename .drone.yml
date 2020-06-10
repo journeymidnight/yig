@@ -54,8 +54,8 @@ steps:
   - go test -v
   - popd
   - make clean
-  - VER_DRONE = ${DRONE_SOURCE_BRANCH}
-  - REL_DRONE = test
+  - VER_DRONE=${DRONE_SOURCE_BRANCH}
+  - REL_DRONE=test
   - make pkg
   when:
     event:
