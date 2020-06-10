@@ -12,8 +12,9 @@ import (
 )
 
 func (api ObjectAPIHandlers) PutBucketEncryptionHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := GetRequestContext(r)
-	logger := ctx.Logger
+	SetOperationName(w, OpPutBucketEncryption)
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 
 	var credential common.Credential
 	var err error
@@ -29,11 +30,11 @@ func (api ObjectAPIHandlers) PutBucketEncryptionHandler(w http.ResponseWriter, r
 		}
 	}
 
-	if ctx.BucketInfo == nil {
+	if reqCtx.BucketInfo == nil {
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return
 	}
-	if credential.UserId != ctx.BucketInfo.OwnerId {
+	if credential.UserId != reqCtx.BucketInfo.OwnerId {
 		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
 		return
 	}
@@ -50,26 +51,25 @@ func (api ObjectAPIHandlers) PutBucketEncryptionHandler(w http.ResponseWriter, r
 		return
 	}
 
-	err = api.ObjectAPI.SetBucketEncryption(ctx.BucketInfo, *encryptionConfig)
+	err = api.ObjectAPI.SetBucketEncryption(reqCtx.BucketInfo, *encryptionConfig)
 	if err != nil {
 		logger.Error("Unable to set encryption for bucket:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
 
-	// ResponseRecorder
-	w.(*ResponseRecorder).operationName = "PutBucketEncryption"
 	WriteSuccessResponse(w, r, nil)
 
 }
 
 func (api ObjectAPIHandlers) GetBucketEncryptionHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := GetRequestContext(r)
-	logger := ctx.Logger
+	SetOperationName(w, OpGetBucketEncryption)
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 
 	var credential common.Credential
 	var err error
-	switch ctx.AuthType {
+	switch reqCtx.AuthType {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -81,16 +81,16 @@ func (api ObjectAPIHandlers) GetBucketEncryptionHandler(w http.ResponseWriter, r
 		}
 	}
 
-	if ctx.BucketInfo == nil {
+	if reqCtx.BucketInfo == nil {
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return
 	}
-	if credential.UserId != ctx.BucketInfo.OwnerId {
+	if credential.UserId != reqCtx.BucketInfo.OwnerId {
 		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
 		return
 	}
 
-	bucketEncryption, err := api.ObjectAPI.GetBucketEncryption(ctx.BucketName)
+	bucketEncryption, err := api.ObjectAPI.GetBucketEncryption(reqCtx.BucketName)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -98,25 +98,25 @@ func (api ObjectAPIHandlers) GetBucketEncryptionHandler(w http.ResponseWriter, r
 
 	encodedSuccessResponse, err := xmlFormat(bucketEncryption)
 	if err != nil {
-		logger.Error("Failed to marshal Encryption XML for bucket", ctx.BucketName,
+		logger.Error("Failed to marshal Encryption XML for bucket", reqCtx.BucketName,
 			"error:", err)
 		WriteErrorResponse(w, r, ErrInternalError)
 		return
 	}
 
 	setXmlHeader(w)
-	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "GetBucketEncryption"
+
 	// Write to client.
 	WriteSuccessResponse(w, r, encodedSuccessResponse)
 }
 
 func (api ObjectAPIHandlers) DeleteBucketEncryptionHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := GetRequestContext(r)
+	SetOperationName(w, OpDeleteBucketEncryption)
+	reqCtx := GetRequestContext(r)
 
 	var credential common.Credential
 	var err error
-	switch ctx.AuthType {
+	switch reqCtx.AuthType {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -128,21 +128,20 @@ func (api ObjectAPIHandlers) DeleteBucketEncryptionHandler(w http.ResponseWriter
 		}
 	}
 
-	if ctx.BucketInfo == nil {
+	if reqCtx.BucketInfo == nil {
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return
 	}
-	if credential.UserId != ctx.BucketInfo.OwnerId {
+	if credential.UserId != reqCtx.BucketInfo.OwnerId {
 		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
 		return
 	}
 
-	if err := api.ObjectAPI.DeleteBucketEncryption(ctx.BucketInfo); err != nil {
+	if err := api.ObjectAPI.DeleteBucketEncryption(reqCtx.BucketInfo); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
-	// ResponseRecorder
-	w.(*ResponseRecorder).operationName = "DeleteBucketEncryption"
+
 	// Success.
 	WriteSuccessNoContent(w)
 }

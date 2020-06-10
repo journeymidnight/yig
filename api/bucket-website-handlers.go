@@ -16,12 +16,13 @@ import (
 )
 
 func (api ObjectAPIHandlers) PutBucketWebsiteHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := GetRequestContext(r)
-	logger := ctx.Logger
+	SetOperationName(w, OpPutBucketWebsite)
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 
 	var credential common.Credential
 	var err error
-	switch ctx.AuthType {
+	switch reqCtx.AuthType {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -36,11 +37,11 @@ func (api ObjectAPIHandlers) PutBucketWebsiteHandler(w http.ResponseWriter, r *h
 		}
 	}
 
-	if ctx.BucketInfo == nil {
+	if reqCtx.BucketInfo == nil {
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return
 	}
-	if credential.UserId != ctx.BucketInfo.OwnerId {
+	if credential.UserId != reqCtx.BucketInfo.OwnerId {
 		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
 		return
 	}
@@ -57,7 +58,7 @@ func (api ObjectAPIHandlers) PutBucketWebsiteHandler(w http.ResponseWriter, r *h
 		return
 	}
 
-	err = api.ObjectAPI.SetBucketWebsite(ctx.BucketInfo, *websiteConfig)
+	err = api.ObjectAPI.SetBucketWebsite(reqCtx.BucketInfo, *websiteConfig)
 	if err != nil {
 		logger.Error("Unable to set website for bucket:", err)
 		WriteErrorResponse(w, r, err)
@@ -67,12 +68,13 @@ func (api ObjectAPIHandlers) PutBucketWebsiteHandler(w http.ResponseWriter, r *h
 }
 
 func (api ObjectAPIHandlers) GetBucketWebsiteHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := GetRequestContext(r)
-	logger := ctx.Logger
+	SetOperationName(w, OpGetBucketWebsite)
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 
 	var credential common.Credential
 	var err error
-	switch ctx.AuthType {
+	switch reqCtx.AuthType {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -87,17 +89,17 @@ func (api ObjectAPIHandlers) GetBucketWebsiteHandler(w http.ResponseWriter, r *h
 		}
 	}
 
-	if ctx.BucketInfo == nil {
+	if reqCtx.BucketInfo == nil {
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return
 	}
-	if credential.UserId != ctx.BucketInfo.OwnerId {
+	if credential.UserId != reqCtx.BucketInfo.OwnerId {
 		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
 		return
 	}
 
 	// Read bucket access policy.
-	bucketWebsite, err := api.ObjectAPI.GetBucketWebsite(ctx.BucketName)
+	bucketWebsite, err := api.ObjectAPI.GetBucketWebsite(reqCtx.BucketName)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -105,7 +107,7 @@ func (api ObjectAPIHandlers) GetBucketWebsiteHandler(w http.ResponseWriter, r *h
 
 	encodedSuccessResponse, err := xmlFormat(bucketWebsite)
 	if err != nil {
-		logger.Error("Failed to marshal Website XML for bucket", ctx.BucketName,
+		logger.Error("Failed to marshal Website XML for bucket", reqCtx.BucketName,
 			"error:", err)
 		WriteErrorResponse(w, r, ErrInternalError)
 		return
@@ -117,11 +119,12 @@ func (api ObjectAPIHandlers) GetBucketWebsiteHandler(w http.ResponseWriter, r *h
 }
 
 func (api ObjectAPIHandlers) DeleteBucketWebsiteHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := GetRequestContext(r)
+	SetOperationName(w, OpDeleteBucketWebsite)
+	reqCtx := GetRequestContext(r)
 
 	var credential common.Credential
 	var err error
-	switch ctx.AuthType {
+	switch reqCtx.AuthType {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -136,16 +139,16 @@ func (api ObjectAPIHandlers) DeleteBucketWebsiteHandler(w http.ResponseWriter, r
 		}
 	}
 
-	if ctx.BucketInfo == nil {
+	if reqCtx.BucketInfo == nil {
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return
 	}
-	if credential.UserId != ctx.BucketInfo.OwnerId {
+	if credential.UserId != reqCtx.BucketInfo.OwnerId {
 		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
 		return
 	}
 
-	if err := api.ObjectAPI.DeleteBucketWebsite(ctx.BucketInfo); err != nil {
+	if err := api.ObjectAPI.DeleteBucketWebsite(reqCtx.BucketInfo); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}

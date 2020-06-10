@@ -12,6 +12,7 @@ import (
 )
 
 func (api ObjectAPIHandlers) PutBucketLifeCycleHandler(w http.ResponseWriter, r *http.Request) {
+	SetOperationName(w, OpPutBucketLifeCycle)
 	reqCtx := GetRequestContext(r)
 	logger := reqCtx.Logger
 
@@ -36,12 +37,12 @@ func (api ObjectAPIHandlers) PutBucketLifeCycleHandler(w http.ResponseWriter, r 
 		WriteErrorResponse(w, r, err)
 		return
 	}
-	// ResponseRecorder
-	w.(*ResponseRecorder).operationName = "PutBucketLifeCycle"
+
 	WriteSuccessResponse(w, r, nil)
 }
 
 func (api ObjectAPIHandlers) GetBucketLifeCycleHandler(w http.ResponseWriter, r *http.Request) {
+	SetOperationName(w, OpGetBucketLifeCycle)
 	reqCtx := GetRequestContext(r)
 	logger := reqCtx.Logger
 
@@ -85,12 +86,12 @@ func (api ObjectAPIHandlers) GetBucketLifeCycleHandler(w http.ResponseWriter, r 
 	}
 
 	setXmlHeader(w)
-	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "GetBucketLifeCycle"
+
 	WriteSuccessResponse(w, r, lcBuffer)
 }
 
 func (api ObjectAPIHandlers) DelBucketLifeCycleHandler(w http.ResponseWriter, r *http.Request) {
+	SetOperationName(w, OpDelBucketLifeCycle)
 	reqCtx := GetRequestContext(r)
 
 	var credential common.Credential
@@ -105,8 +106,7 @@ func (api ObjectAPIHandlers) DelBucketLifeCycleHandler(w http.ResponseWriter, r 
 		WriteErrorResponse(w, r, err)
 		return
 	}
-	// ResponseRecorder
-	w.(*ResponseRecorder).operationName = "DelBucketLifeCycle"
+
 	WriteSuccessNoContent(w)
 
 }
