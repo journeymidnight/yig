@@ -12,6 +12,7 @@ clone:
 
 steps:
 - name: build & test
+  failure: ignore
   commands:
   - git clone http://10.0.45.221/Storage-oss-service/yig.git .
   - git fetch origin develop
@@ -37,7 +38,17 @@ steps:
     event:
     - push
 
+- name: clean up env test
+  commands:
+  - make clean
+  when:
+    status:
+      - failure
+  depends_on:
+  - build & test
+
 - name: build and test package for test
+  failure: ignore
   commands:
   - git clone http://10.0.45.221/Storage-oss-service/yig.git .
   - git fetch origin develop
@@ -61,6 +72,15 @@ steps:
     event:
     - pull_request
 
+- name: clean up env build and test package
+  commands:
+    - make clean
+  when:
+    status:
+    - failure
+  depends_on:
+  - build and test package for test
+
 - name: update package to ftp
   commands:
   - bash package/update
@@ -73,6 +93,7 @@ steps:
   - build and test package for test
 
 - name: build and test package for publish
+  failure: ignore
   commands:
   - git clone http://10.0.45.221/Storage-oss-service/yig.git .
   - git fetch origin develop
@@ -96,6 +117,15 @@ steps:
     event:
     - tag
 
+- name: clean up env build and test package for publish
+  commands:
+    - make clean
+  when:
+    status:
+    - failure
+  depends_on:
+  - build and test package for publish
+
 - name: update package to s3
   commands:
   - curDate=$(date "+%Y%m%d")
@@ -105,13 +135,6 @@ steps:
     - tag
   depends_on:
   - build and test package for publish
-
-- name: clean up env
-  commands:
-  - make clean
-  when:
-    status:
-      - failure
 
 trigger:
   event:
