@@ -107,11 +107,11 @@ type ObjectLayer interface {
 		size int64, data io.ReadCloser, md5Hex string,
 		sse datatype.SseRequest) (result datatype.PutObjectPartResult, err error)
 	CopyObjectPart(bucketName, objectName, uploadId string, partId int, size int64, data io.Reader,
-		credential common.Credential, sse datatype.SseRequest) (result datatype.PutObjectResult,
+		credential common.Credential, sse datatype.SseRequest) (result datatype.PutObjectPartResult,
 		err error)
 	ListObjectParts(credential common.Credential, bucket, object string,
 		request datatype.ListPartsRequest) (result datatype.ListPartsResponse, err error)
-	AbortMultipartUpload(reqCtx RequestContext, credential common.Credential, uploadID string) error
+	AbortMultipartUpload(reqCtx RequestContext, credential common.Credential, uploadID string) (datatype.DeltaSizeInfo, error)
 	CompleteMultipartUpload(reqCtx RequestContext, credential common.Credential, uploadID string,
 		uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult, err error)
 

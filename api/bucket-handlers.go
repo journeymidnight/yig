@@ -23,6 +23,7 @@ import (
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
+	. "github.com/journeymidnight/yig/meta/common"
 	"github.com/journeymidnight/yig/signature"
 	"io"
 	"io/ioutil"
@@ -304,6 +305,8 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 
 	var deleteErrors []DeleteError
 	var deletedObjects []ObjectIdentifier
+
+	var deltaResult map[StorageClass]int64
 	// Loop through all the objects and delete them sequentially.
 	for _, object := range deleteObjects.Objects {
 		reqCtx.ObjectName = object.ObjectName
@@ -322,6 +325,11 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 				DeleteMarkerVersionId: helper.Ternary(result.DeleteMarker,
 					result.VersionId, "").(string),
 			})
+			if v, ok := deltaResult[result.DeltaSize.StorageClass]; !ok {
+				deltaResult[result.DeltaSize.StorageClass] = result.DeltaSize.Delta
+			} else {
+				deltaResult[result.DeltaSize.StorageClass] = v + result.DeltaSize.Delta
+			}
 		} else {
 			logger.Error("Unable to delete object:", err)
 			apiErrorCode, ok := err.(ApiErrorCode)
@@ -341,6 +349,10 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 				})
 			}
 		}
+	}
+
+	for sc, v := range deltaResult {
+		SetDeltaSize(w, sc, v)
 	}
 	// Generate response
 	response := GenerateMultiDeleteResponse(deleteObjects.Quiet, deletedObjects, deleteErrors)

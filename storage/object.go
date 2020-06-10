@@ -722,7 +722,7 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 	if object.VersionId != meta.NullVersion {
 		result.VersionId = object.VersionId
 	}
-	err = yig.MetaStorage.PutObject(reqCtx, object, nil, true)
+	result.DeltaInfo, err = yig.MetaStorage.PutObject(reqCtx, object, nil, true)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
@@ -813,18 +813,11 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 	if isMetadataOnly {
 		targetObject.LastModifiedTime = sourceObject.LastModifiedTime
 		targetObject.VersionId = sourceObject.VersionId
-		if sourceObject.StorageClass == ObjectStorageClassGlacier {
-			err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, true, false)
-			if err != nil {
-				helper.Logger.Error("Copy Object with same source and target with GLACIER object, sql fails:", err)
-				return result, ErrInternalError
-			}
-		} else {
-			err = yig.MetaStorage.ReplaceObjectMetas(targetObject)
-			if err != nil {
-				helper.Logger.Error("Copy Object with same source and target, sql fails:", err)
-				return result, ErrInternalError
-			}
+
+		err = yig.MetaStorage.ReplaceObjectMetas(targetObject)
+		if err != nil {
+			helper.Logger.Error("Copy Object with same source and target, sql fails:", err)
+			return result, ErrInternalError
 		}
 
 		result.LastModified = targetObject.LastModifiedTime
@@ -975,13 +968,14 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 	}
 
 	result.LastModified = targetObject.LastModifiedTime
+	// Non-glacier object to glacier object with same object name and bucket name
 	if targetObject.StorageClass == ObjectStorageClassGlacier && targetObject.Name == sourceObject.Name && targetObject.BucketName == sourceObject.BucketName {
 		targetObject.LastModifiedTime = sourceObject.LastModifiedTime
 		result.LastModified = targetObject.LastModifiedTime
 		targetObject.CreateTime = sourceObject.CreateTime
-		err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, false, isTranStorageClassOnly)
+		err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject)
 	} else {
-		err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, true)
+		result.DeltaInfo, err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, true)
 	}
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
@@ -1185,7 +1179,7 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 	result.LastModified = object.LastModifiedTime
 	result.NextPosition = object.Size
 	md5End := time.Now()
-	err = yig.MetaStorage.AppendObject(object, objInfo != nil)
+	err = yig.MetaStorage.AppendObject(object, objInfo)
 	if err != nil {
 		return
 	}
@@ -1245,6 +1239,7 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 		if err != nil {
 			return
 		}
+		result.DeltaSize = datatype.DeltaSizeInfo{StorageClass: object.StorageClass, Delta: -object.Size}
 	case datatype.BucketVersioningEnabled:
 		if reqVersion != "" {
 			if object == nil {
@@ -1258,7 +1253,7 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 				result.DeleteMarker = true
 			}
 			result.VersionId = object.VersionId
-
+			result.DeltaSize = datatype.DeltaSizeInfo{StorageClass: object.StorageClass, Delta: -object.Size}
 		} else {
 			// Add delete marker                                    |
 			if object == nil {
@@ -1272,11 +1267,14 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 			object.LastModifiedTime = time.Now().UTC()
 			object.CreateTime = uint64(object.LastModifiedTime.UnixNano())
 			object.VersionId = object.GenVersionId(bucket.Versioning)
+			object.Size = int64(len(object.Name))
 			err = yig.MetaStorage.AddDeleteMarker(object)
 			if err != nil {
 				return
 			}
 			result.VersionId = object.VersionId
+			//TODO: develop inherit storage class of bucket？
+			result.DeltaSize = datatype.DeltaSizeInfo{StorageClass: ObjectStorageClassStandard, Delta: object.Size}
 		}
 	case datatype.BucketVersioningSuspended:
 		if reqVersion != "" {
@@ -1291,6 +1289,7 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 				result.DeleteMarker = true
 			}
 			result.VersionId = object.VersionId
+			result.DeltaSize = datatype.DeltaSizeInfo{StorageClass: object.StorageClass, Delta: -object.Size}
 		} else {
 			nullVersionExist := (object != nil)
 			if !nullVersionExist {
@@ -1303,18 +1302,20 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 					LastModifiedTime: now,
 					VersionId:        meta.NullVersion,
 					CreateTime:       uint64(now.UnixNano()),
+					Size:             int64(len(object.Name)),
 				}
 				err = yig.MetaStorage.AddDeleteMarker(object)
 				if err != nil {
 					return
 				}
+				result.DeltaSize = datatype.DeltaSizeInfo{StorageClass: ObjectStorageClassStandard, Delta: object.Size}
 			} else {
 				err = yig.MetaStorage.DeleteSuspendedObject(object)
 				if err != nil {
 					return
 				}
+				result.DeltaSize = datatype.DeltaSizeInfo{StorageClass: object.StorageClass, Delta: -object.Size}
 			}
-
 		}
 	default:
 		helper.Logger.Error("Invalid bucket versioning:", bucketName)

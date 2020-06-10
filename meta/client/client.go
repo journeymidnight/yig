@@ -19,8 +19,8 @@ type Client interface {
 	PutObject(object *Object, multipart *Multipart, updateUsage bool) error
 	AppendObject(object *Object, updateUsage bool) error
 	UpdateObject(object *Object, multipart *Multipart, updateUsage bool, tx Tx) (err error)
-	UpdateFreezerObject(object *Object, tx Tx) (err error)
-	UpdateAppendObject(object *Object) error
+	UpdateGlacierObject(object *Object, tx Tx) (err error)
+	UpdateAppendObject(object *Object, olderObject *Object) error
 	MigrateObject(object *Object) error
 	RemoveHotObject(object *Object, tx Tx) error
 	RenameObject(object *Object, sourceObject string) (err error)
@@ -49,7 +49,7 @@ type Client interface {
 	//multipart
 	GetMultipart(bucketName, objectName, uploadId string) (multipart Multipart, err error)
 	CreateMultipart(multipart Multipart) (err error)
-	PutObjectPart(multipart *Multipart, part *Part) (err error)
+	PutObjectPart(multipart *Multipart, part *Part) (deltaSize int64, err error)
 	DeleteMultipart(multipart *Multipart, tx Tx) (err error)
 
 	ListMultipartUploads(bucketName, keyMarker, uploadIdMarker, prefix, delimiter, encodingType string, maxUploads int) (result datatype.ListMultipartUploadsResponse, err error)

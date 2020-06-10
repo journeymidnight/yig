@@ -20,6 +20,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/journeymidnight/yig/meta/common"
+
 	. "github.com/journeymidnight/yig/context"
 	"github.com/journeymidnight/yig/helper"
 )
@@ -170,14 +172,20 @@ func (r *replacer) getSubstitution(key string) string {
 		timeLocal := time.Now().Format("2006-01-02 15:04:05")
 		return "[" + timeLocal + "]"
 	case "{request_uri}":
-		return r.request.Method + " " + r.request.URL.String() + " " + r.request.Proto
+		return r.request.Method + " " + "\"" + r.request.URL.String() + "\"" + " " + r.request.Proto
 	case "{request_id}":
 		return GetRequestContext(r.request).RequestID
 	case "{operation_name}":
+		if r.responseRecorder.operationName == "" {
+			return "-"
+		}
 		return r.responseRecorder.operationName
 	case "{host_name}":
 		return r.request.Host
 	case "{region_id}":
+		if helper.CONFIG.Region == "" {
+			return "-"
+		}
 		return helper.CONFIG.Region
 	case "{bucket_name}":
 		bucketName := GetRequestContext(r.request).BucketName
@@ -266,7 +274,7 @@ func (r *replacer) getSubstitution(key string) string {
 		}
 		return objectInfo.StorageClass.ToString()
 	case "{target_storage_class}":
-		if r.request.Header.Get("X-Amz-Copy-Source") != "" && r.request.Header.Get("X-Amz-Metadata-Directive") != "" {
+		if r.request.Method == http.MethodPut || r.request.Method == http.MethodPost {
 			storageClassFromHeader, err := getStorageClassFromHeader(r.request.Header)
 			if err != nil {
 				return "-"
@@ -287,8 +295,16 @@ func (r *replacer) getSubstitution(key string) string {
 		var judgeFunc JudgeCdnRequest
 		judgeFunc = judgeCdnRequestFromQuery
 		return strconv.FormatBool(judgeFunc(r.request))
-	default:
-		return "-"
+	case "{create_time}":
+		objectInfo := GetRequestContext(r.request).ObjectInfo
+		if objectInfo == nil {
+			return "-"
+		}
+		return strconv.FormatUint(objectInfo.CreateTime, 10)
+	case "{delta_size}":
+		return strconv.FormatInt(r.responseRecorder.deltaSizeInfo[common.ObjectStorageClassStandard], 10) + "," +
+			strconv.FormatInt(r.responseRecorder.deltaSizeInfo[common.ObjectStorageClassStandardIa], 10) + "," +
+			strconv.FormatInt(r.responseRecorder.deltaSizeInfo[common.ObjectStorageClassGlacier], 10)
 	}
 	return r.emptyValue
 }

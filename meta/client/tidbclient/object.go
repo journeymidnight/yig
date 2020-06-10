@@ -322,7 +322,7 @@ func (t *TidbClient) AppendObject(object *Object, updateUsage bool) (err error) 
 	return nil
 }
 
-func (t *TidbClient) UpdateAppendObject(object *Object) (err error) {
+func (t *TidbClient) UpdateAppendObject(object *Object, olderObject *Object) (err error) {
 	tx, err := t.Client.Begin()
 	if err != nil {
 		return err
@@ -344,7 +344,7 @@ func (t *TidbClient) UpdateAppendObject(object *Object) (err error) {
 		_, err = tx.Exec(sql, args...)
 	}
 
-	return t.UpdateUsage(object.BucketName, object.Size, tx)
+	return t.UpdateUsage(object.BucketName, object.Size-olderObject.Size, tx)
 }
 
 func (t *TidbClient) MigrateObject(object *Object) (err error) {
@@ -475,7 +475,7 @@ func (t *TidbClient) UpdateObject(object *Object, multipart *Multipart, updateUs
 	return err
 }
 
-func (t *TidbClient) UpdateFreezerObject(object *Object, tx Tx) (err error) {
+func (t *TidbClient) UpdateGlacierObject(object *Object, tx Tx) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		if err != nil {

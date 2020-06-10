@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/journeymidnight/yig/meta/common"
+
 	. "github.com/journeymidnight/yig/context"
 
 	"github.com/journeymidnight/yig/helper"
@@ -26,6 +28,9 @@ type ResponseRecorder struct {
 	targetStorageClass string
 	bucketLogging      bool
 	cdn_request        bool
+
+	// StorageClass -> deltaSize
+	deltaSizeInfo map[common.StorageClass]int64
 }
 
 const timeLayoutStr = "2006-01-02 15:04:05"
@@ -97,5 +102,17 @@ func NewAccessLogHandler(handler http.Handler, _ *meta.Meta) http.Handler {
 	return AccessLogHandler{
 		handler: handler,
 		format:  format,
+	}
+}
+
+func SetOperationName(w http.ResponseWriter, name string) {
+	if w, ok := w.(*ResponseRecorder); ok {
+		w.operationName = name
+	}
+}
+
+func SetDeltaSize(w http.ResponseWriter, storageClass common.StorageClass, delta int64) {
+	if w, ok := w.(*ResponseRecorder); ok {
+		w.deltaSizeInfo[storageClass] = delta
 	}
 }

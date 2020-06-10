@@ -1,6 +1,8 @@
 package main
 
 import (
+	"io"
+
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/lifecycle"
 	. "github.com/journeymidnight/yig/context"
@@ -13,7 +15,6 @@ import (
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/storage"
 	"github.com/robfig/cron"
-	"io"
 
 	"os"
 	"os/signal"
@@ -344,7 +345,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 
 				// process abort object
 				if action == lifecycle.AbortMultipartUploadAction {
-					err = yig.AbortMultipartUpload(reqCtx, common.Credential{UserId: bucket.OwnerId}, object.UploadId)
+					_, err = yig.AbortMultipartUpload(reqCtx, common.Credential{UserId: bucket.OwnerId}, object.UploadId)
 					if err != nil {
 						helper.Logger.Error(bucket.Name, object.Key, object.UploadId, err)
 						continue

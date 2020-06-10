@@ -226,10 +226,10 @@ func (yig *YigStorage) PutObjectPart(reqCtx RequestContext, credential common.Cr
 		LastModified:         time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT),
 		InitializationVector: initializationVector,
 	}
-	err = yig.MetaStorage.PutObjectPart(multipart, part)
+	deltaSize, err := yig.MetaStorage.PutObjectPart(multipart, part)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
-		return
+		return result, err
 	}
 	// remove possible old object in Ceph
 	if part, ok := multipart.Parts[partId]; ok {
@@ -246,12 +246,13 @@ func (yig *YigStorage) PutObjectPart(reqCtx RequestContext, credential common.Cr
 	result.SseAwsKmsKeyIdBase64 = base64.StdEncoding.EncodeToString([]byte(sseRequest.SseAwsKmsKeyId))
 	result.SseCustomerAlgorithm = sseRequest.SseCustomerAlgorithm
 	result.SseCustomerKeyMd5Base64 = base64.StdEncoding.EncodeToString(sseRequest.SseCustomerKey)
+	result.DeltaSize = datatype.DeltaSizeInfo{StorageClass: multipart.Metadata.StorageClass, Delta: deltaSize}
 	return result, nil
 }
 
 func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, partId int,
 	size int64, data io.Reader, credential common.Credential,
-	sseRequest datatype.SseRequest) (result datatype.PutObjectResult, err error) {
+	sseRequest datatype.SseRequest) (result datatype.PutObjectPartResult, err error) {
 
 	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
 	if err != nil {
@@ -323,7 +324,7 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 		return
 	}
 
-	result.Md5 = hex.EncodeToString(md5Writer.Sum(nil))
+	result.ETag = hex.EncodeToString(md5Writer.Sum(nil))
 
 	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 	if err != nil {
@@ -349,16 +350,16 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 		PartNumber:           partId,
 		Size:                 size,
 		ObjectId:             objectId,
-		Etag:                 result.Md5,
+		Etag:                 result.ETag,
 		LastModified:         now.Format(meta.CREATE_TIME_LAYOUT),
 		InitializationVector: initializationVector,
 	}
 	result.LastModified = now
 
-	err = yig.MetaStorage.PutObjectPart(multipart, part)
+	deltaSize, err := yig.MetaStorage.PutObjectPart(multipart, part)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
-		return
+		return result, err
 	}
 
 	// remove possible old object in Ceph
@@ -369,7 +370,7 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 			objectId: part.ObjectId,
 		}
 	}
-
+	result.DeltaSize = datatype.DeltaSizeInfo{StorageClass: multipart.Metadata.StorageClass, Delta: deltaSize}
 	return result, nil
 }
 
@@ -457,29 +458,31 @@ func (yig *YigStorage) ListObjectParts(credential common.Credential, bucketName,
 	return
 }
 
-func (yig *YigStorage) AbortMultipartUpload(reqCtx RequestContext, credential common.Credential, uploadId string) error {
+func (yig *YigStorage) AbortMultipartUpload(reqCtx RequestContext, credential common.Credential, uploadId string) (datatype.DeltaSizeInfo, error) {
+	var deltaInfo datatype.DeltaSizeInfo
 	bucket := reqCtx.BucketInfo
 	if bucket == nil {
-		return ErrNoSuchBucket
+		return deltaInfo, ErrNoSuchBucket
 	}
 	switch bucket.ACL.CannedAcl {
 	case "public-read-write":
 		break
 	default:
 		if bucket.OwnerId != credential.UserId {
-			return ErrBucketAccessForbidden
+			return deltaInfo, ErrBucketAccessForbidden
 		}
 	} // TODO policy and fancy ACL
 
 	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
 	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
 	if err != nil {
-		return err
+		return deltaInfo, err
 	}
 
-	err = yig.MetaStorage.DeleteMultipart(multipart)
+	var removedSize int64
+	removedSize, err = yig.MetaStorage.DeleteMultipart(multipart)
 	if err != nil {
-		return err
+		return deltaInfo, err
 	}
 	// remove parts in Ceph
 
@@ -490,8 +493,9 @@ func (yig *YigStorage) AbortMultipartUpload(reqCtx RequestContext, credential co
 			objectId: p.ObjectId,
 		}
 	}
-
-	return nil
+	deltaInfo.StorageClass = multipart.Metadata.StorageClass
+	deltaInfo.Delta = -removedSize
+	return deltaInfo, nil
 }
 
 func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential common.Credential, uploadId string, uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult,
@@ -603,7 +607,7 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 		}
 	}
 
-	err = yig.MetaStorage.PutObject(reqCtx, object, &multipart, false)
+	_, err = yig.MetaStorage.PutObject(reqCtx, object, &multipart, false)
 	if err != nil {
 		return
 	}

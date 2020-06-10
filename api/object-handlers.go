@@ -27,7 +27,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	. "github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/policy"
@@ -580,47 +579,20 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	// If the object metadata is modified or the object storage type is converted, the following conditions are met
 	// For non-archive storage object modification metadata and type conversion, no copy operation is required
 	// For objects that were originally archived and stored for metadata modification and storage type modification, only database metadata needs to be modified.
-	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName &&
-		(sourceObject.StorageClass == ObjectStorageClassGlacier || targetStorageClass != ObjectStorageClassGlacier) {
-		if targetBucket.Versioning == BucketVersioningDisabled {
+	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName {
+		if sourceObject.StorageClass == ObjectStorageClassGlacier && targetStorageClass != ObjectStorageClassGlacier {
+			WriteErrorResponse(w, r, ErrInvalidStorageClassConvert)
+			return
+		}
+		if targetBucket.Versioning == BucketVersioningDisabled || (targetBucket.Versioning == BucketVersioningSuspended && sourceObject.VersionId == meta.NullVersion) {
 			isMetadataOnly = true
-		} else if targetBucket.Versioning == BucketVersioningSuspended && sourceObject.VersionId == meta.NullVersion {
-			isMetadataOnly = true
+		}
+		if sourceObject.StorageClass != ObjectStorageClassGlacier && targetStorageClass == ObjectStorageClassGlacier {
+			isMetadataOnly = false
 		}
 	}
 
 	truelySourceObject := sourceObject
-	if sourceObject.StorageClass == ObjectStorageClassGlacier {
-		// When only modifying object metadata, there is no need to unfreeze the object
-		if !(isMetadataOnly && targetStorageClass == ObjectStorageClassGlacier) {
-			freezer, err := api.ObjectAPI.GetFreezer(sourceBucketName, sourceObjectName, sourceVersion)
-			if err != nil {
-				if err == ErrNoSuchKey {
-					logger.Error("Unable to get glacier object with no restore")
-					WriteErrorResponse(w, r, ErrInvalidGlacierObject)
-					return
-				}
-				logger.Error("Unable to get glacier object info err:", err)
-				WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
-				return
-			}
-			if freezer.Status != ObjectHasRestored || freezer.Pool == "" {
-				logger.Error("Unable to get glacier object with no restore")
-				WriteErrorResponse(w, r, ErrInvalidGlacierObject)
-				return
-			}
-			if targetStorageClass != ObjectStorageClassGlacier {
-				sourceObject.OwnerId = freezer.OwnerId
-				sourceObject.Etag = freezer.Etag
-				sourceObject.Size = freezer.Size
-				sourceObject.Parts = freezer.Parts
-				sourceObject.Pool = freezer.Pool
-				sourceObject.Location = freezer.Location
-				sourceObject.ObjectId = freezer.ObjectId
-				sourceObject.VersionId = freezer.VersionId
-			}
-		}
-	}
 
 	// maximum Upload size for object in a single CopyObject operation.
 	if isMaxObjectSize(sourceObject.Size) {
@@ -953,7 +925,9 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 			w.Header().Set(headerName, header)
 		}
 	}
-
+	for sc, v := range result.DeltaInfo {
+		SetDeltaSize(w, sc, v)
+	}
 	WriteSuccessResponse(w, r, nil)
 }
 
@@ -968,7 +942,6 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	objectName := reqCtx.ObjectName
 
 	logger.Info("Appending object:", bucketName, objectName)
-	handleStart := time.Now()
 
 	var authType = signature.GetRequestAuthType(r)
 	var err error
@@ -1142,12 +1115,16 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 		}
 	}
 
+	if reqCtx.ObjectInfo == nil {
+		SetDeltaSize(w, storageClass, size)
+	} else {
+		SetDeltaSize(w, reqCtx.ObjectInfo.StorageClass, size)
+	}
+
 	// Set next position
 	w.Header().Set("X-Amz-Next-Append-Position", strconv.FormatInt(result.NextPosition, 10))
 
 	WriteSuccessResponse(w, r, nil)
-	handleEnd := time.Now()
-	logger.Info("Appending object finish response, cost:", bucketName, objectName, position, size, handleEnd.Sub(handleStart).Milliseconds())
 }
 
 func (api ObjectAPIHandlers) PutObjectMeta(w http.ResponseWriter, r *http.Request) {
@@ -1593,6 +1570,7 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 			result.SseCustomerKeyMd5Base64)
 	}
 
+	SetDeltaSize(w, result.DeltaSize.StorageClass, result.DeltaSize.Delta)
 	WriteSuccessResponse(w, r, nil)
 }
 
@@ -1779,11 +1757,11 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
-	response := GenerateCopyObjectPartResponse(result.Md5, result.LastModified)
+	response := GenerateCopyObjectPartResponse(result.ETag, result.LastModified)
 	encodedSuccessResponse := EncodeResponse(response)
 	// write headers
-	if result.Md5 != "" {
-		w.Header()["ETag"] = []string{"\"" + result.Md5 + "\""}
+	if result.ETag != "" {
+		w.Header()["ETag"] = []string{"\"" + result.ETag + "\""}
 	}
 	if sourceVersion != "" {
 		w.Header().Set("x-amz-copy-source-version-id", sourceVersion)
@@ -1799,7 +1777,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 			w.Header().Set(headerName, header)
 		}
 	}
-
+	SetDeltaSize(w, result.DeltaSize.StorageClass, result.DeltaSize.Delta)
 	// write success response.
 	WriteSuccessResponse(w, r, encodedSuccessResponse)
 }
@@ -1828,13 +1806,13 @@ func (api ObjectAPIHandlers) AbortMultipartUploadHandler(w http.ResponseWriter, 
 	}
 
 	uploadId := r.URL.Query().Get("uploadId")
-	if err := api.ObjectAPI.AbortMultipartUpload(reqCtx, credential, uploadId); err != nil {
-
+	delta, err := api.ObjectAPI.AbortMultipartUpload(reqCtx, credential, uploadId)
+	if err != nil {
 		logger.Error("Unable to abort multipart upload:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
-
+	SetDeltaSize(w, delta.StorageClass, delta.Delta)
 	WriteSuccessNoContent(w)
 }
 
@@ -1984,6 +1962,10 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 			result.SseCustomerKeyMd5Base64)
 	}
 
+	if reqCtx.ObjectInfo != nil {
+		SetDeltaSize(w, reqCtx.ObjectInfo.StorageClass, -reqCtx.ObjectInfo.Size)
+	}
+
 	setXmlHeader(w)
 
 	// write success response.
@@ -2027,6 +2009,7 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 		w.Header().Set("x-amz-version-id", result.VersionId)
 	}
 
+	SetDeltaSize(w, result.DeltaSize.StorageClass, result.DeltaSize.Delta)
 	WriteSuccessNoContent(w)
 }
 
@@ -2157,7 +2140,9 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 	if !helper.StringInSlice(status, ValidSuccessActionStatus) {
 		status = "204"
 	}
-
+	for sc, v := range result.DeltaInfo {
+		SetDeltaSize(w, sc, v)
+	}
 	statusCode, _ := strconv.Atoi(status)
 	switch statusCode {
 	case 200, 204:

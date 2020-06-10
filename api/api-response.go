@@ -265,6 +265,14 @@ func WriteErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
 	}
 }
 
+// writeErrorResponse write error headers
+func WriteErrorResponseWithoutContext(w http.ResponseWriter, r *http.Request, err error) {
+	handled := WriteErrorResponseHeaders(w, r, err)
+	if !handled {
+		WriteErrorResponseNoHeader(w, r, err, r.URL.Path)
+	}
+}
+
 func WriteErrorResponseWithResource(w http.ResponseWriter, r *http.Request, err error, resource string) {
 	handled := WriteErrorResponseHeaders(w, r, err)
 	if !handled {
