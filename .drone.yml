@@ -37,7 +37,7 @@ steps:
     event:
     - push
 
-- name: clean up env test
+- name: clean up env
   commands:
   - make clean
   when:
@@ -64,19 +64,10 @@ steps:
   - export VER_DRONE=${DRONE_SOURCE_BRANCH}
   - export REL_DRONE=test
   - make pkg
+  - make clean
   when:
     event:
     - pull_request
-
-- name: clean up env build and test package
-  commands:
-    - make clean
-    - Throw an error
-  when:
-    event:
-    - pull_request
-  depends_on:
-  - build and test package for test
 
 - name: update package to ftp
   commands:
@@ -109,19 +100,10 @@ steps:
   - export VER_DRONE=${DRONE_TAG}
   - export REL_DRONE=pub
   - make pkg
+  - make clean
   when:
     event:
     - tag
-
-- name: clean up env build and test package for publish
-  commands:
-    - make clean
-    - Throw an error
-  when:
-    event:
-    - tag
-  depends_on:
-  - build and test package for publish
 
 - name: update package to s3
   commands:
