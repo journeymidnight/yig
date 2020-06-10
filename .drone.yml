@@ -89,7 +89,7 @@ steps:
   - go test -v
   - popd
   - make clean
-  - export VER_DRONE=${DRONE_SOURCE_BRANCH}
+  - export VER_DRONE=${DRONE_TAG}
   - export REL_DRONE=pub
   - make pkg
   when:
