@@ -12,7 +12,6 @@ clone:
 
 steps:
 - name: build & test
-  failure: ignore
   commands:
   - git clone http://10.0.45.221/Storage-oss-service/yig.git .
   - git fetch origin develop
@@ -33,6 +32,7 @@ steps:
   - pushd test/go
   - go test -v
   - popd
+  - make clean
   when:
     event:
     - push
@@ -40,12 +40,9 @@ steps:
 - name: clean up env test
   commands:
   - make clean
-  - Throw an error
   when:
     event:
-    - push
-  depends_on:
-  - build & test
+    - failure
 
 - name: build and test package for test
   failure: ignore
