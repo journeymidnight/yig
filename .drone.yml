@@ -33,7 +33,6 @@ steps:
   - pushd test/go
   - go test -v
   - popd
-  - make clean
   when:
     event:
     - push
@@ -42,8 +41,8 @@ steps:
   commands:
   - make clean
   when:
-    status:
-      - failure
+    event:
+    - push
   depends_on:
   - build & test
 
@@ -64,9 +63,8 @@ steps:
   - pushd test/go
   - go test -v
   - popd
-  - make clean
-  - VER_DRONE=${DRONE_SOURCE_BRANCH}
-  - REL_DRONE=test
+  - export VER_DRONE=${DRONE_SOURCE_BRANCH}
+  - export REL_DRONE=test
   - make pkg
   when:
     event:
@@ -76,8 +74,8 @@ steps:
   commands:
     - make clean
   when:
-    status:
-    - failure
+    event:
+    - pull_request
   depends_on:
   - build and test package for test
 
@@ -109,9 +107,8 @@ steps:
   - pushd test/go
   - go test -v
   - popd
-  - make clean
-  - VER_DRONE=${DRONE_TAG}
-  - REL_DRONE=pub
+  - export VER_DRONE=${DRONE_TAG}
+  - export REL_DRONE=pub
   - make pkg
   when:
     event:
@@ -121,8 +118,8 @@ steps:
   commands:
     - make clean
   when:
-    status:
-    - failure
+    event:
+    - tag
   depends_on:
   - build and test package for publish
 
