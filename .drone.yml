@@ -40,6 +40,7 @@ steps:
 - name: clean up env test
   commands:
   - make clean
+  - Throw an error
   when:
     event:
     - push
@@ -73,6 +74,7 @@ steps:
 - name: clean up env build and test package
   commands:
     - make clean
+    - Throw an error
   when:
     event:
     - pull_request
@@ -117,6 +119,7 @@ steps:
 - name: clean up env build and test package for publish
   commands:
     - make clean
+    - Throw an error
   when:
     event:
     - tag
