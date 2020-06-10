@@ -7,7 +7,10 @@ cd $GITROOT
 VER=$3
 echo "Git get full depth..."
 git fetch --unshallow
-REL=$4
+REL=`git rev-parse --short HEAD`git
+REL=`git log --oneline|wc -l`.$REL
+REL_DRONE= ${$4//-/_}
+REL=$REL_DRONE-$REL
 BUILDROOT=$2
 RPMTOPDIR=$GITROOT/$BUILDROOT
 echo "Ver: $VER, Release: $REL"
