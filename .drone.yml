@@ -38,9 +38,6 @@ steps:
     - push
 
 - name: build and test package for test
-  environment:
-    VER_DRONE: ${DRONE_SOURCE_BRANCH}
-    REL_DRONE: test
   commands:
   - git clone http://10.0.45.221/Storage-oss-service/yig.git .
   - git fetch origin develop
@@ -57,6 +54,8 @@ steps:
   - go test -v
   - popd
   - make clean
+  - VER_DRONE = ${DRONE_SOURCE_BRANCH}
+  - REL_DRONE = test
   - make pkg
   when:
     event:
@@ -74,9 +73,6 @@ steps:
   - build and test package for test
 
 - name: build and test package for publish
-  environment:
-    VER_DRONE: ${DRONE_TAG}
-    REL_DRONE: pub
   commands:
   - git clone http://10.0.45.221/Storage-oss-service/yig.git .
   - git fetch origin develop
@@ -93,6 +89,8 @@ steps:
   - go test -v
   - popd
   - make clean
+  - VER_DRONE=${DRONE_TAG}
+  - REL_DRONE=pub
   - make pkg
   when:
     event:
