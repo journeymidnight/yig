@@ -81,7 +81,7 @@ steps:
   - mysql -u root -h 10.0.42.4 -P 4000 -e "use yig_drone;source yig.sql;"
   - curDate=yig_$(date "+%Y%m%d-%H%M%S")
   - ssh 10.0.47.215 "mkdir /root/test_packages/$curDate"
-  - scp /test-env/yig.toml 10.0.47.215:/root/test_packages/$curDate
+  - scp test-env/yig.toml 10.0.47.215:/root/test_packages/$curDate
   - scp *.x86_64.rpm 10.0.47.215:/root/test_packages/$curDate
   - ssh 10.0.47.215 "sh /root/test_packages/update_yig_package.sh"
   when:
