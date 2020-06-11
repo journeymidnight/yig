@@ -83,7 +83,7 @@ steps:
   - ssh 10.0.47.215 "mkdir /root/test_packages/$curDate"
   - scp test-env/yig.toml 10.0.47.215:/root/test_packages/$curDate
   - scp ../*.x86_64.rpm 10.0.47.215:/root/test_packages/$curDate
-  - ssh 10.0.47.215 "sh /root/test_packages/update_yig_package.sh"
+  - ssh 10.0.47.215 "cd /root/test_packages;sh update_yig_package.sh"
   when:
     branch:
     - develop
