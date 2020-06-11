@@ -17,10 +17,6 @@ steps:
   - git fetch origin develop
   - git checkout $DRONE_COMMIT
   - docker version
-  - sudo yum update golang -y
-  - cp integrate/resources/* /etc/yum.repos.d/
-  - yum makecache
-  - sudo yum install dnsmasq python librdkafka-dev python2-botocore.noarch -y
   - sudo sed -i "$ a\address=/.s3.test.com/10.5.0.18" /etc/dnsmasq.conf
   - sudo sed -i "$ a\address=/.s3-internal.test.com/10.5.0.18" /etc/dnsmasq.conf
   - sudo service dnsmasq restart
@@ -41,7 +37,15 @@ steps:
     event:
     - push
 
-- name: build and test package
+- name: clean up env
+  commands:
+  - make clean
+  when:
+    event:
+    - failure
+
+- name: build and test package for test
+  failure: ignore
   commands:
   - git clone http://10.0.45.221/Storage-oss-service/yig.git .
   - git fetch origin develop
@@ -57,26 +61,49 @@ steps:
   - pushd test/go
   - go test -v
   - popd
-  - make clean
+  - export VER_DRONE=${DRONE_SOURCE_BRANCH}
+  - export REL_DRONE=test
   - make pkg
+  - make clean
   when:
     event:
-    - tag
     - pull_request
-  depends_on:
-    - build & test
 
 - name: update package to ftp
   commands:
-  - cd package
-  - bash update
+  - bash package/update
   when:
     branch:
     - develop
     event:
     - pull_request
   depends_on:
-  - build and test package
+  - build and test package for test
+
+- name: build and test package for publish
+  failure: ignore
+  commands:
+  - git clone http://10.0.45.221/Storage-oss-service/yig.git .
+  - git fetch origin develop
+  - git checkout $DRONE_COMMIT
+  - export GOPROXY=https://goproxy.cn
+  - make build
+  - bash integrate/check_8080.sh
+  - make env
+  - make run
+  - make runlc
+  - make runmigrate
+  - sudo python test/sanity.py
+  - pushd test/go
+  - go test -v
+  - popd
+  - export VER_DRONE=${DRONE_TAG}
+  - export REL_DRONE=pub
+  - make pkg
+  - make clean
+  when:
+    event:
+    - tag
 
 - name: update package to s3
   commands:
@@ -86,7 +113,7 @@ steps:
     event:
     - tag
   depends_on:
-  - build and test package
+  - build and test package for publish
 
 trigger:
   event:
