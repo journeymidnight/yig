@@ -37,13 +37,6 @@ steps:
     event:
     - push
 
-- name: clean up env
-  commands:
-  - make clean
-  when:
-    event:
-    - failure
-
 - name: build and test package for test
   failure: ignore
   commands:
@@ -80,6 +73,24 @@ steps:
   depends_on:
   - build and test package for test
 
+- name: deploy the test package to the target environment
+  commands:
+  - cd integrate
+  - mysql -u root -h 10.0.47.215 -P 4000 -e "create database yig_drone character set utf8;"
+  - mysql -u root -h 10.0.47.215 -P 4000 -e "use yig_drone;source /yig.sql;"
+  - curDate=$(date "+%Y%m%d")
+  - ssh 10.0.47.215 "mkdir /root/test_packages/$curDate"
+  - scp /test-env/yig.toml 10.0.47.215:/root/test_packages/$curDate
+  - scp *.x86_64.rpm 10.0.47.215:/root/test_packages/$curDate
+  - ssh 10.0.47.215 "sh /root/test_packages/update_yig_package.sh"
+  when:
+    branch:
+    - develop
+    event:
+    - pull_request
+  depends_on:
+  - build and test package for test
+
 - name: build and test package for publish
   failure: ignore
   commands:
@@ -104,6 +115,13 @@ steps:
   when:
     event:
     - tag
+
+- name: clean up env
+  commands:
+  - make clean
+  when:
+    event:
+    - failure
 
 - name: update package to s3
   commands:
