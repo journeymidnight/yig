@@ -1,6 +1,8 @@
 .PHONY: build
 URL = github.com/journeymidnight
 REPO = yig
+VER=$(VER_DRONE)
+REL=$(REL_DRONE)
 WORKDIR = /work
 BUILDROOT = rpm-build
 BUILDDIR = $(WORKDIR)/$(BUILDROOT)/BUILD/$(REPO)
@@ -21,7 +23,7 @@ build_internal:
 	cp -f $(PWD)/plugins/*.so $(PWD)/integrate/yigconf/plugins/
 
 pkg:
-	docker run --rm -v $(PWD):$(WORKDIR) -w $(WORKDIR) journeymidnight/yig bash -c 'bash package/rpmbuild.sh $(REPO) $(BUILDROOT)'
+	docker run --rm -v $(PWD):$(WORKDIR) -w $(WORKDIR) journeymidnight/yig bash -c 'bash package/rpmbuild.sh $(REPO) $(BUILDROOT) $(VER) $(REL)'
 
 image:
 	docker build -t  journeymidnight/yig . -f integrate/yig.docker
