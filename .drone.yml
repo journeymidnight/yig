@@ -74,6 +74,7 @@ steps:
   - build and test package for test
 
 - name: deploy the test package to the target environment
+  rm: false
   commands:
   - cd integrate
   - mysql -u root -h 10.0.42.4 -P 4000 -e "drop database yig_drone;"
