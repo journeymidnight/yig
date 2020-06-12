@@ -325,11 +325,7 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 				DeleteMarkerVersionId: helper.Ternary(result.DeleteMarker,
 					result.VersionId, "").(string),
 			})
-			if v, ok := deltaResult[result.DeltaSize.StorageClass]; !ok {
-				deltaResult[result.DeltaSize.StorageClass] = result.DeltaSize.Delta
-			} else {
-				deltaResult[result.DeltaSize.StorageClass] = v + result.DeltaSize.Delta
-			}
+			deltaResult[result.DeltaSize.StorageClass] += result.DeltaSize.Delta
 		} else {
 			logger.Error("Unable to delete object:", err)
 			apiErrorCode, ok := err.(ApiErrorCode)

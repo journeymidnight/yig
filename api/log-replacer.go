@@ -172,14 +172,14 @@ func (r *replacer) getSubstitution(key string) string {
 		timeLocal := time.Now().Format("2006-01-02 15:04:05")
 		return "[" + timeLocal + "]"
 	case "{request_uri}":
-		return r.request.Method + " " + "\"" + r.request.URL.String() + "\"" + " " + r.request.Proto
+		return r.request.Method + " " + r.request.URL.String() + " " + r.request.Proto
 	case "{request_id}":
 		return GetRequestContext(r.request).RequestID
 	case "{operation_name}":
 		if r.responseRecorder.operationName == "" {
 			return "-"
 		}
-		return r.responseRecorder.operationName
+		return string(r.responseRecorder.operationName)
 	case "{host_name}":
 		return r.request.Host
 	case "{region_id}":

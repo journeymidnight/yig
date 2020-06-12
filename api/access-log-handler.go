@@ -19,7 +19,7 @@ type ResponseRecorder struct {
 	http.ResponseWriter
 	status        int
 	size          int64
-	operationName string
+	operationName Operation
 	serverCost    time.Duration
 	requestTime   time.Duration
 	errorCode     string
@@ -39,6 +39,7 @@ func NewResponseRecorder(w http.ResponseWriter) *ResponseRecorder {
 	return &ResponseRecorder{
 		ResponseWriter: w,
 		status:         http.StatusOK,
+		deltaSizeInfo:  make(map[common.StorageClass]int64),
 	}
 }
 
@@ -105,7 +106,7 @@ func NewAccessLogHandler(handler http.Handler, _ *meta.Meta) http.Handler {
 	}
 }
 
-func SetOperationName(w http.ResponseWriter, name string) {
+func SetOperationName(w http.ResponseWriter, name Operation) {
 	if w, ok := w.(*ResponseRecorder); ok {
 		w.operationName = name
 	}
