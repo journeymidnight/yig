@@ -244,6 +244,11 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		WriteErrorResponse(w, r, ErrNoSuchKey)
 		return
 	}
+
+	if object.Type == meta.ObjectTypeAppendable {
+		object.Etag = helper.Md5FromEtag(object.Etag)
+	}
+
 	if object.StorageClass == ObjectStorageClassGlacier {
 		freezer, err := api.ObjectAPI.GetFreezer(reqCtx.BucketName, reqCtx.ObjectName, object.VersionId)
 		if err != nil {
@@ -395,6 +400,10 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 		}
 		WriteErrorResponse(w, r, err)
 		return
+	}
+
+	if object.Type == meta.ObjectTypeAppendable {
+		object.Etag = helper.Md5FromEtag(object.Etag)
 	}
 
 	if object.StorageClass == ObjectStorageClassGlacier {
