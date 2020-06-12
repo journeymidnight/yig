@@ -61,17 +61,44 @@ steps:
   - pushd test/go
   - go test -v
   - popd
+  - make clean
   - export VER_DRONE=${DRONE_SOURCE_BRANCH}
   - export REL_DRONE=test
   - make pkg
-  - make clean
   when:
     event:
     - pull_request
 
+- name: clean up env for test packages
+  commands:
+  - make clean
+  when:
+    event:
+    - failure
+
 - name: update package to ftp
   commands:
   - bash package/update
+  when:
+    branch:
+    - develop
+    event:
+    - pull_request
+  depends_on:
+  - build and test package for test
+
+- name: deploy the test package to the target environment
+  rm: false
+  commands:
+  - cd integrate
+  - mysql -u root -h 10.0.42.4 -P 4000 -e "drop database yig_drone;"
+  - mysql -u root -h 10.0.42.4 -P 4000 -e "create database yig_drone character set utf8;"
+  - mysql -u root -h 10.0.42.4 -P 4000 -e "use yig_drone;source yig.sql;"
+  - curDate=yig_$(date "+%Y%m%d-%H%M%S")
+  - ssh 10.0.47.215 "mkdir /test_packages/$curDate"
+  - scp test-env/yig.toml 10.0.47.215:/test_packages/$curDate
+  - scp ../*.x86_64.rpm 10.0.47.215:/test_packages/$curDate
+  - ssh 10.0.47.215 "cd /test_packages;sh update_yig_package.sh $curDate"
   when:
     branch:
     - develop
@@ -104,6 +131,13 @@ steps:
   when:
     event:
     - tag
+
+- name: clean up env for pub
+  commands:
+  - make clean
+  when:
+    event:
+    - failure
 
 - name: update package to s3
   commands:

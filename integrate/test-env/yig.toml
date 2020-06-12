@@ -1,0 +1,88 @@
+s3domain = ["s3.test.com", "s3-internal.test.com"]
+region = "test-1"
+log_path = "/var/log/yig/yig.log"
+access_log_path = "/var/log/yig/access.log"
+access_log_format = "{combined} {billing}"
+panic_log_path = "/var/log/yig/panic.log"
+log_level = "info"
+pid_file = "/var/run/yig/yig.pid"
+api_listener = "0.0.0.0:8080"
+admin_listener = "0.0.0.0:9000"
+admin_key = "secret"
+ssl_key_path = ""
+ssl_cert_path = ""
+piggyback_update_usage = true
+
+debug_mode = true
+enable_pprof = false
+pprof_listener = "0.0.0.0:8730"
+reserved_origins = "s3.test.com,s3-internal.test.com"
+
+# LC
+lc_thread = 16
+lifecycle_spec = "@midnight"
+
+# Meta Config
+meta_cache_type = 2
+meta_store = "tidb"
+tidb_info = "root:@tcp(10.0.42.4:4000)/yig_drone"
+keepalive = true
+enable_usage_push = false
+enable_compression = false
+redis_store = "cluster"
+redis_address = "redis:6379"
+redis_group = ["10.0.42.4:7000","10.0.42.3:7000","10.0.47.215:7000","10.0.42.4:7001","10.0.42.3:7001","10.0.47.215:7001"]
+redis_password = ""
+redis_connection_number = 10
+memory_cache_max_entry_count = 100000
+enable_data_cache = false
+redis_connect_timeout = 1
+redis_read_timeout = 1
+redis_write_timeout = 1
+redis_keepalive = 60
+redis_pool_max_idle = 3
+redis_pool_idle_timeout = 30
+
+cache_circuit_check_interval = 3
+cache_circuit_close_sleep_window = 1
+cache_circuit_close_required_count = 3
+cache_circuit_open_threshold = 1
+cache_circuit_exec_timeout = 5
+cache_circuit_exec_max_concurrent = -1
+
+db_max_open_conns = 10240
+db_max_idle_conns = 1024
+db_conn_max_life_seconds = 300
+
+download_buf_pool_size = 8388608 #8MB
+upload_min_chunk_size = 524288 #512KB
+upload_max_chunk_size = 8388608 #8MB
+big_file_threshold = 1048576 #1MB
+
+# Migrate Config
+mg_thread = 1
+mg_scan_interval = 600
+mg_object_cooldown = 3600
+
+# Ceph Config
+ceph_config_pattern = "/etc/ceph/*.conf"
+
+# Plugin Config
+[plugins.dummy_encryption_kms]
+path = "/etc/yig/plugins/dummy_kms_plugin.so"
+enable = true
+[plugins.dummy_encryption_kms.args]
+url = "KMS"
+
+[plugins.dummy_mq]
+path = "/etc/yig/plugins/dummy_mq_plugin.so"
+enable = true
+[plugins.dummy_mq.args]
+topic = "testTopic2"
+url = "kafka:29092"
+
+[plugins.dummy_iam]
+path = "/etc/yig/plugins/dummy_iam_plugin.so"
+enable = true
+[plugins.dummy_iam.args]
+url="s3.test.com"
