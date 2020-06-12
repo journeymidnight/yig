@@ -69,7 +69,7 @@ steps:
     event:
     - pull_request
 
-- name: clean up env
+- name: clean up env for test packages
   commands:
   - make clean
   when:
@@ -132,7 +132,7 @@ steps:
     event:
     - tag
 
-- name: clean up env
+- name: clean up env for pub
   commands:
   - make clean
   when:
