@@ -1,141 +1,25 @@
 ---
 kind: pipeline
-type: exec
+type: docker
 name: yig
+
+clone:
+  git:
+    image: plugins/git
 
 platform:
   os: linux
   arch: amd64
 
-clone:
-  disable: true
+workspace:
+  path: /drone/src/yig
 
 steps:
 - name: build & test
+  image: centos-yig
   commands:
-  - git clone http://10.0.45.221/Storage-oss-service/yig.git .
-  - git fetch origin develop
-  - git checkout $DRONE_COMMIT
-  - docker version
-  - sudo sed -i "$ a\address=/.s3.test.com/10.5.0.18" /etc/dnsmasq.conf
-  - sudo sed -i "$ a\address=/.s3-internal.test.com/10.5.0.18" /etc/dnsmasq.conf
-  - sudo service dnsmasq restart
-  - sudo sed -i "1 i\nameserver 127.0.0.1" /etc/resolv.conf
-  - export GOPROXY=https://goproxy.cn
-  - make build
-  - bash integrate/check_8080.sh
-  - make env
-  - make run
-  - make runlc
-  - make runmigrate
-  - sudo python test/sanity.py
-  - pushd test/go
-  - go test -v
-  - popd
-  - make clean
-  when:
-    event:
-    - push
-
-- name: build and test package for test
-  failure: ignore
-  commands:
-  - git clone http://10.0.45.221/Storage-oss-service/yig.git .
-  - git fetch origin develop
-  - git checkout $DRONE_COMMIT
-  - export GOPROXY=https://goproxy.cn
-  - make build
-  - bash integrate/check_8080.sh
-  - make env
-  - make run
-  - make runlc
-  - make runmigrate
-  - sudo python test/sanity.py
-  - pushd test/go
-  - go test -v
-  - popd
-  - export VER_DRONE=${DRONE_SOURCE_BRANCH}
-  - export REL_DRONE=test
-  - make pkg
-  - make clean
-  when:
-    event:
-    - pull_request
-
-- name: update package to ftp
-  commands:
-  - bash package/update
-  when:
-    branch:
-    - develop
-    event:
-    - pull_request
-  depends_on:
-  - build and test package for test
-
-- name: deploy the test package to the target environment
-  commands:
-  - cd integrate
-  - mysql -u root -h 10.0.42.4 -P 4000 -e "drop database yig_drone;"
-  - mysql -u root -h 10.0.42.4 -P 4000 -e "create database yig_drone character set utf8;"
-  - mysql -u root -h 10.0.42.4 -P 4000 -e "use yig_drone;source /yig.sql;"
-  - curDate=yig_$(date "+%Y%m%d")
-  - ssh 10.0.47.215 "mkdir /root/test_packages/$curDate"
-  - scp /test-env/yig.toml 10.0.47.215:/root/test_packages/$curDate
-  - scp *.x86_64.rpm 10.0.47.215:/root/test_packages/$curDate
-  - ssh 10.0.47.215 "sh /root/test_packages/update_yig_package.sh"
-  when:
-    branch:
-    - develop
-    event:
-    - pull_request
-  depends_on:
-  - build and test package for test
-
-- name: build and test package for publish
-  failure: ignore
-  commands:
-  - git clone http://10.0.45.221/Storage-oss-service/yig.git .
-  - git fetch origin develop
-  - git checkout $DRONE_COMMIT
-  - export GOPROXY=https://goproxy.cn
-  - make build
-  - bash integrate/check_8080.sh
-  - make env
-  - make run
-  - make runlc
-  - make runmigrate
-  - sudo python test/sanity.py
-  - pushd test/go
-  - go test -v
-  - popd
-  - export VER_DRONE=${DRONE_TAG}
-  - export REL_DRONE=pub
-  - make pkg
-  - make clean
-  when:
-    event:
-    - tag
-
-- name: clean up env
-  commands:
-  - make clean
-  when:
-    event:
-    - failure
-
-- name: update package to s3
-  commands:
-  - curDate=$(date "+%Y%m%d")
-  - s3cmd put *.x86_64.rpm s3://published-packages/yig/$curDate/
-  when:
-    event:
-    - tag
-  depends_on:
-  - build and test package for publish
+  - make build_internal
 
 trigger:
   event:
   - push
-  - tag
-  - pull_request
