@@ -27,7 +27,6 @@ steps:
   - cp -f plugins/*.so /etc/yig/plugins/
   - sed -i 's/yig_drone/yig_drone${DRONE_BUILD_NUMBER}/' /etc/yig/yig.toml
   - sed -i 's/cluster/single/' /etc/yig/yig.toml
-  - touch logs
   - nohup ./yig >/dev/null 2>&1 &
   - nuhup ./lc >/dev/null 2>&1 &
   - nohup ./migrate >/dev/null 2>&1 &
