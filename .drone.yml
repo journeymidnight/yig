@@ -128,7 +128,7 @@ steps:
       from_secret: s3_secret_key
     acl: public-read
     source: /drone/src/yig/packages/*
-    target: /yig-front-caddy/
+    target: /yig/
     strip_prefix: /drone/src/yig/packages/
     path_style: true
     endpoint: http://oss-cn-north-2.unicloudsrv.com
