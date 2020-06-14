@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/bsm/redislock"
-	"github.com/journeymidnight/radoshttpd/rados"
 	"github.com/journeymidnight/yig/backend"
 	"github.com/journeymidnight/yig/crypto"
 	. "github.com/journeymidnight/yig/error"
@@ -118,7 +117,7 @@ func checkAndDoMigrate(index int) {
 		}
 
 		sourceCluster = yigs[index].DataStorage[sourceObject.Location]
-		reader, err = sourceCluster.GetReader(sourceObject.Pool, sourceObject.ObjectId, 0, uint64(sourceObject.Size))
+		reader, err = sourceCluster.GetReader(sourceObject.Pool, sourceObject.ObjectId, sourceObject.Type, 0, uint64(sourceObject.Size))
 		if err != nil {
 			helper.Logger.Info("checkIfNeedMigrate GetReader failed:", sourceObject.Pool, sourceObject.ObjectId, err.Error())
 			goto quit
@@ -131,7 +130,7 @@ func checkAndDoMigrate(index int) {
 			goto quit
 		}
 		if bytesWritten != uint64(sourceObject.Size) {
-			destCluster.Remove(backend.BIG_FILE_POOLNAME, newOid)
+			destCluster.Remove(backend.BIG_FILE_POOLNAME, newOid, types.ObjectTypeAppendable)
 			helper.Logger.Error("cephCluster.Append write length to hdd not equel the object size:", newOid, bytesWritten, sourceObject.Size)
 			goto release
 		}
@@ -144,13 +143,13 @@ func checkAndDoMigrate(index int) {
 		//update objects table and remove entry from hotobjects
 		err = yigs[index].MetaStorage.MigrateObject(sourceObject)
 		if err != nil {
-			destCluster.Remove(backend.BIG_FILE_POOLNAME, newOid)
+			destCluster.Remove(backend.BIG_FILE_POOLNAME, newOid, types.ObjectTypeAppendable)
 			helper.Logger.Error("cephCluster.Append MigrateObject failed:", err.Error())
 			goto quit
 		}
 		//remove data from ssd cluster
-		err = sourceCluster.Remove(backend.SMALL_FILE_POOLNAME, oid)
-		if err != nil && err != rados.RadosError(int(-2)) {
+		err = sourceCluster.Remove(backend.SMALL_FILE_POOLNAME, oid, types.ObjectTypeAppendable)
+		if err != nil {
 			helper.Logger.Error("cephCluster.Append Remove data from rabbit failed:", err.Error())
 			goto quit
 		}

@@ -14,6 +14,7 @@ import (
 	"github.com/journeymidnight/radoshttpd/rados"
 	"github.com/journeymidnight/yig/backend"
 	"github.com/journeymidnight/yig/helper"
+	meta "github.com/journeymidnight/yig/meta/types"
 )
 
 const (
@@ -21,6 +22,8 @@ const (
 	OSD_TIMEOUT                = "10"
 	STRIPE_UNIT                = 512 << 10 /* 512K */
 	STRIPE_COUNT               = 2
+	APPEND_STRIPE_UNIT         = 32 << 10 /* 32K */
+	APPEND_STRIPE_COUNT        = 1
 	OBJECT_SIZE                = 8 << 20 /* 8M */
 	AIO_CONCURRENT             = 4
 	DEFAULT_CEPHCONFIG_PATTERN = "conf/*.conf"
@@ -104,6 +107,20 @@ func setStripeLayout(p StriperPool) int {
 		return ret
 	}
 	if ret = p.SetLayoutStripeCount(STRIPE_COUNT); ret < 0 {
+		return ret
+	}
+	return ret
+}
+
+func setAppendStripeLayout(p StriperPool) int {
+	var ret int = 0
+	if ret = p.SetLayoutStripeUnit(APPEND_STRIPE_UNIT); ret < 0 {
+		return ret
+	}
+	if ret = p.SetLayoutObjectSize(OBJECT_SIZE); ret < 0 {
+		return ret
+	}
+	if ret = p.SetLayoutStripeCount(APPEND_STRIPE_COUNT); ret < 0 {
 		return ret
 	}
 	return ret
@@ -200,6 +217,14 @@ func (cluster *CephCluster) doSmallAppend(poolname string, oid string, offset ui
 		return 0, errors.New("Bad poolname")
 	}
 	defer pool.Destroy()
+	striper, err := pool.CreateStriper()
+	if err != nil {
+		return 0, fmt.Errorf("Bad ioctx of pool %s", poolname)
+	}
+	defer striper.Destroy()
+
+	setAppendStripeLayout(striper)
+
 	readStart := time.Now()
 	wBuf := make([]byte, length, length)
 	makePoint := time.Now()
@@ -230,7 +255,7 @@ func (cluster *CephCluster) doSmallAppend(poolname string, oid string, offset ui
 	size = uint64(len(wBuf))
 
 	writeStart := time.Now()
-	err = pool.Write(oid, wBuf, offset)
+	_, err = striper.Write(oid, wBuf, uint64(offset))
 	writeEnd := time.Now()
 	if err != nil {
 		return 0, err
@@ -558,7 +583,7 @@ func (rd *RadosDownloader) Close() error {
 	return nil
 }
 
-func (cluster *CephCluster) GetReader(poolName string, oid string, startOffset int64,
+func (cluster *CephCluster) GetReader(poolName string, oid string, objectType meta.ObjectType, startOffset int64,
 	length uint64) (reader io.ReadCloser, err error) {
 
 	if poolName == backend.SMALL_FILE_POOLNAME {
@@ -567,14 +592,36 @@ func (cluster *CephCluster) GetReader(poolName string, oid string, startOffset i
 			err = errors.New("bad poolname")
 			return
 		}
-		radosSmallReader := &RadosSmallDownloader{
-			oid:       oid,
-			offset:    startOffset,
-			pool:      pool,
-			remaining: int64(length),
+
+		if objectType == meta.ObjectTypeNormal {
+			radosSmallReader := &RadosSmallDownloader{
+				oid:       oid,
+				offset:    startOffset,
+				pool:      pool,
+				remaining: int64(length),
+			}
+			return radosSmallReader, nil
+		} else if objectType == meta.ObjectTypeAppendable {
+			striper, err := pool.CreateStriper()
+			if err != nil {
+				err = errors.New("bad ioctx")
+				return reader, err
+			}
+
+			radosReader := &RadosDownloader{
+				striper:   striper,
+				oid:       oid,
+				offset:    startOffset,
+				pool:      pool,
+				remaining: int64(length),
+			}
+			return radosReader, nil
+
+		} else {
+			err = errors.New("mutipart object should not be placed in rabbit")
+			return
 		}
 
-		return radosSmallReader, nil
 	}
 
 	pool, err := cluster.Conn.OpenPool(poolName)
@@ -609,10 +656,29 @@ func (cluster *CephCluster) doSmallRemove(poolname string, oid string) error {
 	return pool.Delete(oid)
 }
 
-func (cluster *CephCluster) Remove(poolname string, oid string) error {
+func (cluster *CephCluster) Remove(poolname string, oid string, objectType meta.ObjectType) error {
 
 	if poolname == backend.SMALL_FILE_POOLNAME {
-		return cluster.doSmallRemove(poolname, oid)
+		if objectType == meta.ObjectTypeNormal {
+			return cluster.doSmallRemove(poolname, oid)
+		} else {
+			pool, err := cluster.Conn.OpenPool(poolname)
+			if err != nil {
+				return errors.New("Bad poolname")
+			}
+			defer pool.Destroy()
+
+			striper, err := pool.CreateStriper()
+			if err != nil {
+				return errors.New("Bad ioctx")
+			}
+			defer striper.Destroy()
+			// if we do not set our custom layout, rados will infer all objects filename from default layout setting,
+			// and some sub objects will not be deleted
+			setAppendStripeLayout(striper)
+
+			return striper.Delete(oid)
+		}
 	}
 
 	pool, err := cluster.Conn.OpenPool(poolname)

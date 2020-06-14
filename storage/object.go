@@ -212,7 +212,7 @@ func generateTransWholeObjectFunc(cluster backend.Cluster,
 	object *meta.Object) func(io.Writer) error {
 
 	getWholeObject := func(w io.Writer) error {
-		reader, err := cluster.GetReader(object.Pool, object.ObjectId,
+		reader, err := cluster.GetReader(object.Pool, object.ObjectId, object.Type,
 			0, uint64(object.Size))
 		if err != nil {
 			return nil
@@ -236,7 +236,7 @@ func generateTransPartObjectFunc(cephCluster backend.Cluster, object *meta.Objec
 		} else {
 			oid = object.ObjectId
 		}
-		reader, err := cephCluster.GetReader(object.Pool, oid, offset, uint64(length))
+		reader, err := cephCluster.GetReader(object.Pool, oid, object.Type, offset, uint64(length))
 		if err != nil {
 			return nil
 		}
@@ -250,12 +250,12 @@ func generateTransPartObjectFunc(cephCluster backend.Cluster, object *meta.Objec
 }
 
 // Works together with `wrapAlignedEncryptionReader`, see comments there.
-func getAlignedReader(cluster backend.Cluster, poolName, objectName string,
+func getAlignedReader(cluster backend.Cluster, poolName, objectName string, objectType meta.ObjectType,
 	startOffset int64, length uint64) (reader io.ReadCloser, err error) {
 
 	alignedOffset := startOffset / AES_BLOCK_SIZE * AES_BLOCK_SIZE
 	length += uint64(startOffset - alignedOffset)
-	return cluster.GetReader(poolName, objectName, alignedOffset, length)
+	return cluster.GetReader(poolName, objectName, objectType, alignedOffset, length)
 }
 
 func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
@@ -302,7 +302,7 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 
 		// encrypted object
 		normalAligenedGet := func() (io.ReadCloser, error) {
-			return getAlignedReader(cephCluster, object.Pool, object.ObjectId,
+			return getAlignedReader(cephCluster, object.Pool, object.ObjectId, object.Type,
 				startOffset, uint64(length))
 		}
 		reader, err := yig.DataCache.GetAlignedReader(object, startOffset, length,
@@ -380,7 +380,8 @@ func copyEncryptedPart(pool string, part *meta.Part, cluster backend.Cluster,
 	readOffset int64, length int64,
 	encryptionKey []byte, targetWriter io.Writer) (err error) {
 
-	reader, err := getAlignedReader(cluster, pool, part.ObjectId,
+	//pass meta.ObjectTypeMultipart here is no meanling, because pool here must be tiger
+	reader, err := getAlignedReader(cluster, pool, part.ObjectId, meta.ObjectTypeMultipart,
 		readOffset, uint64(length))
 	if err != nil {
 		return err
@@ -641,9 +642,10 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 	// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
 	// so the object in Ceph could be removed asynchronously
 	maybeObjectToRecycle := objectToRecycle{
-		location: cluster.ID(),
-		pool:     poolName,
-		objectId: objectId,
+		location:   cluster.ID(),
+		pool:       poolName,
+		objectId:   objectId,
+		objectType: meta.ObjectTypeNormal,
 	}
 	if int64(bytesWritten) < size {
 		RecycleQueue <- maybeObjectToRecycle
@@ -867,9 +869,10 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 				defer throttleReader.Close()
 				oid, bytesW, err = cephCluster.Put(poolName, throttleReader)
 				maybeObjectToRecycle = objectToRecycle{
-					location: cephCluster.ID(),
-					pool:     poolName,
-					objectId: oid,
+					location:   cephCluster.ID(),
+					pool:       poolName,
+					objectId:   oid,
+					objectType: meta.ObjectTypeMultipart,
 				}
 				if bytesW < uint64(part.Size) {
 					RecycleQueue <- maybeObjectToRecycle
@@ -926,9 +929,10 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 		// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
 		// so the object in Ceph could be removed asynchronously
 		maybeObjectToRecycle = objectToRecycle{
-			location: cephCluster.ID(),
-			pool:     poolName,
-			objectId: oid,
+			location:   cephCluster.ID(),
+			pool:       poolName,
+			objectId:   oid,
+			objectType: meta.ObjectTypeNormal,
 		}
 		if int64(bytesWritten) < targetObject.Size {
 			RecycleQueue <- maybeObjectToRecycle

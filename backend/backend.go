@@ -5,6 +5,7 @@ import (
 
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
+	meta "github.com/journeymidnight/yig/meta/types"
 )
 
 const (
@@ -29,10 +30,10 @@ type Cluster interface {
 	Append(poolName, existName string, objectChunk io.Reader,
 		offset int64, length int64) (objectName string, bytesWritten uint64, err error)
 	// get a ReadCloser for object, length == 0 means get the whole object
-	GetReader(poolName, objectName string,
+	GetReader(poolName, objectName string, objectType meta.ObjectType,
 		offset int64, length uint64) (io.ReadCloser, error)
 	// remove an object
-	Remove(poolName, objectName string) error
+	Remove(poolName, objectName string, objectType meta.ObjectType) error
 }
 
 // Backend plugins should implement this interface

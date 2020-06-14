@@ -1,8 +1,10 @@
 package storage
 
 import (
-	"github.com/journeymidnight/yig/helper"
 	"time"
+
+	"github.com/journeymidnight/yig/helper"
+	meta "github.com/journeymidnight/yig/meta/types"
 )
 
 // Remove
@@ -19,6 +21,7 @@ type objectToRecycle struct {
 	location   string
 	pool       string
 	objectId   string
+	objectType meta.ObjectType
 	triedTimes int
 }
 
@@ -38,7 +41,7 @@ func removeFailed(yig *YigStorage) {
 	for {
 		select {
 		case object := <-RecycleQueue:
-			err := yig.DataStorage[object.location].Remove(object.pool, object.objectId)
+			err := yig.DataStorage[object.location].Remove(object.pool, object.objectId, object.objectType)
 			if err != nil {
 				object.triedTimes += 1
 				if object.triedTimes > MAX_TRY_TIMES {

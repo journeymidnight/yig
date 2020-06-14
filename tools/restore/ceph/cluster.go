@@ -4,14 +4,15 @@ import (
 	"container/list"
 	"errors"
 	"fmt"
-	"github.com/journeymidnight/radoshttpd/rados"
-	"github.com/journeymidnight/yig-restore/backend"
-	"github.com/journeymidnight/yig-restore/helper"
 	"io"
 	"io/ioutil"
 	"path/filepath"
 	"sync/atomic"
 	"time"
+
+	"github.com/journeymidnight/radoshttpd/rados"
+	"github.com/journeymidnight/yig-restore/backend"
+	"github.com/journeymidnight/yig-restore/helper"
 )
 
 const (
