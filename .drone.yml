@@ -29,7 +29,7 @@ steps:
   - sed -i 's/cluster/single/' /etc/yig/yig.toml
   - nohup ./yig >/dev/null 2>&1 &
   - sleep 10
-  - nuhup ./lc >/dev/null 2>&1 &
+  - nuhup ./lc &
   - sleep 10
   - nohup ./migrate >/dev/null 2>&1 &
   - sleep 10
