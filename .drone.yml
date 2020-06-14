@@ -16,10 +16,130 @@ workspace:
 
 steps:
 - name: build & test
-  image: centos-yig
+  image: centos-yig:v1.0.1
   commands:
+  - export GOPROXY=https://goproxy.cn
   - make build_internal
+  - sqlName=yig_drone${DRONE_BUILD_NUMBER}
+  - mysql -u root -P 4000 -h 10.0.42.4 -e "create database $sqlName character set utf8;"
+  - mysql -u root -P 4000 -h 10.0.42.4 -e "use $sqlName;source integrate/yig.sql;"
+  - cp -f integrate/test-env/yig.toml /etc/yig/yig.toml
+  - cp -f plugins/*.so /etc/yig/plugins/
+  - sed -i 's/yig_drone/yig_drone${DRONE_BUILD_NUMBER}/' /etc/yig/yig.toml
+  - sed -i 's/cluster/single/' /etc/yig/yig.toml
+  - sed -i 's/localhost:6379/10.0.42.4:6379/' test/go/redis_test.go
+  - sed -i 's/hehehehe//' test/go/redis_test.go
+  - touch logs
+  - nohup ./yig >/dev/null 2>&1 &
+  - nuhup ./lc >/dev/null 2>&1 &
+  - nohup ./migrate >/dev/null 2>&1 &
+  - sleep 10
+  - python test/sanity.py
+  - pushd test/go
+  - go test -v
+  - popd
+  - mysql -u root -P 4000 -h 10.0.42.4 -e "drop database $sqlName;"
+
+
+- name: clean up database
+  image: centos-yig:v1.0.1
+  commands:
+  - sqlName=yig_drone${DRONE_BUILD_NUMBER}
+  - mysql -u root -P 4000 -h 10.0.42.4 -e "drop database $sqlName;"
+  when:
+    event:
+    - failure
+
+- name: make package with test
+  image: centos-yig:v1.0.1
+  environment:
+    VERSION: ${DRONE_SOURCE_BRANCH}
+    RELEASE: test
+  commands:
+  - export GOPROXY=https://goproxy.cn
+  - make pkg_internal
+  when:
+    branch:
+    - develop
+    event:
+    - pull_request
+  depends_on:
+  - build & test
+
+- name: update package to ftp
+  image: cschlosser/drone-ftps
+  environment:
+    FTP_USERNAME:
+      from_secret: ftp_user_name
+    FTP_PASSWORD:
+      from_secret: ftp_user_pass
+    PLUGIN_HOSTNAME: 10.0.47.182
+    PLUGIN_VERIFY: false
+    PLUGIN_SECURE: false
+    PLUGIN_DEST_DIR: /pub/Untested_Packages/yig
+    PLUGIN_SRC_DIR: /packages/
+  when:
+    branch:
+    - develop
+    event:
+    - pull_request
+  depends_on:
+  - make package with test
+
+- name: deploy the test package to the target environment
+  image: centos-yig:v1.0.1
+  commands:
+  - cd integrate
+  - mysql -u root -h 10.0.42.4 -P 4000 -e "drop database yig_drone;"
+  - mysql -u root -h 10.0.42.4 -P 4000 -e "create database yig_drone character set utf8;"
+  - mysql -u root -h 10.0.42.4 -P 4000 -e "use yig_drone;source yig.sql;"
+  - curDate=yig_$(date "+%Y%m%d-%H%M%S")
+  - ssh 10.0.47.215 "mkdir /test_packages/$curDate"
+  - scp test-env/yig.toml 10.0.47.215:/test_packages/$curDate
+  - scp ../package/*.x86_64.rpm 10.0.47.215:/test_packages/$curDate
+  - ssh 10.0.47.215 "cd /test_packages;sh update_yig_package.sh $curDate"
+  when:
+    branch:
+    - develop
+    event:
+    - pull_request
+  depends_on:
+  - make package with test
+
+
+- name: make package with published
+  image: centos-yig:v1.0.1
+  environment:
+    VERSION: ${DRONE_TAG=latest}
+    RELEASE: pub
+  commands:
+    - export GOPROXY=https://goproxy.cn
+    - make pkg_internal
+  when:
+    event:
+    - tag
+
+- name: update package to s3
+  image: plugins/s3
+  settings:
+    bucket: published-packages
+    access_key:
+      from_secret: s3_access_key
+    secret_key:
+      from_secret: s3_secret_key
+    acl: public-read
+    source: /drone/src/yig-front-caddy/packages/*
+    target: /yig-front-caddy/
+    strip_prefix: /drone/src/yig-front-caddy/packages/
+    path_style: true
+    endpoint: http://oss-cn-north-2.unicloudsrv.com
+  when:
+    event: tag
+  depends_on:
+  - make package with published
 
 trigger:
   event:
   - push
+  - tag
+  - pull_request

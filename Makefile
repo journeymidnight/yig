@@ -25,6 +25,11 @@ build_internal:
 pkg:
 	docker run --rm -v $(PWD):$(WORKDIR) -w $(WORKDIR) journeymidnight/yig bash -c 'bash package/rpmbuild.sh $(REPO) $(BUILDROOT) $(VER) $(REL)'
 
+pkg_internal:
+	bash package/rpmbuild.sh $(REPO) $(BUILDROOT) $(VER) $(REL)
+	@mkdir packages
+	@cp *.x86_64.rpm package/
+
 image:
 	docker build -t  journeymidnight/yig . -f integrate/yig.docker
 
