@@ -93,10 +93,10 @@ steps:
   - mysql -u root -h 10.0.42.4 -P 4000 -e "create database yig_drone character set utf8;"
   - mysql -u root -h 10.0.42.4 -P 4000 -e "use yig_drone;source yig.sql;"
   - curDate=yig_$(date "+%Y%m%d-%H%M%S")
-  - ssh 10.0.47.215 "mkdir /test_packages/$curDate"
+  - ssh 10.0.47.215 "mkdir /test_packages/$curDate;close"
   - scp test-env/yig.toml 10.0.47.215:/test_packages/$curDate
   - scp ../package/*.x86_64.rpm 10.0.47.215:/test_packages/$curDate
-  - ssh 10.0.47.215 "cd /test_packages;sh update_yig_package.sh $curDate"
+  - ssh 10.0.47.215 "cd /test_packages;sh update_yig_package.sh $curDate;close"
   when:
     branch:
     - develop

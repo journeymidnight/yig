@@ -28,7 +28,7 @@ pkg:
 pkg_internal:
 	bash package/rpmbuild.sh $(REPO) $(BUILDROOT) $(VER) $(REL)
 	@mkdir packages
-	@cp *.x86_64.rpm package/
+	@cp *.x86_64.rpm packages/
 
 image:
 	docker build -t  journeymidnight/yig . -f integrate/yig.docker
