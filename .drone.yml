@@ -27,8 +27,6 @@ steps:
   - cp -f plugins/*.so /etc/yig/plugins/
   - sed -i 's/yig_drone/yig_drone${DRONE_BUILD_NUMBER}/' /etc/yig/yig.toml
   - sed -i 's/cluster/single/' /etc/yig/yig.toml
-  - sed -i 's/localhost:6379/10.0.42.4:6379/' test/go/redis_test.go
-  - sed -i 's/hehehehe//' test/go/redis_test.go
   - touch logs
   - nohup ./yig >/dev/null 2>&1 &
   - nuhup ./lc >/dev/null 2>&1 &
