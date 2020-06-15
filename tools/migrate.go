@@ -82,7 +82,7 @@ func checkAndDoMigrate(index int) {
 		var sourceCluster, destCluster backend.Cluster
 		var reader io.ReadCloser
 		var sourceObject *types.Object
-		var mutex *redislock.Lock
+		// var mutex *redislock.Lock
 		object := <-mgTaskQ
 		mgWaitgroup.Add(1)
 
@@ -92,20 +92,20 @@ func checkAndDoMigrate(index int) {
 		}
 
 		// Try to obtain lock.
-		mutex, err = redis.Locker.Obtain(redis.GenMutexKey(&object), 10*time.Second, nil)
-		if err == redislock.ErrNotObtained {
-			helper.Logger.Error("Lock object failed:", object.BucketName, object.ObjectId, object.VersionId)
-			goto loop
-		} else if err != nil {
-			helper.Logger.Error("Lock seems does not work, so quit", err.Error())
-			signalQueue <- syscall.SIGQUIT
-			return
-		}
+		// mutex, err = redis.Locker.Obtain(redis.GenMutexKey(&object), 10*time.Second, nil)
+		// if err == redislock.ErrNotObtained {
+		// 	helper.Logger.Error("Lock object failed:", object.BucketName, object.ObjectId, object.VersionId)
+		// 	goto loop
+		// } else if err != nil {
+		// 	helper.Logger.Error("Lock seems does not work, so quit", err.Error())
+		// 	signalQueue <- syscall.SIGQUIT
+		// 	return
+		// }
 
 		//add lock to mutexs map
-		mux.Lock()
-		mutexs[mutex.Key()] = mutex
-		mux.Unlock()
+		// mux.Lock()
+		// mutexs[mutex.Key()] = mutex
+		// mux.Unlock()
 
 		sourceObject, err = yigs[index].MetaStorage.GetObject(object.BucketName, object.Name, object.VersionId, true)
 		if err != nil {
@@ -160,10 +160,10 @@ func checkAndDoMigrate(index int) {
 	quit:
 		signalQueue <- syscall.SIGQUIT
 	release:
-		mutex.Release()
-		mux.Lock()
-		delete(mutexs, mutex.Key())
-		mux.Unlock()
+		// mutex.Release()
+		// mux.Lock()
+		// delete(mutexs, mutex.Key())
+		// mux.Unlock()
 	loop:
 		mgWaitgroup.Done()
 	}
