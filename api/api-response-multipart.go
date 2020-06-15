@@ -17,12 +17,13 @@
 package api
 
 import (
-	meta "github.com/journeymidnight/yig/meta/types"
 	"net/http"
+
+	meta "github.com/journeymidnight/yig/meta/types"
 )
 
 const (
-	MIN_PART_SIZE = 5 << 20 // 5MB
+	MIN_PART_SIZE = 1 << 20 // 1MB
 )
 
 // writeErrorResponsePartTooSmall - function is used specifically to
