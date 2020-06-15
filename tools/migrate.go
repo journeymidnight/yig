@@ -81,7 +81,7 @@ func checkAndDoMigrate(index int) {
 		var err error
 		var sourceCluster, destCluster backend.Cluster
 		var reader io.ReadCloser
-		var sourceObject *types.Object
+		var sourceObject, newSourceObject *types.Object
 		// var mutex *redislock.Lock
 		object := <-mgTaskQ
 		mgWaitgroup.Add(1)
@@ -135,6 +135,23 @@ func checkAndDoMigrate(index int) {
 			goto release
 		}
 
+		//double check if any modification happened to this object during waiting for process and copy object
+		//although this still not seamless, but can reduce lost data as much as possible
+		newSourceObject, err = yigs[index].MetaStorage.GetObject(object.BucketName, object.Name, object.VersionId, true)
+		if err != nil {
+			if err == ErrNoSuchKey {
+				yigs[index].MetaStorage.RemoveHotObject(&object, nil)
+				destCluster.Remove(backend.BIG_FILE_POOLNAME, newOid, types.ObjectTypeAppendable)
+				goto release
+			}
+			goto quit
+		}
+
+		if newSourceObject.LastModifiedTime != sourceObject.LastModifiedTime {
+			destCluster.Remove(backend.BIG_FILE_POOLNAME, newOid, types.ObjectTypeAppendable)
+			goto release
+		}
+
 		//update object fileds
 		sourceObject.Location = destCluster.ID()
 		sourceObject.Pool = backend.BIG_FILE_POOLNAME
@@ -156,6 +173,7 @@ func checkAndDoMigrate(index int) {
 		//invalid redis cache
 		yigs[index].MetaStorage.Cache.Remove(redis.ObjectTable, sourceObject.BucketName+":"+sourceObject.Name+":"+sourceObject.VersionId)
 		yigs[index].DataCache.Remove(sourceObject.BucketName + ":" + sourceObject.Name + ":" + sourceObject.VersionId)
+		helper.Logger.Info("migrate success for :", sourceObject.BucketName+":"+sourceObject.Name+":"+sourceObject.VersionId+":"+sourceObject.ObjectId)
 		goto release
 	quit:
 		signalQueue <- syscall.SIGQUIT
