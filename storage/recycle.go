@@ -41,7 +41,7 @@ func removeFailed(yig *YigStorage) {
 	for {
 		select {
 		case object := <-RecycleQueue:
-			err := yig.DataStorage[object.location].Remove(object.pool, object.objectId, object.objectType)
+			err := yig.DataStorage[object.location].Remove(object.pool, object.objectId)
 			if err != nil {
 				object.triedTimes += 1
 				if object.triedTimes > MAX_TRY_TIMES {

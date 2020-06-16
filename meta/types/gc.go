@@ -16,7 +16,6 @@ type GarbageCollection struct {
 	MTime      time.Time // last modify time of status
 	Parts      map[int]*Part
 	TriedTimes int
-	Type       ObjectType
 }
 
 func GetGcInfoFromObject(o *Object) (gc GarbageCollection) {
@@ -29,6 +28,5 @@ func GetGcInfoFromObject(o *Object) (gc GarbageCollection) {
 	gc.MTime = time.Now().UTC()
 	gc.Parts = o.Parts
 	gc.TriedTimes = 0
-	gc.Type = o.Type
 	return
 }

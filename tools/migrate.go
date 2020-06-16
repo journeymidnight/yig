@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -134,7 +135,7 @@ func checkAndDoMigrate(index int) {
 		}
 
 		sourceCluster = yigs[index].DataStorage[newSourceObject.Location]
-		reader, err = sourceCluster.GetReader(newSourceObject.Pool, newSourceObject.ObjectId, newSourceObject.Type, 0, uint64(newSourceObject.Size))
+		reader, err = sourceCluster.GetReader(newSourceObject.Pool, newSourceObject.ObjectId, 0, uint64(newSourceObject.Size))
 		if err != nil {
 			helper.Logger.Error("checkIfNeedMigrate GetReader failed:", newSourceObject.Pool, newSourceObject.ObjectId, err.Error())
 			goto quit
@@ -147,7 +148,7 @@ func checkAndDoMigrate(index int) {
 			goto quit
 		}
 		if bytesWritten != uint64(sourceObject.Size) {
-			destCluster.Remove(backend.BIG_FILE_POOLNAME, newOid, types.ObjectTypeAppendable)
+			destCluster.Remove(backend.BIG_FILE_POOLNAME, newOid)
 			helper.Logger.Error("cephCluster.Append write length to hdd not equel the object size:", newOid, bytesWritten, newSourceObject.Size)
 			goto release
 		}
@@ -158,17 +159,19 @@ func checkAndDoMigrate(index int) {
 		oid = newSourceObject.ObjectId
 		newSourceObject.ObjectId = newOid
 		//update objects table and remove entry from hotobjects
-		err = yigs[index].MetaStorage.MigrateObject(sourceObject)
+		err = yigs[index].MetaStorage.MigrateObject(newSourceObject)
 		if err != nil {
-			destCluster.Remove(backend.BIG_FILE_POOLNAME, newOid, types.ObjectTypeAppendable)
+			destCluster.Remove(backend.BIG_FILE_POOLNAME, newOid)
 			helper.Logger.Error("cephCluster.Append MigrateObject failed:", err.Error())
 			goto quit
 		}
 		//remove data from ssd cluster
-		err = sourceCluster.Remove(backend.SMALL_FILE_POOLNAME, oid, types.ObjectTypeAppendable)
+		err = sourceCluster.Remove(backend.SMALL_FILE_POOLNAME, oid)
 		if err != nil {
 			helper.Logger.Error("cephCluster.Append Remove data from rabbit failed:", err.Error())
-			goto quit
+			if !strings.Contains(err.Error(), "ret=-2") {
+				goto quit
+			}
 		}
 		//invalid redis cache
 		yigs[index].MetaStorage.Cache.Remove(redis.ObjectTable, sourceObject.BucketName+":"+sourceObject.Name+":"+sourceObject.VersionId)

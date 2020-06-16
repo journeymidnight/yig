@@ -212,8 +212,7 @@ func generateTransWholeObjectFunc(cluster backend.Cluster,
 	object *meta.Object) func(io.Writer) error {
 
 	getWholeObject := func(w io.Writer) error {
-		reader, err := cluster.GetReader(object.Pool, object.ObjectId, object.Type,
-			0, uint64(object.Size))
+		reader, err := cluster.GetReader(object.Pool, object.ObjectId, 0, uint64(object.Size))
 		if err != nil {
 			return nil
 		}
@@ -236,7 +235,7 @@ func generateTransPartObjectFunc(cephCluster backend.Cluster, object *meta.Objec
 		} else {
 			oid = object.ObjectId
 		}
-		reader, err := cephCluster.GetReader(object.Pool, oid, object.Type, offset, uint64(length))
+		reader, err := cephCluster.GetReader(object.Pool, oid, offset, uint64(length))
 		if err != nil {
 			return nil
 		}
@@ -255,7 +254,7 @@ func getAlignedReader(cluster backend.Cluster, poolName, objectName string, obje
 
 	alignedOffset := startOffset / AES_BLOCK_SIZE * AES_BLOCK_SIZE
 	length += uint64(startOffset - alignedOffset)
-	return cluster.GetReader(poolName, objectName, objectType, alignedOffset, length)
+	return cluster.GetReader(poolName, objectName, alignedOffset, length)
 }
 
 func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
