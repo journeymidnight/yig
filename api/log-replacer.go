@@ -31,7 +31,7 @@ const (
 		"{object_size} {requester_id} {project_id} {remote_addr} {http_x_real_ip} {request_length} {server_cost} " +
 		"{request_time} {http_status} {error_code} {body_bytes_sent} {http_referer} {http_user_agent}"
 
-	BillingLogFormat = "{is_private_subnet} {storage_class} {target_storage_class} {bucket_logging} {cdn_request}"
+	BillingLogFormat = "{is_private_subnet} {storage_class} {target_storage_class} {bucket_logging} {cdn_request} {region_id} {create_time} {delta_size}"
 )
 
 // Replacer is a type which can replace placeholder
