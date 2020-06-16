@@ -211,11 +211,11 @@ func GenerateMultiDeleteResponse(quiet bool, deletedObjects []ObjectIdentifier, 
 
 // WriteSuccessResponse write success headers and response if any.
 func WriteSuccessResponse(w http.ResponseWriter, r *http.Request, response []byte) {
-	// reqCtx := GetRequestContext(r)
-	// if reqCtx.Mutex != nil {
-	// 	releaseErr := reqCtx.Mutex.Release()
-	// 	helper.Logger.Info("Release redis lock ", reqCtx.BucketName, reqCtx.ObjectName, reqCtx.ObjectInfo.ObjectId, reqCtx.RequestID, releaseErr)
-	// }
+	reqCtx := GetRequestContext(r)
+	if reqCtx.Mutex != nil {
+		releaseErr := reqCtx.Mutex.Release()
+		helper.Logger.Info("Release redis lock ", reqCtx.BucketName, reqCtx.ObjectName, reqCtx.ObjectInfo.ObjectId, reqCtx.RequestID, releaseErr)
+	}
 	if response == nil {
 		w.WriteHeader(http.StatusOK)
 		return
@@ -254,11 +254,11 @@ func WriteSuccessNoContent(w http.ResponseWriter) {
 
 // writeErrorResponse write error headers
 func WriteErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
-	// reqCtx := GetRequestContext(r)
-	// if reqCtx.Mutex != nil {
-	// 	releaseErr := reqCtx.Mutex.Release()
-	// 	helper.Logger.Info("Release redis lock ", reqCtx.BucketName, reqCtx.ObjectName, reqCtx.ObjectInfo.ObjectId, reqCtx.RequestID, releaseErr)
-	// }
+	reqCtx := GetRequestContext(r)
+	if reqCtx.Mutex != nil {
+		releaseErr := reqCtx.Mutex.Release()
+		helper.Logger.Info("Release redis lock ", reqCtx.BucketName, reqCtx.ObjectName, reqCtx.ObjectInfo.ObjectId, reqCtx.RequestID, releaseErr)
+	}
 	handled := WriteErrorResponseHeaders(w, r, err)
 	if !handled {
 		WriteErrorResponseNoHeader(w, r, err, r.URL.Path)

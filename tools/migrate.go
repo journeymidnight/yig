@@ -83,7 +83,7 @@ func checkAndDoMigrate(index int) {
 		var sourceCluster, destCluster backend.Cluster
 		var reader io.ReadCloser
 		var sourceObject, newSourceObject *types.Object
-		// var mutex *redislock.Lock
+		var mutex *redislock.Lock
 		object := <-mgTaskQ
 		mgWaitgroup.Add(1)
 
@@ -101,17 +101,42 @@ func checkAndDoMigrate(index int) {
 			goto loop
 		}
 
-		helper.Logger.Info("start migrate for :", sourceObject.BucketName+":"+sourceObject.Name+":"+sourceObject.VersionId+":"+sourceObject.ObjectId)
-		if sourceObject.StorageClass == ObjectStorageClassGlacier {
-			yigs[index].MetaStorage.RemoveHotObject(&object, nil)
-			helper.Logger.Info("abort migrate because StorageClass changed for :", sourceObject.BucketName+":"+sourceObject.Name+":"+sourceObject.VersionId+":"+sourceObject.ObjectId)
+		// Try to obtain lock.
+		mutex, err = redis.Locker.Obtain(redis.GenMutexKey(&object), 10*time.Second, nil)
+		if err == redislock.ErrNotObtained {
+			helper.Logger.Error("Lock object failed:", object.BucketName, object.ObjectId, object.VersionId)
 			goto loop
+		} else if err != nil {
+			helper.Logger.Error("Lock seems does not work, so quit", err.Error())
+			signalQueue <- syscall.SIGQUIT
+			return
 		}
 
-		sourceCluster = yigs[index].DataStorage[sourceObject.Location]
-		reader, err = sourceCluster.GetReader(sourceObject.Pool, sourceObject.ObjectId, sourceObject.Type, 0, uint64(sourceObject.Size))
+		//add lock to mutexs map
+		mux.Lock()
+		mutexs[mutex.Key()] = mutex
+		mux.Unlock()
+
+		newSourceObject, err = yigs[index].MetaStorage.GetObject(object.BucketName, object.Name, object.VersionId, true)
 		if err != nil {
-			helper.Logger.Error("checkIfNeedMigrate GetReader failed:", sourceObject.Pool, sourceObject.ObjectId, err.Error())
+			if err == ErrNoSuchKey {
+				yigs[index].MetaStorage.RemoveHotObject(&object, nil)
+				goto release
+			}
+			goto quit
+		}
+
+		helper.Logger.Info("start migrate for :", newSourceObject.BucketName+":"+newSourceObject.Name+":"+newSourceObject.VersionId+":"+newSourceObject.ObjectId)
+		if newSourceObject.StorageClass == ObjectStorageClassGlacier {
+			yigs[index].MetaStorage.RemoveHotObject(&object, nil)
+			helper.Logger.Info("abort migrate because StorageClass changed for :", newSourceObject.BucketName+":"+newSourceObject.Name+":"+newSourceObject.VersionId+":"+newSourceObject.ObjectId)
+			goto release
+		}
+
+		sourceCluster = yigs[index].DataStorage[newSourceObject.Location]
+		reader, err = sourceCluster.GetReader(newSourceObject.Pool, newSourceObject.ObjectId, newSourceObject.Type, 0, uint64(newSourceObject.Size))
+		if err != nil {
+			helper.Logger.Error("checkIfNeedMigrate GetReader failed:", newSourceObject.Pool, newSourceObject.ObjectId, err.Error())
 			goto quit
 		}
 
@@ -123,42 +148,15 @@ func checkAndDoMigrate(index int) {
 		}
 		if bytesWritten != uint64(sourceObject.Size) {
 			destCluster.Remove(backend.BIG_FILE_POOLNAME, newOid, types.ObjectTypeAppendable)
-			helper.Logger.Error("cephCluster.Append write length to hdd not equel the object size:", newOid, bytesWritten, sourceObject.Size)
-			goto loop
-		}
-
-		//double check if any modification happened to this object during waiting for process and copy object
-		//although this still not seamless, but can reduce lost data as much as possible
-		newSourceObject, err = yigs[index].MetaStorage.GetObject(object.BucketName, object.Name, object.VersionId, true)
-		if err != nil {
-			if err == ErrNoSuchKey {
-				yigs[index].MetaStorage.RemoveHotObject(&object, nil)
-				destCluster.Remove(backend.BIG_FILE_POOLNAME, newOid, types.ObjectTypeAppendable)
-				goto loop
-			}
-			helper.Logger.Error("cephCluster.Append err:", err)
-			goto quit
-		}
-
-		//this object may be turn to Glacier object at this point
-		if newSourceObject.StorageClass == ObjectStorageClassGlacier {
-			yigs[index].MetaStorage.RemoveHotObject(&object, nil)
-			destCluster.Remove(backend.BIG_FILE_POOLNAME, newOid, types.ObjectTypeAppendable)
-			helper.Logger.Info("abort migrate because StorageClass changed for :", newSourceObject.BucketName+":"+newSourceObject.Name+":"+newSourceObject.VersionId+":"+newSourceObject.ObjectId)
-			goto loop
-		}
-
-		if newSourceObject.LastModifiedTime != sourceObject.LastModifiedTime {
-			destCluster.Remove(backend.BIG_FILE_POOLNAME, newOid, types.ObjectTypeAppendable)
-			helper.Logger.Info("abort migrate because something changed for :", newSourceObject.BucketName+":"+newSourceObject.Name+":"+newSourceObject.VersionId+":"+newSourceObject.ObjectId)
-			goto loop
+			helper.Logger.Error("cephCluster.Append write length to hdd not equel the object size:", newOid, bytesWritten, newSourceObject.Size)
+			goto release
 		}
 
 		//update object fileds
-		sourceObject.Location = destCluster.ID()
-		sourceObject.Pool = backend.BIG_FILE_POOLNAME
-		oid = sourceObject.ObjectId
-		sourceObject.ObjectId = newOid
+		newSourceObject.Location = destCluster.ID()
+		newSourceObject.Pool = backend.BIG_FILE_POOLNAME
+		oid = newSourceObject.ObjectId
+		newSourceObject.ObjectId = newOid
 		//update objects table and remove entry from hotobjects
 		err = yigs[index].MetaStorage.MigrateObject(sourceObject)
 		if err != nil {
@@ -176,9 +174,14 @@ func checkAndDoMigrate(index int) {
 		yigs[index].MetaStorage.Cache.Remove(redis.ObjectTable, sourceObject.BucketName+":"+sourceObject.Name+":"+sourceObject.VersionId)
 		yigs[index].DataCache.Remove(sourceObject.BucketName + ":" + sourceObject.Name + ":" + sourceObject.VersionId)
 		helper.Logger.Info("migrate success for :", sourceObject.BucketName+":"+sourceObject.Name+":"+sourceObject.VersionId+":"+sourceObject.ObjectId)
-		goto loop
+		goto release
 	quit:
 		signalQueue <- syscall.SIGQUIT
+	release:
+		mutex.Release()
+		mux.Lock()
+		delete(mutexs, mutex.Key())
+		mux.Unlock()
 	loop:
 		mgWaitgroup.Done()
 	}
