@@ -31,7 +31,7 @@ steps:
   - sleep 10
   - ./lc &
   - sleep 10
-  - nohup ./migrate >/dev/null 2>&1 &
+  - ./migrate &
   - sleep 10
   - python test/sanity.py
   - pushd test/go
