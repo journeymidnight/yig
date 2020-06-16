@@ -476,7 +476,6 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 
 				// Compare once
 				previousNullObjectMeta = nil
-				helper.Logger.Println("++++++++++++++++++++++++++++")
 			}
 
 			// If object key has in result of CommonPrefix or Objects, do continue
