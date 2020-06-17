@@ -31,7 +31,7 @@ steps:
   - sleep 10
   - ./lc &
   - sleep 10
-  - nohup ./migrate >/dev/null 2>&1 &
+  - ./migrate &
   - sleep 10
   - python test/sanity.py
   - pushd test/go
@@ -52,8 +52,8 @@ steps:
 - name: make package with test
   image: centos-yig:v1.0.1
   environment:
-    VERSION: ${DRONE_SOURCE_BRANCH}
-    RELEASE: test
+    VER_DRONE: ${DRONE_SOURCE_BRANCH}
+    REL_DRONE: ALPHA
   commands:
   - export GOPROXY=https://goproxy.cn
   - make pkg_internal
@@ -109,8 +109,8 @@ steps:
 - name: make package with published
   image: centos-yig:v1.0.1
   environment:
-    VERSION: ${DRONE_TAG=latest}
-    RELEASE: pub
+    VER_DRONE: ${DRONE_TAG=latest}
+    REL_DRONE: PUB
   commands:
     - export GOPROXY=https://goproxy.cn
     - make pkg_internal
