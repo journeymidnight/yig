@@ -285,6 +285,10 @@ func getHotObjects() {
 			for len(mgTaskQ) >= WATER_LOW {
 				time.Sleep(time.Duration(10) * time.Millisecond)
 			}
+			if mgStop {
+				helper.Logger.Info("shutting down...")
+				return
+			}
 		}
 		for i := 0; i < mgScanInterval; i++ {
 			time.Sleep(time.Duration(1) * time.Second)
