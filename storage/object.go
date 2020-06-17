@@ -1042,6 +1042,22 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 		return result, ErrNoSuchBucket
 	}
 
+	if objInfo != nil {
+		if objInfo.StorageClass == ObjectStorageClassGlacier {
+			freezer, err := yig.GetFreezer(objInfo.BucketName, objInfo.Name, objInfo.VersionId)
+			if err == nil {
+				if freezer.Name == objInfo.Name {
+					err = yig.MetaStorage.DeleteFreezer(freezer)
+					if err != nil {
+						return result, err
+					}
+				}
+			} else if err != ErrNoSuchKey {
+				return result, err
+			}
+		}
+	}
+
 	switch bucket.ACL.CannedAcl {
 	case "public-read-write":
 		break
