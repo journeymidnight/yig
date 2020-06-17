@@ -273,7 +273,7 @@ func (cluster *CephCluster) doSmallAppend(poolname string, oid string, offset ui
 		if err != io.EOF && err != nil {
 			return 0, errors.New("Read from client failed")
 		}
-		helper.Logger.Info("Append info doSmallAppend oid:", oid, " count: ", count, " spend: ", singltReadEnd.Sub(singltReadStart).Milliseconds())
+		helper.Logger.Debug("Append info doSmallAppend oid:", oid, " count: ", count, " spend: ", singltReadEnd.Sub(singltReadStart).Milliseconds())
 		// it's used to calculate next upload window
 		slice_offset += count
 		slice = wBuf[slice_offset:]

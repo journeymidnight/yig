@@ -67,7 +67,7 @@ func autoRefreshLock() {
 				mux.Unlock()
 				continue
 			}
-			helper.Logger.Info("Refresh lock success...", key)
+			helper.Logger.Debug("Refresh lock success...", key)
 		}
 	}
 }

@@ -32,7 +32,7 @@ const (
 )
 
 func (yig *YigStorage) pickRandomCluster() (cluster backend.Cluster) {
-	helper.Logger.Info("Error picking cluster from table cluster in DB, " +
+	helper.Logger.Debug("Error picking cluster from table cluster in DB, " +
 		"use first cluster in config to write.")
 	for _, c := range yig.DataStorage {
 		cluster = c
@@ -583,7 +583,7 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
 	defer data.Close()
 	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, bucketName, objectName)
-	helper.Logger.Info("get encryptionKey:", encryptionKey, "cipherKey:", cipherKey, "err:", err)
+	helper.Logger.Debug("get encryptionKey:", encryptionKey, "cipherKey:", cipherKey, "err:", err)
 	if err != nil {
 		return
 	}
