@@ -162,13 +162,13 @@ func checkAndDoMigrate(index int) {
 		err = yigs[index].MetaStorage.MigrateObject(newSourceObject)
 		if err != nil {
 			destCluster.Remove(backend.BIG_FILE_POOLNAME, newOid)
-			helper.Logger.Error("cephCluster.Append MigrateObject failed:", err.Error())
+			helper.Logger.Error("cephCluster.Append MigrateObject failed:", err.Error(), newSourceObject.Pool, newSourceObject.ObjectId)
 			goto quit
 		}
 		//remove data from ssd cluster
 		err = sourceCluster.Remove(backend.SMALL_FILE_POOLNAME, oid)
 		if err != nil {
-			helper.Logger.Error("cephCluster.Append Remove data from rabbit failed:", err.Error())
+			helper.Logger.Error("cephCluster.Append Remove data from rabbit failed:", err.Error(), newSourceObject.Pool, newSourceObject.ObjectId)
 			if !strings.Contains(err.Error(), "ret=-2") {
 				goto quit
 			}
