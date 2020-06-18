@@ -112,8 +112,29 @@ func SetOperationName(w http.ResponseWriter, name Operation) {
 	}
 }
 
+const (
+	MinStandardIaObjectSize int64 = 1 << 16 // 64KB
+	MinGlacierObjectSize    int64 = 1 << 17 // 128KB
+)
+
+// For billing now. FIXME later?
+func CorrectDeltaSize(storageClass common.StorageClass, deltaSize int64) (delta int64) {
+	var isNagative bool
+	if deltaSize < 0 {
+		deltaSize *= -1
+		isNagative = true
+	}
+	if storageClass == common.ObjectStorageClassStandardIa && deltaSize < MinStandardIaObjectSize {
+		deltaSize = MinStandardIaObjectSize
+	} else if storageClass == common.ObjectStorageClassGlacier && deltaSize < MinGlacierObjectSize {
+		deltaSize = MinGlacierObjectSize
+	}
+	delta = helper.Ternary(isNagative, -deltaSize, deltaSize).(int64)
+	return
+}
+
 func SetDeltaSize(w http.ResponseWriter, storageClass common.StorageClass, delta int64) {
 	if w, ok := w.(*ResponseRecorder); ok {
-		w.deltaSizeInfo[storageClass] = delta
+		w.deltaSizeInfo[storageClass] = CorrectDeltaSize(storageClass, delta)
 	}
 }
