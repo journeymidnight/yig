@@ -31,11 +31,27 @@ type QosMeta struct {
 }
 
 func NewQosMeta(client client.Client) *QosMeta {
-	redisClient := redis.NewClient(&redis.Options{
-		Addr:     helper.CONFIG.RedisAddress,
-		Password: helper.CONFIG.RedisPassword,
-	})
-	limiter := redis_rate.NewLimiter(redisClient)
+	var limiter *redis_rate.Limiter
+	switch helper.CONFIG.RedisStore {
+	case "single":
+		redisClient := redis.NewClient(&redis.Options{
+			Addr:     helper.CONFIG.RedisAddress,
+			Password: helper.CONFIG.RedisPassword,
+		})
+		limiter = redis_rate.NewLimiter(redisClient)
+	case "cluster":
+		options := &redis.ClusterOptions{
+			Addrs:        helper.CONFIG.RedisGroup,
+			DialTimeout:  time.Duration(helper.CONFIG.RedisConnectTimeout) * time.Second,
+			ReadTimeout:  time.Duration(helper.CONFIG.RedisReadTimeout) * time.Second,
+			WriteTimeout: time.Duration(helper.CONFIG.RedisWriteTimeout) * time.Second,
+			IdleTimeout:  time.Duration(helper.CONFIG.RedisPoolIdleTimeout) * time.Second,
+		}
+		redisCluster := redis.NewClusterClient(options)
+		limiter = redis_rate.NewLimiter(redisCluster)
+	default:
+		panic("bad redis store type")
+	}
 	m := &QosMeta{
 		client:      client,
 		rateLimiter: limiter,
