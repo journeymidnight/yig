@@ -190,32 +190,33 @@ func (t *TidbClient) CheckAndPutBucket(bucket Bucket) (bool, error) {
 	return processed, err
 }
 
+const MaxKeySuffix = string(0xFF)
+
 func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (listInfo ListObjectsInfo, err error) {
 	var count int
 	var exit bool
-	objectNum := make(map[string]int)
 	commonPrefixes := make(map[string]struct{})
-	omarker := marker
 	for {
 		var loopcount int
 		var sqltext string
 		var rows *sql.Rows
+		helper.Logger.Info("######### begin marker:", marker)
 		if prefix == "" {
 			if marker == "" {
 				sqltext = `select bucketname,name,version,nullversion,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size
 					from objects 
 					where bucketName=? 
-					order by bucketname,name,version 
+					order by bucketname,name 
 					limit ?`
 				rows, err = t.Client.Query(sqltext, bucketName, maxKeys)
 			} else {
 				sqltext = `select bucketname,name,version,nullversion,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size
 					from objects 
 					where bucketName=? 
-					and name >=? 
-					order by bucketname,name,version 
-					limit ?,?`
-				rows, err = t.Client.Query(sqltext, bucketName, marker, objectNum[marker], objectNum[marker]+maxKeys)
+					and name > ? 
+					order by bucketname,name 
+					limit ?`
+				rows, err = t.Client.Query(sqltext, bucketName, marker, maxKeys)
 			}
 		} else { // prefix not empty
 			prefixPattern := prefix + "%"
@@ -224,19 +225,18 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 					from objects 
 					where bucketName=? 
 					and name like ?
-					order by bucketname,name,version 
+					order by bucketname,name
 					limit ?`
 				rows, err = t.Client.Query(sqltext, bucketName, prefixPattern, maxKeys)
 			} else {
 				sqltext = `select bucketname,name,version,nullversion,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size
 					from objects 
 					where bucketName=? 
-					and name >=? 
+					and name > ? 
 					and name like ?
-					order by bucketname,name,version 
-					limit ?,?`
-				rows, err = t.Client.Query(sqltext, bucketName, marker, prefixPattern,
-					objectNum[marker], objectNum[marker]+maxKeys)
+					order by bucketname,name
+					limit ?`
+				rows, err = t.Client.Query(sqltext, bucketName, marker, prefixPattern, maxKeys)
 			}
 		}
 		if err != nil {
@@ -267,37 +267,31 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 				return
 			}
 			//prepare next marker
-			//TODU: be sure how tidb/mysql compare strings
-			if _, ok := objectNum[name]; !ok {
-				objectNum[name] = 0
-			}
-			objectNum[name] += 1
+
 			marker = name
+			helper.Logger.Info("######### current marker:", marker)
 			//filte row
 			//filte by prefix
 			hasPrefix := strings.HasPrefix(name, prefix)
 			if !hasPrefix {
 				continue
 			}
-			//filte by objectname
-			if objectNum[name] > 1 {
-				continue
-			}
+
 			//filte by deletemarker
 			if deletemarker {
 				continue
 			}
-			if name == omarker {
-				continue
-			}
+
 			//filte by delemiter
 			if len(delimiter) != 0 {
 				subStr := strings.TrimPrefix(name, prefix)
 				n := strings.Index(subStr, delimiter)
 				if n != -1 {
 					prefixKey := prefix + subStr[0:(n+1)]
-					if prefixKey == omarker {
-						continue
+					if marker == prefixKey {
+						// skip this delimiter
+						marker = prefixKey + MaxKeySuffix
+						break
 					}
 					if _, ok := commonPrefixes[prefixKey]; !ok {
 						if count == maxKeys {
@@ -308,6 +302,10 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 						commonPrefixes[prefixKey] = struct{}{}
 						listInfo.NextMarker = prefixKey
 						count += 1
+						// skip this delimiter
+						marker = prefixKey + MaxKeySuffix
+						helper.Logger.Info("######### modify marker:", marker)
+						break
 					}
 					continue
 				}
@@ -498,6 +496,10 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				sp := strings.SplitN(subKey, delimiter, 2)
 				if len(sp) == 2 {
 					prefixKey := prefix + sp[0] + delimiter
+					if prefixKey == currentMarker {
+						currentMarker = prefixKey + MaxKeySuffix
+						break
+					}
 					if _, ok := commonPrefixes[prefixKey]; !ok && prefixKey != marker {
 						count++
 						if count == maxKeys {
@@ -509,6 +511,8 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 							break
 						}
 						commonPrefixes[prefixKey] = nil
+						currentMarker = prefixKey + MaxKeySuffix
+						break
 					}
 					continue
 				}
@@ -852,6 +856,10 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 				sp := strings.SplitN(subKey, delimiter, 2)
 				if len(sp) == 2 {
 					prefixKey := prefix + sp[0] + delimiter
+					if prefixKey == currentKeyMarker {
+						currentKeyMarker = prefixKey + MaxKeySuffix
+						break
+					}
 					if _, ok := commonPrefixes[prefixKey]; !ok && prefixKey != currentKeyMarker {
 						count++
 						if count == maxKeys {
@@ -864,6 +872,8 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 							break
 						}
 						commonPrefixes[prefixKey] = nil
+						currentKeyMarker = prefixKey + MaxKeySuffix
+						break
 					}
 					continue
 				}
