@@ -200,7 +200,6 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 		var loopcount int
 		var sqltext string
 		var rows *sql.Rows
-		helper.Logger.Info("######### begin marker:", marker)
 		if prefix == "" {
 			if marker == "" {
 				sqltext = `select bucketname,name,version,nullversion,deletemarker,ownerid,etag,lastmodifiedtime,storageclass,size
@@ -269,7 +268,6 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 			//prepare next marker
 
 			marker = name
-			helper.Logger.Info("######### current marker:", marker)
 			//filte row
 			//filte by prefix
 			hasPrefix := strings.HasPrefix(name, prefix)
@@ -304,7 +302,6 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 						count += 1
 						// skip this delimiter
 						marker = prefixKey + MaxKeySuffix
-						helper.Logger.Info("######### modify marker:", marker)
 						break
 					}
 					continue
