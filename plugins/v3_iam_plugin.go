@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto/hmac"
+	"crypto/md5"
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/json"
@@ -86,9 +87,9 @@ func (a IamV3Client) GetKeysByUid(uid string) (credentials []common.Credential, 
 	var slog = helper.Logger
 
 	url := a.IamUrl + "/" + a.IamPath + "?" + "AccessKeyId=" + a.AccessKey
-	slog.Println(10, "url is:", url)
+	slog.Info(10, "url is:", url)
 	signUrl := SignWithRequestURL("GET", url, a.SercetAccessKey)
-	slog.Println(20, "Url of GetKeysByUid send request to IAM :", signUrl)
+	slog.Info(20, "Url of GetKeysByUid send request to IAM :", signUrl)
 
 	request, _ := http.NewRequest("GET", signUrl, nil)
 	q := request.URL.Query()
@@ -98,7 +99,7 @@ func (a IamV3Client) GetKeysByUid(uid string) (credentials []common.Credential, 
 	request.URL.RawQuery = q.Encode()
 	response, err := a.httpClient.Do(request)
 	if err != nil {
-		slog.Println(5, "GetKeysByUid send request failed", err)
+		slog.Error(5, "GetKeysByUid send request failed", err)
 		return credentials, err
 	}
 	var resp AccessKeyItemList
@@ -106,9 +107,9 @@ func (a IamV3Client) GetKeysByUid(uid string) (credentials []common.Credential, 
 	if err != nil {
 		return credentials, errors.New("failed to read from IAM: " + err.Error())
 	}
-	slog.Println(20, "GetKeysByUid to IAM return status ", response.Status)
+	slog.Info(20, "GetKeysByUid to IAM return status ", response.Status)
 	if response.StatusCode != 200 {
-		slog.Println(5, "GetKeysByUid to IAM failed return code = ", response.StatusCode)
+		slog.Warn(5, "GetKeysByUid to IAM failed return code = ", response.StatusCode)
 		return credentials, fmt.Errorf("GetKeysByUid to IAM failed retcode = %d", response.StatusCode)
 	}
 	for _, value := range resp.Content {
@@ -124,48 +125,60 @@ func (a IamV3Client) GetKeysByUid(uid string) (credentials []common.Credential, 
 }
 
 func (a IamV3Client) GetCredential(accessKey string) (credential common.Credential, err error) {
-	if a.httpClient == nil {
-		a.httpClient = circuitbreak.NewCircuitClientWithInsecureSSL()
-	}
-	var slog = helper.Logger
+	akParams := strings.Split(accessKey,"_")
+	if len(akParams) == 2 && akParams[0] == helper.CONFIG.LogDelivererAK {
+		credential.UserId = akParams[1]
+		credential.AccessKeyID = accessKey
+		credential.AllowOtherUserAccess = false
 
-	url := a.IamUrl + "/" + a.IamPath + "?" + "AccessKeyId=" + a.AccessKey + "&UserAccessKeyId=" + accessKey
-	signUrl := SignWithRequestURL("GET", url, a.SercetAccessKey)
-	slog.Println(20, "Url of GetCredential send request to IAM :", signUrl)
+		md5Hash := md5.New()
+		md5Hash.Write([]byte(helper.CONFIG.LogDelivererSK))
+		credential.SecretAccessKey = base64.StdEncoding.EncodeToString(md5Hash.Sum([]byte(accessKey)))
 
-	request, _ := http.NewRequest("GET", signUrl, nil)
-	response, err := a.httpClient.Do(request)
-	if err != nil {
-		slog.Println(5, "GetCredential send request failed", err)
-		return credential, err
-	}
-	var resp = new(QueryResp)
-	body := response.Body
-	jsonBytes, err := ioutil.ReadAll(body)
-	if err != nil {
-		slog.Println(20, "Read IAM response err:", err)
-		return credential, err
-	}
-	defer body.Close()
-	s := string(jsonBytes)
-	slog.Println(20, "Read IAM JSON:", s)
-	err = json.Unmarshal(jsonBytes, resp)
-	if err != nil {
-		slog.Println(20, "Read IAM JSON err:", err)
-		return credential, err
-	}
-	slog.Println(20, "GetCredential to IAM return status ", response.Status)
-	if response.StatusCode != 200 {
-		slog.Println(5, "GetCredential to IAM failed return code = ", response.StatusCode)
-		return credential, fmt.Errorf("GetCredential to IAM failed retcode = %d", response.StatusCode)
-	}
+	} else {
+		if a.httpClient == nil {
+			a.httpClient = circuitbreak.NewCircuitClientWithInsecureSSL()
+		}
+		var slog = helper.Logger
 
-	value := resp.AccessKeySet
-	credential.UserId = value.ProjectId
-	credential.DisplayName = value.ProjectName
-	credential.AccessKeyID = value.AccessKey
-	credential.SecretAccessKey = value.AccessSecret
-	credential.AllowOtherUserAccess = false
+		url := a.IamUrl + "/" + a.IamPath + "?" + "AccessKeyId=" + a.AccessKey + "&UserAccessKeyId=" + accessKey
+		signUrl := SignWithRequestURL("GET", url, a.SercetAccessKey)
+		slog.Info(20, "Url of GetCredential send request to IAM :", signUrl)
+
+		request, _ := http.NewRequest("GET", signUrl, nil)
+		response, err := a.httpClient.Do(request)
+		if err != nil {
+			slog.Error(5, "GetCredential send request failed", err)
+			return credential, err
+		}
+		var resp = new(QueryResp)
+		body := response.Body
+		jsonBytes, err := ioutil.ReadAll(body)
+		if err != nil {
+			slog.Error(20, "Read IAM response err:", err)
+			return credential, err
+		}
+		defer body.Close()
+		s := string(jsonBytes)
+		slog.Println(20, "Read IAM JSON:", s)
+		err = json.Unmarshal(jsonBytes, resp)
+		if err != nil {
+			slog.Error(20, "Read IAM JSON err:", err)
+			return credential, err
+		}
+		slog.Println(20, "GetCredential to IAM return status ", response.Status)
+		if response.StatusCode != 200 {
+			slog.Warn(5, "GetCredential to IAM failed return code = ", response.StatusCode)
+			return credential, fmt.Errorf("GetCredential to IAM failed retcode = %d", response.StatusCode)
+		}
+
+		value := resp.AccessKeySet
+		credential.UserId = value.ProjectId
+		credential.DisplayName = value.ProjectName
+		credential.AccessKeyID = value.AccessKey
+		credential.SecretAccessKey = value.AccessSecret
+		credential.AllowOtherUserAccess = false
+	}
 
 	return
 }

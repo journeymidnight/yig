@@ -92,6 +92,9 @@ type Config struct {
 	UploadMinChunkSize  int64 `toml:"upload_min_chunk_size"`
 	UploadMaxChunkSize  int64 `toml:"upload_max_chunk_size"`
 	BigFileThreshold    int64 `toml:"big_file_threshold"`
+
+	LogDelivererAK string `toml:"log_deliverer_ak"`
+	LogDelivererSK string `toml:"log_deliverer_sk"`
 }
 
 type PluginConfig struct {
