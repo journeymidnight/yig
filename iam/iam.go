@@ -48,7 +48,7 @@ func GetCredential(accessKey string) (credential common.Credential, err error) {
 
 	credential, hit := cache.IamCache.Get(accessKey)
 	if hit {
-		return c.(common.Credential), nil
+		return credential, nil
 	}
 
 	credential, err = iamClient.GetCredential(accessKey)
