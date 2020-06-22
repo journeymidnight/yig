@@ -24,6 +24,8 @@ import (
 
 	. "github.com/journeymidnight/yig/context"
 	"github.com/journeymidnight/yig/helper"
+
+	"gopkg.in/bufio.v1"
 )
 
 const (
@@ -31,7 +33,7 @@ const (
 		"{object_size} {requester_id} {project_id} {remote_addr} {http_x_real_ip} {request_length} {server_cost} " +
 		"{request_time} {http_status} {error_code} {body_bytes_sent} {http_referer} {http_user_agent}"
 
-	BillingLogFormat = "{is_private_subnet} {storage_class} {target_storage_class} {bucket_logging} {cdn_request} {region_id} {create_time} {delta_size}"
+	BillingLogFormat = "{is_private_subnet} {storage_class} {target_storage_class} {bucket_logging} {cdn_request} {region_id} {create_time} {delta_size} {unexpired_objects_info}"
 )
 
 // Replacer is a type which can replace placeholder
@@ -305,7 +307,23 @@ func (r *replacer) getSubstitution(key string) string {
 		return strconv.FormatInt(r.responseRecorder.deltaSizeInfo[common.ObjectStorageClassStandard], 10) + "," +
 			strconv.FormatInt(r.responseRecorder.deltaSizeInfo[common.ObjectStorageClassStandardIa], 10) + "," +
 			strconv.FormatInt(r.responseRecorder.deltaSizeInfo[common.ObjectStorageClassGlacier], 10)
+	case "{unexpired_objects_info}":
+		if len(r.responseRecorder.unexpiredObjectsInfo) == 0 {
+			return "-"
+		}
+		buf := bufio.NewBuffer([]byte{})
+		for _, v := range r.responseRecorder.unexpiredObjectsInfo {
+			buf.WriteString(v.StorageClass.ToString())
+			buf.WriteString(",")
+			buf.WriteString(strconv.FormatInt(v.Size, 10))
+			buf.WriteString(",")
+			buf.WriteString(strconv.FormatInt(v.SurvivalTime, 10))
+			buf.WriteString("|")
+		}
+		ret := buf.String()
+		return ret[:len(ret)-1]
 	}
+
 	return r.emptyValue
 }
 

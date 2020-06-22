@@ -15,6 +15,12 @@ import (
 	bus "github.com/journeymidnight/yig/mq"
 )
 
+type UnexpiredTriple struct {
+	StorageClass common.StorageClass
+	Size         int64
+	SurvivalTime int64 //Nano seconds
+}
+
 type ResponseRecorder struct {
 	http.ResponseWriter
 	status        int
@@ -24,13 +30,14 @@ type ResponseRecorder struct {
 	requestTime   time.Duration
 	errorCode     string
 
-	storageClass       string
 	targetStorageClass string
 	bucketLogging      bool
 	cdn_request        bool
 
 	// StorageClass -> deltaSize
 	deltaSizeInfo map[common.StorageClass]int64
+	// record unexpired STANDARD_IA and GLACIER infos when handle DeleteObjects
+	unexpiredObjectsInfo []UnexpiredTriple
 }
 
 const timeLayoutStr = "2006-01-02 15:04:05"
@@ -136,5 +143,11 @@ func CorrectDeltaSize(storageClass common.StorageClass, deltaSize int64) (delta 
 func SetDeltaSize(w http.ResponseWriter, storageClass common.StorageClass, delta int64) {
 	if w, ok := w.(*ResponseRecorder); ok {
 		w.deltaSizeInfo[storageClass] = CorrectDeltaSize(storageClass, delta)
+	}
+}
+
+func SetUnexpiredInfo(w http.ResponseWriter, info []UnexpiredTriple) {
+	if w, ok := w.(*ResponseRecorder); ok {
+		w.unexpiredObjectsInfo = info
 	}
 }

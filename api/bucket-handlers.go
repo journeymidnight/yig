@@ -18,6 +18,11 @@ package api
 
 import (
 	"encoding/xml"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"time"
+
 	. "github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
@@ -25,10 +30,11 @@ import (
 	"github.com/journeymidnight/yig/iam/common"
 	. "github.com/journeymidnight/yig/meta/common"
 	"github.com/journeymidnight/yig/signature"
-	"io"
-	"io/ioutil"
-	"net/http"
-	"time"
+)
+
+const (
+	DeadLineForStandardIa = 720 * time.Hour  // 30 days
+	DeadLineForGlacier    = 1440 * time.Hour // 60 days
 )
 
 // GetBucketLocationHandler - GET Bucket location.
@@ -307,6 +313,8 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	var deletedObjects []ObjectIdentifier
 
 	var deltaResult map[StorageClass]int64
+	var unexpiredInfo []UnexpiredTriple
+
 	// Loop through all the objects and delete them sequentially.
 	for _, object := range deleteObjects.Objects {
 		reqCtx.ObjectName = object.ObjectName
@@ -325,6 +333,22 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 				DeleteMarkerVersionId: helper.Ternary(result.DeleteMarker,
 					result.VersionId, "").(string),
 			})
+
+			var expiredDeleteTime time.Time
+			if reqCtx.ObjectInfo.StorageClass == ObjectStorageClassStandardIa {
+				expiredDeleteTime = reqCtx.ObjectInfo.LastModifiedTime.Add(DeadLineForStandardIa)
+			} else if reqCtx.ObjectInfo.StorageClass == ObjectStorageClassGlacier {
+				expiredDeleteTime = reqCtx.ObjectInfo.LastModifiedTime.Add(DeadLineForGlacier)
+			}
+			// if delta < 0 ,the object should be record as unexpired
+			delta := time.Now().UTC().Sub(expiredDeleteTime).Nanoseconds()
+			if delta < 0 {
+				unexpiredInfo = append(unexpiredInfo, UnexpiredTriple{
+					StorageClass: reqCtx.ObjectInfo.StorageClass,
+					Size:         CorrectDeltaSize(reqCtx.ObjectInfo.StorageClass, reqCtx.ObjectInfo.Size),
+					SurvivalTime: -delta,
+				})
+			}
 			deltaResult[result.DeltaSize.StorageClass] += result.DeltaSize.Delta
 		} else {
 			logger.Error("Unable to delete object:", err)
@@ -350,6 +374,10 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	for sc, v := range deltaResult {
 		SetDeltaSize(w, sc, v)
 	}
+	if len(unexpiredInfo) != 0 {
+		SetUnexpiredInfo(w, unexpiredInfo)
+	}
+
 	// Generate response
 	response := GenerateMultiDeleteResponse(deleteObjects.Quiet, deletedObjects, deleteErrors)
 	encodedSuccessResponse := EncodeResponse(response)
