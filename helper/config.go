@@ -198,6 +198,8 @@ func MarshalTOMLConfig() error {
 	CONFIG.UploadMinChunkSize = Ternary(c.UploadMinChunkSize < MIN_BUFFER_SIZE || c.UploadMinChunkSize > MAX_BUFEER_SIZE, MIN_BUFFER_SIZE, c.UploadMinChunkSize).(int64)
 	CONFIG.UploadMaxChunkSize = Ternary(c.UploadMaxChunkSize < CONFIG.UploadMinChunkSize || c.UploadMaxChunkSize > MAX_BUFEER_SIZE, MAX_BUFEER_SIZE, c.UploadMaxChunkSize).(int64)
 	CONFIG.BigFileThreshold = Ternary(c.BigFileThreshold == 0, int64(1048576), c.BigFileThreshold).(int64)
+	CONFIG.LogDelivererAK = Ternary(c.LogDelivererAK == "", "hehehehe", c.LogDelivererAK).(string)
+	CONFIG.LogDelivererSK = Ternary(c.LogDelivererSK == "", "hehehehe", c.LogDelivererSK).(string)
 	return nil
 }
 

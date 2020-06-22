@@ -17,7 +17,6 @@
 package signature
 
 import (
-	"github.com/journeymidnight/yig/helper"
 	"net/url"
 	"strings"
 	"time"
@@ -47,8 +46,6 @@ func parseCredential(credentialValue string) (credentialHeader, error) {
 	if len(credElements) != 5 {
 		return credentialHeader{}, ErrCredMalformed
 	}
-
-	helper.Logger.Warn("########debug:",credElements[0])
 
 	if !iam.IsValidAccessKey.MatchString(credElements[0]) {
 		return credentialHeader{}, ErrInvalidAccessKeyID

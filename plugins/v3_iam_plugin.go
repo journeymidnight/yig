@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"crypto/hmac"
-	"crypto/md5"
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/json"
@@ -125,6 +124,7 @@ func (a IamV3Client) GetKeysByUid(uid string) (credentials []common.Credential, 
 }
 
 func (a IamV3Client) GetCredential(accessKey string) (credential common.Credential, err error) {
+	helper.Logger.Info("#######################", accessKey, "saff", helper.CONFIG.LogDelivererAK)
 	if accessKey == helper.CONFIG.LogDelivererAK {
 		credential.UserId = "JustForPutLog"
 		credential.AccessKeyID = accessKey
