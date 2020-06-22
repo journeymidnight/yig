@@ -293,9 +293,9 @@ DROP TABLE IF EXISTS `users`;
 CREATE TABLE `users` (
   `userid` varchar(255) DEFAULT NULL,
   `bucketname` varchar(255) DEFAULT NULL,
-  `standard` bigint(20) DEFAULT NULL,
-  `standardia` bigint(20) DEFAULT NULL,
-  `glacier` bigint(20) DEFAULT NULL,
+  `standard` bigint(20) DEFAULT 0,
+  `standardia` bigint(20) DEFAULT 0,
+  `glacier` bigint(20) DEFAULT 0,
   UNIQUE KEY `rowkey` (`userid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
