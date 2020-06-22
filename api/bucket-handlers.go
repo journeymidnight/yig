@@ -23,6 +23,8 @@ import (
 	"net/http"
 	"time"
 
+	meta "github.com/journeymidnight/yig/meta/types"
+
 	. "github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
@@ -334,19 +336,11 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 					result.VersionId, "").(string),
 			})
 
-			var expiredDeleteTime time.Time
-			if reqCtx.ObjectInfo.StorageClass == ObjectStorageClassStandardIa {
-				expiredDeleteTime = reqCtx.ObjectInfo.LastModifiedTime.Add(DeadLineForStandardIa)
-			} else if reqCtx.ObjectInfo.StorageClass == ObjectStorageClassGlacier {
-				expiredDeleteTime = reqCtx.ObjectInfo.LastModifiedTime.Add(DeadLineForGlacier)
-			}
-			// if delta < 0 ,the object should be record as unexpired
-			delta := time.Now().UTC().Sub(expiredDeleteTime).Nanoseconds()
-			if delta < 0 {
+			if ok, delta := isUnexpired(reqCtx.ObjectInfo); ok {
 				unexpiredInfo = append(unexpiredInfo, UnexpiredTriple{
 					StorageClass: reqCtx.ObjectInfo.StorageClass,
 					Size:         CorrectDeltaSize(reqCtx.ObjectInfo.StorageClass, reqCtx.ObjectInfo.Size),
-					SurvivalTime: -delta,
+					SurvivalTime: delta,
 				})
 			}
 			deltaResult[result.DeltaSize.StorageClass] += result.DeltaSize.Delta
@@ -374,9 +368,7 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	for sc, v := range deltaResult {
 		SetDeltaSize(w, sc, v)
 	}
-	if len(unexpiredInfo) != 0 {
-		SetUnexpiredInfo(w, unexpiredInfo)
-	}
+	SetUnexpiredInfo(w, unexpiredInfo)
 
 	// Generate response
 	response := GenerateMultiDeleteResponse(deleteObjects.Quiet, deletedObjects, deleteErrors)
@@ -384,6 +376,24 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 
 	// Write success response.
 	WriteSuccessResponse(w, r, encodedSuccessResponse)
+}
+
+func isUnexpired(object *meta.Object) (bool, int64) {
+	if object == nil {
+		return false, 0
+	}
+	var expiredDeleteTime time.Time
+	if object.StorageClass == ObjectStorageClassStandardIa {
+		expiredDeleteTime = object.LastModifiedTime.Add(DeadLineForStandardIa)
+	} else if object.StorageClass == ObjectStorageClassGlacier {
+		expiredDeleteTime = object.LastModifiedTime.Add(DeadLineForGlacier)
+	}
+	// if delta < 0 ,the object should be record as unexpired
+	delta := time.Now().UTC().Sub(expiredDeleteTime).Nanoseconds()
+	if delta < 0 {
+		return true, -delta
+	}
+	return false, 0
 }
 
 // PutBucketHandler - PUT Bucket

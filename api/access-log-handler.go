@@ -147,6 +147,9 @@ func SetDeltaSize(w http.ResponseWriter, storageClass common.StorageClass, delta
 }
 
 func SetUnexpiredInfo(w http.ResponseWriter, info []UnexpiredTriple) {
+	if len(info) == 0 {
+		return
+	}
 	if w, ok := w.(*ResponseRecorder); ok {
 		w.unexpiredObjectsInfo = info
 	}

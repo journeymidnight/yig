@@ -2010,6 +2010,16 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 	}
 
 	SetDeltaSize(w, result.DeltaSize.StorageClass, result.DeltaSize.Delta)
+
+	var unexpiredInfo []UnexpiredTriple
+	if ok, delta := isUnexpired(reqCtx.ObjectInfo); ok {
+		unexpiredInfo = append(unexpiredInfo, UnexpiredTriple{
+			StorageClass: reqCtx.ObjectInfo.StorageClass,
+			Size:         CorrectDeltaSize(reqCtx.ObjectInfo.StorageClass, reqCtx.ObjectInfo.Size),
+			SurvivalTime: delta,
+		})
+	}
+	SetUnexpiredInfo(w, unexpiredInfo)
 	WriteSuccessNoContent(w)
 }
 
