@@ -186,6 +186,13 @@ func (t *throttler) maybeWaitTokenN(n int) {
 	}
 }
 
+func (t *throttler) Close() {
+	if t.refill > 0 {
+		atomic.AddInt64(t.globalRefill, int64(t.refill))
+		t.refill = 0
+	}
+}
+
 type ThrottleReader struct {
 	reader io.Reader
 	throttler
@@ -196,9 +203,6 @@ func (r *ThrottleReader) Read(p []byte) (int, error) {
 	n, err := r.reader.Read(p)
 	// we consumed len(p) tokens, but transferred n bytes
 	r.refill += len(p) - n
-	if err == io.EOF && r.refill > 0 {
-		atomic.AddInt64(r.globalRefill, int64(r.refill))
-	}
 	return n, err
 }
 
@@ -212,8 +216,5 @@ func (w *ThrottleWriter) Write(p []byte) (int, error) {
 	n, err := w.writer.Write(p)
 	// we consumed len(p) tokens, but transferred n bytes
 	w.refill += len(p) - n
-	if err == io.EOF && w.refill > 0 {
-		atomic.AddInt64(w.globalRefill, int64(w.refill))
-	}
 	return n, err
 }
