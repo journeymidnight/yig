@@ -1056,6 +1056,10 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 				return result, err
 			}
 		}
+	} else {
+		if storageClass == ObjectStorageClassGlacier {
+			return result, ErrMethodNotAllowed
+		}
 	}
 
 	switch bucket.ACL.CannedAcl {
