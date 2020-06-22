@@ -292,7 +292,11 @@ DROP TABLE IF EXISTS `users`;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `users` (
   `userid` varchar(255) DEFAULT NULL,
-  `bucketname` varchar(255) DEFAULT NULL
+  `bucketname` varchar(255) DEFAULT NULL,
+  `standard` bigint(20) DEFAULT NULL,
+  `standardia` bigint(20) DEFAULT NULL,
+  `glacier` bigint(20) DEFAULT NULL,
+  UNIQUE KEY `rowkey` (`userid`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;

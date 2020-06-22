@@ -308,6 +308,7 @@ func (r *replacer) getSubstitution(key string) string {
 			strconv.FormatInt(r.responseRecorder.deltaSizeInfo[common.ObjectStorageClassStandardIa], 10) + "," +
 			strconv.FormatInt(r.responseRecorder.deltaSizeInfo[common.ObjectStorageClassGlacier], 10)
 	case "{unexpired_objects_info}":
+		// The format like :  $o1.StorageClass,$o1.Size,$o1.SurvivalTime|$o2.StorageClass,$o2.Size,$o2.SurvivalTime|...
 		if len(r.responseRecorder.unexpiredObjectsInfo) == 0 {
 			return "-"
 		}
