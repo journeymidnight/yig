@@ -475,12 +475,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				listInfo.Objects = append(listInfo.Objects, o)
 
 				// Compare once
-
-				if objMeta.Name == previousNullObjectMeta.Name {
-					previousNullObjectMeta = nil
-					continue
-				}
-
+				previousNullObjectMeta = nil
 			}
 
 			// If object key has in result of CommonPrefix or Objects, do continue
