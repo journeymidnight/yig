@@ -67,10 +67,6 @@ mg_object_cooldown = 3600
 # Ceph Config
 ceph_config_pattern = "/etc/ceph/*.conf"
 
-# log deliverer
-log_deliverer_ak = "delivererHeHe"
-log_deliverer_sk = "delivererPassword"
-
 # Plugin Config
 [plugins.dummy_compression]
 path = "/etc/yig/plugins/dummy_compression_plugin.so"

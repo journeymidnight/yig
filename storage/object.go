@@ -595,7 +595,7 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 	case "public-read-write":
 		break
 	default:
-		// just for put log temporary
+		// HACK: for put log temporary
 		if credential.UserId == "JustForPutLog" {
 			credential.UserId = bucket.OwnerId
 		}else if bucket.OwnerId != credential.UserId {
