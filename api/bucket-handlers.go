@@ -417,7 +417,7 @@ func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *h
 	blBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 4096))
 	if err != nil {
 		logger.Error("Unable to read bucket logging body:", err)
-		WriteErrorResponse(w, r, ErrInvalidBucketLogging)
+		WriteErrorResponse(w, r, ErrInternalError)
 		return
 	}
 	err = xml.Unmarshal(blBuffer, &bl)
@@ -427,6 +427,23 @@ func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *h
 		return
 	}
 	logger.Info("Setting bucket logging:", bl)
+
+	bucket, err := api.ObjectAPI.GetBucket(bl.LoggingEnabled.TargetBucket)
+	if err != nil {
+		if err == ErrNoSuchBucket {
+			WriteErrorResponse(w, r, ErrInvalidTargetBucket)
+			return
+		} else {
+			logger.Error("Unable to get bucket :", err)
+			WriteErrorResponse(w, r, ErrInternalError)
+			return
+		}
+		//TODO: Maybe support someone else's permissions
+	} else if bucket.OwnerId != reqCtx.BucketInfo.OwnerId {
+		WriteErrorResponse(w, r, ErrInvalidTargetBucket)
+		return
+	}
+
 	err = api.ObjectAPI.SetBucketLogging(reqCtx, bl, credential)
 	if err != nil {
 		logger.Error(err, "Unable to set bucket logging for bucket:", err)

@@ -125,16 +125,11 @@ func (a IamV3Client) GetKeysByUid(uid string) (credentials []common.Credential, 
 }
 
 func (a IamV3Client) GetCredential(accessKey string) (credential common.Credential, err error) {
-	akParams := strings.Split(accessKey,"_")
-	if len(akParams) == 2 && akParams[0] == helper.CONFIG.LogDelivererAK {
-		credential.UserId = akParams[1]
+	if accessKey == helper.CONFIG.LogDelivererAK {
+		credential.UserId = "JustForPutLog"
 		credential.AccessKeyID = accessKey
+		credential.SecretAccessKey = helper.CONFIG.LogDelivererSK
 		credential.AllowOtherUserAccess = false
-
-		md5Hash := md5.New()
-		md5Hash.Write([]byte(helper.CONFIG.LogDelivererSK))
-		credential.SecretAccessKey = base64.StdEncoding.EncodeToString(md5Hash.Sum([]byte(accessKey)))
-
 	} else {
 		if a.httpClient == nil {
 			a.httpClient = circuitbreak.NewCircuitClientWithInsecureSSL()
@@ -160,7 +155,7 @@ func (a IamV3Client) GetCredential(accessKey string) (credential common.Credenti
 		}
 		defer body.Close()
 		s := string(jsonBytes)
-		slog.Println(20, "Read IAM JSON:", s)
+		slog.Info(20, "Read IAM JSON:", s)
 		err = json.Unmarshal(jsonBytes, resp)
 		if err != nil {
 			slog.Error(20, "Read IAM JSON err:", err)
