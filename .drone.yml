@@ -27,6 +27,7 @@ steps:
   - cp -f plugins/*.so /etc/yig/plugins/
   - sed -i 's/yig_drone/yig_drone${DRONE_BUILD_NUMBER}/' /etc/yig/yig.toml
   - sed -i 's/cluster/single/' /etc/yig/yig.toml
+  - /usr/sbin/dnsmasq -k &
   - nohup ./yig >/dev/null 2>&1 &
   - sleep 10
   - ./lc &
@@ -38,6 +39,10 @@ steps:
   - go test -v
   - popd
   - mysql -u root -P 4000 -h 10.0.42.4 -e "drop database $sqlName;"
+  when:
+    event:
+      exclude:
+      - tag
 
 
 - name: clean up database
@@ -93,10 +98,10 @@ steps:
   - mysql -u root -h 10.0.42.4 -P 4000 -e "create database yig_drone character set utf8;"
   - mysql -u root -h 10.0.42.4 -P 4000 -e "use yig_drone;source yig.sql;"
   - curDate=yig_$(date "+%Y%m%d-%H%M%S")
-  - ssh 10.0.47.215 "mkdir /test_packages/$curDate;exit"
-  - scp test-env/yig.toml 10.0.47.215:/test_packages/$curDate
-  - scp ../package/*.x86_64.rpm 10.0.47.215:/test_packages/$curDate
-  - ssh 10.0.47.215 "cd /test_packages;sh update_yig_package.sh $curDate"
+  - ssh 10.0.42.5 "mkdir /test_packages/$curDate;exit"
+  - scp test-env/yig.toml 10.0.42.5:/test_packages/$curDate
+  - scp ../package/*.x86_64.rpm 10.0.42.5:/test_packages/$curDate
+  - ssh 10.0.42.5 "cd /test_packages;sh update_yig_package.sh $curDate"
   when:
     branch:
     - develop
