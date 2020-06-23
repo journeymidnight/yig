@@ -19,6 +19,7 @@ steps:
   image: centos-yig:v1.0.1
   commands:
   - export GOPROXY=https://goproxy.cn
+  - echo "nameserver 127.0.0.1" > /etc/resolv.conf && echo "nameserver 114.114.114.114" >> /etc/resolv.conf
   - make build_internal
   - sqlName=yig_drone${DRONE_BUILD_NUMBER}
   - mysql -u root -P 4000 -h 10.0.42.4 -e "create database $sqlName character set utf8;"
