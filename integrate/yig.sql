@@ -296,7 +296,7 @@ CREATE TABLE `users` (
   `standard` bigint(20) DEFAULT 0,
   `standardia` bigint(20) DEFAULT 0,
   `glacier` bigint(20) DEFAULT 0,
-   KEY `rowkey` (`userid`)
+   UNIQUE KEY `rowkey` (`bucketname`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_bin;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
