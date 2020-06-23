@@ -19,7 +19,6 @@ steps:
   image: centos-yig:v1.0.1
   commands:
   - export GOPROXY=https://goproxy.cn
-  - echo "nameserver 127.0.0.1" > /etc/resolv.conf && echo "nameserver 114.114.114.114" >> /etc/resolv.conf
   - make build_internal
   - sqlName=yig_drone${DRONE_BUILD_NUMBER}
   - mysql -u root -P 4000 -h 10.0.42.4 -e "create database $sqlName character set utf8;"
@@ -28,6 +27,7 @@ steps:
   - cp -f plugins/*.so /etc/yig/plugins/
   - sed -i 's/yig_drone/yig_drone${DRONE_BUILD_NUMBER}/' /etc/yig/yig.toml
   - sed -i 's/cluster/single/' /etc/yig/yig.toml
+  - /usr/sbin/dnsmasq -k &
   - nohup ./yig >/dev/null 2>&1 &
   - sleep 10
   - ./lc &
@@ -39,6 +39,10 @@ steps:
   - go test -v
   - popd
   - mysql -u root -P 4000 -h 10.0.42.4 -e "drop database $sqlName;"
+  when:
+    event:
+      exclude:
+      - tag
 
 
 - name: clean up database
