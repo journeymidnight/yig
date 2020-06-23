@@ -826,6 +826,11 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 		}
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":"+targetObject.VersionId)
 		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.VersionId)
+
+		if targetObject.StorageClass != sourceObject.StorageClass {
+			result.DeltaInfo[sourceObject.StorageClass] -= sourceObject.Size
+			result.DeltaInfo[targetObject.StorageClass] += targetObject.Size
+		}
 		return result, nil
 	}
 

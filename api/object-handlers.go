@@ -687,6 +687,9 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		}
 	}
 
+	for s, v := range result.DeltaInfo {
+		SetDeltaSize(w, s, v)
+	}
 	// write success response.
 	WriteSuccessResponse(w, r, encodedSuccessResponse)
 	// Explicitly close the reader, to avoid fd leaks.
