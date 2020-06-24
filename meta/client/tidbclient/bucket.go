@@ -195,6 +195,7 @@ const MaxKeySuffix = string(0xFF)
 func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (listInfo ListObjectsInfo, err error) {
 	var count int
 	var exit bool
+	var lastMarker string
 	commonPrefixes := make(map[string]struct{})
 	for {
 		var loopcount int
@@ -266,7 +267,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 				return
 			}
 			//prepare next marker
-
+			lastMarker = marker
 			marker = name
 			//filte row
 			//filte by prefix
@@ -286,7 +287,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 				n := strings.Index(subStr, delimiter)
 				if n != -1 {
 					prefixKey := prefix + subStr[0:(n+1)]
-					if marker == prefixKey {
+					if lastMarker == prefixKey {
 						// skip this delimiter
 						marker = prefixKey + MaxKeySuffix
 						break
