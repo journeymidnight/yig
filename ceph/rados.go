@@ -26,7 +26,7 @@ type StriperPool interface {
 	WriteAIO(oid string, data []byte, offset uint64) (AioCompletion, error)
 	Delete(oid string) error
 	Destroy()
-	SetLayoutStripeUnit(uint uint) int
+	SetLayoutStripeUnit(unit uint) int
 	SetLayoutStripeCount(count uint) int
 	SetLayoutObjectSize(size uint) int
 }

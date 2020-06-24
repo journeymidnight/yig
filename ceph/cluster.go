@@ -8,6 +8,8 @@ import (
 	"io"
 	"io/ioutil"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -21,6 +23,8 @@ const (
 	OSD_TIMEOUT                = "10"
 	STRIPE_UNIT                = 512 << 10 /* 512K */
 	STRIPE_COUNT               = 2
+	APPEND_STRIPE_UNIT         = 32 << 10 /* 32K */
+	APPEND_STRIPE_COUNT        = 1
 	OBJECT_SIZE                = 8 << 20 /* 8M */
 	AIO_CONCURRENT             = 4
 	DEFAULT_CEPHCONFIG_PATTERN = "conf/*.conf"
@@ -109,6 +113,28 @@ func setStripeLayout(p StriperPool) int {
 	return ret
 }
 
+func setAppendStripeLayout(p StriperPool, oid string) int {
+	var ret int = 0
+	var unit, count, size uint
+	unit, count, size, striped := splitOid(oid)
+	if striped == false {
+		unit = APPEND_STRIPE_UNIT
+		count = APPEND_STRIPE_COUNT
+		size = OBJECT_SIZE
+	}
+
+	if ret = p.SetLayoutStripeUnit(unit); ret < 0 {
+		return ret
+	}
+	if ret = p.SetLayoutObjectSize(size); ret < 0 {
+		return ret
+	}
+	if ret = p.SetLayoutStripeCount(count); ret < 0 {
+		return ret
+	}
+	return ret
+}
+
 func pending_has_completed(p *list.List) bool {
 	if p.Len() == 0 {
 		return false
@@ -146,6 +172,33 @@ func (cluster *CephCluster) getUniqUploadName() string {
 	v := atomic.AddUint64(&cluster.counter, 1)
 	oid := fmt.Sprintf("%d:%d", cluster.InstanceId, v)
 	return oid
+}
+
+func (cluster *CephCluster) getUniqUploadNameAsStripe() string {
+	v := atomic.AddUint64(&cluster.counter, 1)
+	oid := fmt.Sprintf("%d:%d:%d:%d:%d", cluster.InstanceId, v, APPEND_STRIPE_UNIT, APPEND_STRIPE_COUNT, OBJECT_SIZE)
+	return oid
+}
+
+func splitOid(oid string) (unit, count, size uint, stripeFormat bool) {
+	v := strings.Split(oid, ":")
+	if len(v) != 5 {
+		return 0, 0, 0, false
+	}
+	u, err := strconv.Atoi(v[2])
+	if err != nil {
+		return 0, 0, 0, false
+	}
+	c, err := strconv.Atoi(v[3])
+	if err != nil {
+		return 0, 0, 0, false
+	}
+	s, err := strconv.Atoi(v[4])
+	if err != nil {
+		return 0, 0, 0, false
+	}
+
+	return uint(u), uint(c), uint(s), true
 }
 
 func (cluster *CephCluster) Shutdown() {
@@ -200,6 +253,14 @@ func (cluster *CephCluster) doSmallAppend(poolname string, oid string, offset ui
 		return 0, errors.New("Bad poolname")
 	}
 	defer pool.Destroy()
+	striper, err := pool.CreateStriper()
+	if err != nil {
+		return 0, fmt.Errorf("Bad ioctx of pool %s", poolname)
+	}
+	defer striper.Destroy()
+
+	setAppendStripeLayout(striper, oid)
+
 	readStart := time.Now()
 	wBuf := make([]byte, length, length)
 	makePoint := time.Now()
@@ -212,7 +273,7 @@ func (cluster *CephCluster) doSmallAppend(poolname string, oid string, offset ui
 		if err != io.EOF && err != nil {
 			return 0, errors.New("Read from client failed")
 		}
-		helper.Logger.Info("Append info doSmallAppend oid:", oid, " count: ", count, " spend: ", singltReadEnd.Sub(singltReadStart).Milliseconds())
+		helper.Logger.Debug("Append info doSmallAppend oid:", oid, " count: ", count, " spend: ", singltReadEnd.Sub(singltReadStart).Milliseconds())
 		// it's used to calculate next upload window
 		slice_offset += count
 		slice = wBuf[slice_offset:]
@@ -230,7 +291,7 @@ func (cluster *CephCluster) doSmallAppend(poolname string, oid string, offset ui
 	size = uint64(len(wBuf))
 
 	writeStart := time.Now()
-	err = pool.Write(oid, wBuf, offset)
+	_, err = striper.Write(oid, wBuf, uint64(offset))
 	writeEnd := time.Now()
 	if err != nil {
 		return 0, err
@@ -416,7 +477,11 @@ func (cluster *CephCluster) Append(poolname string, existName string, data io.Re
 
 	oid = existName
 	if len(oid) == 0 {
-		oid = cluster.getUniqUploadName()
+		if poolname == backend.SMALL_FILE_POOLNAME {
+			oid = cluster.getUniqUploadNameAsStripe()
+		} else {
+			oid = cluster.getUniqUploadName()
+		}
 	}
 
 	//this should be take care what if the fisrt time append data is
@@ -567,14 +632,33 @@ func (cluster *CephCluster) GetReader(poolName string, oid string, startOffset i
 			err = errors.New("bad poolname")
 			return
 		}
-		radosSmallReader := &RadosSmallDownloader{
-			oid:       oid,
-			offset:    startOffset,
-			pool:      pool,
-			remaining: int64(length),
+		_, _, _, striped := splitOid(oid)
+		if striped == false {
+			radosSmallReader := &RadosSmallDownloader{
+				oid:       oid,
+				offset:    startOffset,
+				pool:      pool,
+				remaining: int64(length),
+			}
+			return radosSmallReader, nil
+		} else {
+			striper, err := pool.CreateStriper()
+			if err != nil {
+				err = errors.New("bad ioctx")
+				return reader, err
+			}
+
+			radosReader := &RadosDownloader{
+				striper:   striper,
+				oid:       oid,
+				offset:    startOffset,
+				pool:      pool,
+				remaining: int64(length),
+			}
+			return radosReader, nil
+
 		}
 
-		return radosSmallReader, nil
 	}
 
 	pool, err := cluster.Conn.OpenPool(poolName)
@@ -612,7 +696,27 @@ func (cluster *CephCluster) doSmallRemove(poolname string, oid string) error {
 func (cluster *CephCluster) Remove(poolname string, oid string) error {
 
 	if poolname == backend.SMALL_FILE_POOLNAME {
-		return cluster.doSmallRemove(poolname, oid)
+		_, _, _, striped := splitOid(oid)
+		if striped == false {
+			return cluster.doSmallRemove(poolname, oid)
+		} else {
+			pool, err := cluster.Conn.OpenPool(poolname)
+			if err != nil {
+				return errors.New("Bad poolname")
+			}
+			defer pool.Destroy()
+
+			striper, err := pool.CreateStriper()
+			if err != nil {
+				return errors.New("Bad ioctx")
+			}
+			defer striper.Destroy()
+			// if we do not set our custom layout, rados will infer all objects filename from default layout setting,
+			// and some sub objects will not be deleted
+			setAppendStripeLayout(striper, oid)
+
+			return striper.Delete(oid)
+		}
 	}
 
 	pool, err := cluster.Conn.OpenPool(poolname)

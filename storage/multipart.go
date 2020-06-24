@@ -192,9 +192,10 @@ func (yig *YigStorage) PutObjectPart(reqCtx RequestContext, credential common.Cr
 	// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
 	// so the object in Ceph could be removed asynchronously
 	maybeObjectToRecycle := objectToRecycle{
-		location: cluster.ID(),
-		pool:     poolName,
-		objectId: objectId,
+		location:   cluster.ID(),
+		pool:       poolName,
+		objectId:   objectId,
+		objectType: meta.ObjectTypeMultipart,
 	}
 	if int64(bytesWritten) < size {
 		RecycleQueue <- maybeObjectToRecycle
@@ -233,9 +234,10 @@ func (yig *YigStorage) PutObjectPart(reqCtx RequestContext, credential common.Cr
 	// remove possible old object in Ceph
 	if part, ok := multipart.Parts[partId]; ok {
 		RecycleQueue <- objectToRecycle{
-			location: multipart.Metadata.Location,
-			pool:     multipart.Metadata.Pool,
-			objectId: part.ObjectId,
+			location:   multipart.Metadata.Location,
+			pool:       multipart.Metadata.Pool,
+			objectType: meta.ObjectTypeMultipart,
+			objectId:   part.ObjectId,
 		}
 	}
 
@@ -309,9 +311,10 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 	// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
 	// so the object in Ceph could be removed asynchronously
 	maybeObjectToRecycle := objectToRecycle{
-		location: cephCluster.ID(),
-		pool:     poolName,
-		objectId: objectId,
+		location:   cephCluster.ID(),
+		pool:       poolName,
+		objectId:   objectId,
+		objectType: meta.ObjectTypeMultipart,
 	}
 
 	if int64(bytesWritten) < size {

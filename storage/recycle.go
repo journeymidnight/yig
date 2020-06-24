@@ -1,8 +1,10 @@
 package storage
 
 import (
-	"github.com/journeymidnight/yig/helper"
 	"time"
+
+	"github.com/journeymidnight/yig/helper"
+	meta "github.com/journeymidnight/yig/meta/types"
 )
 
 // Remove
@@ -19,6 +21,7 @@ type objectToRecycle struct {
 	location   string
 	pool       string
 	objectId   string
+	objectType meta.ObjectType
 	triedTimes int
 }
 

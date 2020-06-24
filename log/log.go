@@ -15,6 +15,7 @@ const (
 	ErrorLevel Level = 0 // Errors should be properly handled
 	WarnLevel  Level = 1 // Errors could be ignored; messages might need noticed
 	InfoLevel  Level = 2 // Informational messages
+	DebugLevel Level = 3 // Debug messages
 )
 
 func ParseLevel(levelString string) Level {
@@ -25,6 +26,8 @@ func ParseLevel(levelString string) Level {
 		return WarnLevel
 	case "error":
 		return ErrorLevel
+	case "debug":
+		return DebugLevel
 	default:
 		return InfoLevel
 	}
@@ -113,6 +116,16 @@ func (l Logger) Error(args ...interface{}) {
 	}
 	prefixArray := l.prefixArray()
 	prefixArray = append(prefixArray, "[ERROR]")
+	args = append(prefixArray, args...)
+	l.logger.Println(args...)
+}
+
+func (l Logger) Debug(args ...interface{}) {
+	if l.level < DebugLevel {
+		return
+	}
+	prefixArray := l.prefixArray()
+	prefixArray = append(prefixArray, "[DEBUG]")
 	args = append(prefixArray, args...)
 	l.logger.Println(args...)
 }
