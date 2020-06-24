@@ -18,16 +18,16 @@ package api
 
 import (
 	"encoding/xml"
-	"io"
-	"io/ioutil"
-	"net/http"
-
 	. "github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/signature"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"time"
 )
 
 // GetBucketLocationHandler - GET Bucket location.
@@ -442,6 +442,14 @@ func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *h
 	} else if bucket.OwnerId != reqCtx.BucketInfo.OwnerId {
 		WriteErrorResponse(w, r, ErrInvalidTargetBucket)
 		return
+	}
+
+	if reqCtx.BucketInfo.BucketLogging.LoggingEnabled.TargetBucket == "" { // set bucket log first time
+		bl.SetTime = time.Now().Format(timeLayoutStr)
+	} else if bl.LoggingEnabled.TargetBucket == "" {	// delete bucket log
+		bl.SetTime = ""
+	} else {
+		bl.SetTime = reqCtx.BucketInfo.BucketLogging.SetTime
 	}
 
 	err = api.ObjectAPI.SetBucketLogging(reqCtx, bl, credential)

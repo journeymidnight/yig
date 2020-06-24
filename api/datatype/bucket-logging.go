@@ -2,6 +2,7 @@ package datatype
 
 type BucketLoggingStatus struct {
 	LoggingEnabled BucketLoggingRule `xml:"LoggingEnabled"`
+	SetTime        string
 }
 
 type BucketLoggingRule struct {
