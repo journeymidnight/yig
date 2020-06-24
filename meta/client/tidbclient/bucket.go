@@ -266,7 +266,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 				return
 			}
 			//prepare next marker
-
+			lastmarker := marker
 			marker = name
 			//filte row
 			//filte by prefix
@@ -286,20 +286,22 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 				n := strings.Index(subStr, delimiter)
 				if n != -1 {
 					prefixKey := prefix + subStr[0:(n+1)]
-					if marker == prefixKey {
+					if lastmarker == prefixKey {
 						// skip this delimiter
 						marker = prefixKey + MaxKeySuffix
 						break
 					}
 					if _, ok := commonPrefixes[prefixKey]; !ok {
+						count += 1
 						if count == maxKeys {
+							listInfo.NextMarker = prefixKey
+						}
+						if count > maxKeys {
 							listInfo.IsTruncated = true
 							exit = true
 							break
 						}
 						commonPrefixes[prefixKey] = struct{}{}
-						listInfo.NextMarker = prefixKey
-						count += 1
 						// skip this delimiter
 						marker = prefixKey + MaxKeySuffix
 						break
@@ -432,6 +434,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				_ = rows.Close()
 				return
 			}
+			lastMarker := currentMarker
 			currentMarker = objMeta.Name
 
 			objMeta.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
@@ -493,7 +496,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				sp := strings.SplitN(subKey, delimiter, 2)
 				if len(sp) == 2 {
 					prefixKey := prefix + sp[0] + delimiter
-					if prefixKey == currentMarker {
+					if prefixKey == lastMarker {
 						currentMarker = prefixKey + MaxKeySuffix
 						break
 					}
@@ -791,6 +794,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 			if currentKeyMarker == objMeta.Name && currentVerIdMarker == objMeta.VersionId {
 				continue
 			}
+			lastKeyMarker := currentKeyMarker
 			currentKeyMarker = objMeta.Name
 			currentVerIdMarker = objMeta.VersionId
 			objMeta.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
@@ -853,7 +857,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 				sp := strings.SplitN(subKey, delimiter, 2)
 				if len(sp) == 2 {
 					prefixKey := prefix + sp[0] + delimiter
-					if prefixKey == currentKeyMarker {
+					if prefixKey == lastKeyMarker {
 						currentKeyMarker = prefixKey + MaxKeySuffix
 						break
 					}
