@@ -428,28 +428,28 @@ func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *h
 	}
 	logger.Info("Setting bucket logging:", bl)
 
-	bucket, err := api.ObjectAPI.GetBucket(bl.LoggingEnabled.TargetBucket)
-	if err != nil {
-		if err == ErrNoSuchBucket {
+	if bl.LoggingEnabled.TargetBucket != "" {
+		bucket, err := api.ObjectAPI.GetBucket(bl.LoggingEnabled.TargetBucket)
+		if err != nil {
+			if err == ErrNoSuchBucket {
+				WriteErrorResponse(w, r, ErrInvalidTargetBucket)
+				return
+			} else {
+				logger.Error("Unable to get bucket :", err)
+				WriteErrorResponse(w, r, ErrInternalError)
+				return
+			}
+			//TODO: Maybe support someone else's permissions
+		} else if bucket.OwnerId != reqCtx.BucketInfo.OwnerId {
 			WriteErrorResponse(w, r, ErrInvalidTargetBucket)
 			return
-		} else {
-			logger.Error("Unable to get bucket :", err)
-			WriteErrorResponse(w, r, ErrInternalError)
-			return
 		}
-		//TODO: Maybe support someone else's permissions
-	} else if bucket.OwnerId != reqCtx.BucketInfo.OwnerId {
-		WriteErrorResponse(w, r, ErrInvalidTargetBucket)
-		return
-	}
 
-	if reqCtx.BucketInfo.BucketLogging.LoggingEnabled.TargetBucket == "" { // set bucket log first time
-		bl.SetTime = time.Now().Format(timeLayoutStr)
-	} else if bl.LoggingEnabled.TargetBucket == "" {	// delete bucket log
-		bl.SetTime = ""
-	} else {
-		bl.SetTime = reqCtx.BucketInfo.BucketLogging.SetTime
+		if reqCtx.BucketInfo.BucketLogging.LoggingEnabled.TargetBucket == "" { // set bucket log first time
+			bl.SetTime = time.Now().Format(timeLayoutStr)
+		} else {
+			bl.SetTime = reqCtx.BucketInfo.BucketLogging.SetTime
+		}
 	}
 
 	err = api.ObjectAPI.SetBucketLogging(reqCtx, bl, credential)
