@@ -108,6 +108,7 @@ func removeDeleted() {
 			for _, garbage := range garbages {
 				gcTaskQ <- garbage
 			}
+
 			time.Sleep(time.Duration(5000) * time.Millisecond)
 			continue
 		}

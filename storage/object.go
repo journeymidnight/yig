@@ -724,7 +724,6 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 			go yig.removeOldObject(reqCtx.ObjectInfo)
 		}
 	}
-
 	return result, nil
 }
 
