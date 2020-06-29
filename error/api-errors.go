@@ -78,7 +78,7 @@ const (
 	ErrNoSuchKey
 	ErrNoSuchUpload
 	ErrNoSuchVersion
-	ErrUnsupportFunction
+	ErrNotImplemented
 	ErrPreconditionFailed
 	ErrRequestTimeTooSkewed
 	ErrSignatureDoesNotMatch
@@ -169,6 +169,7 @@ const (
 	ErrInvalidLcRuleID
 	ErrInvalidLcRuleStatus
 	ErrLcMissingAction
+	ErrUnsupportFunction
 
 	ErrNoSuchBucketLc
 	ErrInvalidStorageClass
@@ -407,6 +408,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "NotAcceptable",
 		Description:    "This feature is currently not supported in this region",
 		HttpStatusCode: http.StatusNotAcceptable,
+	},
+	ErrNotImplemented: {
+		AwsErrorCode:   "NotImplemented",
+		Description:    "A header you provided implies functionality that is not implemented",
+		HttpStatusCode: http.StatusNotImplemented,
 	},
 	ErrPreconditionFailed: {
 		AwsErrorCode:   "PreconditionFailed",
