@@ -92,6 +92,10 @@ type Config struct {
 	UploadMinChunkSize  int64 `toml:"upload_min_chunk_size"`
 	UploadMaxChunkSize  int64 `toml:"upload_max_chunk_size"`
 	BigFileThreshold    int64 `toml:"big_file_threshold"`
+
+	// Make a list of unsupported functions to ensure that customers will not produce wrong operations
+	FuncNotSupportForBucket []string `toml:"func_not_support_for_bucket"`
+	FuncNotSupportForObject []string `toml:"func_not_support_for_object"`
 }
 
 type PluginConfig struct {

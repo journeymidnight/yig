@@ -78,7 +78,7 @@ const (
 	ErrNoSuchKey
 	ErrNoSuchUpload
 	ErrNoSuchVersion
-	ErrNotImplemented
+	ErrUnsupportFunction
 	ErrPreconditionFailed
 	ErrRequestTimeTooSkewed
 	ErrSignatureDoesNotMatch
@@ -403,10 +403,10 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		Description:    "The version ID specified in the request does not match an existing version.",
 		HttpStatusCode: http.StatusNotFound,
 	},
-	ErrNotImplemented: {
-		AwsErrorCode:   "NotImplemented",
-		Description:    "A header you provided implies functionality that is not implemented",
-		HttpStatusCode: http.StatusNotImplemented,
+	ErrUnsupportFunction: {
+		AwsErrorCode:   "NotAcceptable",
+		Description:    "This feature is currently not supported in this region",
+		HttpStatusCode: http.StatusNotAcceptable,
 	},
 	ErrPreconditionFailed: {
 		AwsErrorCode:   "PreconditionFailed",

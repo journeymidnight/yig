@@ -67,6 +67,10 @@ mg_object_cooldown = 3600
 # Ceph Config
 ceph_config_pattern = "/etc/ceph/*.conf"
 
+# Function Not Support
+func_not_support_for_bucket = ["notification","replication","tagging","requestPayment"]
+func_not_support_for_object = ["glaicer","torrent"]
+
 # Plugin Config
 [plugins.dummy_compression]
 path = "/etc/yig/plugins/dummy_compression_plugin.so"

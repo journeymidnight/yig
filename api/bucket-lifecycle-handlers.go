@@ -1,10 +1,8 @@
 package api
 
 import (
-	"io"
 	"net/http"
 
-	. "github.com/journeymidnight/yig/api/datatype/lifecycle"
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/iam/common"
@@ -14,17 +12,11 @@ import (
 func (api ObjectAPIHandlers) PutBucketLifeCycleHandler(w http.ResponseWriter, r *http.Request) {
 	reqCtx := GetRequestContext(r)
 	logger := reqCtx.Logger
+	lifecycle := reqCtx.Lifecycle
 
 	var credential common.Credential
 	var err error
 	if credential, err = signature.IsReqAuthenticated(r); err != nil {
-		WriteErrorResponse(w, r, err)
-		return
-	}
-
-	lifecycle, err := ParseLifecycleConfig(io.LimitReader(r.Body, r.ContentLength))
-	if err != nil {
-		logger.Error("Unable to parse lifecycle body:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
