@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	iam "github.com/journeymidnight/yig/iam/common"
+
 	"github.com/journeymidnight/yig/meta/common"
 
 	. "github.com/journeymidnight/yig/context"
@@ -38,6 +40,8 @@ type ResponseRecorder struct {
 	deltaSizeInfo map[common.StorageClass]int64
 	// record unexpired STANDARD_IA and GLACIER infos when handle DeleteObjects
 	unexpiredObjectsInfo []UnexpiredTriple
+
+	credential *iam.Credential
 }
 
 const timeLayoutStr = "2006-01-02 15:04:05"
@@ -143,6 +147,12 @@ func CorrectDeltaSize(storageClass common.StorageClass, deltaSize int64) (delta 
 func SetDeltaSize(w http.ResponseWriter, storageClass common.StorageClass, delta int64) {
 	if w, ok := w.(*ResponseRecorder); ok {
 		w.deltaSizeInfo[storageClass] = CorrectDeltaSize(storageClass, delta)
+	}
+}
+
+func SetCredential(w http.ResponseWriter, credential *iam.Credential) {
+	if w, ok := w.(*ResponseRecorder); ok {
+		w.credential = credential
 	}
 }
 

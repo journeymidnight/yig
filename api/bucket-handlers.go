@@ -249,6 +249,7 @@ func (api ObjectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.R
 	// generate response
 	response := GenerateListBucketsResponse(bucketsInfo, credential)
 	encodedSuccessResponse := EncodeResponse(response)
+	SetCredential(w, &credential)
 	// write response
 	WriteSuccessResponse(w, r, encodedSuccessResponse)
 }
@@ -440,7 +441,7 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 	}
 	// Make sure to add Location information here only for bucket
 	w.Header().Set("Location", GetLocation(r))
-
+	SetCredential(w, &credential)
 	WriteSuccessResponse(w, r, nil)
 }
 
