@@ -3,9 +3,9 @@ package iam
 import (
 	"fmt"
 	"regexp"
-	"sync"
 
 	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/iam/cache"
 	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/mods"
 )
@@ -22,7 +22,6 @@ type IamClient interface {
 }
 
 var iamClient IamClient
-var iamCache sync.Map
 
 func InitializeIamClient(plugins map[string]*mods.YigPlugin) {
 	//Search for iam plugins, if we have many iam plugins, always use the first
@@ -43,17 +42,20 @@ func InitializeIamClient(plugins map[string]*mods.YigPlugin) {
 }
 
 func GetCredential(accessKey string) (credential common.Credential, err error) {
-	c, hit := iamCache.Load(accessKey)
+	if cache.IamCache == nil {
+		cache.InitializeIamCache()
+	}
+
+	credential, hit := cache.IamCache.Get(accessKey)
 	if hit {
-		return c.(common.Credential), nil
+		return credential, nil
 	}
 
 	credential, err = iamClient.GetCredential(accessKey)
 	if err != nil {
 		return credential, err
 	}
-
-	iamCache.Store(accessKey, credential)
+	cache.IamCache.Set(accessKey, credential)
 	return credential, nil
 
 }

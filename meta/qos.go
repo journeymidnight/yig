@@ -3,6 +3,7 @@ package meta
 import (
 	"fmt"
 	"io"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-redis/redis/v7"
@@ -28,14 +29,33 @@ type QosMeta struct {
 	bucketUser map[string]string
 	// user id -> user qos limit
 	userQosLimit map[string]types.UserQos
+
+	// extra tokens consumed when reader/writer is closed
+	globalRefill int64
 }
 
 func NewQosMeta(client client.Client) *QosMeta {
-	redisClient := redis.NewClient(&redis.Options{
-		Addr:     helper.CONFIG.RedisAddress,
-		Password: helper.CONFIG.RedisPassword,
-	})
-	limiter := redis_rate.NewLimiter(redisClient)
+	var limiter *redis_rate.Limiter
+	switch helper.CONFIG.RedisStore {
+	case "single":
+		redisClient := redis.NewClient(&redis.Options{
+			Addr:     helper.CONFIG.RedisAddress,
+			Password: helper.CONFIG.RedisPassword,
+		})
+		limiter = redis_rate.NewLimiter(redisClient)
+	case "cluster":
+		options := &redis.ClusterOptions{
+			Addrs:        helper.CONFIG.RedisGroup,
+			DialTimeout:  time.Duration(helper.CONFIG.RedisConnectTimeout) * time.Second,
+			ReadTimeout:  time.Duration(helper.CONFIG.RedisReadTimeout) * time.Second,
+			WriteTimeout: time.Duration(helper.CONFIG.RedisWriteTimeout) * time.Second,
+			IdleTimeout:  time.Duration(helper.CONFIG.RedisPoolIdleTimeout) * time.Second,
+		}
+		redisCluster := redis.NewClusterClient(options)
+		limiter = redis_rate.NewLimiter(redisCluster)
+	default:
+		panic("bad redis store type")
+	}
 	m := &QosMeta{
 		client:      client,
 		rateLimiter: limiter,
@@ -74,17 +94,28 @@ func (m *QosMeta) AllowWriteQuery(bucketName string) (allow bool) {
 	return result.Allowed
 }
 
-func (m *QosMeta) NewThrottleReader(bucketName string, reader io.Reader) *ThrottleReader {
+func (m *QosMeta) newThrottler(bucketName string, defaultBufferSize int64) throttler {
 	userID := m.bucketUser[bucketName]
 	bandwidthKBps := m.userQosLimit[userID].Bandwidth
 	if bandwidthKBps <= 0 {
 		bandwidthKBps = defaultBandwidthKBps
 	}
-	throttle := throttler{
-		rateLimiter: m.rateLimiter,
-		userID:      userID,
-		kbpsLimit:   bandwidthKBps,
+	t := throttler{
+		rateLimiter:  m.rateLimiter,
+		userID:       userID,
+		kbpsLimit:    bandwidthKBps,
+		globalRefill: &m.globalRefill,
 	}
+	if m.globalRefill >= defaultBufferSize {
+		atomic.AddInt64(&m.globalRefill, -defaultBufferSize)
+		t.refill = int(defaultBufferSize) // buffer size should fit int32
+	}
+	return t
+}
+
+func (m *QosMeta) NewThrottleReader(bucketName string, reader io.Reader) *ThrottleReader {
+	// in yig, upload requests use "reader"
+	throttle := m.newThrottler(bucketName, helper.CONFIG.UploadMaxChunkSize)
 	return &ThrottleReader{
 		reader:    reader,
 		throttler: throttle,
@@ -92,16 +123,8 @@ func (m *QosMeta) NewThrottleReader(bucketName string, reader io.Reader) *Thrott
 }
 
 func (m *QosMeta) NewThrottleWriter(bucketName string, writer io.Writer) *ThrottleWriter {
-	userID := m.bucketUser[bucketName]
-	bandwidthKBps := m.userQosLimit[userID].Bandwidth
-	if bandwidthKBps <= 0 {
-		bandwidthKBps = defaultBandwidthKBps
-	}
-	throttle := throttler{
-		rateLimiter: m.rateLimiter,
-		userID:      userID,
-		kbpsLimit:   bandwidthKBps,
-	}
+	// in yig, download requests use "writer"
+	throttle := m.newThrottler(bucketName, helper.CONFIG.DownloadBufPoolSize)
 	return &ThrottleWriter{
 		writer:    writer,
 		throttler: throttle,
@@ -133,10 +156,11 @@ func (m *QosMeta) inMemoryCacheSync() {
 }
 
 type throttler struct {
-	rateLimiter *redis_rate.Limiter
-	userID      string
-	kbpsLimit   int // KBps
-	refill      int // extra tokens consumed
+	rateLimiter  *redis_rate.Limiter
+	userID       string
+	kbpsLimit    int    // KBps
+	refill       int    // extra tokens consumed
+	globalRefill *int64 // pointer to QosMeta's globalRefill
 }
 
 // Note by test, if 1024 * kbpsLimit < n, which is rare,
@@ -159,6 +183,13 @@ func (t *throttler) maybeWaitTokenN(n int) {
 			return
 		}
 		time.Sleep(result.RetryAfter)
+	}
+}
+
+func (t *throttler) Close() {
+	if t.refill > 0 {
+		atomic.AddInt64(t.globalRefill, int64(t.refill))
+		t.refill = 0
 	}
 }
 

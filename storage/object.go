@@ -32,7 +32,7 @@ const (
 )
 
 func (yig *YigStorage) pickRandomCluster() (cluster backend.Cluster) {
-	helper.Logger.Info("Error picking cluster from table cluster in DB, " +
+	helper.Logger.Debug("Error picking cluster from table cluster in DB, " +
 		"use first cluster in config to write.")
 	for _, c := range yig.DataStorage {
 		cluster = c
@@ -212,8 +212,7 @@ func generateTransWholeObjectFunc(cluster backend.Cluster,
 	object *meta.Object) func(io.Writer) error {
 
 	getWholeObject := func(w io.Writer) error {
-		reader, err := cluster.GetReader(object.Pool, object.ObjectId,
-			0, uint64(object.Size))
+		reader, err := cluster.GetReader(object.Pool, object.ObjectId, 0, uint64(object.Size))
 		if err != nil {
 			return nil
 		}
@@ -250,7 +249,7 @@ func generateTransPartObjectFunc(cephCluster backend.Cluster, object *meta.Objec
 }
 
 // Works together with `wrapAlignedEncryptionReader`, see comments there.
-func getAlignedReader(cluster backend.Cluster, poolName, objectName string,
+func getAlignedReader(cluster backend.Cluster, poolName, objectName string, objectType meta.ObjectType,
 	startOffset int64, length uint64) (reader io.ReadCloser, err error) {
 
 	alignedOffset := startOffset / AES_BLOCK_SIZE * AES_BLOCK_SIZE
@@ -280,7 +279,9 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 	}
 
 	// throttle write speed as needed
-	writer = yig.MetaStorage.QosMeta.NewThrottleWriter(object.BucketName, writer)
+	throttleWriter := yig.MetaStorage.QosMeta.NewThrottleWriter(object.BucketName, writer)
+	defer throttleWriter.Close()
+	writer = throttleWriter
 
 	if len(object.Parts) == 0 { // this object has only one part
 		cephCluster, ok := yig.DataStorage[object.Location]
@@ -300,7 +301,7 @@ func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
 
 		// encrypted object
 		normalAligenedGet := func() (io.ReadCloser, error) {
-			return getAlignedReader(cephCluster, object.Pool, object.ObjectId,
+			return getAlignedReader(cephCluster, object.Pool, object.ObjectId, object.Type,
 				startOffset, uint64(length))
 		}
 		reader, err := yig.DataCache.GetAlignedReader(object, startOffset, length,
@@ -378,7 +379,8 @@ func copyEncryptedPart(pool string, part *meta.Part, cluster backend.Cluster,
 	readOffset int64, length int64,
 	encryptionKey []byte, targetWriter io.Writer) (err error) {
 
-	reader, err := getAlignedReader(cluster, pool, part.ObjectId,
+	//pass meta.ObjectTypeMultipart here is no meanling, because pool here must be tiger
+	reader, err := getAlignedReader(cluster, pool, part.ObjectId, meta.ObjectTypeMultipart,
 		readOffset, uint64(length))
 	if err != nil {
 		return err
@@ -581,7 +583,7 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
 	defer data.Close()
 	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, bucketName, objectName)
-	helper.Logger.Info("get encryptionKey:", encryptionKey, "cipherKey:", cipherKey, "err:", err)
+	helper.Logger.Debug("get encryptionKey:", encryptionKey, "cipherKey:", cipherKey, "err:", err)
 	if err != nil {
 		return
 	}
@@ -634,6 +636,7 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 	}
 
 	throttleReader := yig.MetaStorage.QosMeta.NewThrottleReader(bucketName, storageReader)
+	defer throttleReader.Close()
 	objectId, bytesWritten, err := cluster.Put(poolName, throttleReader)
 	if err != nil {
 		return
@@ -641,9 +644,10 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 	// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
 	// so the object in Ceph could be removed asynchronously
 	maybeObjectToRecycle := objectToRecycle{
-		location: cluster.ID(),
-		pool:     poolName,
-		objectId: objectId,
+		location:   cluster.ID(),
+		pool:       poolName,
+		objectId:   objectId,
+		objectType: meta.ObjectTypeNormal,
 	}
 	if int64(bytesWritten) < size {
 		RecycleQueue <- maybeObjectToRecycle
@@ -870,11 +874,13 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 				}
 				storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
 				throttleReader := yig.MetaStorage.QosMeta.NewThrottleReader(targetBucket.Name, storageReader)
+				defer throttleReader.Close()
 				oid, bytesW, err = cephCluster.Put(poolName, throttleReader)
 				maybeObjectToRecycle = objectToRecycle{
-					location: cephCluster.ID(),
-					pool:     poolName,
-					objectId: oid,
+					location:   cephCluster.ID(),
+					pool:       poolName,
+					objectId:   oid,
+					objectType: meta.ObjectTypeMultipart,
 				}
 				if bytesW < uint64(part.Size) {
 					RecycleQueue <- maybeObjectToRecycle
@@ -923,6 +929,7 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 		}
 		var bytesWritten uint64
 		throttleReader := yig.MetaStorage.QosMeta.NewThrottleReader(targetBucket.Name, storageReader)
+		defer throttleReader.Close()
 		oid, bytesWritten, err = cephCluster.Put(poolName, throttleReader)
 		if err != nil {
 			return
@@ -930,9 +937,10 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 		// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
 		// so the object in Ceph could be removed asynchronously
 		maybeObjectToRecycle = objectToRecycle{
-			location: cephCluster.ID(),
-			pool:     poolName,
-			objectId: oid,
+			location:   cephCluster.ID(),
+			pool:       poolName,
+			objectId:   oid,
+			objectType: meta.ObjectTypeNormal,
 		}
 		if int64(bytesWritten) < targetObject.Size {
 			RecycleQueue <- maybeObjectToRecycle
@@ -1043,6 +1051,26 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 		return result, ErrNoSuchBucket
 	}
 
+	if objInfo != nil {
+		if objInfo.StorageClass == ObjectStorageClassGlacier {
+			freezer, err := yig.GetFreezer(objInfo.BucketName, objInfo.Name, objInfo.VersionId)
+			if err == nil {
+				if freezer.Name == objInfo.Name {
+					err = yig.MetaStorage.DeleteFreezer(freezer)
+					if err != nil {
+						return result, err
+					}
+				}
+			} else if err != ErrNoSuchKey {
+				return result, err
+			}
+		}
+	} else {
+		if storageClass == ObjectStorageClassGlacier {
+			return result, ErrMethodNotAllowed
+		}
+	}
+
 	switch bucket.ACL.CannedAcl {
 	case "public-read-write":
 		break
@@ -1101,6 +1129,7 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 	}
 
 	throttleReader := yig.MetaStorage.QosMeta.NewThrottleReader(bucketName, storageReader)
+	defer throttleReader.Close()
 	prepareEnd := time.Now()
 	oid, bytesWritten, err := cephCluster.Append(poolName, oid, throttleReader, int64(offset), size)
 	if err != nil {

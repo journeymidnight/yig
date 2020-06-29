@@ -69,7 +69,7 @@ func (m *enabledSimpleMetaCache) Get(table redis.RedisDatabase, key string,
 	onCacheMiss func() (interface{}, error),
 	unmarshaller func([]byte) (interface{}, error), willNeed bool) (value interface{}, err error) {
 
-	helper.Logger.Info("enabledSimpleMetaCache.Get table:", table, "key:", key)
+	helper.Logger.Debug("enabledSimpleMetaCache.Get table:", table, "key:", key)
 	value, err = redis.RedisConn.Get(table, key, unmarshaller)
 	if err != nil {
 		helper.Logger.Info("enabledSimpleMetaCache.Get err:", err,

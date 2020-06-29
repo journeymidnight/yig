@@ -2,15 +2,16 @@ package storage
 
 import (
 	"errors"
+	"io"
+	"math/rand"
+	"sync"
+	"time"
+
 	"github.com/journeymidnight/yig-restore/backend"
 	. "github.com/journeymidnight/yig-restore/error"
 	"github.com/journeymidnight/yig-restore/helper"
 	"github.com/journeymidnight/yig-restore/meta/common"
 	meta "github.com/journeymidnight/yig-restore/meta/types"
-	"io"
-	"math/rand"
-	"sync"
-	"time"
 )
 
 var cMap sync.Map
