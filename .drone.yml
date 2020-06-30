@@ -19,6 +19,7 @@ steps:
   image: centos-yig:v1.0.1
   commands:
   - export GOPROXY=https://goproxy.cn
+  - cp -f integrate/resolv.conf /etc/resolv.conf
   - make build_internal
   - sqlName=yig_drone${DRONE_BUILD_NUMBER}
   - mysql -u root -P 4000 -h 10.0.42.4 -e "create database $sqlName character set utf8;"
@@ -34,6 +35,10 @@ steps:
   - sleep 10
   - ./migrate &
   - sleep 10
+  - ping -c 1 s3.test.com
+  - ps aux|grep yig
+  - ps aux|grep lc
+  - ps aux|grep migrate
   - python test/sanity.py
   - pushd test/go
   - go test -v
