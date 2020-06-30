@@ -20,8 +20,7 @@ type Client interface {
 	PutObject(object *Object, multipart *Multipart, updateUsage bool) error
 	AppendObject(object *Object, updateUsage bool) error
 	UpdateObject(object *Object, multipart *Multipart, updateUsage bool, tx Tx) (err error)
-	UpdateGlacierObject(object *Object, tx Tx) (err error)
-	UpdateAppendObject(object *Object, olderObject *Object) error
+	UpdateAppendObject(object *Object) error
 	MigrateObject(object *Object) error
 	RemoveHotObject(object *Object, tx Tx) error
 	RenameObject(object *Object, sourceObject string) (err error)

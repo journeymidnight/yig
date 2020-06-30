@@ -131,6 +131,7 @@ func (t *TidbClient) PutObjectPart(multipart *Multipart, part *Part) (deltaSize 
 	sqltext := "insert into multipartpart(partnumber,size,objectid,offset,etag,lastmodified,initializationvector,bucketname,objectname,uploadtime) " +
 		"values(?,?,?,?,?,?,?,?,?,?)"
 
+	_, err = tx.Exec(sqltext, part.PartNumber, part.Size, part.ObjectId, part.Offset, part.Etag, lastModified, part.InitializationVector, multipart.BucketName, multipart.ObjectName, uploadtime)
 	var removedSize int64 = 0
 	if part, ok := multipart.Parts[part.PartNumber]; ok {
 		removedSize += part.Size
@@ -140,7 +141,6 @@ func (t *TidbClient) PutObjectPart(multipart *Multipart, part *Part) (deltaSize 
 	if err != nil {
 		return
 	}
-	_, err = tx.Exec(sqltext, part.PartNumber, part.Size, part.ObjectId, part.Offset, part.Etag, lastModified, part.InitializationVector, multipart.BucketName, multipart.ObjectName, uploadtime)
 	return deltaSize, nil
 }
 

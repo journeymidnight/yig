@@ -814,18 +814,10 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 		targetObject.LastModifiedTime = sourceObject.LastModifiedTime
 		targetObject.VersionId = sourceObject.VersionId
 
-		if sourceObject.StorageClass == ObjectStorageClassGlacier {
-			err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, true, false)
-			if err != nil {
-				helper.Logger.Error("Copy Object with same source and target with GLACIER object, sql fails:", err)
-				return result, ErrInternalError
-			}
-		} else {
-			err = yig.MetaStorage.ReplaceObjectMetas(targetObject)
-			if err != nil {
-				helper.Logger.Error("Copy Object with same source and target, sql fails:", err)
-				return result, ErrInternalError
-			}
+		err = yig.MetaStorage.ReplaceObjectMetas(targetObject)
+		if err != nil {
+			helper.Logger.Error("Copy Object with same source and target, sql fails:", err)
+			return result, ErrInternalError
 		}
 
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":"+targetObject.VersionId)
@@ -983,6 +975,8 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 		result.LastModified = targetObject.LastModifiedTime
 		targetObject.CreateTime = sourceObject.CreateTime
 		err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject)
+		result.DeltaInfo[sourceObject.StorageClass] -= sourceObject.Size
+		result.DeltaInfo[targetObject.StorageClass] += targetObject.Size
 	} else {
 		result.DeltaInfo, err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, true)
 	}

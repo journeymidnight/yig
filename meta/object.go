@@ -255,7 +255,7 @@ func (m *Meta) AppendObject(object *Object, olderObject *Object) error {
 	if olderObject == nil {
 		return m.Client.AppendObject(object, true)
 	} else {
-		return m.Client.UpdateAppendObject(object, olderObject)
+		return m.Client.UpdateAppendObject(object)
 	}
 }
 

@@ -92,10 +92,10 @@ func (c *TiKVClient) CreateMultipart(multipart Multipart) (err error) {
 	return c.TxPut(key, multipart)
 }
 
-func (c *TiKVClient) PutObjectPart(multipart *Multipart, part *Part) (err error) {
+func (c *TiKVClient) PutObjectPart(multipart *Multipart, part *Part) (deltaSize int64, err error) {
 	tx, err := c.NewTrans()
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer func() {
 		if err == nil {
@@ -110,18 +110,23 @@ func (c *TiKVClient) PutObjectPart(multipart *Multipart, part *Part) (err error)
 	partKey := genObjectPartKey(multipart.BucketName, multipart.ObjectName, multipart.UploadId, part.PartNumber)
 	partVal, err := helper.MsgPackMarshal(part)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	err = txn.Set(partKey, partVal)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	var removedSize int64 = 0
 	if part, ok := multipart.Parts[part.PartNumber]; ok {
 		removedSize += part.Size
 	}
-	return c.UpdateUsage(multipart.BucketName, part.Size-removedSize, tx)
+	deltaSize = part.Size - removedSize
+	err = c.UpdateUsage(multipart.BucketName, deltaSize, tx)
+	if err != nil {
+		return
+	}
+	return deltaSize, nil
 }
 
 func (c *TiKVClient) DeleteMultipart(multipart *Multipart, tx Tx) error {

@@ -41,7 +41,6 @@ require (
 	github.com/golang/protobuf v1.3.4
 	github.com/golang/snappy v0.0.1
 	github.com/gomodule/redigo v2.0.0+incompatible
-	github.com/google/uuid v1.1.1 // indirect
 	github.com/gorilla/mux v1.7.4
 	github.com/journeymidnight/aws-sdk-go v1.18.1
 	github.com/journeymidnight/radoshttpd v0.0.0-20190617133011-609666b51136
@@ -57,6 +56,5 @@ require (
 	golang.org/x/crypto v0.0.0-20190325154230-a5d413f7728c // indirect
 	golang.org/x/sys v0.0.0-20191010194322-b09406accb47
 	gopkg.in/bufio.v1 v1.0.0-20140618132640-567b2bfa514e
-	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15
 
 )

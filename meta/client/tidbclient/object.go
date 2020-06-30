@@ -322,7 +322,7 @@ func (t *TidbClient) AppendObject(object *Object, updateUsage bool) (err error) 
 	return nil
 }
 
-func (t *TidbClient) UpdateAppendObject(object *Object, olderObject *Object) (err error) {
+func (t *TidbClient) UpdateAppendObject(object *Object) (err error) {
 	tx, err := t.Client.Begin()
 	if err != nil {
 		return err
@@ -473,43 +473,6 @@ func (t *TidbClient) UpdateObject(object *Object, multipart *Multipart, updateUs
 	}
 
 	return err
-}
-
-func (t *TidbClient) UpdateGlacierObject(object *Object, tx Tx) (err error) {
-	if tx == nil {
-		tx, err = t.Client.Begin()
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err == nil {
-				err = tx.(*sql.Tx).Commit()
-			}
-			if err != nil {
-				tx.(*sql.Tx).Rollback()
-			}
-		}()
-	}
-	txn := tx.(*sql.Tx)
-	err = t.DeleteObjectPart(object, tx)
-	if err != nil {
-		return err
-	}
-
-	sql, args := object.GetGlacierUpdateSql()
-	_, err = txn.Exec(sql, args...)
-	if object.Parts != nil {
-		partVersion := math.MaxUint64 - object.CreateTime
-		v := strconv.FormatUint(partVersion, 10)
-		for _, p := range object.Parts {
-			psql, args := p.GetCreateSql(object.BucketName, object.Name, v)
-			_, err = txn.Exec(psql, args...)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 func (t *TidbClient) DeleteObject(object *Object, tx Tx) (err error) {
