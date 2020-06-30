@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/journeymidnight/yig/api"
+
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/backend"
 	. "github.com/journeymidnight/yig/context"
@@ -824,8 +826,8 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.VersionId)
 
 		if targetObject.StorageClass != sourceObject.StorageClass {
-			result.DeltaInfo[sourceObject.StorageClass] -= sourceObject.Size
-			result.DeltaInfo[targetObject.StorageClass] += targetObject.Size
+			result.DeltaInfo[sourceObject.StorageClass] -= api.CorrectDeltaSize(sourceObject.StorageClass, sourceObject.Size)
+			result.DeltaInfo[targetObject.StorageClass] += api.CorrectDeltaSize(targetObject.StorageClass, targetObject.Size)
 		}
 		return result, nil
 	}
@@ -975,8 +977,8 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 		result.LastModified = targetObject.LastModifiedTime
 		targetObject.CreateTime = sourceObject.CreateTime
 		err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject)
-		result.DeltaInfo[sourceObject.StorageClass] -= sourceObject.Size
-		result.DeltaInfo[targetObject.StorageClass] += targetObject.Size
+		result.DeltaInfo[sourceObject.StorageClass] -= api.CorrectDeltaSize(sourceObject.StorageClass, sourceObject.Size)
+		result.DeltaInfo[targetObject.StorageClass] += api.CorrectDeltaSize(targetObject.StorageClass, targetObject.Size)
 	} else {
 		result.DeltaInfo, err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, true)
 	}

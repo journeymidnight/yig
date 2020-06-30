@@ -54,6 +54,13 @@ func (c *TiKVClient) PutBucket(bucket Bucket) error {
 	return c.TxPut(bucketKey, bucket)
 }
 
+// for commercial billing now
+type BucketUsage struct {
+	Standard   int64
+	StandardIa int64
+	Glacier    int64
+}
+
 func (c *TiKVClient) PutNewBucket(bucket Bucket) error {
 	bucketKey := genBucketKey(bucket.Name)
 	userBucketKey := genUserBucketKey(bucket.OwnerId, bucket.Name)
@@ -69,7 +76,7 @@ func (c *TiKVClient) PutNewBucket(bucket Bucket) error {
 		return ErrBucketAlreadyExists
 	}
 
-	return c.TxPut(bucketKey, bucket, userBucketKey, 0)
+	return c.TxPut(bucketKey, bucket, userBucketKey, BucketUsage{0, 0, 0})
 }
 
 func (c *TiKVClient) DeleteBucket(bucket Bucket) error {
