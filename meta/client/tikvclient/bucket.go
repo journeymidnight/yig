@@ -607,50 +607,9 @@ func (c *TiKVClient) UpdateUsage(bucketName string, size int64, tx Tx) error {
 		return nil
 	}
 
-	if tx == nil {
-		tx, err := c.NewTrans()
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err == nil {
-				err = c.CommitTrans(tx)
-			}
-			if err != nil {
-				c.AbortTrans(tx)
-			}
-		}()
-	}
+	// TODO : finished
 
-	txn := tx.(*TikvTx).tx
-
-	bucketKey := genBucketKey(bucketName)
-	var bucket Bucket
-	ok, err := c.TxGet(bucketKey, &bucket, txn)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return ErrNoSuchBucket
-	}
-
-	userBucketKey := genUserBucketKey(bucket.OwnerId, bucket.Name)
-	var usage int64
-
-	ok, err = c.TxGet(userBucketKey, &usage, txn)
-	if err != nil {
-		return err
-	}
-	if !ok {
-		return ErrNoSuchBucket
-	}
-	usage += size
-
-	v, err := helper.MsgPackMarshal(usage)
-	if err != nil {
-		return err
-	}
-	return txn.Set(userBucketKey, v)
+	return nil
 }
 
 func (c *TiKVClient) IsEmptyBucket(bucket *Bucket) (isEmpty bool, err error) {
