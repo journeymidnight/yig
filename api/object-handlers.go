@@ -234,7 +234,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		freezer, err := api.ObjectAPI.GetFreezer(reqCtx.BucketName, reqCtx.ObjectName, object.VersionId)
 		if err != nil {
 			if err == ErrNoSuchKey {
-				logger.Error("Unable to get glacier object with no restore")
+				logger.Error("Unable to get glacier object with because of ErrNoSuchKey")
 				WriteErrorResponse(w, r, ErrInvalidGlacierObject)
 				return
 			}
@@ -243,7 +243,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			return
 		}
 		if freezer.Status != ObjectHasRestored {
-			logger.Error("Unable to get glacier object with no restore")
+			logger.Error("Unable to get glacier object because object has not restored:", freezer.Status)
 			WriteErrorResponse(w, r, ErrInvalidGlacierObject)
 			return
 		}
