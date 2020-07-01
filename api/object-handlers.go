@@ -168,7 +168,7 @@ func newGetObjectResponseWriter(w http.ResponseWriter, r *http.Request, object *
 
 func (o *GetObjectResponseWriter) Write(p []byte) (int, error) {
 	if !o.dataWritten {
-		if o.version != "" {
+		if o.version != meta.NullVersion || o.version != "" {
 			o.w.Header().Set("x-amz-version-id", o.version)
 		}
 		// Set any additional requested response headers.
@@ -209,7 +209,6 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	reqVersion := reqCtx.VersionId
 	// Fetch object stat info.
 	object, err := api.ObjectAPI.GetObjectInfoByCtx(reqCtx, credential)
 	if err != nil {
@@ -231,9 +230,8 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		WriteErrorResponse(w, r, ErrNoSuchKey)
 		return
 	}
-
 	if object.StorageClass == ObjectStorageClassGlacier {
-		freezer, err := api.ObjectAPI.GetFreezer(reqCtx.BucketName, reqCtx.ObjectName, reqVersion)
+		freezer, err := api.ObjectAPI.GetFreezer(reqCtx.BucketName, reqCtx.ObjectName, object.VersionId)
 		if err != nil {
 			if err == ErrNoSuchKey {
 				logger.Error("Unable to get glacier object with no restore")
@@ -309,7 +307,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	// io.Writer type which keeps track if any data was written.
-	writer := newGetObjectResponseWriter(w, r, object, hrange, http.StatusOK, reqVersion)
+	writer := newGetObjectResponseWriter(w, r, object, hrange, http.StatusOK, object.VersionId)
 
 	switch object.SseType {
 	case "":
@@ -1192,7 +1190,7 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 	}
 
 	// Fetch object stat info.
-	object, err := api.ObjectAPI.GetObjectInfo(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, credential)
+	object, err := api.ObjectAPI.GetObjectInfoByCtx(reqCtx, credential)
 	if err != nil {
 		logger.Error("Unable to fetch object info:", err)
 		if err == ErrNoSuchKey {
@@ -1218,6 +1216,7 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 	if err != nil {
 		logger.Error("Unable to get freezer info:", err)
 		WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
+		return
 	}
 
 	freezer, err := api.ObjectAPI.GetFreezerStatus(object.BucketName, object.Name, object.VersionId)
@@ -1225,12 +1224,14 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		logger.Error("Unable to get restore object status", object.BucketName, object.Name,
 			"error:", err)
 		WriteErrorResponse(w, r, err)
+		return
 	}
 	if err == ErrNoSuchKey || freezer.Name == "" {
 		status, err := MatchStatusIndex("READY")
 		if err != nil {
 			logger.Error("Unable to get freezer status:", err)
 			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
+			return
 		}
 
 		lifeTime := info.Days
@@ -1250,35 +1251,39 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		if err != nil {
 			logger.Error("Unable to create freezer:", err)
 			WriteErrorResponse(w, r, ErrCreateRestoreObject)
+			return
 		}
 		logger.Info("Submit thaw request successfully")
 
 		// ResponseRecorder
 		w.WriteHeader(http.StatusAccepted)
-		w.(*ResponseRecorder).operationName = "RestoreObject"
-
 		WriteSuccessResponseWithStatus(w, nil, http.StatusAccepted)
+		return
 	}
+
 	if freezer.Status == ObjectHasRestored {
 		err = api.ObjectAPI.UpdateFreezerDate(freezer, info.Days, true)
 		if err != nil {
 			logger.Error("Unable to Update freezer date:", err)
 			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
+			return
 		}
 
 		// ResponseRecorder
-		w.(*ResponseRecorder).operationName = "RestoreObject"
 		WriteSuccessResponse(w, r, nil)
+		return
 	} else {
 		if freezer.LifeTime != info.Days {
 			err = api.ObjectAPI.UpdateFreezerDate(freezer, info.Days, false)
 			if err != nil {
 				logger.Error("Unable to Update freezer date:", err)
 				WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
+				return
 			}
 		}
 
 		WriteSuccessResponseWithStatus(w, nil, http.StatusAccepted)
+		return
 	}
 }
 
