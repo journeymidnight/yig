@@ -97,6 +97,12 @@ func checkAndDoMigrate(index int) {
 			goto quit
 		}
 
+		//sometime it`s possible an object has been migrated, but still enter here, so pass it
+		if sourceObject.Pool == backend.BIG_FILE_POOLNAME {
+			helper.Logger.Info("object already migrated, so pass it", sourceObject.Name, sourceObject.Pool, sourceObject.ObjectId)
+			goto loop
+		}
+
 		//check if object is cooldown
 		if sourceObject.LastModifiedTime.Add(time.Second * time.Duration(mgObjectCoolDown)).After(time.Now()) {
 			goto loop
@@ -228,6 +234,15 @@ func getHotObjects() {
 		if mgStop {
 			helper.Logger.Info("shutting down...")
 			return
+		}
+
+		for len(mgTaskQ) > 0 {
+			time.Sleep(time.Duration(1) * time.Second)
+			helper.Logger.Info("wait for last round migrate jobs finished...")
+			if mgStop {
+				helper.Logger.Info("shutting down...")
+				return
+			}
 		}
 
 		sqltext = "select bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag,contenttype," +

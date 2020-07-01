@@ -454,7 +454,7 @@ func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *h
 		}
 	} else {
 		bl.LoggingEnabled = reqCtx.BucketInfo.BucketLogging.LoggingEnabled
-		bl.SetTime = time.Now().Format(timeLayoutStr)
+		bl.DeleteTime = time.Now().Format(timeLayoutStr)
 		bl.SetLog = false
 	}
 
