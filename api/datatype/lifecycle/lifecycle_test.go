@@ -17,7 +17,6 @@
 package lifecycle
 
 import (
-	"bytes"
 	"encoding/xml"
 	"fmt"
 	. "github.com/journeymidnight/yig/error"
@@ -105,7 +104,7 @@ func TestParseLifecycleConfig(t *testing.T) {
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("Test %d", i+1), func(t *testing.T) {
 			var err error
-			if _, err = ParseLifecycleConfig(bytes.NewReader([]byte(tc.inputConfig))); err != tc.expectedErr {
+			if _, err = ParseLifecycleConfig([]byte(tc.inputConfig)); err != tc.expectedErr {
 				t.Fatalf("%d: Expected %v but got %v", i+1, tc.expectedErr, err)
 			}
 		})
@@ -303,7 +302,7 @@ func TestComputeActions(t *testing.T) {
 
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("Test %d", i+1), func(t *testing.T) {
-			lc, err := ParseLifecycleConfig(bytes.NewReader([]byte(tc.inputConfig)))
+			lc, err := ParseLifecycleConfig([]byte(tc.inputConfig))
 			if err != nil {
 				t.Fatalf("%d: Got unexpected error: %v", i+1, err)
 			}

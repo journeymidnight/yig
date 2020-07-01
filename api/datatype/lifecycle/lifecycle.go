@@ -21,7 +21,6 @@ import (
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	meta "github.com/journeymidnight/yig/meta/common"
-	"io"
 	"strings"
 	"time"
 )
@@ -66,15 +65,15 @@ func (lc Lifecycle) IsEmpty() bool {
 }
 
 // ParseLifecycleConfig - parses data in given reader to Lifecycle.
-func ParseLifecycleConfig(reader io.Reader) (*Lifecycle, error) {
-	var lc Lifecycle
-	if err := xml.NewDecoder(reader).Decode(&lc); err != nil {
+func ParseLifecycleConfig(data []byte) (*Lifecycle, error) {
+	lc := &Lifecycle{}
+	if err := xml.Unmarshal(data, lc); err != nil {
 		return nil, err
 	}
 	if err := lc.Validate(); err != nil {
 		return nil, err
 	}
-	return &lc, nil
+	return lc, nil
 }
 
 // Validate - validates the lifecycle configuration
