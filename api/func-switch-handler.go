@@ -182,10 +182,19 @@ func initUnsupportedFunctions() {
 	// Initialize functions unsupported by the current node storage object
 	for _, function := range helper.CONFIG.FuncNotSupportForObject {
 		switch function {
+		// Control StorageClass other than standard
 		case "standard_ia":
 			unsupportedStorageClassNames[ObjectStorageClassStandardIa] = true
 		case "glacier":
 			unsupportedStorageClassNames[ObjectStorageClassGlacier] = true
+		case "intelligent_tiering":
+			unsupportedStorageClassNames[ObjectStorageClassIntelligentTiering] = true
+		case "onezone_ia":
+			unsupportedStorageClassNames[ObjectStorageClassOnezoneIa] = true
+		case "deep_archive":
+			unsupportedStorageClassNames[ObjectStorageClassDeepArchive] = true
+		case "rrs":
+			unsupportedStorageClassNames[ObjectStorageClassReducedRedundancy] = true
 		default:
 			unsupportedObjectResourceNames[function] = true
 		}
