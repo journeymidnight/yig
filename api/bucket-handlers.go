@@ -315,9 +315,8 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	var deleteErrors []DeleteError
 	var deletedObjects []ObjectIdentifier
 
-	var deltaResult map[StorageClass]int64
+	var deltaResult = make(map[StorageClass]int64)
 	var unexpiredInfo []UnexpiredTriple
-
 	// Loop through all the objects and delete them sequentially.
 	for _, object := range deleteObjects.Objects {
 		reqCtx.ObjectName = object.ObjectName
