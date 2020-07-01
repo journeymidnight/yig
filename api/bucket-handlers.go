@@ -445,7 +445,7 @@ func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *h
 			return
 		}
 
-		if reqCtx.BucketInfo.BucketLogging.LoggingEnabled.TargetBucket == "" { // set bucket log first time
+		if reqCtx.BucketInfo.BucketLogging.LoggingEnabled.TargetBucket == "" || reqCtx.BucketInfo.BucketLogging.SetLog == false { // set bucket log first time
 			bl.SetTime = time.Now().Format(timeLayoutStr)
 			bl.SetLog = true
 		} else {
