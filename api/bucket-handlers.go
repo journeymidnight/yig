@@ -447,9 +447,15 @@ func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *h
 
 		if reqCtx.BucketInfo.BucketLogging.LoggingEnabled.TargetBucket == "" { // set bucket log first time
 			bl.SetTime = time.Now().Format(timeLayoutStr)
+			bl.SetLog = true
 		} else {
 			bl.SetTime = reqCtx.BucketInfo.BucketLogging.SetTime
+			bl.SetLog = true
 		}
+	} else {
+		bl.LoggingEnabled = reqCtx.BucketInfo.BucketLogging.LoggingEnabled
+		bl.SetTime = time.Now().Format(timeLayoutStr)
+		bl.SetLog = false
 	}
 
 	err = api.ObjectAPI.SetBucketLogging(reqCtx, bl, credential)
@@ -503,6 +509,10 @@ func (api ObjectAPIHandlers) GetBucketLoggingHandler(w http.ResponseWriter, r *h
 		return
 	}
 
+	if bl.SetLog == false {
+		bl.LoggingEnabled.TargetBucket = ""
+		bl.LoggingEnabled.TargetPrefix = ""
+	}
 	blBuffer, err := xmlFormat(bl)
 	if err != nil {
 		logger.Error("Failed to marshal bucket logging XML for bucket", bucketName,
