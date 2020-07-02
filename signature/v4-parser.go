@@ -46,6 +46,7 @@ func parseCredential(credentialValue string) (credentialHeader, error) {
 	if len(credElements) != 5 {
 		return credentialHeader{}, ErrCredMalformed
 	}
+
 	if !iam.IsValidAccessKey.MatchString(credElements[0]) {
 		return credentialHeader{}, ErrInvalidAccessKeyID
 	}

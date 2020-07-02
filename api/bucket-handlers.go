@@ -18,16 +18,16 @@ package api
 
 import (
 	"encoding/xml"
-	"io"
-	"io/ioutil"
-	"net/http"
-
 	. "github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/signature"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"time"
 )
 
 // GetBucketLocationHandler - GET Bucket location.
@@ -417,7 +417,7 @@ func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *h
 	blBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 4096))
 	if err != nil {
 		logger.Error("Unable to read bucket logging body:", err)
-		WriteErrorResponse(w, r, ErrInvalidBucketLogging)
+		WriteErrorResponse(w, r, ErrInternalError)
 		return
 	}
 	err = xml.Unmarshal(blBuffer, &bl)
@@ -427,6 +427,37 @@ func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *h
 		return
 	}
 	logger.Info("Setting bucket logging:", bl)
+
+	if bl.LoggingEnabled.TargetBucket != "" {
+		bucket, err := api.ObjectAPI.GetBucket(bl.LoggingEnabled.TargetBucket)
+		if err != nil {
+			if err == ErrNoSuchBucket {
+				WriteErrorResponse(w, r, ErrInvalidTargetBucket)
+				return
+			} else {
+				logger.Error("Unable to get bucket :", err)
+				WriteErrorResponse(w, r, ErrInternalError)
+				return
+			}
+			//TODO: Maybe support someone else's permissions
+		} else if bucket.OwnerId != reqCtx.BucketInfo.OwnerId {
+			WriteErrorResponse(w, r, ErrInvalidTargetBucket)
+			return
+		}
+
+		if reqCtx.BucketInfo.BucketLogging.LoggingEnabled.TargetBucket == "" || reqCtx.BucketInfo.BucketLogging.SetLog == false { // set bucket log first time
+			bl.SetTime = time.Now().Format(timeLayoutStr)
+			bl.SetLog = true
+		} else {
+			bl.SetTime = reqCtx.BucketInfo.BucketLogging.SetTime
+			bl.SetLog = true
+		}
+	} else {
+		bl.LoggingEnabled = reqCtx.BucketInfo.BucketLogging.LoggingEnabled
+		bl.DeleteTime = time.Now().Format(timeLayoutStr)
+		bl.SetLog = false
+	}
+
 	err = api.ObjectAPI.SetBucketLogging(reqCtx, bl, credential)
 	if err != nil {
 		logger.Error(err, "Unable to set bucket logging for bucket:", err)
@@ -478,6 +509,10 @@ func (api ObjectAPIHandlers) GetBucketLoggingHandler(w http.ResponseWriter, r *h
 		return
 	}
 
+	if bl.SetLog == false {
+		bl.LoggingEnabled.TargetBucket = ""
+		bl.LoggingEnabled.TargetPrefix = ""
+	}
 	blBuffer, err := xmlFormat(bl)
 	if err != nil {
 		logger.Error("Failed to marshal bucket logging XML for bucket", bucketName,

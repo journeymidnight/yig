@@ -1,10 +1,12 @@
 counter yig_http_request_total by bucket_name, bucket_owner, method as "yig_http_response_count_total"
 counter yig_http_request_total_bytes by bucket_name, bucket_owner, method, is_private_subnet, operation, storage_class, cdn_request as "yig_http_response_size_bytes"
-
+counter yig_http_request_data_retrieve by bucket_owner, method, operation, storage_class as "yig_data_retrieve_size_bytes"
+counter yig_http_request_data_restore by bucket_owner, method, operation, storage_class as "yig_data_restore_size_bytes"
+gauge yig_http_response_time by bucket_owner, bucket_name, operation, status_code, is_private_subnet
 
 #{time_local} {request_uri} {request_id} {operation} {host_name} {bucket_name} {object_name} +
 #{object_size} {requester_id} {project_id} {remote_addr} {http_x_real_ip} {request_length} {server_cost} +
-#request_time} {http_status} {error_code} {body_bytes_sent} {http_referer} {http_user_agent} +
+#{request_time} {http_status} {error_code} {body_bytes_sent} {http_referer} {http_user_agent} +
 #{is_private_subnet} {storage_class} {target_storage_class} {bucket_logging} {cdn_request}
 
 /(?P<time_local>\[\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\]) / +
@@ -14,13 +16,13 @@ counter yig_http_request_total_bytes by bucket_name, bucket_owner, method, is_pr
 /(?P<host_name>\S+) / +
 /(?P<bucket_name>\S+) / +
 /(?P<object_name>\S+) / +
-/(?P<object_size>\S+) / +
+/(?P<object_size>\d+) / +
 /(?P<requester_id>\S+) / +
 /(?P<project_id>\S+) / +
 /(?P<remote_addr>[0-9A-Za-z\.\-:]+) / +
 /(?P<http_x_real_ip>\S+) / +
 /(?P<request_length>\d+) / +
-/(?P<server_cost>\S+) / +
+/(?P<server_cost>\d+) / +
 /(?P<request_time>\d+) / +
 /(?P<http_status>\d{3}) / +
 /(?P<error_code>\S+) / +
@@ -31,7 +33,11 @@ counter yig_http_request_total_bytes by bucket_name, bucket_owner, method, is_pr
 /(?P<storage_class>\S+) / +
 /(?P<target_storage_class>\S+) / +
 /(?P<bucket_logging>\S+) / +
-/(?P<cdn_request>\S+)/ {
+/(?P<cdn_request>\S+)/ +
+/.*/ {
   yig_http_request_total[$bucket_name][$project_id][$request_method]++
   yig_http_request_total_bytes[$bucket_name][$project_id][$request_method][$is_private_subnet][$operation][$storage_class][$cdn_request]+=$body_bytes_sent
+  yig_http_request_data_retrieve[$project_id][$request_method][$operation][$storage_class]+=$body_bytes_sent
+  yig_http_request_data_restore[$project_id][$request_method][$operation][$storage_class]+=$object_size
+  yig_http_response_time[$project_id][$bucket_name][$operation][$http_status][$is_private_subnet]=$request_time
 }

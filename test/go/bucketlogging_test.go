@@ -18,6 +18,11 @@ func Test_BucketLogging(t *testing.T) {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
+	err = sc.MakeBucket("testTargetBucket")
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+		panic(err)
+	}
 	t.Log("MakeBucket Success.")
 
 	rules := &s3.LoggingEnabled{
@@ -49,6 +54,11 @@ func Test_BucketLogging(t *testing.T) {
 	}
 	t.Log("DeleteBucketLogging Success.")
 
+	err = sc.DeleteBucket("testTargetBucket")
+	if err != nil {
+		t.Fatal("DeleteBucket err:", err)
+		panic(err)
+	}
 	err = sc.DeleteBucket(TEST_BUCKET)
 	if err != nil {
 		t.Fatal("DeleteBucket err:", err)
