@@ -52,6 +52,7 @@ require (
 	github.com/stretchr/testify v1.4.0
 	github.com/tikv/client-go v0.0.0-20200110101306-a3ebdb020c83
 	github.com/ugorji/go/codec v0.0.0-20190204201341-e444a5086c43
+	github.com/urfave/cli v1.22.4
 	github.com/xxtea/xxtea-go v0.0.0-20170828040851-35c4b17eecf6
 	golang.org/x/crypto v0.0.0-20190325154230-a5d413f7728c // indirect
 	golang.org/x/sys v0.0.0-20191010194322-b09406accb47
