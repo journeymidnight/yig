@@ -191,6 +191,11 @@ func (t *TidbClient) CheckAndPutBucket(bucket Bucket) (bool, error) {
 	return processed, err
 }
 
+func (t *TidbClient) ListHotObjects(marker string, maxKeys int) (listInfo ListHotObjectsInfo, err error) {
+	//there is no easy way to iterator whole hotobjects table for tidb, so this is a fake function just for interface
+	return
+}
+
 const MaxKeySuffix = string(0xFF)
 
 func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (listInfo ListObjectsInfo, err error) {

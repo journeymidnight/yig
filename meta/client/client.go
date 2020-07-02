@@ -22,6 +22,7 @@ type Client interface {
 	UpdateObject(object *Object, multipart *Multipart, updateUsage bool, tx Tx) (err error)
 	UpdateAppendObject(object *Object) error
 	MigrateObject(object *Object) error
+	ListHotObjects(marker string, maxKeys int) (listInfo ListHotObjectsInfo, err error)
 	RemoveHotObject(object *Object, tx Tx) error
 	RenameObject(object *Object, sourceObject string) (err error)
 	ReplaceObjectMetas(object *Object, tx Tx) (err error)

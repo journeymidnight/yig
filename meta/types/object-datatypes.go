@@ -43,6 +43,26 @@ type ListObjectsInfo struct {
 	Prefixes []string
 }
 
+// ListObjectsInfo - container for list objects.
+type ListHotObjectsInfo struct {
+	// Indicates whether the returned list objects response is truncated. A
+	// value of true indicates that the list was truncated. The list can be truncated
+	// if the number of objects exceeds the limit allowed or specified
+	// by max keys.
+	IsTruncated bool
+
+	// When response is truncated (the IsTruncated element value in the response
+	// is true), you can use the key name in this field as marker in the subsequent
+	// request to get next set of objects.
+	//
+	// NOTE: This element is returned only if you have delimiter request parameter
+	// specified.
+	NextMarker string
+
+	// List of objects info for this request.
+	Objects []*Object
+}
+
 type VersionedListObjectsInfo struct {
 	IsTruncated         bool
 	NextKeyMarker       string

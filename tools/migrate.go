@@ -196,7 +196,7 @@ func checkAndDoMigrate(index int) {
 	}
 }
 
-func getHotObjects() {
+func getHotObjectsTidb() {
 
 	helper.Logger.Info("getHotObjects thread start")
 	var customattributes, acl, lastModifiedTime string
@@ -321,6 +321,87 @@ quit:
 	return
 }
 
+func getHotObjectsTikv() {
+
+	helper.Logger.Info("getHotObjects thread start")
+	var err error
+	var marker string
+	var mutex *redislock.Lock
+
+	for {
+		// Try to obtain lock.
+		mutex, err = redis.Locker.Obtain(MIGRATE_JOB_MUTEX, 10*time.Second, nil)
+		if err == redislock.ErrNotObtained {
+			helper.Logger.Info("Lock object failed, sleep 30s:", MIGRATE_JOB_MUTEX)
+			time.Sleep(30 * time.Second)
+			continue
+		} else if err != nil {
+			helper.Logger.Error("Lock seems does not work, so quit", err.Error())
+			signalQueue <- syscall.SIGQUIT
+			return
+		}
+		break
+	}
+	defer func() {
+		mutex.Release()
+		mux.Lock()
+		delete(mutexs, mutex.Key())
+		mux.Unlock()
+	}()
+
+	mux.Lock()
+	mutexs[mutex.Key()] = mutex
+	mux.Unlock()
+
+	for {
+		if mgStop {
+			helper.Logger.Info("shutting down...")
+			return
+		}
+
+		for len(mgTaskQ) > 0 {
+			time.Sleep(time.Duration(1) * time.Second)
+			helper.Logger.Info("wait for last round migrate jobs finished...")
+			if mgStop {
+				helper.Logger.Info("shutting down...")
+				return
+			}
+		}
+
+		info, err := yigs[0].MetaStorage.Client.ListHotObjects(marker, 100)
+		if err != nil {
+			helper.Logger.Info("debug ListHotObjects...", err)
+			goto quit
+		}
+
+		for _, object := range info.Objects {
+			mgTaskQ <- *object
+
+			for len(mgTaskQ) >= WATER_LOW {
+				time.Sleep(time.Duration(10) * time.Millisecond)
+			}
+			if mgStop {
+				helper.Logger.Info("shutting down...")
+				return
+			}
+		}
+		if info.IsTruncated && len(info.NextMarker) != 0 {
+			marker = info.NextMarker
+		} else {
+			for i := 0; i < mgScanInterval; i++ {
+				time.Sleep(time.Duration(1) * time.Second)
+				if mgStop {
+					helper.Logger.Info("shutting down...")
+					return
+				}
+			}
+		}
+	}
+quit:
+	signalQueue <- syscall.SIGQUIT
+	return
+}
+
 func main() {
 	mgStop = false
 
@@ -362,7 +443,16 @@ func main() {
 		}
 		go checkAndDoMigrate(i + 1)
 	}
-	go getHotObjects()
+
+	if helper.CONFIG.MetaStore == "tidb" {
+		go getHotObjectsTidb()
+	} else if helper.CONFIG.MetaStore == "tikv" {
+		go getHotObjectsTikv()
+	} else {
+		helper.Logger.Error("Not supported MetaStore")
+		return
+	}
+
 	go autoRefreshLock()
 	signal.Notify(signalQueue, syscall.SIGINT, syscall.SIGTERM,
 		syscall.SIGQUIT, syscall.SIGHUP)
