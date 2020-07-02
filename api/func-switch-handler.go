@@ -17,6 +17,12 @@ import (
 
 type resourceHandler struct {
 	handler http.Handler
+	// List of not implemented bucket queries
+	unsupportedBucketResourceNames map[string]bool
+	// List of not implemented object queries
+	unsupportedObjectResourceNames map[string]bool
+	// List of not implemented object storage class queries
+	unsupportedStorageClassNames map[StorageClass]bool
 }
 
 // Resource handler ServeHTTP() wrapper
@@ -29,12 +35,12 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// level resource queries.
 	if bucketName != "" && objectName == "" {
 		for name := range r.URL.Query() {
-			if ignoreUnsupportedBucketResources(name) {
+			if ignoreUnsupportedBucketResources(h, name) {
 				WriteErrorResponse(w, r, ErrUnsupportFunction)
 				return
 			}
 			if name == "lifecycle" && r.Method == "PUT" {
-				lifecycle, isUnsupportedLifecycleXml, err := ignoreLifecycleUnsupported(r)
+				lifecycle, isUnsupportedLifecycleXml, err := ignoreLifecycleUnsupported(h, r)
 				if err != nil {
 					helper.Logger.Error("Unable to parse lifecycle body:", err)
 					WriteErrorResponse(w, r, err)
@@ -50,13 +56,13 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	// If bucketName and objectName are present check for its resource queries.
 	if bucketName != "" && objectName != "" {
-		if ignoreUnsupportedObjectResources(r) {
+		if ignoreUnsupportedObjectResources(h, r) {
 			WriteErrorResponse(w, r, ErrUnsupportFunction)
 			return
 		}
 	}
 
-	isUnsupportedStorageClass, err := ignoreUnsupportedStorageClass(r)
+	isUnsupportedStorageClass, err := ignoreUnsupportedStorageClass(h, r)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -77,18 +83,9 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.handler.ServeHTTP(w, r.WithContext(newctx))
 }
 
-// setFunctionSwitchHandler -
-// Function switch handler is wrapper handler used for API request resource validation
-// Since we do not support all the S3 queries, it is necessary for us to throw back a
-// valid error message indicating that requested feature is not support.
-func SetFunctionSwitchHandler(h http.Handler, _ *meta.Meta) http.Handler {
-	initUnsupportedFunctions()
-	return resourceHandler{h}
-}
-
 // Checks requests for not supported Bucket resources
-func ignoreUnsupportedBucketResources(name string) bool {
-	if unsupportedBucketResourceNames[name] {
+func ignoreUnsupportedBucketResources(h resourceHandler, name string) bool {
+	if h.unsupportedBucketResourceNames[name] {
 		helper.Logger.Warn("Bucket", name, "has not been implemented.")
 		return true
 	}
@@ -96,9 +93,9 @@ func ignoreUnsupportedBucketResources(name string) bool {
 }
 
 // Checks requests for not supported Object resources
-func ignoreUnsupportedObjectResources(req *http.Request) bool {
+func ignoreUnsupportedObjectResources(h resourceHandler, req *http.Request) bool {
 	for name := range req.URL.Query() {
-		if unsupportedObjectResourceNames[name] {
+		if h.unsupportedObjectResourceNames[name] {
 			helper.Logger.Warn("Object", name, "has not been implemented.")
 			return true
 		}
@@ -107,12 +104,12 @@ func ignoreUnsupportedObjectResources(req *http.Request) bool {
 }
 
 // Checks requests for not supported Object resources
-func ignoreUnsupportedStorageClass(req *http.Request) (bool, error) {
+func ignoreUnsupportedStorageClass(h resourceHandler, req *http.Request) (bool, error) {
 	storageClass, err := getStorageClassFromHeader(req.Header)
 	if err != nil {
 		return false, err
 	}
-	if unsupportedStorageClassNames[storageClass] {
+	if h.unsupportedStorageClassNames[storageClass] {
 		helper.Logger.Warn("StorageClass", storageClass, "has not been supported.")
 		return true, nil
 	}
@@ -120,7 +117,7 @@ func ignoreUnsupportedStorageClass(req *http.Request) (bool, error) {
 }
 
 //
-func ignoreLifecycleUnsupported(r *http.Request) (*lc.Lifecycle, bool, error) {
+func ignoreLifecycleUnsupported(h resourceHandler, r *http.Request) (*lc.Lifecycle, bool, error) {
 	var lifecycle *lc.Lifecycle
 	payload, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -132,7 +129,7 @@ func ignoreLifecycleUnsupported(r *http.Request) (*lc.Lifecycle, bool, error) {
 	}
 	r.Body = ioutil.NopCloser(bytes.NewReader(payload))
 	for _, rule := range lifecycle.Rules {
-		if unsupportedBucketResourceNames["versioning"] {
+		if h.unsupportedBucketResourceNames["versioning"] {
 			if rule.NoncurrentVersionExpiration != nil || rule.NoncurrentVersionTransitions != nil {
 				helper.Logger.Warn("Lifecycle versioning", rule, "has not been supported.")
 				return lifecycle, true, nil
@@ -144,7 +141,7 @@ func ignoreLifecycleUnsupported(r *http.Request) (*lc.Lifecycle, bool, error) {
 				helper.Logger.Warn("Lifecycle StorageClass", err)
 				return lifecycle, true, err
 			}
-			if unsupportedStorageClassNames[storageClass] {
+			if h.unsupportedStorageClassNames[storageClass] {
 				helper.Logger.Warn("Lifecycle StorageClass", storageClass, "has not been supported.")
 				return lifecycle, true, nil
 			}
@@ -155,7 +152,7 @@ func ignoreLifecycleUnsupported(r *http.Request) (*lc.Lifecycle, bool, error) {
 				helper.Logger.Warn("Lifecycle StorageClass", err)
 				return lifecycle, true, err
 			}
-			if unsupportedStorageClassNames[storageClass] {
+			if h.unsupportedStorageClassNames[storageClass] {
 				helper.Logger.Warn("Lifecycle StorageClass", storageClass, "has not been supported.")
 				return lifecycle, true, nil
 			}
@@ -164,19 +161,21 @@ func ignoreLifecycleUnsupported(r *http.Request) (*lc.Lifecycle, bool, error) {
 	return lifecycle, false, nil
 }
 
-// List of not implemented bucket queries
-var unsupportedBucketResourceNames = map[string]bool{}
+// setFunctionSwitchHandler -
+// Function switch handler is wrapper handler used for API request resource validation
+// Since we do not support all the S3 queries, it is necessary for us to throw back a
+// valid error message indicating that requested feature is not support.
+func SetFunctionSwitchHandler(h http.Handler, _ *meta.Meta) http.Handler {
+	return initUnsupportedFunctions(h)
+}
 
-// List of not implemented object queries
-var unsupportedObjectResourceNames = map[string]bool{}
-
-// List of not implemented object storage class queries
-var unsupportedStorageClassNames = map[StorageClass]bool{}
-
-func initUnsupportedFunctions() {
+func initUnsupportedFunctions(h http.Handler) resourceHandler {
+	bucketNames := map[string]bool{}
+	objectNames := map[string]bool{}
+	storageClassNames := map[StorageClass]bool{}
 	// Initialize features unsupported by the current node bucket
 	for _, function := range helper.CONFIG.FuncNotSupportForBucket {
-		unsupportedBucketResourceNames[function] = true
+		bucketNames[function] = true
 	}
 
 	// Initialize functions unsupported by the current node storage object
@@ -184,19 +183,25 @@ func initUnsupportedFunctions() {
 		switch function {
 		// Control StorageClass other than standard
 		case "standard_ia":
-			unsupportedStorageClassNames[ObjectStorageClassStandardIa] = true
+			storageClassNames[ObjectStorageClassStandardIa] = true
 		case "glacier":
-			unsupportedStorageClassNames[ObjectStorageClassGlacier] = true
+			storageClassNames[ObjectStorageClassGlacier] = true
 		case "intelligent_tiering":
-			unsupportedStorageClassNames[ObjectStorageClassIntelligentTiering] = true
+			storageClassNames[ObjectStorageClassIntelligentTiering] = true
 		case "onezone_ia":
-			unsupportedStorageClassNames[ObjectStorageClassOnezoneIa] = true
+			storageClassNames[ObjectStorageClassOnezoneIa] = true
 		case "deep_archive":
-			unsupportedStorageClassNames[ObjectStorageClassDeepArchive] = true
+			storageClassNames[ObjectStorageClassDeepArchive] = true
 		case "rrs":
-			unsupportedStorageClassNames[ObjectStorageClassReducedRedundancy] = true
+			storageClassNames[ObjectStorageClassReducedRedundancy] = true
 		default:
-			unsupportedObjectResourceNames[function] = true
+			objectNames[function] = true
 		}
+	}
+	return resourceHandler{
+		handler:                        h,
+		unsupportedBucketResourceNames: bucketNames,
+		unsupportedObjectResourceNames: objectNames,
+		unsupportedStorageClassNames:   storageClassNames,
 	}
 }
