@@ -182,7 +182,7 @@ func checkAndDoMigrate(index int) {
 		//invalid redis cache
 		yigs[index].MetaStorage.Cache.Remove(redis.ObjectTable, sourceObject.BucketName+":"+sourceObject.Name+":"+sourceObject.VersionId)
 		yigs[index].DataCache.Remove(sourceObject.BucketName + ":" + sourceObject.Name + ":" + sourceObject.VersionId)
-		helper.Logger.Info("migrate success for :", sourceObject.BucketName+":"+sourceObject.Name+":"+sourceObject.VersionId+":"+sourceObject.ObjectId)
+		helper.Logger.Info("migrate success for bucket: ", sourceObject.BucketName+" name: "+sourceObject.Name+" version: "+sourceObject.VersionId+" oldoid: "+sourceObject.ObjectId+" newoid: "+newSourceObject.ObjectId)
 		goto release
 	quit:
 		signalQueue <- syscall.SIGQUIT
