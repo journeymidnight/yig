@@ -69,7 +69,7 @@ ceph_config_pattern = "/etc/ceph/*.conf"
 
 # Feature Not Support
 # Valid values include: notification、replication、tagging、requestPayment、lifecycle、policy、website、encryption、versioning、cors
-feature_not_support_for_bucket = ["notification","replication","tagging","requestPayment","cors"]
+feature_not_support_for_bucket = ["notification","replication","tagging","requestPayment"]
 # Valid values include: torrent、glacier、standard_ia、intelligent_tiering、onezone_ia、deep_archive、rrs、append
 feature_not_support_for_object = ["torrent","intelligent_tiering","onezone_ia","deep_archive","rrs"]
 
