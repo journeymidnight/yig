@@ -94,8 +94,8 @@ type Config struct {
 	BigFileThreshold    int64 `toml:"big_file_threshold"`
 
 	// Make a list of unsupported functions to ensure that customers will not produce wrong operations
-	FuncNotSupportForBucket []string `toml:"func_not_support_for_bucket"`
-	FuncNotSupportForObject []string `toml:"func_not_support_for_object"`
+	FeatureNotSupportForBucket []string `toml:"feature_not_support_for_bucket"`
+	FeatureNotSupportForObject []string `toml:"feature_not_support_for_object"`
 }
 
 type PluginConfig struct {
@@ -199,8 +199,8 @@ func MarshalTOMLConfig() error {
 	CONFIG.UploadMinChunkSize = Ternary(c.UploadMinChunkSize < MIN_BUFFER_SIZE || c.UploadMinChunkSize > MAX_BUFEER_SIZE, MIN_BUFFER_SIZE, c.UploadMinChunkSize).(int64)
 	CONFIG.UploadMaxChunkSize = Ternary(c.UploadMaxChunkSize < CONFIG.UploadMinChunkSize || c.UploadMaxChunkSize > MAX_BUFEER_SIZE, MAX_BUFEER_SIZE, c.UploadMaxChunkSize).(int64)
 	CONFIG.BigFileThreshold = Ternary(c.BigFileThreshold == 0, int64(1048576), c.BigFileThreshold).(int64)
-	CONFIG.FuncNotSupportForBucket = c.FuncNotSupportForBucket
-	CONFIG.FuncNotSupportForObject = c.FuncNotSupportForObject
+	CONFIG.FeatureNotSupportForBucket = c.FeatureNotSupportForBucket
+	CONFIG.FeatureNotSupportForObject = c.FeatureNotSupportForObject
 	return nil
 }
 

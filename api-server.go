@@ -64,7 +64,7 @@ func configureServerHandler(c *ServerConfig) http.Handler {
 		api.SetCorsHandler,
 		// Validates all incoming URL resources, for invalid/unsupported
 		// resources client receives a HTTP error.
-		api.SetFunctionSwitchHandler,
+		api.SetFeatureSwitchHandler,
 		// graceful shutdown
 		api.SetGracefulStopHandler,
 		// Add new handlers here.

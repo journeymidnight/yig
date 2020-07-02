@@ -67,11 +67,11 @@ mg_object_cooldown = 3600
 # Ceph Config
 ceph_config_pattern = "/etc/ceph/*.conf"
 
-# Function Not Support
-# Valid values include: notification、replication、tagging、requestPayment、lifecycle、policy、website、encryption、versioning
-func_not_support_for_bucket = ["notification","replication","tagging","requestPayment"]
+# Feature Not Support
+# Valid values include: notification、replication、tagging、requestPayment、lifecycle、policy、website、encryption、versioning、cors
+feature_not_support_for_bucket = ["notification","replication","tagging","requestPayment","cors"]
 # Valid values include: torrent、glacier、standard_ia、intelligent_tiering、onezone_ia、deep_archive、rrs、append
-func_not_support_for_object = ["torrent","intelligent_tiering","onezone_ia","deep_archive","rrs"]
+feature_not_support_for_object = ["torrent","intelligent_tiering","onezone_ia","deep_archive","rrs"]
 
 # Plugin Config
 [plugins.dummy_encryption_kms]

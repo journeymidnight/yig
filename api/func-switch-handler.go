@@ -36,7 +36,7 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if bucketName != "" && objectName == "" {
 		for name := range r.URL.Query() {
 			if ignoreUnsupportedBucketResources(h, name) {
-				WriteErrorResponse(w, r, ErrUnsupportFunction)
+				WriteErrorResponse(w, r, ErrUnsupportFeature)
 				return
 			}
 			if name == "lifecycle" && r.Method == "PUT" {
@@ -47,7 +47,7 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 				if isUnsupportedLifecycleXml {
-					WriteErrorResponse(w, r, ErrUnsupportFunction)
+					WriteErrorResponse(w, r, ErrUnsupportFeature)
 					return
 				}
 				ctx.Lifecycle = lifecycle
@@ -57,7 +57,7 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// If bucketName and objectName are present check for its resource queries.
 	if bucketName != "" && objectName != "" {
 		if ignoreUnsupportedObjectResources(h, r) {
-			WriteErrorResponse(w, r, ErrUnsupportFunction)
+			WriteErrorResponse(w, r, ErrUnsupportFeature)
 			return
 		}
 	}
@@ -68,7 +68,7 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if isUnsupportedStorageClass {
-		WriteErrorResponse(w, r, ErrUnsupportFunction)
+		WriteErrorResponse(w, r, ErrUnsupportFeature)
 		return
 	}
 
@@ -86,7 +86,7 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // Checks requests for not supported Bucket resources
 func ignoreUnsupportedBucketResources(h resourceHandler, name string) bool {
 	if h.unsupportedBucketResourceNames[name] {
-		helper.Logger.Warn("Bucket", name, "has not been implemented.")
+		helper.Logger.Warn("Bucket", name, "has not been supported.")
 		return true
 	}
 	return false
@@ -96,7 +96,7 @@ func ignoreUnsupportedBucketResources(h resourceHandler, name string) bool {
 func ignoreUnsupportedObjectResources(h resourceHandler, req *http.Request) bool {
 	for name := range req.URL.Query() {
 		if h.unsupportedObjectResourceNames[name] {
-			helper.Logger.Warn("Object", name, "has not been implemented.")
+			helper.Logger.Warn("Object", name, "has not been supported.")
 			return true
 		}
 	}
@@ -161,25 +161,25 @@ func ignoreLifecycleUnsupported(h resourceHandler, r *http.Request) (*lc.Lifecyc
 	return lifecycle, false, nil
 }
 
-// setFunctionSwitchHandler -
-// Function switch handler is wrapper handler used for API request resource validation
+// setFeatureSwitchHandler -
+// Feature switch handler is wrapper handler used for API request resource validation
 // Since we do not support all the S3 queries, it is necessary for us to throw back a
 // valid error message indicating that requested feature is not support.
-func SetFunctionSwitchHandler(h http.Handler, _ *meta.Meta) http.Handler {
-	return initUnsupportedFunctions(h)
+func SetFeatureSwitchHandler(h http.Handler, _ *meta.Meta) http.Handler {
+	return initUnsupportedFeatures(h)
 }
 
-func initUnsupportedFunctions(h http.Handler) resourceHandler {
+func initUnsupportedFeatures(h http.Handler) resourceHandler {
 	bucketNames := map[string]bool{}
 	objectNames := map[string]bool{}
 	storageClassNames := map[StorageClass]bool{}
 	// Initialize features unsupported by the current node bucket
-	for _, function := range helper.CONFIG.FuncNotSupportForBucket {
+	for _, function := range helper.CONFIG.FeatureNotSupportForBucket {
 		bucketNames[function] = true
 	}
 
 	// Initialize functions unsupported by the current node storage object
-	for _, function := range helper.CONFIG.FuncNotSupportForObject {
+	for _, function := range helper.CONFIG.FeatureNotSupportForObject {
 		switch function {
 		// Control StorageClass other than standard
 		case "standard_ia":
