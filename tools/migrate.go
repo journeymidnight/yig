@@ -198,7 +198,7 @@ func checkAndDoMigrate(index int) {
 
 func getHotObjectsTidb() {
 
-	helper.Logger.Info("getHotObjects thread start")
+	helper.Logger.Info("getHotObjectsTidb thread start")
 	var customattributes, acl, lastModifiedTime string
 	var sqltext string
 	var rows *sql.Rows
@@ -323,7 +323,7 @@ quit:
 
 func getHotObjectsTikv() {
 
-	helper.Logger.Info("getHotObjects thread start")
+	helper.Logger.Info("getHotObjectsTikv thread start")
 	var err error
 	var marker string
 	var mutex *redislock.Lock
@@ -370,16 +370,12 @@ func getHotObjectsTikv() {
 
 		info, err := yigs[0].MetaStorage.Client.ListHotObjects(marker, 100)
 		if err != nil {
-			helper.Logger.Info("debug ListHotObjects...", err)
+			helper.Logger.Error("ListHotObjects ERROR...", err)
 			goto quit
 		}
 
 		for _, object := range info.Objects {
 			mgTaskQ <- *object
-
-			for len(mgTaskQ) >= WATER_LOW {
-				time.Sleep(time.Duration(10) * time.Millisecond)
-			}
 			if mgStop {
 				helper.Logger.Info("shutting down...")
 				return
@@ -395,6 +391,7 @@ func getHotObjectsTikv() {
 					return
 				}
 			}
+			marker = ""
 		}
 	}
 quit:

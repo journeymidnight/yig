@@ -87,16 +87,14 @@ func (c *TiKVClient) DeleteBucket(bucket Bucket) error {
 }
 
 func (c *TiKVClient) ListHotObjects(marker string, maxKeys int) (listInfo ListHotObjectsInfo, err error) {
-	var startVersion = TableMaxKeySuffix
 	var startKey []byte
 	if marker == "" {
-		startKey = genHotObjectKey(TableHotObjectPrefix, TableMinKeySuffix, startVersion)
+		startKey = genHotObjectKey(TableMinKeySuffix, TableMinKeySuffix, TableMinKeySuffix)
 	} else {
 		startKey = []byte(marker)
 	}
 
-	endKey := genHotObjectKey(TableHotObjectPrefix, TableMaxKeySuffix, startVersion)
-
+	endKey := genHotObjectKey(TableMaxKeySuffix, TableMaxKeySuffix, TableMaxKeySuffix)
 	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
 		return listInfo, err
@@ -116,13 +114,11 @@ func (c *TiKVClient) ListHotObjects(marker string, maxKeys int) (listInfo ListHo
 			}
 			continue
 		}
-
 		var o Object
 		err = helper.MsgPackUnMarshal(v, &o)
 		if err != nil {
 			return listInfo, err
 		}
-
 		count++
 		if count == maxKeys {
 			listInfo.NextMarker = k
