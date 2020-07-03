@@ -90,12 +90,12 @@ func (c *TiKVClient) ListHotObjects(marker string, maxKeys int) (listInfo ListHo
 	var startVersion = TableMaxKeySuffix
 	var startKey []byte
 	if marker == "" {
-		startKey = genObjectKey(TableMinKeySuffix, TableMinKeySuffix, startVersion)
+		startKey = genHotObjectKey(TableHotObjectPrefix, TableMinKeySuffix, startVersion)
 	} else {
 		startKey = []byte(marker)
 	}
 
-	endKey := genObjectKey(TableMaxKeySuffix, TableMaxKeySuffix, TableMaxKeySuffix)
+	endKey := genHotObjectKey(TableHotObjectPrefix, TableMaxKeySuffix, startVersion)
 
 	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
