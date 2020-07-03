@@ -86,6 +86,55 @@ func (c *TiKVClient) DeleteBucket(bucket Bucket) error {
 	return c.TxDelete(bucketKey, userBucketKey, lifeCycleKey)
 }
 
+func (c *TiKVClient) ListHotObjects(marker string, maxKeys int) (listInfo ListHotObjectsInfo, err error) {
+	var startKey []byte
+	if marker == "" {
+		startKey = genHotObjectKey(TableMinKeySuffix, TableMinKeySuffix, TableMinKeySuffix)
+	} else {
+		startKey = []byte(marker)
+	}
+
+	endKey := genHotObjectKey(TableMaxKeySuffix, TableMaxKeySuffix, TableMaxKeySuffix)
+	tx, err := c.TxnCli.Begin(context.TODO())
+	if err != nil {
+		return listInfo, err
+	}
+	it, err := tx.Iter(context.TODO(), key.Key(startKey), key.Key(endKey))
+	if err != nil {
+		return listInfo, err
+	}
+	defer it.Close()
+
+	count := 0
+	for it.Valid() {
+		k, v := string(it.Key()), it.Value()
+		if k == string(startKey) {
+			if err := it.Next(context.TODO()); err != nil && it.Valid() {
+				return listInfo, err
+			}
+			continue
+		}
+		var o Object
+		err = helper.MsgPackUnMarshal(v, &o)
+		if err != nil {
+			return listInfo, err
+		}
+		count++
+		if count == maxKeys {
+			listInfo.NextMarker = k
+		}
+		if count > maxKeys {
+			listInfo.IsTruncated = true
+			break
+		}
+		listInfo.Objects = append(listInfo.Objects, &o)
+		if err := it.Next(context.TODO()); err != nil && it.Valid() {
+			return listInfo, err
+		}
+	}
+	return
+}
+
 func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (listInfo ListObjectsInfo, err error) {
 	var startVersion = TableMaxKeySuffix
 	if prefix != "" {
