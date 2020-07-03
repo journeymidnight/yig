@@ -39,8 +39,8 @@ type KV struct {
 	K, V []byte
 }
 
-func NewClient() *TiKVClient {
-	TxnCli, err := txnkv.NewClient(context.TODO(), helper.CONFIG.PdAddress, config.Default())
+func NewClient(pdAddress []string) *TiKVClient {
+	TxnCli, err := txnkv.NewClient(context.TODO(), pdAddress, config.Default())
 	if err != nil {
 		panic(err)
 	}
@@ -63,6 +63,24 @@ func (c *TiKVClient) TxGet(k []byte, ref interface{}, tx *txnkv.Transaction) (bo
 		return false, nil
 	}
 	return true, helper.MsgPackUnMarshal(v, ref)
+}
+
+func (c *TiKVClient) TxGetPure(k []byte, tx *txnkv.Transaction) ([]byte, error) {
+	var err error
+	if tx == nil {
+		tx, err = c.TxnCli.Begin(context.TODO())
+		if err != nil {
+			return nil, err
+		}
+	}
+	v, err := tx.Get(context.TODO(), k)
+	if err != nil && !kv.IsErrNotFound(err) {
+		return nil, err
+	}
+	if kv.IsErrNotFound(err) {
+		return nil, nil
+	}
+	return v, nil
 }
 
 func (c *TiKVClient) TxExist(k []byte) (bool, error) {
