@@ -39,8 +39,8 @@ type KV struct {
 	K, V []byte
 }
 
-func NewClient() *TiKVClient {
-	TxnCli, err := txnkv.NewClient(context.TODO(), helper.CONFIG.PdAddress, config.Default())
+func NewClient(pdAddress []string) *TiKVClient {
+	TxnCli, err := txnkv.NewClient(context.TODO(), pdAddress, config.Default())
 	if err != nil {
 		panic(err)
 	}

@@ -25,7 +25,7 @@ func New(myCacheType CacheType) *Meta {
 	case "tidb":
 		meta.Client = tidbclient.NewTidbClient()
 	case "tikv":
-		meta.Client = tikvclient.NewClient()
+		meta.Client = tikvclient.NewClient(helper.CONFIG.PdAddress)
 	default:
 		panic("unsupport metastore")
 	}

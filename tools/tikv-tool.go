@@ -15,6 +15,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/journeymidnight/yig/meta/types"
+
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/meta/client/tikvclient"
 
@@ -50,7 +52,7 @@ var TableMap = map[string]Table{
 	"freezer": {
 		Prefix: tikvclient.TableFreezerPrefix,
 	},
-	"hotobject": {
+	"hotobjects": {
 		Prefix: tikvclient.TableHotObjectPrefix,
 	},
 	"qos": {
@@ -206,7 +208,7 @@ func main() {
 
 // TODO: unfinished
 func SetFunc(key, value string) error {
-	c := tikvclient.NewClient()
+	c := tikvclient.NewClient(strings.Split(global.PDs, ","))
 	var k, v = []byte(key), []byte(value)
 	var err error
 	if global.IsKeyBytes {
@@ -233,7 +235,7 @@ func SetFunc(key, value string) error {
 
 // TODO: unfinished
 func GetFunc(key string) error {
-	c := tikvclient.NewClient()
+	c := tikvclient.NewClient(strings.Split(global.PDs, ","))
 	var k []byte
 	var err error
 	if global.IsKeyBytes {
@@ -255,7 +257,7 @@ func GetFunc(key string) error {
 }
 
 func ScanFunc(startKey, endKey string, maxKeys int) (err error) {
-	c := tikvclient.NewClient()
+	c := tikvclient.NewClient(strings.Split(global.PDs, ","))
 	var prefix string
 	var sk, ek []byte
 	if _, ok := TableMap[global.Table]; ok {
@@ -291,7 +293,7 @@ func ScanFunc(startKey, endKey string, maxKeys int) (err error) {
 	}
 
 	for _, kv := range kvs {
-		fmt.Println(string(kv.K), kv.K)
+		fmt.Println("Key:", string(kv.K))
 		v, err := Decode(global.Table, kv.V)
 		if err != nil {
 			fmt.Println("Error:", err)
@@ -309,20 +311,31 @@ func Decode(table string, data []byte) (string, error) {
 	}
 	var v interface{}
 	switch table {
+	case "buckets":
+		var b types.Bucket
+		v = b
 	case "users":
 		var bu tikvclient.BucketUsage
 		v = bu
+	case "objects":
+		fallthrough
+	case "hotobjects":
+		var o types.Object
+		v = o
 	}
 	err := helper.MsgPackUnMarshal(data, &v)
 	if err != nil {
 		return "", err
 	}
-	d, _ := json.Marshal(v)
+	d, err := json.Marshal(v)
+	if err != nil {
+		return "", err
+	}
 	return string(d), nil
 }
 
 func DelFunc(key string) error {
-	c := tikvclient.NewClient()
+	c := tikvclient.NewClient(strings.Split(global.PDs, ","))
 	var k []byte
 	var err error
 	if global.IsKeyBytes {
