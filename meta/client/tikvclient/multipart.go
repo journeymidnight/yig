@@ -3,7 +3,6 @@ package tikvclient
 import (
 	"context"
 	. "database/sql/driver"
-	"encoding/hex"
 	"fmt"
 	"math"
 	"sort"
@@ -18,15 +17,14 @@ import (
 )
 
 // **Key**: m\{BucketName}\{ObjectName}\{EncodedTime}
-// UploadTime = MaxUint64 - multipart.InitialTime
-// EncodedTime = hex.EncodeToString(BigEndian(UploadTime)）
+// EncodedTime = fmt.Sprintf("%020d", math.MaxUint64-initialTime)
+// UploadId = hex.EncodeToString(xxtea.Encrypt([]byte(multipart.InitialTime), XXTEA_KEY))
 func genMultipartKey(bucketName, objectName string, initialTime uint64) []byte {
-	encodedTime := hex.EncodeToString(EncodeUint64(math.MaxUint64 - initialTime))
-	return GenKey(TableMultipartPrefix, bucketName, objectName, encodedTime)
+	return GenKey(TableMultipartPrefix, bucketName, objectName, fmt.Sprintf("%020d", math.MaxUint64-initialTime))
 }
 
 // **Key**: p\{BucketName}\{ObjectName}\{UploadId}\{EncodePartNumber}
-// EncodePartNumber = hex.EncodeToString(BigEndian({PartNumber}))
+// EncodePartNumber = fmt.Sprintf("%05d", partNumber)
 func genObjectPartKey(bucketName, objectName, uploadId string, partNumber int) []byte {
 	return GenKey(TableObjectPartPrefix, bucketName, objectName, uploadId, fmt.Sprintf("%05d", partNumber))
 }

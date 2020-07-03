@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"strconv"
 	"time"
 
 	"github.com/journeymidnight/yig/api/datatype"
@@ -88,7 +87,7 @@ func (o *Object) GenVersionId(bucketVersionType datatype.BucketVersioningType) s
 		return NullVersion
 	}
 
-	return strconv.FormatUint(math.MaxUint64-o.CreateTime, 10)
+	return fmt.Sprintf("%020d", math.MaxUint64-o.CreateTime)
 }
 
 //Tidb related function

@@ -14,7 +14,7 @@ import (
 
 // **Key**: {BucketName}\{ObjectName}
 // **Versioned Key**: {BucketName}\{ObjectName}\{Version}
-// Version = hex.EncodeToString(BigEndian(MaxUint64 - object.LastModifiedTime.UnixNano()))
+// Version = math.MaxUint64-o.CreateTime
 func genObjectKey(bucketName, objectName, version string) []byte {
 	if version == NullVersion {
 		return GenKey(bucketName, objectName)
