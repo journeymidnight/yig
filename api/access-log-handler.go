@@ -125,7 +125,7 @@ func SetOperationName(w http.ResponseWriter, name Operation) {
 
 const (
 	MinStandardIaObjectSize int64 = 1 << 16 // 64KB
-	MinGlacierObjectSize    int64 = 1 << 17 // 128KB
+	MinGlacierObjectSize    int64 = 1 << 16 // 64KB
 )
 
 // For billing now. FIXME later?
