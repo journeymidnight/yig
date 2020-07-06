@@ -20,10 +20,7 @@ import (
 	"net/http"
 
 	meta "github.com/journeymidnight/yig/meta/types"
-)
-
-const (
-	MIN_PART_SIZE = 1 << 20 // 1MB
+	"github.com/journeymidnight/yig/storage"
 )
 
 // writeErrorResponsePartTooSmall - function is used specifically to
@@ -51,7 +48,7 @@ func writePartSmallErrorResponse(w http.ResponseWriter, r *http.Request, err met
 	// Generate complete multipart error response.
 	cmpErrResp := completeMultipartAPIError{
 		ProposedSize:   err.PartSize,
-		MinSizeAllowed: MIN_PART_SIZE,
+		MinSizeAllowed: storage.MIN_PART_SIZE,
 		PartNumber:     err.PartNumber,
 		PartETag:       err.PartETag,
 		ApiErrorResponse: ApiErrorResponse{

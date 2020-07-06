@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/journeymidnight/yig/api"
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/context"
 	"github.com/journeymidnight/yig/crypto"
@@ -24,7 +23,8 @@ import (
 )
 
 const (
-	MAX_PART_SIZE   = 5 << 30 // 5GB
+	MIN_PART_SIZE   = 100 << 10 // 100Kb
+	MAX_PART_SIZE   = 5 << 30   // 5GB
 	MAX_PART_NUMBER = 10000
 )
 
@@ -534,7 +534,7 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 			err = ErrInvalidPart
 			return
 		}
-		if part.Size < api.MIN_PART_SIZE && part.PartNumber != len(uploadedParts) {
+		if part.Size < MIN_PART_SIZE && part.PartNumber != len(uploadedParts) {
 			err = meta.PartTooSmall{
 				PartSize:   part.Size,
 				PartNumber: part.PartNumber,
