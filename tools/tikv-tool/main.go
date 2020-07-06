@@ -9,11 +9,8 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"os"
-	"strconv"
-	"strings"
 
 	"github.com/journeymidnight/yig/meta/types"
 
@@ -23,45 +20,9 @@ import (
 	"github.com/urfave/cli"
 )
 
-type Table struct {
-	Prefix string
-}
-
-var TableMap = map[string]Table{
-	"buckets": {
-		Prefix: tikvclient.TableBucketPrefix,
-	},
-	"users": {
-		Prefix: tikvclient.TableUserBucketPrefix,
-	},
-	"objects": {
-		Prefix: "",
-	},
-	"multipart": {
-		Prefix: tikvclient.TableMultipartPrefix,
-	},
-	"part": {
-		Prefix: tikvclient.TableObjectPartPrefix,
-	},
-	"cluster": {
-		Prefix: tikvclient.TableClusterPrefix,
-	},
-	"gc": {
-		Prefix: tikvclient.TableGcPrefix,
-	},
-	"freezer": {
-		Prefix: tikvclient.TableFreezerPrefix,
-	},
-	"hotobjects": {
-		Prefix: tikvclient.TableHotObjectPrefix,
-	},
-	"qos": {
-		Prefix: tikvclient.TableQoSPrefix,
-	},
-}
-
 var table, startKey, endKey string
 var maxKeys int
+var verbose bool
 
 type GlobalOption struct {
 	PDs          string
@@ -134,7 +95,7 @@ func main() {
 	app.Commands = []cli.Command{
 		{
 			Name:  "set",
-			Usage: "Set a key",
+			Usage: "Set key and value",
 			Action: func(c *cli.Context) error {
 				if len(c.Args()) != 2 {
 					cli.ShowCommandHelp(cli.NewContext(app, nil, nil), "set")
@@ -199,110 +160,27 @@ func main() {
 			},
 			ArgsUsage: "<key>",
 		},
+		{
+			Name:  "drop",
+			Usage: "drop a table",
+			Action: func(c *cli.Context) error {
+				return DropFunc()
+			},
+			ArgsUsage: "[--verbose|-v]",
+			Flags: []cli.Flag{
+				cli.BoolFlag{
+					Name:        "verbose,v",
+					Required:    false,
+					Usage:       "print deleted key",
+					Destination: &verbose,
+				},
+			},
+		},
 	}
 
 	if err := app.Run(os.Args); err != nil {
 		log.Fatal(err)
 	}
-}
-
-// TODO: unfinished
-func SetFunc(key, value string) error {
-	c := tikvclient.NewClient(strings.Split(global.PDs, ","))
-	var k, v = []byte(key), []byte(value)
-	var err error
-	if global.IsKeyBytes {
-		k, err = ParseToBytes(key)
-		if err != nil {
-			return err
-		}
-	}
-	if global.IsValueBytes {
-		v, err = ParseToBytes(value)
-		if err != nil {
-			return err
-		}
-	}
-
-	if global.IsMsgPack {
-		v, err = helper.MsgPackMarshal(v)
-		if err != nil {
-			return err
-		}
-	}
-	return c.TxPut(k, v)
-}
-
-// TODO: unfinished
-func GetFunc(key string) error {
-	c := tikvclient.NewClient(strings.Split(global.PDs, ","))
-	var k []byte
-	var err error
-	if global.IsKeyBytes {
-		k, err = ParseToBytes(key)
-		if err != nil {
-			return err
-		}
-	} else {
-		k = []byte(key)
-	}
-
-	val, err := c.TxGetPure(k, nil)
-	if err != nil {
-		return err
-	}
-	// TODO: add type transfer by table
-	fmt.Println(string(val))
-	return nil
-}
-
-func ScanFunc(startKey, endKey string, maxKeys int) (err error) {
-	c := tikvclient.NewClient(strings.Split(global.PDs, ","))
-	var prefix string
-	var sk, ek []byte
-	if _, ok := TableMap[global.Table]; ok {
-		if TableMap[global.Table].Prefix != "" {
-			prefix = TableMap[global.Table].Prefix + tikvclient.TableSeparator
-		} else {
-			if global.Bucket == "" {
-				return fmt.Errorf("You must need to specify target bucket. ")
-			}
-			prefix = global.Bucket + tikvclient.TableSeparator
-		}
-		if startKey != "" && !strings.HasPrefix(startKey, prefix) {
-			return fmt.Errorf("Invalid startKey %s or table %s. ", startKey, table)
-		}
-		if endKey != "" && !strings.HasPrefix(endKey, prefix) {
-			return fmt.Errorf("Invalid endKey %s or table %s. ", endKey, table)
-		}
-		if startKey == "" {
-			startKey = prefix + tikvclient.TableMinKeySuffix
-		}
-		if endKey == "" {
-			endKey = prefix + tikvclient.TableMaxKeySuffix
-		} else if strings.Index(endKey, "$") != -1 {
-			endKey = strings.ReplaceAll(endKey, "$", string(tikvclient.TableMaxKeySuffix))
-		}
-	}
-
-	sk, ek = []byte(startKey), []byte(endKey)
-	fmt.Println("Table:", global.Table, "Start:", string(sk), "End:", string(ek), "Limit:", maxKeys)
-	kvs, err := c.TxScan(sk, ek, maxKeys, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	for _, kv := range kvs {
-		fmt.Println("Key:", string(kv.K))
-		v, err := Decode(global.Table, kv.V)
-		if err != nil {
-			fmt.Println("Error:", err)
-		} else {
-			fmt.Println(v)
-		}
-		fmt.Println("----------------")
-	}
-	return nil
 }
 
 func Decode(table string, data []byte) (string, error) {
@@ -314,6 +192,14 @@ func Decode(table string, data []byte) (string, error) {
 	case "buckets":
 		var b types.Bucket
 		v = b
+	case "cluster":
+
+	case "multipart":
+
+	case "part":
+
+	case "":
+
 	case "users":
 		var bu tikvclient.BucketUsage
 		v = bu
@@ -332,42 +218,4 @@ func Decode(table string, data []byte) (string, error) {
 		return "", err
 	}
 	return string(d), nil
-}
-
-func DelFunc(key string) error {
-	c := tikvclient.NewClient(strings.Split(global.PDs, ","))
-	var k []byte
-	var err error
-	if global.IsKeyBytes {
-		k, err = ParseToBytes(key)
-		if err != nil {
-			return err
-		}
-	} else {
-		k = []byte(key)
-	}
-
-	err = c.TxDelete(k)
-	if err != nil {
-		return err
-	}
-	fmt.Println("Delete key", string(k), "success.")
-	return nil
-}
-
-func ParseToBytes(s string) (bs []byte, err error) {
-	s = strings.TrimPrefix(s, "[")
-	s = strings.TrimSuffix(s, "]")
-	ss := strings.Split(s, " ")
-	for _, v := range ss {
-		i, err := strconv.Atoi(v)
-		if err != nil {
-			return nil, err
-		}
-		if i < 0 || i > 255 {
-			return nil, errors.New("Invalid bytes")
-		}
-		bs = append(bs, byte(i))
-	}
-	return
 }

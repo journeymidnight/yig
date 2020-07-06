@@ -20,7 +20,7 @@ build_internal:
 	go build $(PWD)/tools/getrediskeys.go
 	go build $(PWD)/tools/lc.go
 	go build $(PWD)/tools/migrate.go
-	go build $(PWD)/tools/tikv-tool.go
+	go build -o $(PWD)/tikv-tool $(PWD)/tools/tikv-tool/*.go
 	cp -f $(PWD)/plugins/*.so $(PWD)/integrate/yigconf/plugins/
 
 pkg:

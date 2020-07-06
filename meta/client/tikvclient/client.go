@@ -176,3 +176,39 @@ func (c *TiKVClient) TxScan(keyPrefix []byte, upperBound []byte, limit int, tx *
 	}
 	return ret, nil
 }
+
+func (c *TiKVClient) TxDeleteRange(keyPrefix []byte, upperBound []byte, limit int, tx *txnkv.Transaction) (int, error) {
+	var err error
+	var count int
+	if tx == nil {
+		tx, err = c.TxnCli.Begin(context.TODO())
+		if err != nil {
+			return 0, err
+		}
+	}
+	defer func() {
+		if err == nil {
+			err = tx.Commit(context.Background())
+		}
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+	it, err := tx.Iter(context.TODO(), key.Key(keyPrefix), key.Key(upperBound))
+	if err != nil {
+		return 0, err
+	}
+	defer it.Close()
+	for it.Valid() && limit > 0 {
+		err := tx.Delete(it.Key())
+		if err != nil {
+			return 0, err
+		}
+		count++
+		limit--
+		if err := it.Next(context.TODO()); err != nil && it.Valid() {
+			return 0, err
+		}
+	}
+	return count, nil
+}
