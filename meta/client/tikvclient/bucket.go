@@ -135,20 +135,31 @@ func (c *TiKVClient) ListHotObjects(marker string, maxKeys int) (listInfo ListHo
 	return
 }
 
+func AddEndByteValue(str string) string {
+	if str == "" {
+		return str
+	}
+	b := []byte(str)
+	e := b[len(b)-1]
+	if e != 255 {
+		e++
+		b = append(b[:len(b)-1], e)
+		return string(b)
+	}
+	return str
+}
+
 func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (listInfo ListObjectsInfo, err error) {
-	var startVersion = TableMaxKeySuffix
 	if prefix != "" {
 		if marker == "" || strings.Compare(marker, prefix) < 0 {
 			marker = prefix
-			startVersion = NullVersion
 		} else if !strings.HasPrefix(marker, prefix) && strings.Compare(marker, prefix) > 0 {
-			return listInfo, err
+			return listInfo, nil
 		}
 	}
 
-	startKey := genObjectKey(bucketName, marker, startVersion)
-	endKey := genObjectKey(bucketName, TableMaxKeySuffix, TableMaxKeySuffix)
-
+	startKey := genObjectKey(bucketName, marker+string(byte(0)), NullVersion)
+	endKey := genObjectKey(bucketName, prefix+TableMaxKeySuffix, NullVersion)
 	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
 		return listInfo, err
@@ -163,26 +174,24 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 	count := 0
 	for it.Valid() {
 		k, v := string(it.Key()), it.Value()
-		if k == string(startKey) {
-			if err := it.Next(context.TODO()); err != nil && it.Valid() {
-				return listInfo, err
-			}
-			continue
-		}
 		// extract object key
 		objKey := strings.SplitN(k, TableSeparator, 2)[1]
-		if !strings.HasPrefix(objKey, prefix) {
-			if err := it.Next(context.TODO()); err != nil && it.Valid() {
-				return listInfo, err
-			}
-			break
-		}
 		if delimiter != "" {
 			subKey := strings.TrimPrefix(objKey, prefix)
 			sp := strings.SplitN(subKey, delimiter, 2)
 			if len(sp) == 2 {
 				prefixKey := prefix + sp[0] + delimiter
-				if _, ok := commonPrefixes[prefixKey]; !ok && prefixKey != marker {
+				if prefixKey == marker {
+					it, err = tx.Iter(context.TODO(), key.Key(AddEndByteValue(k)), key.Key(endKey))
+					if err != nil {
+						return listInfo, err
+					}
+					if err := it.Next(context.TODO()); err != nil && it.Valid() {
+						return listInfo, err
+					}
+					continue
+				}
+				if _, ok := commonPrefixes[prefixKey]; !ok {
 					count++
 					if count == maxKeys {
 						listInfo.NextMarker = prefixKey
@@ -192,6 +201,10 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 						break
 					}
 					commonPrefixes[prefixKey] = nil
+				}
+				it, err = tx.Iter(context.TODO(), key.Key(AddEndByteValue(k)), key.Key(endKey))
+				if err != nil {
+					return listInfo, err
 				}
 				if err := it.Next(context.TODO()); err != nil && it.Valid() {
 					return listInfo, err
