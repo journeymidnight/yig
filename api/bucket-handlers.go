@@ -21,6 +21,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"sync"
 	"time"
 
 	meta "github.com/journeymidnight/yig/meta/types"
@@ -318,15 +319,16 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	var deltaResult = make(map[StorageClass]int64)
 	var unexpiredInfo []UnexpiredTriple
 	// Loop through all the objects and delete them sequentially.
-	for _, object := range deleteObjects.Objects {
+
+	var wg = sync.WaitGroup{}
+	deleteFunc := func(object ObjectIdentifier) {
 		reqCtx.ObjectName = object.ObjectName
 		reqCtx.VersionId = object.VersionId
 		reqCtx.ObjectInfo, err = api.ObjectAPI.GetObjectInfo(reqCtx.BucketName, object.ObjectName, object.VersionId, credential)
-		if err != nil && err != ErrNoSuchKey {
-			WriteErrorResponse(w, r, err)
-			return
+		var result DeleteObjectResult
+		if err == nil {
+			result, err = api.ObjectAPI.DeleteObject(reqCtx, credential)
 		}
-		result, err := api.ObjectAPI.DeleteObject(reqCtx, credential)
 		if err == nil {
 			deletedObjects = append(deletedObjects, ObjectIdentifier{
 				ObjectName:   object.ObjectName,
@@ -344,7 +346,7 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 				})
 			}
 			deltaResult[result.DeltaSize.StorageClass] += result.DeltaSize.Delta
-		} else {
+		} else if err != ErrNoSuchKey {
 			logger.Error("Unable to delete object:", err)
 			apiErrorCode, ok := err.(ApiErrorCode)
 			if ok {
@@ -363,8 +365,13 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 				})
 			}
 		}
+		wg.Done()
 	}
-
+	for _, object := range deleteObjects.Objects {
+		wg.Add(1)
+		go deleteFunc(object)
+	}
+	wg.Wait()
 	for sc, v := range deltaResult {
 		SetDeltaSize(w, sc, v)
 	}
