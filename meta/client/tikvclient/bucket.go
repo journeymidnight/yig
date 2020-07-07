@@ -237,18 +237,16 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 }
 
 func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (listInfo ListObjectsInfo, err error) {
-	var startVersion = TableMaxKeySuffix
 	if prefix != "" {
 		if marker == "" || strings.Compare(marker, prefix) < 0 {
 			marker = prefix
-			startVersion = NullVersion
 		} else if !strings.HasPrefix(marker, prefix) && strings.Compare(marker, prefix) > 0 {
 			return listInfo, err
 		}
 	}
 
-	startKey := genObjectKey(bucketName, marker, startVersion)
-	endKey := genObjectKey(bucketName, TableMaxKeySuffix, TableMaxKeySuffix)
+	startKey := genObjectKey(bucketName, marker+string(byte(0)), NullVersion)
+	endKey := genObjectKey(bucketName, prefix+TableMaxKeySuffix, NullVersion)
 
 	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
@@ -262,7 +260,7 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 
 	commonPrefixes := make(map[string]interface{})
 	count := 0
-	objectMap := make(map[string]interface{})
+
 	var previousNullObjectMeta *Object
 	for it.Valid() {
 		k, v := string(it.Key()), it.Value()
@@ -274,6 +272,7 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 
 		if previousNullObjectMeta != nil {
 			var meta Object
+			var passKey bool
 			if objMeta.Name != previousNullObjectMeta.Name {
 				meta = *previousNullObjectMeta
 			} else {
@@ -282,32 +281,37 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				} else {
 					meta = *previousNullObjectMeta
 				}
+				passKey = true
 			}
 
-			if meta.DeleteMarker {
-				objectMap[meta.Name] = nil
+			if !meta.DeleteMarker {
+				o := ModifyMetaToObjectResult(meta)
+
+				count++
+				if count == maxKeys {
+					listInfo.NextMarker = o.Key
+				}
+
+				if count > maxKeys {
+					previousNullObjectMeta = nil
+					listInfo.IsTruncated = true
+					break
+				}
+				listInfo.Objects = append(listInfo.Objects, o)
+			}
+
+			// Compare once
+			if passKey {
+				startKey = genObjectKey(bucketName, meta.Name+string(byte(0)), NullVersion)
+				it, err = tx.Iter(context.TODO(), key.Key(startKey), key.Key(endKey))
+				if err != nil {
+					return listInfo, err
+				}
 				if err := it.Next(context.TODO()); err != nil && it.Valid() {
 					return listInfo, err
 				}
 				continue
 			}
-
-			o := ModifyMetaToObjectResult(meta)
-
-			count++
-			if count == maxKeys {
-				listInfo.NextMarker = o.Key
-			}
-
-			if count > maxKeys {
-				previousNullObjectMeta = nil
-				listInfo.IsTruncated = true
-				break
-			}
-			objectMap[meta.Name] = nil
-			listInfo.Objects = append(listInfo.Objects, o)
-
-			// Compare once
 			previousNullObjectMeta = nil
 		}
 
@@ -315,41 +319,23 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 		keySp := strings.Split(k, TableSeparator)
 		objKey := keySp[1]
 
-		if objKey == marker {
-			if err := it.Next(context.TODO()); err != nil && it.Valid() {
-				return listInfo, err
-			}
-			continue
-		}
-
-		if _, ok := objectMap[objKey]; ok {
-			if err := it.Next(context.TODO()); err != nil && it.Valid() {
-				return listInfo, err
-			}
-			continue
-		}
-
-		if !strings.HasPrefix(objKey, prefix) {
-			if err := it.Next(context.TODO()); err != nil && it.Valid() {
-				return listInfo, err
-			}
-			break
-		}
-
-		// If delete marker, do continue
-		if objMeta.DeleteMarker {
-			if err := it.Next(context.TODO()); err != nil && it.Valid() {
-				return listInfo, err
-			}
-			continue
-		}
-
 		if delimiter != "" {
 			subKey := strings.TrimPrefix(objKey, prefix)
 			sp := strings.SplitN(subKey, delimiter, 2)
 			if len(sp) == 2 {
 				prefixKey := prefix + sp[0] + delimiter
-				if _, ok := commonPrefixes[prefixKey]; !ok && prefixKey != marker {
+				if prefixKey == marker {
+					startKey = genObjectKey(bucketName, AddEndByteValue(prefixKey), NullVersion)
+					it, err = tx.Iter(context.TODO(), startKey, endKey)
+					if err != nil {
+						return listInfo, err
+					}
+					if err := it.Next(context.TODO()); err != nil && it.Valid() {
+						return listInfo, err
+					}
+					continue
+				}
+				if _, ok := commonPrefixes[prefixKey]; !ok {
 					count++
 					if count == maxKeys {
 						listInfo.NextMarker = prefixKey
@@ -359,6 +345,11 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 						break
 					}
 					commonPrefixes[prefixKey] = nil
+				}
+				startKey = genObjectKey(bucketName, AddEndByteValue(prefixKey), NullVersion)
+				it, err = tx.Iter(context.TODO(), startKey, endKey)
+				if err != nil {
+					return listInfo, err
 				}
 				if err := it.Next(context.TODO()); err != nil && it.Valid() {
 					return listInfo, err
@@ -374,8 +365,21 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				return listInfo, err
 			}
 			continue
-		} else {
-			previousNullObjectMeta = nil
+		}
+
+		// If not null version object
+		startKey = genObjectKey(bucketName, objMeta.Name+string(byte(0)), NullVersion)
+		it, err = tx.Iter(context.TODO(), startKey, endKey)
+		if err != nil {
+			return listInfo, err
+		}
+
+		// If delete marker, do continue
+		if objMeta.DeleteMarker {
+			if err := it.Next(context.TODO()); err != nil && it.Valid() {
+				return listInfo, err
+			}
+			continue
 		}
 
 		var o = ModifyMetaToObjectResult(objMeta)
@@ -389,13 +393,14 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			listInfo.IsTruncated = true
 			break
 		}
-		objectMap[objMeta.Name] = nil
+
 		listInfo.Objects = append(listInfo.Objects, o)
 		if err := it.Next(context.TODO()); err != nil && it.Valid() {
 			return listInfo, err
 		}
 	}
 
+	// If the final object is null version
 	if previousNullObjectMeta != nil {
 		o := ModifyMetaToObjectResult(*previousNullObjectMeta)
 		count++
@@ -405,12 +410,12 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 
 		if count > maxKeys {
 			listInfo.IsTruncated = true
+			listInfo.Prefixes = helper.Keys(commonPrefixes)
+			return listInfo, nil
 		}
-		objectMap[o.Key] = nil
 		listInfo.Objects = append(listInfo.Objects, o)
-
-		previousNullObjectMeta = nil
 	}
+
 	listInfo.Prefixes = helper.Keys(commonPrefixes)
 	return
 }
