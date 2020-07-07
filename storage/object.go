@@ -788,6 +788,7 @@ func (yig *YigStorage) RenameObject(reqCtx RequestContext, targetObject *meta.Ob
 
 func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Object, sourceObject *meta.Object, source io.Reader, credential common.Credential,
 	sseRequest datatype.SseRequest, isMetadataOnly, isTranStorageClassOnly bool) (result datatype.PutObjectResult, err error) {
+	result.DeltaInfo = make(map[StorageClass]int64)
 	var oid string
 	var maybeObjectToRecycle objectToRecycle
 	var encryptionKey []byte
@@ -824,7 +825,6 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.VersionId)
 
 		if targetObject.StorageClass != sourceObject.StorageClass {
-			result.DeltaInfo = make(map[StorageClass]int64)
 			result.DeltaInfo[sourceObject.StorageClass] -= sourceObject.Size
 			result.DeltaInfo[targetObject.StorageClass] += targetObject.Size
 		}
