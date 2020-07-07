@@ -162,7 +162,7 @@ func (a IamV3Client) GetCredential(accessKey string) (credential common.Credenti
 		slog.Info("Read IAM JSON:", s)
 		err = json.Unmarshal(jsonBytes, resp)
 		if err != nil {
-			slog.Error("Read IAM JSON err:", err)
+			slog.Error(" IAM JSON:", s, "Read IAM JSON err:", err)
 			return credential, err
 		}
 		slog.Info("GetCredential to IAM return status ", response.Status)
