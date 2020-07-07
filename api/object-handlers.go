@@ -168,7 +168,7 @@ func newGetObjectResponseWriter(w http.ResponseWriter, r *http.Request, object *
 
 func (o *GetObjectResponseWriter) Write(p []byte) (int, error) {
 	if !o.dataWritten {
-		if o.version != meta.NullVersion || o.version != "" {
+		if o.version != meta.NullVersion && o.version != "" {
 			o.w.Header().Set("x-amz-version-id", o.version)
 		}
 		// Set any additional requested response headers.
