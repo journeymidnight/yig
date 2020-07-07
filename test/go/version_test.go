@@ -54,7 +54,7 @@ func TestObjectVersionEnabled(t *testing.T) {
 
 	out, err := sc.GetObjectOutPut(TEST_BUCKET, TEST_KEY)
 	assert.Equal(t, err, nil, "GetObjectOutPut err")
-	assert.Equal(t, out.VersionId == nil, true, "object version should be null version but", *out.VersionId)
+	assert.Equal(t, out.VersionId == nil, true, "object version should be null version but")
 
 	err = sc.PutBucketVersion(TEST_BUCKET, s3.BucketVersioningStatusEnabled)
 	assert.Equal(t, err, nil, "PutBucketVersion err")
