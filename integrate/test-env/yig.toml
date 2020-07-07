@@ -24,8 +24,10 @@ lifecycle_spec = "@midnight"
 
 # Meta Config
 meta_cache_type = 2
-meta_store = "tidb"
+meta_store = "tikv"
 tidb_info = "root:@tcp(10.0.42.4:4000)/yig_drone"
+pd_address = ["pd0:2379", "pd1:2378", "pd2:2377"]
+
 keepalive = true
 enable_usage_push = false
 enable_compression = false
@@ -63,6 +65,11 @@ big_file_threshold = 1048576 #1MB
 mg_thread = 1
 mg_scan_interval = 600
 mg_object_cooldown = 3600
+
+# Qos
+default_read_ops = 2000
+default_write_ops = 1000
+default_bandwidth_kbps = 102400 # 100MB
 
 # Ceph Config
 ceph_config_pattern = "/etc/ceph/*.conf"
