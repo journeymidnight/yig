@@ -571,7 +571,7 @@ func (yig *YigStorage) ListVersionedObjectsInternal(bucketName string,
 	marker = request.KeyMarker
 	verIdMarker = request.VersionIdMarker
 
-	helper.Logger.Info("Prefix:", request.Prefix, "Marker:", request.Marker, "MaxKeys:",
+	helper.Logger.Info("Prefix:", request.Prefix, "Marker:", request.KeyMarker, "MaxKeys:",
 		request.MaxKeys, "Delimiter:", request.Delimiter, "Version:", request.Version,
 		"keyMarker:", request.KeyMarker, "versionIdMarker:", request.VersionIdMarker)
 	return yig.MetaStorage.Client.ListVersionedObjects(bucketName, marker, verIdMarker, request.Prefix, request.Delimiter, request.MaxKeys)

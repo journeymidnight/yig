@@ -60,6 +60,8 @@ func GetFunc(key string) error {
 }
 
 func ScanFunc(startKey, endKey string, maxKeys int) (err error) {
+	startKey = strings.Replace(startKey, "\\", tikvclient.TableSeparator, -1)
+	endKey = strings.Replace(endKey, "\\", tikvclient.TableSeparator, -1)
 	c := tikvclient.NewClient(strings.Split(global.PDs, ","))
 	var prefix string
 	var sk, ek []byte
