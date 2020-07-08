@@ -34,6 +34,12 @@ type Statement struct {
 	Conditions condition.Functions `json:"Condition,omitempty"`
 }
 
+var ReadActionSet = NewActionSet(GetBucketLocationAction, GetBucketPolicyAction,
+	GetObjectAction, HeadBucketAction, ListAllMyBucketsAction, ListBucketAction)
+var ReadWriteActionSet = NewActionSet(GetBucketLocationAction, GetBucketPolicyAction,
+	GetObjectAction, HeadBucketAction, ListAllMyBucketsAction, ListBucketAction,
+	PutObjectAction, ListBucketMultipartUploadsAction, ListMultipartUploadPartsAction)
+
 // IsAllowed - checks given policy args is allowed to continue the Rest API.
 func (statement Statement) IsAllowed(args Args) bool {
 	check := func() bool {
@@ -41,8 +47,21 @@ func (statement Statement) IsAllowed(args Args) bool {
 			return false
 		}
 
-		if !statement.Actions.Contains(args.Action) {
-			return false
+		// FullContorlAction and DenyAccessAction contains all actions
+		if statement.Actions.Contains(FullContorlAction) || statement.Actions.Contains(DenyAccessAction) {
+
+		} else if statement.Actions.Contains(ReadOnlyAction) {
+			if !ReadActionSet.Contains(args.Action) {
+				return false
+			}
+		} else if statement.Actions.Contains(ReadWriteAction) {
+			if !ReadWriteActionSet.Contains(args.Action) {
+				return false
+			}
+		} else {
+			if !statement.Actions.Contains(args.Action) {
+				return false
+			}
 		}
 
 		resource := args.BucketName

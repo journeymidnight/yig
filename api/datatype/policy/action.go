@@ -83,6 +83,29 @@ const (
 
 	// PutObjectAction - PutObject Rest API action.
 	PutObjectAction = "s3:PutObject"
+
+	/* ReadOnlyAction - ReadOnly is a general action include
+	GetBucketLocationAction, GetBucketPolicyAction
+	GetObjectAction, HeadBucketAction, ListAllMyBucketsAction, ListBucketAction with allow Effect
+	*/
+	ReadOnlyAction = "s3:ReadOnly"
+
+	/* ReadWriteAction - ReadWrite is a general action include
+	GetBucketLocationAction, GetBucketPolicyAction
+	GetObjectAction, HeadBucketAction, ListAllMyBucketsAction, ListBucketAction
+	PutObjectAction, ListBucketMultipartUploadsAction, ListMultipartUploadPartsAction with allow Effect
+	*/
+	ReadWriteAction = "s3:ReadWrite"
+
+	/* FullContorlAction - FullContorl is a general action include
+	all actions above with allow Effect
+	*/
+	FullContorlAction = "s3:FullContorl"
+
+	/* DenyAccessAction - DenyAccess is a general action include
+	all actions above with deny Effect
+	*/
+	DenyAccessAction = "s3:DenyAccess"
 )
 
 // isObjectAction - returns whether action is object type or not.

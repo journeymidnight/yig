@@ -63,20 +63,51 @@ func (yig *YigStorage) MakeBucket(reqCtx RequestContext, acl datatype.Acl,
 func (yig *YigStorage) SetBucketAcl(reqCtx RequestContext, policy datatype.AccessControlPolicy, acl datatype.Acl,
 	credential common.Credential) error {
 
-	if acl.CannedAcl == "" {
-		newCannedAcl, err := datatype.GetCannedAclFromPolicy(policy)
-		if err != nil {
-			return err
-		}
-		acl = newCannedAcl
-	}
+	// if acl.CannedAcl == "" {
+	// 	newCannedAcl, err := datatype.GetCannedAclFromPolicy(policy)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	acl = newCannedAcl
+	// }
 	bucket := reqCtx.BucketInfo
 	if bucket == nil {
 		return ErrNoSuchBucket
 	}
-	if bucket.OwnerId != credential.UserId {
-		return ErrBucketAccessForbidden
+
+	if !credential.AllowOtherUserAccess {
+		//an CanonicalUser request
+		if bucket.OwnerId != credential.UserId {
+			if bucket.ACL.CannedAcl != "" {
+				switch bucket.ACL.CannedAcl {
+				case "public-read", "public-read-write", "authenticated-read":
+					break
+				default:
+					return ErrBucketAccessForbidden
+				}
+			} else {
+				switch true {
+				case datatype.IsPermissionMatchedById(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, credential.UserId) ||
+					datatype.IsPermissionMatchedById(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, credential.UserId):
+					break
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, datatype.ACL_GROUP_TYPE_ALL_USERS) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_ALL_USERS):
+					break
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, datatype.ACL_GROUP_TYPE_AUTHENTICATED_USERS) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_AUTHENTICATED_USERS):
+					break
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, datatype.ACL_GROUP_TYPE_LOG_DELIVERY) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_LOG_DELIVERY):
+					break
+				default:
+					return ErrBucketAccessForbidden
+				}
+
+			}
+
+		}
 	}
+
 	bucket.ACL = acl
 	err := yig.MetaStorage.Client.PutBucket(*bucket)
 	if err != nil {
