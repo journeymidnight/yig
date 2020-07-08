@@ -182,7 +182,8 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 			if len(sp) == 2 {
 				prefixKey := prefix + sp[0] + delimiter
 				if prefixKey == marker {
-					it, err = tx.Iter(context.TODO(), key.Key(AddEndByteValue(k)), key.Key(endKey))
+					startKey = genObjectKey(bucketName, AddEndByteValue(prefixKey), NullVersion)
+					it, err = tx.Iter(context.TODO(), startKey, endKey)
 					if err != nil {
 						return listInfo, err
 					}
@@ -202,7 +203,8 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 					}
 					commonPrefixes[prefixKey] = nil
 				}
-				it, err = tx.Iter(context.TODO(), key.Key(AddEndByteValue(k)), key.Key(endKey))
+				startKey = genObjectKey(bucketName, AddEndByteValue(prefixKey), NullVersion)
+				it, err = tx.Iter(context.TODO(), startKey, endKey)
 				if err != nil {
 					return listInfo, err
 				}
