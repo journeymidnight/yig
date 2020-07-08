@@ -6,13 +6,6 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
-	"fmt"
-	"github.com/journeymidnight/yig/circuitbreak"
-	"github.com/journeymidnight/yig/helper"
-	_ "github.com/journeymidnight/yig/iam"
-	"github.com/journeymidnight/yig/iam/common"
-	"github.com/journeymidnight/yig/mods"
 	"hash"
 	"io"
 	"io/ioutil"
@@ -20,6 +13,13 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+
+	"github.com/journeymidnight/yig/circuitbreak"
+	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/helper"
+	_ "github.com/journeymidnight/yig/iam"
+	"github.com/journeymidnight/yig/iam/common"
+	"github.com/journeymidnight/yig/mods"
 )
 
 type AccessKeyItemList struct {
@@ -103,17 +103,18 @@ func (a IamV3Client) GetKeysByUid(uid string) (credentials []common.Credential, 
 	response, err := a.httpClient.Do(request)
 	if err != nil {
 		slog.Error("GetKeysByUid send request failed", err)
-		return credentials, err
+		return credentials, ErrInternalError
 	}
 	var resp AccessKeyItemList
 	err = helper.ReadJsonBody(response.Body, &resp)
 	if err != nil {
-		return credentials, errors.New("failed to read from IAM: " + err.Error())
+		slog.Error("failed to read from IAM: " + err.Error())
+		return credentials, ErrInternalError
 	}
 	slog.Info("GetKeysByUid to IAM return status ", response.Status)
 	if response.StatusCode != 200 {
 		slog.Warn("GetKeysByUid to IAM failed return code = ", response.StatusCode)
-		return credentials, fmt.Errorf("GetKeysByUid to IAM failed retcode = %d", response.StatusCode)
+		return credentials, ErrInternalError
 	}
 	for _, value := range resp.Content {
 		credential := common.Credential{}
@@ -148,14 +149,14 @@ func (a IamV3Client) GetCredential(accessKey string) (credential common.Credenti
 		response, err := a.httpClient.Do(request)
 		if err != nil {
 			slog.Error("GetCredential send request failed", err)
-			return credential, err
+			return credential, ErrInternalError
 		}
 		var resp = new(QueryResp)
 		body := response.Body
 		jsonBytes, err := ioutil.ReadAll(body)
 		if err != nil {
 			slog.Error("Read IAM response err:", err)
-			return credential, err
+			return credential, ErrInternalError
 		}
 		defer body.Close()
 		s := string(jsonBytes)
@@ -163,12 +164,34 @@ func (a IamV3Client) GetCredential(accessKey string) (credential common.Credenti
 		err = json.Unmarshal(jsonBytes, resp)
 		if err != nil {
 			slog.Error(" IAM JSON:", s, "Read IAM JSON err:", err)
-			return credential, err
+			return credential, ErrInternalError
 		}
 		slog.Info("GetCredential to IAM return status ", response.Status)
 		if response.StatusCode != 200 {
 			slog.Warn("GetCredential to IAM failed return code = ", response.StatusCode)
-			return credential, fmt.Errorf("GetCredential to IAM failed retcode = %d", response.StatusCode)
+			return credential, ErrInternalError
+		}
+		if resp.Code != "0" {
+
+		}
+		switch resp.Code {
+		case "0":
+			// normal
+			break
+		case "1":
+			slog.Error("Get Error from OP")
+			return credential, ErrInternalError
+		case "3005":
+			// AK and SK have forbidden
+			return credential, ErrForbiddenAccessKeyID
+		case "3006":
+			// The user has not signed the agreement
+			return credential, ErrInvalidAccessKeyID
+		case "3007":
+			// Arrears
+			return credential, ErrSuspendedAccessKeyID
+		default:
+			return credential, ErrInternalError
 		}
 
 		value := resp.AccessKeySet

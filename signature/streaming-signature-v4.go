@@ -101,9 +101,6 @@ func CalculateSeedSignature(r *http.Request) (credential common.Credential, sign
 			securityToken)
 	} else {
 		credential, err = iam.GetCredential(signV4Values.Credential.accessKey)
-		if err != nil {
-			err = ErrInvalidAccessKeyID
-		}
 	}
 	if err != nil {
 		return credential, "", "", time.Time{}, err

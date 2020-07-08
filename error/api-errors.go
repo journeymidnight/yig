@@ -46,6 +46,8 @@ const (
 	ErrIncompleteBody
 	ErrInternalError
 	ErrInvalidAccessKeyID
+	ErrSuspendedAccessKeyID
+	ErrForbiddenAccessKeyID
 	ErrInvalidBucketName
 	ErrInvalidObjectName
 	ErrInvalidDigest
@@ -337,6 +339,16 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidAccessKeyID: {
 		AwsErrorCode:   "InvalidAccessKeyId",
 		Description:    "The access key ID you provided does not exist in our records.",
+		HttpStatusCode: http.StatusForbidden,
+	},
+	ErrSuspendedAccessKeyID: {
+		AwsErrorCode:   "SuspendedAccessKeyID",
+		Description:    "The access key ID you provided has been suspended due to insufficient balance.",
+		HttpStatusCode: http.StatusForbidden,
+	},
+	ErrForbiddenAccessKeyID: {
+		AwsErrorCode:   "ForbiddenAccessKeyID",
+		Description:    "The access key ID you provided has forbidden.",
 		HttpStatusCode: http.StatusForbidden,
 	},
 	ErrInvalidBucketName: {

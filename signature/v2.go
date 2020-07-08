@@ -142,7 +142,7 @@ func DoesSignatureMatchV2(r *http.Request) (credential common.Credential, err er
 	credential, e := iam.GetCredential(accessKey)
 	helper.Logger.Info(fmt.Sprintf("credential: %+v", credential))
 	if e != nil {
-		return credential, ErrInvalidAccessKeyID
+		return credential, e
 	}
 	signature, e := base64.StdEncoding.DecodeString(splitSignature[1])
 	if e != nil {
@@ -197,7 +197,7 @@ func DoesPresignedSignatureMatchV2(r *http.Request) (credential common.Credentia
 
 	credential, e := iam.GetCredential(accessKey)
 	if e != nil {
-		return credential, ErrInvalidAccessKeyID
+		return credential, e
 	}
 	signature, e := base64.StdEncoding.DecodeString(signatureString)
 	if e != nil {
@@ -231,7 +231,7 @@ func DoesPolicySignatureMatchV2(formValues map[string]string) (credential common
 	if accessKey, ok := formValues["AWSAccessKeyId"]; ok {
 		credential, err = iam.GetCredential(accessKey)
 		if err != nil {
-			return credential, ErrInvalidAccessKeyID
+			return credential, err
 		}
 	} else {
 		return credential, ErrMissingFields

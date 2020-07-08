@@ -165,7 +165,7 @@ func DoesPolicySignatureMatchV4(formValues map[string]string) (credential common
 
 	credential, e = iam.GetCredential(credHeader.accessKey)
 	if e != nil {
-		return credential, ErrInvalidAccessKeyID
+		return credential, e
 	}
 	// Get signing key.
 	signingKey := getSigningKey(credential.SecretAccessKey, t, region)
@@ -196,9 +196,6 @@ func DoesPresignedSignatureMatchV4(r *http.Request,
 			securityToken)
 	} else {
 		credential, err = iam.GetCredential(preSignValues.Credential.accessKey)
-		if err != nil {
-			err = ErrInvalidAccessKeyID
-		}
 	}
 	if err != nil {
 		return common.Credential{}, err
@@ -275,9 +272,6 @@ func getCredentialUnverified(r *http.Request) (credential common.Credential, err
 			securityToken)
 	} else {
 		credential, err = iam.GetCredential(signV4Values.Credential.accessKey)
-		if err != nil {
-			err = ErrInvalidAccessKeyID
-		}
 	}
 	return credential, err
 }
@@ -352,9 +346,6 @@ func DoesSignatureMatchV4(hashedPayload string, r *http.Request,
 			securityToken)
 	} else {
 		credential, err = iam.GetCredential(signV4Values.Credential.accessKey)
-		if err != nil {
-			err = ErrInvalidAccessKeyID
-		}
 	}
 	if err != nil {
 		return credential, err

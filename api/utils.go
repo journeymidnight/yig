@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/journeymidnight/yig/crypto"
+	"github.com/journeymidnight/yig/storage"
 )
 
 // xmlDecoder provide decoded value in xml.
@@ -39,29 +40,19 @@ func checkValidMD5(md5 string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(strings.TrimSpace(md5))
 }
 
-/// http://docs.aws.amazon.com/AmazonS3/latest/dev/UploadingObjects.html
-const (
-	// maximum object size per PUT request is 5GiB
-	maxObjectSize = 1024 * 1024 * 1024 * 5
-	// minimum Part size for multipart upload is 5MB
-	minPartSize = 1024 * 1024 * 5
-	// maximum Part ID for multipart upload is 10000 (Acceptable values range from 1 to 10000 inclusive)
-	maxPartID = 1000
-)
-
 // isMaxObjectSize - verify if max object size
 func isMaxObjectSize(size int64) bool {
-	return size > maxObjectSize
+	return size > storage.MAX_PART_SIZE
 }
 
 // Check if part size is more than or equal to minimum allowed size.
 func isMinAllowedPartSize(size int64) bool {
-	return size >= minPartSize
+	return size >= storage.MIN_PART_SIZE
 }
 
 // isMaxPartNumber - Check if part ID is greater than the maximum allowed ID.
 func isMaxPartID(partID int) bool {
-	return partID > maxPartID
+	return partID > storage.MAX_PART_NUMBER
 }
 
 func contains(stringList []string, element string) bool {
