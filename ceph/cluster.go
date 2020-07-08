@@ -113,14 +113,20 @@ func setStripeLayout(p StriperPool) int {
 	return ret
 }
 
-func setAppendStripeLayout(p StriperPool, oid string) int {
+func setAppendStripeLayout(p StriperPool, oid string, pool string) int {
 	var ret int = 0
 	var unit, count, size uint
 	unit, count, size, striped := splitOid(oid)
 	if striped == false {
-		unit = APPEND_STRIPE_UNIT
-		count = APPEND_STRIPE_COUNT
-		size = OBJECT_SIZE
+		if pool == backend.BIG_FILE_POOLNAME {
+			unit = STRIPE_UNIT
+			count = STRIPE_COUNT
+			size = OBJECT_SIZE
+		} else {
+			unit = APPEND_STRIPE_UNIT
+			count = APPEND_STRIPE_COUNT
+			size = OBJECT_SIZE
+		}
 	}
 
 	if ret = p.SetLayoutStripeUnit(unit); ret < 0 {
@@ -174,9 +180,15 @@ func (cluster *CephCluster) getUniqUploadName() string {
 	return oid
 }
 
-func (cluster *CephCluster) getUniqUploadNameAsStripe() string {
+func (cluster *CephCluster) getUniqUploadNameAsStripeForRabbit() string {
 	v := atomic.AddUint64(&cluster.counter, 1)
 	oid := fmt.Sprintf("%d:%d:%d:%d:%d", cluster.InstanceId, v, APPEND_STRIPE_UNIT, APPEND_STRIPE_COUNT, OBJECT_SIZE)
+	return oid
+}
+
+func (cluster *CephCluster) getUniqUploadNameAsStripeForTiger() string {
+	v := atomic.AddUint64(&cluster.counter, 1)
+	oid := fmt.Sprintf("%d:%d:%d:%d:%d", cluster.InstanceId, v, STRIPE_UNIT, STRIPE_COUNT, OBJECT_SIZE)
 	return oid
 }
 
@@ -259,7 +271,7 @@ func (cluster *CephCluster) doSmallAppend(poolname string, oid string, offset ui
 	}
 	defer striper.Destroy()
 
-	setAppendStripeLayout(striper, oid)
+	setAppendStripeLayout(striper, oid, poolname)
 
 	readStart := time.Now()
 	wBuf := make([]byte, length, length)
@@ -478,9 +490,9 @@ func (cluster *CephCluster) Append(poolname string, existName string, data io.Re
 	oid = existName
 	if len(oid) == 0 {
 		if poolname == backend.SMALL_FILE_POOLNAME {
-			oid = cluster.getUniqUploadNameAsStripe()
+			oid = cluster.getUniqUploadNameAsStripeForRabbit()
 		} else {
-			oid = cluster.getUniqUploadName()
+			oid = cluster.getUniqUploadNameAsStripeForTiger()
 		}
 	}
 
@@ -506,7 +518,7 @@ func (cluster *CephCluster) Append(poolname string, existName string, data io.Re
 	}
 	defer striper.Destroy()
 
-	setStripeLayout(striper)
+	setAppendStripeLayout(striper, oid, poolname)
 
 	var current_upload_window = helper.CONFIG.UploadMinChunkSize /* initial window size as MIN_CHUNK_SIZE, max size is MAX_CHUNK_SIZE */
 	var pending_data = make([]byte, current_upload_window)
@@ -713,7 +725,7 @@ func (cluster *CephCluster) Remove(poolname string, oid string) error {
 			defer striper.Destroy()
 			// if we do not set our custom layout, rados will infer all objects filename from default layout setting,
 			// and some sub objects will not be deleted
-			setAppendStripeLayout(striper, oid)
+			setAppendStripeLayout(striper, oid, poolname)
 
 			return striper.Delete(oid)
 		}

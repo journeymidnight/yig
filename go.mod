@@ -31,6 +31,7 @@ require (
 	github.com/DATA-DOG/go-sqlmock v1.3.3
 	github.com/aws/aws-sdk-go v1.32.11 // indirect
 	github.com/bsm/redislock v0.5.0
+	github.com/casbin/casbin v1.9.1 // indirect
 	github.com/cep21/circuit v0.0.0-20181030180945-e893c027dc21
 	github.com/confluentinc/confluent-kafka-go v1.0.0 //indirect
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
@@ -42,11 +43,10 @@ require (
 	github.com/golang/protobuf v1.3.4
 	github.com/golang/snappy v0.0.1
 	github.com/gomodule/redigo v2.0.0+incompatible
-	github.com/google/uuid v1.1.1 // indirect
 	github.com/gorilla/mux v1.7.4
 	github.com/journeymidnight/aws-sdk-go v1.18.1
-	github.com/journeymidnight/pipa v0.0.0-20200529073322-b6fc18c92682 // indirect
 	github.com/journeymidnight/radoshttpd v0.0.0-20190617133011-609666b51136
+	github.com/journeymidnight/yig-iam v0.0.0-20200409072525-770351d15ff9 // indirect
 	//github.com/journeymidnight/radoshttpd v0.0.0-20190911073816-6df3523aa9e3
 	github.com/minio/highwayhash v1.0.0
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829

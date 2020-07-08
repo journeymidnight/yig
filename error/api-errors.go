@@ -152,6 +152,7 @@ const (
 	ErrUnsupportedAcl
 	ErrNonUTF8Encode
 	ErrInvalidBucketLogging
+	ErrInvalidTargetBucket
 	ErrInvalidLcTagKey
 	ErrInvalidLcTagValue
 	ErrDuplicateLcTagKey
@@ -704,6 +705,16 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "InvalidArgument",
 		Description:    "URL Argument must be UTF8 encoded.",
 		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidBucketLogging: {
+		AwsErrorCode:   "InvalidBucketLogging",
+		Description:    "The bucket logging you set is invalid.",
+		HttpStatusCode: http.StatusNotFound,
+	},
+	ErrInvalidTargetBucket: {
+		AwsErrorCode:   "InvalidTargetBucket",
+		Description:    "The target bucket you specified is invalid.",
+		HttpStatusCode: http.StatusNotFound,
 	},
 	ErrNoSuchBucketLc: {
 		AwsErrorCode:   "NoSuchBucketLc",
