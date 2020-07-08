@@ -21,9 +21,6 @@ steps:
   - export GOPROXY=https://goproxy.cn
   - cp -f integrate/resolv.conf /etc/resolv.conf
   - make build_internal
-  - sqlName=yig_drone${DRONE_BUILD_NUMBER}
-  - mysql -u root -P 4000 -h 10.0.42.4 -e "create database $sqlName character set utf8;"
-  - mysql -u root -P 4000 -h 10.0.42.4 -e "use $sqlName;source integrate/yig.sql;"
   - cp -f integrate/test-env/yig.toml /etc/yig/yig.toml
   - cp -f plugins/*.so /etc/yig/plugins/
   - sed -i 's/yig_drone/yig_drone${DRONE_BUILD_NUMBER}/' /etc/yig/yig.toml
@@ -43,7 +40,6 @@ steps:
   - pushd test/go
   - go test -v
   - popd
-  - mysql -u root -P 4000 -h 10.0.42.4 -e "drop database $sqlName;"
   when:
     event:
       exclude:
@@ -53,8 +49,7 @@ steps:
 - name: clean up database
   image: centos-yig:v1.0.1
   commands:
-  - sqlName=yig_drone${DRONE_BUILD_NUMBER}
-  - mysql -u root -P 4000 -h 10.0.42.4 -e "drop database $sqlName;"
+  - echo "TODO: clean TiKV"
   when:
     event:
     - failure
@@ -70,6 +65,7 @@ steps:
   when:
     branch:
     - develop
+    - develop-shanghai
     event:
     - pull_request
   depends_on:
@@ -90,6 +86,7 @@ steps:
   when:
     branch:
     - develop
+    - develop-shanghai
     event:
     - pull_request
   depends_on:
@@ -99,9 +96,6 @@ steps:
   image: centos-yig:v1.0.1
   commands:
   - cd integrate
-  - mysql -u root -h 10.0.42.4 -P 4000 -e "drop database yig_drone;"
-  - mysql -u root -h 10.0.42.4 -P 4000 -e "create database yig_drone character set utf8;"
-  - mysql -u root -h 10.0.42.4 -P 4000 -e "use yig_drone;source yig.sql;"
   - curDate=yig_$(date "+%Y%m%d-%H%M%S")
   - ssh 10.0.47.215 "mkdir /test_packages/$curDate"
   - scp test-env/yig.toml 10.0.47.215:/test_packages/$curDate
