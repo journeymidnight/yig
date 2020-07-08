@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/journeymidnight/yig/api"
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/context"
 	"github.com/journeymidnight/yig/crypto"
@@ -23,8 +22,13 @@ import (
 	"github.com/journeymidnight/yig/signature"
 )
 
+// http://docs.aws.amazon.com/AmazonS3/latest/dev/UploadingObjects.html
 const (
-	MAX_PART_SIZE   = 5 << 30 // 5GB
+	// minimum Part size for multipart upload is 100Kb
+	MIN_PART_SIZE   = 100 << 10 // 100Kb
+	// maximum Part size per PUT request is 5GiB
+	MAX_PART_SIZE   = 5 << 30   // 5GB
+	// maximum Part number for multipart upload is 10000 (Acceptable values range from 1 to 10000 inclusive)
 	MAX_PART_NUMBER = 10000
 )
 
@@ -136,11 +140,6 @@ func (yig *YigStorage) PutObjectPart(reqCtx RequestContext, credential common.Cr
 	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
 	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
 	if err != nil {
-		return
-	}
-
-	if size > MAX_PART_SIZE {
-		err = ErrEntityTooLarge
 		return
 	}
 
@@ -534,7 +533,7 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 			err = ErrInvalidPart
 			return
 		}
-		if part.Size < api.MIN_PART_SIZE && part.PartNumber != len(uploadedParts) {
+		if part.Size < MIN_PART_SIZE && part.PartNumber != len(uploadedParts) {
 			err = meta.PartTooSmall{
 				PartSize:   part.Size,
 				PartNumber: part.PartNumber,
