@@ -112,4 +112,3 @@ url="s3.test.com"
 [plugins.not_exist]
 path = "not_exist_so"
 enable = false
-git lo
