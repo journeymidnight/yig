@@ -247,7 +247,7 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 		}
 	}
 
-	startKey := genObjectKey(bucketName, marker+string(byte(0x20)), NullVersion)
+	startKey := genObjectKey(bucketName, marker+string(byte(0)), NullVersion)
 	endKey := genObjectKey(bucketName, prefix+TableMaxKeySuffix, NullVersion)
 
 	tx, err := c.TxnCli.Begin(context.TODO())
@@ -305,7 +305,7 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			// Compare once
 			if passKey {
 				startKey = genObjectKey(bucketName, objMeta.Name, TableMaxKeySuffix)
-				it, err = tx.Iter(context.TODO(), key.Key(startKey), key.Key(endKey))
+				it, err = tx.Iter(context.TODO(), startKey, endKey)
 				if err != nil {
 					return listInfo, err
 				}
