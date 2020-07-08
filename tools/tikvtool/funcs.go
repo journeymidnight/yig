@@ -89,14 +89,14 @@ func ScanFunc(startKey, endKey string, maxKeys int) (err error) {
 	}
 
 	sk, ek = []byte(startKey), []byte(endKey)
-	fmt.Println("Table:", global.Table, "Start:", string(sk), "End:", string(ek), "Limit:", maxKeys)
+	fmt.Println("Table:", global.Table, "Start:", FormatKey(sk), "End:", FormatKey(ek), "Limit:", maxKeys)
 	kvs, err := c.TxScan(sk, ek, maxKeys, nil)
 	if err != nil {
 		panic(err)
 	}
 
 	for _, kv := range kvs {
-		fmt.Println("Key:", string(kv.K))
+		fmt.Println("Key:", FormatKey(kv.K))
 		v, err := Decode(global.Table, kv.V)
 		if err != nil {
 			fmt.Println("Error:", err)
@@ -125,7 +125,7 @@ func DelFunc(key string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Delete key", string(k), "success.")
+	fmt.Println("Delete key", FormatKey(k), "success.")
 	return nil
 }
 

@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"strconv"
 	"strings"
+
+	"github.com/journeymidnight/yig/meta/client/tikvclient"
 )
 
 func ParseToBytes(s string) (bs []byte, err error) {
@@ -21,4 +24,9 @@ func ParseToBytes(s string) (bs []byte, err error) {
 		bs = append(bs, byte(i))
 	}
 	return
+}
+
+func FormatKey(key []byte) string {
+	b := bytes.Replace(key, []byte(tikvclient.TableSeparator), []byte("\\"), -1)
+	return string(b)
 }

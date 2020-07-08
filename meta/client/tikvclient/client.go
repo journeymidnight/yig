@@ -27,7 +27,7 @@ const (
 var (
 	TableMinKeySuffix = ""
 	TableMaxKeySuffix = string(0xFF)
-	TableSeparator    = string(92) // "\"
+	TableSeparator    = string(0x1F)
 )
 
 type TiKVClient struct {
