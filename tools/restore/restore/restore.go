@@ -2,14 +2,16 @@ package restore
 
 import (
 	"github.com/bsm/redislock"
-	. "github.com/journeymidnight/yig-restore/error"
-	"github.com/journeymidnight/yig-restore/helper"
-	"github.com/journeymidnight/yig-restore/log"
-	"github.com/journeymidnight/yig-restore/meta/common"
-	meta "github.com/journeymidnight/yig-restore/meta/types"
-	"github.com/journeymidnight/yig-restore/redis"
-	"github.com/journeymidnight/yig-restore/storage"
+	"github.com/journeymidnight/yig/api/datatype"
+	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/helper"
+	. "github.com/journeymidnight/yig/iam/common"
+	"github.com/journeymidnight/yig/meta/common"
+	meta "github.com/journeymidnight/yig/meta/types"
+	"github.com/journeymidnight/yig/redis"
+	"github.com/journeymidnight/yig/storage"
 	"github.com/robfig/cron"
+
 	"io"
 	"sync"
 	"syscall"
@@ -19,56 +21,50 @@ import (
 const MAXLISTNUM = 100
 
 var (
-	YIG     ServerConfig
 	Crontab *cron.Cron
+	yig     *storage.YigStorage
 )
 
-type ServerConfig struct {
-	Helper      helper.Config
-	Logger      log.Logger
-	ObjectLayer *storage.Storage
-}
-
-func Restore(yig ServerConfig) {
+func Restore(instance *storage.YigStorage) {
+	yig = instance
 	mutexs = make(map[string]*redislock.Lock)
 	go autoRefreshLock()
-	yig.Logger.Info("Start yig-restore success ..")
-	YIG = yig
-	go YIG.ContinueRestoreNotFinished()
+	helper.Logger.Info("Start yig-restore success ..")
+	go ContinueRestoreNotFinished()
 	Crontab = cron.New()
-	if !YIG.Helper.EnableRestoreObjectCron {
-		YIG.Logger.Info("Start restoration and elimination with object only once")
-		YIG.OperateObject()
+	if !helper.CONFIG.EnableRestoreObjectCron {
+		helper.Logger.Info("Start restoration and elimination with object only once")
+		OperateObject()
 	} else {
-		YIG.Logger.Info("Start restoration and elimination with object")
-		Crontab.AddFunc(YIG.Helper.RestoreObjectSpec, YIG.OperateObject)
+		helper.Logger.Info("Start restoration and elimination with object")
+		Crontab.AddFunc(helper.CONFIG.RestoreObjectSpec, OperateObject)
 	}
 	Crontab.Start()
 }
 
 // When the program restarts or exits abnormally, the last time the object was thawed did not complete the thawing,
 // restart these freezers to complete the object thawing
-func (yig ServerConfig) ContinueRestoreNotFinished() {
-	yig.Logger.Info("Start last unfinished thaw")
+func ContinueRestoreNotFinished() {
+	helper.Logger.Info("Start last unfinished thaw")
 
-	freezers, err := yig.ObjectLayer.MetaStorage.Client.ListFreezersNeedContinue(MAXLISTNUM, common.Status(1))
+	freezers, err := yig.MetaStorage.Client.ListFreezersNeedContinue(MAXLISTNUM, common.RestoreStatus(1))
 	if err != nil {
 		if err == ErrNoSuchKey {
-			yig.Logger.Info("No restoring freezer!")
+			helper.Logger.Info("No restoring freezer!")
 			return
 		}
-		yig.Logger.Error("List freezer which not finished failed, err is:", err)
+		helper.Logger.Error("List freezer which not finished failed, err is:", err)
 		return
 	}
 	var w sync.WaitGroup
 	for _, freezer := range freezers {
-		go yig.RestoreNotFinished(freezer, &w)
+		go RestoreNotFinished(freezer, &w)
 	}
 	w.Wait()
-	yig.Logger.Info("Finish last unfinished thaw")
+	helper.Logger.Info("Finish last unfinished thaw")
 }
 
-func (yig ServerConfig) RestoreNotFinished(freezer meta.Freezer, w *sync.WaitGroup) {
+func RestoreNotFinished(freezer meta.Freezer, w *sync.WaitGroup) {
 	w.Add(1)
 	for {
 		var mutex *redislock.Lock
@@ -78,7 +74,7 @@ func (yig ServerConfig) RestoreNotFinished(freezer meta.Freezer, w *sync.WaitGro
 		var targetBucketName, targetObjectName, targetVersion string
 		var sourceObject *meta.Object
 		WG.Add(1)
-		mutex, err := redis.Locker.Obtain(redis.GenMutexKey(&freezer), time.Duration(helper.Conf.LockTime)*time.Minute, nil)
+		mutex, err := redis.Locker.Obtain(redis.GenMutexKeyForRestore(&freezer), time.Duration(helper.CONFIG.LockTime)*time.Minute, nil)
 		if err == redislock.ErrNotObtained {
 			helper.Logger.Error("Lock object failed:", freezer.BucketName, freezer.Name, freezer.VersionId)
 			goto out
@@ -95,10 +91,9 @@ func (yig ServerConfig) RestoreNotFinished(freezer meta.Freezer, w *sync.WaitGro
 		targetBucketName = freezer.BucketName
 		targetObjectName = freezer.Name
 		targetVersion = freezer.VersionId
-		sourceObject, err = yig.ObjectLayer.GetObjectInfo(targetBucketName, targetObjectName,
-			targetVersion)
+		sourceObject, err = yig.GetObjectInfo(targetBucketName, targetObjectName, targetVersion, Credential{AllowOtherUserAccess: true})
 		if err != nil {
-			yig.Logger.Error("Unable to fetch object info:", targetBucketName, targetObjectName,
+			helper.Logger.Error("Unable to fetch object info:", targetBucketName, targetObjectName,
 				targetVersion, err)
 			goto release
 		}
@@ -106,10 +101,9 @@ func (yig ServerConfig) RestoreNotFinished(freezer meta.Freezer, w *sync.WaitGro
 		go func() {
 			startOffset := int64(0) // Read the whole file.
 			// Get the object.
-			err := yig.ObjectLayer.GetObject(sourceObject, startOffset, sourceObject.Size,
-				pipeWriter)
+			err := yig.GetObject(sourceObject, startOffset, sourceObject.Size, pipeWriter, datatype.SseRequest{})
 			if err != nil {
-				yig.Logger.Error("Unable to read an object:", err)
+				helper.Logger.Error("Unable to read an object:", err)
 				pipeWriter.CloseWithError(err)
 				return
 			}
@@ -128,9 +122,9 @@ func (yig ServerConfig) RestoreNotFinished(freezer meta.Freezer, w *sync.WaitGro
 		targetObject.Parts = sourceObject.Parts
 		targetObject.PartsIndex = sourceObject.PartsIndex
 
-		err = yig.ObjectLayer.RestoreObject(targetObject, pipeReader, true)
+		err = yig.RestoreObject(targetObject, pipeReader, true)
 		if err != nil {
-			yig.Logger.Error("CopyObject failed:", err)
+			helper.Logger.Error("CopyObject failed:", err)
 			goto release
 		}
 		helper.Logger.Info("RestoreObject finished", targetObject)
@@ -150,25 +144,25 @@ func (yig ServerConfig) RestoreNotFinished(freezer meta.Freezer, w *sync.WaitGro
 	w.Done()
 }
 
-func (yig ServerConfig) OperateObject() {
-	yig.Logger.Info("Start operation")
-	freezers, err := yig.ObjectLayer.MetaStorage.Client.ListFreezers(MAXLISTNUM)
+func OperateObject() {
+	helper.Logger.Info("Start operation")
+	freezers, err := yig.MetaStorage.Client.ListFreezers(MAXLISTNUM)
 	if err != nil && err != ErrNoSuchKey {
-		yig.Logger.Error("List freezer failed, err is:", err)
+		helper.Logger.Error("List freezer failed, err is:", err)
 	}
 	for _, freezer := range freezers {
 		switch freezer.Status.ToString() {
 		case "READY":
-			go yig.RestoreObject(freezer)
+			go RestoreObject(freezer)
 			break
 		case "FINISH":
-			go yig.EliminateObject(freezer)
+			go EliminateObject(freezer)
 			break
 		}
 	}
 }
 
-func (yig ServerConfig) RestoreObject(freezer meta.Freezer) {
+func RestoreObject(freezer meta.Freezer) {
 	for {
 		var mutex *redislock.Lock
 		var sourceObject *meta.Object
@@ -179,7 +173,7 @@ func (yig ServerConfig) RestoreObject(freezer meta.Freezer) {
 		targetObjectName := freezer.Name
 		targetVersion := freezer.VersionId
 		WG.Add(1)
-		mutex, err := redis.Locker.Obtain(redis.GenMutexKey(&freezer), time.Duration(helper.Conf.LockTime)*time.Minute, nil)
+		mutex, err := redis.Locker.Obtain(redis.GenMutexKeyForRestore(&freezer), time.Duration(helper.CONFIG.LockTime)*time.Minute, nil)
 		if err == redislock.ErrNotObtained {
 			helper.Logger.Error("Lock object failed:", freezer.BucketName, freezer.Name, freezer.VersionId)
 			goto out
@@ -192,25 +186,23 @@ func (yig ServerConfig) RestoreObject(freezer meta.Freezer) {
 		mutexs[mutex.Key()] = mutex
 		mux.Unlock()
 
-		sourceObject, err = yig.ObjectLayer.GetObjectInfo(targetBucketName, targetObjectName,
-			targetVersion)
+		sourceObject, err = yig.GetObjectInfo(targetBucketName, targetObjectName, targetVersion, Credential{AllowOtherUserAccess: true})
 		if err != nil {
 			if err == ErrNoSuchKey {
-				err = yig.ObjectLayer.MetaStorage.DeleteFreezerWithoutCephObject(targetBucketName, targetObjectName, targetVersion, freezer.Type, freezer.CreateTime)
-				yig.Logger.Info("Delete freezer which object had been killed:", targetBucketName, targetObjectName)
+				err = yig.MetaStorage.DeleteFreezerWithoutCephObject(targetBucketName, targetObjectName, targetVersion, freezer.Type, freezer.CreateTime)
+				helper.Logger.Info("Delete freezer which object had been killed:", targetBucketName, targetObjectName)
 				goto release
 			}
-			yig.Logger.Error("Unable to fetch object info:", err)
+			helper.Logger.Error("Unable to fetch object info:", err)
 			goto release
 		}
 		pipeReader, pipeWriter = io.Pipe()
 		go func() {
 			startOffset := int64(0) // Read the whole file.
 			// Get the object.
-			err := yig.ObjectLayer.GetObject(sourceObject, startOffset, sourceObject.Size,
-				pipeWriter)
+			err := yig.GetObject(sourceObject, startOffset, sourceObject.Size, pipeWriter, datatype.SseRequest{})
 			if err != nil {
-				yig.Logger.Error("Unable to read an object:", err)
+				helper.Logger.Error("Unable to read an object:", err)
 				pipeWriter.CloseWithError(err)
 				return
 			}
@@ -229,10 +221,10 @@ func (yig ServerConfig) RestoreObject(freezer meta.Freezer) {
 		targetObject.PartsIndex = sourceObject.PartsIndex
 
 		helper.Logger.Info("============================", targetObject)
-		err = yig.ObjectLayer.RestoreObject(targetObject, pipeReader, true)
+		err = yig.RestoreObject(targetObject, pipeReader, true)
 		if err != nil {
-			_ = yig.ObjectLayer.MetaStorage.Client.UploadFreezerStatus(targetObject.BucketName, targetObject.Name, targetObject.VersionId, 1, 0)
-			yig.Logger.Error("RestoreObject failed:", err)
+			_ = yig.MetaStorage.Client.UpdateFreezerStatus(targetObject.BucketName, targetObject.Name, targetObject.VersionId, 1, 0)
+			helper.Logger.Error("RestoreObject failed:", err)
 			goto release
 		}
 		helper.Logger.Info("RestoreObject finished", targetObject)
@@ -251,12 +243,12 @@ func (yig ServerConfig) RestoreObject(freezer meta.Freezer) {
 	}
 }
 
-func (yig ServerConfig) EliminateObject(freezer meta.Freezer) {
+func EliminateObject(freezer meta.Freezer) {
 	if isNeedEliminate(freezer.LifeTime, freezer.LastModifiedTime) {
 		for {
 			var err error
 			WG.Add(1)
-			mutex, err := redis.Locker.Obtain(redis.GenMutexKey(&freezer), time.Duration(helper.Conf.LockTime)*time.Minute, nil)
+			mutex, err := redis.Locker.Obtain(redis.GenMutexKeyForRestore(&freezer), time.Duration(helper.CONFIG.LockTime)*time.Minute, nil)
 			if err == redislock.ErrNotObtained {
 				helper.Logger.Error("Lock object failed:", freezer.BucketName, freezer.Name, freezer.VersionId)
 				goto out
@@ -270,9 +262,9 @@ func (yig ServerConfig) EliminateObject(freezer meta.Freezer) {
 			mutexs[mutex.Key()] = mutex
 			mux.Unlock()
 
-			err = yig.ObjectLayer.EliminateObject(&freezer)
+			err = yig.EliminateObject(&freezer)
 			if err != nil {
-				yig.Logger.Error("Eliminate object err:", err)
+				helper.Logger.Error("Eliminate object err:", err)
 				goto release
 			}
 			helper.Logger.Info("EliminateObject finished", freezer)

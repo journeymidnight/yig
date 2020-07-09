@@ -13,6 +13,11 @@ const (
 	YIG_CONF_PATH         = "/etc/yig/yig.toml"
 	MIN_BUFFER_SIZE int64 = 512 << 10 // 512k
 	MAX_BUFEER_SIZE int64 = 8 << 20   // 8M
+
+	DEFAULTSPEC    = "@every 1h"
+	DEFAULTLOCK    = 45 // 45min
+	DEFAULTREFRESH = 30 // 30 min
+
 )
 
 type Config struct {
@@ -99,6 +104,11 @@ type Config struct {
 	DefaultReadOps       int `toml:"default_read_ops"`
 	DefaultWriteOps      int `toml:"default_write_ops"`
 	DefaultBandwidthKBps int `toml:"default_bandwidth_kbps"`
+
+	EnableRestoreObjectCron bool   `toml:"enable_restore_object_cron"`
+	RestoreObjectSpec       string `toml:"restore_object_spec"`
+	LockTime                int    `toml:"lock_time"`
+	RefreshLockTime         int    `toml:"refresh_lock_time"`
 }
 
 type PluginConfig struct {
@@ -207,6 +217,11 @@ func MarshalTOMLConfig() error {
 	CONFIG.DefaultReadOps = Ternary(c.DefaultReadOps <= 0, 2000, c.DefaultReadOps).(int)
 	CONFIG.DefaultWriteOps = Ternary(c.DefaultWriteOps <= 0, 1000, c.DefaultWriteOps).(int)
 	CONFIG.DefaultBandwidthKBps = Ternary(c.DefaultBandwidthKBps <= 0, 102400, c.DefaultBandwidthKBps).(int)
+
+	CONFIG.EnableRestoreObjectCron = Ternary(c.EnableRestoreObjectCron, false, true).(bool)
+	CONFIG.RestoreObjectSpec = Ternary(c.RestoreObjectSpec == "", DEFAULTSPEC, c.RestoreObjectSpec).(string)
+	CONFIG.LockTime = Ternary(c.LockTime <= 0, DEFAULTLOCK, c.LockTime).(int)
+	CONFIG.RefreshLockTime = Ternary(c.RefreshLockTime <= 0, DEFAULTREFRESH, c.RefreshLockTime).(int)
 	return nil
 }
 

@@ -9,58 +9,28 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/journeymidnight/yig-restore/compression"
-	"github.com/journeymidnight/yig-restore/helper"
-	"github.com/journeymidnight/yig-restore/log"
-	"github.com/journeymidnight/yig-restore/plugins/config"
-	"github.com/journeymidnight/yig-restore/redis"
-	"github.com/journeymidnight/yig-restore/restore"
-	"github.com/journeymidnight/yig-restore/storage"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/log"
+	"github.com/journeymidnight/yig/storage"
+	"github.com/journeymidnight/yig/tools/restore/restore"
 )
 
-var (
-	AllPluginMap map[string]*config.YigPlugin
-)
+const DefaultRestoreLog = "/var/log/yig/restore.log"
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	// Load configuration files
-	helper.ReadConfig()
+	helper.SetupConfig()
 
 	// yig log
-	logLevel := log.ParseLevel(helper.Conf.LogLevel)
-	helper.Logger = log.NewFileLogger(helper.Conf.LogPath, logLevel)
+	logLevel := log.ParseLevel(helper.CONFIG.LogLevel)
+	helper.Logger = log.NewFileLogger(DefaultRestoreLog, logLevel)
 	defer helper.Logger.Close()
-	helper.Logger.Info("Yig-Restore conf:", helper.Conf)
-	helper.Logger.Info("Yig-Restore ID:", helper.Conf.InstanceId)
 
-	// Read all *.so from plugins directory, and fill the variable allPlugins
-	AllPluginMap = config.InitialPlugins()
-	if helper.Conf.EnableCompression == true {
-		compress, err := compression.InitCompression(AllPluginMap)
-		if err != nil {
-			helper.Logger.Error("Failed to create compression unis, err:", err)
-			panic("failed to create compression unis")
-		}
-		if compress == nil {
-			helper.Logger.Error("Failed to create compression unis, unis is nil.")
-			panic("failed to create compression unis, unis is nil.")
-		}
-		helper.Logger.Info("Succeed to create compression unis.")
-	}
+	yig := storage.New(helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache, nil)
 
-	// Initialize redis connection
-	redis.Initialize()
-	defer redis.Close()
-
-	yig := storage.New()
-	restoreServer := &restore.ServerConfig{
-		Logger:      helper.Logger,
-		Helper:      helper.Conf,
-		ObjectLayer: yig,
-	}
-	go restore.Restore(*restoreServer)
+	go restore.Restore(yig)
 
 	signal.Ignore()
 	restore.SignalQueue = make(chan os.Signal)

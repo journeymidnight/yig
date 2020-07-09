@@ -4,6 +4,8 @@ import (
 	"context"
 	. "database/sql/driver"
 
+	"github.com/journeymidnight/yig/meta/common"
+
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
@@ -104,4 +106,20 @@ func (c *TiKVClient) UpdateFreezerDate(bucketName, objectName, version string, l
 func (c *TiKVClient) DeleteFreezer(bucketName, objectName, versionId string, objectType ObjectType, createTime uint64, tx Tx) (err error) {
 	key := genFreezerKey(bucketName, objectName, versionId)
 	return c.TxDelete(key)
+}
+
+func (c *TiKVClient) ListFreezers(maxKeys int) (retFreezers []Freezer, err error) {
+	return
+}
+
+func (c *TiKVClient) ListFreezersNeedContinue(maxKeys int, status common.RestoreStatus) (retFreezers []Freezer, err error) {
+	return
+}
+
+func (c *TiKVClient) PutFreezer(freezer *Freezer, status common.RestoreStatus, tx Tx) (err error) {
+	return
+}
+
+func (c *TiKVClient) UpdateFreezerStatus(bucketName, objectName, version string, status, statusSetting common.RestoreStatus) (err error) {
+	return
 }

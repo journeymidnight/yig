@@ -3,6 +3,8 @@ package client
 import (
 	. "database/sql/driver"
 
+	"github.com/journeymidnight/yig/meta/common"
+
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/meta/types"
 )
@@ -74,6 +76,10 @@ type Client interface {
 	GetFreezerStatus(bucketName, objectName, version string) (freezer *Freezer, err error)
 	UpdateFreezerDate(bucketName, objectName, version string, lifetime int) (err error)
 	DeleteFreezer(bucketName, objectName, versionId string, objectType ObjectType, createTime uint64, tx Tx) (err error)
+	ListFreezers(maxKeys int) (retFreezers []Freezer, err error)
+	ListFreezersNeedContinue(maxKeys int, status common.RestoreStatus) (retFreezers []Freezer, err error)
+	PutFreezer(freezer *Freezer, status common.RestoreStatus, tx Tx) (err error)
+	UpdateFreezerStatus(bucketName, objectName, version string, status, statusSetting common.RestoreStatus) (err error)
 
 	//qos
 	GetAllUserQos() (userQos map[string]UserQos, err error)

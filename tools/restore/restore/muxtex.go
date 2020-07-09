@@ -1,13 +1,15 @@
 package restore
 
 import (
-	"github.com/journeymidnight/yig-restore/redis"
 	"os"
 	"sync"
 	"time"
 
+	"github.com/journeymidnight/yig/redis"
+
+	"github.com/journeymidnight/yig/helper"
+
 	"github.com/bsm/redislock"
-	"github.com/journeymidnight/yig-restore/helper"
 )
 
 var (
@@ -20,12 +22,12 @@ var (
 
 func autoRefreshLock() {
 	WG.Add(1)
-	c := time.Tick(time.Duration(helper.Conf.RefreshLockTime) * time.Minute)
+	c := time.Tick(time.Duration(helper.CONFIG.RefreshLockTime) * time.Minute)
 	for {
 		select {
 		case <-c:
 			for key, lock := range mutexs {
-				err := lock.Refresh(time.Duration(helper.Conf.LockTime)*time.Minute, nil)
+				err := lock.Refresh(time.Duration(helper.CONFIG.LockTime)*time.Minute, nil)
 				if err != nil {
 					if err == redislock.ErrNotObtained {
 						helper.Logger.Info("No longer hold lock ...", key)
@@ -42,7 +44,7 @@ func autoRefreshLock() {
 		case <-ShutDown:
 			helper.Logger.Info("Shutting down, Release all locks")
 			for key, _ := range mutexs {
-				redis.Remove(key)
+				redis.RemoveLock(key)
 			}
 			WG.Done()
 		}

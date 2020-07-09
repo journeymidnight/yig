@@ -36,8 +36,8 @@ func (o *Freezer) GetCreateSql() (string, []interface{}) {
 func (o *Freezer) GetUpdateSql(status RestoreStatus) (string, []interface{}) {
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
 	sql := "update restoreobjects set status=?,lastmodifiedtime=?,location=?,pool=?," +
-		"ownerid=?,size=?,etag=? where bucketname=? and objectname=? and version=? and status=?"
-	args := []interface{}{status, lastModifiedTime, o.Location, o.Pool, o.OwnerId, o.Size, o.Etag, o.BucketName, o.Name, o.VersionId, o.Status}
+		"ownerid=?,size=?,objectid=?,etag=? where bucketname=? and objectname=? and version=? and status=?"
+	args := []interface{}{status, lastModifiedTime, o.Location, o.Pool, o.OwnerId, o.Size, o.ObjectId, o.Etag, o.BucketName, o.Name, o.VersionId, o.Status}
 
 	return sql, args
 }
