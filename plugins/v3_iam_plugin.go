@@ -105,15 +105,15 @@ func (a IamV3Client) GetKeysByUid(uid string) (credentials []common.Credential, 
 		slog.Error("GetKeysByUid send request failed", err)
 		return credentials, ErrInternalError
 	}
+	slog.Info("GetKeysByUid to IAM return status ", response.Status)
+	if response.StatusCode != 200 {
+		slog.Warn("GetKeysByUid to IAM failed return code = ", response.StatusCode)
+		return credentials, ErrInternalError
+	}
 	var resp AccessKeyItemList
 	err = helper.ReadJsonBody(response.Body, &resp)
 	if err != nil {
 		slog.Error("failed to read from IAM: " + err.Error())
-		return credentials, ErrInternalError
-	}
-	slog.Info("GetKeysByUid to IAM return status ", response.Status)
-	if response.StatusCode != 200 {
-		slog.Warn("GetKeysByUid to IAM failed return code = ", response.StatusCode)
 		return credentials, ErrInternalError
 	}
 	for _, value := range resp.Content {
@@ -151,6 +151,11 @@ func (a IamV3Client) GetCredential(accessKey string) (credential common.Credenti
 			slog.Error("GetCredential send request failed", err)
 			return credential, ErrInternalError
 		}
+		slog.Info("GetCredential to IAM return status ", response.Status)
+		if response.StatusCode != 200 {
+			slog.Warn("GetCredential to IAM failed return code = ", response.StatusCode)
+			return credential, ErrInternalError
+		}
 		var resp = new(QueryResp)
 		body := response.Body
 		jsonBytes, err := ioutil.ReadAll(body)
@@ -165,14 +170,6 @@ func (a IamV3Client) GetCredential(accessKey string) (credential common.Credenti
 		if err != nil {
 			slog.Error(" IAM JSON:", s, "Read IAM JSON err:", err)
 			return credential, ErrInternalError
-		}
-		slog.Info("GetCredential to IAM return status ", response.Status)
-		if response.StatusCode != 200 {
-			slog.Warn("GetCredential to IAM failed return code = ", response.StatusCode)
-			return credential, ErrInternalError
-		}
-		if resp.Code != "0" {
-
 		}
 		switch resp.Code {
 		case "0":
@@ -191,6 +188,7 @@ func (a IamV3Client) GetCredential(accessKey string) (credential common.Credenti
 			// Arrears
 			return credential, ErrSuspendedAccessKeyID
 		default:
+			slog.Error("Get Error from UCO")
 			return credential, ErrInternalError
 		}
 
