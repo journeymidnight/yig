@@ -1310,7 +1310,6 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 		}
 	}
 	var acl Acl
-	var policy AccessControlPolicy
 	if _, ok := r.Header["X-Amz-Acl"]; ok {
 		acl, err = getAclFromHeader(r.Header)
 		if err != nil {
@@ -1325,7 +1324,7 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 			WriteErrorResponse(w, r, ErrInvalidAcl)
 			return
 		}
-		err = xml.Unmarshal(aclBuffer, &policy)
+		err = xml.Unmarshal(aclBuffer, &acl.Policy)
 		if err != nil {
 			logger.Error("Unable to Unmarshal XML for ACL:", err)
 			WriteErrorResponse(w, r, ErrInternalError)
@@ -1333,7 +1332,7 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 		}
 	}
 
-	err = api.ObjectAPI.SetObjectAcl(reqCtx, policy, acl, credential)
+	err = api.ObjectAPI.SetObjectAcl(reqCtx, acl, credential)
 	if err != nil {
 		logger.Error("Unable to set ACL for object", objectName,
 			"error:", err)

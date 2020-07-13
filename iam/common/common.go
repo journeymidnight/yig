@@ -2,10 +2,10 @@ package common
 
 import "errors"
 
-const {
-	OSSFullAccess string = "oss_full_access"
-	OSSReadOnly string = "oss_read_only"
-}
+const (
+	OSSFullAccess = "oss_full_access"
+	OSSReadOnly   = "oss_read_only"
+)
 
 // credential container for access and secret keys.
 type Credential struct {

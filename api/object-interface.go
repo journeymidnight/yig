@@ -40,7 +40,7 @@ type ObjectLayer interface {
 		credential common.Credential) error
 	GetBucketLifecycle(reqCtx RequestContext, credential common.Credential) (lifecycle.Lifecycle, error)
 	DelBucketLifecycle(reqCtx RequestContext, credential common.Credential) error
-	SetBucketAcl(reqCtx RequestContext, policy datatype.AccessControlPolicy, acl datatype.Acl,
+	SetBucketAcl(reqCtx RequestContext, acl datatype.Acl,
 		credential common.Credential) error
 	GetBucketAcl(reqCtx RequestContext, credential common.Credential) (datatype.AccessControlPolicyResponse, error)
 	SetBucketCors(reqCtx RequestContext, cors datatype.Cors, credential common.Credential) error
@@ -90,8 +90,7 @@ type ObjectLayer interface {
 		sseRequest datatype.SseRequest, isMetadataOnly, isTranStorageClassOnly bool) (result datatype.PutObjectResult, err error)
 	RenameObject(reqCtx RequestContext, targetObject *meta.Object, sourceObject string, credential common.Credential) (result datatype.RenameObjectResult, err error)
 	PutObjectMeta(bucket *meta.Bucket, targetObject *meta.Object, credential common.Credential) (err error)
-	SetObjectAcl(reqCtx RequestContext, policy datatype.AccessControlPolicy,
-		acl datatype.Acl, credential common.Credential) error
+	SetObjectAcl(reqCtx RequestContext, acl datatype.Acl, credential common.Credential) error
 	GetObjectAcl(reqCtx RequestContext, credential common.Credential) (
 		policy datatype.AccessControlPolicyResponse, err error)
 	DeleteObject(reqCtx RequestContext, credential common.Credential) (datatype.DeleteObjectResult,

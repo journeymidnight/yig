@@ -72,8 +72,8 @@ type Grant struct {
 
 type Grantee struct {
 	XMLName      xml.Name `xml:"Grantee"`
-	XmlnsXsi     string   `xml:"xmlns:xsi,attr"`
-	XsiType      string   `xml:"http://www.w3.org/2001/XMLSchema-instance type,attr"`
+	XmlnsXsi     string   `xml:"xmlns xsi,attr,omitempty"`
+	XsiType      string   `xml:"http://www.w3.org/2001/XMLSchema-instance type,attr,omitempty"`
 	URI          string   `xml:"URI,omitempty"`
 	ID           string   `xml:"ID,omitempty"`
 	DisplayName  string   `xml:"DisplayName,omitempty"`
