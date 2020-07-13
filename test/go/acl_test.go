@@ -48,46 +48,46 @@ const (
 func Test_ACL(t *testing.T) {
 	sc := NewS3()
 	defer func() {
-		sc.DeleteObject(TEST_BUCKET, TEST_KEY)
-		sc.DeleteBucket(TEST_BUCKET)
+		sc.DeleteObject(TestBucket, TestKey)
+		sc.DeleteBucket(TestBucket)
 	}()
-	err := sc.MakeBucket(TEST_BUCKET)
+	err := sc.MakeBucket(TestBucket)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
 	t.Log("MakeBucket Success.")
-	err = sc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	err = sc.PutObject(TestBucket, TestKey, TestValue)
 	if err != nil {
 		t.Fatal("PutObject err:", err)
 		panic(err)
 	}
 	t.Log("PutObject Success.")
 
-	err = sc.PutBucketAcl(TEST_BUCKET, BucketCannedACLPrivate)
+	err = sc.PutBucketAcl(TestBucket, BucketCannedACLPrivate)
 	if err != nil {
 		t.Fatal("PutBucketAcl err:", err)
 	}
 	t.Log("PutBucketAcl Success!")
-	out, err := sc.GetBucketAcl(TEST_BUCKET)
+	out, err := sc.GetBucketAcl(TestBucket)
 	if err != nil {
 		t.Fatal("GetBucketAcl err:", err)
 	}
 	t.Log("GetBucketAcl Success! out:", out)
 
-	err = sc.PutObjectAcl(TEST_BUCKET, TEST_KEY+"NONE", BucketCannedACLPrivate)
+	err = sc.PutObjectAcl(TestBucket, TestKey+"NONE", BucketCannedACLPrivate)
 	if err == nil {
-		t.Fatal("PutObjectAclWithNoSuchObject err: We have no such key", TEST_KEY)
+		t.Fatal("PutObjectAclWithNoSuchObject err: We have no such key", TestKey)
 	}
 	t.Log("PutObjectAclWithNoSuchObject Success!")
 
-	err = sc.PutObjectAcl(TEST_BUCKET, TEST_KEY, BucketCannedACLPrivate)
+	err = sc.PutObjectAcl(TestBucket, TestKey, BucketCannedACLPrivate)
 	if err != nil {
 		t.Fatal("PutObjectAcl err:", err)
 	}
 	t.Log("PutObjectAcl Success!")
 
-	out, err = sc.GetObjectAcl(TEST_BUCKET, TEST_KEY)
+	out, err = sc.GetObjectAcl(TestBucket, TestKey)
 	if err != nil {
 		t.Fatal("GetObjectAcl err:", err)
 	}
@@ -117,13 +117,13 @@ func Test_ACL(t *testing.T) {
 	if acl == nil {
 		t.Fatal("PutObjectPublicAclWithXml err:", "empty acl!")
 	}
-	err = sc.PutObjectAclWithXml(TEST_BUCKET, TEST_KEY, acl)
+	err = sc.PutObjectAclWithXml(TestBucket, TestKey, acl)
 	if err != nil {
 		t.Fatal("PutObjectAclWithXml err:", err)
 	}
 	t.Log("PutObjectAclWithXml Success!")
 
-	out, err = sc.GetObjectAcl(TEST_BUCKET, TEST_KEY)
+	out, err = sc.GetObjectAcl(TestBucket, TestKey)
 	if err != nil {
 		t.Fatal("GetObjectAcl err:", err)
 	}
@@ -165,13 +165,13 @@ func Test_ACL(t *testing.T) {
 	if acl == nil {
 		t.Fatal("PutObjectPrivateAclWithXml err:", "empty acl!")
 	}
-	err = sc.PutObjectAclWithXml(TEST_BUCKET, TEST_KEY, acl)
+	err = sc.PutObjectAclWithXml(TestBucket, TestKey, acl)
 	if err != nil {
 		t.Fatal("PutObjectAclWithXml err:", err)
 	}
 	t.Log("PutObjectAclWithXml Success!")
 
-	out, err = sc.GetObjectAcl(TEST_BUCKET, TEST_KEY)
+	out, err = sc.GetObjectAcl(TestBucket, TestKey)
 	if err != nil {
 		t.Fatal("GetObjectAcl err:", err)
 	}
@@ -188,11 +188,11 @@ func Test_ACL(t *testing.T) {
 	}
 	t.Log("GetObject With private ACL test Success.")
 
-	err = sc.DeleteObject(TEST_BUCKET, TEST_KEY)
+	err = sc.DeleteObject(TestBucket, TestKey)
 	if err != nil {
 		t.Log("DeleteObject err:", err)
 	}
-	err = sc.DeleteBucket(TEST_BUCKET)
+	err = sc.DeleteBucket(TestBucket)
 	if err != nil {
 		t.Fatal("DeleteBucket err:", err)
 		panic(err)

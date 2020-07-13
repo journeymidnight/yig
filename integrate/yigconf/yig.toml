@@ -67,7 +67,6 @@ mg_scan_interval = 600
 mg_object_cooldown = 3600
 
 # Restore
-enable_compression = false
 enable_restore_object_cron = true
 restore_object_spec = "@hourly"
 lock_time = 45          # 45min, Note that the time set here must be greater than the refresh time, otherwise it will cause the lock to be released in advance to complete the operation

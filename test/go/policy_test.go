@@ -11,19 +11,19 @@ import (
 
 func Test_Bucket_Policy(t *testing.T) {
 	sc := NewS3()
-	err := sc.MakeBucket(TEST_BUCKET)
+	err := sc.MakeBucket(TestBucket)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
 	defer sc.CleanEnv()
-	err = sc.PutBucketPolicy(TEST_BUCKET, GetObjectPolicy_1)
+	err = sc.PutBucketPolicy(TestBucket, GetObjectPolicy_1)
 	if err != nil {
 		t.Fatal("PutBucketPolicy err:", err)
 	}
 	t.Log("PutBucketPolicy success.")
 
-	result, err := sc.GetBucketPolicy(TEST_BUCKET)
+	result, err := sc.GetBucketPolicy(TestBucket)
 	if err != nil {
 		t.Fatal("GetBucketPolicy err:", err, "policy:", result)
 	}
@@ -34,12 +34,12 @@ func Test_Bucket_Policy(t *testing.T) {
 		t.Fatal("GetBucketPolicy err:", err, "policy:", result)
 	}
 	t.Log("GetBucketPolicy success.")
-	err = sc.DeleteBucketPolicy(TEST_BUCKET)
+	err = sc.DeleteBucketPolicy(TestBucket)
 	if err != nil {
 		t.Fatal("DeleteBucketPolicy err:", err)
 	}
 
-	result, err = sc.GetBucketPolicy(TEST_BUCKET)
+	result, err = sc.GetBucketPolicy(TestBucket)
 	if err != nil {
 		t.Fatal("GetBucketPolicy err:", err)
 	}
@@ -62,20 +62,20 @@ func Test_Bucket_Policy(t *testing.T) {
 func Test_BucketPolicySample(t *testing.T) {
 	sc := NewS3()
 	defer func() {
-		sc.DeleteObject(TEST_BUCKET, TEST_KEY)
-		sc.DeleteBucket(TEST_BUCKET)
+		sc.DeleteObject(TestBucket, TestKey)
+		sc.DeleteBucket(TestBucket)
 	}()
-	err := sc.MakeBucket(TEST_BUCKET)
+	err := sc.MakeBucket(TestBucket)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 	}
-	err = sc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	err = sc.PutObject(TestBucket, TestKey, TestValue)
 	if err != nil {
 		t.Fatal("PutObject err:", err)
 	}
 
 	//Anonymous to get
-	url := "http://" + *sc.Client.Config.Endpoint + string(os.PathSeparator) + TEST_BUCKET + string(os.PathSeparator) + TEST_KEY
+	url := "http://" + *sc.Client.Config.Endpoint + string(os.PathSeparator) + TestBucket + string(os.PathSeparator) + TestKey
 	statusCode, _, err := HTTPRequestToGetObject(url)
 	if err != nil {
 		t.Fatal("GetObject err:", err)
@@ -85,12 +85,12 @@ func Test_BucketPolicySample(t *testing.T) {
 		t.Fatal("StatusCode should be AccessDenied(403), but the code is:", statusCode)
 	}
 
-	err = sc.PutBucketPolicy(TEST_BUCKET, GetObjectPolicy_1)
+	err = sc.PutBucketPolicy(TestBucket, GetObjectPolicy_1)
 	if err != nil {
 		t.Fatal("PutBucketPolicy err:", err)
 	}
 
-	policy, err := sc.GetBucketPolicy(TEST_BUCKET)
+	policy, err := sc.GetBucketPolicy(TestBucket)
 	if err != nil {
 		t.Fatal("GetBucketPolicy err:", err)
 	}
@@ -107,7 +107,7 @@ func Test_BucketPolicySample(t *testing.T) {
 	}
 	t.Log("Get object value:", string(data))
 
-	err = sc.DeleteBucketPolicy(TEST_BUCKET)
+	err = sc.DeleteBucketPolicy(TestBucket)
 	if err != nil {
 		t.Fatal("DeleteBucketPolicy err:", err)
 	}
@@ -135,20 +135,20 @@ func Test_BucketPolicySample(t *testing.T) {
 func Test_GetObjectByAnonymousWithPolicyCondition(t *testing.T) {
 	sc := NewS3()
 	sc.CleanEnv()
-	err := sc.MakeBucket(TEST_BUCKET)
+	err := sc.MakeBucket(TestBucket)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
-	err = sc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	err = sc.PutObject(TestBucket, TestKey, TestValue)
 	if err != nil {
 		t.Fatal("PutObject err:", err)
 		panic(err)
 	}
 
-	illegalRefererUrl := TEST_ILLEGALREFERER + "ImThief/"
-	legalRefererUrl := TEST_LEGALREFERER + "ImGentlemen/"
-	commonRefererUrl := TEST_COMMONREFERER + "ImCommon/"
+	illegalRefererUrl := TestIllegalReferer + "ImThief/"
+	legalRefererUrl := TestLegalReferer + "ImGentlemen/"
+	commonRefererUrl := TestCommonReferer + "ImCommon/"
 
 	illegalIP := "10.0.11.1"
 	legalIP := "10.0.12.12"

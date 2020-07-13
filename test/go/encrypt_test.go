@@ -30,13 +30,13 @@ const (
 
 func Test_PutBucketEncryption(t *testing.T) {
 	sc := NewS3()
-	err := sc.MakeBucket(TEST_BUCKET)
+	err := sc.MakeBucket(TestBucket)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
 	defer func() {
-		sc.DeleteBucket(TEST_BUCKET)
+		sc.DeleteBucket(TestBucket)
 	}()
 
 	var config = &datatype.EncryptionConfiguration{}
@@ -50,19 +50,19 @@ func Test_PutBucketEncryption(t *testing.T) {
 		t.Fatal("PutBucketEncryption err:", "empty encryption!")
 	}
 
-	err = sc.PutBucketEncryptionWithXml(TEST_BUCKET, encryption)
+	err = sc.PutBucketEncryptionWithXml(TestBucket, encryption)
 	if err != nil {
 		t.Fatal("PutBucketEncryptionWithXml err:", err)
 	}
 	t.Log("PutBucketEncryptionWithXml Success!")
 
-	out, err := sc.GetBucketEncryption(TEST_BUCKET)
+	out, err := sc.GetBucketEncryption(TestBucket)
 	if err != nil {
 		t.Fatal("GetBucketEncryption err:", err)
 	}
 	t.Log("GetBucketEncryption Success! out:", out)
 
-	out, err = sc.DeleteBucketEncryption(TEST_BUCKET)
+	out, err = sc.DeleteBucketEncryption(TestBucket)
 	if err != nil {
 		t.Fatal("DeleteBucketEncryption err:", err)
 	}
@@ -71,14 +71,14 @@ func Test_PutBucketEncryption(t *testing.T) {
 
 func Test_PutObejctWithSetBucketEncryption(t *testing.T) {
 	sc := NewS3()
-	err := sc.MakeBucket(TEST_BUCKET)
+	err := sc.MakeBucket(TestBucket)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
 	defer func() {
-		sc.DeleteObject(TEST_BUCKET, TEST_KEY)
-		sc.DeleteBucket(TEST_BUCKET)
+		sc.DeleteObject(TestBucket, TestKey)
+		sc.DeleteBucket(TestBucket)
 	}()
 	var config = &datatype.EncryptionConfiguration{}
 	err = xml.Unmarshal([]byte(EncryptionSSES3XML), config)
@@ -91,42 +91,42 @@ func Test_PutObejctWithSetBucketEncryption(t *testing.T) {
 		t.Fatal("PutBucketEncryption err:", "empty encryption!")
 	}
 
-	err = sc.PutBucketEncryptionWithXml(TEST_BUCKET, encryption)
+	err = sc.PutBucketEncryptionWithXml(TestBucket, encryption)
 	if err != nil {
 		t.Fatal("PutBucketEncryptionWithXml err:", err)
 	}
 	t.Log("PutBucketEncryptionWithXml Success!")
 
-	out, err := sc.GetBucketEncryption(TEST_BUCKET)
+	out, err := sc.GetBucketEncryption(TestBucket)
 	if err != nil {
 		t.Fatal("GetBucketEncryption err:", err)
 	}
 	t.Log("GetBucketEncryption Success! out:", out)
 
 	//PUT object
-	err = sc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	err = sc.PutObject(TestBucket, TestKey, TestValue)
 	if err != nil {
 		t.Fatal("PutObject err:", err)
 	}
 	t.Log("PutObject Success!")
 
-	out, err = sc.GetBucketEncryption(TEST_BUCKET)
+	out, err = sc.GetBucketEncryption(TestBucket)
 	if err != nil {
 		t.Fatal("GetBucketEncryption err:", err)
 	}
 	t.Log("GetBucketEncryption Success! out:", out)
 
 	//GET object
-	v, err := sc.GetEncryptObjectWithSSES3(TEST_BUCKET, TEST_KEY)
+	v, err := sc.GetEncryptObjectWithSSES3(TestBucket, TestKey)
 	if err != nil {
 		t.Fatal("GetEncryptObjectWithSSES3 err:", err)
 	}
-	if v != TEST_VALUE {
-		t.Fatal("GetEncryptObjectWithSSES3 err: value is:", v, ", but should be:", TEST_VALUE)
+	if v != TestValue {
+		t.Fatal("GetEncryptObjectWithSSES3 err: value is:", v, ", but should be:", TestValue)
 	}
 	t.Log("GetEncryptObjectWithSSES3 Success value:", v)
 
-	out, err = sc.DeleteBucketEncryption(TEST_BUCKET)
+	out, err = sc.DeleteBucketEncryption(TestBucket)
 	if err != nil {
 		t.Fatal("DeleteBucketEncryption err:", err)
 	}
@@ -135,51 +135,51 @@ func Test_PutObejctWithSetBucketEncryption(t *testing.T) {
 
 func Test_PutEncryptObjectWithSSEC(t *testing.T) {
 	sc := NewS3()
-	err := sc.MakeBucket(TEST_BUCKET)
+	err := sc.MakeBucket(TestBucket)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
 	defer func() {
-		sc.DeleteObject(TEST_BUCKET, TEST_KEY)
-		sc.DeleteBucket(TEST_BUCKET)
+		sc.DeleteObject(TestBucket, TestKey)
+		sc.DeleteBucket(TestBucket)
 	}()
-	err = sc.PutEncryptObjectWithSSEC(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	err = sc.PutEncryptObjectWithSSEC(TestBucket, TestKey, TestValue)
 	if err != nil {
 		t.Fatal("PutEncryptObjectWithSSEC err:", err)
 	}
-	v, err := sc.GetEncryptObjectWithSSEC(TEST_BUCKET, TEST_KEY)
+	v, err := sc.GetEncryptObjectWithSSEC(TestBucket, TestKey)
 	if err != nil {
 		t.Fatal("GetEncryptObjectWithSSEC err:", err)
 	}
-	if v != TEST_VALUE {
-		t.Fatal("GetEncryptObjectWithSSEC err: value is:", v, ", but should be:", TEST_VALUE)
+	if v != TestValue {
+		t.Fatal("GetEncryptObjectWithSSEC err: value is:", v, ", but should be:", TestValue)
 	}
 	t.Log("GetEncryptObjectWithSSEC Success value:", v)
 }
 
 func Test_PutEncryptObjectWithSSES3(t *testing.T) {
 	sc := NewS3()
-	err := sc.MakeBucket(TEST_BUCKET)
+	err := sc.MakeBucket(TestBucket)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
 	defer func() {
-		sc.DeleteObject(TEST_BUCKET, TEST_KEY)
-		sc.DeleteBucket(TEST_BUCKET)
+		sc.DeleteObject(TestBucket, TestKey)
+		sc.DeleteBucket(TestBucket)
 	}()
-	err = sc.PutEncryptObjectWithSSES3(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	err = sc.PutEncryptObjectWithSSES3(TestBucket, TestKey, TestValue)
 	if err != nil {
 		t.Fatal("PutEncryptObjectWithSSES3 err:", err)
 	}
 	t.Log("PutEncryptObjectWithSSES3 Success!")
-	v, err := sc.GetEncryptObjectWithSSES3(TEST_BUCKET, TEST_KEY)
+	v, err := sc.GetEncryptObjectWithSSES3(TestBucket, TestKey)
 	if err != nil {
 		t.Fatal("GetEncryptObjectWithSSES3 err:", err)
 	}
-	if v != TEST_VALUE {
-		t.Fatal("GetEncryptObjectWithSSES3 err: value is:", v, ", but should be:", TEST_VALUE)
+	if v != TestValue {
+		t.Fatal("GetEncryptObjectWithSSES3 err: value is:", v, ", but should be:", TestValue)
 	}
 	t.Log("GetEncryptObjectWithSSES3 Success value:", v)
 }
@@ -187,32 +187,32 @@ func Test_PutEncryptObjectWithSSES3(t *testing.T) {
 func Test_CopyObjectSourceIsSSES3(t *testing.T) {
 	svc := NewS3()
 	defer func() {
-		svc.DeleteObject(TEST_BUCKET, TEST_KEY)
-		svc.DeleteObject(TEST_COPY_BUCKET, TEST_KEY)
-		svc.DeleteBucket(TEST_BUCKET)
-		svc.DeleteBucket(TEST_COPY_BUCKET)
+		svc.DeleteObject(TestBucket, TestKey)
+		svc.DeleteObject(TestCopyBucket, TestKey)
+		svc.DeleteBucket(TestBucket)
+		svc.DeleteBucket(TestCopyBucket)
 	}()
-	err := svc.MakeBucket(TEST_BUCKET)
+	err := svc.MakeBucket(TestBucket)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
-	err = svc.MakeBucket(TEST_COPY_BUCKET)
+	err = svc.MakeBucket(TestCopyBucket)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
 
-	err = svc.PutEncryptObjectWithSSES3(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	err = svc.PutEncryptObjectWithSSES3(TestBucket, TestKey, TestValue)
 	if err != nil {
 		t.Fatal("PutEncryptObjectWithSSES3 err:", err)
 	}
 	t.Log("PutEncryptObjectWithSSES3 Success!")
 
 	input := &s3.CopyObjectInput{
-		Bucket:     aws.String(TEST_COPY_BUCKET),
-		CopySource: aws.String(TEST_BUCKET + "/" + TEST_KEY),
-		Key:        aws.String(TEST_KEY),
+		Bucket:     aws.String(TestCopyBucket),
+		CopySource: aws.String(TestBucket + "/" + TestKey),
+		Key:        aws.String(TestKey),
 	}
 	_, err = svc.Client.CopyObject(input)
 	if err != nil {
@@ -220,11 +220,11 @@ func Test_CopyObjectSourceIsSSES3(t *testing.T) {
 	}
 
 	//verify them
-	v1, err := svc.GetEncryptObjectWithSSES3(TEST_BUCKET, TEST_KEY)
+	v1, err := svc.GetEncryptObjectWithSSES3(TestBucket, TestKey)
 	if err != nil {
 		t.Fatal("Get Object err:", err)
 	}
-	v2, err := svc.GetEncryptObjectWithSSES3(TEST_COPY_BUCKET, TEST_KEY)
+	v2, err := svc.GetEncryptObjectWithSSES3(TestCopyBucket, TestKey)
 	if err != nil {
 		t.Fatal("Get Object err:", err)
 	}
@@ -236,12 +236,12 @@ func Test_CopyObjectSourceIsSSES3(t *testing.T) {
 func Test_CopyObjectWithSourceBucketEncryptionIsSSES3(t *testing.T) {
 	svc := NewS3()
 
-	err := svc.MakeBucket(TEST_BUCKET)
+	err := svc.MakeBucket(TestBucket)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
-	err = svc.MakeBucket(TEST_COPY_BUCKET)
+	err = svc.MakeBucket(TestCopyBucket)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
@@ -257,19 +257,19 @@ func Test_CopyObjectWithSourceBucketEncryptionIsSSES3(t *testing.T) {
 	if encryption == nil {
 		t.Fatal("PutBucketEncryption err:", "empty encryption!")
 	}
-	err = svc.PutBucketEncryptionWithXml(TEST_BUCKET, encryption)
+	err = svc.PutBucketEncryptionWithXml(TestBucket, encryption)
 	if err != nil {
 		t.Fatal("PutBucketEncryptionWithXml err:", err)
 	}
 	t.Log("PutBucketEncryptionWithXml Success!")
-	out, err := svc.GetBucketEncryption(TEST_BUCKET)
+	out, err := svc.GetBucketEncryption(TestBucket)
 	if err != nil {
 		t.Fatal("GetBucketEncryption err:", err)
 	}
 	t.Log("GetBucketEncryption Success! out:", out)
 
 	//PUT object
-	err = svc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	err = svc.PutObject(TestBucket, TestKey, TestValue)
 	if err != nil {
 		t.Fatal("PutObject err:", err)
 	}
@@ -277,9 +277,9 @@ func Test_CopyObjectWithSourceBucketEncryptionIsSSES3(t *testing.T) {
 
 	//Copy
 	input := &s3.CopyObjectInput{
-		Bucket:     aws.String(TEST_COPY_BUCKET),
-		CopySource: aws.String(TEST_BUCKET + "/" + TEST_KEY),
-		Key:        aws.String(TEST_KEY),
+		Bucket:     aws.String(TestCopyBucket),
+		CopySource: aws.String(TestBucket + "/" + TestKey),
+		Key:        aws.String(TestKey),
 	}
 	_, err = svc.Client.CopyObject(input)
 	if err != nil {
@@ -288,11 +288,11 @@ func Test_CopyObjectWithSourceBucketEncryptionIsSSES3(t *testing.T) {
 	t.Log("CopyObject Success!")
 
 	//verify them
-	v1, err := svc.GetEncryptObjectWithSSES3(TEST_BUCKET, TEST_KEY)
+	v1, err := svc.GetEncryptObjectWithSSES3(TestBucket, TestKey)
 	if err != nil {
 		t.Fatal("Get Object err:", err)
 	}
-	v2, err := svc.GetEncryptObjectWithSSES3(TEST_COPY_BUCKET, TEST_KEY)
+	v2, err := svc.GetEncryptObjectWithSSES3(TestCopyBucket, TestKey)
 	if err != nil {
 		t.Fatal("Get Object err:", err)
 	}
@@ -301,20 +301,20 @@ func Test_CopyObjectWithSourceBucketEncryptionIsSSES3(t *testing.T) {
 	}
 
 	//clean up
-	err = svc.DeleteObject(TEST_BUCKET, TEST_KEY)
+	err = svc.DeleteObject(TestBucket, TestKey)
 	if err != nil {
 		t.Log("DeleteObject err:", err)
 	}
-	err = svc.DeleteObject(TEST_COPY_BUCKET, TEST_KEY)
+	err = svc.DeleteObject(TestCopyBucket, TestKey)
 	if err != nil {
 		t.Log("DeleteObject err:", err)
 	}
-	err = svc.DeleteBucket(TEST_BUCKET)
+	err = svc.DeleteBucket(TestBucket)
 	if err != nil {
 		t.Fatal("DeleteBucket err:", err)
 		panic(err)
 	}
-	err = svc.DeleteBucket(TEST_COPY_BUCKET)
+	err = svc.DeleteBucket(TestCopyBucket)
 	if err != nil {
 		t.Fatal("DeleteBucket err:", err)
 		panic(err)
@@ -324,19 +324,19 @@ func Test_CopyObjectWithSourceBucketEncryptionIsSSES3(t *testing.T) {
 func Test_CopyObjectWithSetSSES3(t *testing.T) {
 	svc := NewS3()
 
-	err := svc.MakeBucket(TEST_BUCKET)
+	err := svc.MakeBucket(TestBucket)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
-	err = svc.MakeBucket(TEST_COPY_BUCKET)
+	err = svc.MakeBucket(TestCopyBucket)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
 
 	//PUT object
-	err = svc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	err = svc.PutObject(TestBucket, TestKey, TestValue)
 	if err != nil {
 		t.Fatal("PutObject err:", err)
 	}
@@ -344,9 +344,9 @@ func Test_CopyObjectWithSetSSES3(t *testing.T) {
 
 	//Copy
 	input := &s3.CopyObjectInput{
-		Bucket:               aws.String(TEST_COPY_BUCKET),
-		CopySource:           aws.String(TEST_BUCKET + "/" + TEST_KEY),
-		Key:                  aws.String(TEST_KEY),
+		Bucket:               aws.String(TestCopyBucket),
+		CopySource:           aws.String(TestBucket + "/" + TestKey),
+		Key:                  aws.String(TestKey),
 		ServerSideEncryption: aws.String("AES256"),
 	}
 	_, err = svc.Client.CopyObject(input)
@@ -356,11 +356,11 @@ func Test_CopyObjectWithSetSSES3(t *testing.T) {
 	t.Log("CopyObject Success!")
 
 	//verify them
-	v1, err := svc.GetEncryptObjectWithSSES3(TEST_BUCKET, TEST_KEY)
+	v1, err := svc.GetEncryptObjectWithSSES3(TestBucket, TestKey)
 	if err != nil {
 		t.Fatal("Get Object err:", err)
 	}
-	v2, err := svc.GetEncryptObjectWithSSES3(TEST_COPY_BUCKET, TEST_KEY)
+	v2, err := svc.GetEncryptObjectWithSSES3(TestCopyBucket, TestKey)
 	if err != nil {
 		t.Fatal("Get Object err:", err)
 	}
@@ -369,20 +369,20 @@ func Test_CopyObjectWithSetSSES3(t *testing.T) {
 	}
 
 	//clean up
-	err = svc.DeleteObject(TEST_BUCKET, TEST_KEY)
+	err = svc.DeleteObject(TestBucket, TestKey)
 	if err != nil {
 		t.Log("DeleteObject err:", err)
 	}
-	err = svc.DeleteObject(TEST_COPY_BUCKET, TEST_KEY)
+	err = svc.DeleteObject(TestCopyBucket, TestKey)
 	if err != nil {
 		t.Log("DeleteObject err:", err)
 	}
-	err = svc.DeleteBucket(TEST_BUCKET)
+	err = svc.DeleteBucket(TestBucket)
 	if err != nil {
 		t.Fatal("DeleteBucket err:", err)
 		panic(err)
 	}
-	err = svc.DeleteBucket(TEST_COPY_BUCKET)
+	err = svc.DeleteBucket(TestCopyBucket)
 	if err != nil {
 		t.Fatal("DeleteBucket err:", err)
 		panic(err)
@@ -392,12 +392,12 @@ func Test_CopyObjectWithSetSSES3(t *testing.T) {
 func Test_CopyObjectWithTargetBucketEncryptionIsSSES3(t *testing.T) {
 	svc := NewS3()
 
-	err := svc.MakeBucket(TEST_BUCKET)
+	err := svc.MakeBucket(TestBucket)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
-	err = svc.MakeBucket(TEST_COPY_BUCKET)
+	err = svc.MakeBucket(TestCopyBucket)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
@@ -413,24 +413,24 @@ func Test_CopyObjectWithTargetBucketEncryptionIsSSES3(t *testing.T) {
 	if encryption == nil {
 		t.Fatal("PutBucketEncryption err:", "empty encryption!")
 	}
-	err = svc.PutBucketEncryptionWithXml(TEST_COPY_BUCKET, encryption)
+	err = svc.PutBucketEncryptionWithXml(TestCopyBucket, encryption)
 	if err != nil {
 		t.Fatal("PutBucketEncryptionWithXml err:", err)
 	}
 	t.Log("PutBucketEncryptionWithXml Success!")
-	out, err := svc.GetBucketEncryption(TEST_BUCKET)
+	out, err := svc.GetBucketEncryption(TestBucket)
 	if err != nil {
 		t.Fatal("GetBucketEncryption err:", err)
 	}
 	t.Log("GetBucketEncryption Success! mybucket out:", out)
-	out, err = svc.GetBucketEncryption(TEST_COPY_BUCKET)
+	out, err = svc.GetBucketEncryption(TestCopyBucket)
 	if err != nil {
 		t.Fatal("GetBucketEncryption err:", err)
 	}
 	t.Log("GetBucketEncryption Success! mycopybucket out:", out)
 
 	//PUT object
-	err = svc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	err = svc.PutObject(TestBucket, TestKey, TestValue)
 	if err != nil {
 		t.Fatal("PutObject err:", err)
 	}
@@ -438,9 +438,9 @@ func Test_CopyObjectWithTargetBucketEncryptionIsSSES3(t *testing.T) {
 
 	//Copy
 	input := &s3.CopyObjectInput{
-		Bucket:     aws.String(TEST_COPY_BUCKET),
-		CopySource: aws.String(TEST_BUCKET + "/" + TEST_KEY),
-		Key:        aws.String(TEST_KEY),
+		Bucket:     aws.String(TestCopyBucket),
+		CopySource: aws.String(TestBucket + "/" + TestKey),
+		Key:        aws.String(TestKey),
 	}
 	_, err = svc.Client.CopyObject(input)
 	if err != nil {
@@ -449,11 +449,11 @@ func Test_CopyObjectWithTargetBucketEncryptionIsSSES3(t *testing.T) {
 	t.Log("CopyObject Success!")
 
 	//verify them
-	v1, err := svc.GetEncryptObjectWithSSES3(TEST_BUCKET, TEST_KEY)
+	v1, err := svc.GetEncryptObjectWithSSES3(TestBucket, TestKey)
 	if err != nil {
 		t.Fatal("Get Object err:", err)
 	}
-	v2, err := svc.GetEncryptObjectWithSSES3(TEST_COPY_BUCKET, TEST_KEY)
+	v2, err := svc.GetEncryptObjectWithSSES3(TestCopyBucket, TestKey)
 	if err != nil {
 		t.Fatal("Get Object err:", err)
 	}
@@ -462,20 +462,20 @@ func Test_CopyObjectWithTargetBucketEncryptionIsSSES3(t *testing.T) {
 	}
 
 	//clean up
-	err = svc.DeleteObject(TEST_BUCKET, TEST_KEY)
+	err = svc.DeleteObject(TestBucket, TestKey)
 	if err != nil {
 		t.Log("DeleteObject err:", err)
 	}
-	err = svc.DeleteObject(TEST_COPY_BUCKET, TEST_KEY)
+	err = svc.DeleteObject(TestCopyBucket, TestKey)
 	if err != nil {
 		t.Log("DeleteObject err:", err)
 	}
-	err = svc.DeleteBucket(TEST_BUCKET)
+	err = svc.DeleteBucket(TestBucket)
 	if err != nil {
 		t.Fatal("DeleteBucket err:", err)
 		panic(err)
 	}
-	err = svc.DeleteBucket(TEST_COPY_BUCKET)
+	err = svc.DeleteBucket(TestCopyBucket)
 	if err != nil {
 		t.Fatal("DeleteBucket err:", err)
 		panic(err)
@@ -486,12 +486,12 @@ func Test_MultipartUploadWithSSES3(t *testing.T) {
 	sc := NewS3()
 	defer sc.CleanEnv()
 	sc.CleanEnv()
-	err := sc.MakeBucket(TEST_BUCKET)
+	err := sc.MakeBucket(TestBucket)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
-	uploadId, err := sc.CreateMultiPartUploadWithSSES3(TEST_BUCKET, TEST_KEY, s3.ObjectStorageClassStandard)
+	uploadId, err := sc.CreateMultiPartUploadWithSSES3(TestBucket, TestKey, s3.ObjectStorageClassStandard)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
@@ -504,7 +504,7 @@ func Test_MultipartUploadWithSSES3(t *testing.T) {
 
 	for i := 0; i < partCount; i++ {
 		partNumber := int64(i + 1)
-		etag, err := sc.UploadPart(TEST_BUCKET, TEST_KEY, GenMinimalPart(), uploadId, partNumber)
+		etag, err := sc.UploadPart(TestBucket, TestKey, GenMinimalPart(), uploadId, partNumber)
 		if err != nil {
 			t.Fatal("UploadPart err:", err)
 			panic(err)
@@ -515,16 +515,16 @@ func Test_MultipartUploadWithSSES3(t *testing.T) {
 		}
 	}
 
-	err = sc.CompleteMultiPartUpload(TEST_BUCKET, TEST_KEY, uploadId, completedUpload)
+	err = sc.CompleteMultiPartUpload(TestBucket, TestKey, uploadId, completedUpload)
 	if err != nil {
 		t.Fatal("CompleteMultiPartUpload err:", err)
-		err = sc.AbortMultiPartUpload(TEST_BUCKET, TEST_KEY, uploadId)
+		err = sc.AbortMultiPartUpload(TestBucket, TestKey, uploadId)
 		if err != nil {
 			t.Fatal("AbortMultiPartUpload err:", err)
 		}
 	}
 
-	_, err = sc.GetEncryptObjectWithSSES3(TEST_BUCKET, TEST_KEY)
+	_, err = sc.GetEncryptObjectWithSSES3(TestBucket, TestKey)
 	if err != nil {
 		t.Fatal("GetEncryptObjectWithSSES3 err:", err)
 	}
@@ -533,19 +533,19 @@ func Test_MultipartUploadWithSSES3(t *testing.T) {
 
 func Test_CopyObjectPartWithSSES3(t *testing.T) {
 	svc := NewS3()
-	err := svc.MakeBucket(TEST_BUCKET)
+	err := svc.MakeBucket(TestBucket)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
-	err = svc.MakeBucket(TEST_COPY_BUCKET)
+	err = svc.MakeBucket(TestCopyBucket)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
 
 	//upload
-	uploadId, err := svc.CreateMultiPartUploadWithSSES3(TEST_BUCKET, TEST_KEY, s3.ObjectStorageClassStandard)
+	uploadId, err := svc.CreateMultiPartUploadWithSSES3(TestBucket, TestKey, s3.ObjectStorageClassStandard)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
@@ -556,7 +556,7 @@ func Test_CopyObjectPartWithSSES3(t *testing.T) {
 	}
 	for i := 0; i < partCount; i++ {
 		partNumber := int64(i + 1)
-		etag, err := svc.UploadPart(TEST_BUCKET, TEST_KEY, GenMinimalPart(), uploadId, partNumber)
+		etag, err := svc.UploadPart(TestBucket, TestKey, GenMinimalPart(), uploadId, partNumber)
 		if err != nil {
 			t.Fatal("UploadPart err:", err)
 			panic(err)
@@ -566,10 +566,10 @@ func Test_CopyObjectPartWithSSES3(t *testing.T) {
 			PartNumber: aws.Int64(partNumber),
 		}
 	}
-	err = svc.CompleteMultiPartUpload(TEST_BUCKET, TEST_KEY, uploadId, completedUpload)
+	err = svc.CompleteMultiPartUpload(TestBucket, TestKey, uploadId, completedUpload)
 	if err != nil {
 		t.Fatal("CompleteMultiPartUpload err:", err)
-		err = svc.AbortMultiPartUpload(TEST_BUCKET, TEST_KEY, uploadId)
+		err = svc.AbortMultiPartUpload(TestBucket, TestKey, uploadId)
 		if err != nil {
 			t.Fatal("AbortMultiPartUpload err:", err)
 		}
@@ -577,9 +577,9 @@ func Test_CopyObjectPartWithSSES3(t *testing.T) {
 
 	//Copy
 	input := &s3.CopyObjectInput{
-		Bucket:     aws.String(TEST_COPY_BUCKET),
-		CopySource: aws.String(TEST_BUCKET + "/" + TEST_KEY),
-		Key:        aws.String(TEST_KEY),
+		Bucket:     aws.String(TestCopyBucket),
+		CopySource: aws.String(TestBucket + "/" + TestKey),
+		Key:        aws.String(TestKey),
 	}
 	_, err = svc.Client.CopyObject(input)
 	if err != nil {
@@ -588,11 +588,11 @@ func Test_CopyObjectPartWithSSES3(t *testing.T) {
 	t.Log("CopyObject Success!")
 
 	//verify them
-	v1, err := svc.GetEncryptObjectWithSSES3(TEST_BUCKET, TEST_KEY)
+	v1, err := svc.GetEncryptObjectWithSSES3(TestBucket, TestKey)
 	if err != nil {
 		t.Fatal("Get Object err:", err)
 	}
-	v2, err := svc.GetEncryptObjectWithSSES3(TEST_COPY_BUCKET, TEST_KEY)
+	v2, err := svc.GetEncryptObjectWithSSES3(TestCopyBucket, TestKey)
 	if err != nil {
 		t.Fatal("Get Object err:", err)
 	}
@@ -601,20 +601,20 @@ func Test_CopyObjectPartWithSSES3(t *testing.T) {
 	}
 
 	//clean up
-	err = svc.DeleteObject(TEST_BUCKET, TEST_KEY)
+	err = svc.DeleteObject(TestBucket, TestKey)
 	if err != nil {
 		t.Log("DeleteObject err:", err)
 	}
-	err = svc.DeleteObject(TEST_COPY_BUCKET, TEST_KEY)
+	err = svc.DeleteObject(TestCopyBucket, TestKey)
 	if err != nil {
 		t.Log("DeleteObject err:", err)
 	}
-	err = svc.DeleteBucket(TEST_BUCKET)
+	err = svc.DeleteBucket(TestBucket)
 	if err != nil {
 		t.Fatal("DeleteBucket err:", err)
 		panic(err)
 	}
-	err = svc.DeleteBucket(TEST_COPY_BUCKET)
+	err = svc.DeleteBucket(TestCopyBucket)
 	if err != nil {
 		t.Fatal("DeleteBucket err:", err)
 		panic(err)

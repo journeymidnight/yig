@@ -12,9 +12,6 @@ import (
 )
 
 const (
-	TestLifecycleBucket1 = "testbucket1"
-	TestLifecycleBucket2 = "testbucket2"
-
 	TestLifecycleKey1 = "noVersion/testLC"
 	TestLifecycleKey2 = "version/testLC"
 )
@@ -131,7 +128,7 @@ func Test_LifecycleConfiguration(t *testing.T) {
 	assert.Equal(t, err, nil, "MakeBucket err")
 
 	// Put object, StorageClass: STANDARD
-	err = sc.PutObject(TestLifecycleBucket1, TestLifecycleKey1, TEST_VALUE)
+	err = sc.PutObject(TestLifecycleBucket1, TestLifecycleKey1, TestValue)
 	assert.Equal(t, err, nil, "PutObject1 err")
 
 	out, err := sc.GetObjectOutPut(TestLifecycleBucket1, TestLifecycleKey1)
@@ -196,7 +193,7 @@ func Test_LifecycleConfigurationToVersion(t *testing.T) {
 	err := sc.MakeBucket(TestLifecycleBucket2)
 	assert.Equal(t, err, nil, "MakeBucket err")
 
-	err = sc.PutObject(TestLifecycleBucket2, TestLifecycleKey2, TEST_VALUE)
+	err = sc.PutObject(TestLifecycleBucket2, TestLifecycleKey2, TestValue)
 	assert.Equal(t, err, nil, "PutObject err")
 
 	// Open bucket version
@@ -204,7 +201,7 @@ func Test_LifecycleConfigurationToVersion(t *testing.T) {
 	assert.Equal(t, err, nil, "PutBucketVersion err")
 
 	// Object have versionID
-	putObjOut, err := sc.PutObjectOutput(TestLifecycleBucket2, TestLifecycleKey2, TEST_VALUE)
+	putObjOut, err := sc.PutObjectOutput(TestLifecycleBucket2, TestLifecycleKey2, TestValue)
 	assert.Equal(t, err, nil, "PutObject err")
 	assert.NotEqual(t, putObjOut.VersionId, nil, "PutObject err")
 	t.Log("VersionId:", *putObjOut.VersionId)
@@ -215,7 +212,7 @@ func Test_LifecycleConfigurationToVersion(t *testing.T) {
 	assert.Equal(t, err, nil, "DeleteObject err")
 
 	// Put object version again
-	putObjOut, err = sc.PutObjectOutput(TestLifecycleBucket2, TestLifecycleKey2, TEST_VALUE)
+	putObjOut, err = sc.PutObjectOutput(TestLifecycleBucket2, TestLifecycleKey2, TestValue)
 	assert.Equal(t, err, nil, "PutObject err")
 	assert.NotEqual(t, putObjOut.VersionId, nil, "PutObject err")
 	t.Log("VersionId:", *putObjOut.VersionId)

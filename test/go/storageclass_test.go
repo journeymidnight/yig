@@ -18,9 +18,9 @@ type TestStorageClassCase struct {
 
 func Test_PutObject_With_StorageClass(t *testing.T) {
 	testCases := []TestStorageClassCase{
-		{TEST_BUCKET, TEST_KEY, []byte(TEST_VALUE), s3.ObjectStorageClassStandard, s3.ObjectStorageClassStandard},
-		{TEST_BUCKET, TEST_KEY, []byte(TEST_VALUE), s3.ObjectStorageClassStandardIa, s3.ObjectStorageClassStandardIa},
-		{TEST_BUCKET, TEST_KEY, []byte(TEST_VALUE), s3.ObjectStorageClassGlacier, s3.ObjectStorageClassGlacier},
+		{TestBucket, TestKey, []byte(TestValue), s3.ObjectStorageClassStandard, s3.ObjectStorageClassStandard},
+		{TestBucket, TestKey, []byte(TestValue), s3.ObjectStorageClassStandardIa, s3.ObjectStorageClassStandardIa},
+		{TestBucket, TestKey, []byte(TestValue), s3.ObjectStorageClassGlacier, s3.ObjectStorageClassGlacier},
 	}
 	sc := NewS3()
 	defer sc.CleanEnv()
@@ -51,9 +51,9 @@ func Test_PutObject_With_StorageClass(t *testing.T) {
 
 func Test_MultipartUpload_With_StorageClass(t *testing.T) {
 	testCases := []TestStorageClassCase{
-		{TEST_BUCKET, TEST_KEY, GenMinimalPart(), s3.ObjectStorageClassStandard, s3.ObjectStorageClassStandard},
-		{TEST_BUCKET, TEST_KEY, GenMinimalPart(), s3.ObjectStorageClassStandardIa, s3.ObjectStorageClassStandardIa},
-		{TEST_BUCKET, TEST_KEY, GenMinimalPart(), s3.ObjectStorageClassGlacier, s3.ObjectStorageClassGlacier},
+		{TestBucket, TestKey, GenMinimalPart(), s3.ObjectStorageClassStandard, s3.ObjectStorageClassStandard},
+		{TestBucket, TestKey, GenMinimalPart(), s3.ObjectStorageClassStandardIa, s3.ObjectStorageClassStandardIa},
+		{TestBucket, TestKey, GenMinimalPart(), s3.ObjectStorageClassGlacier, s3.ObjectStorageClassGlacier},
 	}
 	sc := NewS3()
 	defer sc.CleanEnv()
@@ -113,7 +113,7 @@ func Test_MultipartUpload_With_StorageClass(t *testing.T) {
 
 func Test_Change_StorageClass(t *testing.T) {
 	testCases := []TestStorageClassCase{
-		{TEST_BUCKET, TEST_KEY, []byte(TEST_VALUE), s3.ObjectStorageClassStandardIa, s3.ObjectStorageClassStandardIa},
+		{TestBucket, TestKey, []byte(TestValue), s3.ObjectStorageClassStandardIa, s3.ObjectStorageClassStandardIa},
 	}
 	sc := NewS3()
 	defer sc.CleanEnv()

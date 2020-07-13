@@ -13,20 +13,20 @@ import (
 func Test_BucketWebSite(t *testing.T) {
 	sc := NewS3()
 	defer sc.CleanEnv()
-	err := sc.MakeBucket(TEST_BUCKET)
+	err := sc.MakeBucket(TestBucket)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
-	err = sc.PutBucketWebsite(TEST_BUCKET, "index.html", "error.html")
+	err = sc.PutBucketWebsite(TestBucket, "index.html", "error.html")
 	if err != nil {
 		t.Fatal("PutBucketWebsite err:", err)
 		panic(err)
 	}
-	out, err := sc.GetBucketWebsite(TEST_BUCKET)
+	out, err := sc.GetBucketWebsite(TestBucket)
 	t.Log("Webstite:", out)
 
-	err = sc.DeleteBucketWebsite(TEST_BUCKET)
+	err = sc.DeleteBucketWebsite(TestBucket)
 	if err != nil {
 		t.Fatal("DeleteBucketWebsite err:", err)
 		panic(err)
@@ -81,15 +81,15 @@ var testUnits = []WebsiteTestUnit{
 			IndexDocument: &s3.IndexDocument{Suffix: aws.String("index.html")},
 			ErrorDocument: &s3.ErrorDocument{Key: aws.String("error.html")},
 		},
-		Buckets: []string{TEST_BUCKET},
+		Buckets: []string{TestBucket},
 		Objects: []ObjectInput{
-			{TEST_BUCKET, "index.html", testIndexHTML},
-			{TEST_BUCKET, "error.html", testErrorHTML},
+			{TestBucket, "index.html", testIndexHTML},
+			{TestBucket, "error.html", testErrorHTML},
 		},
 		Fn: doGet,
 		Cases: []Case{
-			{"http://" + TEST_BUCKET + "." + Endpoint, 200, testIndexHTML, false},
-			{"http://" + TEST_BUCKET + "." + Endpoint + "/aaa.txt", 404, testErrorHTML, false},
+			{"http://" + TestBucket + "." + Endpoint, 200, testIndexHTML, false},
+			{"http://" + TestBucket + "." + Endpoint + "/aaa.txt", 404, testErrorHTML, false},
 		},
 	},
 	// Configure bucket as a website but redirect all requests
@@ -97,14 +97,14 @@ var testUnits = []WebsiteTestUnit{
 		WebsiteConfiguration: &s3.WebsiteConfiguration{
 			RedirectAllRequestsTo: &s3.RedirectAllRequestsTo{HostName: aws.String("sina.com")},
 		},
-		Buckets: []string{TEST_BUCKET},
+		Buckets: []string{TestBucket},
 		Objects: []ObjectInput{
-			{TEST_BUCKET, "index.html", testIndexHTML},
-			{TEST_BUCKET, "error.html", testErrorHTML},
+			{TestBucket, "index.html", testIndexHTML},
+			{TestBucket, "error.html", testErrorHTML},
 		},
 		Fn: doGet,
 		Cases: []Case{
-			{"http://" + TEST_BUCKET + "." + Endpoint + "/index.html", 200, testIndexHTML, true},
+			{"http://" + TestBucket + "." + Endpoint + "/index.html", 200, testIndexHTML, true},
 		},
 	},
 	// Configure bucket as a website and also specify optional redirection rules
@@ -119,15 +119,15 @@ var testUnits = []WebsiteTestUnit{
 				},
 			},
 		},
-		Buckets: []string{TEST_BUCKET},
+		Buckets: []string{TestBucket},
 		Objects: []ObjectInput{
-			{TEST_BUCKET, "documents/", ""},
-			{TEST_BUCKET, "documents/index.html", testIndexHTML},
+			{TestBucket, "documents/", ""},
+			{TestBucket, "documents/index.html", testIndexHTML},
 		},
 		Fn: doGet,
 		Cases: []Case{
-			{"http://" + TEST_BUCKET + "." + Endpoint + "/documents/", 200, testIndexHTML, false},
-			{"http://" + TEST_BUCKET + "." + Endpoint + "/docs/", 200, testIndexHTML, false},
+			{"http://" + TestBucket + "." + Endpoint + "/documents/", 200, testIndexHTML, false},
+			{"http://" + TestBucket + "." + Endpoint + "/docs/", 200, testIndexHTML, false},
 		},
 	},
 	// Configure bucket as a website and redirect errors
@@ -139,20 +139,20 @@ var testUnits = []WebsiteTestUnit{
 				{
 					Condition: &s3.Condition{HttpErrorCodeReturnedEquals: aws.String("404")},
 					Redirect: &s3.Redirect{
-						HostName:             aws.String(TEST_BUCKET + ".s3-internal.test.com:8080"),
+						HostName:             aws.String(TestBucket + ".s3-internal.test.com:8080"),
 						ReplaceKeyPrefixWith: aws.String("docs/"),
 					},
 				},
 			},
 		},
-		Buckets: []string{TEST_BUCKET},
+		Buckets: []string{TestBucket},
 		Objects: []ObjectInput{
-			{TEST_BUCKET, "docs/", ""},
-			{TEST_BUCKET, "docs/error.html", testErrorHTML},
+			{TestBucket, "docs/", ""},
+			{TestBucket, "docs/error.html", testErrorHTML},
 		},
 		Fn: doGet,
 		Cases: []Case{
-			{"http://" + TEST_BUCKET + "." + Endpoint + "/error.html", 200, testErrorHTML, true},
+			{"http://" + TestBucket + "." + Endpoint + "/error.html", 200, testErrorHTML, true},
 		},
 	},
 	//  Configure a bucket as a website and redirect folder requests to a page
@@ -168,15 +168,15 @@ var testUnits = []WebsiteTestUnit{
 			},
 		},
 
-		Buckets: []string{TEST_BUCKET},
+		Buckets: []string{TestBucket},
 		Objects: []ObjectInput{
-			{TEST_BUCKET, "docs/", ""},
-			{TEST_BUCKET, "docs/test", TEST_VALUE},
-			{TEST_BUCKET, "errorPage", testErrorHTML},
+			{TestBucket, "docs/", ""},
+			{TestBucket, "docs/test", TestValue},
+			{TestBucket, "errorPage", testErrorHTML},
 		},
 		Fn: doGet,
 		Cases: []Case{
-			{"http://" + TEST_BUCKET + "." + Endpoint + "/docs/test", 200, testErrorHTML, true},
+			{"http://" + TestBucket + "." + Endpoint + "/docs/test", 200, testErrorHTML, true},
 		},
 	},
 }
