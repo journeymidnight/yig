@@ -422,7 +422,11 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 	if marker != "" && !isPrefixMarker && needCheckMarker {
 		var needCompareNull = true
 		var nullObjMeta *Object
-		nullObjMeta, err = c.GetObject(bucketName, marker, NullVersion)
+		txn, err := c.NewTrans()
+		if err != nil {
+			return listInfo, err
+		}
+		nullObjMeta, err = c.GetObject(bucketName, marker, NullVersion, txn)
 		if err != nil && err != ErrNoSuchKey {
 			return listInfo, err
 		}
@@ -446,11 +450,7 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 
 		startKey = genObjectKey(bucketName, marker, verIdMarker)
 		endKey = genObjectKey(bucketName, marker, TableMaxKeySuffix)
-
-		tx, err := c.TxnCli.Begin(context.TODO())
-		if err != nil {
-			return listInfo, err
-		}
+		tx := txn.(*TikvTx).tx
 		it, err := tx.Iter(context.TODO(), key.Key(startKey), key.Key(endKey))
 		if err != nil {
 			return listInfo, err

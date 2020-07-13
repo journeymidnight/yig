@@ -26,7 +26,7 @@ func (m *Meta) GetObject(bucketName, objectName, reqVersion string, willNeed boo
 				return
 			}
 		} else {
-			object, err = m.Client.GetObject(bucketName, objectName, reqVersion)
+			object, err = m.Client.GetObject(bucketName, objectName, reqVersion, nil)
 			if err != nil {
 				return
 			}

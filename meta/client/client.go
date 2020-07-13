@@ -17,7 +17,7 @@ type Client interface {
 	CommitTrans(tx Tx) error
 
 	//object
-	GetObject(bucketName, objectName, version string) (object *Object, err error)
+	GetObject(bucketName, objectName, version string, tx Tx) (object *Object, err error)
 	GetLatestObjectVersion(bucketName, objectName string) (object *Object, err error)
 	PutObject(object *Object, multipart *Multipart, updateUsage bool) error
 	AppendObject(object *Object, updateUsage bool) error

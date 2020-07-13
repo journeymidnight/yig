@@ -14,7 +14,7 @@ import (
 	. "github.com/journeymidnight/yig/meta/types"
 )
 
-func (t *TidbClient) GetObject(bucketName, objectName, version string) (*Object, error) {
+func (t *TidbClient) GetObject(bucketName, objectName, version string, tx Tx) (*Object, error) {
 	var ibucketname, iname, customattributes, acl, lastModifiedTime string
 	var err error
 	var row *sql.Row

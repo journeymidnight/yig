@@ -32,10 +32,11 @@ func genHotObjectKey(bucketName, objectName, version string) []byte {
 }
 
 //object
-func (c *TiKVClient) GetObject(bucketName, objectName, version string) (*Object, error) {
+func (c *TiKVClient) GetObject(bucketName, objectName, version string, tx Tx) (*Object, error) {
 	key := genObjectKey(bucketName, objectName, version)
 	var o Object
-	ok, err := c.TxGet(key, &o, nil)
+	txn := tx.(*TikvTx).tx
+	ok, err := c.TxGet(key, &o, txn)
 	if err != nil {
 		return nil, err
 	}
