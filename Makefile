@@ -21,6 +21,7 @@ build_internal:
 	go build $(PWD)/tools/lc.go
 	go build $(PWD)/tools/migrate.go
 	go build -o $(PWD)/tikv-tool $(PWD)/tools/tikvtool/*.go
+	go build -o $(PWD)/yig-restore $(PWD)/tools/restore/*.go
 	cp -f $(PWD)/plugins/*.so $(PWD)/integrate/yigconf/plugins/
 
 pkg:
@@ -49,6 +50,9 @@ runmigrate:
 runlc:
 	cd integrate && sudo bash runlc.sh $(WORKDIR)
 
+runrestore:
+	cd integrate && sudo bash runrestore.sh $(WORKDIR)
+
 env:
 	cd integrate && docker-compose stop && docker-compose rm --force && sudo rm -rf cephconf && docker-compose up -d && sleep 20 && bash prepare_env.sh
 	
@@ -59,7 +63,7 @@ plugin_internal:
 	bash plugins/build_plugins_internal.sh
 
 
-integrate: env build run runlc runmigrate
+integrate: env build run runlc runmigrate runrestore
 
 clean:
 	cd integrate && docker-compose stop && docker-compose rm --force &&rm -rf cephconf

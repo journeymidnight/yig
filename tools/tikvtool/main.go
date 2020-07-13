@@ -189,23 +189,24 @@ func Decode(table string, data []byte) (string, error) {
 	}
 	var v interface{}
 	switch table {
-	case "buckets":
+	case TableBuckets:
 		var b types.Bucket
 		v = b
-	case "cluster":
+	case TableClusters:
 
-	case "multipart":
+	case TableMultiParts:
 
-	case "part":
+	case TableParts:
 
-	case "":
-
-	case "users":
+	case TableRestore:
+		var r types.Freezer
+		v = r
+	case TableUsers:
 		var bu tikvclient.BucketUsage
 		v = bu
-	case "objects":
+	case TableObjects:
 		fallthrough
-	case "hotobjects":
+	case TableHotObjects:
 		var o types.Object
 		v = o
 	}
