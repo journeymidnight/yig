@@ -5,6 +5,8 @@ import (
 	. "database/sql/driver"
 	"sync"
 
+	"github.com/tikv/client-go/txnkv"
+
 	"github.com/journeymidnight/yig/backend"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
@@ -35,7 +37,10 @@ func genHotObjectKey(bucketName, objectName, version string) []byte {
 func (c *TiKVClient) GetObject(bucketName, objectName, version string, tx Tx) (*Object, error) {
 	key := genObjectKey(bucketName, objectName, version)
 	var o Object
-	txn := tx.(*TikvTx).tx
+	var txn *txnkv.Transaction
+	if tx != nil {
+		txn = tx.(*TikvTx).tx
+	}
 	ok, err := c.TxGet(key, &o, txn)
 	if err != nil {
 		return nil, err
