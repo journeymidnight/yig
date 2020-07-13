@@ -26,7 +26,7 @@ lc_thread = 64
 meta_cache_type = 2
 meta_store = "tikv"
 tidb_info = "root:@tcp(10.5.0.17:4000)/yig"
-pd_address = ["pd0:2379", "pd1:2378", "pd2:2377"]
+pd_address = ["pd0:2379"]
 
 keepalive = true
 enable_usage_push = false
