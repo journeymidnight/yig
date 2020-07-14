@@ -218,7 +218,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.DefaultWriteOps = Ternary(c.DefaultWriteOps <= 0, 1000, c.DefaultWriteOps).(int)
 	CONFIG.DefaultBandwidthKBps = Ternary(c.DefaultBandwidthKBps <= 0, 102400, c.DefaultBandwidthKBps).(int)
 
-	CONFIG.EnableRestoreObjectCron = Ternary(c.EnableRestoreObjectCron, false, true).(bool)
+	CONFIG.EnableRestoreObjectCron = Ternary(c.EnableRestoreObjectCron, true, false).(bool)
 	CONFIG.RestoreObjectSpec = Ternary(c.RestoreObjectSpec == "", DEFAULTSPEC, c.RestoreObjectSpec).(string)
 	CONFIG.LockTime = Ternary(c.LockTime <= 0, DEFAULTLOCK, c.LockTime).(int)
 	CONFIG.RefreshLockTime = Ternary(c.RefreshLockTime <= 0, DEFAULTREFRESH, c.RefreshLockTime).(int)

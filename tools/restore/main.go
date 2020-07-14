@@ -9,10 +9,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/journeymidnight/yig/meta"
+
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/storage"
-	"github.com/journeymidnight/yig/tools/restore/restore"
 )
 
 const DefaultRestoreLog = "/var/log/yig/restore.log"
@@ -28,17 +29,17 @@ func main() {
 	helper.Logger = log.NewFileLogger(DefaultRestoreLog, logLevel)
 	defer helper.Logger.Close()
 
-	yig := storage.New(helper.CONFIG.MetaCacheType, helper.CONFIG.EnableDataCache, nil)
+	yig := storage.New(int(meta.NoCache), false, nil)
 
-	go restore.Restore(yig)
+	go Restore(yig)
 
 	signal.Ignore()
-	restore.SignalQueue = make(chan os.Signal)
-	restore.ShutDown = make(chan bool)
-	signal.Notify(restore.SignalQueue, syscall.SIGINT, syscall.SIGTERM,
+	SignalQueue = make(chan os.Signal)
+	ShutDown = make(chan bool)
+	signal.Notify(SignalQueue, syscall.SIGINT, syscall.SIGTERM,
 		syscall.SIGQUIT, syscall.SIGHUP, syscall.SIGUSR1)
 	for {
-		s := <-restore.SignalQueue
+		s := <-SignalQueue
 		switch s {
 		case syscall.SIGHUP:
 			fmt.Print("Recieve signal SIGHUP")
@@ -48,16 +49,16 @@ func main() {
 			go DumpStacks()
 			break
 		case syscall.SIGQUIT:
-			restore.ShutDown <- true
-			restore.Crontab.Stop()
-			restore.WG.Wait()
+			ShutDown <- true
+			Crontab.Stop()
+			WG.Wait()
 			fmt.Print("Recieve signal:", s.String())
 			fmt.Print("Stop yig restore...")
 			return
 		default:
-			restore.ShutDown <- true
-			restore.Crontab.Stop()
-			restore.WG.Wait()
+			ShutDown <- true
+			Crontab.Stop()
+			WG.Wait()
 			fmt.Print("Recieve signal:", s.String())
 			fmt.Print("Stop yig restore...")
 			return

@@ -1,4 +1,4 @@
-package restore
+package main
 
 import (
 	"github.com/bsm/redislock"
@@ -21,13 +21,31 @@ import (
 const MAXLISTNUM = 100
 
 var (
-	Crontab *cron.Cron
-	yig     *storage.YigStorage
+	Crontab   *cron.Cron
+	yig       *storage.YigStorage
+	RedisConn redis.Redis
+	Locker    *redislock.Client
 )
 
+func InitializeRedis() {
+	switch helper.CONFIG.RedisStore {
+	case "single":
+		helper.Logger.Info("Redis Mode Single, ADDR is:", helper.CONFIG.RedisAddress)
+		r := redis.InitializeSingle()
+		RedisConn = r.(redis.Redis)
+	case "cluster":
+		helper.Logger.Info("Redis Mode Cluster, ADDRs is:", helper.CONFIG.RedisGroup)
+		r := redis.InitializeCluster()
+		RedisConn = r.(redis.Redis)
+	}
+	Locker = redislock.New(redis.RedisClient)
+}
+
 func Restore(instance *storage.YigStorage) {
+	InitializeRedis()
 	yig = instance
 	mutexs = make(map[string]*redislock.Lock)
+
 	go autoRefreshLock()
 	helper.Logger.Info("Start yig-restore success ..")
 	go ContinueRestoreNotFinished()
@@ -74,7 +92,7 @@ func RestoreNotFinished(freezer meta.Freezer, w *sync.WaitGroup) {
 		var targetBucketName, targetObjectName, targetVersion string
 		var sourceObject *meta.Object
 		WG.Add(1)
-		mutex, err := redis.Locker.Obtain(redis.GenMutexKeyForRestore(&freezer), time.Duration(helper.CONFIG.LockTime)*time.Minute, nil)
+		mutex, err := Locker.Obtain(redis.GenMutexKeyForRestore(&freezer), time.Duration(helper.CONFIG.LockTime)*time.Minute, nil)
 		if err == redislock.ErrNotObtained {
 			helper.Logger.Error("Lock object failed:", freezer.BucketName, freezer.Name, freezer.VersionId)
 			goto out
@@ -149,6 +167,7 @@ func OperateObject() {
 	freezers, err := yig.MetaStorage.Client.ListFreezers(MAXLISTNUM)
 	if err != nil && err != ErrNoSuchKey {
 		helper.Logger.Error("List freezer failed, err is:", err)
+		return
 	}
 	for _, freezer := range freezers {
 		switch freezer.Status.ToString() {
@@ -173,7 +192,7 @@ func RestoreObject(freezer meta.Freezer) {
 		targetObjectName := freezer.Name
 		targetVersion := freezer.VersionId
 		WG.Add(1)
-		mutex, err := redis.Locker.Obtain(redis.GenMutexKeyForRestore(&freezer), time.Duration(helper.CONFIG.LockTime)*time.Minute, nil)
+		mutex, err := Locker.Obtain(redis.GenMutexKeyForRestore(&freezer), time.Duration(helper.CONFIG.LockTime)*time.Minute, nil)
 		if err == redislock.ErrNotObtained {
 			helper.Logger.Error("Lock object failed:", freezer.BucketName, freezer.Name, freezer.VersionId)
 			goto out
@@ -185,7 +204,9 @@ func RestoreObject(freezer meta.Freezer) {
 		mux.Lock()
 		mutexs[mutex.Key()] = mutex
 		mux.Unlock()
-
+		if targetVersion == meta.NullVersion {
+			targetVersion = ""
+		}
 		sourceObject, err = yig.GetObjectInfo(targetBucketName, targetObjectName, targetVersion, Credential{AllowOtherUserAccess: true})
 		if err != nil {
 			if err == ErrNoSuchKey {
@@ -248,7 +269,7 @@ func EliminateObject(freezer meta.Freezer) {
 		for {
 			var err error
 			WG.Add(1)
-			mutex, err := redis.Locker.Obtain(redis.GenMutexKeyForRestore(&freezer), time.Duration(helper.CONFIG.LockTime)*time.Minute, nil)
+			mutex, err := Locker.Obtain(redis.GenMutexKeyForRestore(&freezer), time.Duration(helper.CONFIG.LockTime)*time.Minute, nil)
 			if err == redislock.ErrNotObtained {
 				helper.Logger.Error("Lock object failed:", freezer.BucketName, freezer.Name, freezer.VersionId)
 				goto out
