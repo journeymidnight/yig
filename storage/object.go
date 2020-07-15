@@ -333,90 +333,45 @@ func copyEncryptedPart(pool string, part *meta.Part, cluster backend.Cluster,
 	return err
 }
 
-func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
-	version string, credential common.Credential) (object *meta.Object, err error) {
-
-	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
-	if err != nil {
-		return
-	}
-
-	if bucket.Versioning == BucketVersioningDisabled {
-		if version != "" {
-			return nil, ErrInvalidVersioning
-		}
-		object, err = yig.MetaStorage.GetObject(bucketName, objectName, meta.NullVersion, true)
-	} else {
-		if version == "null" {
-			version = meta.NullVersion
-		}
-		object, err = yig.MetaStorage.GetObject(bucketName, objectName, version, true)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
+func CheckBucketAclForGetObjectInfo(bucket *meta.Bucket, credential common.Credential) (err error) {
 	if !credential.AllowOtherUserAccess {
 		//an CanonicalUser request
-		if object.OwnerId != credential.UserId {
-			if object.ACL.CannedAcl != "" {
-				switch object.ACL.CannedAcl {
-				case "public-read", "public-read-write":
+		if bucket.OwnerId != credential.UserId {
+			if bucket.ACL.CannedAcl != "" {
+				switch bucket.ACL.CannedAcl {
+				case "public-read-write":
 					break
-				case "authenticated-read":
-					if credential.UserId == "" {
-						err = ErrAccessDenied
-						return
-					}
-				case "bucket-owner-read", "bucket-owner-full-control":
-					if bucket.OwnerId != credential.UserId {
-						err = ErrAccessDenied
-						return
-					}
 				default:
-					err = ErrAccessDenied
-					return
+					return ErrBucketAccessForbidden
 				}
 			} else {
 				switch true {
-				case datatype.IsPermissionMatchedById(object.ACL.Policy, datatype.ACL_PERM_READ_ACP, credential.UserId) ||
-					datatype.IsPermissionMatchedById(object.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, credential.UserId):
+				case datatype.IsPermissionMatchedById(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, credential.UserId) ||
+					datatype.IsPermissionMatchedById(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, credential.UserId):
 					break
-				case datatype.IsPermissionMatchedByGroup(object.ACL.Policy, datatype.ACL_PERM_READ_ACP, datatype.ACL_GROUP_TYPE_ALL_USERS) ||
-					datatype.IsPermissionMatchedByGroup(object.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_ALL_USERS):
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, datatype.ACL_GROUP_TYPE_ALL_USERS) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_ALL_USERS):
 					break
-				case datatype.IsPermissionMatchedByGroup(object.ACL.Policy, datatype.ACL_PERM_READ_ACP, datatype.ACL_GROUP_TYPE_AUTHENTICATED_USERS) ||
-					datatype.IsPermissionMatchedByGroup(object.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_AUTHENTICATED_USERS):
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, datatype.ACL_GROUP_TYPE_AUTHENTICATED_USERS) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_AUTHENTICATED_USERS):
 					if credential.UserId != "" {
 						break
 					}
-				case datatype.IsPermissionMatchedByGroup(object.ACL.Policy, datatype.ACL_PERM_READ_ACP, datatype.ACL_GROUP_TYPE_LOG_DELIVERY) ||
-					datatype.IsPermissionMatchedByGroup(object.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_LOG_DELIVERY):
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, datatype.ACL_GROUP_TYPE_LOG_DELIVERY) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_LOG_DELIVERY):
 					if helper.StringInSlice(credential.UserId, helper.CONFIG.LogDeliveryGroup) {
 						break
 					}
 				default:
-					err = ErrAccessDenied
-					return
+					return ErrBucketAccessForbidden
 				}
 			}
 		}
 	}
-
-	return
+	return nil
 }
 
-func (yig *YigStorage) GetObjectInfoByCtx(ctx RequestContext, credential common.Credential) (object *meta.Object, err error) {
-	bucket := ctx.BucketInfo
-	if bucket == nil {
-		return nil, ErrNoSuchBucket
-	}
-	object = ctx.ObjectInfo
-	if object == nil {
-		return nil, ErrNoSuchKey
-	}
-
+func CheckObjectAclForGetObjectInfo(bucket *meta.Bucket, object *meta.Object, credential common.Credential) (err error) {
 	if !credential.AllowOtherUserAccess {
 		//an CanonicalUser request
 		if object.OwnerId != credential.UserId {
@@ -463,6 +418,146 @@ func (yig *YigStorage) GetObjectInfoByCtx(ctx RequestContext, credential common.
 			}
 		}
 	}
+	return nil
+}
+
+func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
+	version string, credential common.Credential) (object *meta.Object, err error) {
+
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
+	if err != nil {
+		return
+	}
+
+	if bucket.Versioning == datatype.BucketVersioningDisabled {
+		if version != "" {
+			return nil, ErrInvalidVersioning
+		}
+		object, err = yig.MetaStorage.GetObject(bucketName, objectName, meta.NullVersion, true)
+	} else {
+		if version == "null" {
+			version = meta.NullVersion
+		}
+		object, err = yig.MetaStorage.GetObject(bucketName, objectName, version, true)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	if CheckBucketAclForGetObjectInfo(bucket, credential) != nil && CheckObjectAclForGetObjectInfo(bucket, object, credential) != nil {
+		return nil, ErrAccessDenied
+	}
+	// if !credential.AllowOtherUserAccess {
+	// 	//an CanonicalUser request
+	// 	if object.OwnerId != credential.UserId {
+	// 		if object.ACL.CannedAcl != "" {
+	// 			switch object.ACL.CannedAcl {
+	// 			case "public-read", "public-read-write":
+	// 				break
+	// 			case "authenticated-read":
+	// 				if credential.UserId == "" {
+	// 					err = ErrAccessDenied
+	// 					return
+	// 				}
+	// 			case "bucket-owner-read", "bucket-owner-full-control":
+	// 				if bucket.OwnerId != credential.UserId {
+	// 					err = ErrAccessDenied
+	// 					return
+	// 				}
+	// 			default:
+	// 				err = ErrAccessDenied
+	// 				return
+	// 			}
+	// 		} else {
+	// 			switch true {
+	// 			case datatype.IsPermissionMatchedById(object.ACL.Policy, datatype.ACL_PERM_READ, credential.UserId) ||
+	// 				datatype.IsPermissionMatchedById(object.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, credential.UserId):
+	// 				break
+	// 			case datatype.IsPermissionMatchedByGroup(object.ACL.Policy, datatype.ACL_PERM_READ, datatype.ACL_GROUP_TYPE_ALL_USERS) ||
+	// 				datatype.IsPermissionMatchedByGroup(object.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_ALL_USERS):
+	// 				break
+	// 			case datatype.IsPermissionMatchedByGroup(object.ACL.Policy, datatype.ACL_PERM_READ, datatype.ACL_GROUP_TYPE_AUTHENTICATED_USERS) ||
+	// 				datatype.IsPermissionMatchedByGroup(object.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_AUTHENTICATED_USERS):
+	// 				if credential.UserId != "" {
+	// 					break
+	// 				}
+	// 			case datatype.IsPermissionMatchedByGroup(object.ACL.Policy, datatype.ACL_PERM_READ, datatype.ACL_GROUP_TYPE_LOG_DELIVERY) ||
+	// 				datatype.IsPermissionMatchedByGroup(object.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_LOG_DELIVERY):
+	// 				if helper.StringInSlice(credential.UserId, helper.CONFIG.LogDeliveryGroup) {
+	// 					break
+	// 				}
+	// 			default:
+	// 				err = ErrAccessDenied
+	// 				return
+	// 			}
+	// 		}
+	// 	}
+	// }
+
+	return
+}
+
+func (yig *YigStorage) GetObjectInfoByCtx(ctx RequestContext, credential common.Credential) (object *meta.Object, err error) {
+	bucket := ctx.BucketInfo
+	if bucket == nil {
+		return nil, ErrNoSuchBucket
+	}
+
+	object = ctx.ObjectInfo
+	if object == nil {
+		return nil, ErrNoSuchKey
+	}
+
+	if CheckBucketAclForGetObjectInfo(bucket, credential) != nil && CheckObjectAclForGetObjectInfo(bucket, object, credential) != nil {
+		return nil, ErrAccessDenied
+	}
+	// if !credential.AllowOtherUserAccess {
+	// 	//an CanonicalUser request
+	// 	if object.OwnerId != credential.UserId {
+	// 		if object.ACL.CannedAcl != "" {
+	// 			switch object.ACL.CannedAcl {
+	// 			case "public-read", "public-read-write":
+	// 				break
+	// 			case "authenticated-read":
+	// 				if credential.UserId == "" {
+	// 					err = ErrAccessDenied
+	// 					return
+	// 				}
+	// 			case "bucket-owner-read", "bucket-owner-full-control":
+	// 				if bucket.OwnerId != credential.UserId {
+	// 					err = ErrAccessDenied
+	// 					return
+	// 				}
+	// 			default:
+	// 				err = ErrAccessDenied
+	// 				return
+	// 			}
+	// 		} else {
+	// 			switch true {
+	// 			case datatype.IsPermissionMatchedById(object.ACL.Policy, datatype.ACL_PERM_READ, credential.UserId) ||
+	// 				datatype.IsPermissionMatchedById(object.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, credential.UserId):
+	// 				break
+	// 			case datatype.IsPermissionMatchedByGroup(object.ACL.Policy, datatype.ACL_PERM_READ, datatype.ACL_GROUP_TYPE_ALL_USERS) ||
+	// 				datatype.IsPermissionMatchedByGroup(object.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_ALL_USERS):
+	// 				break
+	// 			case datatype.IsPermissionMatchedByGroup(object.ACL.Policy, datatype.ACL_PERM_READ, datatype.ACL_GROUP_TYPE_AUTHENTICATED_USERS) ||
+	// 				datatype.IsPermissionMatchedByGroup(object.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_AUTHENTICATED_USERS):
+	// 				if credential.UserId != "" {
+	// 					break
+	// 				}
+	// 			case datatype.IsPermissionMatchedByGroup(object.ACL.Policy, datatype.ACL_PERM_READ, datatype.ACL_GROUP_TYPE_LOG_DELIVERY) ||
+	// 				datatype.IsPermissionMatchedByGroup(object.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_LOG_DELIVERY):
+	// 				if helper.StringInSlice(credential.UserId, helper.CONFIG.LogDeliveryGroup) {
+	// 					break
+	// 				}
+	// 			default:
+	// 				err = ErrAccessDenied
+	// 				return
+	// 			}
+	// 		}
+	// 	}
+	// }
 	return
 }
 

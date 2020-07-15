@@ -36,10 +36,20 @@ func (d DebugIamClient) GetKeysByUid(uid string) (c []common.Credential, err err
 }
 
 func (d DebugIamClient) GetCredential(accessKey string) (c common.Credential, err error) {
-	return common.Credential{
-		UserId:          "hehehehe",
-		DisplayName:     "hehehehe",
-		AccessKeyID:     accessKey,
-		SecretAccessKey: "hehehehe",
-	}, nil // For test now
+	if accessKey == "hehehehe" {
+		return common.Credential{
+			UserId:          "hehehehe",
+			DisplayName:     "hehehehe",
+			AccessKeyID:     accessKey,
+			SecretAccessKey: "hehehehe",
+		}, nil // For test now
+	} else {
+		return common.Credential{
+			UserId:          "hahahaha",
+			DisplayName:     "hahahaha",
+			AccessKeyID:     accessKey,
+			SecretAccessKey: "hahahaha",
+		}, nil // For test now
+	}
+
 }
