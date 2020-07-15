@@ -8,11 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/journeymidnight/yig/circuitbreak"
-	"github.com/journeymidnight/yig/helper"
-	_ "github.com/journeymidnight/yig/iam"
-	"github.com/journeymidnight/yig/iam/common"
-	"github.com/journeymidnight/yig/mods"
 	"hash"
 	"io"
 	"io/ioutil"
@@ -20,6 +15,12 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+
+	"github.com/journeymidnight/yig/circuitbreak"
+	"github.com/journeymidnight/yig/helper"
+	_ "github.com/journeymidnight/yig/iam"
+	"github.com/journeymidnight/yig/iam/common"
+	"github.com/journeymidnight/yig/mods"
 )
 
 type AccessKeyItemList struct {
@@ -70,7 +71,6 @@ var Exported = mods.YigPlugin{
 }
 
 func GetIamClient(config map[string]interface{}) (interface{}, error) {
-
 	helper.Logger.Info("Get plugin config: %v\n", config)
 	c := IamV3Client{
 		IamUrl:          config["url"].(string),

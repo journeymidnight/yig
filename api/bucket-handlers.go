@@ -400,6 +400,8 @@ func isUnexpired(object *meta.Object) (bool, int64) {
 	}
 	// if delta < 0 ,the object should be record as unexpired
 	delta := time.Now().UTC().Sub(expiredDeleteTime).Nanoseconds()
+	// transfer to second
+	delta /= 1e9
 	if delta < 0 {
 		return true, -delta
 	}
