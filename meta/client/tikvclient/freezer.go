@@ -179,8 +179,47 @@ func (c *TiKVClient) ListFreezersNeedContinue(maxKeys int, status common.Restore
 }
 
 func (c *TiKVClient) PutFreezer(freezer *Freezer, status common.RestoreStatus, tx Tx) (err error) {
-	freezer.Status = status
-	return c.CreateFreezer(freezer)
+	key := genFreezerKey(freezer.BucketName, freezer.Name, freezer.VersionId)
+	if tx == nil {
+		tx, err = c.NewTrans()
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err == nil {
+				err = c.CommitTrans(tx)
+			}
+			if err != nil {
+				c.AbortTrans(tx)
+			}
+		}()
+	}
+	txn := tx.(*TikvTx).tx
+	val, err := txn.Get(context.TODO(), key)
+	if err != nil && !kv.IsErrNotFound(err) {
+		return err
+	}
+	if kv.IsErrNotFound(err) {
+		return nil
+	}
+	var f Freezer
+	err = helper.MsgPackUnMarshal(val, &f)
+	if err != nil {
+		return err
+	}
+	f.Status = status
+	f.LastModifiedTime = freezer.LastModifiedTime
+	f.Location = freezer.Location
+	f.Pool = freezer.Location
+	f.OwnerId = freezer.OwnerId
+	f.Size = freezer.Size
+	f.ObjectId = freezer.ObjectId
+	f.Etag = freezer.Etag
+	newVal, err := helper.MsgPackMarshal(f)
+	if err != nil {
+		return err
+	}
+	return txn.Set(key, newVal)
 }
 
 func (c *TiKVClient) UpdateFreezerStatus(bucketName, objectName, version string, status, statusSetting common.RestoreStatus) (err error) {
