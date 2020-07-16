@@ -141,7 +141,7 @@ func (m *Meta) UpdateGlacierObject(reqCtx RequestContext, targetObject, sourceOb
 		return err
 	}
 
-	err = m.Client.PutObjectToGarbageCollection(sourceObject, tx)
+	err = m.PutObjectToGarbageCollection(sourceObject)
 	if err != nil {
 		return err
 	}
@@ -196,7 +196,7 @@ func (m *Meta) DeleteObject(object *Object) (err error) {
 		}
 	}
 
-	err = m.Client.PutObjectToGarbageCollection(object, tx)
+	err = m.PutObjectToGarbageCollection(object)
 	if err != nil {
 		return err
 	}
@@ -266,7 +266,7 @@ func (m *Meta) DeleteSuspendedObject(object *Object) (err error) {
 			return err
 		}
 
-		err = m.Client.PutObjectToGarbageCollection(object, tx)
+		err = m.PutObjectToGarbageCollection(object)
 		if err != nil {
 			return err
 		}

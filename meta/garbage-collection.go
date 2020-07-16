@@ -1,16 +1,22 @@
 package meta
 
-import . "github.com/journeymidnight/yig/meta/types"
+import (
+	"github.com/journeymidnight/yig/helper"
+	. "github.com/journeymidnight/yig/meta/types"
+)
 
-// Insert object to `garbageCollection` table
+// Generate garbage object and send to Kafka
 func (m *Meta) PutObjectToGarbageCollection(object *Object) error {
-	return m.Client.PutObjectToGarbageCollection(object, nil)
+	garbageObject := GetGcInfoFromObject(object)
+	v, err := helper.MsgPackMarshal(garbageObject)
+	if err != nil {
+		return err
+	}
+	m.GarbageCollectionProducer.Publish("", v)
+	return nil
 }
 
-func (m *Meta) ScanGarbageCollection(limit int) ([]GarbageCollection, error) {
-	return m.Client.ScanGarbageCollection(limit)
-}
-
-func (m *Meta) RemoveGarbageCollection(garbage GarbageCollection) error {
-	return m.Client.RemoveGarbageCollection(garbage)
+func (m *Meta) PutFreezerToGarbageCollection(freezer *Freezer) error {
+	object := freezer.ToObject()
+	return m.PutObjectToGarbageCollection(&object)
 }

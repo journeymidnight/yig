@@ -64,12 +64,6 @@ type Client interface {
 	//user
 	GetUserBuckets(userId string) (buckets []string, err error)
 
-	//gc
-	PutObjectToGarbageCollection(object *Object, tx Tx) error
-	ScanGarbageCollection(limit int) ([]GarbageCollection, error)
-	PutFreezerToGarbageCollection(object *Freezer, tx Tx) (err error)
-	RemoveGarbageCollection(garbage GarbageCollection) error
-
 	//freezer
 	CreateFreezer(freezer *Freezer) (err error)
 	GetFreezer(bucketName, objectName, version string) (freezer *Freezer, err error)
