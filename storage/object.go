@@ -1239,7 +1239,7 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 			return result, ErrNoSuchVersion
 		}
 		if object == nil {
-			return result, ErrNoSuchKey
+			return result, nil
 		}
 		err = yig.MetaStorage.DeleteObject(object)
 		if err != nil {
