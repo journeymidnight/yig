@@ -1,4 +1,5 @@
 import botocore.session
+import os
 from botocore.client import Config
 from config import CONFIG
 import time
@@ -6,6 +7,7 @@ import sys
 
 clients = {}
 session = botocore.session.get_session()
+build_number = os.getenv('DRONE_BUILD_NUMBER') or ''
 for addressStyle in ['path']: #['path', 'virtual']:
     for signatureVersion in ['s3', 's3v4']:
         client = session.create_client('s3', region_name=CONFIG['region'],
@@ -19,7 +21,7 @@ for addressStyle in ['path']: #['path', 'virtual']:
                                                'addressing_style': addressStyle,
                                            }
                                        ))
-        clients[addressStyle+'-'+signatureVersion] = client
+        clients['yig' + build_number + '-' + addressStyle+'-'+signatureVersion] = client
 
 
 def is_a_fail_test(testFunction):

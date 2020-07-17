@@ -15,6 +15,15 @@ workspace:
   path: /drone/src/yig
 
 steps:
+- name: clean up database
+  image: centos-yig:v1.0.1
+  commands:
+  - sqlName=yig_drone${DRONE_BUILD_NUMBER}
+  - mysql -u root -P 4000 -h 10.0.42.4 -e "drop database $sqlName;"
+  when:
+    event:
+    - failure
+
 - name: build & test
   image: centos-yig:v1.0.1
   commands:
@@ -28,6 +37,7 @@ steps:
   - cp -f plugins/*.so /etc/yig/plugins/
   - sed -i 's/yig_drone/yig_drone${DRONE_BUILD_NUMBER}/' /etc/yig/yig.toml
   - sed -i 's/cluster/single/' /etc/yig/yig.toml
+  - sed -i 's/mybucket/mybucket${DRONE_BUILD_NUMBER}/' test/go/lib/client.go
   - /usr/sbin/dnsmasq -k &
   - nohup ./yig >/dev/null 2>&1 &
   - sleep 10
@@ -48,16 +58,6 @@ steps:
     event:
       exclude:
       - tag
-
-
-- name: clean up database
-  image: centos-yig:v1.0.1
-  commands:
-  - sqlName=yig_drone${DRONE_BUILD_NUMBER}
-  - mysql -u root -P 4000 -h 10.0.42.4 -e "drop database $sqlName;"
-  when:
-    event:
-    - failure
 
 - name: make package with test
   image: centos-yig:v1.0.1

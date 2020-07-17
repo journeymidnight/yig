@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	TestLifecycleBucket1 = "testbucket1"
-	TestLifecycleBucket2 = "testbucket2"
+	TestLifecycleBucket1 = TEST_BUCKET + "lc1"
+	TestLifecycleBucket2 = TEST_BUCKET + "lc2"
 
 	TestLifecycleKey1 = "noVersion/testLC"
 	TestLifecycleKey2 = "version/testLC"

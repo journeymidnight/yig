@@ -172,6 +172,7 @@ const (
 	ErrInvalidLcRuleID
 	ErrInvalidLcRuleStatus
 	ErrLcMissingAction
+	ErrUnsupportFeature
 
 	ErrNoSuchBucketLc
 	ErrInvalidStorageClass
@@ -415,6 +416,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "NoSuchVersion",
 		Description:    "The version ID specified in the request does not match an existing version.",
 		HttpStatusCode: http.StatusNotFound,
+	},
+	ErrUnsupportFeature: {
+		AwsErrorCode:   "NotImplemented",
+		Description:    "This feature is currently not supported in this region",
+		HttpStatusCode: http.StatusNotImplemented,
 	},
 	ErrNotImplemented: {
 		AwsErrorCode:   "NotImplemented",
