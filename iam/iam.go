@@ -3,6 +3,8 @@ package iam
 import (
 	"fmt"
 	"regexp"
+	"sync"
+	"time"
 
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/cache"
@@ -22,8 +24,10 @@ type IamClient interface {
 }
 
 var iamClient IamClient
+var accessKeyLockMap sync.Map // accessKey -> *sync.RWMutex
 
 func InitializeIamClient(plugins map[string]*mods.YigPlugin) {
+	cache.InitializeIamCache()
 	//Search for iam plugins, if we have many iam plugins, always use the first
 	for name, p := range plugins {
 		if p.PluginType == mods.IAM_PLUGIN {
@@ -42,22 +46,27 @@ func InitializeIamClient(plugins map[string]*mods.YigPlugin) {
 }
 
 func GetCredential(accessKey string) (credential common.Credential, err error) {
-	if cache.IamCache == nil {
-		cache.InitializeIamCache()
+	l, _ := accessKeyLockMap.LoadOrStore(accessKey, new(sync.Mutex))
+	aLock := l.(*sync.Mutex)
+	aLock.Lock()
+	defer aLock.Lock()
+	c, hit := cache.IamCache.Load(accessKey)
+	if !hit {
+		credential, err = iamClient.GetCredential(accessKey)
+		if err != nil {
+			accessKeyLockMap.Delete(accessKey)
+			return credential, err
+		}
+		entry := cache.CacheEntry{
+			CreateTime: time.Now(),
+			Credential: credential,
+		}
+		cache.IamCache.Store(accessKey, entry)
+	} else {
+		entry := c.(cache.CacheEntry)
+		credential = entry.Credential
 	}
-
-	credential, hit := cache.IamCache.Get(accessKey)
-	if hit {
-		return credential, nil
-	}
-
-	credential, err = iamClient.GetCredential(accessKey)
-	if err != nil {
-		return credential, err
-	}
-	cache.IamCache.Set(accessKey, credential)
 	return credential, nil
-
 }
 
 func GetKeysByUid(uid string) (credentials []common.Credential, err error) {
