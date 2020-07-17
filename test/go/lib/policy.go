@@ -189,6 +189,20 @@ const (
    				}
   			]
 	}`
+
+	SetBucketPolicyAllowSpecifyID = `{
+		"Id":"PolicyId2",
+		"Version":"2012-10-17",
+		"Statement":[
+		  	{
+				"Sid":"SpecifyID",
+				"Effect":"Allow",
+				"Principal":{"AWS":["hahahaha"]},
+				"Action":"s3:GetObject",
+				"Resource":"arn:aws:s3:::` + TestBucket + `/*"
+			}
+		]
+	}`
 )
 
 func (s3client *S3Client) PutBucketPolicy(bucketName, policy string) (err error) {

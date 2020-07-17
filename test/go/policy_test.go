@@ -123,6 +123,45 @@ func Test_BucketPolicySample(t *testing.T) {
 	}
 }
 
+func Test_BucketPolicySpecifyId(t *testing.T) {
+	sc := NewS3()
+	sch := NewS3Ha()
+	defer func() {
+		sc.DeleteObject(TestBucket, TestKey)
+		sc.DeleteBucket(TestBucket)
+	}()
+	err := sc.MakeBucket(TestBucket)
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+	}
+	err = sc.PutObject(TestBucket, TestKey, TestValue)
+	if err != nil {
+		t.Fatal("PutObject err:", err)
+		panic(err)
+	}
+
+	err = sc.PutBucketPolicy(TestBucket, SetBucketPolicyAllowSpecifyID)
+	if err != nil {
+		t.Fatal("PutBucketPolicy err:", err)
+		panic(err)
+	}
+
+	policy, err := sc.GetBucketPolicy(TestBucket)
+	if err != nil {
+		t.Fatal("GetBucketPolicy err:", err)
+		panic(err)
+	}
+	t.Log("Bucket policy:", Format(policy))
+
+	// After set policy
+	data, err := sch.GetObject(TestBucket, TestKey)
+	if err != nil || data != TestValue {
+		t.Fatal("GetObject should success:", err)
+		panic(err)
+	}
+	t.Log("GetObject test Success.")
+}
+
 // Test different situation with access policy when anonymous access;
 // Situation 1:BucketPolicy Allow Gentlemen; 		BucketACL Private;		ObjectACL Private; 		legalRefererUrl GetObject should be OK; commonRefererUrl GetObject should be Failed;
 // Situation 2:BucketPolicy Allow NotLike Thief; 	BucketACL Private;		ObjectACL Private; 		commonRefererUrl GetObject should be OK; illegalRefererUrl GetObject should be Failed;
