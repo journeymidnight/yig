@@ -213,15 +213,14 @@ func (r *replacer) getSubstitution(key string) string {
 		// TODO: add requester_id
 		return requester_id
 	case "{project_id}":
-		cre := r.responseRecorder.credential
-		if cre != nil {
-			return cre.UserId
-		}
 		bucketInfo := GetRequestContext(r.request).BucketInfo
-		if bucketInfo == nil {
+		if bucketInfo != nil {
+			return bucketInfo.OwnerId
+		} else if cre := r.responseRecorder.credential; cre != nil {
+			return cre.RootId
+		} else {
 			return "-"
 		}
-		return bucketInfo.OwnerId
 	case "{remote_addr}":
 		return r.request.RemoteAddr
 	case "{http_x_real_ip}":
