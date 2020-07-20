@@ -66,8 +66,8 @@ func GenerateListBucketsResponse(buckets []meta.Bucket, credential common.Creden
 	var data = ListBucketsResponse{}
 	var owner = Owner{}
 
-	owner.ID = credential.UserId
-	owner.DisplayName = credential.DisplayName
+	owner.ID = credential.ExternRootId
+	owner.DisplayName = credential.ExternRootName
 
 	for _, bucket := range buckets {
 		var listbucket = Bucket{}

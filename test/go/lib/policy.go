@@ -197,7 +197,7 @@ const (
 		  	{
 				"Sid":"SpecifyID",
 				"Effect":"Allow",
-				"Principal":{"AWS":["hahahaha"]},
+				"Principal":{"AWS":["idforha"]},
 				"Action":"s3:GetObject",
 				"Resource":"arn:aws:s3:::` + TestBucket + `/*"
 			}

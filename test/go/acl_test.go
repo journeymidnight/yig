@@ -12,12 +12,12 @@ import (
 const (
 	AclPrivateXml = `<AccessControlPolicy xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
 		<Owner>
-			<ID>hehehehe</ID>
+			<ID>idforhe</ID>
 		</Owner>
 		<AccessControlList>
 			<Grant>
 				<Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="CanonicalUser">
-				<ID>hehehehe</ID>
+				<ID>idforhe</ID>
 				</Grantee>
 				<Permission>FULL_CONTROL</Permission>
 			</Grant>
@@ -26,12 +26,12 @@ const (
 
 	AclPublicXml = `<AccessControlPolicy xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
 		<Owner>
-			<ID>hehehehe</ID>
+			<ID>idforhe</ID>
 		</Owner>
 		<AccessControlList>
 			<Grant>
 				<Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="CanonicalUser">
-					<ID>hehehehe</ID>
+					<ID>idforhe</ID>
 				</Grantee>
 				<Permission>FULL_CONTROL</Permission>
 			</Grant>
@@ -46,12 +46,12 @@ const (
 
 	AclPublicReadWriteXml = `<AccessControlPolicy xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
 		<Owner>
-			<ID>hehehehe</ID>
+			<ID>idforhe</ID>
 		</Owner>
 		<AccessControlList>
 			<Grant>
 				<Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="CanonicalUser">
-					<ID>hehehehe</ID>
+					<ID>idforhe</ID>
 				</Grantee>
 				<Permission>FULL_CONTROL</Permission>
 			</Grant>
@@ -72,18 +72,18 @@ const (
 
 	AclSpecifyObjectReadXml = `<AccessControlPolicy xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
 		<Owner>
-			<ID>hehehehe</ID>
+			<ID>idforhe</ID>
 		</Owner>
 		<AccessControlList>
 			<Grant>
 				<Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="CanonicalUser">
-					<ID>hehehehe</ID>
+					<ID>idforhe</ID>
 				</Grantee>
 				<Permission>FULL_CONTROL</Permission>
 			</Grant>
 			<Grant>
 				<Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="CanonicalUser">
-					<ID>hahahaha</ID>
+					<ID>idforha</ID>
 				</Grantee>
 				<Permission>READ</Permission>
 			</Grant>
@@ -92,18 +92,18 @@ const (
 
 	AclSpecifyBucketReadXml = `<AccessControlPolicy xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
 		<Owner>
-			<ID>hehehehe</ID>
+			<ID>idforhe</ID>
 		</Owner>
 		<AccessControlList>
 			<Grant>
 				<Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="CanonicalUser">
-					<ID>hehehehe</ID>
+					<ID>idforhe</ID>
 				</Grantee>
 				<Permission>FULL_CONTROL</Permission>
 			</Grant>
 			<Grant>
 				<Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="CanonicalUser">
-					<ID>hahahaha</ID>
+					<ID>idforha</ID>
 				</Grantee>
 				<Permission>READ</Permission>
 			</Grant>
@@ -112,24 +112,24 @@ const (
 
 	AclSpecifyBucketReadAndWriteXml = `<AccessControlPolicy xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
 		<Owner>
-			<ID>hehehehe</ID>
+			<ID>idforhe</ID>
 		</Owner>
 		<AccessControlList>
 			<Grant>
 				<Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="CanonicalUser">
-					<ID>hehehehe</ID>
+					<ID>idforhe</ID>
 				</Grantee>
 				<Permission>FULL_CONTROL</Permission>
 			</Grant>
 			<Grant>
 				<Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="CanonicalUser">
-					<ID>hahahaha</ID>
+					<ID>idforha</ID>
 				</Grantee>
 				<Permission>READ</Permission>
 			</Grant>
 			<Grant>
 				<Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="CanonicalUser">
-					<ID>hahahaha</ID>
+					<ID>idforha</ID>
 				</Grantee>
 				<Permission>WRITE</Permission>
 			</Grant>
@@ -138,18 +138,18 @@ const (
 
 	AclSpecifyBucketFullControlXml = `<AccessControlPolicy xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
 		<Owner>
-			<ID>hehehehe</ID>
+			<ID>idforhe</ID>
 		</Owner>
 		<AccessControlList>
 			<Grant>
 				<Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="CanonicalUser">
-					<ID>hehehehe</ID>
+					<ID>idforhe</ID>
 				</Grantee>
 				<Permission>FULL_CONTROL</Permission>
 			</Grant>
 			<Grant>
 				<Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="CanonicalUser">
-					<ID>hahahaha</ID>
+					<ID>idforha</ID>
 				</Grantee>
 				<Permission>FULL_CONTROL</Permission>
 			</Grant>
@@ -158,12 +158,12 @@ const (
 
 	AclLogDeliveryXml = `<AccessControlPolicy xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
 		<Owner>
-			<ID>hehehehe</ID>
+			<ID>idforhe</ID>
 		</Owner>
 		<AccessControlList>
 			<Grant>
 				<Grantee xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="CanonicalUser">
-					<ID>hehehehe</ID>
+					<ID>idforhe</ID>
 				</Grantee>
 				<Permission>FULL_CONTROL</Permission>
 			</Grant>

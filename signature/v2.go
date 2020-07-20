@@ -185,7 +185,7 @@ func DoesSignatureMatchV2(r *http.Request) (credential common.Credential, err er
 	stringToSign += buildCanonicalizedAmzHeaders(&r.Header)
 	stringToSign += buildCanonicalizedResource(r)
 	helper.Logger.Info("stringtosign", stringToSign, credential.SecretAccessKey)
-	helper.Logger.Info("credential", credential.UserId, credential.AccessKeyID, credential.SecretAccessKey)
+	helper.Logger.Info("credential", credential.ExternUserId, credential.AccessKeyID, credential.SecretAccessKey)
 	return credential, dictate(credential.SecretAccessKey, stringToSign, signature)
 }
 

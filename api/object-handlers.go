@@ -121,7 +121,7 @@ func (api ObjectAPIHandlers) errAllowableObjectNotFound(w http.ResponseWriter, r
 				err = ErrAccessDenied
 			}
 		default:
-			if ctx.BucketInfo.OwnerId == credential.UserId {
+			if ctx.BucketInfo.OwnerId == credential.ExternRootId {
 				err = ErrNoSuchKey
 			} else {
 				err = ErrAccessDenied
@@ -1295,19 +1295,9 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.PutObjectAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 	var acl Acl
 	if _, ok := r.Header["X-Amz-Acl"]; ok {
@@ -1354,19 +1344,9 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.GetObjectAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	acl, err := api.ObjectAPI.GetObjectAcl(reqCtx, credential)
@@ -1410,19 +1390,9 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.PutObjectAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	acl, err := getAclFromHeader(r.Header)
@@ -1598,19 +1568,9 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.PutObjectAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	targetUploadId := r.URL.Query().Get("uploadId")
@@ -1798,19 +1758,10 @@ func (api ObjectAPIHandlers) AbortMultipartUploadHandler(w http.ResponseWriter, 
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+
+	if credential, err = checkRequestAuth(r, policy.AbortMultipartUploadAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	uploadId := r.URL.Query().Get("uploadId")
@@ -1834,19 +1785,9 @@ func (api ObjectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.ListMultipartUploadPartsAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	request, err := parseListObjectPartsQuery(r.URL.Query())
@@ -1877,20 +1818,11 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.PutObjectAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
+
 	completeMultipartBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		logger.Error(
@@ -1988,19 +1920,9 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 	reqCtx := GetRequestContext(r)
 	var credential common.Credential
 	var err error
-	switch reqCtx.AuthType {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.DeleteObjectAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
-		signature.AuthTypeSignedV2, signature.AuthTypePresignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectDELETE.html

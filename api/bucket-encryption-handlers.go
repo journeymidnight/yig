@@ -5,10 +5,10 @@ import (
 	"net/http"
 
 	"github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/api/datatype/policy"
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/iam/common"
-	"github.com/journeymidnight/yig/signature"
 )
 
 func (api ObjectAPIHandlers) PutBucketEncryptionHandler(w http.ResponseWriter, r *http.Request) {
@@ -18,23 +18,16 @@ func (api ObjectAPIHandlers) PutBucketEncryptionHandler(w http.ResponseWriter, r
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.PutBucketPolicyAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	if reqCtx.BucketInfo == nil {
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return
 	}
-	if credential.UserId != reqCtx.BucketInfo.OwnerId {
+	if credential.ExternRootId != reqCtx.BucketInfo.OwnerId {
 		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
 		return
 	}
@@ -69,23 +62,16 @@ func (api ObjectAPIHandlers) GetBucketEncryptionHandler(w http.ResponseWriter, r
 
 	var credential common.Credential
 	var err error
-	switch reqCtx.AuthType {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.GetBucketPolicyAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	if reqCtx.BucketInfo == nil {
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return
 	}
-	if credential.UserId != reqCtx.BucketInfo.OwnerId {
+	if credential.ExternRootId != reqCtx.BucketInfo.OwnerId {
 		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
 		return
 	}
@@ -116,23 +102,17 @@ func (api ObjectAPIHandlers) DeleteBucketEncryptionHandler(w http.ResponseWriter
 
 	var credential common.Credential
 	var err error
-	switch reqCtx.AuthType {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.DeleteBucketPolicyAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	if reqCtx.BucketInfo == nil {
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return
 	}
-	if credential.UserId != reqCtx.BucketInfo.OwnerId {
+
+	if credential.ExternRootId != reqCtx.BucketInfo.OwnerId {
 		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
 		return
 	}

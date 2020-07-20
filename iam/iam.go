@@ -78,7 +78,7 @@ func GetCredentialByUserId(userId string) (credential common.Credential, err err
 	// should use a cache with timeout
 	// TODO
 	return common.Credential{
-		UserId:          userId,
+		ExternUserId:    userId,
 		DisplayName:     userId,
 		AccessKeyID:     "hehehehe",
 		SecretAccessKey: "hehehehe",

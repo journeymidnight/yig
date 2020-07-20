@@ -120,6 +120,16 @@ func (action Action) isObjectAction() bool {
 	return false
 }
 
+// isObjectAction - returns whether action is object type or not.
+func (action Action) isGeneralAction() bool {
+	switch action {
+	case ReadOnlyAction, ReadWriteAction, FullContorlAction, DenyAccessAction:
+		return true
+	}
+
+	return false
+}
+
 // IsValid - checks if action is valid or not.
 func (action Action) IsValid() bool {
 	switch action {
@@ -136,6 +146,8 @@ func (action Action) IsValid() bool {
 	case ListMultipartUploadPartsAction, PutBucketNotificationAction:
 		fallthrough
 	case PutBucketPolicyAction, PutObjectAction:
+		fallthrough
+	case ReadOnlyAction, ReadWriteAction, FullContorlAction, DenyAccessAction:
 		return true
 	}
 
@@ -273,6 +285,26 @@ var actionConditionKeyMap = map[Action]condition.KeySet{
 		condition.S3XAmzServerSideEncryptionAwsKMSKeyID,
 		condition.S3XAmzMetadataDirective,
 		condition.S3XAmzStorageClass,
+		condition.AWSReferer,
+		condition.AWSSourceIP,
+	),
+
+	ReadOnlyAction: condition.NewKeySet(
+		condition.AWSReferer,
+		condition.AWSSourceIP,
+	),
+
+	ReadWriteAction: condition.NewKeySet(
+		condition.AWSReferer,
+		condition.AWSSourceIP,
+	),
+
+	FullContorlAction: condition.NewKeySet(
+		condition.AWSReferer,
+		condition.AWSSourceIP,
+	),
+
+	DenyAccessAction: condition.NewKeySet(
 		condition.AWSReferer,
 		condition.AWSSourceIP,
 	),

@@ -169,7 +169,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				helper.Logger.Info("After ComputeActionFromNonCurrentVersion:", action, storageClass)
 				// Delete or transition
 				if action == lifecycle.DeleteAction {
-					_, err = yig.DeleteObject(reqCtx, common.Credential{UserId: bucket.OwnerId})
+					_, err = yig.DeleteObject(reqCtx, common.Credential{ExternUserId: bucket.OwnerId, ExternRootId: bucket.OwnerId})
 					if err != nil {
 						helper.Logger.Error(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, err)
 						continue
@@ -281,7 +281,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				if action == lifecycle.DeleteVersionAction {
 					reqCtx.VersionId = reqCtx.ObjectInfo.VersionId
 					helper.Logger.Info("$%$%$%$% deletemarker", reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId)
-					_, err = yig.DeleteObject(reqCtx, common.Credential{UserId: bucket.OwnerId})
+					_, err = yig.DeleteObject(reqCtx, common.Credential{ExternUserId: bucket.OwnerId, ExternRootId: bucket.OwnerId})
 					if err != nil {
 						helper.Logger.Error(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, err)
 						continue
@@ -291,7 +291,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				// process expired object
 				if action == lifecycle.DeleteAction {
 					reqCtx.VersionId = ""
-					_, err = yig.DeleteObject(reqCtx, common.Credential{UserId: bucket.OwnerId})
+					_, err = yig.DeleteObject(reqCtx, common.Credential{ExternUserId: bucket.OwnerId, ExternRootId: bucket.OwnerId})
 					if err != nil {
 						helper.Logger.Error(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, err)
 						continue
@@ -346,7 +346,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 
 				// process abort object
 				if action == lifecycle.AbortMultipartUploadAction {
-					_, err = yig.AbortMultipartUpload(reqCtx, common.Credential{UserId: bucket.OwnerId}, object.UploadId)
+					_, err = yig.AbortMultipartUpload(reqCtx, common.Credential{ExternUserId: bucket.OwnerId, ExternRootId: bucket.OwnerId}, object.UploadId)
 					if err != nil {
 						helper.Logger.Error(bucket.Name, object.Key, object.UploadId, err)
 						continue
@@ -390,8 +390,10 @@ func checkObjectOtherVersion(commonPrefix string, reqCtx RequestContext) (bool, 
 
 func transitionObject(reqCtx RequestContext, storageClass string) (result datatype.PutObjectResult, err error) {
 	sourceObject := reqCtx.ObjectInfo
+	sourceBucket := reqCtx.BucketInfo
 	var credential common.Credential
-	credential.UserId = sourceObject.OwnerId
+	credential.ExternUserId = sourceBucket.OwnerId
+	credential.ExternRootId = sourceBucket.OwnerId
 
 	var sseRequest datatype.SseRequest
 	sseRequest.Type = sourceObject.SseType

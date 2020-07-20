@@ -217,7 +217,7 @@ func (r *replacer) getSubstitution(key string) string {
 		if bucketInfo != nil {
 			return bucketInfo.OwnerId
 		} else if cre := r.responseRecorder.credential; cre != nil {
-			return cre.RootId
+			return cre.ExternRootId
 		} else {
 			return "-"
 		}

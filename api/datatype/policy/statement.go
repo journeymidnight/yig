@@ -28,7 +28,7 @@ import (
 type Statement struct {
 	SID        ID                  `json:"Sid,omitempty"`
 	Effect     Effect              `json:"Effect"`
-	Principal  Principal           `json:"Principal"`
+	Principal  Principal           `json:"Principal,omitempty"`
 	Actions    ActionSet           `json:"Action"`
 	Resources  ResourceSet         `json:"Resource"`
 	Conditions condition.Functions `json:"Condition,omitempty"`
@@ -102,6 +102,12 @@ func (statement Statement) isValid() error {
 	}
 
 	for action := range statement.Actions {
+		if action.isGeneralAction() {
+			if !statement.Resources.objectResourceExists() && !statement.Resources.bucketResourceExists() {
+				return fmt.Errorf("unsupported Resource found %v for action %v", statement.Resources, action)
+			}
+		}
+
 		if action.isObjectAction() {
 			if !statement.Resources.objectResourceExists() {
 				return fmt.Errorf("unsupported Resource found %v for action %v", statement.Resources, action)
