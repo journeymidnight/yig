@@ -4,7 +4,6 @@ test/*.html
 .DS_Store
 admin
 build
-delete
 getrediskeys
 yig
 integrate/cephconf
@@ -12,7 +11,6 @@ integrate/data
 integrate/logs
 yig
 lc
-migrate
 yig-restore
 *.log
 *.swp
