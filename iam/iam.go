@@ -49,7 +49,7 @@ func GetCredential(accessKey string) (credential common.Credential, err error) {
 	l, _ := accessKeyLockMap.LoadOrStore(accessKey, new(sync.Mutex))
 	aLock := l.(*sync.Mutex)
 	aLock.Lock()
-	defer aLock.Lock()
+	defer aLock.Unlock()
 	c, hit := cache.IamCache.Load(accessKey)
 	if !hit {
 		credential, err = iamClient.GetCredential(accessKey)
