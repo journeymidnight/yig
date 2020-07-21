@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/go-redis/redis_rate/v8"
 	"io"
 	"strconv"
 	"strings"
@@ -45,6 +46,7 @@ type Redis interface {
 
 var RedisConn Redis
 var RedisClient redislock.RedisClient
+var QosLimiter *redis_rate.Limiter
 var Locker *redislock.Client
 
 const (
@@ -116,6 +118,7 @@ func InitializeSingle() interface{} {
 	cb = circuitbreak.NewCacheCircuit()
 	client = redis.NewClient(options)
 	RedisClient = client
+	QosLimiter = redis_rate.NewLimiter(client)
 	r := &SingleRedis{
 		client:  client,
 		circuit: cb,
@@ -358,6 +361,7 @@ func InitializeCluster() interface{} {
 		ReadTimeout:  time.Duration(helper.CONFIG.RedisReadTimeout) * time.Second,
 		WriteTimeout: time.Duration(helper.CONFIG.RedisWriteTimeout) * time.Second,
 		IdleTimeout:  time.Duration(helper.CONFIG.RedisPoolIdleTimeout) * time.Second,
+		MinIdleConns: helper.CONFIG.RedisMinIdleConns,
 	}
 
 	if helper.CONFIG.RedisPassword != "" {
@@ -367,6 +371,7 @@ func InitializeCluster() interface{} {
 	cb = circuitbreak.NewCacheCircuit()
 	cluster = redis.NewClusterClient(clusterRedis)
 	RedisClient = cluster
+	QosLimiter = redis_rate.NewLimiter(client)
 	r := &ClusterRedis{
 		cluster: cluster,
 		circuit: cb,
@@ -385,7 +390,6 @@ func (c *ClusterRedis) Set(table RedisDatabase, key string, value interface{}) e
 		context.Background(),
 		func(ctx context.Context) error {
 			conn := c.cluster.WithContext(ctx)
-			defer conn.Close()
 			encodedValue, err := helper.MsgPackMarshal(value)
 			if err != nil {
 				return err
@@ -417,7 +421,6 @@ func (c *ClusterRedis) Get(table RedisDatabase, key string,
 		context.Background(),
 		func(ctx context.Context) error {
 			conn := c.cluster.WithContext(ctx)
-			defer conn.Close()
 			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
@@ -448,7 +451,6 @@ func (c *ClusterRedis) Remove(table RedisDatabase, key string) error {
 		context.Background(),
 		func(ctx context.Context) error {
 			conn := c.cluster.WithContext(ctx)
-			defer conn.Close()
 			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
@@ -474,7 +476,6 @@ func (c *ClusterRedis) GetUsage(key string) (value string, err error) {
 		context.Background(),
 		func(ctx context.Context) error {
 			conn := c.cluster.WithContext(ctx)
-			defer conn.Close()
 			encodedValue, err = conn.Get(key).Result()
 			if err != nil {
 				if err == redis.Nil {
@@ -497,7 +498,6 @@ func (c *ClusterRedis) SetBytes(key string, value []byte) (err error) {
 		context.Background(),
 		func(ctx context.Context) error {
 			conn := c.cluster.WithContext(ctx)
-			defer conn.Close()
 			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
@@ -523,7 +523,6 @@ func (c *ClusterRedis) GetBytes(key string, start int64, end int64) ([]byte, err
 		context.Background(),
 		func(ctx context.Context) error {
 			conn := c.cluster.WithContext(ctx)
-			defer conn.Close()
 			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
@@ -551,7 +550,6 @@ func (c *ClusterRedis) Invalid(table RedisDatabase, key string) (err error) {
 		context.Background(),
 		func(ctx context.Context) error {
 			conn := c.cluster.WithContext(ctx)
-			defer conn.Close()
 			hashkey, err := HashSum(key)
 			if err != nil {
 				return err
