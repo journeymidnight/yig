@@ -68,8 +68,6 @@ func MatchStorageClassIndex(storageClass string) (StorageClass, error) {
 	if index, ok := StorageClassStringMap[storageClass]; ok {
 		return index, nil
 	} else {
-
 		return 0, ErrInvalidStorageClass
-
 	}
 }

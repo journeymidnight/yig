@@ -1,6 +1,7 @@
 package context
 
 import (
+	"github.com/journeymidnight/yig/api/datatype/lifecycle"
 	"io"
 	"net/http"
 
@@ -29,6 +30,7 @@ type RequestContext struct {
 	ObjectName     string
 	BucketInfo     *types.Bucket
 	ObjectInfo     *types.Object
+	Lifecycle      *lifecycle.Lifecycle
 	AuthType       signature.AuthType
 	IsBucketDomain bool
 	Body           io.ReadCloser
