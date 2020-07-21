@@ -50,6 +50,7 @@ func NewQosMeta(client client.Client) *QosMeta {
 			ReadTimeout:  time.Duration(helper.CONFIG.RedisReadTimeout) * time.Second,
 			WriteTimeout: time.Duration(helper.CONFIG.RedisWriteTimeout) * time.Second,
 			IdleTimeout:  time.Duration(helper.CONFIG.RedisPoolIdleTimeout) * time.Second,
+			Password:     helper.CONFIG.RedisPassword,
 		}
 		redisCluster := redis.NewClusterClient(options)
 		limiter = redis_rate.NewLimiter(redisCluster)
