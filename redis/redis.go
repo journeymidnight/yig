@@ -371,7 +371,7 @@ func InitializeCluster() interface{} {
 	cb = circuitbreak.NewCacheCircuit()
 	cluster = redis.NewClusterClient(clusterRedis)
 	RedisClient = cluster
-	QosLimiter = redis_rate.NewLimiter(client)
+	QosLimiter = redis_rate.NewLimiter(cluster)
 	r := &ClusterRedis{
 		cluster: cluster,
 		circuit: cb,
