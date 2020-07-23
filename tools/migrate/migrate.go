@@ -1,8 +1,6 @@
 package main
 
 import (
-	"context"
-	"fmt"
 	"github.com/Shopify/sarama"
 	"github.com/bsm/redislock"
 	"github.com/cannium/meepo/cron"
@@ -102,8 +100,8 @@ func (s MigrateScanner) Init(handle task.Handle,
 }
 
 var hotObjectRange = tikvclient.Range{
-	Start: []byte(tikvclient.TableHotObjectPrefix), // 'h'
-	End:   []byte{'i'},
+	Start: []byte(tikvclient.TableHotObjectPrefix + tikvclient.TableSeparator), // 'h', 0x1f
+	End:   []byte{'h', 0x20},
 }
 
 func (s MigrateScanner) processEntry(key []byte, value []byte) {
@@ -133,24 +131,11 @@ func (s MigrateScanner) Run(handle task.Handle, jobMeta task.JobMeta) error {
 	if instanceRange.Empty {
 		return nil
 	}
-	tx, err := s.tikvClient.TxnCli.Begin(context.TODO())
-	if err != nil {
-		return fmt.Errorf("begin tx: %w", err)
-	}
-	defer tx.Rollback() // read only when scanning
-	iter, err := tx.Iter(context.TODO(), instanceRange.Start, instanceRange.End)
-	if err != nil {
-		return fmt.Errorf("tx.Iter: %w", err)
-	}
-	defer iter.Close()
-	for iter.Valid() {
-		s.processEntry(iter.Key(), iter.Value())
-		err = iter.Next(context.TODO())
-		if err != nil {
-			return fmt.Errorf("iter.Next: %w", err)
-		}
-	}
-	return nil
+	return s.tikvClient.TxScanCallback(instanceRange.Start, instanceRange.End, nil,
+		func(k, v []byte) error {
+			s.processEntry(k, v)
+			return nil
+		})
 }
 
 type MigrateWorker struct {

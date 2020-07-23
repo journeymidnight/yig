@@ -33,9 +33,9 @@ func (d AsyncDeleteFromCeph) Name() string {
 }
 
 type Conf struct {
-	TopicName         string
-	PartitionCount    int
-	CephConfigPattern string
+	GarbageCollectionTopic string
+	PartitionCount         int
+	CephConfigPattern      string
 }
 
 func (d AsyncDeleteFromCeph) Setup(handle task.ConfigHandle) (topic string,
@@ -46,7 +46,7 @@ func (d AsyncDeleteFromCeph) Setup(handle task.ConfigHandle) (topic string,
 	if err != nil {
 		return "", 0, err
 	}
-	return conf.TopicName, conf.PartitionCount, nil
+	return conf.GarbageCollectionTopic, conf.PartitionCount, nil
 }
 
 func (d AsyncDeleteFromCeph) Init(handle task.Handle,
