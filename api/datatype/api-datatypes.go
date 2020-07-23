@@ -334,6 +334,13 @@ type DeleteObjectResult struct {
 	DeltaSize    DeltaSizeInfo
 }
 
+type DeleteObjectsResult struct {
+	DeleteErrors   []DeleteError
+	DeletedObjects []ObjectIdentifier
+	DeltaResult    []int64
+	UnexpiredInfo  []common.UnexpiredTriple
+}
+
 type PutObjectPartResult struct {
 	ETag                    string
 	SseType                 string

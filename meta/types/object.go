@@ -186,3 +186,28 @@ func (o *Object) GetGlacierUpdateSql() (string, []interface{}) {
 	args := []interface{}{o.Location, o.Pool, o.Size, o.ObjectId, o.Etag, o.InitializationVector, o.StorageClass, o.BucketName, o.Name, o.VersionId}
 	return sql, args
 }
+
+const (
+	DeadLineForStandardIa = 720 * time.Hour  // 30 days
+	DeadLineForGlacier    = 1440 * time.Hour // 60 days
+)
+
+func (o *Object) IsUnexpired() (bool, int64) {
+	if o == nil {
+		return false, 0
+	}
+	var expiredDeleteTime time.Time
+	if o.StorageClass == ObjectStorageClassStandardIa {
+		expiredDeleteTime = o.LastModifiedTime.Add(DeadLineForStandardIa)
+	} else if o.StorageClass == ObjectStorageClassGlacier {
+		expiredDeleteTime = o.LastModifiedTime.Add(DeadLineForGlacier)
+	}
+	// if delta < 0 ,the object should be record as unexpired
+	delta := time.Now().UTC().Sub(expiredDeleteTime).Nanoseconds()
+	// transfer to second
+	delta /= 1e9
+	if delta < 0 {
+		return true, -delta
+	}
+	return false, 0
+}

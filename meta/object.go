@@ -204,6 +204,43 @@ func (m *Meta) DeleteObject(object *Object) (err error) {
 	return m.Client.UpdateUsage(object.BucketName, -object.Size, tx)
 }
 
+func (m *Meta) DeleteObjectWithTx(object *Object, tx Tx) (err error) {
+	if tx == nil {
+		tx, err := m.Client.NewTrans()
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err == nil {
+				err = m.Client.CommitTrans(tx)
+			}
+			if err != nil {
+				m.Client.AbortTrans(tx)
+			}
+		}()
+	}
+
+	err = m.Client.DeleteObject(object, tx)
+	if err != nil {
+		return err
+	}
+
+	//delete object meta in hotobjects table
+	if object.Type == ObjectTypeAppendable && object.Pool == backend.SMALL_FILE_POOLNAME {
+		err = m.Client.RemoveHotObject(object, tx)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = m.Client.PutObjectToGarbageCollection(object, tx)
+	if err != nil {
+		return err
+	}
+
+	return m.Client.UpdateUsage(object.BucketName, -object.Size, tx)
+}
+
 func (m *Meta) AddDeleteMarker(marker *Object) (err error) {
 	return m.Client.PutObject(marker, nil, true)
 }

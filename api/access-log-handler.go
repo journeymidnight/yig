@@ -17,12 +17,6 @@ import (
 	bus "github.com/journeymidnight/yig/mq"
 )
 
-type UnexpiredTriple struct {
-	StorageClass common.StorageClass
-	Size         int64
-	SurvivalTime int64 //Nano seconds
-}
-
 type ResponseRecorder struct {
 	http.ResponseWriter
 	status        int
@@ -39,7 +33,7 @@ type ResponseRecorder struct {
 	// StorageClass -> deltaSize
 	deltaSizeInfo map[common.StorageClass]int64
 	// record unexpired STANDARD_IA and GLACIER infos when handle DeleteObjects
-	unexpiredObjectsInfo []UnexpiredTriple
+	unexpiredObjectsInfo []common.UnexpiredTriple
 
 	credential *iam.Credential
 }
@@ -123,30 +117,9 @@ func SetOperationName(w http.ResponseWriter, name Operation) {
 	}
 }
 
-const (
-	MinStandardIaObjectSize int64 = 1 << 16 // 64KB
-	MinGlacierObjectSize    int64 = 1 << 16 // 64KB
-)
-
-// For billing now. FIXME later?
-func CorrectDeltaSize(storageClass common.StorageClass, deltaSize int64) (delta int64) {
-	var isNagative bool
-	if deltaSize < 0 {
-		deltaSize *= -1
-		isNagative = true
-	}
-	if storageClass == common.ObjectStorageClassStandardIa && deltaSize < MinStandardIaObjectSize {
-		deltaSize = MinStandardIaObjectSize
-	} else if storageClass == common.ObjectStorageClassGlacier && deltaSize < MinGlacierObjectSize {
-		deltaSize = MinGlacierObjectSize
-	}
-	delta = helper.Ternary(isNagative, -deltaSize, deltaSize).(int64)
-	return
-}
-
 func SetDeltaSize(w http.ResponseWriter, storageClass common.StorageClass, delta int64) {
 	if w, ok := w.(*ResponseRecorder); ok {
-		w.deltaSizeInfo[storageClass] = CorrectDeltaSize(storageClass, delta)
+		w.deltaSizeInfo[storageClass] = common.CorrectDeltaSize(storageClass, delta)
 	}
 }
 
@@ -156,7 +129,7 @@ func SetCredential(w http.ResponseWriter, credential *iam.Credential) {
 	}
 }
 
-func SetUnexpiredInfo(w http.ResponseWriter, info []UnexpiredTriple) {
+func SetUnexpiredInfo(w http.ResponseWriter, info []common.UnexpiredTriple) {
 	if len(info) == 0 {
 		return
 	}

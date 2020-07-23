@@ -21,11 +21,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"sync"
-	"sync/atomic"
 	"time"
-
-	meta "github.com/journeymidnight/yig/meta/types"
 
 	. "github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/context"
@@ -34,11 +30,6 @@ import (
 	"github.com/journeymidnight/yig/iam/common"
 	. "github.com/journeymidnight/yig/meta/common"
 	"github.com/journeymidnight/yig/signature"
-)
-
-const (
-	DeadLineForStandardIa = 720 * time.Hour  // 30 days
-	DeadLineForGlacier    = 1440 * time.Hour // 60 days
 )
 
 // GetBucketLocationHandler - GET Bucket location.
@@ -313,99 +304,23 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 		WriteErrorResponse(w, r, ErrMalformedXML)
 		return
 	}
-
-	var deleteErrors []DeleteError
-	var deletedObjects []ObjectIdentifier
-
-	var deltaResult = make([]int64, len(StorageClassIndexMap))
-
-	var unexpiredInfo []UnexpiredTriple
-	// Loop through all the objects and delete them sequentially.
-
-	var wg = sync.WaitGroup{}
-	deleteFunc := func(object ObjectIdentifier) {
-		reqCtx.ObjectName = object.ObjectName
-		reqCtx.VersionId = object.VersionId
-		reqCtx.ObjectInfo, err = api.ObjectAPI.GetObjectInfo(reqCtx.BucketName, object.ObjectName, object.VersionId, credential)
-
-		var result DeleteObjectResult
-		if err == nil {
-			result, err = api.ObjectAPI.DeleteObject(reqCtx, credential)
-		}
-		if err == nil {
-			deletedObjects = append(deletedObjects, ObjectIdentifier{
-				ObjectName:   object.ObjectName,
-				VersionId:    object.VersionId,
-				DeleteMarker: result.DeleteMarker,
-				DeleteMarkerVersionId: helper.Ternary(result.DeleteMarker,
-					result.VersionId, "").(string),
-			})
-
-			if ok, delta := isUnexpired(reqCtx.ObjectInfo); ok {
-				unexpiredInfo = append(unexpiredInfo, UnexpiredTriple{
-					StorageClass: reqCtx.ObjectInfo.StorageClass,
-					Size:         CorrectDeltaSize(reqCtx.ObjectInfo.StorageClass, reqCtx.ObjectInfo.Size),
-					SurvivalTime: delta,
-				})
-			}
-			atomic.AddInt64(&deltaResult[result.DeltaSize.StorageClass], result.DeltaSize.Delta)
-		} else if err != ErrNoSuchKey {
-			logger.Error("Unable to delete object:", err)
-			apiErrorCode, ok := err.(ApiErrorCode)
-			if ok {
-				deleteErrors = append(deleteErrors, DeleteError{
-					Code:      ErrorCodeResponse[apiErrorCode].AwsErrorCode,
-					Message:   ErrorCodeResponse[apiErrorCode].Description,
-					Key:       object.ObjectName,
-					VersionId: object.VersionId,
-				})
-			} else {
-				deleteErrors = append(deleteErrors, DeleteError{
-					Code:      "InternalError",
-					Message:   "We encountered an internal error, please try again.",
-					Key:       object.ObjectName,
-					VersionId: object.VersionId,
-				})
-			}
-		}
-		wg.Done()
+	result, err := api.ObjectAPI.DeleteObjects(reqCtx, credential, deleteObjects.Objects)
+	if err != nil {
+		WriteErrorResponse(w, r, err)
+		return
 	}
-	for _, object := range deleteObjects.Objects {
-		wg.Add(1)
-		go deleteFunc(object)
-	}
-	wg.Wait()
-	for sc, v := range deltaResult {
+
+	for sc, v := range result.DeltaResult {
 		SetDeltaSize(w, StorageClass(sc), v)
 	}
-	SetUnexpiredInfo(w, unexpiredInfo)
+	SetUnexpiredInfo(w, result.UnexpiredInfo)
 
 	// Generate response
-	response := GenerateMultiDeleteResponse(deleteObjects.Quiet, deletedObjects, deleteErrors)
+	response := GenerateMultiDeleteResponse(deleteObjects.Quiet, result.DeletedObjects, result.DeleteErrors)
 	encodedSuccessResponse := EncodeResponse(response)
 
 	// Write success response.
 	WriteSuccessResponse(w, r, encodedSuccessResponse)
-}
-
-func isUnexpired(object *meta.Object) (bool, int64) {
-	if object == nil {
-		return false, 0
-	}
-	var expiredDeleteTime time.Time
-	if object.StorageClass == ObjectStorageClassStandardIa {
-		expiredDeleteTime = object.LastModifiedTime.Add(DeadLineForStandardIa)
-	} else if object.StorageClass == ObjectStorageClassGlacier {
-		expiredDeleteTime = object.LastModifiedTime.Add(DeadLineForGlacier)
-	}
-	// if delta < 0 ,the object should be record as unexpired
-	delta := time.Now().UTC().Sub(expiredDeleteTime).Nanoseconds()
-	// transfer to second
-	delta /= 1e9
-	if delta < 0 {
-		return true, -delta
-	}
-	return false, 0
 }
 
 // PutBucketHandler - PUT Bucket
