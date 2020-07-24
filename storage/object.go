@@ -1366,7 +1366,6 @@ func (yig *YigStorage) DeleteObjects(reqCtx RequestContext, credential common.Cr
 			err = yig.MetaStorage.CommitTrans(tx)
 		}
 		if err != nil {
-			helper.Logger.Error("######## Commit err:", err)
 			yig.MetaStorage.AbortTrans(tx)
 		}
 	}()
@@ -1382,9 +1381,9 @@ func (yig *YigStorage) DeleteObjects(reqCtx RequestContext, credential common.Cr
 			if version != "" && version != meta.NullVersion {
 				return result, ErrInvalidVersioning
 			}
-			object, err = yig.MetaStorage.GetObject(bucketName, objectName, meta.NullVersion, true)
+			object, err = yig.MetaStorage.GetObject(bucketName, objectName, meta.NullVersion, false)
 		} else {
-			object, err = yig.MetaStorage.GetObject(bucketName, objectName, version, true)
+			object, err = yig.MetaStorage.GetObject(bucketName, objectName, version, false)
 		}
 
 		if err != nil && err != ErrNoSuchKey {
@@ -1423,7 +1422,7 @@ func (yig *YigStorage) DeleteObjects(reqCtx RequestContext, credential common.Cr
 			}
 			err = yig.MetaStorage.DeleteObjectWithTx(object, tx)
 			if err != nil {
-				return
+				return result, err
 			}
 			result.DeltaSize = DeltaSizeInfo{StorageClass: object.StorageClass, Delta: -object.Size}
 		case BucketVersioningEnabled:
@@ -1507,16 +1506,6 @@ func (yig *YigStorage) DeleteObjects(reqCtx RequestContext, credential common.Cr
 			helper.Logger.Error("Invalid bucket versioning:", bucketName)
 			return result, ErrInternalError
 		}
-
-		if err == nil {
-			if version != "" {
-				yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":"+version)
-				yig.DataCache.Remove(bucketName + ":" + objectName + ":" + version)
-			} else if reqCtx.ObjectInfo != nil {
-				yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":"+reqCtx.ObjectInfo.VersionId)
-				yig.DataCache.Remove(bucketName + ":" + objectName + ":" + reqCtx.ObjectInfo.VersionId)
-			}
-		}
 		return result, nil
 	}
 
@@ -1530,6 +1519,13 @@ func (yig *YigStorage) DeleteObjects(reqCtx RequestContext, credential common.Cr
 		go func(object ObjectIdentifier) {
 			result, err := deleteFunc(object, tx)
 			if err == nil {
+				if object.VersionId != "" {
+					yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucket.Name+":"+object.ObjectName+":"+object.VersionId)
+					yig.DataCache.Remove(bucket.Name + ":" + object.ObjectName + ":" + object.VersionId)
+				} else if reqCtx.ObjectInfo != nil {
+					yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucket.Name+":"+object.ObjectName+":"+object.VersionId)
+					yig.DataCache.Remove(bucket.Name + ":" + object.ObjectName + ":" + object.VersionId)
+				}
 				deletedObjects = append(deletedObjects, ObjectIdentifier{
 					ObjectName:   object.ObjectName,
 					VersionId:    object.VersionId,
