@@ -300,6 +300,10 @@ func (s LifecycleScanner) Run(handle task.Handle, jobMeta task.JobMeta) error {
 }
 
 type LifecycleWorker struct {
+	logger                    log.Logger
+	handle                    task.Handle
+	tikvClient                tikvclient.TiKVClient
+	GarbageCollectionProducer kafka.Producer
 }
 
 func (w LifecycleWorker) Name() string {
@@ -308,6 +312,7 @@ func (w LifecycleWorker) Name() string {
 
 type WorkerConf struct {
 	DispatchTopic          string
+	PartitionCount         int
 	PdAddresses            []string
 	GarbageCollectionTopic string
 }
@@ -315,11 +320,35 @@ type WorkerConf struct {
 func (w LifecycleWorker) Setup(handle task.ConfigHandle) (topic string,
 	partitions int, err error) {
 
-	return
+	var conf WorkerConf
+	err = handle.ReadConfig(&conf)
+	if err != nil {
+		return "", 0, err
+	}
+	return conf.DispatchTopic, conf.PartitionCount, nil
 }
 
 func (w LifecycleWorker) Init(handle task.Handle, jobID int) (task.AsyncTask, error) {
 	return nil, nil
+}
+
+func (w LifecycleWorker) handleMessage(msg *sarama.ConsumerMessage) {
+	var job LifecycleJob
+	err := helper.MsgPackUnMarshal(msg.Value, &job)
+	if err != nil {
+		w.logger.Error("Bad message:", msg.Offset, err)
+		return
+	}
+	switch job.Action {
+	case lifecycle.DeleteAction:
+
+	case lifecycle.DeleteVersionAction:
+	case lifecycle.TransitionAction:
+	case lifecycle.AbortMultipartUploadAction:
+	default:
+		w.logger.Error("Unsupported action:", job.Action)
+		return
+	}
 }
 
 func (w LifecycleWorker) Run(messages <-chan *sarama.ConsumerMessage,
@@ -327,4 +356,25 @@ func (w LifecycleWorker) Run(messages <-chan *sarama.ConsumerMessage,
 	commands <-chan string,
 	stopping <-chan struct{}) {
 
+	for {
+		select {
+		case msg, ok := <-messages:
+			if !ok {
+				return
+			}
+			w.handleMessage(msg)
+			_ = w.handle.Save(msg.Offset, nil)
+		case err, ok := <-errors:
+			if !ok {
+				return
+			}
+			w.logger.Error("Consume error:", err)
+		case _, ok := <-commands:
+			if !ok {
+				return
+			}
+		case <-stopping:
+			return
+		}
+	}
 }

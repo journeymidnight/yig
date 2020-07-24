@@ -21,7 +21,7 @@ func TaskObjects() []interface{} {
 /*
 When Yig deletes a object, it would send a Kafka message.
 This task consumes those messages and actually delete them in Ceph.
- */
+*/
 type AsyncDeleteFromCeph struct {
 	logger       log.Logger
 	handle       task.Handle
@@ -68,7 +68,7 @@ func (d AsyncDeleteFromCeph) Init(handle task.Handle,
 	}, nil
 }
 
-func (d AsyncDeleteFromCeph) ensureRemoved(location, pool, cephObjectID string)  {
+func (d AsyncDeleteFromCeph) ensureRemoved(location, pool, cephObjectID string) {
 	for {
 		err := d.cephClusters[location].Remove(pool, cephObjectID)
 		if err == nil {
