@@ -212,7 +212,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	// Fetch object stat info.
 	object, err := api.ObjectAPI.GetObjectInfoByCtx(reqCtx, credential)
 	if err != nil {
-		logger.Error("Unable to fetch object info:", err)
+		logger.Warn("Unable to fetch object info:", err)
 		if err == ErrNoSuchKey {
 			api.errAllowableObjectNotFound(w, r, credential)
 			return
@@ -234,7 +234,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		freezer, err := api.ObjectAPI.GetFreezer(reqCtx.BucketName, reqCtx.ObjectName, object.VersionId)
 		if err != nil {
 			if err == ErrNoSuchKey {
-				logger.Error("Unable to get glacier object with because of ErrNoSuchKey")
+				logger.Warn("Unable to get glacier object with because of ErrNoSuchKey")
 				WriteErrorResponse(w, r, ErrInvalidGlacierObject)
 				return
 			}
@@ -243,7 +243,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			return
 		}
 		if freezer.Status != ObjectHasRestored {
-			logger.Error("Unable to get glacier object because object has not restored:", freezer.Status)
+			logger.Warn("Unable to get glacier object because object has not restored:", freezer.Status)
 			WriteErrorResponse(w, r, ErrInvalidGlacierObject)
 			return
 		}
@@ -334,7 +334,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 				return
 			}
 			if info.Pool == backend.BIG_FILE_POOLNAME {
-				logger.Error("Found a object that been fetched during migrating :", err.Error())
+				logger.Warn("Found a object that been fetched during migrating :", err.Error())
 				WriteErrorResponse(w, r, ErrObjectMovedPermanently)
 				return
 			}
@@ -376,7 +376,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 	reqVersion := reqCtx.VersionId
 	object, err := api.ObjectAPI.GetObjectInfoByCtx(reqCtx, credential)
 	if err != nil {
-		logger.Error("Unable to fetch object info:", err)
+		logger.Warn("Unable to fetch object info:", err)
 		if err == ErrNoSuchKey {
 			api.errAllowableObjectNotFound(w, r, credential)
 			return
@@ -388,7 +388,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 	if object.StorageClass == ObjectStorageClassGlacier {
 		freezer, err := api.ObjectAPI.GetFreezerStatus(object.BucketName, object.Name, reqVersion)
 		if err != nil && err != ErrNoSuchKey {
-			logger.Error("Unable to get restore object status", object.BucketName, object.Name, reqVersion,
+			logger.Warn("Unable to get restore object status", object.BucketName, object.Name, reqVersion,
 				"error:", err)
 			WriteErrorResponse(w, r, err)
 			return
@@ -480,6 +480,20 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	targetBucketName := reqCtx.BucketName
 	targetObjectName := reqCtx.ObjectName
 	targetBucket := reqCtx.BucketInfo
+
+	if forbidOverwriteStr, ok := r.Header["X-Uos-Forbid-Overwrite"]; ok {
+		forbidOverwrite, err := strconv.ParseBool(forbidOverwriteStr[0])
+		if err != nil {
+			WriteErrorResponse(w, r, err)
+			return
+		}
+		if forbidOverwrite {
+			if reqCtx.ObjectInfo != nil {
+				WriteErrorResponse(w, r, ErrForbiddenOverwriteKey)
+				return
+			}
+		}
+	}
 
 	var credential common.Credential
 	var err error
@@ -766,7 +780,7 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 	targetObject.Name = reqCtx.ObjectName
 	result, err := api.ObjectAPI.RenameObject(reqCtx, targetObject, sourceObjectName, credential)
 	if err != nil {
-		logger.Error("Unable to update object meta for", targetObject.Name,
+		logger.Warn("Unable to update object meta for", targetObject.Name,
 			"error:", err)
 		WriteErrorResponse(w, r, err)
 		return
@@ -798,6 +812,19 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	if forbidOverwriteStr, ok := r.Header["X-Uos-Forbid-Overwrite"]; ok {
+		forbidOverwrite, err := strconv.ParseBool(forbidOverwriteStr[0])
+		if err != nil {
+			WriteErrorResponse(w, r, err)
+			return
+		}
+		if forbidOverwrite {
+			if reqCtx.ObjectInfo != nil {
+				WriteErrorResponse(w, r, ErrForbiddenOverwriteKey)
+				return
+			}
+		}
+	}
 	// if Content-Length is unknown/missing, deny the request
 	size := r.ContentLength
 	if reqCtx.AuthType == signature.AuthTypeStreamingSigned {
@@ -1019,13 +1046,13 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 		metadata["md5Sum"] = ""
 	} else {
 		if len(r.Header.Get("Content-Md5")) == 0 {
-			logger.Error("Content Md5 is null")
+			logger.Warn("Content Md5 is null")
 			WriteErrorResponse(w, r, ErrInvalidDigest)
 			return
 		}
 		md5Bytes, err := checkValidMD5(r.Header.Get("Content-Md5"))
 		if err != nil {
-			logger.Error("Content Md5 is invalid")
+			logger.Warn("Content Md5 is invalid")
 			WriteErrorResponse(w, r, ErrInvalidDigest)
 			return
 		} else {
@@ -1197,7 +1224,7 @@ func (api ObjectAPIHandlers) PutObjectMeta(w http.ResponseWriter, r *http.Reques
 
 	err = api.ObjectAPI.PutObjectMeta(reqCtx.BucketInfo, object, credential)
 	if err != nil {
-		logger.Error("Unable to update object meta for", object.Name,
+		logger.Warn("Unable to update object meta for", object.Name,
 			"error:", err)
 		WriteErrorResponse(w, r, err)
 		return
@@ -1261,7 +1288,7 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 	if err == ErrNoSuchKey || freezer.Name == "" {
 		status, err := MatchStatusIndex("READY")
 		if err != nil {
-			logger.Error("Unable to get freezer status:", err)
+			logger.Warn("Unable to get freezer status:", err)
 			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
 			return
 		}
@@ -1383,7 +1410,7 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 
 	acl, err := api.ObjectAPI.GetObjectAcl(reqCtx, credential)
 	if err != nil {
-		logger.Error("Unable to fetch object acl:", err)
+		logger.Warn("Unable to fetch object acl:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -1418,6 +1445,20 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 	if !isValidObjectName(objectName) {
 		WriteErrorResponse(w, r, ErrInvalidObjectName)
 		return
+	}
+
+	if forbidOverwriteStr, ok := r.Header["X-Uos-Forbid-Overwrite"]; ok {
+		forbidOverwrite, err := strconv.ParseBool(forbidOverwriteStr[0])
+		if err != nil {
+			WriteErrorResponse(w, r, err)
+			return
+		}
+		if forbidOverwrite {
+			if reqCtx.ObjectInfo != nil {
+				WriteErrorResponse(w, r, ErrForbiddenOverwriteKey)
+				return
+			}
+		}
 	}
 
 	var credential common.Credential
@@ -1693,7 +1734,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 		freezer, err := api.ObjectAPI.GetFreezer(sourceBucketName, sourceObjectName, sourceVersion)
 		if err != nil {
 			if err == ErrNoSuchKey {
-				logger.Error("Unable to get glacier object with no restore")
+				logger.Warn("Unable to get glacier object with no restore")
 				WriteErrorResponse(w, r, ErrInvalidGlacierObject)
 				return
 			}
@@ -1702,7 +1743,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 			return
 		}
 		if freezer.Status != ObjectHasRestored {
-			logger.Error("Unable to get glacier object with no restore")
+			logger.Warn("Unable to get glacier object with no restore")
 			err = ErrInvalidGlacierObject
 			return
 		}
@@ -1734,7 +1775,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 	} else {
 		copySourceRange, err := ParseRequestRange(copySourceRangeString, sourceObject.Size)
 		if err != nil {
-			logger.Error("Invalid request range", err)
+			logger.Warn("Invalid request range", err)
 			WriteErrorResponse(w, r, ErrInvalidRange)
 			return
 		}
@@ -2023,6 +2064,19 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 	if !isValidObjectName(objectName) {
 		WriteErrorResponse(w, r, ErrInvalidObjectName)
 		return
+	}
+	if forbidOverwriteStr, ok := r.Header["X-Uos-Forbid-Overwrite"]; ok {
+		forbidOverwrite, err := strconv.ParseBool(forbidOverwriteStr[0])
+		if err != nil {
+			WriteErrorResponse(w, r, err)
+			return
+		}
+		if forbidOverwrite {
+			if reqCtx.ObjectInfo != nil {
+				WriteErrorResponse(w, r, ErrForbiddenOverwriteKey)
+				return
+			}
+		}
 	}
 
 	bucket := reqCtx.BucketInfo
