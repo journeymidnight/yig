@@ -10,6 +10,9 @@ const (
 // For billing now. FIXME later?
 func CorrectDeltaSize(storageClass StorageClass, deltaSize int64) (delta int64) {
 	var isNagative bool
+	if deltaSize == 0 {
+		return delta
+	}
 	if deltaSize < 0 {
 		deltaSize *= -1
 		isNagative = true
