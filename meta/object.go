@@ -233,7 +233,7 @@ func (m *Meta) DeleteObjectWithTx(object *Object, tx Tx) (err error) {
 		}
 	}
 
-	err = m.Client.PutObjectToGarbageCollection(object, tx)
+	err = m.PutObjectToGarbageCollection(object)
 	if err != nil {
 		return err
 	}

@@ -6,6 +6,7 @@ replace (
 	cloud.google.com/go => github.com/googleapis/google-cloud-go v0.37.4
 
 	github.com/Sirupsen/logrus => github.com/sirupsen/logrus v1.4.1
+	github.com/cannium/meepo => ../meepo
 	github.com/tikv/client-go => github.com/journeymidnight/client-go v0.0.0-20200726081430-040b5831fee0
 
 	golang.org/x/crypto => github.com/golang/crypto v0.0.0-20190404164418-38d8ce5564a5
@@ -30,6 +31,7 @@ require (
 	github.com/BurntSushi/toml v0.3.1
 	github.com/DATA-DOG/go-sqlmock v1.3.3
 	github.com/bsm/redislock v0.5.0
+	github.com/cannium/meepo v0.0.0-00010101000000-000000000000
 	github.com/cep21/circuit v0.0.0-20181030180945-e893c027dc21
 	github.com/confluentinc/confluent-kafka-go v1.0.0 //ct
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
@@ -48,11 +50,10 @@ require (
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
 	github.com/robfig/cron v1.2.0
 	github.com/stretchr/testify v1.4.0
-	github.com/tikv/client-go v0.0.0-20200110101306-a3ebdb020c83
-	github.com/ugorji/go/codec v0.0.0-20190204201341-e444a5086c43
+	github.com/tikv/client-go v0.0.0-20200513031230-7253be23eb15
+	github.com/ugorji/go/codec v1.1.7
 	github.com/urfave/cli v1.22.4
 	github.com/xxtea/xxtea-go v0.0.0-20170828040851-35c4b17eecf6
-	golang.org/x/crypto v0.0.0-20190325154230-a5d413f7728c // indirect
 	golang.org/x/sys v0.0.0-20191010194322-b09406accb47
 	gopkg.in/bufio.v1 v1.0.0-20140618132640-567b2bfa514e
 
