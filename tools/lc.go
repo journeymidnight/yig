@@ -86,7 +86,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 	}
 	bucketLC := bucket.Lifecycle
 
-	ncvRules, cvRules, abortMultipartRules := bucketLC.FilterRulesByNonCurrentVersion()
+	ncvRules, cvRules, abortMultipartRules := bucketLC.FilterRules()
 
 	var reqCtx RequestContext
 	reqCtx.BucketName = bucket.Name
@@ -278,7 +278,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 
 				// process expired object delete marker;
 				// If not set expiredObjectDeleteMarker,pass process
-				if action == lifecycle.DeleteMarkerAction {
+				if action == lifecycle.DeleteVersionAction {
 					reqCtx.VersionId = reqCtx.ObjectInfo.VersionId
 					helper.Logger.Info("$%$%$%$% deletemarker", reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId)
 					_, err = yig.DeleteObject(reqCtx, common.Credential{UserId: bucket.OwnerId})
