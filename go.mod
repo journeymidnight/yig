@@ -7,6 +7,8 @@ replace (
 
 	github.com/Sirupsen/logrus => github.com/sirupsen/logrus v1.4.1
 
+	github.com/journeymidnight/aws-sdk-go => github.com/Zstro/aws-sdk-go v1.18.2
+
 	golang.org/x/crypto => github.com/golang/crypto v0.0.0-20190404164418-38d8ce5564a5
 	golang.org/x/exp => github.com/golang/exp v0.0.0-20190409044807-56b785ea58b2
 	golang.org/x/image => github.com/golang/image v0.0.0-20190321063152-3fc05d484e9f
@@ -31,7 +33,7 @@ require (
 	github.com/DATA-DOG/go-sqlmock v1.3.3
 	github.com/bsm/redislock v0.5.0
 	github.com/cep21/circuit v0.0.0-20181030180945-e893c027dc21
-	github.com/confluentinc/confluent-kafka-go v1.0.0 //indirect
+	github.com/confluentinc/confluent-kafka-go v1.0.0 //ct
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dustin/go-humanize v1.0.0
 	github.com/go-redis/redis/v7 v7.2.0
@@ -51,6 +53,4 @@ require (
 	github.com/stretchr/testify v1.5.1
 	github.com/ugorji/go v1.1.4
 	github.com/xxtea/xxtea-go v0.0.0-20170828040851-35c4b17eecf6
-	golang.org/x/net v0.0.0-20200202094626-16171245cfb2 // indirect
-	golang.org/x/sys v0.0.0-20191010194322-b09406accb47
 )

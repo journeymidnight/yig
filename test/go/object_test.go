@@ -25,6 +25,20 @@ func Test_Object(t *testing.T) {
 	}
 	t.Log("PutObject Success!")
 
+	//set forbid overwrite
+	out, err := sc.PutObjectWithOverwrite(TEST_BUCKET, TEST_KEY, TEST_VALUE+"-overwrite", true)
+	if err == nil {
+		t.Fatal("Forbid overwrite Failed!",out)
+	}
+	t.Log("Forbid overwrite Success!", out)
+	t.Log("Forbid overwrite Success!", err)
+
+	out, err = sc.PutObjectWithOverwrite(TEST_BUCKET, TEST_KEY, TEST_VALUE+"-overwrite", false)
+	if err != nil {
+		t.Fatal("PutObjectWithOverwrite err:", err)
+	}
+	t.Log("PutObjectWithOverwrite Success!", out)
+
 	sc2 := NewS3WithoutMD5()
 	err = sc2.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
 	if err != nil {
