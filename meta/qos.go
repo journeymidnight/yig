@@ -186,7 +186,7 @@ type ThrottleReader struct {
 
 func (r *ThrottleReader) Read(p []byte) (int, error) {
 	if r.t == nil {
-		return r.Read(p)
+		return r.reader.Read(p)
 	}
 	r.t.maybeWaitTokenN(len(p))
 	n, err := r.reader.Read(p)
@@ -209,7 +209,7 @@ type ThrottleWriter struct {
 
 func (w *ThrottleWriter) Write(p []byte) (int, error) {
 	if w.t == nil {
-		return w.Write(p)
+		return w.writer.Write(p)
 	}
 	w.t.maybeWaitTokenN(len(p))
 	n, err := w.writer.Write(p)
