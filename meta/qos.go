@@ -89,19 +89,31 @@ func (m *QosMeta) newThrottler(bucketName string, defaultBufferSize int64) throt
 
 func (m *QosMeta) NewThrottleReader(bucketName string, reader io.Reader) *ThrottleReader {
 	// in yig, upload requests use "reader"
+	if !helper.CONFIG.EnableQoS {
+		return &ThrottleReader{
+			reader: reader,
+			t:      nil,
+		}
+	}
 	throttle := m.newThrottler(bucketName, helper.CONFIG.UploadMaxChunkSize)
 	return &ThrottleReader{
-		reader:    reader,
-		throttler: throttle,
+		reader: reader,
+		t:      &throttle,
 	}
 }
 
 func (m *QosMeta) NewThrottleWriter(bucketName string, writer io.Writer) *ThrottleWriter {
 	// in yig, download requests use "writer"
+	if !helper.CONFIG.EnableQoS {
+		return &ThrottleWriter{
+			writer: writer,
+			t:      nil,
+		}
+	}
 	throttle := m.newThrottler(bucketName, helper.CONFIG.DownloadBufPoolSize)
 	return &ThrottleWriter{
-		writer:    writer,
-		throttler: throttle,
+		writer: writer,
+		t:      &throttle,
 	}
 }
 
@@ -169,26 +181,46 @@ func (t *throttler) Close() {
 
 type ThrottleReader struct {
 	reader io.Reader
-	throttler
+	t      *throttler
 }
 
 func (r *ThrottleReader) Read(p []byte) (int, error) {
-	r.maybeWaitTokenN(len(p))
+	if r.t == nil {
+		return r.Read(p)
+	}
+	r.t.maybeWaitTokenN(len(p))
 	n, err := r.reader.Read(p)
 	// we consumed len(p) tokens, but transferred n bytes
-	r.refill += len(p) - n
+	r.t.refill += len(p) - n
 	return n, err
+}
+
+func (r *ThrottleReader) Close() {
+	if r.t == nil {
+		return
+	}
+	r.t.Close()
 }
 
 type ThrottleWriter struct {
 	writer io.Writer
-	throttler
+	t      *throttler
 }
 
 func (w *ThrottleWriter) Write(p []byte) (int, error) {
-	w.maybeWaitTokenN(len(p))
+	if w.t == nil {
+		return w.Write(p)
+	}
+	w.t.maybeWaitTokenN(len(p))
 	n, err := w.writer.Write(p)
 	// we consumed len(p) tokens, but transferred n bytes
-	w.refill += len(p) - n
+	w.t.refill += len(p) - n
 	return n, err
+}
+
+func (w *ThrottleWriter) Close() {
+	if w.t == nil {
+		return
+	}
+	w.t.Close()
 }

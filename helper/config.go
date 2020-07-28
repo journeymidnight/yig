@@ -102,9 +102,10 @@ type Config struct {
 	UploadMaxChunkSize  int64 `toml:"upload_max_chunk_size"`
 	BigFileThreshold    int64 `toml:"big_file_threshold"`
 
-	DefaultReadOps       int `toml:"default_read_ops"`
-	DefaultWriteOps      int `toml:"default_write_ops"`
-	DefaultBandwidthKBps int `toml:"default_bandwidth_kbps"`
+	EnableQoS            bool `toml:"enable_qos"`
+	DefaultReadOps       int  `toml:"default_read_ops"`
+	DefaultWriteOps      int  `toml:"default_write_ops"`
+	DefaultBandwidthKBps int  `toml:"default_bandwidth_kbps"`
 
 	EnableRestoreObjectCron bool   `toml:"enable_restore_object_cron"`
 	RestoreObjectSpec       string `toml:"restore_object_spec"`
@@ -216,6 +217,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.UploadMaxChunkSize = Ternary(c.UploadMaxChunkSize < CONFIG.UploadMinChunkSize || c.UploadMaxChunkSize > MAX_BUFEER_SIZE, MAX_BUFEER_SIZE, c.UploadMaxChunkSize).(int64)
 	CONFIG.BigFileThreshold = Ternary(c.BigFileThreshold == 0, int64(1048576), c.BigFileThreshold).(int64)
 
+	CONFIG.EnableQoS = c.EnableQoS
 	CONFIG.DefaultReadOps = Ternary(c.DefaultReadOps <= 0, 2000, c.DefaultReadOps).(int)
 	CONFIG.DefaultWriteOps = Ternary(c.DefaultWriteOps <= 0, 1000, c.DefaultWriteOps).(int)
 	CONFIG.DefaultBandwidthKBps = Ternary(c.DefaultBandwidthKBps <= 0, 102400, c.DefaultBandwidthKBps).(int)
