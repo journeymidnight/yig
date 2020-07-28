@@ -76,6 +76,7 @@ type Config struct {
 	RedisKeepAlive        int      `toml:"redis_keepalive"`
 	RedisPoolMaxIdle      int      `toml:"redis_pool_max_idle"`
 	RedisPoolIdleTimeout  int      `toml:"redis_pool_idle_timeout"`
+	RedisMinIdleConns     int      `toml:"redis_min_idle_conns"`
 
 	// DB Connection parameters
 	DbMaxOpenConns       int `toml:"db_max_open_conns"`
@@ -101,9 +102,10 @@ type Config struct {
 	UploadMaxChunkSize  int64 `toml:"upload_max_chunk_size"`
 	BigFileThreshold    int64 `toml:"big_file_threshold"`
 
-	DefaultReadOps       int `toml:"default_read_ops"`
-	DefaultWriteOps      int `toml:"default_write_ops"`
-	DefaultBandwidthKBps int `toml:"default_bandwidth_kbps"`
+	EnableQoS            bool `toml:"enable_qos"`
+	DefaultReadOps       int  `toml:"default_read_ops"`
+	DefaultWriteOps      int  `toml:"default_write_ops"`
+	DefaultBandwidthKBps int  `toml:"default_bandwidth_kbps"`
 
 	EnableRestoreObjectCron bool   `toml:"enable_restore_object_cron"`
 	RestoreObjectSpec       string `toml:"restore_object_spec"`
@@ -197,6 +199,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.RedisKeepAlive = Ternary(c.RedisKeepAlive < 0, 0, c.RedisKeepAlive).(int)
 	CONFIG.RedisPoolMaxIdle = Ternary(c.RedisPoolMaxIdle < 0, 0, c.RedisPoolMaxIdle).(int)
 	CONFIG.RedisPoolIdleTimeout = Ternary(c.RedisPoolIdleTimeout < 0, 0, c.RedisPoolIdleTimeout).(int)
+	CONFIG.RedisMinIdleConns = Ternary(c.RedisMinIdleConns < 0, 12, c.RedisMinIdleConns).(int)
 
 	CONFIG.DbMaxOpenConns = Ternary(c.DbMaxOpenConns < 0, 0, c.DbMaxOpenConns).(int)
 	CONFIG.DbMaxIdleConns = Ternary(c.DbMaxIdleConns < 0, 0, c.DbMaxIdleConns).(int)
@@ -214,6 +217,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.UploadMaxChunkSize = Ternary(c.UploadMaxChunkSize < CONFIG.UploadMinChunkSize || c.UploadMaxChunkSize > MAX_BUFEER_SIZE, MAX_BUFEER_SIZE, c.UploadMaxChunkSize).(int64)
 	CONFIG.BigFileThreshold = Ternary(c.BigFileThreshold == 0, int64(1048576), c.BigFileThreshold).(int64)
 
+	CONFIG.EnableQoS = c.EnableQoS
 	CONFIG.DefaultReadOps = Ternary(c.DefaultReadOps <= 0, 2000, c.DefaultReadOps).(int)
 	CONFIG.DefaultWriteOps = Ternary(c.DefaultWriteOps <= 0, 1000, c.DefaultWriteOps).(int)
 	CONFIG.DefaultBandwidthKBps = Ternary(c.DefaultBandwidthKBps <= 0, 102400, c.DefaultBandwidthKBps).(int)
