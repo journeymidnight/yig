@@ -25,6 +25,20 @@ func Test_Object(t *testing.T) {
 	}
 	t.Log("PutObject Success!")
 
+	//set forbid overwrite
+	out, err := sc.PutObjectWithOverwrite(TestBucket, TestKey, TestValue+"-overwrite", true)
+	if err == nil {
+		t.Fatal("Forbid overwrite Failed!", out)
+	}
+	t.Log("Forbid overwrite Success!", out)
+	t.Log("Forbid overwrite Success!", err)
+
+	out, err = sc.PutObjectWithOverwrite(TestBucket, TestKey, TestValue+"-overwrite", false)
+	if err != nil {
+		t.Fatal("PutObjectWithOverwrite err:", err)
+	}
+	t.Log("PutObjectWithOverwrite Success!", out)
+
 	sc2 := NewS3WithoutMD5()
 	err = sc2.PutObject(TestBucket, TestKey, TestValue)
 	if err != nil {
@@ -58,14 +72,14 @@ func Test_Object(t *testing.T) {
 	t.Log("DeleteObject Success!")
 
 	pbi := &PostObjectInput{
-		Url:        fmt.Sprintf("http://s3.test.com:8080/%s", TestBucket),
+		Url:        fmt.Sprintf("http://"+Endpoint+"/%s", TestBucket),
 		Bucket:     TestBucket,
 		ObjName:    TestKey,
 		Expiration: time.Now().UTC().Add(time.Duration(1 * time.Hour)),
 		Date:       time.Now().UTC(),
 		Region:     "r",
-		AK:         "hehehehe",
-		SK:         "hehehehe",
+		AK:         AccessKey,
+		SK:         SecretKey,
 		FileSize:   1024,
 	}
 
