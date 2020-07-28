@@ -418,7 +418,7 @@ func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
 			c.Release()
 			drain_pending(pending)
 			return oid, 0,
-				fmt.Errorf("Bad io. pool:%s oid:%s", poolname, oid)
+				fmt.Errorf("Bad io. pool:%s oid:%s err:%s", poolname, oid, err.error())
 		}
 		pending.PushBack(c)
 
@@ -426,7 +426,7 @@ func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
 			if ret := wait_pending_front(pending); ret < 0 {
 				drain_pending(pending)
 				return oid, 0,
-					fmt.Errorf("Error drain_pending in pending_has_completed. pool:%s oid:%s", poolname, oid)
+					fmt.Errorf("Error drain_pending in pending_has_completed. pool:%s oid:%s err:%s", poolname, oid, err.error())
 			}
 		}
 
@@ -434,7 +434,7 @@ func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
 			if ret := wait_pending_front(pending); ret < 0 {
 				drain_pending(pending)
 				return oid, 0,
-					fmt.Errorf("Error wait_pending_front. pool:%s oid:%s", poolname, oid)
+					fmt.Errorf("Error wait_pending_front. pool:%s oid:%s err:%s", poolname, oid, err.error())
 			}
 		}
 		offset += uint64(len(pending_data))
@@ -470,8 +470,8 @@ func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
 		c, err = striper.WriteAIO(oid, pending_data[:slice_offset], offset)
 		if err != nil {
 			c.Release()
-			return oid, 0, fmt.Errorf("error writing remaining data, pool:%s oid:%s",
-				poolname, oid)
+			return oid, 0, fmt.Errorf("error writing remaining data, pool:%s oid:%s err:%s",
+				poolname, oid, err.error())
 		}
 		pending.PushBack(c)
 	}
