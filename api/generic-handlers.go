@@ -408,20 +408,22 @@ type QosHandler struct {
 }
 
 func (h *QosHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := GetRequestContext(r)
-	if len(ctx.BucketName) == 0 {
-		h.handler.ServeHTTP(w, r)
-		return
-	}
-	var allow bool
-	if r.Method == "GET" || r.Method == "HEAD" { // read operations
-		allow = h.meta.QosMeta.AllowReadQuery(ctx.BucketName)
-	} else { // write operations
-		allow = h.meta.QosMeta.AllowWriteQuery(ctx.BucketName)
-	}
-	if !allow {
-		WriteErrorResponse(w, r, ErrRequestLimitExceeded)
-		return
+	if helper.CONFIG.EnableQoS {
+		ctx := GetRequestContext(r)
+		if len(ctx.BucketName) == 0 {
+			h.handler.ServeHTTP(w, r)
+			return
+		}
+		var allow bool
+		if r.Method == "GET" || r.Method == "HEAD" { // read operations
+			allow = h.meta.QosMeta.AllowReadQuery(ctx.BucketName)
+		} else { // write operations
+			allow = h.meta.QosMeta.AllowWriteQuery(ctx.BucketName)
+		}
+		if !allow {
+			WriteErrorResponse(w, r, ErrRequestLimitExceeded)
+			return
+		}
 	}
 	h.handler.ServeHTTP(w, r)
 }

@@ -34,7 +34,9 @@ func NewQosMeta(client client.Client) *QosMeta {
 		client:      client,
 		rateLimiter: redis.QosLimiter,
 	}
-	go m.inMemoryCacheSync()
+	if helper.CONFIG.EnableQoS {
+		go m.inMemoryCacheSync()
+	}
 	return m
 }
 
