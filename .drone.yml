@@ -23,6 +23,9 @@ steps:
   - export GONOPROXY="10.0.45.221"
   - export GONOSUMDB="10.0.45.221"
   - cp -f integrate/resolv.conf /etc/resolv.conf
+  - cp integrate/id_rsa ~/.ssh/id_rsa
+  - cp integrate/id_rsa.pub ~/.ssh/id_rsa.pub
+  - cp integrate/known_hosts ~/.ssh/known_hosts
   - git config --global url."git@10.0.45.221:".insteadOf "https://10.0.45.221/"
   - git checkout $DRONE_COMMIT
   - make build_internal
