@@ -1,21 +1,36 @@
 package common
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/journeymidnight/yig/api/datatype/policy"
+)
+
+const (
+	OSSFullAccess = "oss_full_access"
+	OSSReadOnly   = "oss_read_only"
+)
 
 // credential container for access and secret keys.
 type Credential struct {
-	UserId               string
+	// UserId               string
+	ExternUserId         string
+	ExternRootId         string
+	ExternRootName       string
 	DisplayName          string
 	AccessKeyID          string
 	SecretAccessKey      string
+	Policy               *policy.Policy
 	AllowOtherUserAccess bool
 }
 
 func (a Credential) String() string {
-	userId := "UserId: " + a.UserId
+	// userId := "UserId: " + a.UserId
+	externUserId := "ExternUserId: " + a.ExternUserId
+	externRootId := "ExternRootId: " + a.ExternRootId
 	accessStr := "AccessKey: " + a.AccessKeyID
 	secretStr := "SecretKey: " + a.SecretAccessKey
-	return userId + " " + accessStr + " " + secretStr
+	return externUserId + " " + externRootId + " " + accessStr + " " + secretStr
 }
 
 var ErrAccessKeyNotExist = errors.New("Access key does not exist")

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"net/http"
+	"strings"
 )
 
 func HTTPRequestToGetObject(url string) (status int, val []byte, err error) {
@@ -15,6 +16,29 @@ func HTTPRequestToGetObject(url string) (status int, val []byte, err error) {
 	defer res.Body.Close()
 	if err != nil {
 		return 0, nil, errors.New("httpGet read body err: " + err.Error() + "url: " + url)
+	}
+	return res.StatusCode, d, err
+}
+
+func HTTPRequestToDeleteObject(url string) (status int, val []byte, err error) {
+	req, _ := http.NewRequest("DELETE", url, nil)
+	res, err := http.DefaultClient.Do(req)
+	d, err := ioutil.ReadAll(res.Body)
+	defer res.Body.Close()
+	if err != nil {
+		return 0, nil, errors.New("httpDelete err: " + err.Error() + "url: " + url)
+	}
+	return res.StatusCode, d, err
+}
+
+func HTTPRequestToPutObject(url string, value string) (status int, val []byte, err error) {
+	payload := strings.NewReader(value)
+	req, _ := http.NewRequest("PUT", url, payload)
+	res, err := http.DefaultClient.Do(req)
+	d, err := ioutil.ReadAll(res.Body)
+	defer res.Body.Close()
+	if err != nil {
+		return 0, nil, errors.New("httpPut err: " + err.Error() + "url: " + url)
 	}
 	return res.StatusCode, d, err
 }
