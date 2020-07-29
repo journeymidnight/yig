@@ -111,6 +111,7 @@ type Config struct {
 	RestoreObjectSpec       string `toml:"restore_object_spec"`
 	LockTime                int    `toml:"lock_time"`
 	RefreshLockTime         int    `toml:"refresh_lock_time"`
+	LogDeliveryGroup []string `toml:"log_delivery_group"`
 }
 
 type PluginConfig struct {
@@ -225,6 +226,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.RestoreObjectSpec = Ternary(c.RestoreObjectSpec == "", DEFAULTSPEC, c.RestoreObjectSpec).(string)
 	CONFIG.LockTime = Ternary(c.LockTime <= 0, DEFAULTLOCK, c.LockTime).(int)
 	CONFIG.RefreshLockTime = Ternary(c.RefreshLockTime <= 0, DEFAULTREFRESH, c.RefreshLockTime).(int)
+	CONFIG.LogDeliveryGroup = c.LogDeliveryGroup
 	return nil
 }
 

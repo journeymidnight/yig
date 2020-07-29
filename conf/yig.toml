@@ -78,6 +78,9 @@ default_read_ops = 2000
 default_write_ops = 1000
 default_bandwidth_kbps = 102400 # 100MB
 
+# Log delivery
+log_delivery_group = ["hahahaha"]
+
 # Ceph Config
 ceph_config_pattern = "/etc/ceph/*.conf"
 

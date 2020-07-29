@@ -2,10 +2,11 @@ package sts
 
 import (
 	"fmt"
+	"time"
+
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
-	"time"
 )
 
 const (
@@ -31,7 +32,8 @@ func VerifyToken(accessKey string, token string) (common.Credential, error) {
 	}
 
 	return common.Credential{
-		UserId: federationToken.OriginalUser,
+		ExternUserId: federationToken.OriginalUser,
+		ExternRootId: federationToken.OriginalUser,
 		DisplayName: fmt.Sprintf("%s:%s",
 			federationToken.OriginalUser, federationToken.Name),
 		AccessKeyID:     accessKey,

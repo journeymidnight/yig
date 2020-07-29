@@ -22,26 +22,16 @@ func (api ObjectAPIHandlers) PutBucketWebsiteHandler(w http.ResponseWriter, r *h
 
 	var credential common.Credential
 	var err error
-	switch reqCtx.AuthType {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.PutBucketPolicyAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	if reqCtx.BucketInfo == nil {
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return
 	}
-	if credential.UserId != reqCtx.BucketInfo.OwnerId {
+	if credential.ExternRootId != reqCtx.BucketInfo.OwnerId {
 		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
 		return
 	}
@@ -74,26 +64,16 @@ func (api ObjectAPIHandlers) GetBucketWebsiteHandler(w http.ResponseWriter, r *h
 
 	var credential common.Credential
 	var err error
-	switch reqCtx.AuthType {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.GetBucketPolicyAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	if reqCtx.BucketInfo == nil {
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return
 	}
-	if credential.UserId != reqCtx.BucketInfo.OwnerId {
+	if credential.ExternRootId != reqCtx.BucketInfo.OwnerId {
 		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
 		return
 	}
@@ -124,26 +104,16 @@ func (api ObjectAPIHandlers) DeleteBucketWebsiteHandler(w http.ResponseWriter, r
 
 	var credential common.Credential
 	var err error
-	switch reqCtx.AuthType {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.DeleteBucketPolicyAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	if reqCtx.BucketInfo == nil {
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return
 	}
-	if credential.UserId != reqCtx.BucketInfo.OwnerId {
+	if credential.ExternRootId != reqCtx.BucketInfo.OwnerId {
 		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
 		return
 	}
@@ -203,7 +173,7 @@ func (api ObjectAPIHandlers) HandledByWebsite(w http.ResponseWriter, r *http.Req
 		if strings.HasSuffix(ctx.ObjectName, "/") || ctx.ObjectName == "" {
 			indexName := ctx.ObjectName + id.Suffix
 			credential := common.Credential{}
-			isAllow, err := IsBucketPolicyAllowed(credential.UserId, ctx.BucketInfo, r, policy.GetObjectAction, indexName)
+			isAllow, err := IsBucketPolicyAllowed(&credential, ctx.BucketInfo, r, policy.GetObjectAction, indexName)
 			if err != nil {
 				WriteErrorResponse(w, r, err)
 				return true
@@ -256,7 +226,7 @@ func (api ObjectAPIHandlers) ReturnWebsiteErrorDocument(w http.ResponseWriter, r
 	if ed := website.ErrorDocument; ed != nil && ed.Key != "" {
 		indexName := ed.Key
 		credential := common.Credential{}
-		isAllow, err := IsBucketPolicyAllowed(credential.UserId, ctx.BucketInfo, r, policy.GetObjectAction, indexName)
+		isAllow, err := IsBucketPolicyAllowed(&credential, ctx.BucketInfo, r, policy.GetObjectAction, indexName)
 		if err != nil {
 			WriteErrorResponse(w, r, err)
 			return true

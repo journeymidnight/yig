@@ -12,6 +12,7 @@ func Test_BucketLogging(t *testing.T) {
 	sc := NewS3()
 	defer func() {
 		sc.DeleteBucket(TestBucket)
+		sc.DeleteBucket("testTargetBucket")
 	}()
 	err := sc.MakeBucket(TestBucket)
 	if err != nil {

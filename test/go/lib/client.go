@@ -16,6 +16,8 @@ const (
 	EndpointInternal = "s3-internal.test.com:8080"
 	AccessKey        = "hehehehe"
 	SecretKey        = "hehehehe"
+	AccessKeyH       = "hahahaha"
+	SecretKeyH       = "hahahaha"
 	Region           = "RegionHeHe"
 
 	TestBucket           = "mybucket"
@@ -74,6 +76,23 @@ func NewS3Internal() *S3Client {
 			Credentials: creds,
 			DisableSSL:  aws.Bool(true),
 			Endpoint:    aws.String(EndpointInternal),
+			Region:      aws.String(Region),
+		},
+	),
+	),
+	)
+	return &S3Client{s3client}
+}
+
+func NewS3Ha() *S3Client {
+	creds := credentials.NewStaticCredentials(AccessKeyH, SecretKeyH, "")
+
+	// By default make sure a region is specified
+	s3client := s3.New(session.Must(session.NewSession(
+		&aws.Config{
+			Credentials: creds,
+			DisableSSL:  aws.Bool(true),
+			Endpoint:    aws.String(Endpoint),
 			Region:      aws.String(Region),
 		},
 	),
