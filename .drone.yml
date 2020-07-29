@@ -69,6 +69,9 @@ steps:
     REL_DRONE: ALPHA
   commands:
   - export GOPROXY=https://goproxy.cn
+  - export GO111MODULE=on
+  - export GONOPROXY="10.0.45.221"
+  - export GONOSUMDB="10.0.45.221"
   - make pkg_internal
   when:
     branch:
@@ -126,6 +129,9 @@ steps:
     REL_DRONE: PUB
   commands:
     - export GOPROXY=https://goproxy.cn
+    - export GO111MODULE=on
+    - export GONOPROXY="10.0.45.221"
+    - export GONOSUMDB="10.0.45.221"
     - make pkg_internal
   when:
     event:
