@@ -1,0 +1,4 @@
+ScanIntervalSecond = 600
+CoolDownSecond = 600
+DispatchTopic = "migrate"
+PdAddresses = ["127.0.0.1:2379"]

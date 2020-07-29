@@ -16,13 +16,15 @@ build_internal:
 	go build $(URL)/$(REPO)
 	bash plugins/build_plugins_internal.sh
 	go build $(PWD)/tools/admin.go
-	go build -buildmode=plugin $(PWD)/tools/delete/*.go
 	go build $(PWD)/tools/getrediskeys.go
 	go build $(PWD)/tools/lc.go
-	go build -buildmode=plugin $(PWD)/tools/migrate/*.go
 	go build -o $(PWD)/tikv-tool $(PWD)/tools/tikvtool/*.go
 	go build -o $(PWD)/yig-restore $(PWD)/tools/restore/*.go
 	cp -f $(PWD)/plugins/*.so $(PWD)/integrate/yigconf/plugins/
+
+build_extra:
+	go build -buildmode=plugin $(PWD)/tools/delete/*.go
+	go build -buildmode=plugin $(PWD)/tools/migrate/*.go
 
 pkg:
 	docker run --rm -v $(PWD):$(WORKDIR) -w $(WORKDIR) journeymidnight/yig bash -c 'bash package/rpmbuild.sh $(REPO) $(BUILDROOT) $(VER) $(REL)'

@@ -42,3 +42,19 @@ rpmbuild \
 --define '_rpmfilename %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm' \
 -ba $RPMTOPDIR/SPECS/${PACKAGENAME}.spec
 
+rm -rf $RPMTOPDIR
+# Create tarball
+mkdir -p $RPMTOPDIR/{SOURCES,SPECS}
+git archive --format=tar --prefix=yig-extra/ HEAD | gzip -c > $RPMTOPDIR/SOURCES/yig-extra-${VER}-${REL}.tar.gz
+
+# Convert git log to RPM's ChangeLog format (shown with rpm -qp --changelog <rpm file>)
+sed -e "s/%{ver}/$VER/" -e "s/%{rel}/$REL/" $GITROOT/package/yig-extra.spec > $RPMTOPDIR/SPECS/yig-extra.spec
+git log -n 10 --format="* %cd %aN%n- (%h) %s%d%n" --date=local | sed -r 's/[0-9]+:[0-9]+:[0-9]+ //' >> $RPMTOPDIR/SPECS/yig-extra.spec
+# Build SRC and binary RPMs
+rpmbuild \
+--define "_topdir $RPMTOPDIR" \
+--define "_rpmdir $PWD" \
+--define "_srcrpmdir $PWD" \
+--define '_rpmfilename %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm' \
+-ba $RPMTOPDIR/SPECS/yig-extra.spec
+

@@ -1,0 +1,8 @@
+CoolDownSecond = 600
+DispatchTopic = "migrate"
+ThreadsPerWorker = 2
+Partitions = 1
+PdAddresses = ["127.0.0.1:2379"]
+CephConfigPattern = "/etc/ceph/*.conf"
+RedisAddresses = ["127.0.0.1:6379"]
+RedisPassword = "password"

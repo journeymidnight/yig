@@ -13,7 +13,7 @@ URL:		http://github.com/journeymidnight/yig
 Source0:	%{name}-%{version}-%{rel}.tar.gz
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 #BuildRequires:  
-Requires:       libradosstriper1,librados2,librdkafka1
+Requires:       libradosstriper1,librados2
 
 %description
 
