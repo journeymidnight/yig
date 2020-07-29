@@ -4,7 +4,7 @@ import (
 	"context"
 	. "database/sql/driver"
 
-	"github.com/tikv/client-go/txnkv"
+	"github.com/journeymidnight/client-go/txnkv"
 )
 
 type TikvTx struct {

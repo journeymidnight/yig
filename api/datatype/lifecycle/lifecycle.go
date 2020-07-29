@@ -45,9 +45,10 @@ const (
 	// NoneAction means no action required after evaluating lifecycle rules
 	NoneAction Action = iota
 	// DeleteAction means the object needs to be removed after evaluating lifecycle rules
+	// For versioned buckets, this could be an added delete marker
 	DeleteAction
-	// DeleteMarker means the object deleteMarker needs to be removed after evaluating lifecycle rules
-	DeleteMarkerAction
+	// DeleteVersionAction means the specific object version needs to be removed after evaluating lifecycle rules
+	DeleteVersionAction
 	//TransitionAction means the object storage class needs to be transitioned after evaluating lifecycle rules
 	TransitionAction
 	// AbortMultipartUploadAction means that abort incomplete multipart upload and delete all parts
@@ -95,7 +96,7 @@ func (lc Lifecycle) Validate() error {
 	return nil
 }
 
-func (lc Lifecycle) FilterRulesByNonCurrentVersion() (ncvRules, cvRules, abortMultipartRules []Rule) {
+func (lc Lifecycle) FilterRules() (ncvRules, cvRules, abortMultipartRules []Rule) {
 	for _, rule := range lc.Rules {
 		if rule.Expiration != nil || len(rule.Transitions) != 0 {
 			cvRules = append(cvRules, rule)
@@ -124,7 +125,7 @@ func (lc Lifecycle) FilterRulesByNonCurrentVersion() (ncvRules, cvRules, abortMu
 //	FOR MANY LOOP RULES, IF NOT EXPIRATION, SHOULD BE TRANSITION(RETURN THE CHEAPEST CLASS)
 //
 func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, objStorageClass string, modTime time.Time,
-	isExpiredObjectDeleteMarkerWork bool, rules []Rule) (Action, string) {
+	expiredObjectDeleteMarker bool, rules []Rule) (Action, string) {
 	var storageClass meta.StorageClass
 	var action Action
 	if modTime.IsZero() || objName == "" {
@@ -149,17 +150,17 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 				if !rule.Expiration.IsDateNull() {
 					if time.Now().After(rule.Expiration.Date.Time) {
 						// not set EODM, only DM ==> NoneAction
-						// not set EODM, only DM ==> DeleteAction
-						// set EODM, only DM ==> DeleteMarkerAction
+						// not set EODM, not DM ==> DeleteAction
+						// set EODM, only DM ==> DeleteVersionAction
 						// set EODM, not DM ==> pass Expiration
 						if !rule.Expiration.IsSetExpiredObjectDeleteMarker() {
-							if !isExpiredObjectDeleteMarkerWork {
+							if !expiredObjectDeleteMarker {
 								return DeleteAction, ""
 							}
 							return NoneAction, ""
 						} else {
-							if isExpiredObjectDeleteMarkerWork {
-								return DeleteMarkerAction, ""
+							if expiredObjectDeleteMarker {
+								return DeleteVersionAction, ""
 							}
 						}
 					}
@@ -174,13 +175,13 @@ func (lc Lifecycle) ComputeAction(objName string, objTags map[string]string, obj
 					}
 					if time.Now().After(modTime.Add(days)) {
 						if !rule.Expiration.IsSetExpiredObjectDeleteMarker() {
-							if !isExpiredObjectDeleteMarkerWork {
+							if !expiredObjectDeleteMarker {
 								return DeleteAction, ""
 							}
 							return NoneAction, ""
 						} else {
-							if isExpiredObjectDeleteMarkerWork {
-								return DeleteMarkerAction, ""
+							if expiredObjectDeleteMarker {
+								return DeleteVersionAction, ""
 							}
 						}
 					}

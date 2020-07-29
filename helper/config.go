@@ -34,7 +34,6 @@ type Config struct {
 	BindAdminAddress     string                  `toml:"admin_listener"`
 	SSLKeyPath           string                  `toml:"ssl_key_path"`
 	SSLCertPath          string                  `toml:"ssl_cert_path"`
-	ZookeeperAddress     string                  `toml:"zk_address"`
 
 	InstanceId             string // if empty, generated one at server startup
 	ConcurrentRequestLimit int
@@ -47,7 +46,6 @@ type Config struct {
 	EnablePProf       bool     `toml:"enable_pprof"`
 	BindPProfAddress  string   `toml:"pprof_listener"`
 	AdminKey          string   `toml:"admin_key"` //used for tools/admin to communicate with yig
-	GcThread          int      `toml:"gc_thread"`
 	LcThread          int      //used for tools/lc only, set worker numbers to do lc
 	LogLevel          string   `toml:"log_level"` // "info", "warn", "error"
 	CephConfigPattern string   `toml:"ceph_config_pattern"`
@@ -57,6 +55,8 @@ type Config struct {
 	PdAddress         []string `toml:"pd_address"`
 	KeepAlive         bool     `toml:"keepalive"`
 	EnableCompression bool     `toml:"enable_compression"`
+	KafkaBrokers      []string `toml:"kafka_brokers"` // list of `IP:Port`
+	GcTopic           string   `toml:"gc_topic"`
 
 	LifecycleSpec string `toml:"lifecycle_spec"` // use for Lifecycle timing
 
@@ -151,7 +151,6 @@ func MarshalTOMLConfig() error {
 	CONFIG.BindAdminAddress = c.BindAdminAddress
 	CONFIG.SSLKeyPath = c.SSLKeyPath
 	CONFIG.SSLCertPath = c.SSLCertPath
-	CONFIG.ZookeeperAddress = c.ZookeeperAddress
 	CONFIG.DebugMode = c.DebugMode
 	CONFIG.EnablePProf = c.EnablePProf
 	CONFIG.BindPProfAddress = c.BindPProfAddress
@@ -162,12 +161,12 @@ func MarshalTOMLConfig() error {
 	CONFIG.PdAddress = c.PdAddress
 	CONFIG.KeepAlive = c.KeepAlive
 	CONFIG.EnableCompression = c.EnableCompression
+	CONFIG.KafkaBrokers = c.KafkaBrokers
+	CONFIG.GcTopic = c.GcTopic
 	CONFIG.InstanceId = Ternary(c.InstanceId == "",
 		string(GenerateRandomId()), c.InstanceId).(string)
 	CONFIG.ConcurrentRequestLimit = Ternary(c.ConcurrentRequestLimit == 0,
 		10000, c.ConcurrentRequestLimit).(int)
-	CONFIG.GcThread = Ternary(c.GcThread == 0,
-		1, c.GcThread).(int)
 	CONFIG.LcThread = Ternary(c.LcThread == 0,
 		1, c.LcThread).(int)
 	CONFIG.MgThread = Ternary(c.MgThread == 0,

@@ -53,6 +53,28 @@ func Initialize(config helper.Config) map[string]backend.Cluster {
 	return clusters
 }
 
+// Exactly `Initialize` but without log output, return generated errors
+func PureInitialize(cephConfigPattern string) (map[string]backend.Cluster, error) {
+	if cephConfigPattern == "" {
+		cephConfigPattern = DEFAULT_CEPHCONFIG_PATTERN
+	}
+	cephConfigFiles, err := filepath.Glob(cephConfigPattern)
+	if err != nil || len(cephConfigFiles) == 0 {
+		return nil, errors.New("no ceph conf found")
+	}
+
+	clusters := make(map[string]backend.Cluster)
+	for _, conf := range cephConfigFiles {
+		c, err := PureNewCephStorage(conf)
+		if err != nil {
+			return nil, err
+		}
+		clusters[c.Name] = c
+	}
+
+	return clusters, nil
+}
+
 type CephCluster struct {
 	Name       string
 	Conn       RadosConn
@@ -97,6 +119,50 @@ func NewCephStorage(configFile string) *CephCluster {
 
 	helper.Logger.Info("Ceph Cluster", name, "is ready, InstanceId is", name, id)
 	return &cluster
+}
+
+// Exactly `NewCephStorage`, but without log output, return errors
+func PureNewCephStorage(configFile string) (*CephCluster, error) {
+
+	conn, err := rados.NewConn("admin")
+	if err != nil {
+		return nil, fmt.Errorf("rados new conn: %w", err)
+	}
+	err = conn.SetConfigOption("rados_mon_op_timeout", MON_TIMEOUT)
+	if err != nil {
+		return nil, fmt.Errorf("set MON_TIMEOUT error: %w", err)
+	}
+	err = conn.SetConfigOption("rados_osd_op_timeout", OSD_TIMEOUT)
+	if err != nil {
+		return nil, fmt.Errorf("set OSD_TIMEOUT error: %w", err)
+	}
+
+	err = conn.ReadConfigFile(configFile)
+	if err != nil {
+		return nil, fmt.Errorf("open file %s failed: %w", configFile, err)
+	}
+
+	err = conn.Connect()
+	if err != nil {
+		return nil, fmt.Errorf("connect to remote cluster %s failed: %w",
+			configFile, err)
+	}
+
+	name, err := conn.GetFSID()
+	if err != nil {
+		conn.Shutdown()
+		return nil, fmt.Errorf("get %s FSID failed: %w", configFile, err)
+	}
+
+	id := conn.GetInstanceID()
+
+	cluster := CephCluster{
+		Conn:       radosConn{conn},
+		Name:       name,
+		InstanceId: id,
+	}
+
+	return &cluster, nil
 }
 
 func setStripeLayout(p StriperPool) int {

@@ -103,13 +103,6 @@ enable = true
 [plugins.dummy_encryption_kms.args]
 url = "KMS"
 
-[plugins.dummy_mq]
-path = "/etc/yig/plugins/dummy_mq_plugin.so"
-enable = true
-[plugins.dummy_mq.args]
-topic = "testTopic2"
-url = "kafka:29092"
-
 [plugins.dummy_iam]
 path = "/etc/yig/plugins/dummy_iam_plugin.so"
 enable = true
