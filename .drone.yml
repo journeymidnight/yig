@@ -72,6 +72,10 @@ steps:
   - export GO111MODULE=on
   - export GONOPROXY="10.0.45.221"
   - export GONOSUMDB="10.0.45.221"
+  - cp integrate/id_rsa ~/.ssh/id_rsa
+  - cp integrate/id_rsa.pub ~/.ssh/id_rsa.pub
+  - cp integrate/known_hosts ~/.ssh/known_hosts
+  - git config --global url."git@10.0.45.221:".insteadOf "https://10.0.45.221/"
   - make pkg_internal
   when:
     branch:
@@ -132,6 +136,10 @@ steps:
     - export GO111MODULE=on
     - export GONOPROXY="10.0.45.221"
     - export GONOSUMDB="10.0.45.221"
+    - cp integrate/id_rsa ~/.ssh/id_rsa
+    - cp integrate/id_rsa.pub ~/.ssh/id_rsa.pub
+    - cp integrate/known_hosts ~/.ssh/known_hosts
+    - git config --global url."git@10.0.45.221:".insteadOf "https://10.0.45.221/"
     - make pkg_internal
   when:
     event:
