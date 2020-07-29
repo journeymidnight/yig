@@ -1,7 +1,7 @@
 package meta
 
 import (
-	"github.com/cannium/meepo/kafka"
+	"10.0.45.221/meepo/kafka.git"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/meta/client"
 	"github.com/journeymidnight/yig/meta/client/tidbclient"

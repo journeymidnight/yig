@@ -1,12 +1,12 @@
 package main
 
 import (
+	"10.0.45.221/meepo/cron.git"
+	"10.0.45.221/meepo/kafka.git"
+	"10.0.45.221/meepo/log.git"
+	"10.0.45.221/meepo/task.git"
 	"github.com/Shopify/sarama"
 	"github.com/bsm/redislock"
-	"github.com/cannium/meepo/cron"
-	"github.com/cannium/meepo/kafka"
-	"github.com/cannium/meepo/log"
-	"github.com/cannium/meepo/task"
 	redis2 "github.com/go-redis/redis/v7"
 	"github.com/journeymidnight/yig/backend"
 	"github.com/journeymidnight/yig/ceph"

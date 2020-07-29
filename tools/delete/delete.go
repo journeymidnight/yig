@@ -1,9 +1,9 @@
 package main
 
 import (
+	"10.0.45.221/meepo/log.git"
+	"10.0.45.221/meepo/task.git"
 	"github.com/Shopify/sarama"
-	"github.com/cannium/meepo/log"
-	"github.com/cannium/meepo/task"
 	"github.com/journeymidnight/yig/backend"
 	"github.com/journeymidnight/yig/ceph"
 	"github.com/journeymidnight/yig/helper"
