@@ -38,8 +38,6 @@ steps:
   - sleep 10
   - ./lc &
   - sleep 10
-  - ./migrate &
-  - sleep 10
   - ping -c 1 s3.test.com
   - ps aux|grep yig
   - ps aux|grep lc
