@@ -333,7 +333,7 @@ func (cluster *CephCluster) doSmallAppend(poolname string, oid string, offset ui
 	defer pool.Destroy()
 	striper, err := pool.CreateStriper()
 	if err != nil {
-		return 0, fmt.Errorf("Bad ioctx of pool %s", poolname)
+		return 0, fmt.Errorf("Bad ioctx of pool %s,err:%s", poolname, err.Error())
 	}
 	defer striper.Destroy()
 
@@ -429,13 +429,13 @@ func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
 
 	pool, err := cluster.Conn.OpenPool(poolname)
 	if err != nil {
-		return oid, 0, fmt.Errorf("Bad poolname %s", poolname)
+		return oid, 0, fmt.Errorf("Bad poolname %s err:%s", poolname, err.Error())
 	}
 	defer pool.Destroy()
 
 	striper, err := pool.CreateStriper()
 	if err != nil {
-		return oid, 0, fmt.Errorf("Bad ioctx of pool %s", poolname)
+		return oid, 0, fmt.Errorf("Bad ioctx of pool %s err:%s", poolname, err.Error())
 	}
 	defer striper.Destroy()
 
@@ -462,7 +462,7 @@ func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
 		if err != nil && err != io.EOF {
 			drain_pending(pending)
 			return oid, 0,
-				fmt.Errorf("Read from client failed. pool:%s oid:%s", poolname, oid)
+				fmt.Errorf("Read from client failed. pool:%s oid:%s err:%s", poolname, oid, err.Error())
 		}
 		if count == 0 {
 			break
@@ -573,14 +573,14 @@ func (cluster *CephCluster) Append(poolname string, existName string, data io.Re
 	pool, err := cluster.Conn.OpenPool(poolname)
 	if err != nil {
 		return oid, 0,
-			fmt.Errorf("Bad poolname %s", poolname)
+			fmt.Errorf("Bad poolname %s err:%s", poolname, err.Error())
 	}
 	defer pool.Destroy()
 
 	striper, err := pool.CreateStriper()
 	if err != nil {
 		return oid, 0,
-			fmt.Errorf("Bad ioctx of pool %s", poolname)
+			fmt.Errorf("Bad ioctx of pool %s err:%s", poolname, err.Error())
 	}
 	defer striper.Destroy()
 
@@ -616,7 +616,7 @@ func (cluster *CephCluster) Append(poolname string, existName string, data io.Re
 		_, err = striper.Write(oid, pending_data, uint64(offset))
 		if err != nil {
 			return oid, 0,
-				fmt.Errorf("Bad io. pool:%s oid:%s", poolname, oid)
+				fmt.Errorf("Bad io. pool:%s oid:%s err:%s", poolname, oid, err.Error())
 		}
 
 		offset += int64(len(pending_data))
@@ -652,7 +652,7 @@ func (cluster *CephCluster) Append(poolname string, existName string, data io.Re
 		_, err = striper.Write(oid, pending_data, uint64(offset))
 		if err != nil {
 			return oid, 0,
-				fmt.Errorf("Bad io. pool:%s oid:%s", poolname, oid)
+				fmt.Errorf("Bad io. pool:%s oid:%s err:%s", poolname, oid, err.Error())
 		}
 	}
 
