@@ -40,7 +40,9 @@ type KV struct {
 }
 
 func NewClient(pdAddress []string) *TiKVClient {
-	TxnCli, err := txnkv.NewClient(context.TODO(), pdAddress, config.Default())
+	conf := config.Default()
+	conf.RPC.MaxConnectionCount = uint(helper.CONFIG.DbMaxOpenConns)
+	TxnCli, err := txnkv.NewClient(context.TODO(), pdAddress, conf)
 	if err != nil {
 		panic(err)
 	}
