@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	MON_TIMEOUT                = "10"
-	OSD_TIMEOUT                = "10"
+	MON_TIMEOUT                = "0"
+	OSD_TIMEOUT                = "0"
 	STRIPE_UNIT                = 2 << 20 /* 2M */
 	STRIPE_COUNT               = 2
 	APPEND_STRIPE_UNIT         = 32 << 10 /* 32K */
