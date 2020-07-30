@@ -270,13 +270,13 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 			if err != nil {
 				return
 			}
-			upload.Owner.ID = user.UserId
+			upload.Owner.ID = user.ExternUserId
 			upload.Owner.DisplayName = user.DisplayName
 			user, err = iam.GetCredentialByUserId(initiatorid)
 			if err != nil {
 				return
 			}
-			upload.Initiator.ID = user.UserId
+			upload.Initiator.ID = user.ExternUserId
 			upload.Initiator.DisplayName = user.DisplayName
 			timestamp := int64(math.MaxUint64 - uploadtime)
 			s := timestamp / 1e9

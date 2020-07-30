@@ -1,0 +1,3 @@
+GarbageCollectionTopic = "yig_gc"
+PartitionCount = 1
+CephConfigPattern = "/etc/ceph/*.conf"

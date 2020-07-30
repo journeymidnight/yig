@@ -16,7 +16,6 @@ import (
 	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/mods"
-	bus "github.com/journeymidnight/yig/mq"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/storage"
 )
@@ -59,19 +58,6 @@ func main() {
 			yig.PingCache(time.Duration(helper.CONFIG.CacheCircuitCheckInterval) * time.Second)
 		}()
 	}
-
-	// try to create message queue sender if message bus is enabled.
-	// message queue sender is singleton so create it beforehand.
-	mqSender, err := bus.InitMessageSender(allPluginMap)
-	if err != nil {
-		helper.Logger.Error("Failed to create message queue sender, err:", err)
-		panic("failed to create message queue sender")
-	}
-	if mqSender == nil {
-		helper.Logger.Error("Failed to create message queue sender, sender is nil.")
-		panic("failed to create message queue sender, sender is nil.")
-	}
-	helper.Logger.Info("Succeed to create message queue sender.")
 
 	// try to create compression if it is enabled.
 	if helper.CONFIG.EnableCompression == true {

@@ -35,21 +35,48 @@ func (yig *YigStorage) ListMultipartUploads(reqCtx RequestContext, credential co
 	if bucket == nil {
 		return result, ErrNoSuchBucket
 	}
-	switch bucket.ACL.CannedAcl {
-	case "public-read", "public-read-write":
-		break
-	case "authenticated-read":
-		if credential.UserId == "" {
-			err = ErrBucketAccessForbidden
-			return
-		}
-	default:
-		if bucket.OwnerId != credential.UserId {
-			err = ErrBucketAccessForbidden
-			return
+
+	if !credential.AllowOtherUserAccess {
+		//an CanonicalUser request
+		if !(bucket.OwnerId == credential.ExternRootId && credential.ExternUserId == credential.ExternRootId) {
+			if bucket.ACL.CannedAcl != "" {
+				switch bucket.ACL.CannedAcl {
+				case "public-read", "public-read-write":
+					break
+				case "authenticated-read":
+					if credential.ExternUserId == "" {
+						err = ErrBucketAccessForbidden
+						return
+					}
+				default:
+					err = ErrBucketAccessForbidden
+					return
+				}
+			} else {
+				switch true {
+				case datatype.IsPermissionMatchedById(bucket.ACL.Policy, datatype.ACL_PERM_READ, credential.ExternUserId) ||
+					datatype.IsPermissionMatchedById(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, credential.ExternUserId):
+					break
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_READ, datatype.ACL_GROUP_TYPE_ALL_USERS) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_ALL_USERS):
+					break
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_READ, datatype.ACL_GROUP_TYPE_AUTHENTICATED_USERS) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_AUTHENTICATED_USERS):
+					if credential.ExternUserId != "" {
+						break
+					}
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_READ, datatype.ACL_GROUP_TYPE_LOG_DELIVERY) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_LOG_DELIVERY):
+					if helper.StringInSlice(credential.ExternUserId, helper.CONFIG.LogDeliveryGroup) {
+						break
+					}
+				default:
+					err = ErrBucketAccessForbidden
+					return
+				}
+			}
 		}
 	}
-	// TODO policy and fancy ACL
 
 	result, err = yig.MetaStorage.Client.ListMultipartUploads(bucket.Name, request.KeyMarker, request.UploadIdMarker, request.Prefix, request.Delimiter, request.EncodingType, request.MaxUploads)
 	if err != nil {
@@ -74,16 +101,43 @@ func (yig *YigStorage) NewMultipartUpload(reqCtx RequestContext, credential comm
 	if bucket == nil {
 		return "", ErrNoSuchBucket
 	}
-	switch bucket.ACL.CannedAcl {
-	case "public-read-write":
-		break
-	default:
-		if bucket.OwnerId != credential.UserId {
-			return "", ErrBucketAccessForbidden
+
+	if !credential.AllowOtherUserAccess {
+		//an CanonicalUser request
+		if !(bucket.OwnerId == credential.ExternRootId && credential.ExternUserId == credential.ExternRootId) {
+			if bucket.ACL.CannedAcl != "" {
+				switch bucket.ACL.CannedAcl {
+				case "public-read-write":
+					break
+				default:
+					err = ErrBucketAccessForbidden
+					return
+				}
+			} else {
+				switch true {
+				case datatype.IsPermissionMatchedById(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, credential.ExternUserId) ||
+					datatype.IsPermissionMatchedById(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, credential.ExternUserId):
+					break
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, datatype.ACL_GROUP_TYPE_ALL_USERS) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_ALL_USERS):
+					break
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, datatype.ACL_GROUP_TYPE_AUTHENTICATED_USERS) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_AUTHENTICATED_USERS):
+					if credential.ExternUserId != "" {
+						break
+					}
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, datatype.ACL_GROUP_TYPE_LOG_DELIVERY) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_LOG_DELIVERY):
+					if helper.StringInSlice(credential.ExternUserId, helper.CONFIG.LogDeliveryGroup) {
+						break
+					}
+				default:
+					err = ErrBucketAccessForbidden
+					return
+				}
+			}
 		}
 	}
-	// TODO policy and fancy ACL
-
 	contentType, ok := metadata["Content-Type"]
 	if !ok {
 		contentType = "application/octet-stream"
@@ -91,7 +145,7 @@ func (yig *YigStorage) NewMultipartUpload(reqCtx RequestContext, credential comm
 
 	cephCluster, pool := yig.pickClusterAndPool(bucketName, objectName, storageClass, -1, false)
 	multipartMetadata := meta.MultipartMetadata{
-		InitiatorId:  credential.UserId,
+		InitiatorId:  bucket.OwnerId,
 		OwnerId:      bucket.OwnerId,
 		ContentType:  contentType,
 		Location:     cephCluster.ID(),
@@ -131,8 +185,14 @@ func (yig *YigStorage) NewMultipartUpload(reqCtx RequestContext, credential comm
 func (yig *YigStorage) PutObjectPart(reqCtx RequestContext, credential common.Credential,
 	uploadId string, partId int, size int64, data io.ReadCloser, md5Hex string,
 	sseRequest datatype.SseRequest) (result datatype.PutObjectPartResult, err error) {
-
 	defer data.Close()
+
+	bucket := reqCtx.BucketInfo
+	if bucket == nil {
+		err = ErrNoSuchBucket
+		return
+	}
+
 	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
 	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
 	if err != nil {
@@ -142,6 +202,43 @@ func (yig *YigStorage) PutObjectPart(reqCtx RequestContext, credential common.Cr
 	if size > MAX_PART_SIZE {
 		err = ErrEntityTooLarge
 		return
+	}
+
+	if !credential.AllowOtherUserAccess {
+		//an CanonicalUser request
+		if !(bucket.OwnerId == credential.ExternRootId && credential.ExternUserId == credential.ExternRootId) {
+			if bucket.ACL.CannedAcl != "" {
+				switch bucket.ACL.CannedAcl {
+				case "public-read-write":
+					break
+				default:
+					err = ErrBucketAccessForbidden
+					return
+				}
+			} else {
+				switch true {
+				case datatype.IsPermissionMatchedById(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, credential.ExternUserId) ||
+					datatype.IsPermissionMatchedById(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, credential.ExternUserId):
+					break
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, datatype.ACL_GROUP_TYPE_ALL_USERS) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_ALL_USERS):
+					break
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, datatype.ACL_GROUP_TYPE_AUTHENTICATED_USERS) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_AUTHENTICATED_USERS):
+					if credential.ExternUserId != "" {
+						break
+					}
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, datatype.ACL_GROUP_TYPE_LOG_DELIVERY) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_LOG_DELIVERY):
+					if helper.StringInSlice(credential.ExternUserId, helper.CONFIG.LogDeliveryGroup) {
+						break
+					}
+				default:
+					err = ErrBucketAccessForbidden
+					return
+				}
+			}
+		}
 	}
 
 	var encryptionKey []byte
@@ -331,16 +428,45 @@ func (yig *YigStorage) CopyObjectPart(bucketName, objectName, uploadId string, p
 		RecycleQueue <- maybeObjectToRecycle
 		return
 	}
-	switch bucket.ACL.CannedAcl {
-	case "public-read-write":
-		break
-	default:
-		if bucket.OwnerId != credential.UserId {
-			RecycleQueue <- maybeObjectToRecycle
-			err = ErrBucketAccessForbidden
-			return
+
+	if !credential.AllowOtherUserAccess {
+		//an CanonicalUser request
+		if !(bucket.OwnerId == credential.ExternRootId && credential.ExternUserId == credential.ExternRootId) {
+			if bucket.ACL.CannedAcl != "" {
+				switch bucket.ACL.CannedAcl {
+				case "public-read-write":
+					break
+				default:
+					RecycleQueue <- maybeObjectToRecycle
+					err = ErrBucketAccessForbidden
+					return
+				}
+			} else {
+				switch true {
+				case datatype.IsPermissionMatchedById(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, credential.ExternUserId) ||
+					datatype.IsPermissionMatchedById(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, credential.ExternUserId):
+					break
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, datatype.ACL_GROUP_TYPE_ALL_USERS) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_ALL_USERS):
+					break
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, datatype.ACL_GROUP_TYPE_AUTHENTICATED_USERS) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_AUTHENTICATED_USERS):
+					if credential.ExternUserId != "" {
+						break
+					}
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, datatype.ACL_GROUP_TYPE_LOG_DELIVERY) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_LOG_DELIVERY):
+					if helper.StringInSlice(credential.ExternUserId, helper.CONFIG.LogDeliveryGroup) {
+						break
+					}
+				default:
+					RecycleQueue <- maybeObjectToRecycle
+					err = ErrBucketAccessForbidden
+					return
+				}
+			}
 		}
-	} // TODO policy and fancy ACL
+	}
 
 	if initializationVector == nil {
 		initializationVector = []byte{}
@@ -385,30 +511,57 @@ func (yig *YigStorage) ListObjectParts(credential common.Credential, bucketName,
 	initiatorId := multipart.Metadata.InitiatorId
 	ownerId := multipart.Metadata.OwnerId
 
-	switch multipart.Metadata.Acl.CannedAcl {
-	case "public-read", "public-read-write":
-		break
-	case "authenticated-read":
-		if credential.UserId == "" {
-			err = ErrAccessDenied
-			return
-		}
-	case "bucket-owner-read", "bucket-owner-full-controll":
-		var bucket *meta.Bucket
-		bucket, err = yig.MetaStorage.GetBucket(bucketName, true)
-		if err != nil {
-			return
-		}
-		if bucket.OwnerId != credential.UserId {
-			err = ErrAccessDenied
-			return
-		}
-	default:
-		if ownerId != credential.UserId {
-			err = ErrAccessDenied
-			return
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
+	if err != nil {
+		return
+	}
+
+	if !credential.AllowOtherUserAccess {
+		//an CanonicalUser request
+		if !(bucket.OwnerId == credential.ExternRootId && credential.ExternUserId == credential.ExternRootId) {
+			if bucket.ACL.CannedAcl != "" {
+				switch bucket.ACL.CannedAcl {
+				case "public-read", "public-read-write":
+					break
+				case "authenticated-read":
+					if credential.ExternUserId == "" {
+						err = ErrBucketAccessForbidden
+						return
+					}
+				default:
+					if ownerId != credential.ExternUserId {
+						err = ErrAccessDenied
+						return
+					}
+				}
+			} else {
+				switch true {
+				case datatype.IsPermissionMatchedById(bucket.ACL.Policy, datatype.ACL_PERM_READ, credential.ExternUserId) ||
+					datatype.IsPermissionMatchedById(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, credential.ExternUserId):
+					break
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_READ, datatype.ACL_GROUP_TYPE_ALL_USERS) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_ALL_USERS):
+					break
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_READ, datatype.ACL_GROUP_TYPE_AUTHENTICATED_USERS) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_AUTHENTICATED_USERS):
+					if credential.ExternUserId != "" {
+						break
+					}
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_READ, datatype.ACL_GROUP_TYPE_LOG_DELIVERY) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_LOG_DELIVERY):
+					if helper.StringInSlice(credential.ExternUserId, helper.CONFIG.LogDeliveryGroup) {
+						break
+					}
+				default:
+					if ownerId != credential.ExternUserId {
+						err = ErrAccessDenied
+						return
+					}
+				}
+			}
 		}
 	}
+
 	for i := request.PartNumberMarker + 1; i <= MAX_PART_NUMBER; i++ {
 		if p, ok := multipart.Parts[i]; ok {
 			part := datatype.Part{
@@ -435,13 +588,13 @@ func (yig *YigStorage) ListObjectParts(credential common.Credential, bucketName,
 	if err != nil {
 		return
 	}
-	result.Owner.ID = user.UserId
+	result.Owner.ID = user.ExternUserId
 	result.Owner.DisplayName = user.DisplayName
 	user, err = iam.GetCredentialByUserId(initiatorId)
 	if err != nil {
 		return
 	}
-	result.Initiator.ID = user.UserId
+	result.Initiator.ID = user.ExternUserId
 	result.Initiator.DisplayName = user.DisplayName
 
 	result.Bucket = bucketName
@@ -458,20 +611,49 @@ func (yig *YigStorage) ListObjectParts(credential common.Credential, bucketName,
 	return
 }
 
-func (yig *YigStorage) AbortMultipartUpload(reqCtx RequestContext, credential common.Credential, uploadId string) (datatype.DeltaSizeInfo, error) {
-	var deltaInfo datatype.DeltaSizeInfo
+func (yig *YigStorage) AbortMultipartUpload(reqCtx RequestContext, credential common.Credential, uploadId string) (deltaInfo datatype.DeltaSizeInfo, err error) {
 	bucket := reqCtx.BucketInfo
 	if bucket == nil {
 		return deltaInfo, ErrNoSuchBucket
 	}
-	switch bucket.ACL.CannedAcl {
-	case "public-read-write":
-		break
-	default:
-		if bucket.OwnerId != credential.UserId {
-			return deltaInfo, ErrBucketAccessForbidden
+
+	if !credential.AllowOtherUserAccess {
+		//an CanonicalUser request
+		if !(bucket.OwnerId == credential.ExternRootId && credential.ExternUserId == credential.ExternRootId) {
+			if bucket.ACL.CannedAcl != "" {
+				switch bucket.ACL.CannedAcl {
+				case "public-read-write":
+					break
+				default:
+					err = ErrAccessDenied
+					return
+				}
+			} else {
+				switch true {
+				case datatype.IsPermissionMatchedById(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, credential.ExternUserId) ||
+					datatype.IsPermissionMatchedById(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, credential.ExternUserId):
+					break
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, datatype.ACL_GROUP_TYPE_ALL_USERS) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_ALL_USERS):
+					break
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, datatype.ACL_GROUP_TYPE_AUTHENTICATED_USERS) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_AUTHENTICATED_USERS):
+					if credential.ExternUserId != "" {
+						break
+					}
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, datatype.ACL_GROUP_TYPE_LOG_DELIVERY) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_LOG_DELIVERY):
+					if helper.StringInSlice(credential.ExternUserId, helper.CONFIG.LogDeliveryGroup) {
+						break
+					}
+				default:
+					err = ErrAccessDenied
+					return
+
+				}
+			}
 		}
-	} // TODO policy and fancy ACL
+	}
 
 	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
 	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
@@ -505,16 +687,44 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 	if bucket == nil {
 		return result, ErrNoSuchBucket
 	}
-	switch bucket.ACL.CannedAcl {
-	case "public-read-write":
-		break
-	default:
-		if bucket.OwnerId != credential.UserId {
-			err = ErrBucketAccessForbidden
-			return
+
+	if !credential.AllowOtherUserAccess {
+		//an CanonicalUser request
+		if !(bucket.OwnerId == credential.ExternRootId && credential.ExternUserId == credential.ExternRootId) {
+			if bucket.ACL.CannedAcl != "" {
+				switch bucket.ACL.CannedAcl {
+				case "public-read-write":
+					break
+				default:
+					err = ErrAccessDenied
+					return
+				}
+			} else {
+				switch true {
+				case datatype.IsPermissionMatchedById(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, credential.ExternUserId) ||
+					datatype.IsPermissionMatchedById(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, credential.ExternUserId):
+					break
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, datatype.ACL_GROUP_TYPE_ALL_USERS) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_ALL_USERS):
+					break
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, datatype.ACL_GROUP_TYPE_AUTHENTICATED_USERS) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_AUTHENTICATED_USERS):
+					if credential.ExternUserId != "" {
+						break
+					}
+				case datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_WRITE, datatype.ACL_GROUP_TYPE_LOG_DELIVERY) ||
+					datatype.IsPermissionMatchedByGroup(bucket.ACL.Policy, datatype.ACL_PERM_FULL_CONTROL, datatype.ACL_GROUP_TYPE_LOG_DELIVERY):
+					if helper.StringInSlice(credential.ExternUserId, helper.CONFIG.LogDeliveryGroup) {
+						break
+					}
+				default:
+					err = ErrAccessDenied
+					return
+
+				}
+			}
 		}
 	}
-	// TODO policy and fancy ACL
 
 	multipart, err := yig.MetaStorage.GetMultipart(bucketName, objectName, uploadId)
 	if err != nil {

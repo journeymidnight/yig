@@ -24,12 +24,12 @@ import (
 	"time"
 
 	. "github.com/journeymidnight/yig/api/datatype"
+	"github.com/journeymidnight/yig/api/datatype/policy"
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
 	. "github.com/journeymidnight/yig/meta/common"
-	"github.com/journeymidnight/yig/signature"
 )
 
 // GetBucketLocationHandler - GET Bucket location.
@@ -42,19 +42,9 @@ func (api ObjectAPIHandlers) GetBucketLocationHandler(w http.ResponseWriter, r *
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.GetBucketLocationAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	if _, err = api.ObjectAPI.GetBucketInfo(reqCtx, credential); err != nil {
@@ -86,19 +76,9 @@ func (api ObjectAPIHandlers) ListMultipartUploadsHandler(w http.ResponseWriter, 
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.ListBucketMultipartUploadsAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	request, err := parseListUploadsQuery(r.URL.Query())
@@ -137,19 +117,9 @@ func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	switch reqCtx.AuthType {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.ListBucketAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
-		signature.AuthTypeSignedV2, signature.AuthTypePresignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	request, err := parseListObjectsQuery(r.URL.Query())
@@ -180,19 +150,9 @@ func (api ObjectAPIHandlers) ListVersionedObjectsHandler(w http.ResponseWriter, 
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.ListBucketAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
-		signature.AuthTypeSignedV2, signature.AuthTypePresignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	request, err := parseListObjectsQuery(r.URL.Query())
@@ -227,7 +187,7 @@ func (api ObjectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.R
 	// List buckets does not support bucket policies.
 	var credential common.Credential
 	var err error
-	if credential, err = signature.IsReqAuthenticated(r); err != nil {
+	if credential, err = checkRequestAuth(r, policy.ListAllMyBucketsAction); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -255,19 +215,9 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 
 	var credential common.Credential
 	var err error
-	switch reqCtx.AuthType {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.DeleteObjectAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	// Content-Length is required and should be non-zero
@@ -339,7 +289,7 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 
 	var credential common.Credential
 	var err error
-	if credential, err = signature.IsReqAuthenticated(r); err != nil {
+	if credential, err = checkRequestAuth(r, policy.CreateBucketAction); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -378,7 +328,7 @@ func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *h
 
 	var credential common.Credential
 	var err error
-	if credential, err = signature.IsReqAuthenticated(r); err != nil {
+	if credential, err = checkRequestAuth(r, policy.PutBucketPolicyAction); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -446,19 +396,9 @@ func (api ObjectAPIHandlers) GetBucketLoggingHandler(w http.ResponseWriter, r *h
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.GetBucketPolicyAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	if reqCtx.BucketInfo == nil {
@@ -466,7 +406,7 @@ func (api ObjectAPIHandlers) GetBucketLoggingHandler(w http.ResponseWriter, r *h
 		return
 	}
 
-	if credential.UserId != reqCtx.BucketInfo.OwnerId {
+	if credential.ExternRootId != reqCtx.BucketInfo.OwnerId {
 		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
 		return
 	}
@@ -504,13 +444,12 @@ func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.
 
 	var credential common.Credential
 	var err error
-	if credential, err = signature.IsReqAuthenticated(r); err != nil {
+	if credential, err = checkRequestAuth(r, policy.PutBucketPolicyAction); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
 
 	var acl Acl
-	var policy AccessControlPolicy
 	if _, ok := r.Header["X-Amz-Acl"]; ok {
 		acl, err = getAclFromHeader(r.Header)
 		if err != nil {
@@ -525,7 +464,7 @@ func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.
 			WriteErrorResponse(w, r, ErrInvalidAcl)
 			return
 		}
-		err = xml.Unmarshal(aclBuffer, &policy)
+		err = xml.Unmarshal(aclBuffer, &acl.Policy)
 		if err != nil {
 			logger.Error("Unable to parse ACLs XML body:", err)
 			WriteErrorResponse(w, r, ErrInternalError)
@@ -533,7 +472,7 @@ func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.
 		}
 	}
 
-	err = api.ObjectAPI.SetBucketAcl(reqCtx, policy, acl, credential)
+	err = api.ObjectAPI.SetBucketAcl(reqCtx, acl, credential)
 	if err != nil {
 		logger.Error("Unable to set ACL for bucket:", err)
 		WriteErrorResponse(w, r, err)
@@ -551,19 +490,9 @@ func (api ObjectAPIHandlers) GetBucketAclHandler(w http.ResponseWriter, r *http.
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.GetBucketPolicyAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	policy, err := api.ObjectAPI.GetBucketAcl(reqCtx, credential)
@@ -594,7 +523,7 @@ func (api ObjectAPIHandlers) PutBucketCorsHandler(w http.ResponseWriter, r *http
 
 	var credential common.Credential
 	var err error
-	if credential, err = signature.IsReqAuthenticated(r); err != nil {
+	if credential, err = checkRequestAuth(r, policy.PutBucketPolicyAction); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -639,7 +568,7 @@ func (api ObjectAPIHandlers) DeleteBucketCorsHandler(w http.ResponseWriter, r *h
 
 	var credential common.Credential
 	var err error
-	if credential, err = signature.IsReqAuthenticated(r); err != nil {
+	if credential, err = checkRequestAuth(r, policy.PutBucketPolicyAction); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -661,7 +590,7 @@ func (api ObjectAPIHandlers) GetBucketCorsHandler(w http.ResponseWriter, r *http
 
 	var credential common.Credential
 	var err error
-	if credential, err = signature.IsReqAuthenticated(r); err != nil {
+	if credential, err = checkRequestAuth(r, policy.GetBucketPolicyAction); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -693,7 +622,7 @@ func (api ObjectAPIHandlers) GetBucketVersioningHandler(w http.ResponseWriter, r
 
 	var credential common.Credential
 	var err error
-	if credential, err = signature.IsReqAuthenticated(r); err != nil {
+	if credential, err = checkRequestAuth(r, policy.GetBucketPolicyAction); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -724,7 +653,7 @@ func (api ObjectAPIHandlers) PutBucketVersioningHandler(w http.ResponseWriter, r
 
 	var credential common.Credential
 	var err error
-	if credential, err = signature.IsReqAuthenticated(r); err != nil {
+	if credential, err = checkRequestAuth(r, policy.PutBucketPolicyAction); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -777,19 +706,9 @@ func (api ObjectAPIHandlers) HeadBucketHandler(w http.ResponseWriter, r *http.Re
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.HeadBucketAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	if _, err = api.ObjectAPI.GetBucketInfo(reqCtx, credential); err != nil {
@@ -809,7 +728,7 @@ func (api ObjectAPIHandlers) DeleteBucketHandler(w http.ResponseWriter, r *http.
 
 	var credential common.Credential
 	var err error
-	if credential, err = signature.IsReqAuthenticated(r); err != nil {
+	if credential, err = checkRequestAuth(r, policy.DeleteBucketAction); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}

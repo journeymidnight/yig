@@ -56,9 +56,9 @@ func (m *Meta) GetBucketInfo(bucketName string) (*Bucket, error) {
 	return bucket, nil
 }
 
-func (m *Meta) GetUserInfo(uid string) ([]string, error) {
-	m.Cache.Remove(redis.UserTable, uid)
-	buckets, err := m.GetUserBuckets(uid, true)
+func (m *Meta) GetUserInfo(userId string) ([]string, error) {
+	m.Cache.Remove(redis.UserTable, userId)
+	buckets, err := m.GetUserBuckets(userId, true)
 	if err != nil {
 		return nil, err
 	}

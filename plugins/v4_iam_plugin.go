@@ -6,7 +6,6 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"hash"
 	"io"
@@ -16,6 +15,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/journeymidnight/yig/api/datatype/policy"
 	"github.com/journeymidnight/yig/circuitbreak"
 	"github.com/journeymidnight/yig/helper"
 	_ "github.com/journeymidnight/yig/iam"
@@ -31,28 +31,60 @@ type AccessKeyItemList struct {
 }
 
 type AccessKeyItem struct {
-	UserId       string `json:"userId"`
-	ProjectId    string `json:"projectId"`
-	ProjectName  string `json:"projectName"`
-	AccessKey    string `json:"accessKey"`
-	AccessSecret string `json:"accessSecret"`
-	Created      string `json:"createAt"`
-	Expired      string `json:"expiredAt"`
+	UserId       string `json:"user_id"`
+	ProjectId    string `json:"project_id"`
+	ProjectName  string `json:"project_name"`
+	AccessKey    string `json:"access_key"`
+	AccessSecret string `json:"access_secret"`
+	Created      int64  `json:"create_at"`
+	Expired      int64  `json:"expired_at"`
 	Enabled      int    `json:"enabled"`
 	Type         string `json:"type,omitempty"`
 	Signature    string `json:"signature,omitempty"`
 	Temp         string `json:"temp,omitempty"`
 }
 
-type QueryResp struct {
-	Status       bool          `json:"status"`
-	Auth         bool          `json:"auth"`
-	Code         string        `json:"code"`
-	AccessKeySet AccessKeyItem `json:"res,omitempty"`
-	Message      string        `json:"msg"`
+type AccessInfo struct {
+	UserId       string `json:"user_id"`
+	ProjectId    string `json:"project_id"`
+	ProjectName  string `json:"project_name"`
+	AccessKey    string `json:"access_key"`
+	AccessSecret string `json:"access_secret"`
+	Created      int64  `json:"create_at"`
+	Expired      int64  `json:"expired_at"`
+	Enabled      int    `json:"enabled"`
+	Type         string `json:"type,omitempty"`
 }
 
-type IamV3Client struct {
+type RamPolicy struct {
+	Id        string `json:"id"`
+	PolicyDoc string `json:"policy_doc"`
+}
+
+type User struct {
+	ProjectId string `json:"default_project_uuid"`
+	Enabled   int    `json:"enabled"`
+	Id        string `json:"id"`
+	Name      string `json:"name"`
+	Type      string `json:"type,omitempty"`
+}
+
+type Res struct {
+	Access     AccessInfo  `json:"access_info"`
+	ChildUser  User        `json:"child_user,omitempty"`
+	RootUser   User        `json:"root_user"`
+	PolicyList []RamPolicy `json:"policy_list"`
+}
+
+type QueryResp struct {
+	Status  bool   `json:"status"`
+	Auth    bool   `json:"auth"`
+	Code    string `json:"code"`
+	Res     Res    `json:"res"`
+	Message string `json:"msg"`
+}
+
+type IamV4Client struct {
 	httpClient      *circuitbreak.CircuitClient
 	IamUrl          string
 	IamPath         string
@@ -62,7 +94,7 @@ type IamV3Client struct {
 	LogDelivererSK  string
 }
 
-const pluginName = "v3_iam"
+const pluginName = "v4_iam"
 
 var Exported = mods.YigPlugin{
 	Name:       pluginName,
@@ -72,7 +104,7 @@ var Exported = mods.YigPlugin{
 
 func GetIamClient(config map[string]interface{}) (interface{}, error) {
 	helper.Logger.Info("Get plugin config: %v\n", config)
-	c := IamV3Client{
+	c := IamV4Client{
 		IamUrl:          config["url"].(string),
 		IamPath:         config["iamPath"].(string),
 		AccessKey:       config["accessKey"].(string),
@@ -83,54 +115,54 @@ func GetIamClient(config map[string]interface{}) (interface{}, error) {
 	return interface{}(c), nil
 }
 
-func (a IamV3Client) GetKeysByUid(uid string) (credentials []common.Credential, err error) {
-	if a.httpClient == nil {
-		a.httpClient = circuitbreak.NewCircuitClientWithInsecureSSL()
-	}
-	var slog = helper.Logger
+func (a IamV4Client) GetKeysByUid(uid string) (credentials []common.Credential, err error) {
+	// if a.httpClient == nil {
+	// 	a.httpClient = circuitbreak.NewCircuitClientWithInsecureSSL()
+	// }
+	// var slog = helper.Logger
 
-	url := a.IamUrl + "/" + a.IamPath + "?" + "AccessKeyId=" + a.AccessKey
-	slog.Info("url is:", url)
-	signUrl := SignWithRequestURL("GET", url, a.SecretAccessKey)
-	slog.Info("Url of GetKeysByUid send request to IAM :", signUrl)
+	// url := a.IamUrl + "/" + a.IamPath + "?" + "AccessKeyId=" + a.AccessKey
+	// slog.Info("url is:", url)
+	// signUrl := SignWithRequestURL("GET", url, a.SecretAccessKey)
+	// slog.Info("Url of GetKeysByUid send request to IAM :", signUrl)
 
-	request, _ := http.NewRequest("GET", signUrl, nil)
-	q := request.URL.Query()
-	q.Add("project-id", uid)
-	q.Add("page", "0")
-	q.Add("size", "50")
-	request.URL.RawQuery = q.Encode()
-	response, err := a.httpClient.Do(request)
-	if err != nil {
-		slog.Error("GetKeysByUid send request failed", err)
-		return credentials, err
-	}
-	var resp AccessKeyItemList
-	err = helper.ReadJsonBody(response.Body, &resp)
-	if err != nil {
-		return credentials, errors.New("failed to read from IAM: " + err.Error())
-	}
-	slog.Info("GetKeysByUid to IAM return status ", response.Status)
-	if response.StatusCode != 200 {
-		slog.Warn("GetKeysByUid to IAM failed return code = ", response.StatusCode)
-		return credentials, fmt.Errorf("GetKeysByUid to IAM failed retcode = %d", response.StatusCode)
-	}
-	for _, value := range resp.Content {
-		credential := common.Credential{}
-		credential.UserId = value.ProjectId
-		credential.DisplayName = value.ProjectName
-		credential.AccessKeyID = value.AccessKey
-		credential.SecretAccessKey = value.AccessSecret
-		credential.AllowOtherUserAccess = false
-		credentials = append(credentials, credential)
-	}
+	// request, _ := http.NewRequest("GET", signUrl, nil)
+	// q := request.URL.Query()
+	// q.Add("project-id", uid)
+	// q.Add("page", "0")
+	// q.Add("size", "50")
+	// request.URL.RawQuery = q.Encode()
+	// response, err := a.httpClient.Do(request)
+	// if err != nil {
+	// 	slog.Error("GetKeysByUid send request failed", err)
+	// 	return credentials, err
+	// }
+	// var resp AccessKeyItemList
+	// err = helper.ReadJsonBody(response.Body, &resp)
+	// if err != nil {
+	// 	return credentials, errors.New("failed to read from IAM: " + err.Error())
+	// }
+	// slog.Info("GetKeysByUid to IAM return status ", response.Status)
+	// if response.StatusCode != 200 {
+	// 	slog.Warn("GetKeysByUid to IAM failed return code = ", response.StatusCode)
+	// 	return credentials, fmt.Errorf("GetKeysByUid to IAM failed retcode = %d", response.StatusCode)
+	// }
+	// for _, value := range resp.Content {
+	// 	credential := common.Credential{}
+	// 	// credential.UserId = value.ProjectId
+	// 	credential.DisplayName = value.ProjectName
+	// 	credential.AccessKeyID = value.AccessKey
+	// 	credential.SecretAccessKey = value.AccessSecret
+	// 	credential.AllowOtherUserAccess = false
+	// 	credentials = append(credentials, credential)
+	// }
 	return
 }
 
-func (a IamV3Client) GetCredential(accessKey string) (credential common.Credential, err error) {
+func (a IamV4Client) GetCredential(accessKey string) (credential common.Credential, err error) {
 	// HACK: for put log temporary
 	if accessKey == a.LogDelivererAK {
-		credential.UserId = "JustForPutLog"
+		credential.ExternUserId = "JustForPutLog"
 		credential.AccessKeyID = accessKey
 		credential.SecretAccessKey = a.LogDelivererSK
 		credential.AllowOtherUserAccess = false
@@ -171,12 +203,32 @@ func (a IamV3Client) GetCredential(accessKey string) (credential common.Credenti
 			return credential, fmt.Errorf("GetCredential to IAM failed retcode = %d", response.StatusCode)
 		}
 
-		value := resp.AccessKeySet
-		credential.UserId = value.ProjectId
-		credential.DisplayName = value.ProjectName
+		value := resp.Res.Access
 		credential.AccessKeyID = value.AccessKey
 		credential.SecretAccessKey = value.AccessSecret
+		credential.ExternUserId = value.UserId
+		credential.ExternRootId = resp.Res.RootUser.Id
+		if credential.ExternUserId == credential.ExternRootId {
+			credential.DisplayName = resp.Res.RootUser.Name
+		} else {
+			credential.DisplayName = resp.Res.ChildUser.Name
+		}
+		credential.ExternRootName = resp.Res.RootUser.Name
 		credential.AllowOtherUserAccess = false
+		for _, p := range resp.Res.PolicyList {
+			pp := policy.Policy{}
+			err = json.Unmarshal([]byte(p.PolicyDoc), &pp)
+			if err != nil {
+				slog.Info("GetCredential decode policy_doc failed ", err)
+				continue
+			}
+			if pp.Version != "2012-10-17" {
+				continue
+			}
+			credential.Policy = &pp
+			break
+		}
+		slog.Info("V4 credential", credential)
 	}
 
 	return

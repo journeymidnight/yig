@@ -39,25 +39,44 @@ func checkRequestAuth(r *http.Request, action policy.Action) (c common.Credentia
 		} else {
 			helper.Logger.Info("Credential:", c)
 			// check bucket policy
-			isAllow, err := IsBucketPolicyAllowed(c.UserId, ctx.BucketInfo, r, action, ctx.ObjectName)
-			c.AllowOtherUserAccess = isAllow
-			return c, err
+			if action == policy.ListAllMyBucketsAction || action == policy.CreateBucketAction {
+				isAllow, err := IsRamPolicyAllowed(c.Policy, r, action)
+				c.AllowOtherUserAccess = isAllow
+				helper.Logger.Info("checkRequestAuth0:", isAllow, err)
+				return c, err
+			} else {
+				// do bucket policy check first
+				isAllow, err := IsBucketPolicyAllowed(&c, ctx.BucketInfo, r, action, ctx.ObjectName)
+				helper.Logger.Info("checkRequestAuth1:", isAllow, err)
+				if err == nil && isAllow == false {
+					//then do ram policy check if the request is from a sub user of who own this bucket
+					if c.ExternRootId == ctx.BucketInfo.OwnerId {
+						isAllow, err = IsRamPolicyAllowed(c.Policy, r, action)
+						helper.Logger.Info("checkRequestAuth2:", isAllow, err)
+					}
+				}
+				c.AllowOtherUserAccess = isAllow
+				return c, err
+			}
 		}
 	case signature.AuthTypeAnonymous:
-		isAllow, err := IsBucketPolicyAllowed(c.UserId, ctx.BucketInfo, r, action, ctx.ObjectName)
+		isAllow, err := IsBucketPolicyAllowed(&c, ctx.BucketInfo, r, action, ctx.ObjectName)
 		c.AllowOtherUserAccess = isAllow
 		return c, err
 	}
 	return c, ErrAccessDenied
 }
 
-func IsBucketPolicyAllowed(userId string, bucket *meta.Bucket, r *http.Request, action policy.Action, objectName string) (allow bool, err error) {
+func IsBucketPolicyAllowed(c *common.Credential, bucket *meta.Bucket, r *http.Request, action policy.Action, objectName string) (allow bool, err error) {
 	if bucket == nil {
 		return false, ErrAccessDenied
 	}
-	if bucket.OwnerId == userId {
-		return false, nil
+
+	//the root user always hava full_control of his bucket
+	if bucket.OwnerId == c.ExternRootId && c.ExternUserId == c.ExternRootId {
+		return true, nil
 	}
+
 	var p policy.Policy
 	err = json.Unmarshal(bucket.Policy, &p)
 	if err != nil {
@@ -65,7 +84,7 @@ func IsBucketPolicyAllowed(userId string, bucket *meta.Bucket, r *http.Request, 
 	}
 	policyResult := p.IsAllowed(policy.Args{
 		// TODO: Add IAM policy. Current account name is always useless.
-		AccountName:     userId,
+		AccountName:     c.ExternUserId,
 		Action:          action,
 		BucketName:      bucket.Name,
 		ConditionValues: getConditionValues(r, ""),
@@ -80,6 +99,37 @@ func IsBucketPolicyAllowed(userId string, bucket *meta.Bucket, r *http.Request, 
 		return false, nil
 	}
 
+}
+
+func IsRamPolicyAllowed(p *policy.Policy, r *http.Request, action policy.Action) (allow bool, err error) {
+	//just care about action
+	if p == nil {
+		if action == policy.ListAllMyBucketsAction || action == policy.CreateBucketAction {
+			return false, ErrAccessDenied
+		} else {
+			return false, nil
+		}
+	}
+
+	policyResult := p.IsAllowed(policy.Args{
+		AccountName:     "",
+		Action:          action,
+		BucketName:      "",
+		ConditionValues: getConditionValues(r, ""),
+		IsOwner:         false,
+		ObjectName:      "",
+	})
+	if policyResult == policy.PolicyAllow {
+		return true, nil
+	} else if policyResult == policy.PolicyDeny {
+		return false, ErrAccessDenied
+	} else {
+		if action == policy.ListAllMyBucketsAction || action == policy.CreateBucketAction {
+			return false, ErrAccessDenied
+		} else {
+			return false, nil
+		}
+	}
 }
 
 func getConditionValues(request *http.Request, locationConstraint string) map[string][]string {

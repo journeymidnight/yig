@@ -44,7 +44,7 @@ func (m *Meta) DeleteFreezer(freezer *types.Freezer) (err error) {
 		return err
 	}
 
-	err = m.Client.PutFreezerToGarbageCollection(freezer, tx)
+	err = m.PutFreezerToGarbageCollection(freezer)
 	if err != nil {
 		return err
 	}

@@ -5,7 +5,7 @@ import (
 
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
-	"github.com/tikv/client-go/key"
+	"github.com/journeymidnight/client-go/key"
 )
 
 // **Key**: l\{BucketName}

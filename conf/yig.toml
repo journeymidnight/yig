@@ -78,6 +78,9 @@ default_read_ops = 2000
 default_write_ops = 1000
 default_bandwidth_kbps = 102400 # 100MB
 
+# Log delivery
+log_delivery_group = ["hahahaha"]
+
 # Ceph Config
 ceph_config_pattern = "/etc/ceph/*.conf"
 
@@ -102,13 +105,6 @@ path = "/etc/yig/plugins/dummy_kms_plugin.so"
 enable = true
 [plugins.dummy_encryption_kms.args]
 url = "KMS"
-
-[plugins.dummy_mq]
-path = "/etc/yig/plugins/dummy_mq_plugin.so"
-enable = true
-[plugins.dummy_mq.args]
-topic = "testTopic2"
-url = "kafka:29092"
 
 [plugins.dummy_iam]
 path = "/etc/yig/plugins/dummy_iam_plugin.so"

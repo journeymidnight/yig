@@ -5,10 +5,10 @@ import (
 	"fmt"
 
 	"github.com/journeymidnight/yig/helper"
-	"github.com/tikv/client-go/config"
-	"github.com/tikv/client-go/key"
-	"github.com/tikv/client-go/txnkv"
-	"github.com/tikv/client-go/txnkv/kv"
+	"github.com/journeymidnight/client-go/config"
+	"github.com/journeymidnight/client-go/key"
+	"github.com/journeymidnight/client-go/txnkv"
+	"github.com/journeymidnight/client-go/txnkv/kv"
 )
 
 const (
@@ -177,6 +177,35 @@ func (c *TiKVClient) TxScan(keyPrefix []byte, upperBound []byte, limit int, tx *
 		}
 	}
 	return ret, nil
+}
+
+func (c *TiKVClient) TxScanCallback(keyPrefix []byte, upperBound []byte,
+	tx *txnkv.Transaction, f func(k, v []byte) error) error {
+
+	var err error
+	if tx == nil {
+		tx, err = c.TxnCli.Begin(context.TODO())
+		if err != nil {
+			return err
+		}
+		defer tx.Commit(context.TODO())
+	}
+	it, err := tx.Iter(context.TODO(), keyPrefix, upperBound)
+	if err != nil {
+		return err
+	}
+	defer it.Close()
+	for it.Valid() {
+		err = f(it.Key(), it.Value())
+		if err != nil {
+			return err
+		}
+		err = it.Next(context.TODO())
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *TiKVClient) TxDeleteRange(keyPrefix []byte, upperBound []byte, limit int, tx *txnkv.Transaction) (int, error) {

@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -14,7 +13,6 @@ import (
 
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/meta"
-	bus "github.com/journeymidnight/yig/mq"
 )
 
 type ResponseRecorder struct {
@@ -77,28 +75,6 @@ func (a AccessLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		objectLastModifiedTime := ctx.ObjectInfo.LastModifiedTime.Format(timeLayoutStr)
 		elems["last_modified_time"] = objectLastModifiedTime
 	}
-	a.notify(elems)
-}
-
-func (a AccessLogHandler) notify(elems map[string]string) {
-	if len(elems) == 0 {
-		return
-	}
-	val, err := helper.MsgPackMarshal(elems)
-	if err != nil {
-		helper.Logger.Error("Failed to pack", elems, "err:", err)
-		return
-	}
-
-	err = bus.MsgSender.AsyncSend(val)
-	if err != nil {
-		helper.Logger.Error(
-			fmt.Sprintf("Failed to send message [%v] to message queue, err: %v",
-				elems, err))
-		return
-	}
-	helper.Logger.Info(fmt.Sprintf("Succeed to send message [%v] to message queue.",
-		elems))
 }
 
 func NewAccessLogHandler(handler http.Handler, _ *meta.Meta) http.Handler {

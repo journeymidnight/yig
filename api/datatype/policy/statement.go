@@ -28,11 +28,17 @@ import (
 type Statement struct {
 	SID        ID                  `json:"Sid,omitempty"`
 	Effect     Effect              `json:"Effect"`
-	Principal  Principal           `json:"Principal"`
+	Principal  Principal           `json:"Principal,omitempty"`
 	Actions    ActionSet           `json:"Action"`
 	Resources  ResourceSet         `json:"Resource"`
 	Conditions condition.Functions `json:"Condition,omitempty"`
 }
+
+var ReadActionSet = NewActionSet(GetBucketLocationAction, GetBucketPolicyAction,
+	GetObjectAction, HeadBucketAction, ListAllMyBucketsAction, ListBucketAction)
+var ReadWriteActionSet = NewActionSet(GetBucketLocationAction, GetBucketPolicyAction,
+	GetObjectAction, HeadBucketAction, ListAllMyBucketsAction, ListBucketAction,
+	PutObjectAction, ListBucketMultipartUploadsAction, ListMultipartUploadPartsAction)
 
 // IsAllowed - checks given policy args is allowed to continue the Rest API.
 func (statement Statement) IsAllowed(args Args) bool {
@@ -41,8 +47,21 @@ func (statement Statement) IsAllowed(args Args) bool {
 			return false
 		}
 
-		if !statement.Actions.Contains(args.Action) {
-			return false
+		// FullContorlAction and DenyAccessAction contains all actions
+		if statement.Actions.Contains(FullContorlAction) || statement.Actions.Contains(DenyAccessAction) {
+
+		} else if statement.Actions.Contains(ReadOnlyAction) {
+			if !ReadActionSet.Contains(args.Action) {
+				return false
+			}
+		} else if statement.Actions.Contains(ReadWriteAction) {
+			if !ReadWriteActionSet.Contains(args.Action) {
+				return false
+			}
+		} else {
+			if !statement.Actions.Contains(args.Action) {
+				return false
+			}
 		}
 
 		resource := args.BucketName
@@ -83,6 +102,12 @@ func (statement Statement) isValid() error {
 	}
 
 	for action := range statement.Actions {
+		if action.isGeneralAction() {
+			if !statement.Resources.objectResourceExists() && !statement.Resources.bucketResourceExists() {
+				return fmt.Errorf("unsupported Resource found %v for action %v", statement.Resources, action)
+			}
+		}
+
 		if action.isObjectAction() {
 			if !statement.Resources.objectResourceExists() {
 				return fmt.Errorf("unsupported Resource found %v for action %v", statement.Resources, action)

@@ -4,14 +4,14 @@ import (
 	"context"
 	. "database/sql/driver"
 
-	"github.com/tikv/client-go/key"
+	"github.com/journeymidnight/client-go/key"
 
 	"github.com/journeymidnight/yig/meta/common"
 
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
-	"github.com/tikv/client-go/txnkv/kv"
+	"github.com/journeymidnight/client-go/txnkv/kv"
 )
 
 func genFreezerKey(bucketName, objectName, version string) []byte {
