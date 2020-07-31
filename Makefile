@@ -8,11 +8,21 @@ BUILDROOT = rpm-build
 BUILDDIR = $(WORKDIR)/$(BUILDROOT)/BUILD/$(REPO)
 export GO111MODULE=on
 export GOPROXY=https://goproxy.cn
+export GONOPROXY=10.0.45.221
+export GONOSUMDB=10.0.45.221
 
 build:
 	cd integrate && bash buildyig.sh $(BUILDDIR)
 
 build_internal:
+	go env
+	cp -f $(PWD)/integrate/resolv.conf /etc/resolv.conf
+	mkdir ~/.ssh
+	cp $(PWD)/integrate/id_rsa ~/.ssh/id_rsa
+	chmod 600 ~/.ssh/id_rsa
+	cp $(PWD)/integrate/id_rsa.pub ~/.ssh/id_rsa.pub
+	cp $(PWD)/integrate/known_hosts ~/.ssh/known_hosts
+	git config --global url."git@10.0.45.221:".insteadOf "https://10.0.45.221/"
 	go build $(URL)/$(REPO)
 	bash plugins/build_plugins_internal.sh
 	go build $(PWD)/tools/admin.go
