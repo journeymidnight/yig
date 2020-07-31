@@ -219,7 +219,6 @@ type GenerateContextHandler struct {
 
 // handler for validating incoming authorization headers.
 func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	startTime := time.Now()
 	var reqCtx RequestContext
 	requestId := r.Context().Value(RequestIdKey).(string)
 	reqCtx.RequestID = requestId
@@ -264,10 +263,8 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	}
 
 	ctx := context.WithValue(r.Context(), RequestContextKey, reqCtx)
-	endTime := time.Now()
 	h.handler.ServeHTTP(w, r.WithContext(ctx))
-	nextHandleTime := time.Now()
-	logger.Debug("GenerateContextHandler url:", r.URL, "BucketName:", reqCtx.BucketName, "ObjectName:", reqCtx.ObjectName, "cost:", endTime.Sub(startTime).Milliseconds(), "nextHandleTime:", nextHandleTime.Sub(endTime).Milliseconds())
+
 }
 
 func FillBucketAndObjectInfo(reqCtx *RequestContext, r *http.Request, meta *meta.Meta) error {
