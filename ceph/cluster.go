@@ -21,11 +21,11 @@ import (
 const (
 	MON_TIMEOUT                = "0"
 	OSD_TIMEOUT                = "0"
-	STRIPE_UNIT                = 2 << 20 /* 2M */
-	STRIPE_COUNT               = 2
+	STRIPE_UNIT                = 4 << 20 /* 4M */
+	STRIPE_COUNT               = 1
 	APPEND_STRIPE_UNIT         = 32 << 10 /* 32K */
 	APPEND_STRIPE_COUNT        = 1
-	OBJECT_SIZE                = 8 << 20 /* 8M */
+	OBJECT_SIZE                = 4 << 20 /* 4M */
 	AIO_CONCURRENT             = 4
 	DEFAULT_CEPHCONFIG_PATTERN = "conf/*.conf"
 	MIN_CHUNK_SIZE             = 512 << 10       // 512K
