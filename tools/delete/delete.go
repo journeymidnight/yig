@@ -82,6 +82,13 @@ func (d AsyncDeleteFromCeph) ensureRemoved(location, pool, cephObjectID string) 
 		if strings.Contains(err.Error(), "ret=-2") {
 			return
 		}
+		// 34 is ERANGE, meaning the striper layout has been changed,
+		// might need to delete it manually
+		if strings.Contains(err.Error(), "ret=-34") {
+			d.logger.Error("Object", location, pool, cephObjectID,
+				"is of different striper layout, need to be deleted manually")
+			return
+		}
 		d.logger.Warn("Delete", location, pool, cephObjectID,
 			"failed:", err)
 		time.Sleep(time.Second)
