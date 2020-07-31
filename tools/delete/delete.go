@@ -23,9 +23,10 @@ When Yig deletes a object, it would send a Kafka message.
 This task consumes those messages and actually delete them in Ceph.
 */
 type AsyncDeleteFromCeph struct {
-	logger       log.Logger
-	handle       task.Handle
-	cephClusters map[string]backend.Cluster
+	logger         log.Logger
+	handle         task.Handle
+	cephClusters   map[string]backend.Cluster
+	logDeleteFiles bool
 }
 
 func (d AsyncDeleteFromCeph) Name() string {
@@ -36,6 +37,7 @@ type Conf struct {
 	GarbageCollectionTopic string
 	PartitionCount         int
 	CephConfigPattern      string
+	LogDeleteFiles         bool
 }
 
 func (d AsyncDeleteFromCeph) Setup(handle task.ConfigHandle) (topic string,
@@ -62,9 +64,10 @@ func (d AsyncDeleteFromCeph) Init(handle task.Handle,
 		return nil, err
 	}
 	return AsyncDeleteFromCeph{
-		logger:       handle.GetLogger(),
-		handle:       handle,
-		cephClusters: cephClusters,
+		logger:         handle.GetLogger(),
+		handle:         handle,
+		cephClusters:   cephClusters,
+		logDeleteFiles: conf.LogDeleteFiles,
 	}, nil
 }
 
@@ -95,6 +98,13 @@ func (d AsyncDeleteFromCeph) handleMessage(msg *sarama.ConsumerMessage) {
 	if _, ok := d.cephClusters[garbage.Location]; !ok {
 		d.logger.Warn("Bad garbage location:", garbage.Location, msg.Offset)
 		return
+	}
+	if d.logDeleteFiles {
+		defer func() {
+			d.logger.Info("Deleted:",
+				garbage.BucketName, garbage.ObjectName, garbage.VersionId,
+				garbage.Location, garbage.Pool, garbage.ObjectId)
+		}()
 	}
 	if len(garbage.Parts) == 0 {
 		d.ensureRemoved(garbage.Location, garbage.Pool, garbage.ObjectId)
