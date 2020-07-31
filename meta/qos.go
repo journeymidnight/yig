@@ -6,11 +6,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/go-redis/redis/v7"
 	"github.com/go-redis/redis_rate/v8"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/meta/client"
 	"github.com/journeymidnight/yig/meta/types"
+	"github.com/journeymidnight/yig/redis"
 )
 
 const (
@@ -35,31 +35,9 @@ type QosMeta struct {
 }
 
 func NewQosMeta(client client.Client) *QosMeta {
-	var limiter *redis_rate.Limiter
-	switch helper.CONFIG.RedisStore {
-	case "single":
-		redisClient := redis.NewClient(&redis.Options{
-			Addr:     helper.CONFIG.RedisAddress,
-			Password: helper.CONFIG.RedisPassword,
-		})
-		limiter = redis_rate.NewLimiter(redisClient)
-	case "cluster":
-		options := &redis.ClusterOptions{
-			Addrs:        helper.CONFIG.RedisGroup,
-			DialTimeout:  time.Duration(helper.CONFIG.RedisConnectTimeout) * time.Second,
-			ReadTimeout:  time.Duration(helper.CONFIG.RedisReadTimeout) * time.Second,
-			WriteTimeout: time.Duration(helper.CONFIG.RedisWriteTimeout) * time.Second,
-			IdleTimeout:  time.Duration(helper.CONFIG.RedisPoolIdleTimeout) * time.Second,
-			Password:     helper.CONFIG.RedisPassword,
-		}
-		redisCluster := redis.NewClusterClient(options)
-		limiter = redis_rate.NewLimiter(redisCluster)
-	default:
-		panic("bad redis store type")
-	}
 	m := &QosMeta{
 		client:      client,
-		rateLimiter: limiter,
+		rateLimiter: redis.QosLimiter,
 	}
 	go m.inMemoryCacheSync()
 	return m
