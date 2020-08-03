@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/client-go/config"
 	"github.com/journeymidnight/client-go/key"
 	"github.com/journeymidnight/client-go/txnkv"
 	"github.com/journeymidnight/client-go/txnkv/kv"
+	"github.com/journeymidnight/yig/helper"
 )
 
 const (

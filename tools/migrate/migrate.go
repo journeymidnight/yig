@@ -48,7 +48,6 @@ type ScannerConf struct {
 	ScanIntervalSecond int
 	CoolDownSecond     int
 	DispatchTopic      string
-	PdAddresses        []string
 }
 
 func (s MigrateScanner) Setup(handle task.ConfigHandle) (trigger cron.Trigger,
@@ -76,7 +75,10 @@ func (s MigrateScanner) Init(handle task.Handle,
 	if err != nil {
 		return nil, err
 	}
-	tikvClient := tikvclient.NewClient(conf.PdAddresses)
+	tikvClient, err := handle.NewTikvClient()
+	if err != nil {
+		return nil, err
+	}
 	producer, err := handle.NewProducer(conf.DispatchTopic)
 	if err != nil {
 		return nil, err
@@ -93,7 +95,7 @@ func (s MigrateScanner) Init(handle task.Handle,
 	}()
 	return MigrateScanner{
 		coolDown:   time.Duration(conf.CoolDownSecond) * time.Second,
-		tikvClient: tikvClient,
+		tikvClient: &tikvclient.TiKVClient{TxnCli: tikvClient},
 		producer:   producer,
 		logger:     logger,
 	}, nil
@@ -111,6 +113,7 @@ func (s MigrateScanner) processEntry(key []byte, value []byte) {
 		s.logger.Error("Unmarshal", string(key), "error:", err)
 		return
 	}
+	s.logger.Info("Processing:", object)
 	if object.LastModifiedTime.Add(s.coolDown).After(time.Now()) {
 		// not cool yet
 		return
@@ -129,6 +132,8 @@ func (s MigrateScanner) Run(handle task.Handle, jobMeta task.JobMeta) error {
 	instanceRange := tikvclient.RangeIntersection(hotObjectRange,
 		tikvclient.Range{Start: jobMeta.StartKey, End: jobMeta.EndKey})
 	if instanceRange.Empty {
+		s.logger.Info("Intersection with", jobMeta.StartKey, jobMeta.EndKey,
+			"result:", instanceRange.Start, instanceRange.End)
 		return nil
 	}
 	return s.tikvClient.TxScanCallback(instanceRange.Start, instanceRange.End, nil,
@@ -158,10 +163,7 @@ type WorkerConf struct {
 	DispatchTopic     string
 	ThreadsPerWorker  int
 	Partitions        int
-	PdAddresses       []string
 	CephConfigPattern string
-	RedisAddresses    []string
-	RedisPassword     string
 }
 
 func (w MigrateWorker) Setup(handle task.ConfigHandle) (topic string,
@@ -181,17 +183,20 @@ func (w MigrateWorker) Init(handle task.Handle, jobID int) (task.AsyncTask, erro
 	if err != nil {
 		return nil, err
 	}
-	tikvClient := tikvclient.NewClient(conf.PdAddresses)
+	tikvClient, err := handle.NewTikvClient()
+	if err != nil {
+		return nil, err
+	}
 	cephClusters, err := ceph.PureInitialize(conf.CephConfigPattern)
 	if err != nil {
 		return nil, err
 	}
-	redisClient := NewRedisClient(conf.RedisAddresses, conf.RedisPassword)
+	redisClient := handle.NewRedisClient()
 	redisLocker := redislock.New(redisClient)
 	return MigrateWorker{
 		coolDown:         time.Duration(conf.CoolDownSecond) * time.Second,
 		threadsPerWorker: conf.ThreadsPerWorker,
-		tikvClient:       tikvClient,
+		tikvClient:       &tikvclient.TiKVClient{TxnCli: tikvClient},
 		cephClusters:     cephClusters,
 		redisClient:      redisClient,
 		redisLocker:      redisLocker,

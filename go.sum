@@ -6,6 +6,10 @@
 10.0.45.221/meepo/log.git v0.0.0-20200729015730-2f5d42c4cf77/go.mod h1:6D/0DYh7lqWiVFkUiHlrnYySC+Clsen3vSOVEco3kDA=
 10.0.45.221/meepo/task.git v0.0.0-20200729020616-8450436d0095 h1:IAEXwSsCw4zxUdjn3ccnv3dReJSmclHuvGVSS/f5PVg=
 10.0.45.221/meepo/task.git v0.0.0-20200729020616-8450436d0095/go.mod h1:O70/D+ds6qssfOb+jM3uwJjPvW5Nz8G9HCFv5Am4EpA=
+10.0.45.221/meepo/task.git v0.0.0-20200731061608-d24037c2956f h1:tqBSiHHDmr22Vd1L6Kr92vU+779cM/2jxG6eaGvEAkc=
+10.0.45.221/meepo/task.git v0.0.0-20200731061608-d24037c2956f/go.mod h1:O70/D+ds6qssfOb+jM3uwJjPvW5Nz8G9HCFv5Am4EpA=
+10.0.45.221/meepo/task.git v0.1.2 h1:127Bf1C6iA3hjLCi0e6JDyubrNKGVDRIwUzuYt/jGxY=
+10.0.45.221/meepo/task.git v0.1.2/go.mod h1:gBN67Fk9iXKtFU2Mk7XgnCHfqAx9/olwFSxL7qPRLlc=
 10.0.45.221/meepo/util.git v0.0.0-20200729014630-1c83e3fb6c9e h1:k74zWp210aKqUzGkKYrakttBFud33++usCMftjQPCEs=
 10.0.45.221/meepo/util.git v0.0.0-20200729014630-1c83e3fb6c9e/go.mod h1:3PQoNHq3Scoq02dJ8gBnXJjLOHX4qC1OOUxBrxOlXbE=
 cloud.google.com/go v0.26.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
@@ -129,6 +133,8 @@ github.com/journeymidnight/client-go v0.0.0-20200726082013-cc96a0cb0d28 h1:fDB4q
 github.com/journeymidnight/client-go v0.0.0-20200726082013-cc96a0cb0d28/go.mod h1:6Q5dK3M0YA8nDkg2JLJHg+aep7nkB/sZP731Zb4aMNY=
 github.com/journeymidnight/client-go v0.0.0-20200729060155-b153ed4551ed h1:CfDUirAC3AqXxIYnNlokjnsBqrcGltBMkSVBlNQZwKc=
 github.com/journeymidnight/client-go v0.0.0-20200729060155-b153ed4551ed/go.mod h1:PhORh0+EEBqbZGnbXmHF1AwHndDEsEGXLA//3pmT3wk=
+github.com/journeymidnight/radoshttpd v0.0.0-20190617133011-609666b51136 h1:ioRwpqJIOz8DOhriRNkd2/DYXYLi44N61N9MnjozzuM=
+github.com/journeymidnight/radoshttpd v0.0.0-20190617133011-609666b51136/go.mod h1:crzxK1DDd3sNyFWzwbx/84lTNk4TO4wsvjl186nH+R4=
 github.com/journeymidnight/radoshttpd v0.0.0-20190911073816-6df3523aa9e3 h1:gAqx7/mEkY0Uys+WCCVuophSbCR8bDLSh6kkF6/RlDk=
 github.com/journeymidnight/radoshttpd v0.0.0-20190911073816-6df3523aa9e3/go.mod h1:crzxK1DDd3sNyFWzwbx/84lTNk4TO4wsvjl186nH+R4=
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
