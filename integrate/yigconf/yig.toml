@@ -54,8 +54,8 @@ cache_circuit_open_threshold = 1
 cache_circuit_exec_timeout = 5
 cache_circuit_exec_max_concurrent = -1
 
-kafka_brokers = ["127.0.0.1:9092"]
-gc_topic = "test_gc"
+kafka_brokers = ["kafka:9092"]
+gc_topic = "yig-gc"
 
 db_max_open_conns = 10240
 db_max_idle_conns = 1024
