@@ -917,13 +917,39 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 	credential.AllowOtherUserAccess = isAllow
 
+	var isCallback bool
+	var callbackMessage CallBackMessage
+	isCallback, callbackMessage = GetCallbackFromHeader(r.Header)
+	callbackReader := NewCallbackReader(dataReadCloser, isCallback, IsCallbackImageInfo(r.Header, reqCtx.ObjectName))
+	logger.Info(callbackMessage)
+
 	var result PutObjectResult
-	result, err = api.ObjectAPI.PutObject(reqCtx, credential, size, dataReadCloser,
+	result, err = api.ObjectAPI.PutObject(reqCtx, credential, size, &callbackReader,
 		metadata, acl, sseRequest, storageClass)
 	if err != nil {
 		logger.Error("Unable to create object", reqCtx.ObjectName, "error:", err)
 		WriteErrorResponse(w, r, err)
 		return
+	}
+
+	if isCallback {
+		objectSize, width, height := callbackReader.GetCallBackReaderInfos()
+		callbackMessage.Info.ObjectSize = objectSize
+		callbackMessage.Info.CreateTime = result.LastModified.UnixNano()
+		callbackMessage.Info.MimeType = metadata["content-type"]
+		callbackMessage.Info.Etag = result.Md5
+		callbackMessage.Info.FileName = reqCtx.ObjectName
+		callbackMessage.Info.BucketName = reqCtx.BucketName
+		callbackMessage.Info.Height = height
+		callbackMessage.Info.Width = width
+		callbackMessage.Info = ValidCallbackInfo(callbackMessage.Body, callbackMessage.Info)
+		resultCallback, err := PostCallbackMessage(credential, callbackMessage)
+		if err != nil {
+			logger.Warn("PutObject with Callback err")
+			WriteErrorResponse(w, r, err)
+			return
+		}
+		w.Header().Set("x-uos-callback-result", resultCallback)
 	}
 
 	if result.Md5 != "" {

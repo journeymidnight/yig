@@ -1,6 +1,6 @@
 module github.com/journeymidnight/yig
 
-go 1.12
+go 1.13
 
 require (
 	10.0.45.221/meepo/cron.git v0.0.0-20200729015409-137e31c90d6f

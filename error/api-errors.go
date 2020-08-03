@@ -120,6 +120,7 @@ const (
 	ErrMetadataHeader
 	ErrMaintenance
 	// Add new error codes here.
+	ErrCallBackFailed
 
 	// SSE-S3 related API errors
 	ErrInvalidEncryptionMethod
@@ -956,6 +957,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "ServiceTemporaryMaintenance",
 		Description:    "Temporary maintenance, please retry your request",
 		HttpStatusCode: http.StatusServiceUnavailable,
+	},
+	ErrCallBackFailed: {
+		AwsErrorCode:   "ErrCallBackFailed",
+		Description:    "File upload was successful, but the callback failed",
+		HttpStatusCode: http.StatusNonAuthoritativeInfo,
 	},
 	ErrRequestLimitExceeded: {
 		AwsErrorCode:   "ErrRequestLimitExceeded",
