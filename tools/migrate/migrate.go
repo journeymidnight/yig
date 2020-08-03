@@ -244,6 +244,8 @@ func (w MigrateWorker) lockEntry(object types.Object,
 }
 
 func (w MigrateWorker) processEntry(object types.Object) {
+	w.logger.Info("Processing:", object)
+
 	lockNoLongerRequired := make(chan struct{})
 	defer func() {
 		// signal to `lockEntry` "lock no longer required"
@@ -361,8 +363,7 @@ func (w MigrateWorker) Run(messages <-chan *sarama.ConsumerMessage,
 	commands <-chan string,
 	stopping <-chan struct{}) {
 
-	bufferSize := 2 * w.threadsPerWorker
-	dispatchQueue := make(chan types.Object, bufferSize)
+	dispatchQueue := make(chan types.Object, w.threadsPerWorker)
 	for i := 0; i < w.threadsPerWorker; i++ {
 		go w.migrate(dispatchQueue, stopping)
 	}
@@ -380,8 +381,8 @@ func (w MigrateWorker) Run(messages <-chan *sarama.ConsumerMessage,
 				continue
 			}
 			dispatchQueue <- object
-			if msg.Offset-int64(bufferSize) > 0 {
-				err = w.handle.Save(msg.Offset-int64(bufferSize), nil)
+			if msg.Offset-int64(w.threadsPerWorker) > 0 {
+				err = w.handle.Save(msg.Offset-int64(w.threadsPerWorker), nil)
 				if err != nil {
 					w.logger.Error("Save error:", err)
 				}
