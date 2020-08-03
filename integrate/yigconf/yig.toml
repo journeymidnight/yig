@@ -36,6 +36,7 @@ redis_address = "redis:6379"
 redis_group = ["redis1:7000","redis2:7000","redis3:7000","redis4:7000","redis5:7000","redis6:7000"]
 redis_password = "hehehehe"
 redis_connection_number = 10
+meta_cache_ttl = 300
 memory_cache_max_entry_count = 100000
 enable_data_cache = false
 redis_connect_timeout = 1

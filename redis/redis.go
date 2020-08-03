@@ -417,7 +417,7 @@ func (c *ClusterRedis) Set(table RedisDatabase, key string, value interface{}) e
 				return err
 			}
 			// Use table.String() + hashkey as Redis key
-			r, err := conn.Set(table.String()+hashkey, string(encodedValue), 30*time.Second).Result()
+			r, err := conn.Set(table.String()+hashkey, string(encodedValue), time.Duration(helper.CONFIG.MetaCacheTTL)*time.Second).Result()
 			if err == redis.Nil {
 				return nil
 			}

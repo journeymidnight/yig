@@ -68,6 +68,7 @@ type Config struct {
 	RedisConnectionNumber int      `toml:"redis_connection_number"` // number of connections to redis(i.e max concurrent request number)
 	RedisPassword         string   `toml:"redis_password"`          // redis auth password
 	MetaCacheType         int      `toml:"meta_cache_type"`
+	MetaCacheTTL          int      `toml:"meta_cache_ttl"` //ttl second
 	EnableDataCache       bool     `toml:"enable_data_cache"`
 	RedisMaxRetries       int      `toml:"redis_max_retries"`
 	RedisConnectTimeout   int      `toml:"redis_connect_timeout"`
@@ -107,11 +108,11 @@ type Config struct {
 	DefaultWriteOps      int  `toml:"default_write_ops"`
 	DefaultBandwidthKBps int  `toml:"default_bandwidth_kbps"`
 
-	EnableRestoreObjectCron bool   `toml:"enable_restore_object_cron"`
-	RestoreObjectSpec       string `toml:"restore_object_spec"`
-	LockTime                int    `toml:"lock_time"`
-	RefreshLockTime         int    `toml:"refresh_lock_time"`
-	LogDeliveryGroup []string `toml:"log_delivery_group"`
+	EnableRestoreObjectCron bool     `toml:"enable_restore_object_cron"`
+	RestoreObjectSpec       string   `toml:"restore_object_spec"`
+	LockTime                int      `toml:"lock_time"`
+	RefreshLockTime         int      `toml:"refresh_lock_time"`
+	LogDeliveryGroup        []string `toml:"log_delivery_group"`
 }
 
 type PluginConfig struct {
@@ -190,6 +191,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.RedisPassword = c.RedisPassword
 	CONFIG.RedisConnectionNumber = Ternary(c.RedisConnectionNumber == 0,
 		10, c.RedisConnectionNumber).(int)
+	CONFIG.MetaCacheTTL = Ternary(c.MetaCacheTTL < 30, 30, c.MetaCacheTTL).(int)
 	CONFIG.EnableDataCache = c.EnableDataCache
 	CONFIG.RedisMaxRetries = Ternary(c.RedisMaxRetries < 0, 1000, c.RedisMaxRetries).(int)
 	CONFIG.MetaCacheType = c.MetaCacheType

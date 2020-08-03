@@ -4,10 +4,6 @@
 10.0.45.221/meepo/kafka.git v0.0.0-20200729020153-b165f8db619f/go.mod h1:IW0FhKNCzO1jh9e8gXrz8OqS9rg67WviIH8Evu1wqDM=
 10.0.45.221/meepo/log.git v0.0.0-20200729015730-2f5d42c4cf77 h1:Ft8zr3X1y4DlBrnmy4pxtK0gBSy3O9960h5Z6q3Fvi8=
 10.0.45.221/meepo/log.git v0.0.0-20200729015730-2f5d42c4cf77/go.mod h1:6D/0DYh7lqWiVFkUiHlrnYySC+Clsen3vSOVEco3kDA=
-10.0.45.221/meepo/task.git v0.0.0-20200729020616-8450436d0095 h1:IAEXwSsCw4zxUdjn3ccnv3dReJSmclHuvGVSS/f5PVg=
-10.0.45.221/meepo/task.git v0.0.0-20200729020616-8450436d0095/go.mod h1:O70/D+ds6qssfOb+jM3uwJjPvW5Nz8G9HCFv5Am4EpA=
-10.0.45.221/meepo/task.git v0.0.0-20200731061608-d24037c2956f h1:tqBSiHHDmr22Vd1L6Kr92vU+779cM/2jxG6eaGvEAkc=
-10.0.45.221/meepo/task.git v0.0.0-20200731061608-d24037c2956f/go.mod h1:O70/D+ds6qssfOb+jM3uwJjPvW5Nz8G9HCFv5Am4EpA=
 10.0.45.221/meepo/task.git v0.1.2 h1:127Bf1C6iA3hjLCi0e6JDyubrNKGVDRIwUzuYt/jGxY=
 10.0.45.221/meepo/task.git v0.1.2/go.mod h1:gBN67Fk9iXKtFU2Mk7XgnCHfqAx9/olwFSxL7qPRLlc=
 10.0.45.221/meepo/util.git v0.0.0-20200729014630-1c83e3fb6c9e h1:k74zWp210aKqUzGkKYrakttBFud33++usCMftjQPCEs=
@@ -129,14 +125,10 @@ github.com/jonboulle/clockwork v0.1.0 h1:VKV+ZcuP6l3yW9doeqz6ziZGgcynBVQO+obU0+0
 github.com/jonboulle/clockwork v0.1.0/go.mod h1:Ii8DK3G1RaLaWxj9trq07+26W01tbo22gdxWY5EU2bo=
 github.com/journeymidnight/aws-sdk-go v1.18.1 h1:/dv12U8x+EHVEmW66rXtI00Do+ZMREGitokPGMpUalc=
 github.com/journeymidnight/aws-sdk-go v1.18.1/go.mod h1:on1A11DghtZvaybRzuiHW6fqTXv2RPjFTx6OhMc8sZc=
-github.com/journeymidnight/client-go v0.0.0-20200726082013-cc96a0cb0d28 h1:fDB4qsBRQwxeteVGr0ccPSYlatZXObltjVyD2I/Ornc=
-github.com/journeymidnight/client-go v0.0.0-20200726082013-cc96a0cb0d28/go.mod h1:6Q5dK3M0YA8nDkg2JLJHg+aep7nkB/sZP731Zb4aMNY=
 github.com/journeymidnight/client-go v0.0.0-20200729060155-b153ed4551ed h1:CfDUirAC3AqXxIYnNlokjnsBqrcGltBMkSVBlNQZwKc=
 github.com/journeymidnight/client-go v0.0.0-20200729060155-b153ed4551ed/go.mod h1:PhORh0+EEBqbZGnbXmHF1AwHndDEsEGXLA//3pmT3wk=
 github.com/journeymidnight/radoshttpd v0.0.0-20190617133011-609666b51136 h1:ioRwpqJIOz8DOhriRNkd2/DYXYLi44N61N9MnjozzuM=
 github.com/journeymidnight/radoshttpd v0.0.0-20190617133011-609666b51136/go.mod h1:crzxK1DDd3sNyFWzwbx/84lTNk4TO4wsvjl186nH+R4=
-github.com/journeymidnight/radoshttpd v0.0.0-20190911073816-6df3523aa9e3 h1:gAqx7/mEkY0Uys+WCCVuophSbCR8bDLSh6kkF6/RlDk=
-github.com/journeymidnight/radoshttpd v0.0.0-20190911073816-6df3523aa9e3/go.mod h1:crzxK1DDd3sNyFWzwbx/84lTNk4TO4wsvjl186nH+R4=
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
 github.com/klauspost/compress v1.9.8 h1:VMAMUUOh+gaxKTMk+zqbjsSjsIcUcL/LF4o63i82QyA=
 github.com/klauspost/compress v1.9.8/go.mod h1:RyIbtBH6LamlWaDj8nUwkbUhJ87Yi3uG0guNDohfE1A=
@@ -208,8 +200,6 @@ github.com/robfig/cron v1.2.0/go.mod h1:JGuDeoQd7Z6yL4zQhZ3OPEVHB7fL6Ka6skscFHfm
 github.com/rogpeppe/fastuuid v0.0.0-20150106093220-6724a57986af/go.mod h1:XWv6SoW27p1b0cqNHllgS5HIMJraePCO15w5zCzIWYg=
 github.com/russross/blackfriday/v2 v2.0.1 h1:lPqVAte+HuHNfhJ/0LC98ESWRz8afy9tM/0RK8m9o+Q=
 github.com/russross/blackfriday/v2 v2.0.1/go.mod h1:+Rmxgy9KzJVeS9/2gXHxylqXiyQDYRxCVz55jmeOWTM=
-github.com/samuel/go-zookeeper v0.0.0-20190923202752-2cc03de413da h1:p3Vo3i64TCLY7gIfzeQaUJ+kppEO5WQG3cL8iE8tGHU=
-github.com/samuel/go-zookeeper v0.0.0-20190923202752-2cc03de413da/go.mod h1:gi+0XIa01GRL2eRQVjQkKGqKF3SF9vZR/HnPullcV2E=
 github.com/shurcooL/sanitized_anchor_name v1.0.0 h1:PdmoCO6wvbs+7yrJyMORt4/BmY5IYyJwS/kOiWx8mHo=
 github.com/shurcooL/sanitized_anchor_name v1.0.0/go.mod h1:1NzhyTcUVG4SuEtjjoZeVRXNmyL/1OwPU0+IJeTBvfc=
 github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPxbbu5VWo=
@@ -226,8 +216,6 @@ github.com/stretchr/testify v1.2.2/go.mod h1:a8OnRcib4nhh0OaRAV+Yts87kKdq0PP7pXf
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.4.0 h1:2E4SXV/wtOkTonXsotYi4li6zVWxYlZuYNCXe9XRJyk=
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
-github.com/tikv/client-go v0.0.0-20200513031230-7253be23eb15 h1:9P98wduyEYearNjP9SUILCI0cYcWfvN4pAvNVAYxRU0=
-github.com/tikv/client-go v0.0.0-20200513031230-7253be23eb15/go.mod h1:I3o4nCR8z2GtgGnqN/YCK5wgr/9bGtkJvCQgtKkTmo8=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5 h1:LnC5Kc/wtumK+WB441p7ynQJzVuNRJiqddSIE3IlSEQ=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/ugorji/go v1.1.2 h1:JON3E2/GPW2iDNGoSAusl1KDf5TRQ8k8q7Tp097pZGs=
