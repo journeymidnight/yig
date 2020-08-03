@@ -133,12 +133,11 @@ func (s MigrateScanner) Run(handle task.Handle, jobMeta task.JobMeta) error {
 		tikvclient.Range{Start: jobMeta.StartKey, End: jobMeta.EndKey})
 	if instanceRange.Empty {
 		s.logger.Info("Intersection with",
-			string(jobMeta.StartKey), string(jobMeta.EndKey),
-			"result:", string(instanceRange.Start), string(instanceRange.End))
+			jobMeta.StartKey, jobMeta.EndKey,
+			"result:", instanceRange.Start, instanceRange.End)
 		return nil
 	}
-	s.logger.Info("Scanning",
-		string(instanceRange.Start), string(instanceRange.End))
+	s.logger.Info("Scanning", instanceRange.Start, instanceRange.End)
 	return s.tikvClient.TxScanCallback(instanceRange.Start, instanceRange.End, nil,
 		func(k, v []byte) error {
 			s.processEntry(k, v)
