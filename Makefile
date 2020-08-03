@@ -17,7 +17,7 @@ build:
 build_internal:
 	go env
 	cp -f $(PWD)/integrate/resolv.conf /etc/resolv.conf
-	mkdir ~/.ssh
+	mkdir -p ~/.ssh
 	cp $(PWD)/integrate/id_rsa ~/.ssh/id_rsa
 	chmod 600 ~/.ssh/id_rsa
 	cp $(PWD)/integrate/id_rsa.pub ~/.ssh/id_rsa.pub
