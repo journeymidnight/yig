@@ -23,6 +23,8 @@ import (
 	"github.com/journeymidnight/yig/mods"
 )
 
+const RootPolicy = `{"Statement":[{"Principal":"*","Action":"s3:FullContorl","Effect":"Allow","Resource":"arn:aws:s3:::*"}],"Version":"2012-10-17"}`
+
 type AccessKeyItemList struct {
 	Page    int             `json:"page"`
 	Size    int             `json:"size"`
@@ -160,6 +162,11 @@ func (a IamV4Client) GetKeysByUid(uid string) (credentials []common.Credential, 
 }
 
 func (a IamV4Client) GetCredential(accessKey string) (credential common.Credential, err error) {
+	rootPolicy := policy.Policy{}
+	err = json.Unmarshal([]byte(RootPolicy), &rootPolicy)
+	if err != nil {
+		return
+	}
 	// HACK: for put log temporary
 	if accessKey == a.LogDelivererAK {
 		credential.ExternUserId = "JustForPutLog"
@@ -210,24 +217,25 @@ func (a IamV4Client) GetCredential(accessKey string) (credential common.Credenti
 		credential.ExternRootId = resp.Res.RootUser.Id
 		if credential.ExternUserId == credential.ExternRootId {
 			credential.DisplayName = resp.Res.RootUser.Name
+			credential.Policy = &rootPolicy
 		} else {
 			credential.DisplayName = resp.Res.ChildUser.Name
+			for _, p := range resp.Res.PolicyList {
+				pp := policy.Policy{}
+				err = json.Unmarshal([]byte(p.PolicyDoc), &pp)
+				if err != nil {
+					slog.Info("GetCredential decode policy_doc failed ", err)
+					continue
+				}
+				if pp.Version != "2012-10-17" {
+					continue
+				}
+				credential.Policy = &pp
+				break
+			}
 		}
 		credential.ExternRootName = resp.Res.RootUser.Name
 		credential.AllowOtherUserAccess = false
-		for _, p := range resp.Res.PolicyList {
-			pp := policy.Policy{}
-			err = json.Unmarshal([]byte(p.PolicyDoc), &pp)
-			if err != nil {
-				slog.Info("GetCredential decode policy_doc failed ", err)
-				continue
-			}
-			if pp.Version != "2012-10-17" {
-				continue
-			}
-			credential.Policy = &pp
-			break
-		}
 		slog.Info("V4 credential", credential)
 	}
 
