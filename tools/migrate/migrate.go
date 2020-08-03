@@ -132,10 +132,13 @@ func (s MigrateScanner) Run(handle task.Handle, jobMeta task.JobMeta) error {
 	instanceRange := tikvclient.RangeIntersection(hotObjectRange,
 		tikvclient.Range{Start: jobMeta.StartKey, End: jobMeta.EndKey})
 	if instanceRange.Empty {
-		s.logger.Info("Intersection with", jobMeta.StartKey, jobMeta.EndKey,
-			"result:", instanceRange.Start, instanceRange.End)
+		s.logger.Info("Intersection with",
+			string(jobMeta.StartKey), string(jobMeta.EndKey),
+			"result:", string(instanceRange.Start), string(instanceRange.End))
 		return nil
 	}
+	s.logger.Info("Scanning",
+		string(instanceRange.Start), string(instanceRange.End))
 	return s.tikvClient.TxScanCallback(instanceRange.Start, instanceRange.End, nil,
 		func(k, v []byte) error {
 			s.processEntry(k, v)
@@ -248,7 +251,7 @@ func (w MigrateWorker) processEntry(object types.Object) {
 		close(lockNoLongerRequired)
 	}()
 	locked := make(chan struct{})
-	w.lockEntry(object, lockNoLongerRequired, locked)
+	go w.lockEntry(object, lockNoLongerRequired, locked)
 	<-locked // wait until entry lock acquired
 
 	for {
