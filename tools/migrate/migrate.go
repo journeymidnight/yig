@@ -145,6 +145,11 @@ func (s MigrateScanner) Run(handle task.Handle, jobMeta task.JobMeta) error {
 		})
 }
 
+const (
+	uploadMinChunkSize = 512 << 10
+	uploadMaxChunkSize = 8 << 20
+)
+
 type MigrateWorker struct {
 	coolDown         time.Duration
 	threadsPerWorker int
@@ -362,6 +367,9 @@ func (w MigrateWorker) Run(messages <-chan *sarama.ConsumerMessage,
 	errors <-chan *sarama.ConsumerError,
 	commands <-chan string,
 	stopping <-chan struct{}) {
+
+	helper.CONFIG.UploadMinChunkSize = uploadMinChunkSize
+	helper.CONFIG.UploadMaxChunkSize = uploadMaxChunkSize
 
 	dispatchQueue := make(chan types.Object, w.threadsPerWorker)
 	for i := 0; i < w.threadsPerWorker; i++ {

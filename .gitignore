@@ -12,7 +12,6 @@ integrate/logs
 yig
 lc
 yig-restore
-migrate
 *.log
 *.swp
 yig
