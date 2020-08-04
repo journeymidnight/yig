@@ -132,9 +132,6 @@ func (s MigrateScanner) Run(handle task.Handle, jobMeta task.JobMeta) error {
 	instanceRange := tikvclient.RangeIntersection(hotObjectRange,
 		tikvclient.Range{Start: jobMeta.StartKey, End: jobMeta.EndKey})
 	if instanceRange.Empty {
-		s.logger.Info("Intersection with",
-			jobMeta.StartKey, jobMeta.EndKey,
-			"result:", instanceRange.Start, instanceRange.End)
 		return nil
 	}
 	s.logger.Info("Scanning", instanceRange.Start, instanceRange.End)
