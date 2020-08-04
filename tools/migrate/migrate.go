@@ -64,7 +64,7 @@ func (s MigrateScanner) Setup(handle task.ConfigHandle) (trigger cron.Trigger,
 			Unit:  cron.Second,
 		},
 	}
-	return trigger, 1, nil
+	return trigger, 0, nil
 }
 
 func (s MigrateScanner) Init(handle task.Handle,
@@ -129,8 +129,16 @@ func (s MigrateScanner) processEntry(key []byte, value []byte) {
 }
 
 func (s MigrateScanner) Run(handle task.Handle, jobMeta task.JobMeta) error {
-	return s.tikvClient.TxScanCallback(hotObjectRange.Start, hotObjectRange.End,
-		nil,
+	instanceRange := tikvclient.RangeIntersection(hotObjectRange,
+		tikvclient.Range{Start: jobMeta.StartKey, End: jobMeta.EndKey})
+	if instanceRange.Empty {
+		s.logger.Info("Intersection with",
+			jobMeta.StartKey, jobMeta.EndKey,
+			"result:", instanceRange.Start, instanceRange.End)
+		return nil
+	}
+	s.logger.Info("Scanning", instanceRange.Start, instanceRange.End)
+	return s.tikvClient.TxScanCallback(instanceRange.Start, instanceRange.End, nil,
 		func(k, v []byte) error {
 			s.processEntry(k, v)
 			return nil
@@ -374,7 +382,6 @@ func (w MigrateWorker) Run(messages <-chan *sarama.ConsumerMessage,
 			if !ok {
 				return
 			}
-			w.logger.Info("Receiving", msg.Offset)
 			var object types.Object
 			err := helper.MsgPackUnMarshal(msg.Value, &object)
 			if err != nil {
