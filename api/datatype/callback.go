@@ -31,7 +31,7 @@ type CallBackInfo struct {
 	Etag       string
 	ObjectSize int64
 	MimeType   string
-	CreateTime int64
+	CreateTime uint64
 	Height     int
 	Width      int
 	Location   map[string]string
@@ -63,8 +63,25 @@ func GetCallbackFromHeader(header http.Header) (isCallback bool, message CallBac
 	return true, message
 }
 
-func IsCallbackImageInfo(header http.Header, objectName string) bool {
-	contentType := header.Get("Content-Type")
+func GetCallbackFromForm(formValues map[string]string) (isCallback bool, message CallBackMessage) {
+	message = CallBackMessage{}
+	url := formValues["X-Uos-Callback-Url"]
+	body := formValues["X-Uos-Callback-Body"]
+	if url == "" || body == "" {
+		return false, message
+	}
+	message.Url = url
+	auth := formValues["X-Uos-Callback-Auth"]
+	if auth == "1" {
+		message.Auth = true
+	} else {
+		message.Auth = false
+	}
+	message.Body = formValues["x-uos-callback-body"]
+	return true, message
+}
+
+func IsCallbackImageInfo(contentType string, objectName string) bool {
 	switch contentType {
 	case "image/jpeg":
 		return true
@@ -82,6 +99,19 @@ func IsCallbackImageInfo(header http.Header, objectName string) bool {
 			strings.HasSuffix(objectName, ".gif") {
 			return true
 		}
+	}
+	return false
+}
+
+func ValidCallbackImgInfo(infos string) bool {
+	infoMap := make(map[string]string)
+	infoSplits := strings.Split(infos, "&")
+	for _, split := range infoSplits {
+		header := strings.Split(split, "=")
+		infoMap[header[0]] = header[1]
+	}
+	if strings.HasPrefix(infoMap["height"], "${") || strings.HasPrefix(infoMap["width"], "${") {
+		return true
 	}
 	return false
 }
@@ -153,7 +183,7 @@ func ValidCallbackInfo(infos string, noValidInfo CallBackInfo) CallBackInfo {
 					info.CreateTime = 0
 				}
 			}
-			info.CreateTime, err = strconv.ParseInt(value, 10, 64)
+			info.CreateTime, err = strconv.ParseUint(value, 10, 64)
 			if err != nil {
 				info.CreateTime = 0
 			}
@@ -249,7 +279,7 @@ func getPostRequest(credential common.Credential, message CallBackMessage) (*htt
 		}
 	}
 	if message.Info.CreateTime > 0 {
-		if err := writer.WriteField("createTime", strconv.FormatInt(message.Info.CreateTime, 10)); err != nil {
+		if err := writer.WriteField("createTime", strconv.FormatUint(message.Info.CreateTime, 10)); err != nil {
 			return nil, err
 		}
 	}
@@ -333,4 +363,15 @@ func NewCallbackReader(r io.ReadCloser, isCallback bool, isImage bool) CallbackR
 		reader:     r,
 		isImage:    isImage,
 	}
+}
+
+func GetImageInfoFromReader(reader io.Reader) (height, width int) {
+	img, _, err := image.Decode(reader)
+	if err != nil {
+		return
+	}
+	bounds := img.Bounds()
+	width = bounds.Max.X
+	height = bounds.Max.Y
+	return
 }

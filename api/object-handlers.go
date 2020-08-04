@@ -927,7 +927,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	var isCallback bool
 	var callbackMessage CallBackMessage
 	isCallback, callbackMessage = GetCallbackFromHeader(r.Header)
-	callbackReader := NewCallbackReader(dataReadCloser, isCallback, IsCallbackImageInfo(r.Header, reqCtx.ObjectName))
+	callbackReader := NewCallbackReader(dataReadCloser, isCallback, IsCallbackImageInfo(metadata["content-type"], reqCtx.ObjectName))
 	logger.Info(callbackMessage)
 
 	var result PutObjectResult
@@ -942,7 +942,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	if isCallback {
 		objectSize, width, height := callbackReader.GetCallBackReaderInfos()
 		callbackMessage.Info.ObjectSize = objectSize
-		callbackMessage.Info.CreateTime = result.LastModified.UnixNano()
+		callbackMessage.Info.CreateTime = uint64(result.LastModified.UnixNano())
 		callbackMessage.Info.MimeType = metadata["content-type"]
 		callbackMessage.Info.Etag = result.Md5
 		callbackMessage.Info.FileName = reqCtx.ObjectName
@@ -1938,6 +1938,11 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 		completeParts = append(completeParts, part)
 	}
 
+	var isCallback bool
+	var callbackMessage CallBackMessage
+	isCallback, callbackMessage = GetCallbackFromHeader(r.Header)
+	logger.Info(callbackMessage)
+
 	var result CompleteMultipartResult
 	result, err = api.ObjectAPI.CompleteMultipartUpload(reqCtx, credential, uploadId, completeParts)
 
@@ -1952,6 +1957,46 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 			WriteErrorResponse(w, r, err)
 		}
 		return
+	}
+
+	if isCallback {
+		objectInfo, err := api.ObjectAPI.GetObjectInfo(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, credential)
+		if err != nil {
+			logger.Warn("Complete multipart upload with callback failed get object info:", err)
+			WriteErrorResponse(w, r, ErrCallBackFailed)
+			return
+		}
+		if ValidCallbackImgInfo(callbackMessage.Body) {
+			if IsCallbackImageInfo(objectInfo.ContentType, reqCtx.ObjectName) {
+				startOffset := int64(0)
+				length := objectInfo.Size
+				sse := SseRequest{
+					Type: objectInfo.SseType,
+				}
+				pipeReader, pipeWriter := io.Pipe()
+				err = api.ObjectAPI.GetObject(objectInfo, startOffset, length, pipeWriter, sse)
+				if err != nil {
+					logger.Warn("Complete multipart upload with callback failed get object info:", err)
+					WriteErrorResponse(w, r, ErrCallBackFailed)
+					return
+				}
+				callbackMessage.Info.Height, callbackMessage.Info.Width = GetImageInfoFromReader(pipeReader)
+			}
+		}
+		callbackMessage.Info.ObjectSize = objectInfo.Size
+		callbackMessage.Info.CreateTime = objectInfo.CreateTime
+		callbackMessage.Info.MimeType = objectInfo.ContentType
+		callbackMessage.Info.Etag = result.ETag
+		callbackMessage.Info.FileName = reqCtx.ObjectName
+		callbackMessage.Info.BucketName = reqCtx.BucketName
+		callbackMessage.Info = ValidCallbackInfo(callbackMessage.Body, callbackMessage.Info)
+		resultCallback, err := PostCallbackMessage(credential, callbackMessage)
+		if err != nil {
+			logger.Warn("PutObject with Callback err")
+			WriteErrorResponse(w, r, err)
+			return
+		}
+		w.Header().Set("x-uos-callback-result", resultCallback)
 	}
 
 	// Get object location.
@@ -2128,6 +2173,12 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	var isCallback bool
+	var callbackMessage CallBackMessage
+	isCallback, callbackMessage = GetCallbackFromForm(formValues)
+	callbackReader := NewCallbackReader(fileBody, isCallback, IsCallbackImageInfo(metadata["content-type"], reqCtx.ObjectName))
+	logger.Info(callbackMessage)
+
 	result, err := api.ObjectAPI.PutObject(reqCtx, credential, -1, fileBody,
 		metadata, acl, sseRequest, storageClass)
 	if err != nil {
@@ -2135,6 +2186,27 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		WriteErrorResponse(w, r, err)
 		return
 	}
+
+	if isCallback {
+		objectSize, width, height := callbackReader.GetCallBackReaderInfos()
+		callbackMessage.Info.ObjectSize = objectSize
+		callbackMessage.Info.CreateTime = uint64(result.LastModified.UnixNano())
+		callbackMessage.Info.MimeType = metadata["content-type"]
+		callbackMessage.Info.Etag = result.Md5
+		callbackMessage.Info.FileName = reqCtx.ObjectName
+		callbackMessage.Info.BucketName = reqCtx.BucketName
+		callbackMessage.Info.Height = height
+		callbackMessage.Info.Width = width
+		callbackMessage.Info = ValidCallbackInfo(callbackMessage.Body, callbackMessage.Info)
+		resultCallback, err := PostCallbackMessage(credential, callbackMessage)
+		if err != nil {
+			logger.Warn("PutObject with Callback err")
+			WriteErrorResponse(w, r, err)
+			return
+		}
+		w.Header().Set("x-uos-callback-result", resultCallback)
+	}
+
 	if result.Md5 != "" {
 		w.Header().Set("ETag", "\""+result.Md5+"\"")
 	}
