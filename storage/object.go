@@ -1610,26 +1610,25 @@ func (yig *YigStorage) DeleteObjects(reqCtx RequestContext, credential common.Cr
 		}
 	}()
 
-	deleteFunc := func(o ObjectIdentifier, tx driver.Tx) (result DeleteObjectResult, err error) {
+	getFunc := func(o ObjectIdentifier, tx driver.Tx) (object *meta.Object, err error) {
 		// GetObject
-		var object *meta.Object
 		bucketName, objectName, version := bucket.Name, o.ObjectName, o.VersionId
 		if version == "null" {
 			version = meta.NullVersion
 		}
 		if bucket.Versioning == BucketVersioningDisabled {
 			if version != "" && version != meta.NullVersion {
-				return result, ErrInvalidVersioning
+				return object, ErrInvalidVersioning
 			}
 			object, err = yig.MetaStorage.GetObject(bucketName, objectName, meta.NullVersion, false)
 		} else {
 			object, err = yig.MetaStorage.GetObject(bucketName, objectName, version, false)
 		}
+		return object, err
+	}
 
-		if err != nil && err != ErrNoSuchKey {
-			return result, err
-		}
-
+	deleteFunc := func(object *meta.Object, tx driver.Tx) (result DeleteObjectResult, err error) {
+		bucketName, objectName, version := bucket.Name, object.Name, object.VersionId
 		switch bucket.Versioning {
 		case BucketVersioningDisabled:
 			if version != "" && version != meta.NullVersion {
@@ -1732,35 +1731,49 @@ func (yig *YigStorage) DeleteObjects(reqCtx RequestContext, credential common.Cr
 	var deltaResult = make([]int64, len(StorageClassIndexMap))
 	var unexpiredInfo []UnexpiredTriple
 	var wg = sync.WaitGroup{}
-	for _, object := range objects {
+	for _, o := range objects {
 		wg.Add(1)
-		go func(object ObjectIdentifier) {
-			result, err := deleteFunc(object, tx)
+		go func(o ObjectIdentifier) {
+			object, err := getFunc(o, tx)
+			if err != nil && err == ErrNoSuchKey {
+				deletedObjects = append(deletedObjects, ObjectIdentifier{
+					ObjectName:   o.ObjectName,
+					VersionId:    o.VersionId,
+					DeleteMarker: o.DeleteMarker,
+					DeleteMarkerVersionId: helper.Ternary(o.DeleteMarker,
+						o.VersionId, "").(string),
+				})
+				return
+			}
+			var delResult DeleteObjectResult
+			if err == nil {
+				delResult, err = deleteFunc(object, tx)
+			}
 			if err == nil {
 				if object.VersionId != "" {
-					yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucket.Name+":"+object.ObjectName+":"+object.VersionId)
-					yig.DataCache.Remove(bucket.Name + ":" + object.ObjectName + ":" + object.VersionId)
+					yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucket.Name+":"+object.Name+":"+object.VersionId)
+					yig.DataCache.Remove(bucket.Name + ":" + object.Name + ":" + object.VersionId)
 				} else if reqCtx.ObjectInfo != nil {
-					yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucket.Name+":"+object.ObjectName+":"+object.VersionId)
-					yig.DataCache.Remove(bucket.Name + ":" + object.ObjectName + ":" + object.VersionId)
+					yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucket.Name+":"+object.Name+":"+object.VersionId)
+					yig.DataCache.Remove(bucket.Name + ":" + object.Name + ":" + object.VersionId)
 				}
 				deletedObjects = append(deletedObjects, ObjectIdentifier{
-					ObjectName:   object.ObjectName,
+					ObjectName:   object.Name,
 					VersionId:    object.VersionId,
-					DeleteMarker: result.DeleteMarker,
-					DeleteMarkerVersionId: helper.Ternary(result.DeleteMarker,
-						result.VersionId, "").(string),
+					DeleteMarker: delResult.DeleteMarker,
+					DeleteMarkerVersionId: helper.Ternary(delResult.DeleteMarker,
+						delResult.VersionId, "").(string),
 				})
 
-				if ok, delta := reqCtx.ObjectInfo.IsUnexpired(); ok {
+				if ok, delta := object.IsUnexpired(); ok {
 					unexpiredInfo = append(unexpiredInfo, UnexpiredTriple{
-						StorageClass: reqCtx.ObjectInfo.StorageClass,
-						Size:         CorrectDeltaSize(reqCtx.ObjectInfo.StorageClass, reqCtx.ObjectInfo.Size),
+						StorageClass: object.StorageClass,
+						Size:         CorrectDeltaSize(object.StorageClass, object.Size),
 						SurvivalTime: delta,
 					})
 				}
-				if result.DeltaSize.Delta != 0 {
-					atomic.AddInt64(&deltaResult[result.DeltaSize.StorageClass], result.DeltaSize.Delta)
+				if delResult.DeltaSize.Delta != 0 {
+					atomic.AddInt64(&deltaResult[delResult.DeltaSize.StorageClass], CorrectDeltaSize(object.StorageClass, object.Size))
 				}
 			} else {
 				helper.Logger.Error("Unable to delete object:", err)
@@ -1769,20 +1782,20 @@ func (yig *YigStorage) DeleteObjects(reqCtx RequestContext, credential common.Cr
 					deleteErrors = append(deleteErrors, DeleteError{
 						Code:      ErrorCodeResponse[apiErrorCode].AwsErrorCode,
 						Message:   ErrorCodeResponse[apiErrorCode].Description,
-						Key:       object.ObjectName,
+						Key:       object.Name,
 						VersionId: object.VersionId,
 					})
 				} else {
 					deleteErrors = append(deleteErrors, DeleteError{
 						Code:      "InternalError",
 						Message:   "We encountered an internal error, please try again.",
-						Key:       object.ObjectName,
+						Key:       object.Name,
 						VersionId: object.VersionId,
 					})
 				}
 			}
 			wg.Done()
-		}(object)
+		}(o)
 	}
 
 	wg.Wait()
