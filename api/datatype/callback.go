@@ -5,7 +5,6 @@ import (
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base64"
-	"encoding/hex"
 	"image"
 	_ "image/gif"
 	_ "image/jpeg"
@@ -134,8 +133,9 @@ func ValidCallbackInfo(infos string, noValidInfo CallBackInfo) CallBackInfo {
 				} else {
 					info.BucketName = ""
 				}
+				break
 			}
-			info.BucketName = noValidInfo.BucketName
+			info.BucketName = value
 		case "filename":
 			if strings.HasPrefix(value, "${") {
 				if noValidInfo.FileName != "" {
@@ -143,6 +143,7 @@ func ValidCallbackInfo(infos string, noValidInfo CallBackInfo) CallBackInfo {
 				} else {
 					info.FileName = ""
 				}
+				break
 			}
 			info.FileName = value
 		case "etag":
@@ -152,6 +153,7 @@ func ValidCallbackInfo(infos string, noValidInfo CallBackInfo) CallBackInfo {
 				} else {
 					info.Etag = ""
 				}
+				break
 			}
 			info.Etag = value
 		case "objectSize":
@@ -161,6 +163,7 @@ func ValidCallbackInfo(infos string, noValidInfo CallBackInfo) CallBackInfo {
 				} else {
 					info.ObjectSize = 0
 				}
+				break
 			}
 			info.ObjectSize, err = strconv.ParseInt(value, 10, 64)
 			if err != nil {
@@ -173,6 +176,7 @@ func ValidCallbackInfo(infos string, noValidInfo CallBackInfo) CallBackInfo {
 				} else {
 					info.MimeType = ""
 				}
+				break
 			}
 			info.MimeType = value
 		case "createTime":
@@ -182,6 +186,7 @@ func ValidCallbackInfo(infos string, noValidInfo CallBackInfo) CallBackInfo {
 				} else {
 					info.CreateTime = 0
 				}
+				break
 			}
 			info.CreateTime, err = strconv.ParseUint(value, 10, 64)
 			if err != nil {
@@ -194,6 +199,7 @@ func ValidCallbackInfo(infos string, noValidInfo CallBackInfo) CallBackInfo {
 				} else {
 					info.Height = 0
 				}
+				break
 			}
 			info.Height, err = strconv.Atoi(value)
 			if err != nil {
@@ -206,6 +212,7 @@ func ValidCallbackInfo(infos string, noValidInfo CallBackInfo) CallBackInfo {
 				} else {
 					info.Width = 0
 				}
+				break
 			}
 			info.Width, err = strconv.Atoi(value)
 			if err != nil {
@@ -320,49 +327,8 @@ func getSignatureForCallback(credential common.Credential, date time.Time) strin
 	data = "POST\n" + date.String()
 	mac := hmac.New(sha1.New, []byte(key))
 	mac.Write([]byte(data))
-	signature := hex.EncodeToString(mac.Sum(nil))
-	return "UOS-CALLBACK-AUTH " + credential.AccessKeyID + ":" + base64.StdEncoding.EncodeToString([]byte(signature))
-}
-
-type CallbackReader struct {
-	isCallback    bool
-	isImage       bool
-	objectSize    int64
-	width, height int
-	reader        io.Reader
-}
-
-func (r *CallbackReader) Read(b []byte) (n int, err error) {
-	if r.isCallback {
-		r.objectSize = int64(len(b))
-		if r.isImage {
-			imageReader := bytes.NewReader(b)
-			img, _, err := image.Decode(imageReader)
-			if err != nil {
-				return 0, err
-			}
-			bounds := img.Bounds()
-			r.width = bounds.Max.X
-			r.height = bounds.Max.Y
-		}
-	}
-	return r.reader.Read(b)
-}
-
-func (r *CallbackReader) Close() error {
-	return nil
-}
-
-func (r *CallbackReader) GetCallBackReaderInfos() (objectSize int64, width, height int) {
-	return r.objectSize, r.width, r.height
-}
-
-func NewCallbackReader(r io.ReadCloser, isCallback bool, isImage bool) CallbackReader {
-	return CallbackReader{
-		isCallback: isCallback,
-		reader:     r,
-		isImage:    isImage,
-	}
+	signature := mac.Sum(nil)
+	return "UOS-CALLBACK-AUTH " + credential.AccessKeyID + ":" + base64.StdEncoding.EncodeToString(signature)
 }
 
 func GetImageInfoFromReader(reader io.Reader) (height, width int) {
