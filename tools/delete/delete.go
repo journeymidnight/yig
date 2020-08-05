@@ -146,6 +146,9 @@ func (d AsyncDeleteFromCeph) Run(
 				return
 			}
 		case <-stopping:
+			for _, cluster := range d.cephClusters {
+				cluster.Close()
+			}
 			return
 		}
 	}
