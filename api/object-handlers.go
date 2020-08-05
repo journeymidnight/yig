@@ -944,20 +944,27 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 			WriteErrorResponse(w, r, ErrCallBackFailed)
 			return
 		}
+		logger.Info("================== Zero floor =================")
 		if ValidCallbackImgInfo(callbackMessage.Body) {
+			logger.Info("================== First floor =================")
 			if IsCallbackImageInfo(objectInfo.ContentType, reqCtx.ObjectName) {
+				logger.Info("====================== Second floor ====================")
 				startOffset := int64(0)
 				length := objectInfo.Size
 				sse := SseRequest{
 					Type: objectInfo.SseType,
 				}
+				logger.Info("============================")
 				pipeReader, pipeWriter := io.Pipe()
-				err = api.ObjectAPI.GetObject(objectInfo, startOffset, length, pipeWriter, sse)
-				if err != nil {
-					logger.Warn("Complete multipart upload with callback failed get object info:", err)
-					WriteErrorResponse(w, r, ErrCallBackFailed)
-					return
-				}
+				go func() {
+					err = api.ObjectAPI.GetObject(objectInfo, startOffset, length, pipeWriter, sse)
+					if err != nil {
+						logger.Warn("Complete multipart upload with callback failed get object info:", err)
+						pipeWriter.CloseWithError(err)
+						return
+					}
+					pipeWriter.Close()
+				}()
 				callbackMessage.Info.Height, callbackMessage.Info.Width = GetImageInfoFromReader(pipeReader)
 			}
 		}
