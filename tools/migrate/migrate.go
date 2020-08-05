@@ -430,6 +430,9 @@ func (w MigrateWorker) Run(messages <-chan *sarama.ConsumerMessage,
 				return
 			}
 		case <-stopping:
+			for _, cluster := range w.cephClusters {
+				cluster.Close()
+			}
 			return
 		}
 	}

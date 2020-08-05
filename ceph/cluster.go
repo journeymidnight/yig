@@ -827,3 +827,7 @@ func (cluster *CephCluster) GetUsage() (usage backend.Usage, err error) {
 	usage.UsedSpacePercent = int(stat.Kb_used * uint64(100) / stat.Kb)
 	return
 }
+
+func (cluster *CephCluster) Close() {
+	cluster.Conn.Shutdown()
+}
