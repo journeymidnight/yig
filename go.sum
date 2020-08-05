@@ -2,6 +2,8 @@
 10.0.45.221/meepo/cron.git v0.0.0-20200729015409-137e31c90d6f/go.mod h1:6jAqTE6btyraEd1ady/UUzUqLq0CBTzwDneWmtz9ITc=
 10.0.45.221/meepo/kafka.git v0.0.0-20200729020153-b165f8db619f h1:sApMlVxHIxpSlH8nWlO1vagUJNb9lqG8wFr4GdVm+gk=
 10.0.45.221/meepo/kafka.git v0.0.0-20200729020153-b165f8db619f/go.mod h1:IW0FhKNCzO1jh9e8gXrz8OqS9rg67WviIH8Evu1wqDM=
+10.0.45.221/meepo/kafka.git v0.1.0 h1:B0fZ+lp5orOh+GagUZu20innKWFG3YuSO1x8HOA1J44=
+10.0.45.221/meepo/kafka.git v0.1.0/go.mod h1:IW0FhKNCzO1jh9e8gXrz8OqS9rg67WviIH8Evu1wqDM=
 10.0.45.221/meepo/log.git v0.0.0-20200729015730-2f5d42c4cf77 h1:Ft8zr3X1y4DlBrnmy4pxtK0gBSy3O9960h5Z6q3Fvi8=
 10.0.45.221/meepo/log.git v0.0.0-20200729015730-2f5d42c4cf77/go.mod h1:6D/0DYh7lqWiVFkUiHlrnYySC+Clsen3vSOVEco3kDA=
 10.0.45.221/meepo/task.git v0.1.2 h1:127Bf1C6iA3hjLCi0e6JDyubrNKGVDRIwUzuYt/jGxY=

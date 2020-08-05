@@ -2,10 +2,12 @@ package meta
 
 import (
 	"10.0.45.221/meepo/kafka.git"
+	"github.com/Shopify/sarama"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/meta/client"
 	"github.com/journeymidnight/yig/meta/client/tidbclient"
 	"github.com/journeymidnight/yig/meta/client/tikvclient"
+	"time"
 )
 
 type Meta struct {
@@ -13,6 +15,7 @@ type Meta struct {
 	Cache                     MetaCache
 	QosMeta                   *QosMeta
 	GarbageCollectionProducer kafka.Producer
+	republishChannel          chan *sarama.ProducerMessage
 }
 
 func New(myCacheType CacheType) *Meta {
@@ -34,6 +37,7 @@ func New(myCacheType CacheType) *Meta {
 		panic("new kafka producer: " + err.Error())
 	}
 	meta.GarbageCollectionProducer = producer
+	meta.republishChannel = make(chan *sarama.ProducerMessage, 1024)
 	go func() {
 		for {
 			e, ok := <-producer.Errors()
@@ -41,6 +45,14 @@ func New(myCacheType CacheType) *Meta {
 				return
 			}
 			helper.Logger.Error("Producer error:", e)
+			meta.republishChannel <- e.Msg
+		}
+	}()
+	go func() {
+		for {
+			time.Sleep(time.Second)
+			msg := <- meta.republishChannel
+			meta.GarbageCollectionProducer.Republish(msg)
 		}
 	}()
 	return &meta

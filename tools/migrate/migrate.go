@@ -5,6 +5,7 @@ import (
 	"10.0.45.221/meepo/kafka.git"
 	"10.0.45.221/meepo/log.git"
 	"10.0.45.221/meepo/task.git"
+	"errors"
 	"github.com/Shopify/sarama"
 	"github.com/bsm/redislock"
 	redis2 "github.com/go-redis/redis/v7"
@@ -38,7 +39,12 @@ type MigrateScanner struct {
 	tikvClient *tikvclient.TiKVClient
 	producer   kafka.Producer
 	logger     log.Logger
+	// for error handling
+	failedMessages []*sarama.ProducerMessage
+	messagesLock   *sync.Mutex
 }
+
+const failedMessageThreshold = 1024
 
 func (s MigrateScanner) Name() string {
 	return "migrate_scanner"
@@ -84,21 +90,26 @@ func (s MigrateScanner) Init(handle task.Handle,
 		return nil, err
 	}
 	logger := handle.GetLogger()
+	scanner := MigrateScanner{
+		coolDown:     time.Duration(conf.CoolDownSecond) * time.Second,
+		tikvClient:   &tikvclient.TiKVClient{TxnCli: tikvClient},
+		producer:     producer,
+		logger:       logger,
+		messagesLock: new(sync.Mutex),
+	}
 	go func() {
 		for {
 			e, ok := <-producer.Errors()
 			if !ok {
 				return
 			}
-			logger.Error("Producer error:", e)
+			logger.Error(e.Msg.Offset, "producer error:", e)
+			scanner.messagesLock.Lock()
+			scanner.failedMessages = append(scanner.failedMessages, e.Msg)
+			scanner.messagesLock.Unlock()
 		}
 	}()
-	return MigrateScanner{
-		coolDown:   time.Duration(conf.CoolDownSecond) * time.Second,
-		tikvClient: &tikvclient.TiKVClient{TxnCli: tikvClient},
-		producer:   producer,
-		logger:     logger,
-	}, nil
+	return scanner, nil
 }
 
 var hotObjectRange = tikvclient.Range{
@@ -129,6 +140,17 @@ func (s MigrateScanner) processEntry(key []byte, value []byte) {
 }
 
 func (s MigrateScanner) Run(handle task.Handle, jobMeta task.JobMeta) error {
+	s.messagesLock.Lock()
+	failedMessages := s.failedMessages
+	s.failedMessages = nil
+	s.messagesLock.Unlock()
+	for _, msg := range failedMessages {
+		s.producer.Republish(msg)
+	}
+	if len(failedMessages) > failedMessageThreshold {
+		return errors.New("skip run because too many failed messages")
+	}
+
 	for _, r := range jobMeta.Ranges {
 		instanceRange := tikvclient.RangeIntersection(hotObjectRange,
 			tikvclient.Range{Start: r.StartKey, End: r.EndKey})

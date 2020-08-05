@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	10.0.45.221/meepo/cron.git v0.0.0-20200729015409-137e31c90d6f
-	10.0.45.221/meepo/kafka.git v0.0.0-20200729020153-b165f8db619f
+	10.0.45.221/meepo/kafka.git v0.1.0
 	10.0.45.221/meepo/log.git v0.0.0-20200729015730-2f5d42c4cf77
 	10.0.45.221/meepo/task.git v0.1.3
 	github.com/BurntSushi/toml v0.3.1
