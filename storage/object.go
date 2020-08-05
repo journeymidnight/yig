@@ -787,10 +787,10 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
-	} else {
+	} else if reqCtx.ObjectInfo != nil {
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":"+object.VersionId)
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.VersionId)
-		if reqCtx.ObjectInfo != nil && reqCtx.BucketInfo.Versioning != BucketVersioningEnabled {
+		if reqCtx.BucketInfo.Versioning != BucketVersioningEnabled {
 			go yig.removeOldObject(reqCtx.ObjectInfo)
 		}
 	}
