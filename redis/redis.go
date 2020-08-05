@@ -417,7 +417,6 @@ func (c *ClusterRedis) Set(table RedisDatabase, key string, value interface{}) e
 				return err
 			}
 			// Use table.String() + hashkey as Redis key
-			helper.Logger.Error("SET:", table.String()+hashkey, helper.CONFIG.MetaCacheTTL)
 			r, err := conn.Set(table.String()+hashkey, string(encodedValue), time.Duration(helper.CONFIG.MetaCacheTTL)*time.Second).Result()
 			if err == redis.Nil {
 				return nil
@@ -445,7 +444,6 @@ func (c *ClusterRedis) Get(table RedisDatabase, key string,
 				return err
 			}
 			// Use table.String() + hashkey as Redis key
-			helper.Logger.Error("GET:", table.String()+hashkey)
 			encodedValue, err = conn.Get(table.String() + hashkey).Bytes()
 			if err != nil {
 				if err == redis.Nil {
@@ -476,7 +474,6 @@ func (c *ClusterRedis) Remove(table RedisDatabase, key string) error {
 				return err
 			}
 			// Use table.String() + hashkey as Redis key
-			helper.Logger.Error("DEL:", table.String()+hashkey)
 			_, err = conn.Del(table.String() + hashkey).Result()
 			if err == redis.Nil {
 				return nil
