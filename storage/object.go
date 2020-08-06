@@ -1735,6 +1735,7 @@ func (yig *YigStorage) DeleteObjects(reqCtx RequestContext, credential common.Cr
 		wg.Add(1)
 		go func(o ObjectIdentifier) {
 			object, err := getFunc(o, tx)
+			defer wg.Done()
 			if err != nil && err == ErrNoSuchKey {
 				deletedObjects = append(deletedObjects, ObjectIdentifier{
 					ObjectName:   o.ObjectName,
@@ -1794,7 +1795,6 @@ func (yig *YigStorage) DeleteObjects(reqCtx RequestContext, credential common.Cr
 					})
 				}
 			}
-			wg.Done()
 		}(o)
 	}
 
