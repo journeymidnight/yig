@@ -901,6 +901,22 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// do bucket policy check first
+	isAllow, err := IsBucketPolicyAllowed(&credential, reqCtx.BucketInfo, r, policy.PutObjectAction, reqCtx.ObjectName)
+	helper.Logger.Info("checkRequestAuth1:", isAllow, err)
+	if err == nil && isAllow == false {
+		//then do ram policy check if the request is from a sub user of who own this bucket
+		if credential.ExternRootId == reqCtx.BucketInfo.OwnerId {
+			isAllow, err = IsRamPolicyAllowed(credential.Policy, r, policy.PutObjectAction)
+			helper.Logger.Info("checkRequestAuth2:", isAllow, err)
+		}
+	}
+	if err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+	credential.AllowOtherUserAccess = isAllow
+
 	var result PutObjectResult
 	result, err = api.ObjectAPI.PutObject(reqCtx, credential, size, dataReadCloser,
 		metadata, acl, sseRequest, storageClass)
@@ -1043,6 +1059,22 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 		WriteErrorResponse(w, r, err)
 		return
 	}
+
+	// do bucket policy check first
+	isAllow, err := IsBucketPolicyAllowed(&credential, reqCtx.BucketInfo, r, policy.PutObjectAction, reqCtx.ObjectName)
+	helper.Logger.Info("checkRequestAuth1:", isAllow, err)
+	if err == nil && isAllow == false {
+		//then do ram policy check if the request is from a sub user of who own this bucket
+		if credential.ExternRootId == reqCtx.BucketInfo.OwnerId {
+			isAllow, err = IsRamPolicyAllowed(credential.Policy, r, policy.PutObjectAction)
+			helper.Logger.Info("checkRequestAuth2:", isAllow, err)
+		}
+	}
+	if err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+	credential.AllowOtherUserAccess = isAllow
 
 	// Check whether the object is exist or not
 	// Check whether the bucket is owned by the specified user
@@ -1518,6 +1550,22 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 		WriteErrorResponse(w, r, err)
 		return
 	}
+
+	// do bucket policy check first
+	isAllow, err := IsBucketPolicyAllowed(&credential, reqCtx.BucketInfo, r, policy.PutObjectAction, reqCtx.ObjectName)
+	helper.Logger.Info("checkRequestAuth1:", isAllow, err)
+	if err == nil && isAllow == false {
+		//then do ram policy check if the request is from a sub user of who own this bucket
+		if credential.ExternRootId == reqCtx.BucketInfo.OwnerId {
+			isAllow, err = IsRamPolicyAllowed(credential.Policy, r, policy.PutObjectAction)
+			helper.Logger.Info("checkRequestAuth2:", isAllow, err)
+		}
+	}
+	if err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+	credential.AllowOtherUserAccess = isAllow
 
 	var result PutObjectPartResult
 	// No need to verify signature, anonymous request access is already allowed.

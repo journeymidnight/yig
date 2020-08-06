@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/journeymidnight/yig/api/datatype/policy"
 	"io"
 	"net/http"
 
@@ -8,7 +9,6 @@ import (
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/iam/common"
-	"github.com/journeymidnight/yig/signature"
 )
 
 func (api ObjectAPIHandlers) PutBucketLifeCycleHandler(w http.ResponseWriter, r *http.Request) {
@@ -18,7 +18,7 @@ func (api ObjectAPIHandlers) PutBucketLifeCycleHandler(w http.ResponseWriter, r 
 
 	var credential common.Credential
 	var err error
-	if credential, err = signature.IsReqAuthenticated(r); err != nil {
+	if credential, err = checkRequestAuth(r, policy.PutBucketPolicyAction); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -48,18 +48,8 @@ func (api ObjectAPIHandlers) GetBucketLifeCycleHandler(w http.ResponseWriter, r 
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.GetBucketPolicyAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
 	}
 
@@ -96,7 +86,7 @@ func (api ObjectAPIHandlers) DelBucketLifeCycleHandler(w http.ResponseWriter, r 
 
 	var credential common.Credential
 	var err error
-	if credential, err = signature.IsReqAuthenticated(r); err != nil {
+	if credential, err = checkRequestAuth(r, policy.DeleteBucketPolicyAction); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
