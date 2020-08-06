@@ -35,6 +35,7 @@ steps:
   - ps aux|grep migrate
   - python test/sanity.py
   - pushd test/go
+  - export GOPROXY=https://goproxy.cn
   - go test -v
   - popd
   when:
