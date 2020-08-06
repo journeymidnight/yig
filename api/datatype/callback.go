@@ -22,7 +22,10 @@ import (
 	"github.com/journeymidnight/yig/iam/common"
 )
 
-const MaxCallbackTimeout = time.Second * 3
+const (
+	MaxCallbackTimeout = time.Second * 3
+	Iso8601FormatTime  = "20060102T150405Z"
+)
 
 type CallBackInfo struct {
 	BucketName string
@@ -58,7 +61,14 @@ func GetCallbackFromHeader(header http.Header) (isCallback bool, message CallBac
 	} else {
 		message.Auth = false
 	}
-	message.Body = header.Get("x-uos-callback-body")
+	message.Body = header.Get("X-Uos-Callback-Body")
+	location := map[string]string{}
+	for head, value := range header {
+		if strings.HasPrefix(head, "X-Uos-Callback-Custom-") {
+			location[head] = value[0]
+		}
+	}
+	message.Info.Location = location
 	return true, message
 }
 
@@ -77,6 +87,13 @@ func GetCallbackFromForm(formValues map[string]string) (isCallback bool, message
 		message.Auth = false
 	}
 	message.Body = formValues["x-uos-callback-body"]
+	location := map[string]string{}
+	for head, value := range formValues {
+		if strings.HasPrefix(head, "x-uos-custom-") {
+			location[head] = value
+		}
+	}
+	message.Info.Location = location
 	return true, message
 }
 
@@ -123,6 +140,8 @@ func ValidCallbackInfo(infos string, noValidInfo CallBackInfo) CallBackInfo {
 		infoMap[header[0]] = header[1]
 	}
 	info := CallBackInfo{}
+	locationMap := map[string]string{}
+	info.Location = locationMap
 	var err error
 	for key, value := range infoMap {
 		switch key {
@@ -136,6 +155,7 @@ func ValidCallbackInfo(infos string, noValidInfo CallBackInfo) CallBackInfo {
 				break
 			}
 			info.BucketName = value
+			break
 		case "filename":
 			if strings.HasPrefix(value, "${") {
 				if noValidInfo.FileName != "" {
@@ -146,6 +166,7 @@ func ValidCallbackInfo(infos string, noValidInfo CallBackInfo) CallBackInfo {
 				break
 			}
 			info.FileName = value
+			break
 		case "etag":
 			if strings.HasPrefix(value, "${") {
 				if noValidInfo.Etag != "" {
@@ -156,6 +177,7 @@ func ValidCallbackInfo(infos string, noValidInfo CallBackInfo) CallBackInfo {
 				break
 			}
 			info.Etag = value
+			break
 		case "objectSize":
 			if strings.HasPrefix(value, "${") {
 				if noValidInfo.ObjectSize != 0 {
@@ -169,6 +191,7 @@ func ValidCallbackInfo(infos string, noValidInfo CallBackInfo) CallBackInfo {
 			if err != nil {
 				info.ObjectSize = 0
 			}
+			break
 		case "mimeType":
 			if strings.HasPrefix(value, "${") {
 				if noValidInfo.MimeType != "" {
@@ -179,6 +202,7 @@ func ValidCallbackInfo(infos string, noValidInfo CallBackInfo) CallBackInfo {
 				break
 			}
 			info.MimeType = value
+			break
 		case "createTime":
 			if strings.HasPrefix(value, "${") {
 				if noValidInfo.CreateTime != 0 {
@@ -192,6 +216,7 @@ func ValidCallbackInfo(infos string, noValidInfo CallBackInfo) CallBackInfo {
 			if err != nil {
 				info.CreateTime = 0
 			}
+			break
 		case "height":
 			if strings.HasPrefix(value, "${") {
 				if noValidInfo.Height != 0 {
@@ -205,6 +230,7 @@ func ValidCallbackInfo(infos string, noValidInfo CallBackInfo) CallBackInfo {
 			if err != nil {
 				info.Height = 0
 			}
+			break
 		case "width":
 			if strings.HasPrefix(value, "${") {
 				if noValidInfo.Width != 0 {
@@ -218,8 +244,24 @@ func ValidCallbackInfo(infos string, noValidInfo CallBackInfo) CallBackInfo {
 			if err != nil {
 				info.Width = 0
 			}
+			break
+		case "location":
+			customs := strings.Split(value, ",")
+			for _, custom := range customs {
+				for k, v := range noValidInfo.Location {
+					custom = strings.TrimPrefix(custom, "${")
+					custom = strings.TrimSuffix(custom, "}")
+					custom = strings.ToLower(custom)
+					k = strings.ToLower(k)
+					if custom == k {
+						k = strings.TrimPrefix(k, "x-uos-callback-custom-")
+						info.Location[k] = v
+					}
+				}
+			}
+			break
 		default:
-			infoMap[key] = value
+			info.Location[key] = value
 		}
 	}
 	return info
@@ -235,9 +277,11 @@ func PostCallbackMessage(credential common.Credential, message CallBackMessage) 
 		return "", ErrCallBackFailed
 	}
 	resp, err := client.Do(req)
+	defer resp.Body.Close()
 	if err != nil {
 		if err == http.ErrHandlerTimeout {
 			resp, err = client.Do(req)
+			defer resp.Body.Close()
 			if err != nil {
 				if err == http.ErrHandlerTimeout {
 					helper.Logger.Warn("Callback error with doRequest Timeout:", err)
@@ -248,7 +292,6 @@ func PostCallbackMessage(credential common.Credential, message CallBackMessage) 
 			}
 		}
 	}
-	defer resp.Body.Close()
 	info, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		helper.Logger.Warn("Callback error with readResponse:", err)
@@ -290,11 +333,13 @@ func getPostRequest(credential common.Credential, message CallBackMessage) (*htt
 			return nil, err
 		}
 	}
-	if message.Info.Height != 0 && message.Info.Width != 0 {
-		if err := writer.WriteField("imageInfo.height", strconv.Itoa(message.Info.Height)); err != nil {
+	if message.Info.Height != 0 {
+		if err := writer.WriteField("height", strconv.Itoa(message.Info.Height)); err != nil {
 			return nil, err
 		}
-		if err := writer.WriteField("imageInfo.width", strconv.Itoa(message.Info.Width)); err != nil {
+	}
+	if message.Info.Width != 0 {
+		if err := writer.WriteField("width", strconv.Itoa(message.Info.Width)); err != nil {
 			return nil, err
 		}
 	}
@@ -311,20 +356,20 @@ func getPostRequest(credential common.Credential, message CallBackMessage) (*htt
 	if err != nil {
 		return nil, err
 	}
-	date := time.Now().UTC()
+	date := time.Now().UTC().Format(Iso8601FormatTime)
 	if message.Auth {
 		signature := getSignatureForCallback(credential, date)
 		req.Header.Add("Authorization", signature)
 	}
 	req.Header.Add("Content-Type", writer.FormDataContentType())
-	req.Header.Add("X-Uos-Date", date.String())
+	req.Header.Add("X-Uos-Date", date)
 	return req, nil
 }
 
-func getSignatureForCallback(credential common.Credential, date time.Time) string {
+func getSignatureForCallback(credential common.Credential, date string) string {
 	var key, data string
 	key = credential.SecretAccessKey
-	data = "POST\n" + date.String()
+	data = "POST\n" + date
 	mac := hmac.New(sha1.New, []byte(key))
 	mac.Write([]byte(data))
 	signature := mac.Sum(nil)
