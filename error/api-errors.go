@@ -121,6 +121,7 @@ const (
 	ErrMaintenance
 	// Add new error codes here.
 	ErrCallBackFailed
+	ErrValidCallBackInfo
 
 	// SSE-S3 related API errors
 	ErrInvalidEncryptionMethod
@@ -962,6 +963,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "ErrCallBackFailed",
 		Description:    "File upload was successful, but the callback failed",
 		HttpStatusCode: http.StatusNonAuthoritativeInfo,
+	},
+	ErrValidCallBackInfo: {
+		AwsErrorCode:   "ErrValidCallBackInfo",
+		Description:    "File upload was successful, but the callback failed with wrong body values",
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrRequestLimitExceeded: {
 		AwsErrorCode:   "ErrRequestLimitExceeded",
