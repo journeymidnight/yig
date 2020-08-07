@@ -32,6 +32,13 @@ func (o *Freezer) GetCreateSql() (string, []interface{}) {
 	return sql, args
 }
 
+func (o *Freezer) GetCreateWithoutMigrateSql() (string, []interface{}) {
+	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
+	sql := "insert into restoreobjects(bucketname,objectname,version,status,lifetime,lastmodifiedtime,location,pool,ownerid,size,objectid,etag,type,createtime) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+	args := []interface{}{o.BucketName, o.Name, o.VersionId, o.Status, o.LifeTime, lastModifiedTime, o.Location, o.Pool, o.OwnerId, o.Size, o.ObjectId, o.Etag, o.Type, o.CreateTime}
+	return sql, args
+}
+
 func (o *Freezer) GetUpdateSql(status common.Status) (string, []interface{}) {
 	lastModifiedTime := o.LastModifiedTime.Format(TIME_LAYOUT_TIDB)
 	sql := "update restoreobjects set status=?,lastmodifiedtime=?,location=?,pool=?," +

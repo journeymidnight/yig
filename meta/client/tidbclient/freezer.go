@@ -17,6 +17,39 @@ func (t *TidbClient) CreateFreezer(freezer *Freezer) (err error) {
 	return
 }
 
+func (t *TidbClient) CreateFreezerWithoutMigrate(freezer *Freezer, tx Tx) (err error) {
+	if tx == nil {
+		tx, err = t.Client.Begin()
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err == nil {
+				err = tx.(*sql.Tx).Commit()
+			}
+			if err != nil {
+				tx.(*sql.Tx).Rollback()
+			}
+		}()
+	}
+
+	txn := tx.(*sql.Tx)
+	sql, args := freezer.GetCreateWithoutMigrateSql()
+	_, err = txn.Exec(sql, args...)
+	if freezer.Parts != nil {
+		v := math.MaxUint64 - freezer.CreateTime
+		version := strconv.FormatUint(v, 10)
+		for _, p := range freezer.Parts {
+			psql, args := p.GetCreateSql(freezer.BucketName, freezer.Name, version)
+			_, err = txn.Exec(psql, args...)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return err
+}
+
 func (t *TidbClient) GetFreezer(bucketName, objectName, version string) (freezer *Freezer, err error) {
 	var lastmodifiedtime string
 	var iversion uint64

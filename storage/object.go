@@ -813,19 +813,20 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 	if isMetadataOnly {
 		targetObject.LastModifiedTime = sourceObject.LastModifiedTime
 		targetObject.VersionId = sourceObject.VersionId
-		if sourceObject.StorageClass == ObjectStorageClassGlacier {
-			err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, true, false)
-			if err != nil {
-				helper.Logger.Error("Copy Object with same source and target with GLACIER object, sql fails:", err)
-				return result, ErrInternalError
-			}
-		} else {
-			err = yig.MetaStorage.ReplaceObjectMetas(targetObject)
-			if err != nil {
-				helper.Logger.Error("Copy Object with same source and target, sql fails:", err)
-				return result, ErrInternalError
-			}
+		// // TiDB version is temporarily modified, TiKV version will be further adjusted
+		//if sourceObject.StorageClass == ObjectStorageClassGlacier {
+		//	err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, true, false)
+		//	if err != nil {
+		//		helper.Logger.Error("Copy Object with same source and target with GLACIER object, sql fails:", err)
+		//		return result, ErrInternalError
+		//	}
+		//} else {
+		err = yig.MetaStorage.ReplaceObjectMetas(targetObject)
+		if err != nil {
+			helper.Logger.Error("Copy Object with same source and target, sql fails:", err)
+			return result, ErrInternalError
 		}
+		//}
 
 		result.LastModified = targetObject.LastModifiedTime
 		if targetBucket.Versioning == datatype.BucketVersioningEnabled {

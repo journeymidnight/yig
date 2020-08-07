@@ -70,6 +70,7 @@ type Client interface {
 	RemoveGarbageCollection(garbage GarbageCollection) error
 	//freezer
 	CreateFreezer(freezer *Freezer) (err error)
+	CreateFreezerWithoutMigrate(freezer *Freezer, tx Tx) (err error)
 	GetFreezer(bucketName, objectName, version string) (freezer *Freezer, err error)
 	GetFreezerStatus(bucketName, objectName, version string) (freezer *Freezer, err error)
 	UpdateFreezerDate(bucketName, objectName, version string, lifetime int) (err error)

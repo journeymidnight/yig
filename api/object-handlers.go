@@ -581,8 +581,12 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	// If the object metadata is modified or the object storage type is converted, the following conditions are met
 	// For non-archive storage object modification metadata and type conversion, no copy operation is required
 	// For objects that were originally archived and stored for metadata modification and storage type modification, only database metadata needs to be modified.
-	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName &&
-		(sourceObject.StorageClass == ObjectStorageClassGlacier || targetStorageClass != ObjectStorageClassGlacier) {
+	//
+	// TiDB version is temporarily modified, TiKV version will be further adjusted
+	// if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName &&
+	//		(sourceObject.StorageClass == ObjectStorageClassGlacier || targetStorageClass != ObjectStorageClassGlacier) {
+	//
+	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName {
 		if targetBucket.Versioning == BucketVersioningDisabled {
 			isMetadataOnly = true
 		} else if targetBucket.Versioning == BucketVersioningSuspended && sourceObject.VersionId == meta.NullVersion {
@@ -610,16 +614,18 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 				WriteErrorResponse(w, r, ErrInvalidGlacierObject)
 				return
 			}
-			if targetStorageClass != ObjectStorageClassGlacier {
-				sourceObject.OwnerId = freezer.OwnerId
-				sourceObject.Etag = freezer.Etag
-				sourceObject.Size = freezer.Size
-				sourceObject.Parts = freezer.Parts
-				sourceObject.Pool = freezer.Pool
-				sourceObject.Location = freezer.Location
-				sourceObject.ObjectId = freezer.ObjectId
-				sourceObject.VersionId = freezer.VersionId
-			}
+
+			// TiDB version is temporarily modified, TiKV version will be further adjusted
+			//if targetStorageClass != ObjectStorageClassGlacier {
+			//	sourceObject.OwnerId = freezer.OwnerId
+			//	sourceObject.Etag = freezer.Etag
+			//	sourceObject.Size = freezer.Size
+			//	sourceObject.Parts = freezer.Parts
+			//	sourceObject.Pool = freezer.Pool
+			//	sourceObject.Location = freezer.Location
+			//	sourceObject.ObjectId = freezer.ObjectId
+			//	sourceObject.VersionId = freezer.VersionId
+			//}
 		}
 	}
 
@@ -1254,7 +1260,9 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		WriteErrorResponse(w, r, err)
 	}
 	if err == ErrNoSuchKey || freezer.Name == "" {
-		status, err := MatchStatusIndex("READY")
+		// TiDB version is temporarily modified, TiKV version will be further adjusted
+		// status, err := MatchStatusIndex("READY")
+		status, err := MatchStatusIndex("FINISH")
 		if err != nil {
 			logger.Error("Unable to get freezer status:", err)
 			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
@@ -1273,6 +1281,17 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		targetFreezer.Type = object.Type
 		targetFreezer.CreateTime = object.CreateTime
 		targetFreezer.VersionId = object.VersionId
+		targetFreezer.OwnerId = object.OwnerId
+
+		// TiDB version is temporarily modified, TiKV version will be further adjusted
+		targetFreezer.Parts = object.Parts
+		targetFreezer.Location = object.Location
+		targetFreezer.ObjectId = object.ObjectId
+		targetFreezer.Size = object.Size
+		targetFreezer.Pool = object.Pool
+		targetFreezer.PartsIndex = object.PartsIndex
+		targetFreezer.Etag = object.Etag
+
 		err = api.ObjectAPI.CreateFreezer(targetFreezer)
 		if err != nil {
 			logger.Error("Unable to create freezer:", err)
