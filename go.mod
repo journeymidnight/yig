@@ -14,6 +14,7 @@ require (
 	github.com/cep21/circuit v0.0.0-20181030180945-e893c027dc21
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dustin/go-humanize v1.0.0
+	github.com/gin-gonic/gin v1.6.3
 	github.com/go-redis/redis/v7 v7.4.0
 	github.com/go-redis/redis_rate/v8 v8.0.0
 	github.com/go-sql-driver/mysql v1.5.0
@@ -32,6 +33,6 @@ require (
 	github.com/ugorji/go/codec v1.1.7
 	github.com/urfave/cli v1.22.4
 	github.com/xxtea/xxtea-go v0.0.0-20170828040851-35c4b17eecf6
-	golang.org/x/sys v0.0.0-20191010194322-b09406accb47
+	golang.org/x/sys v0.0.0-20200116001909-b77594299b42
 	gopkg.in/bufio.v1 v1.0.0-20140618132640-567b2bfa514e
 )

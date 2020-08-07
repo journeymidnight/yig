@@ -823,6 +823,9 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 	}
 
 	sseRequest := multipart.Metadata.SseRequest
+	result.ObjectSize = object.Size
+	result.ContentType = object.ContentType
+	result.CreateTime = object.CreateTime
 	result.SseType = sseRequest.Type
 	result.SseAwsKmsKeyIdBase64 = base64.StdEncoding.EncodeToString([]byte(sseRequest.SseAwsKmsKeyId))
 	result.SseCustomerAlgorithm = sseRequest.SseCustomerAlgorithm

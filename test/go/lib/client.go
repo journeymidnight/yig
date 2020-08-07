@@ -24,6 +24,7 @@ const (
 	TestCopyBucket       = TestBucket + "copy"
 	TestLifecycleBucket1 = TestBucket + "1"
 	TestLifecycleBucket2 = TestBucket + "2"
+	TestCallbackBucket   = TestBucket + "callback"
 	TestKey              = "testput"
 	TestKeySpecial       = "testputspecial:!@$%^&*()_+=-;?><| "
 	TestValue            = "valueput"

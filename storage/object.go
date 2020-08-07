@@ -780,6 +780,7 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 	}
 
 	result.LastModified = object.LastModifiedTime
+	result.ObjectSize = object.Size
 	if object.VersionId != meta.NullVersion {
 		result.VersionId = object.VersionId
 	}

@@ -23,11 +23,46 @@ import (
 )
 
 const (
-	MaxCallbackTimeout = time.Second * 3
-	Iso8601FormatTime  = "20060102T150405Z"
+	MaxCallbackTimeout     = time.Second * 3
+	Iso8601FormatTime      = "20060102T150405Z"
+	CallBackUrl            = "X-Uos-Callback-Url"
+	CallBackBody           = "X-Uos-Callback-Body"
+	CallbackAuth           = "X-Uos-Callback-Auth"
+	NeedCallbackAuth       = "1"
+	CallBackLocationPrefix = "X-Uos-Callback-Custom-"
+	Authorization          = "Authorization"
+	ContentType            = "Content-Type"
+	Date                   = "X-Uos-Date"
+	CallbackAuthorization  = "UOS-CALLBACK-AUTH"
 )
 
-type CallBackInfo struct {
+var (
+	ImageSupportContentType = []string{
+		"image/jpeg",
+		"application/x-jpg",
+		"image/png",
+		"application/x-png",
+		"image/gif",
+	}
+	ImageSupportSuffix = []string{
+		".jpg",
+		".jpeg",
+		".png",
+		".gif",
+	}
+	CallBackInfo = map[string]string{
+		"bucket":     "${bucket}",
+		"filename":   "${filename}",
+		"etag":       "${etag}",
+		"objectSize": "${objectSize}",
+		"mimeType":   "${mimeType}",
+		"createTime": "${createTime}",
+		"height":     "${height}",
+		"width":      "${width}",
+	}
+)
+
+type CallBackInfos struct {
 	BucketName string
 	FileName   string
 	Etag       string
@@ -36,235 +71,202 @@ type CallBackInfo struct {
 	CreateTime uint64
 	Height     int
 	Width      int
-	Location   map[string]string
 }
 
 type CallBackMessage struct {
 	Url        string
 	Auth       bool
-	Body       string
-	Info       CallBackInfo
+	Location   map[string]string
+	Info       map[string]string
 	Credential common.Credential
 }
 
 func GetCallbackFromHeader(header http.Header) (isCallback bool, message CallBackMessage) {
 	message = CallBackMessage{}
-	url := header.Get("X-Uos-Callback-Url")
-	body := header.Get("X-Uos-Callback-Body")
+	url := header.Get(CallBackUrl)
+	body := header.Get(CallBackBody)
 	if url == "" || body == "" {
 		return false, message
 	}
 	message.Url = url
-	auth := header.Get("X-Uos-Callback-Auth")
-	if auth == "1" {
+	auth := header.Get(CallbackAuth)
+	if auth == NeedCallbackAuth {
 		message.Auth = true
-	} else {
-		message.Auth = false
 	}
-	message.Body = header.Get("X-Uos-Callback-Body")
+	info := make(map[string]string)
+	infoSplits := strings.Split(body, "&")
+	for _, split := range infoSplits {
+		header := strings.Split(split, "=")
+		for key, _ := range CallBackInfo {
+			if key == header[0] {
+				info[header[0]] = header[1]
+			}
+		}
+	}
+	message.Info = info
 	location := map[string]string{}
 	for head, value := range header {
-		if strings.HasPrefix(head, "X-Uos-Callback-Custom-") {
+		if strings.HasPrefix(head, CallBackLocationPrefix) {
 			location[head] = value[0]
 		}
 	}
-	message.Info.Location = location
+	message.Location = location
 	return true, message
 }
 
 func GetCallbackFromForm(formValues map[string]string) (isCallback bool, message CallBackMessage) {
 	message = CallBackMessage{}
-	url := formValues["X-Uos-Callback-Url"]
-	body := formValues["X-Uos-Callback-Body"]
+	url := formValues[CallBackUrl]
+	body := formValues[CallBackBody]
 	if url == "" || body == "" {
 		return false, message
 	}
 	message.Url = url
-	auth := formValues["X-Uos-Callback-Auth"]
-	if auth == "1" {
+	auth := formValues[CallbackAuth]
+	if auth == NeedCallbackAuth {
 		message.Auth = true
-	} else {
-		message.Auth = false
 	}
-	message.Body = formValues["x-uos-callback-body"]
+	info := make(map[string]string)
+	infoSplits := strings.Split(body, "&")
+	for _, split := range infoSplits {
+		header := strings.Split(split, "=")
+		for key, _ := range CallBackInfo {
+			if key == header[0] {
+				info[header[0]] = header[1]
+			}
+		}
+	}
+	message.Info = info
 	location := map[string]string{}
 	for head, value := range formValues {
-		if strings.HasPrefix(head, "x-uos-custom-") {
+		if strings.HasPrefix(head, CallBackLocationPrefix) {
 			location[head] = value
 		}
 	}
-	message.Info.Location = location
+	message.Location = location
 	return true, message
 }
 
 func IsCallbackImageInfo(contentType string, objectName string) bool {
-	switch contentType {
-	case "image/jpeg":
-		return true
-	case "application/x-jpg":
-		return true
-	case "image/png":
-		return true
-	case "application/x-png":
-		return true
-	case "image/gif":
-		return true
-	default:
-		if strings.HasSuffix(objectName, ".jpg") ||
-			strings.HasSuffix(objectName, ".png") ||
-			strings.HasSuffix(objectName, ".gif") {
+	for _, v := range ImageSupportContentType {
+		if contentType == v {
+			return true
+		}
+	}
+	for _, v := range ImageSupportSuffix {
+		if strings.Contains(objectName, v) {
 			return true
 		}
 	}
 	return false
 }
 
-func ValidCallbackImgInfo(infos string) bool {
-	infoMap := make(map[string]string)
-	infoSplits := strings.Split(infos, "&")
-	for _, split := range infoSplits {
-		header := strings.Split(split, "=")
-		infoMap[header[0]] = header[1]
-	}
-	if strings.HasPrefix(infoMap["height"], "${") || strings.HasPrefix(infoMap["width"], "${") {
-		return true
+func ValidCallbackImgInfo(infos map[string]string) bool {
+	for key, _ := range infos {
+		if key == "width" || key == "height" {
+			return true
+		}
 	}
 	return false
 }
 
-func ValidCallbackInfo(infos string, noValidInfo CallBackInfo) CallBackInfo {
-	infoMap := make(map[string]string)
-	infoSplits := strings.Split(infos, "&")
-	for _, split := range infoSplits {
-		header := strings.Split(split, "=")
-		infoMap[header[0]] = header[1]
-	}
-	info := CallBackInfo{}
-	locationMap := map[string]string{}
-	info.Location = locationMap
-	var err error
-	for key, value := range infoMap {
+func ValidCallbackInfo(info map[string]string, noValidInfo CallBackInfos, location map[string]string) (map[string]string, error) {
+	for key, value := range info {
 		switch key {
 		case "bucket":
-			if strings.HasPrefix(value, "${") {
+			if value == CallBackInfo[key] {
 				if noValidInfo.BucketName != "" {
-					info.BucketName = noValidInfo.BucketName
+					info[key] = noValidInfo.BucketName
 				} else {
-					info.BucketName = ""
+					info[key] = ""
 				}
-				break
 			}
-			info.BucketName = value
 			break
 		case "filename":
-			if strings.HasPrefix(value, "${") {
+			if value == CallBackInfo[key] {
 				if noValidInfo.FileName != "" {
-					info.FileName = noValidInfo.FileName
+					info[key] = noValidInfo.FileName
 				} else {
-					info.FileName = ""
+					info[key] = ""
 				}
-				break
 			}
-			info.FileName = value
 			break
 		case "etag":
-			if strings.HasPrefix(value, "${") {
+			if value == CallBackInfo[key] {
 				if noValidInfo.Etag != "" {
-					info.Etag = noValidInfo.Etag
+					info[key] = noValidInfo.Etag
 				} else {
-					info.Etag = ""
+					info[key] = ""
 				}
-				break
 			}
-			info.Etag = value
 			break
 		case "objectSize":
-			if strings.HasPrefix(value, "${") {
+			if value == CallBackInfo[key] {
 				if noValidInfo.ObjectSize != 0 {
-					info.ObjectSize = noValidInfo.ObjectSize
+					info[key] = strconv.FormatInt(noValidInfo.ObjectSize, 10)
 				} else {
-					info.ObjectSize = 0
+					info[key] = ""
 				}
-				break
-			}
-			info.ObjectSize, err = strconv.ParseInt(value, 10, 64)
-			if err != nil {
-				info.ObjectSize = 0
 			}
 			break
 		case "mimeType":
-			if strings.HasPrefix(value, "${") {
+			if value == CallBackInfo[key] {
 				if noValidInfo.MimeType != "" {
-					info.MimeType = noValidInfo.MimeType
+					info[key] = noValidInfo.MimeType
 				} else {
-					info.MimeType = ""
+					info[key] = ""
 				}
-				break
 			}
-			info.MimeType = value
 			break
 		case "createTime":
-			if strings.HasPrefix(value, "${") {
+			if value == CallBackInfo[key] {
 				if noValidInfo.CreateTime != 0 {
-					info.CreateTime = noValidInfo.CreateTime
+					info[key] = strconv.FormatUint(noValidInfo.CreateTime, 10)
 				} else {
-					info.CreateTime = 0
+					info[key] = ""
 				}
-				break
-			}
-			info.CreateTime, err = strconv.ParseUint(value, 10, 64)
-			if err != nil {
-				info.CreateTime = 0
 			}
 			break
 		case "height":
-			if strings.HasPrefix(value, "${") {
+			if value == CallBackInfo[key] {
 				if noValidInfo.Height != 0 {
-					info.Height = noValidInfo.Height
+					info[key] = strconv.Itoa(noValidInfo.Height)
 				} else {
-					info.Height = 0
+					info[key] = ""
 				}
-				break
-			}
-			info.Height, err = strconv.Atoi(value)
-			if err != nil {
-				info.Height = 0
 			}
 			break
 		case "width":
-			if strings.HasPrefix(value, "${") {
+			if value == CallBackInfo[key] {
 				if noValidInfo.Width != 0 {
-					info.Width = noValidInfo.Width
+					info[key] = strconv.Itoa(noValidInfo.Width)
 				} else {
-					info.Width = 0
+					info[key] = ""
 				}
-				break
-			}
-			info.Width, err = strconv.Atoi(value)
-			if err != nil {
-				info.Width = 0
 			}
 			break
 		case "location":
 			customs := strings.Split(value, ",")
 			for _, custom := range customs {
-				for k, v := range noValidInfo.Location {
-					custom = strings.TrimPrefix(custom, "${")
-					custom = strings.TrimSuffix(custom, "}")
-					custom = strings.ToLower(custom)
-					k = strings.ToLower(k)
-					if custom == k {
-						k = strings.TrimPrefix(k, "x-uos-callback-custom-")
-						info.Location[k] = v
+				custom = strings.TrimPrefix(custom, "${")
+				custom = strings.TrimSuffix(custom, "}")
+				custom = strings.ToLower(custom)
+				for k, v := range location {
+					lowerK := strings.ToLower(k)
+					if custom == lowerK {
+						k = strings.TrimPrefix(k, CallBackLocationPrefix)
+						k = strings.ToLower(k)
+						if info[k] != "" {
+							return nil, ErrValidCallBackInfo
+						}
+						info[k] = v
 					}
 				}
 			}
 			break
-		default:
-			info.Location[key] = value
 		}
 	}
-	return info
+	return info, nil
 }
 
 func PostCallbackMessage(credential common.Credential, message CallBackMessage) (result string, err error) {
@@ -303,49 +305,11 @@ func PostCallbackMessage(credential common.Credential, message CallBackMessage) 
 func getPostRequest(credential common.Credential, message CallBackMessage) (*http.Request, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	if message.Info.BucketName != "" {
-		if err := writer.WriteField("bucket", message.Info.BucketName); err != nil {
-			return nil, err
-		}
-	}
-	if message.Info.FileName != "" {
-		if err := writer.WriteField("filename", message.Info.FileName); err != nil {
-			return nil, err
-		}
-	}
-	if message.Info.Etag != "" {
-		if err := writer.WriteField("etag", message.Info.Etag); err != nil {
-			return nil, err
-		}
-	}
-	if message.Info.ObjectSize != 0 {
-		if err := writer.WriteField("objectSize", strconv.FormatInt(message.Info.ObjectSize, 10)); err != nil {
-			return nil, err
-		}
-	}
-	if message.Info.MimeType != "" {
-		if err := writer.WriteField("mimeType", message.Info.MimeType); err != nil {
-			return nil, err
-		}
-	}
-	if message.Info.CreateTime > 0 {
-		if err := writer.WriteField("createTime", strconv.FormatUint(message.Info.CreateTime, 10)); err != nil {
-			return nil, err
-		}
-	}
-	if message.Info.Height != 0 {
-		if err := writer.WriteField("height", strconv.Itoa(message.Info.Height)); err != nil {
-			return nil, err
-		}
-	}
-	if message.Info.Width != 0 {
-		if err := writer.WriteField("width", strconv.Itoa(message.Info.Width)); err != nil {
-			return nil, err
-		}
-	}
-	for k, v := range message.Info.Location {
-		if err := writer.WriteField(k, v); err != nil {
-			return nil, err
+	for k, v := range message.Info {
+		if v != "" {
+			if err := writer.WriteField(k, v); err != nil {
+				return nil, err
+			}
 		}
 	}
 	if err := writer.Close(); err != nil {
@@ -359,10 +323,10 @@ func getPostRequest(credential common.Credential, message CallBackMessage) (*htt
 	date := time.Now().UTC().Format(Iso8601FormatTime)
 	if message.Auth {
 		signature := getSignatureForCallback(credential, date)
-		req.Header.Add("Authorization", signature)
+		req.Header.Add(Authorization, signature)
 	}
-	req.Header.Add("Content-Type", writer.FormDataContentType())
-	req.Header.Add("X-Uos-Date", date)
+	req.Header.Add(ContentType, writer.FormDataContentType())
+	req.Header.Add(Date, date)
 	return req, nil
 }
 
@@ -373,7 +337,7 @@ func getSignatureForCallback(credential common.Credential, date string) string {
 	mac := hmac.New(sha1.New, []byte(key))
 	mac.Write([]byte(data))
 	signature := mac.Sum(nil)
-	return "UOS-CALLBACK-AUTH " + credential.AccessKeyID + ":" + base64.StdEncoding.EncodeToString(signature)
+	return CallbackAuthorization + " " + credential.AccessKeyID + ":" + base64.StdEncoding.EncodeToString(signature)
 }
 
 func GetImageInfoFromReader(reader io.Reader) (height, width int) {
