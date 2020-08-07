@@ -8,10 +8,10 @@ import (
 
 	"github.com/journeymidnight/yig/meta/common"
 
+	"github.com/journeymidnight/client-go/txnkv/kv"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
-	"github.com/journeymidnight/client-go/txnkv/kv"
 )
 
 func genFreezerKey(bucketName, objectName, version string) []byte {
@@ -210,7 +210,7 @@ func (c *TiKVClient) PutFreezer(freezer *Freezer, status common.RestoreStatus, t
 	f.Status = status
 	f.LastModifiedTime = freezer.LastModifiedTime
 	f.Location = freezer.Location
-	f.Pool = freezer.Location
+	f.Pool = freezer.Pool
 	f.OwnerId = freezer.OwnerId
 	f.Size = freezer.Size
 	f.ObjectId = freezer.ObjectId
