@@ -813,20 +813,19 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 	if isMetadataOnly {
 		targetObject.LastModifiedTime = sourceObject.LastModifiedTime
 		targetObject.VersionId = sourceObject.VersionId
-		// // TiDB version is temporarily modified, TiKV version will be further adjusted
-		//if sourceObject.StorageClass == ObjectStorageClassGlacier {
-		//	err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, true, false)
-		//	if err != nil {
-		//		helper.Logger.Error("Copy Object with same source and target with GLACIER object, sql fails:", err)
-		//		return result, ErrInternalError
-		//	}
-		//} else {
-		err = yig.MetaStorage.ReplaceObjectMetas(targetObject)
-		if err != nil {
-			helper.Logger.Error("Copy Object with same source and target, sql fails:", err)
-			return result, ErrInternalError
+		if sourceObject.StorageClass == ObjectStorageClassGlacier {
+			err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, true, false)
+			if err != nil {
+				helper.Logger.Error("Copy Object with same source and target with GLACIER object, sql fails:", err)
+				return result, ErrInternalError
+			}
+		} else {
+			err = yig.MetaStorage.ReplaceObjectMetas(targetObject)
+			if err != nil {
+				helper.Logger.Error("Copy Object with same source and target, sql fails:", err)
+				return result, ErrInternalError
+			}
 		}
-		//}
 
 		result.LastModified = targetObject.LastModifiedTime
 		if targetBucket.Versioning == datatype.BucketVersioningEnabled {
@@ -984,6 +983,210 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 	} else {
 		err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, true)
 	}
+	if err != nil {
+		RecycleQueue <- maybeObjectToRecycle
+		return
+	} else {
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":"+targetObject.VersionId)
+		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.VersionId)
+		if reqCtx.ObjectInfo != nil && reqCtx.BucketInfo.Versioning != datatype.BucketVersioningEnabled {
+			go yig.removeOldObject(reqCtx.ObjectInfo)
+		}
+	}
+
+	return result, nil
+}
+
+func (yig *YigStorage) CopyObjectWithRestoreDeceiver(reqCtx RequestContext, targetObject *meta.Object, sourceObject *meta.Object, source io.Reader, credential common.Credential,
+	sseRequest datatype.SseRequest, isMetadataOnly, isTranStorageClassOnly bool) (result datatype.PutObjectResult, err error) {
+	var oid string
+	var maybeObjectToRecycle objectToRecycle
+	var encryptionKey []byte
+	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, targetObject.BucketName, targetObject.Name)
+	if err != nil {
+		return
+	}
+
+	targetBucket := reqCtx.BucketInfo
+	if targetBucket == nil {
+		return result, ErrNoSuchBucket
+	}
+
+	switch targetBucket.ACL.CannedAcl {
+	case "public-read-write":
+		break
+	default:
+		if targetBucket.OwnerId != credential.UserId {
+			return result, ErrBucketAccessForbidden
+		}
+	}
+
+	if isMetadataOnly {
+		targetObject.LastModifiedTime = sourceObject.LastModifiedTime
+		targetObject.VersionId = sourceObject.VersionId
+		if sourceObject.StorageClass == ObjectStorageClassGlacier {
+			err = yig.MetaStorage.UpdateGlacierObjectDeceiver(targetObject, sourceObject)
+			if err != nil {
+				helper.Logger.Error("Copy Object with same source and target with GLACIER object, sql fails:", err)
+				return result, ErrInternalError
+			}
+		} else {
+			err = yig.MetaStorage.ReplaceObjectMetas(targetObject)
+			if err != nil {
+				helper.Logger.Error("Copy Object with same source and target, sql fails:", err)
+				return result, ErrInternalError
+			}
+		}
+
+		result.LastModified = targetObject.LastModifiedTime
+		if targetBucket.Versioning == datatype.BucketVersioningEnabled {
+			result.VersionId = targetObject.VersionId
+		}
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":"+targetObject.VersionId)
+		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.VersionId)
+		return result, nil
+	}
+
+	// Limit the reader to its provided size if specified.
+	var limitedDataReader io.Reader
+	limitedDataReader = io.LimitReader(source, targetObject.Size)
+
+	cephCluster, poolName := yig.pickClusterAndPool(targetObject.BucketName,
+		targetObject.Name, targetObject.StorageClass, targetObject.Size, false)
+
+	if len(targetObject.Parts) != 0 {
+		var targetParts = make(map[int]*meta.Part, len(targetObject.Parts))
+		//		etaglist := make([]string, len(sourceObject.Parts))
+		for i := 1; i <= len(targetObject.Parts); i++ {
+			part := targetObject.Parts[i]
+			targetParts[i] = part
+			result, err = func() (result datatype.PutObjectResult, err error) {
+				pr, pw := io.Pipe()
+				defer pr.Close()
+				var total = part.Size
+				go func() {
+					_, err = io.CopyN(pw, source, total)
+					if err != nil {
+						return
+					}
+					pw.Close()
+				}()
+				md5Writer := md5.New()
+				dataReader := io.TeeReader(pr, md5Writer)
+				var bytesW uint64
+				var storageReader io.Reader
+				var initializationVector []byte
+				if len(encryptionKey) != 0 {
+					initializationVector, err = newInitializationVector()
+					if err != nil {
+						return
+					}
+				}
+				storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
+				throttleReader := yig.MetaStorage.QosMeta.NewThrottleReader(targetBucket.Name, storageReader)
+				defer throttleReader.Close()
+				oid, bytesW, err = cephCluster.Put(poolName, throttleReader)
+				maybeObjectToRecycle = objectToRecycle{
+					location:   cephCluster.ID(),
+					pool:       poolName,
+					objectId:   oid,
+					objectType: meta.ObjectTypeMultipart,
+				}
+				if bytesW < uint64(part.Size) {
+					RecycleQueue <- maybeObjectToRecycle
+					helper.Logger.Error("Copy part", i, "error:", bytesW, part.Size)
+					return result, ErrIncompleteBody
+				}
+				if err != nil {
+					return result, err
+				}
+				calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
+				//we will only chack part etag,overall etag will be same if each part of etag is same
+				if calculatedMd5 != part.Etag {
+					err = ErrInternalError
+					RecycleQueue <- maybeObjectToRecycle
+					return result, err
+				}
+				part.LastModified = time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT)
+				part.ObjectId = oid
+
+				part.InitializationVector = initializationVector
+				return result, nil
+			}()
+			if err != nil {
+				return result, err
+			}
+		}
+		targetObject.ObjectId = ""
+		targetObject.Parts = targetParts
+		result.Md5 = targetObject.Etag
+	} else {
+		md5Writer := md5.New()
+
+		// Mapping a shorter name for the object
+		dataReader := io.TeeReader(limitedDataReader, md5Writer)
+		var storageReader io.Reader
+		var initializationVector []byte
+		if len(encryptionKey) != 0 {
+			initializationVector, err = newInitializationVector()
+			if err != nil {
+				return
+			}
+		}
+		storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
+		if err != nil {
+			return
+		}
+		var bytesWritten uint64
+		throttleReader := yig.MetaStorage.QosMeta.NewThrottleReader(targetBucket.Name, storageReader)
+		defer throttleReader.Close()
+		oid, bytesWritten, err = cephCluster.Put(poolName, throttleReader)
+		if err != nil {
+			return
+		}
+		// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
+		// so the object in Ceph could be removed asynchronously
+		maybeObjectToRecycle = objectToRecycle{
+			location:   cephCluster.ID(),
+			pool:       poolName,
+			objectId:   oid,
+			objectType: meta.ObjectTypeNormal,
+		}
+		if int64(bytesWritten) < targetObject.Size {
+			RecycleQueue <- maybeObjectToRecycle
+			helper.Logger.Error("Copy ", "error:", bytesWritten, targetObject.Size)
+			return result, ErrIncompleteBody
+		}
+
+		calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
+		if calculatedMd5 != targetObject.Etag {
+			RecycleQueue <- maybeObjectToRecycle
+			return result, ErrBadDigest
+		}
+		result.Md5 = calculatedMd5
+		targetObject.ObjectId = oid
+		targetObject.InitializationVector = initializationVector
+	}
+	// TODO validate bucket policy and fancy ACL
+
+	targetObject.Location = cephCluster.ID()
+	targetObject.Pool = poolName
+	targetObject.OwnerId = credential.UserId
+	targetObject.NullVersion = helper.Ternary(targetBucket.Versioning == datatype.BucketVersioningEnabled, false, true).(bool)
+	targetObject.DeleteMarker = false
+	targetObject.SseType = sseRequest.Type
+	targetObject.EncryptionKey = helper.Ternary(sseRequest.Type == crypto.S3.String(),
+		cipherKey, []byte("")).([]byte)
+	targetObject.LastModifiedTime = time.Now().UTC()
+	targetObject.CreateTime = uint64(targetObject.LastModifiedTime.UnixNano())
+	if isTranStorageClassOnly {
+		targetObject.VersionId = sourceObject.VersionId
+	} else {
+		targetObject.VersionId = targetObject.GenVersionId(targetBucket.Versioning)
+	}
+
+	result.LastModified = targetObject.LastModifiedTime
+	err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, true)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return

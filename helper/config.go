@@ -97,6 +97,10 @@ type Config struct {
 	// Make a list of unsupported functions to ensure that customers will not produce wrong operations
 	FeatureNotSupportForBucket []string `toml:"feature_not_support_for_bucket"`
 	FeatureNotSupportForObject []string `toml:"feature_not_support_for_object"`
+
+	// The switch that decides whether to use the real thawing logic,
+	// if it is on, the thawing logic is a false thawing mode that only modifies the database state
+	RestoreDeceiverSwitch bool "restore_deceiver_switch"
 }
 
 type PluginConfig struct {
@@ -203,6 +207,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.BigFileThreshold = Ternary(c.BigFileThreshold == 0, int64(1048576), c.BigFileThreshold).(int64)
 	CONFIG.FeatureNotSupportForBucket = c.FeatureNotSupportForBucket
 	CONFIG.FeatureNotSupportForObject = c.FeatureNotSupportForObject
+	CONFIG.RestoreDeceiverSwitch = c.RestoreDeceiverSwitch
 	return nil
 }
 

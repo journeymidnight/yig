@@ -148,6 +148,29 @@ func (m *Meta) UpdateGlacierObject(reqCtx RequestContext, targetObject, sourceOb
 	return err
 }
 
+func (m *Meta) UpdateGlacierObjectDeceiver(targetObject, sourceObject *Object) (err error) {
+	var tx Tx
+	tx, err = m.Client.NewTrans()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = m.Client.CommitTrans(tx)
+		}
+		if err != nil {
+			m.Client.AbortTrans(tx)
+		}
+	}()
+	err = m.Client.DeleteFreezer(sourceObject.BucketName, sourceObject.Name, sourceObject.VersionId, sourceObject.Type, sourceObject.CreateTime, tx)
+	if err != nil {
+		return err
+	}
+
+	err = m.Client.UpdateObject(targetObject, nil, false, tx)
+	return err
+}
+
 func (m *Meta) UpdateObjectAcl(object *Object) error {
 	err := m.Client.UpdateObjectAcl(object)
 	return err

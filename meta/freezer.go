@@ -7,6 +7,10 @@ import (
 )
 
 func (m *Meta) CreateFreezer(freezer *types.Freezer) error {
+	return m.Client.CreateFreezer(freezer)
+}
+
+func (m *Meta) CreateFreezerDeceiver(freezer *types.Freezer) error {
 	tx, err := m.Client.NewTrans()
 	if err != nil {
 		return err
@@ -23,10 +27,6 @@ func (m *Meta) CreateFreezer(freezer *types.Freezer) error {
 	}
 
 	return m.Client.CommitTrans(tx)
-	//
-	// TiDB version is temporarily modified, TiKV version will be further adjusted
-	//
-	// return m.Client.CreateFreezer(freezer)
 }
 
 func (m *Meta) GetFreezer(bucketName string, objectName string, version string) (freezer *types.Freezer, err error) {

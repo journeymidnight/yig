@@ -12,6 +12,10 @@ func (yig *YigStorage) CreateFreezer(freezer *meta.Freezer) (err error) {
 	return yig.MetaStorage.CreateFreezer(freezer)
 }
 
+func (yig *YigStorage) CreateFreezerDeceiver(freezer *meta.Freezer) (err error) {
+	return yig.MetaStorage.CreateFreezerDeceiver(freezer)
+}
+
 func (yig *YigStorage) GetFreezer(bucketName string, objectName string, version string) (freezer *meta.Freezer, err error) {
 	return yig.MetaStorage.GetFreezer(bucketName, objectName, version)
 }

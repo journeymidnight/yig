@@ -578,19 +578,25 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 
 	var isMetadataOnly bool
 
-	// If the object metadata is modified or the object storage type is converted, the following conditions are met
-	// For non-archive storage object modification metadata and type conversion, no copy operation is required
-	// For objects that were originally archived and stored for metadata modification and storage type modification, only database metadata needs to be modified.
-	//
-	// TiDB version is temporarily modified, TiKV version will be further adjusted
-	// if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName &&
-	//		(sourceObject.StorageClass == ObjectStorageClassGlacier || targetStorageClass != ObjectStorageClassGlacier) {
-	//
-	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName {
-		if targetBucket.Versioning == BucketVersioningDisabled {
-			isMetadataOnly = true
-		} else if targetBucket.Versioning == BucketVersioningSuspended && sourceObject.VersionId == meta.NullVersion {
-			isMetadataOnly = true
+	if helper.CONFIG.RestoreDeceiverSwitch {
+		if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName {
+			if targetBucket.Versioning == BucketVersioningDisabled {
+				isMetadataOnly = true
+			} else if targetBucket.Versioning == BucketVersioningSuspended && sourceObject.VersionId == meta.NullVersion {
+				isMetadataOnly = true
+			}
+		}
+	} else {
+		// If the object metadata is modified or the object storage type is converted, the following conditions are met
+		// For non-archive storage object modification metadata and type conversion, no copy operation is required
+		// For objects that were originally archived and stored for metadata modification and storage type modification, only database metadata needs to be modified.
+		if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName &&
+			(sourceObject.StorageClass == ObjectStorageClassGlacier || targetStorageClass != ObjectStorageClassGlacier) {
+			if targetBucket.Versioning == BucketVersioningDisabled {
+				isMetadataOnly = true
+			} else if targetBucket.Versioning == BucketVersioningSuspended && sourceObject.VersionId == meta.NullVersion {
+				isMetadataOnly = true
+			}
 		}
 	}
 
@@ -615,17 +621,18 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 				return
 			}
 
-			// TiDB version is temporarily modified, TiKV version will be further adjusted
-			//if targetStorageClass != ObjectStorageClassGlacier {
-			//	sourceObject.OwnerId = freezer.OwnerId
-			//	sourceObject.Etag = freezer.Etag
-			//	sourceObject.Size = freezer.Size
-			//	sourceObject.Parts = freezer.Parts
-			//	sourceObject.Pool = freezer.Pool
-			//	sourceObject.Location = freezer.Location
-			//	sourceObject.ObjectId = freezer.ObjectId
-			//	sourceObject.VersionId = freezer.VersionId
-			//}
+			if !helper.CONFIG.RestoreDeceiverSwitch {
+				if targetStorageClass != ObjectStorageClassGlacier {
+					sourceObject.OwnerId = freezer.OwnerId
+					sourceObject.Etag = freezer.Etag
+					sourceObject.Size = freezer.Size
+					sourceObject.Parts = freezer.Parts
+					sourceObject.Pool = freezer.Pool
+					sourceObject.Location = freezer.Location
+					sourceObject.ObjectId = freezer.ObjectId
+					sourceObject.VersionId = freezer.VersionId
+				}
+			}
 		}
 	}
 
@@ -691,11 +698,21 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	// Create the object.
-	result, err := api.ObjectAPI.CopyObject(reqCtx, targetObject, truelySourceObject, pipeReader, credential, sseRequest, isMetadataOnly, false)
-	if err != nil {
-		logger.Error("CopyObject failed:", err)
-		WriteErrorResponse(w, r, err)
-		return
+	var result PutObjectResult
+	if helper.CONFIG.RestoreDeceiverSwitch {
+		result, err = api.ObjectAPI.CopyObjectWithRestoreDeceiver(reqCtx, targetObject, truelySourceObject, pipeReader, credential, sseRequest, isMetadataOnly, false)
+		if err != nil {
+			logger.Error("CopyObject failed:", err)
+			WriteErrorResponse(w, r, err)
+			return
+		}
+	} else {
+		result, err = api.ObjectAPI.CopyObject(reqCtx, targetObject, truelySourceObject, pipeReader, credential, sseRequest, isMetadataOnly, false)
+		if err != nil {
+			logger.Error("CopyObject failed:", err)
+			WriteErrorResponse(w, r, err)
+			return
+		}
 	}
 
 	response := GenerateCopyObjectResponse(result.Md5, result.LastModified)
@@ -1283,19 +1300,25 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		targetFreezer.VersionId = object.VersionId
 		targetFreezer.OwnerId = object.OwnerId
 
-		// TiDB version is temporarily modified, TiKV version will be further adjusted
-		targetFreezer.Parts = object.Parts
-		targetFreezer.Location = object.Location
-		targetFreezer.ObjectId = object.ObjectId
-		targetFreezer.Size = object.Size
-		targetFreezer.Pool = object.Pool
-		targetFreezer.PartsIndex = object.PartsIndex
-		targetFreezer.Etag = object.Etag
-
-		err = api.ObjectAPI.CreateFreezer(targetFreezer)
-		if err != nil {
-			logger.Error("Unable to create freezer:", err)
-			WriteErrorResponse(w, r, ErrCreateRestoreObject)
+		if helper.CONFIG.RestoreDeceiverSwitch {
+			targetFreezer.Parts = object.Parts
+			targetFreezer.Location = object.Location
+			targetFreezer.ObjectId = object.ObjectId
+			targetFreezer.Size = object.Size
+			targetFreezer.Pool = object.Pool
+			targetFreezer.PartsIndex = object.PartsIndex
+			targetFreezer.Etag = object.Etag
+			err = api.ObjectAPI.CreateFreezerDeceiver(targetFreezer)
+			if err != nil {
+				logger.Error("Unable to create freezer Deceiver:", err)
+				WriteErrorResponse(w, r, ErrCreateRestoreObject)
+			}
+		} else {
+			err = api.ObjectAPI.CreateFreezer(targetFreezer)
+			if err != nil {
+				logger.Error("Unable to create freezer:", err)
+				WriteErrorResponse(w, r, ErrCreateRestoreObject)
+			}
 		}
 		logger.Info("Submit thaw request successfully")
 
@@ -1305,6 +1328,7 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 
 		WriteSuccessResponseWithStatus(w, nil, http.StatusAccepted)
 	}
+
 	if freezer.Status == ObjectHasRestored {
 		err = api.ObjectAPI.UpdateFreezerDate(freezer, info.Days, true)
 		if err != nil {
