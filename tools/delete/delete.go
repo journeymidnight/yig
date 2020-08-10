@@ -29,6 +29,7 @@ type AsyncDeleteFromCeph struct {
 	cephClusters   map[string]backend.Cluster
 	logDeleteFiles bool
 	logMessage     bool
+	tryTimes       int
 }
 
 func (d AsyncDeleteFromCeph) Name() string {
@@ -41,6 +42,7 @@ type Conf struct {
 	CephConfigPattern      string
 	LogDeleteFiles         bool
 	LogMessage             bool
+	TryTimes               int
 }
 
 func (d AsyncDeleteFromCeph) Setup(handle task.ConfigHandle) (topic string,
@@ -72,10 +74,12 @@ func (d AsyncDeleteFromCeph) Init(handle task.Handle,
 		cephClusters:   cephClusters,
 		logDeleteFiles: conf.LogDeleteFiles,
 		logMessage:     conf.LogMessage,
+		tryTimes:       conf.TryTimes,
 	}, nil
 }
 
 func (d AsyncDeleteFromCeph) ensureRemoved(location, pool, cephObjectID string) {
+	tried := 0
 	for {
 		err := d.cephClusters[location].Remove(pool, cephObjectID)
 		if err == nil {
@@ -96,6 +100,12 @@ func (d AsyncDeleteFromCeph) ensureRemoved(location, pool, cephObjectID string) 
 		d.logger.Warn("Delete", location, pool, cephObjectID,
 			"failed:", err)
 		time.Sleep(time.Second)
+		tried += 1
+		if tried > d.tryTimes {
+			d.logger.Error("Delete", location, pool, cephObjectID,
+				"failed:", err, "after", tried, "times")
+			return
+		}
 	}
 }
 
