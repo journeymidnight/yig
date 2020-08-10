@@ -139,7 +139,7 @@ func (yig *YigStorage) RestoreObject(targetObject *meta.Freezer, source io.Reade
 	var maybeObjectToRecycle objectToRecycle
 
 	if needUpdateStatus {
-		err = yig.MetaStorage.Client.UpdateFreezerStatus(targetObject.BucketName, targetObject.Name, targetObject.VersionId, common.RestoreStatus(0), common.RestoreStatus(1))
+		err = yig.MetaStorage.Client.UpdateFreezerStatus(targetObject.BucketName, targetObject.Name, targetObject.VersionId, common.ObjectNeedRestore, common.ObjectRestoring)
 		if err != nil {
 			helper.Logger.Error("Upload Freezer status failed!")
 			return
@@ -154,7 +154,6 @@ func (yig *YigStorage) RestoreObject(targetObject *meta.Freezer, source io.Reade
 
 	if len(targetObject.Parts) != 0 {
 		var targetParts = make(map[int]*meta.Part, len(targetObject.Parts))
-		//		etaglist := make([]string, len(sourceObject.Parts))
 		for i := 1; i <= len(targetObject.Parts); i++ {
 			part := targetObject.Parts[i]
 			targetParts[i] = part
@@ -225,7 +224,7 @@ func (yig *YigStorage) RestoreObject(targetObject *meta.Freezer, source io.Reade
 		return err
 	}
 
-	err = yig.MetaStorage.PutFreezer(targetObject, common.RestoreStatus(2))
+	err = yig.MetaStorage.PutFreezer(targetObject, common.ObjectHasRestored)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
