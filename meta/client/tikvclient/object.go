@@ -7,11 +7,11 @@ import (
 
 	"github.com/journeymidnight/client-go/txnkv"
 
+	"github.com/journeymidnight/client-go/key"
 	"github.com/journeymidnight/yig/backend"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
-	"github.com/journeymidnight/client-go/key"
 )
 
 // **Key**: {BucketName}\{ObjectName}

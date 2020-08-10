@@ -1047,9 +1047,9 @@ func (yig *YigStorage) DeleteBucket(reqCtx RequestContext, credential common.Cre
 	if bucket == nil {
 		return ErrNoSuchBucket
 	}
-	if !(bucket.OwnerId == credential.ExternRootId && credential.ExternUserId == credential.ExternRootId) {
+
+	if credential.AllowOtherUserAccess != true {
 		return ErrBucketAccessForbidden
-		// TODO validate bucket policy
 	}
 
 	bucketName := reqCtx.BucketName

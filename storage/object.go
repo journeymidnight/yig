@@ -1485,7 +1485,7 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 			object.LastModifiedTime = time.Now().UTC()
 			object.CreateTime = uint64(object.LastModifiedTime.UnixNano())
 			object.VersionId = object.GenVersionId(bucket.Versioning)
-			object.Size = int64(len(object.Name))
+			object.Size = int64(len(objectName))
 			err = yig.MetaStorage.AddDeleteMarker(object)
 			if err != nil {
 				return
@@ -1520,7 +1520,7 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 					LastModifiedTime: now,
 					VersionId:        meta.NullVersion,
 					CreateTime:       uint64(now.UnixNano()),
-					Size:             int64(len(object.Name)),
+					Size:             int64(len(objectName)),
 				}
 				err = yig.MetaStorage.AddDeleteMarker(object)
 				if err != nil {
@@ -1735,6 +1735,7 @@ func (yig *YigStorage) DeleteObjects(reqCtx RequestContext, credential common.Cr
 		wg.Add(1)
 		go func(o ObjectIdentifier) {
 			object, err := getFunc(o, tx)
+			defer wg.Done()
 			if err != nil && err == ErrNoSuchKey {
 				deletedObjects = append(deletedObjects, ObjectIdentifier{
 					ObjectName:   o.ObjectName,
@@ -1794,7 +1795,6 @@ func (yig *YigStorage) DeleteObjects(reqCtx RequestContext, credential common.Cr
 					})
 				}
 			}
-			wg.Done()
 		}(o)
 	}
 
