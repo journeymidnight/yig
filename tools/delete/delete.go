@@ -3,6 +3,7 @@ package main
 import (
 	"10.0.45.221/meepo/log.git"
 	"10.0.45.221/meepo/task.git"
+	"fmt"
 	"github.com/Shopify/sarama"
 	"github.com/journeymidnight/yig/backend"
 	"github.com/journeymidnight/yig/ceph"
@@ -27,6 +28,7 @@ type AsyncDeleteFromCeph struct {
 	handle         task.Handle
 	cephClusters   map[string]backend.Cluster
 	logDeleteFiles bool
+	logMessage     bool
 }
 
 func (d AsyncDeleteFromCeph) Name() string {
@@ -38,6 +40,7 @@ type Conf struct {
 	PartitionCount         int
 	CephConfigPattern      string
 	LogDeleteFiles         bool
+	LogMessage             bool
 }
 
 func (d AsyncDeleteFromCeph) Setup(handle task.ConfigHandle) (topic string,
@@ -68,6 +71,7 @@ func (d AsyncDeleteFromCeph) Init(handle task.Handle,
 		handle:         handle,
 		cephClusters:   cephClusters,
 		logDeleteFiles: conf.LogDeleteFiles,
+		logMessage:     conf.LogMessage,
 	}, nil
 }
 
@@ -101,6 +105,10 @@ func (d AsyncDeleteFromCeph) handleMessage(msg *sarama.ConsumerMessage) {
 	if err != nil {
 		d.logger.Warn("Bad message:", msg.Offset, err)
 		return
+	}
+	if d.logMessage {
+		d.logger.Info("Unmarshalled message:",
+			fmt.Sprintf("%+v", garbage))
 	}
 	if _, ok := d.cephClusters[garbage.Location]; !ok {
 		d.logger.Warn("Bad garbage location:", garbage.Location, msg.Offset)
