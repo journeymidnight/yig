@@ -167,7 +167,7 @@ func (m *Meta) UpdateGlacierObjectDeceiver(targetObject, sourceObject *Object) (
 		return err
 	}
 
-	err = m.Client.UpdateObject(targetObject, nil, false, tx)
+	err = m.Client.ReplaceObjectMetas(targetObject, tx)
 	return err
 }
 

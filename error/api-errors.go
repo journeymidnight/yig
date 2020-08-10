@@ -199,6 +199,7 @@ const (
 	ErrInvalidRestoreInfo
 	ErrCreateRestoreObject
 	ErrInvalidGlacierObject
+	ErrInvalidStorageClassConversion
 	ErrObjectMovedPermanently
 	ErrObjectMutexProtected
 	ErrRequestLimitExceeded
@@ -978,6 +979,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "ErrRequestLimitExceeded",
 		Description:    "Request limit exceeded",
 		HttpStatusCode: http.StatusTooManyRequests,
+	},
+	ErrInvalidStorageClassConversion: {
+		AwsErrorCode:   "ErrInvalidStorageClassConversion",
+		Description:    "Glacier object cannot convert to another storage class.",
+		HttpStatusCode: http.StatusForbidden,
 	},
 }
 

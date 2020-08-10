@@ -100,7 +100,7 @@ type Config struct {
 
 	// The switch that decides whether to use the real thawing logic,
 	// if it is on, the thawing logic is a false thawing mode that only modifies the database state
-	RestoreDeceiverSwitch bool "restore_deceiver_switch"
+	RestoreDeceiverSwitch bool `toml:"restore_deceiver_switch"`
 }
 
 type PluginConfig struct {

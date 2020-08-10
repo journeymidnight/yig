@@ -3,6 +3,7 @@ package tidbclient
 import (
 	"database/sql"
 	. "database/sql/driver"
+	"github.com/journeymidnight/yig/helper"
 	"math"
 	"strconv"
 	"time"
@@ -40,7 +41,7 @@ func (t *TidbClient) CreateFreezerWithoutMigrate(freezer *Freezer, tx Tx) (err e
 		v := math.MaxUint64 - freezer.CreateTime
 		version := strconv.FormatUint(v, 10)
 		for _, p := range freezer.Parts {
-			psql, args := p.GetCreateSql(freezer.BucketName, freezer.Name, version)
+			psql, args := p.GetCreateFreezerSql(freezer.BucketName, freezer.Name, version)
 			_, err = txn.Exec(psql, args...)
 			if err != nil {
 				return err
@@ -74,6 +75,7 @@ func (t *TidbClient) GetFreezer(bucketName, objectName, version string) (freezer
 		&freezer.CreateTime,
 	)
 	if err == sql.ErrNoRows {
+		helper.Logger.Info("----------", err)
 		err = ErrNoSuchKey
 		return
 	} else if err != nil {

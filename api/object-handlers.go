@@ -578,24 +578,20 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 
 	var isMetadataOnly bool
 
-	if helper.CONFIG.RestoreDeceiverSwitch {
-		if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName {
-			if targetBucket.Versioning == BucketVersioningDisabled {
-				isMetadataOnly = true
-			} else if targetBucket.Versioning == BucketVersioningSuspended && sourceObject.VersionId == meta.NullVersion {
-				isMetadataOnly = true
-			}
+	// If the object metadata is modified or the object storage type is converted, the following conditions are met
+	// For non-archive storage object modification metadata and type conversion, no copy operation is required
+	// For objects that were originally archived and stored for metadata modification and storage type modification, only database metadata needs to be modified.
+	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName {
+		if sourceObject.StorageClass == ObjectStorageClassGlacier && targetStorageClass != ObjectStorageClassGlacier {
+			WriteErrorResponse(w, r, ErrInvalidStorageClassConversion)
+			return
 		}
-	} else {
-		// If the object metadata is modified or the object storage type is converted, the following conditions are met
-		// For non-archive storage object modification metadata and type conversion, no copy operation is required
-		// For objects that were originally archived and stored for metadata modification and storage type modification, only database metadata needs to be modified.
-		if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName &&
-			(sourceObject.StorageClass == ObjectStorageClassGlacier || targetStorageClass != ObjectStorageClassGlacier) {
-			if targetBucket.Versioning == BucketVersioningDisabled {
-				isMetadataOnly = true
-			} else if targetBucket.Versioning == BucketVersioningSuspended && sourceObject.VersionId == meta.NullVersion {
-				isMetadataOnly = true
+		if targetBucket.Versioning == BucketVersioningDisabled || (targetBucket.Versioning == BucketVersioningSuspended && sourceObject.VersionId == meta.NullVersion) {
+			isMetadataOnly = true
+		}
+		if !helper.CONFIG.RestoreDeceiverSwitch {
+			if sourceObject.StorageClass != ObjectStorageClassGlacier && targetStorageClass == ObjectStorageClassGlacier {
+				isMetadataOnly = false
 			}
 		}
 	}
@@ -604,7 +600,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	if sourceObject.StorageClass == ObjectStorageClassGlacier {
 		// When only modifying object metadata, there is no need to unfreeze the object
 		if !(isMetadataOnly && targetStorageClass == ObjectStorageClassGlacier) {
-			freezer, err := api.ObjectAPI.GetFreezer(sourceBucketName, sourceObjectName, sourceVersion)
+			freezer, err := api.ObjectAPI.GetFreezer(sourceBucketName, sourceObjectName, sourceObject.VersionId)
 			if err != nil {
 				if err == ErrNoSuchKey {
 					logger.Error("Unable to get glacier object with no restore")
@@ -701,18 +697,13 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	var result PutObjectResult
 	if helper.CONFIG.RestoreDeceiverSwitch {
 		result, err = api.ObjectAPI.CopyObjectWithRestoreDeceiver(reqCtx, targetObject, truelySourceObject, pipeReader, credential, sseRequest, isMetadataOnly, false)
-		if err != nil {
-			logger.Error("CopyObject failed:", err)
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	} else {
 		result, err = api.ObjectAPI.CopyObject(reqCtx, targetObject, truelySourceObject, pipeReader, credential, sseRequest, isMetadataOnly, false)
-		if err != nil {
-			logger.Error("CopyObject failed:", err)
-			WriteErrorResponse(w, r, err)
-			return
-		}
+	}
+	if err != nil {
+		logger.Error("CopyObject failed:", err)
+		WriteErrorResponse(w, r, err)
+		return
 	}
 
 	response := GenerateCopyObjectResponse(result.Md5, result.LastModified)
@@ -1308,17 +1299,14 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 			targetFreezer.Pool = object.Pool
 			targetFreezer.PartsIndex = object.PartsIndex
 			targetFreezer.Etag = object.Etag
+			targetFreezer.LastModifiedTime = object.LastModifiedTime
 			err = api.ObjectAPI.CreateFreezerDeceiver(targetFreezer)
-			if err != nil {
-				logger.Error("Unable to create freezer Deceiver:", err)
-				WriteErrorResponse(w, r, ErrCreateRestoreObject)
-			}
 		} else {
 			err = api.ObjectAPI.CreateFreezer(targetFreezer)
-			if err != nil {
-				logger.Error("Unable to create freezer:", err)
-				WriteErrorResponse(w, r, ErrCreateRestoreObject)
-			}
+		}
+		if err != nil {
+			logger.Error("Unable to create freezer:", err)
+			WriteErrorResponse(w, r, ErrCreateRestoreObject)
 		}
 		logger.Info("Submit thaw request successfully")
 
