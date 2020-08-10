@@ -1001,6 +1001,7 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 			part := targetObject.Parts[i]
 			targetParts[i] = part
 			result, err = func() (result PutObjectResult, err error) {
+				result.DeltaInfo = make(map[StorageClass]int64)
 				pr, pw := io.Pipe()
 				defer pr.Close()
 				var total = part.Size
