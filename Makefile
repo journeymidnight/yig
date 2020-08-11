@@ -1,6 +1,8 @@
 .PHONY: build
 URL = github.com/journeymidnight
 REPO = yig
+VER=$(VER_DRONE)
+REL=$(REL_DRONE)
 WORKDIR = /work
 BUILDROOT = rpm-build
 BUILDDIR = $(WORKDIR)/$(BUILDROOT)/BUILD/$(REPO)
@@ -20,26 +22,24 @@ build_internal:
 	cp -f $(PWD)/plugins/*.so $(PWD)/integrate/yigconf/plugins/
 
 pkg:
-	docker run --rm -v $(PWD):$(WORKDIR) -w $(WORKDIR) journeymidnight/yig bash -c 'bash package/rpmbuild.sh $(REPO) $(BUILDROOT)'
+	docker run --rm -v $(PWD):$(WORKDIR) -w $(WORKDIR) journeymidnight/yig bash -c 'bash package/rpmbuild.sh $(REPO) $(BUILDROOT) $(VER) $(REL)'
+
+pkg_internal:
+	bash package/rpmbuild.sh $(REPO) $(BUILDROOT) $(VER) $(REL)
+	@mkdir packages
+	@cp *.x86_64.rpm packages/
 
 image:
 	docker build -t  journeymidnight/yig . -f integrate/yig.docker
 
-run: 
+run:
 	cd integrate && bash runyig.sh $(WORKDIR)
 
 stop:
-	cd integrate && bash stopyig.sh
-
-rundelete:
-	cd integrate && sudo bash rundelete.sh $(WORKDIR)
-
-runlc:
-	cd integrate && sudo bash runlc.sh $(WORKDIR)
 
 env:
 	cd integrate && docker-compose stop && docker-compose rm --force && sudo rm -rf cephconf && docker-compose up -d && sleep 20 && bash prepare_env.sh
-	
+
 plugin:
 	cd plugins && bash build_plugins.sh $(BUILDDIR)
 
@@ -47,8 +47,9 @@ plugin_internal:
 	bash plugins/build_plugins_internal.sh
 
 
-integrate: env build run 
+integrate: env build run
 
 clean:
 	cd integrate && docker-compose stop && docker-compose rm --force &&rm -rf cephconf
+	docker stop yig
 	rm -rf build

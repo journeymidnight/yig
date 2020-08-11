@@ -4,11 +4,23 @@ PACKAGENAME=$1
 echo Building RPMs..
 GITROOT=`git rev-parse --show-toplevel`
 cd $GITROOT
-VER=1.1
+if [ ! -n "$3" ] ;then
+   VER=1.3.9
+else
+   VER=${3//-/_}
+fi
 echo "Git get full depth..."
 git fetch --unshallow
-REL=`git rev-parse --short HEAD`git
-REL=`git log --oneline|wc -l`.$REL
+if [ ! -n "$4" ] ;then
+   REL=`git rev-parse --short HEAD`git
+   REL=`git log --oneline|wc -l`.$REL
+   REL=$REL
+else
+   REL=`git rev-parse --short HEAD`git
+   REL=`git log --oneline|wc -l`.$REL
+   REL=$4_$REL
+fi
+
 BUILDROOT=$2
 RPMTOPDIR=$GITROOT/$BUILDROOT
 echo "Ver: $VER, Release: $REL"
@@ -29,4 +41,3 @@ rpmbuild \
 --define "_srcrpmdir $PWD" \
 --define '_rpmfilename %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm' \
 -ba $RPMTOPDIR/SPECS/${PACKAGENAME}.spec
-
