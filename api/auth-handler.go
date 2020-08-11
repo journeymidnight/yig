@@ -69,7 +69,7 @@ func checkRequestAuth(r *http.Request, action policy.Action) (c common.Credentia
 
 func IsBucketPolicyAllowed(c *common.Credential, bucket *meta.Bucket, r *http.Request, action policy.Action, objectName string) (allow bool, err error) {
 	if bucket == nil {
-		return false, ErrAccessDenied
+		return false, ErrNoSuchBucket
 	}
 
 	//the root user always hava full_control of his bucket
