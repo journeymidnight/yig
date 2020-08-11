@@ -45,9 +45,6 @@ redis_keepalive = 60
 redis_pool_max_idle = 3
 redis_pool_idle_timeout = 30
 
-kafka_brokers = ["10.0.42.3:9092", "10.0.42.4:9092", "10.0.42.5:9092"]
-gc_topic = "yig-gc"
-
 cache_circuit_check_interval = 3
 cache_circuit_close_sleep_window = 1
 cache_circuit_close_required_count = 3
