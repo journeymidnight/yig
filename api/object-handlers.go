@@ -1259,6 +1259,7 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 	if err != nil {
 		logger.Error("Unable to get freezer info:", err)
 		WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
+		return
 	}
 
 	freezer, err := api.ObjectAPI.GetFreezerStatus(object.BucketName, object.Name, object.VersionId)
@@ -1274,11 +1275,14 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		if err != nil {
 			logger.Error("Unable to get freezer status:", err)
 			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
+			return
 		}
 
 		lifeTime := info.Days
 		if lifeTime < 1 || lifeTime > 30 {
-			lifeTime = 1
+			logger.Warn("The user has set the wrong defrost time")
+			WriteErrorResponse(w, r, ErrInvalidRestoreDate)
+			return
 		}
 
 		targetFreezer := &meta.Freezer{}
@@ -1307,6 +1311,7 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		if err != nil {
 			logger.Error("Unable to create freezer:", err)
 			WriteErrorResponse(w, r, ErrCreateRestoreObject)
+			return
 		}
 		logger.Info("Submit thaw request successfully")
 
@@ -1315,13 +1320,20 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		w.(*ResponseRecorder).operationName = "RestoreObject"
 
 		WriteSuccessResponseWithStatus(w, nil, http.StatusAccepted)
+		return
 	}
 
 	if freezer.Status == ObjectHasRestored {
 		err = api.ObjectAPI.UpdateFreezerDate(freezer, info.Days, true)
 		if err != nil {
+			if err == ErrInvalidRestoreDate {
+				logger.Warn("The user has set the wrong defrost time")
+				WriteErrorResponse(w, r, err)
+				return
+			}
 			logger.Error("Unable to Update freezer date:", err)
 			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
+			return
 		}
 
 		// ResponseRecorder
@@ -1331,13 +1343,20 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		if freezer.LifeTime != info.Days {
 			err = api.ObjectAPI.UpdateFreezerDate(freezer, info.Days, false)
 			if err != nil {
+				if err == ErrInvalidRestoreDate {
+					logger.Warn("The user has set the wrong defrost time")
+					WriteErrorResponse(w, r, err)
+					return
+				}
 				logger.Error("Unable to Update freezer date:", err)
 				WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
+				return
 			}
 		}
 		// ResponseRecorder
 		w.(*ResponseRecorder).operationName = "RestoreObject"
 		WriteSuccessResponseWithStatus(w, nil, http.StatusAccepted)
+		return
 	}
 }
 
