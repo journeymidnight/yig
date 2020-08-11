@@ -3,6 +3,7 @@ package tikvclient
 import (
 	"context"
 	"fmt"
+	"unicode/utf8"
 
 	"github.com/journeymidnight/client-go/config"
 	"github.com/journeymidnight/client-go/key"
@@ -26,7 +27,7 @@ const (
 
 var (
 	TableMinKeySuffix = ""
-	TableMaxKeySuffix = string(0xFF)
+	TableMaxKeySuffix = string(utf8.MaxRune)
 	TableSeparator    = string(0x1F)
 )
 
