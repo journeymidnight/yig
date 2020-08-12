@@ -1,6 +1,8 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
@@ -20,11 +22,29 @@ import (
 	"github.com/journeymidnight/yig/storage"
 )
 
+var (
+	v       bool
+	Version = "unknown"
+	Commit  = "unknown"
+)
+
+func init() {
+	flag.BoolVar(&v, "v", false, "print version and commit")
+}
+
+func printVersionInfo() {
+	fmt.Println("Version:", Version)
+	fmt.Println("Commit:", Commit)
+}
+
 func main() {
+	flag.Parse()
+	if v {
+		printVersionInfo()
+		os.Exit(0)
+	}
 	// Errors should cause panic so as to log to stderr for initialization functions
-
 	rand.Seed(time.Now().UnixNano())
-
 	helper.SetupConfig()
 
 	// yig log

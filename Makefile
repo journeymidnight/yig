@@ -15,6 +15,7 @@ build:
 	cd integrate && bash buildyig.sh $(BUILDDIR)
 
 build_internal:
+	go version
 	go env
 	cp -f $(PWD)/integrate/resolv.conf /etc/resolv.conf
 	mkdir -p ~/.ssh
@@ -23,7 +24,7 @@ build_internal:
 	cp $(PWD)/integrate/id_rsa.pub ~/.ssh/id_rsa.pub
 	cp $(PWD)/integrate/known_hosts ~/.ssh/known_hosts
 	git config --global url."git@10.0.45.221:".insteadOf "https://10.0.45.221/"
-	go build $(URL)/$(REPO)
+	go build  -ldflags "-X main.Commit=`git rev-parse HEAD` -X main.Version=`git describe --abbrev=0 --tags`" $(URL)/$(REPO)
 	bash plugins/build_plugins_internal.sh
 	go build $(PWD)/tools/admin.go
 	go build $(PWD)/tools/getrediskeys.go
