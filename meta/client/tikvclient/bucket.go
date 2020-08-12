@@ -6,12 +6,12 @@ import (
 	"math"
 	"strings"
 
+	"github.com/journeymidnight/client-go/key"
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/client"
 	. "github.com/journeymidnight/yig/meta/types"
-	"github.com/journeymidnight/client-go/key"
 )
 
 // **Key**: b\{BucketName}
@@ -381,7 +381,7 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 	}
 
 	// If the final object is null version
-	if previousNullObjectMeta != nil {
+	if previousNullObjectMeta != nil && !previousNullObjectMeta.DeleteMarker {
 		o := ModifyMetaToObjectResult(*previousNullObjectMeta)
 		count++
 		if count == maxKeys {
