@@ -25,9 +25,9 @@ import (
 // http://docs.aws.amazon.com/AmazonS3/latest/dev/UploadingObjects.html
 const (
 	// minimum Part size for multipart upload is 100Kb
-	MIN_PART_SIZE   = 100 << 10 // 100Kb
+	MIN_PART_SIZE = 100 << 10 // 100Kb
 	// maximum Part size per PUT request is 5GiB
-	MAX_PART_SIZE   = 5 << 30   // 5GB
+	MAX_PART_SIZE = 5 << 30 // 5GB
 	// maximum Part number for multipart upload is 10000 (Acceptable values range from 1 to 10000 inclusive)
 	MAX_PART_NUMBER = 10000
 )
@@ -593,7 +593,11 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 	if object.StorageClass == ObjectStorageClassGlacier && bucket.Versioning != datatype.BucketVersioningEnabled {
 		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
 		if err == nil {
-			err = yig.MetaStorage.DeleteFreezer(freezer)
+			if helper.CONFIG.RestoreDeceiverSwitch {
+				err = yig.MetaStorage.DeleteFreezer(freezer, false)
+			} else {
+				err = yig.MetaStorage.DeleteFreezer(freezer, true)
+			}
 			if err != nil {
 				return result, err
 			}

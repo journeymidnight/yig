@@ -120,7 +120,6 @@ type ObjectLayer interface {
 	// Freezer operations.
 	GetFreezer(bucketName string, objectName string, version string) (freezer *meta.Freezer, err error)
 	GetFreezerStatus(bucketName string, objectName string, version string) (freezer *meta.Freezer, err error)
-	CreateFreezer(freezer *meta.Freezer) (err error)
-	CreateFreezerDeceiver(freezer *meta.Freezer) (err error)
+	CreateFreezer(freezer *meta.Freezer, isDeceiver bool) (err error)
 	UpdateFreezerDate(freezer *meta.Freezer, date int, isIncrement bool) (err error)
 }

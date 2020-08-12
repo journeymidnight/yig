@@ -709,7 +709,11 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 	if object.StorageClass == ObjectStorageClassGlacier && bucket.Versioning != datatype.BucketVersioningEnabled {
 		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
 		if err == nil {
-			err = yig.MetaStorage.DeleteFreezer(freezer)
+			if helper.CONFIG.RestoreDeceiverSwitch {
+				err = yig.MetaStorage.DeleteFreezer(freezer, false)
+			} else {
+				err = yig.MetaStorage.DeleteFreezer(freezer, true)
+			}
 			if err != nil {
 				return result, err
 			}
@@ -1219,7 +1223,11 @@ func (yig *YigStorage) removeOldObject(object *meta.Object) (err error) {
 		freezer, err := yig.GetFreezer(object.BucketName, object.Name, object.VersionId)
 		if err == nil {
 			if freezer.Name == object.Name {
-				err = yig.MetaStorage.DeleteFreezer(freezer)
+				if helper.CONFIG.RestoreDeceiverSwitch {
+					err = yig.MetaStorage.DeleteFreezer(freezer, false)
+				} else {
+					err = yig.MetaStorage.DeleteFreezer(freezer, true)
+				}
 				if err != nil {
 					return err
 				}
@@ -1259,7 +1267,11 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 			freezer, err := yig.GetFreezer(objInfo.BucketName, objInfo.Name, objInfo.VersionId)
 			if err == nil {
 				if freezer.Name == objInfo.Name {
-					err = yig.MetaStorage.DeleteFreezer(freezer)
+					if helper.CONFIG.RestoreDeceiverSwitch {
+						err = yig.MetaStorage.DeleteFreezer(freezer, false)
+					} else {
+						err = yig.MetaStorage.DeleteFreezer(freezer, true)
+					}
 					if err != nil {
 						return result, err
 					}
@@ -1436,6 +1448,20 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 			return result, ErrBucketAccessForbidden
 		}
 	} // TODO policy and fancy ACL
+
+	if object.StorageClass == ObjectStorageClassGlacier {
+		freezer, err := yig.MetaStorage.GetFreezer(bucketName, objectName, object.VersionId)
+		if err == nil {
+			if helper.CONFIG.RestoreDeceiverSwitch {
+				err = yig.MetaStorage.DeleteFreezer(freezer, false)
+			} else {
+				err = yig.MetaStorage.DeleteFreezer(freezer, true)
+			}
+		} else if err != ErrNoSuchKey {
+			helper.Logger.Warn("DeleteObject err with freezer delete err:", err)
+			return result, err
+		}
+	}
 
 	switch bucket.Versioning {
 	case datatype.BucketVersioningDisabled:

@@ -233,7 +233,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	if object.StorageClass == ObjectStorageClassGlacier {
-		freezer, err := api.ObjectAPI.GetFreezer(reqCtx.BucketName, reqCtx.ObjectName, reqVersion)
+		freezer, err := api.ObjectAPI.GetFreezer(reqCtx.BucketName, reqCtx.ObjectName, object.VersionId)
 		if err != nil {
 			if err == ErrNoSuchKey {
 				logger.Error("Unable to get glacier object with no restore")
@@ -1232,8 +1232,7 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		return
 	}
 
-	// Fetch object stat info.
-	object, err := api.ObjectAPI.GetObjectInfo(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, credential)
+	object, err := api.ObjectAPI.GetObjectInfoByCtx(reqCtx, credential)
 	if err != nil {
 		logger.Error("Unable to fetch object info:", err)
 		if err == ErrNoSuchKey {
@@ -1304,9 +1303,9 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 			targetFreezer.PartsIndex = object.PartsIndex
 			targetFreezer.Etag = object.Etag
 			targetFreezer.LastModifiedTime = object.LastModifiedTime
-			err = api.ObjectAPI.CreateFreezerDeceiver(targetFreezer)
+			err = api.ObjectAPI.CreateFreezer(targetFreezer, true)
 		} else {
-			err = api.ObjectAPI.CreateFreezer(targetFreezer)
+			err = api.ObjectAPI.CreateFreezer(targetFreezer, false)
 		}
 		if err != nil {
 			logger.Error("Unable to create freezer:", err)
