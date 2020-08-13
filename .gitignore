@@ -19,4 +19,5 @@ yig
 *.rpm
 rpm-build/
 *.so
+tools/tikvtool/tikvtool
 tikv-tool
