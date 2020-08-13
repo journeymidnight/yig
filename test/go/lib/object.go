@@ -111,6 +111,30 @@ func (s3client *S3Client) DeleteObject(bucketName, key string) (err error) {
 	return
 }
 
+func (s3client *S3Client) DeleteObjects(bucketName string, keys map[string]string) (err error) {
+	var objects []*s3.ObjectIdentifier
+	objects = []*s3.ObjectIdentifier{}
+	for k, v := range keys {
+		object := &s3.ObjectIdentifier{
+			Key:       aws.String(k),
+			VersionId: aws.String(v),
+		}
+		objects = append(objects, object)
+	}
+	delete := &s3.Delete{
+		Objects: objects,
+	}
+	params := &s3.DeleteObjectsInput{
+		Bucket: aws.String(bucketName),
+		Delete: delete,
+	}
+	_, err = s3client.Client.DeleteObjects(params)
+	if err != nil {
+		return err
+	}
+	return
+}
+
 func (s3client *S3Client) DeleteObjectOutput(bucketName, key string) (out *s3.DeleteObjectOutput, err error) {
 	params := &s3.DeleteObjectInput{
 		Bucket: aws.String(bucketName),

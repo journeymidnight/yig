@@ -1449,17 +1449,19 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 		}
 	} // TODO policy and fancy ACL
 
-	if object.StorageClass == ObjectStorageClassGlacier {
-		freezer, err := yig.MetaStorage.GetFreezer(bucketName, objectName, object.VersionId)
-		if err == nil {
-			if helper.CONFIG.RestoreDeceiverSwitch {
-				err = yig.MetaStorage.DeleteFreezer(freezer, false)
-			} else {
-				err = yig.MetaStorage.DeleteFreezer(freezer, true)
+	if object != nil {
+		if object.StorageClass == ObjectStorageClassGlacier {
+			freezer, err := yig.MetaStorage.GetFreezer(bucketName, objectName, object.VersionId)
+			if err == nil {
+				if helper.CONFIG.RestoreDeceiverSwitch {
+					err = yig.MetaStorage.DeleteFreezer(freezer, false)
+				} else {
+					err = yig.MetaStorage.DeleteFreezer(freezer, true)
+				}
+			} else if err != ErrNoSuchKey {
+				helper.Logger.Warn("DeleteObject err with freezer delete err:", err)
+				return result, err
 			}
-		} else if err != ErrNoSuchKey {
-			helper.Logger.Warn("DeleteObject err with freezer delete err:", err)
-			return result, err
 		}
 	}
 
