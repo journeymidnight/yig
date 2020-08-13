@@ -1,7 +1,6 @@
 package _go
 
 import (
-	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -72,27 +71,6 @@ func Test_DeleteObject(t *testing.T) {
 	t.Log("DeleteObject Success!")
 }
 
-func Test_PostObject(t *testing.T) {
-	pbi := &PostObjectInput{
-		Url:        fmt.Sprintf("http://s3.test.com:8080/%s", TEST_BUCKET),
-		Bucket:     TEST_BUCKET,
-		ObjName:    TEST_KEY,
-		Expiration: time.Now().UTC().Add(time.Duration(1 * time.Hour)),
-		Date:       time.Now().UTC(),
-		Region:     "r",
-		AK:         "hehehehe",
-		SK:         "hehehehe",
-		FileSize:   1024,
-	}
-
-	sc := NewS3()
-	sc.MakeBucket(TEST_BUCKET)
-	err := sc.PostObject(pbi)
-	if err != nil {
-		t.Fatal("PostObject err:", err)
-	}
-	t.Log("PostObject Success!")
-}
 func Test_PreSignedGetObject(t *testing.T) {
 	sc := NewS3()
 	err := sc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)

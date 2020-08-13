@@ -35,27 +35,6 @@ func TestS3Client_GetEncryptObjectWithSSEC(t *testing.T) {
 	t.Log("GetEncryptObjectWithSSEC Success value:", v)
 }
 
-func Test_PutEncryptObjectWithSSES3(t *testing.T) {
-	sc := NewS3()
-	err := sc.PutEncryptObjectWithSSES3(TEST_BUCKET, TEST_KEY, TEST_VALUE)
-	if err != nil {
-		t.Fatal("PutEncryptObjectWithSSES3 err:", err)
-	}
-	t.Log("PutEncryptObjectWithSSES3 Success!")
-}
-
-func TestS3Client_GetEncryptObjectWithSSES3(t *testing.T) {
-	sc := NewS3()
-	v, err := sc.GetEncryptObjectWithSSES3(TEST_BUCKET, TEST_KEY)
-	if err != nil {
-		t.Fatal("GetEncryptObjectWithSSES3 err:", err)
-	}
-	if v != TEST_VALUE {
-		t.Fatal("GetEncryptObjectWithSSES3 err: value is:", v, ", but should be:", TEST_VALUE)
-	}
-	t.Log("GetEncryptObjectWithSSES3 Success value:", v)
-}
-
 func Test_Encrypt_End(t *testing.T) {
 	sc := NewS3()
 	err := sc.DeleteObject(TEST_BUCKET, TEST_KEY)
