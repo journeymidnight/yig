@@ -13,9 +13,7 @@ URL:		http://github.com/journeymidnight/yig
 Source0:	%{name}-%{version}-%{rel}.tar.gz
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 #BuildRequires:  
-Requires:       libradosstriper1
-Requires:       librados2
-Requires:       librdkafka1
+Requires:       libradosstriper1,librados2,librdkafka1
 
 %description
 
@@ -45,6 +43,8 @@ install -D -m 644 package/yig.service   %{buildroot}/usr/lib/systemd/system/yig.
 install -D -m 644 package/yig_delete.service   %{buildroot}/usr/lib/systemd/system/yig_delete.service
 install -D -m 644 package/yig_lc.service   %{buildroot}/usr/lib/systemd/system/yig_lc.service
 install -D -m 644 conf/yig.toml %{buildroot}%{_sysconfdir}/yig/yig.toml
+install -d %{buildroot}%{_sysconfdir}/yig/plugins/
+cp -a plugins/*.so %{buildroot}%{_sysconfdir}/yig/plugins/
 install -d %{buildroot}/var/log/yig/
 
 #ceph confs ?
@@ -63,6 +63,7 @@ rm -rf %{buildroot}
 %files
 %defattr(-,root,root,-)
 %config(noreplace) /etc/yig/yig.toml
+/etc/yig/plugins/*
 /usr/bin/yig_admin
 /usr/bin/yig
 /usr/bin/yig_delete_daemon
