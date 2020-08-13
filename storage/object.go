@@ -2,6 +2,7 @@ package storage
 
 import (
 	"crypto/md5"
+	"database/sql/driver"
 	"encoding/hex"
 	"errors"
 	"io"
@@ -706,19 +707,23 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 		CreateTime:           uint64(now.UnixNano()),
 	}
 	object.VersionId = object.GenVersionId(bucket.Versioning)
-	if object.StorageClass == ObjectStorageClassGlacier && bucket.Versioning != datatype.BucketVersioningEnabled {
-		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
-		if err == nil {
-			if helper.CONFIG.RestoreDeceiverSwitch {
-				err = yig.MetaStorage.DeleteFreezer(freezer, false)
-			} else {
-				err = yig.MetaStorage.DeleteFreezer(freezer, true)
-			}
-			if err != nil {
+
+	reqObject := reqCtx.ObjectInfo
+	if reqObject != nil {
+		if reqObject.StorageClass == ObjectStorageClassGlacier && bucket.Versioning != datatype.BucketVersioningEnabled {
+			freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
+			if err == nil {
+				if helper.CONFIG.RestoreDeceiverSwitch {
+					err = yig.MetaStorage.DeleteFreezer(freezer, false)
+				} else {
+					err = yig.MetaStorage.DeleteFreezer(freezer, true)
+				}
+				if err != nil {
+					return result, err
+				}
+			} else if err != ErrNoSuchKey {
 				return result, err
 			}
-		} else if err != ErrNoSuchKey {
-			return result, err
 		}
 	}
 
@@ -1563,4 +1568,224 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 		}
 	}
 	return result, nil
+}
+
+func (yig *YigStorage) DeleteObjects(reqCtx RequestContext, credential common.Credential,
+	objects []datatype.ObjectIdentifier) (result datatype.DeleteObjectsResult, err error) {
+	bucket := reqCtx.BucketInfo
+	if bucket == nil {
+		return result, ErrNoSuchBucket
+	}
+
+	switch bucket.ACL.CannedAcl {
+	case "public-read-write":
+		break
+	default:
+		if bucket.OwnerId != credential.UserId && credential.UserId != "" {
+			return result, ErrBucketAccessForbidden
+		}
+	} // TODO policy and fancy ACL
+
+	var tx driver.Tx
+	tx, err = yig.MetaStorage.Client.NewTrans()
+	if err != nil {
+		return result, err
+	}
+	defer func() {
+		if err == nil {
+			err = yig.MetaStorage.Client.CommitTrans(tx)
+		}
+		if err != nil {
+			yig.MetaStorage.Client.AbortTrans(tx)
+		}
+	}()
+
+	getFunc := func(o datatype.ObjectIdentifier, tx driver.Tx) (object *meta.Object, err error) {
+		// GetObject
+		bucketName, objectName, version := bucket.Name, o.ObjectName, o.VersionId
+		if version == "null" {
+			version = meta.NullVersion
+		}
+		if bucket.Versioning == datatype.BucketVersioningDisabled {
+			if version != "" && version != meta.NullVersion {
+				return object, ErrInvalidVersioning
+			}
+			object, err = yig.MetaStorage.GetObject(bucketName, objectName, meta.NullVersion, false)
+		} else {
+			object, err = yig.MetaStorage.GetObject(bucketName, objectName, version, false)
+		}
+		return object, err
+	}
+
+	deleteFunc := func(object *meta.Object, tx driver.Tx) (result datatype.DeleteObjectResult, err error) {
+		bucketName, objectName, version := bucket.Name, object.Name, object.VersionId
+
+		if object.StorageClass == ObjectStorageClassGlacier {
+			freezer, err := yig.MetaStorage.GetFreezer(bucketName, objectName, object.VersionId)
+			if err == nil {
+				if helper.CONFIG.RestoreDeceiverSwitch {
+					err = yig.MetaStorage.DeleteFreezer(freezer, false)
+				} else {
+					err = yig.MetaStorage.DeleteFreezer(freezer, true)
+				}
+			} else if err != ErrNoSuchKey {
+				helper.Logger.Warn("DeleteObject err with freezer delete err:", err)
+				return result, err
+			}
+		}
+
+		switch bucket.Versioning {
+		case datatype.BucketVersioningDisabled:
+			if version != "" && version != meta.NullVersion {
+				return result, ErrNoSuchVersion
+			}
+			if object == nil {
+				return result, nil
+			}
+			err = yig.MetaStorage.DeleteObjectWithTx(object, tx)
+			if err != nil {
+				return result, err
+			}
+		case datatype.BucketVersioningEnabled:
+			if version != "" {
+				if object == nil {
+					return result, nil
+				}
+				err = yig.MetaStorage.DeleteObjectWithTx(object, tx)
+				if err != nil {
+					return
+				}
+				if object.DeleteMarker {
+					result.DeleteMarker = true
+				}
+				result.VersionId = object.VersionId
+			} else {
+				// Add delete marker                                    |
+				if object == nil {
+					object = &meta.Object{
+						BucketName: bucketName,
+						Name:       objectName,
+						OwnerId:    bucket.OwnerId,
+					}
+				}
+				object.DeleteMarker = true
+				object.LastModifiedTime = time.Now().UTC()
+				object.CreateTime = uint64(object.LastModifiedTime.UnixNano())
+				object.VersionId = object.GenVersionId(bucket.Versioning)
+				object.Size = int64(len(object.Name))
+				err = yig.MetaStorage.AddDeleteMarker(object)
+				if err != nil {
+					return
+				}
+				result.VersionId = object.VersionId
+				//TODO: develop inherit storage class of bucket？
+			}
+		case datatype.BucketVersioningSuspended:
+			if version != "" {
+				if object == nil {
+					return result, nil
+				}
+				err = yig.MetaStorage.DeleteObjectWithTx(object, tx)
+				if err != nil {
+					return
+				}
+				if object.DeleteMarker {
+					result.DeleteMarker = true
+				}
+				result.VersionId = object.VersionId
+			} else {
+				nullVersionExist := (object != nil)
+				if !nullVersionExist {
+					now := time.Now().UTC()
+					object = &meta.Object{
+						BucketName:       bucketName,
+						Name:             objectName,
+						OwnerId:          bucket.OwnerId,
+						DeleteMarker:     true,
+						LastModifiedTime: now,
+						VersionId:        meta.NullVersion,
+						CreateTime:       uint64(now.UnixNano()),
+						Size:             int64(len(object.Name)),
+					}
+					err = yig.MetaStorage.AddDeleteMarker(object)
+					if err != nil {
+						return
+					}
+				} else {
+					err = yig.MetaStorage.DeleteSuspendedObject(object)
+					if err != nil {
+						return
+					}
+				}
+			}
+		default:
+			helper.Logger.Error("Invalid bucket versioning:", bucketName)
+			return result, ErrInternalError
+		}
+		return result, nil
+	}
+
+	var deleteErrors []datatype.DeleteError
+	var deletedObjects []datatype.ObjectIdentifier
+	var wg = sync.WaitGroup{}
+	for _, o := range objects {
+		wg.Add(1)
+		go func(o datatype.ObjectIdentifier) {
+			object, err := getFunc(o, tx)
+			defer wg.Done()
+			if err != nil && err == ErrNoSuchKey {
+				deletedObjects = append(deletedObjects, datatype.ObjectIdentifier{
+					ObjectName:   o.ObjectName,
+					VersionId:    o.VersionId,
+					DeleteMarker: o.DeleteMarker,
+					DeleteMarkerVersionId: helper.Ternary(o.DeleteMarker,
+						o.VersionId, "").(string),
+				})
+				return
+			}
+			var delResult datatype.DeleteObjectResult
+			if err == nil {
+				delResult, err = deleteFunc(object, tx)
+			}
+			if err == nil {
+				if object.VersionId != "" {
+					yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucket.Name+":"+object.Name+":"+object.VersionId)
+					yig.DataCache.Remove(bucket.Name + ":" + object.Name + ":" + object.VersionId)
+				} else if reqCtx.ObjectInfo != nil {
+					yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucket.Name+":"+object.Name+":"+object.VersionId)
+					yig.DataCache.Remove(bucket.Name + ":" + object.Name + ":" + object.VersionId)
+				}
+				deletedObjects = append(deletedObjects, datatype.ObjectIdentifier{
+					ObjectName:   object.Name,
+					VersionId:    object.VersionId,
+					DeleteMarker: delResult.DeleteMarker,
+					DeleteMarkerVersionId: helper.Ternary(delResult.DeleteMarker,
+						delResult.VersionId, "").(string),
+				})
+			} else {
+				helper.Logger.Error("Unable to delete object:", err)
+				apiErrorCode, ok := err.(ApiErrorCode)
+				if ok {
+					deleteErrors = append(deleteErrors, datatype.DeleteError{
+						Code:      ErrorCodeResponse[apiErrorCode].AwsErrorCode,
+						Message:   ErrorCodeResponse[apiErrorCode].Description,
+						Key:       object.Name,
+						VersionId: object.VersionId,
+					})
+				} else {
+					deleteErrors = append(deleteErrors, datatype.DeleteError{
+						Code:      "InternalError",
+						Message:   "We encountered an internal error, please try again.",
+						Key:       object.Name,
+						VersionId: object.VersionId,
+					})
+				}
+			}
+		}(o)
+	}
+
+	wg.Wait()
+	result.DeletedObjects = deletedObjects
+	result.DeleteErrors = deleteErrors
+	return
 }

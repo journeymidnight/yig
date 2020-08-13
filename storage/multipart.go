@@ -590,19 +590,23 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 		CreateTime:       uint64(now.UnixNano()),
 	}
 	object.VersionId = object.GenVersionId(bucket.Versioning)
-	if object.StorageClass == ObjectStorageClassGlacier && bucket.Versioning != datatype.BucketVersioningEnabled {
-		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
-		if err == nil {
-			if helper.CONFIG.RestoreDeceiverSwitch {
-				err = yig.MetaStorage.DeleteFreezer(freezer, false)
-			} else {
-				err = yig.MetaStorage.DeleteFreezer(freezer, true)
-			}
-			if err != nil {
+
+	reqObject := reqCtx.ObjectInfo
+	if reqObject != nil {
+		if reqObject.StorageClass == ObjectStorageClassGlacier && bucket.Versioning != datatype.BucketVersioningEnabled {
+			freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
+			if err == nil {
+				if helper.CONFIG.RestoreDeceiverSwitch {
+					err = yig.MetaStorage.DeleteFreezer(freezer, false)
+				} else {
+					err = yig.MetaStorage.DeleteFreezer(freezer, true)
+				}
+				if err != nil {
+					return result, err
+				}
+			} else if err != ErrNoSuchKey {
 				return result, err
 			}
-		} else if err != ErrNoSuchKey {
-			return result, err
 		}
 	}
 
