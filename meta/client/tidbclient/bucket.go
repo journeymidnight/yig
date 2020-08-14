@@ -817,7 +817,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 
 					o := modifyMetaToVersionedObjectResult(*previousNullObjectMeta)
 					listInfo.Objects = append(listInfo.Objects, o)
-
+					previousNullObjectMeta = nil
 				} else {
 					// Compare which is the latest of null version object and versioned object
 					var o datatype.VersionedObject
@@ -880,6 +880,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 					continue
 				}
 			}
+
 			if objMeta.VersionId == NullVersion {
 				previousNullObjectMeta = &objMeta
 				continue
