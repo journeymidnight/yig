@@ -74,6 +74,9 @@ feature_not_support_for_bucket = ["notification","replication","tagging","reques
 # Valid values include: torrent、glacier、standard_ia、intelligent_tiering、onezone_ia、deep_archive、rrs、append
 feature_not_support_for_object = ["torrent","intelligent_tiering","onezone_ia","deep_archive","rrs"]
 
+# Restore Mode
+restore_deceiver_switch = true
+
 # Plugin Config
 [plugins.dummy_encryption_kms]
 path = "/etc/yig/plugins/dummy_kms_plugin.so"

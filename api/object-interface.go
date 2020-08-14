@@ -88,6 +88,8 @@ type ObjectLayer interface {
 
 	CopyObject(reqCtx RequestContext, targetObject *meta.Object, sourceObject *meta.Object, source io.Reader, credential common.Credential,
 		sseRequest datatype.SseRequest, isMetadataOnly, isTranStorageClassOnly bool) (result datatype.PutObjectResult, err error)
+	CopyObjectWithRestoreDeceiver(reqCtx RequestContext, targetObject *meta.Object, sourceObject *meta.Object, source io.Reader, credential common.Credential,
+		sseRequest datatype.SseRequest, isMetadataOnly, isTranStorageClassOnly bool) (result datatype.PutObjectResult, err error)
 	RenameObject(reqCtx RequestContext, targetObject *meta.Object, sourceObject string, credential common.Credential) (result datatype.RenameObjectResult, err error)
 	PutObjectMeta(bucket *meta.Bucket, targetObject *meta.Object, credential common.Credential) (err error)
 	SetObjectAcl(reqCtx RequestContext, policy datatype.AccessControlPolicy,
@@ -96,6 +98,8 @@ type ObjectLayer interface {
 		policy datatype.AccessControlPolicyResponse, err error)
 	DeleteObject(reqCtx RequestContext, credential common.Credential) (datatype.DeleteObjectResult,
 		error)
+	DeleteObjects(reqCtx RequestContext, credential common.Credential,
+		objects []datatype.ObjectIdentifier) (result datatype.DeleteObjectsResult, err error)
 
 	// Multipart operations.
 	ListMultipartUploads(reqCtx RequestContext, credential common.Credential,
@@ -118,6 +122,6 @@ type ObjectLayer interface {
 	// Freezer operations.
 	GetFreezer(bucketName string, objectName string, version string) (freezer *meta.Freezer, err error)
 	GetFreezerStatus(bucketName string, objectName string, version string) (freezer *meta.Freezer, err error)
-	CreateFreezer(freezer *meta.Freezer) (err error)
+	CreateFreezer(freezer *meta.Freezer, isDeceiver bool) (err error)
 	UpdateFreezerDate(freezer *meta.Freezer, date int, isIncrement bool) (err error)
 }

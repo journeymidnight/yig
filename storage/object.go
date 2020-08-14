@@ -2,6 +2,7 @@ package storage
 
 import (
 	"crypto/md5"
+	"database/sql/driver"
 	"encoding/hex"
 	"errors"
 	"io"
@@ -706,15 +707,23 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 		CreateTime:           uint64(now.UnixNano()),
 	}
 	object.VersionId = object.GenVersionId(bucket.Versioning)
-	if object.StorageClass == ObjectStorageClassGlacier && bucket.Versioning != datatype.BucketVersioningEnabled {
-		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
-		if err == nil {
-			err = yig.MetaStorage.DeleteFreezer(freezer)
-			if err != nil {
+
+	reqObject := reqCtx.ObjectInfo
+	if reqObject != nil {
+		if reqObject.StorageClass == ObjectStorageClassGlacier && bucket.Versioning != datatype.BucketVersioningEnabled {
+			freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
+			if err == nil {
+				if helper.CONFIG.RestoreDeceiverSwitch {
+					err = yig.MetaStorage.DeleteFreezer(freezer, false)
+				} else {
+					err = yig.MetaStorage.DeleteFreezer(freezer, true)
+				}
+				if err != nil {
+					return result, err
+				}
+			} else if err != ErrNoSuchKey {
 				return result, err
 			}
-		} else if err != ErrNoSuchKey {
-			return result, err
 		}
 	}
 
@@ -997,6 +1006,205 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 	return result, nil
 }
 
+func (yig *YigStorage) CopyObjectWithRestoreDeceiver(reqCtx RequestContext, targetObject *meta.Object, sourceObject *meta.Object, source io.Reader, credential common.Credential,
+	sseRequest datatype.SseRequest, isMetadataOnly, isTranStorageClassOnly bool) (result datatype.PutObjectResult, err error) {
+	var oid string
+	var maybeObjectToRecycle objectToRecycle
+	var encryptionKey []byte
+	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, targetObject.BucketName, targetObject.Name)
+	if err != nil {
+		return
+	}
+
+	targetBucket := reqCtx.BucketInfo
+	if targetBucket == nil {
+		return result, ErrNoSuchBucket
+	}
+
+	switch targetBucket.ACL.CannedAcl {
+	case "public-read-write":
+		break
+	default:
+		if targetBucket.OwnerId != credential.UserId {
+			return result, ErrBucketAccessForbidden
+		}
+	}
+
+	if isMetadataOnly {
+		targetObject.LastModifiedTime = sourceObject.LastModifiedTime
+		targetObject.VersionId = sourceObject.VersionId
+		if sourceObject.StorageClass == ObjectStorageClassGlacier {
+			err = yig.MetaStorage.UpdateGlacierObjectDeceiver(targetObject, sourceObject)
+			if err != nil {
+				helper.Logger.Error("Copy Object with same source and target with GLACIER object, sql fails:", err)
+				return result, ErrInternalError
+			}
+		} else {
+			err = yig.MetaStorage.ReplaceObjectMetas(targetObject)
+			if err != nil {
+				helper.Logger.Error("Copy Object with same source and target, sql fails:", err)
+				return result, ErrInternalError
+			}
+		}
+
+		result.LastModified = targetObject.LastModifiedTime
+		if targetBucket.Versioning == datatype.BucketVersioningEnabled {
+			result.VersionId = targetObject.VersionId
+		}
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":"+targetObject.VersionId)
+		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.VersionId)
+		return result, nil
+	}
+
+	// Limit the reader to its provided size if specified.
+	var limitedDataReader io.Reader
+	limitedDataReader = io.LimitReader(source, targetObject.Size)
+
+	cephCluster, poolName := yig.pickClusterAndPool(targetObject.BucketName,
+		targetObject.Name, targetObject.StorageClass, targetObject.Size, false)
+
+	if len(targetObject.Parts) != 0 {
+		var targetParts = make(map[int]*meta.Part, len(targetObject.Parts))
+		//		etaglist := make([]string, len(sourceObject.Parts))
+		for i := 1; i <= len(targetObject.Parts); i++ {
+			part := targetObject.Parts[i]
+			targetParts[i] = part
+			result, err = func() (result datatype.PutObjectResult, err error) {
+				pr, pw := io.Pipe()
+				defer pr.Close()
+				var total = part.Size
+				go func() {
+					_, err = io.CopyN(pw, source, total)
+					if err != nil {
+						return
+					}
+					pw.Close()
+				}()
+				md5Writer := md5.New()
+				dataReader := io.TeeReader(pr, md5Writer)
+				var bytesW uint64
+				var storageReader io.Reader
+				var initializationVector []byte
+				if len(encryptionKey) != 0 {
+					initializationVector, err = newInitializationVector()
+					if err != nil {
+						return
+					}
+				}
+				storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
+				throttleReader := yig.MetaStorage.QosMeta.NewThrottleReader(targetBucket.Name, storageReader)
+				defer throttleReader.Close()
+				oid, bytesW, err = cephCluster.Put(poolName, throttleReader)
+				maybeObjectToRecycle = objectToRecycle{
+					location:   cephCluster.ID(),
+					pool:       poolName,
+					objectId:   oid,
+					objectType: meta.ObjectTypeMultipart,
+				}
+				if bytesW < uint64(part.Size) {
+					RecycleQueue <- maybeObjectToRecycle
+					helper.Logger.Error("Copy part", i, "error:", bytesW, part.Size)
+					return result, ErrIncompleteBody
+				}
+				if err != nil {
+					return result, err
+				}
+				calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
+				//we will only chack part etag,overall etag will be same if each part of etag is same
+				if calculatedMd5 != part.Etag {
+					err = ErrInternalError
+					RecycleQueue <- maybeObjectToRecycle
+					return result, err
+				}
+				part.LastModified = time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT)
+				part.ObjectId = oid
+
+				part.InitializationVector = initializationVector
+				return result, nil
+			}()
+			if err != nil {
+				return result, err
+			}
+		}
+		targetObject.ObjectId = ""
+		targetObject.Parts = targetParts
+		result.Md5 = targetObject.Etag
+	} else {
+		md5Writer := md5.New()
+
+		// Mapping a shorter name for the object
+		dataReader := io.TeeReader(limitedDataReader, md5Writer)
+		var storageReader io.Reader
+		var initializationVector []byte
+		if len(encryptionKey) != 0 {
+			initializationVector, err = newInitializationVector()
+			if err != nil {
+				return
+			}
+		}
+		storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
+		if err != nil {
+			return
+		}
+		var bytesWritten uint64
+		throttleReader := yig.MetaStorage.QosMeta.NewThrottleReader(targetBucket.Name, storageReader)
+		defer throttleReader.Close()
+		oid, bytesWritten, err = cephCluster.Put(poolName, throttleReader)
+		if err != nil {
+			return
+		}
+		// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
+		// so the object in Ceph could be removed asynchronously
+		maybeObjectToRecycle = objectToRecycle{
+			location:   cephCluster.ID(),
+			pool:       poolName,
+			objectId:   oid,
+			objectType: meta.ObjectTypeNormal,
+		}
+		if int64(bytesWritten) < targetObject.Size {
+			RecycleQueue <- maybeObjectToRecycle
+			helper.Logger.Error("Copy ", "error:", bytesWritten, targetObject.Size)
+			return result, ErrIncompleteBody
+		}
+
+		calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
+		if calculatedMd5 != targetObject.Etag {
+			RecycleQueue <- maybeObjectToRecycle
+			return result, ErrBadDigest
+		}
+		result.Md5 = calculatedMd5
+		targetObject.ObjectId = oid
+		targetObject.InitializationVector = initializationVector
+	}
+	// TODO validate bucket policy and fancy ACL
+
+	targetObject.Location = cephCluster.ID()
+	targetObject.Pool = poolName
+	targetObject.OwnerId = credential.UserId
+	targetObject.NullVersion = helper.Ternary(targetBucket.Versioning == datatype.BucketVersioningEnabled, false, true).(bool)
+	targetObject.DeleteMarker = false
+	targetObject.SseType = sseRequest.Type
+	targetObject.EncryptionKey = helper.Ternary(sseRequest.Type == crypto.S3.String(),
+		cipherKey, []byte("")).([]byte)
+	targetObject.LastModifiedTime = time.Now().UTC()
+	targetObject.CreateTime = uint64(targetObject.LastModifiedTime.UnixNano())
+	targetObject.VersionId = targetObject.GenVersionId(targetBucket.Versioning)
+
+	err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, true)
+	if err != nil {
+		RecycleQueue <- maybeObjectToRecycle
+		return
+	} else {
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":"+targetObject.VersionId)
+		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.VersionId)
+		if reqCtx.ObjectInfo != nil && reqCtx.BucketInfo.Versioning != datatype.BucketVersioningEnabled {
+			go yig.removeOldObject(reqCtx.ObjectInfo)
+		}
+	}
+
+	return result, nil
+}
+
 func (yig *YigStorage) removeByObject(object *meta.Object) (err error) {
 	err = yig.MetaStorage.DeleteObject(object)
 	if err != nil {
@@ -1015,7 +1223,11 @@ func (yig *YigStorage) removeOldObject(object *meta.Object) (err error) {
 		freezer, err := yig.GetFreezer(object.BucketName, object.Name, object.VersionId)
 		if err == nil {
 			if freezer.Name == object.Name {
-				err = yig.MetaStorage.DeleteFreezer(freezer)
+				if helper.CONFIG.RestoreDeceiverSwitch {
+					err = yig.MetaStorage.DeleteFreezer(freezer, false)
+				} else {
+					err = yig.MetaStorage.DeleteFreezer(freezer, true)
+				}
 				if err != nil {
 					return err
 				}
@@ -1055,7 +1267,11 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 			freezer, err := yig.GetFreezer(objInfo.BucketName, objInfo.Name, objInfo.VersionId)
 			if err == nil {
 				if freezer.Name == objInfo.Name {
-					err = yig.MetaStorage.DeleteFreezer(freezer)
+					if helper.CONFIG.RestoreDeceiverSwitch {
+						err = yig.MetaStorage.DeleteFreezer(freezer, false)
+					} else {
+						err = yig.MetaStorage.DeleteFreezer(freezer, true)
+					}
 					if err != nil {
 						return result, err
 					}
@@ -1233,6 +1449,22 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 		}
 	} // TODO policy and fancy ACL
 
+	if object != nil {
+		if object.StorageClass == ObjectStorageClassGlacier {
+			freezer, err := yig.MetaStorage.GetFreezer(bucketName, objectName, object.VersionId)
+			if err == nil {
+				if helper.CONFIG.RestoreDeceiverSwitch {
+					err = yig.MetaStorage.DeleteFreezer(freezer, false)
+				} else {
+					err = yig.MetaStorage.DeleteFreezer(freezer, true)
+				}
+			} else if err != ErrNoSuchKey {
+				helper.Logger.Warn("DeleteObject err with freezer delete err:", err)
+				return result, err
+			}
+		}
+	}
+
 	switch bucket.Versioning {
 	case datatype.BucketVersioningDisabled:
 		if reqVersion != "" && reqVersion != meta.NullVersion {
@@ -1331,4 +1563,224 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 		}
 	}
 	return result, nil
+}
+
+func (yig *YigStorage) DeleteObjects(reqCtx RequestContext, credential common.Credential,
+	objects []datatype.ObjectIdentifier) (result datatype.DeleteObjectsResult, err error) {
+	bucket := reqCtx.BucketInfo
+	if bucket == nil {
+		return result, ErrNoSuchBucket
+	}
+
+	switch bucket.ACL.CannedAcl {
+	case "public-read-write":
+		break
+	default:
+		if bucket.OwnerId != credential.UserId && credential.UserId != "" {
+			return result, ErrBucketAccessForbidden
+		}
+	} // TODO policy and fancy ACL
+
+	var tx driver.Tx
+	tx, err = yig.MetaStorage.Client.NewTrans()
+	if err != nil {
+		return result, err
+	}
+	defer func() {
+		if err == nil {
+			err = yig.MetaStorage.Client.CommitTrans(tx)
+		}
+		if err != nil {
+			yig.MetaStorage.Client.AbortTrans(tx)
+		}
+	}()
+
+	getFunc := func(o datatype.ObjectIdentifier, tx driver.Tx) (object *meta.Object, err error) {
+		// GetObject
+		bucketName, objectName, version := bucket.Name, o.ObjectName, o.VersionId
+		if version == "null" {
+			version = meta.NullVersion
+		}
+		if bucket.Versioning == datatype.BucketVersioningDisabled {
+			if version != "" && version != meta.NullVersion {
+				return object, ErrInvalidVersioning
+			}
+			object, err = yig.MetaStorage.GetObject(bucketName, objectName, meta.NullVersion, false)
+		} else {
+			object, err = yig.MetaStorage.GetObject(bucketName, objectName, version, false)
+		}
+		return object, err
+	}
+
+	deleteFunc := func(object *meta.Object, tx driver.Tx) (result datatype.DeleteObjectResult, err error) {
+		bucketName, objectName, version := bucket.Name, object.Name, object.VersionId
+
+		if object.StorageClass == ObjectStorageClassGlacier {
+			freezer, err := yig.MetaStorage.GetFreezer(bucketName, objectName, object.VersionId)
+			if err == nil {
+				if helper.CONFIG.RestoreDeceiverSwitch {
+					err = yig.MetaStorage.DeleteFreezer(freezer, false)
+				} else {
+					err = yig.MetaStorage.DeleteFreezer(freezer, true)
+				}
+			} else if err != ErrNoSuchKey {
+				helper.Logger.Warn("DeleteObject err with freezer delete err:", err)
+				return result, err
+			}
+		}
+
+		switch bucket.Versioning {
+		case datatype.BucketVersioningDisabled:
+			if version != "" && version != meta.NullVersion {
+				return result, ErrNoSuchVersion
+			}
+			if object == nil {
+				return result, nil
+			}
+			err = yig.MetaStorage.DeleteObjectWithTx(object, tx)
+			if err != nil {
+				return result, err
+			}
+		case datatype.BucketVersioningEnabled:
+			if version != "" {
+				if object == nil {
+					return result, nil
+				}
+				err = yig.MetaStorage.DeleteObjectWithTx(object, tx)
+				if err != nil {
+					return
+				}
+				if object.DeleteMarker {
+					result.DeleteMarker = true
+				}
+				result.VersionId = object.VersionId
+			} else {
+				// Add delete marker                                    |
+				if object == nil {
+					object = &meta.Object{
+						BucketName: bucketName,
+						Name:       objectName,
+						OwnerId:    bucket.OwnerId,
+					}
+				}
+				object.DeleteMarker = true
+				object.LastModifiedTime = time.Now().UTC()
+				object.CreateTime = uint64(object.LastModifiedTime.UnixNano())
+				object.VersionId = object.GenVersionId(bucket.Versioning)
+				object.Size = int64(len(object.Name))
+				err = yig.MetaStorage.AddDeleteMarker(object)
+				if err != nil {
+					return
+				}
+				result.VersionId = object.VersionId
+				//TODO: develop inherit storage class of bucket？
+			}
+		case datatype.BucketVersioningSuspended:
+			if version != "" {
+				if object == nil {
+					return result, nil
+				}
+				err = yig.MetaStorage.DeleteObjectWithTx(object, tx)
+				if err != nil {
+					return
+				}
+				if object.DeleteMarker {
+					result.DeleteMarker = true
+				}
+				result.VersionId = object.VersionId
+			} else {
+				nullVersionExist := (object != nil)
+				if !nullVersionExist {
+					now := time.Now().UTC()
+					object = &meta.Object{
+						BucketName:       bucketName,
+						Name:             objectName,
+						OwnerId:          bucket.OwnerId,
+						DeleteMarker:     true,
+						LastModifiedTime: now,
+						VersionId:        meta.NullVersion,
+						CreateTime:       uint64(now.UnixNano()),
+						Size:             int64(len(object.Name)),
+					}
+					err = yig.MetaStorage.AddDeleteMarker(object)
+					if err != nil {
+						return
+					}
+				} else {
+					err = yig.MetaStorage.DeleteSuspendedObject(object)
+					if err != nil {
+						return
+					}
+				}
+			}
+		default:
+			helper.Logger.Error("Invalid bucket versioning:", bucketName)
+			return result, ErrInternalError
+		}
+		return result, nil
+	}
+
+	var deleteErrors []datatype.DeleteError
+	var deletedObjects []datatype.ObjectIdentifier
+	var wg = sync.WaitGroup{}
+	for _, o := range objects {
+		wg.Add(1)
+		go func(o datatype.ObjectIdentifier) {
+			object, err := getFunc(o, tx)
+			defer wg.Done()
+			if err != nil && err == ErrNoSuchKey {
+				deletedObjects = append(deletedObjects, datatype.ObjectIdentifier{
+					ObjectName:   o.ObjectName,
+					VersionId:    o.VersionId,
+					DeleteMarker: o.DeleteMarker,
+					DeleteMarkerVersionId: helper.Ternary(o.DeleteMarker,
+						o.VersionId, "").(string),
+				})
+				return
+			}
+			var delResult datatype.DeleteObjectResult
+			if err == nil {
+				delResult, err = deleteFunc(object, tx)
+			}
+			if err == nil {
+				if object.VersionId != "" {
+					yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucket.Name+":"+object.Name+":"+object.VersionId)
+					yig.DataCache.Remove(bucket.Name + ":" + object.Name + ":" + object.VersionId)
+				} else if reqCtx.ObjectInfo != nil {
+					yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucket.Name+":"+object.Name+":"+object.VersionId)
+					yig.DataCache.Remove(bucket.Name + ":" + object.Name + ":" + object.VersionId)
+				}
+				deletedObjects = append(deletedObjects, datatype.ObjectIdentifier{
+					ObjectName:   object.Name,
+					VersionId:    object.VersionId,
+					DeleteMarker: delResult.DeleteMarker,
+					DeleteMarkerVersionId: helper.Ternary(delResult.DeleteMarker,
+						delResult.VersionId, "").(string),
+				})
+			} else {
+				helper.Logger.Error("Unable to delete object:", err)
+				apiErrorCode, ok := err.(ApiErrorCode)
+				if ok {
+					deleteErrors = append(deleteErrors, datatype.DeleteError{
+						Code:      ErrorCodeResponse[apiErrorCode].AwsErrorCode,
+						Message:   ErrorCodeResponse[apiErrorCode].Description,
+						Key:       object.Name,
+						VersionId: object.VersionId,
+					})
+				} else {
+					deleteErrors = append(deleteErrors, datatype.DeleteError{
+						Code:      "InternalError",
+						Message:   "We encountered an internal error, please try again.",
+						Key:       object.Name,
+						VersionId: object.VersionId,
+					})
+				}
+			}
+		}(o)
+	}
+
+	wg.Wait()
+	result.DeletedObjects = deletedObjects
+	result.DeleteErrors = deleteErrors
+	return
 }

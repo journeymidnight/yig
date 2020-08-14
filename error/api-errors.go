@@ -197,8 +197,10 @@ const (
 	ErrMissingSSEAlgorithmOrKMSMasterKeyIDInEncryptionRule
 	ErrInvalidStatus
 	ErrInvalidRestoreInfo
+	ErrInvalidRestoreDate
 	ErrCreateRestoreObject
 	ErrInvalidGlacierObject
+	ErrInvalidStorageClassConversion
 	ErrObjectMovedPermanently
 	ErrObjectMutexProtected
 	ErrRequestLimitExceeded
@@ -944,6 +946,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		Description:    "Defrost parameter setting error.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
+	ErrInvalidRestoreDate: {
+		AwsErrorCode:   "ErrInvalidRestoreDate",
+		Description:    "Wrong defrosting time, valid range 1-30 days.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
 	ErrInvalidGlacierObject: {
 		AwsErrorCode:   "InvalidGlacierObject",
 		Description:    "Glacier objects need to be thawed before this operation can be performed.",
@@ -978,6 +985,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "ErrRequestLimitExceeded",
 		Description:    "Request limit exceeded",
 		HttpStatusCode: http.StatusTooManyRequests,
+	},
+	ErrInvalidStorageClassConversion: {
+		AwsErrorCode:   "ErrInvalidStorageClassConversion",
+		Description:    "Glacier object cannot convert to another storage class.",
+		HttpStatusCode: http.StatusForbidden,
 	},
 }
 

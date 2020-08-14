@@ -148,6 +148,29 @@ func (m *Meta) UpdateGlacierObject(reqCtx RequestContext, targetObject, sourceOb
 	return err
 }
 
+func (m *Meta) UpdateGlacierObjectDeceiver(targetObject, sourceObject *Object) (err error) {
+	var tx Tx
+	tx, err = m.Client.NewTrans()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = m.Client.CommitTrans(tx)
+		}
+		if err != nil {
+			m.Client.AbortTrans(tx)
+		}
+	}()
+	err = m.Client.DeleteFreezer(sourceObject.BucketName, sourceObject.Name, sourceObject.VersionId, sourceObject.Type, sourceObject.CreateTime, tx)
+	if err != nil {
+		return err
+	}
+
+	err = m.Client.ReplaceObjectMetas(targetObject, tx)
+	return err
+}
+
 func (m *Meta) UpdateObjectAcl(object *Object) error {
 	err := m.Client.UpdateObjectAcl(object)
 	return err
@@ -213,6 +236,43 @@ func (m *Meta) DeleteObject(object *Object) (err error) {
 	}
 
 	err = m.Client.PutObjectToGarbageCollection(object, tx)
+	if err != nil {
+		return err
+	}
+
+	return m.Client.UpdateUsage(object.BucketName, -object.Size, tx)
+}
+
+func (m *Meta) DeleteObjectWithTx(object *Object, tx Tx) (err error) {
+	if tx == nil {
+		tx, err := m.Client.NewTrans()
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err == nil {
+				err = m.Client.CommitTrans(tx)
+			}
+			if err != nil {
+				m.Client.AbortTrans(tx)
+			}
+		}()
+	}
+
+	err = m.Client.DeleteObject(object, tx)
+	if err != nil {
+		return err
+	}
+
+	//delete object meta in hotobjects table
+	if object.Type == ObjectTypeAppendable && object.Pool == backend.SMALL_FILE_POOLNAME {
+		err = m.Client.RemoveHotObject(object, tx)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = m.PutObjectToGarbageCollection(object)
 	if err != nil {
 		return err
 	}

@@ -10,6 +10,25 @@ func (m *Meta) CreateFreezer(freezer *types.Freezer) error {
 	return m.Client.CreateFreezer(freezer)
 }
 
+func (m *Meta) CreateFreezerDeceiver(freezer *types.Freezer) error {
+	tx, err := m.Client.NewTrans()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			m.Client.AbortTrans(tx)
+		}
+	}()
+
+	err = m.Client.CreateFreezerWithoutMigrate(freezer, tx)
+	if err != nil {
+		return err
+	}
+
+	return m.Client.CommitTrans(tx)
+}
+
 func (m *Meta) GetFreezer(bucketName string, objectName string, version string) (freezer *types.Freezer, err error) {
 	return m.Client.GetFreezer(bucketName, objectName, version)
 }
@@ -22,7 +41,7 @@ func (m *Meta) UpdateFreezerDate(freezer *types.Freezer) error {
 	return m.Client.UpdateFreezerDate(freezer.BucketName, freezer.Name, freezer.VersionId, freezer.LifeTime)
 }
 
-func (m *Meta) DeleteFreezer(freezer *types.Freezer) (err error) {
+func (m *Meta) DeleteFreezer(freezer *types.Freezer, isGC bool) (err error) {
 	var tx Tx
 	tx, err = m.Client.NewTrans()
 	if err != nil {
@@ -42,9 +61,11 @@ func (m *Meta) DeleteFreezer(freezer *types.Freezer) (err error) {
 		return err
 	}
 
-	err = m.Client.PutFreezerToGarbageCollection(freezer, tx)
-	if err != nil {
-		return err
+	if isGC {
+		err = m.Client.PutFreezerToGarbageCollection(freezer, tx)
+		if err != nil {
+			return err
+		}
 	}
 
 	return err
