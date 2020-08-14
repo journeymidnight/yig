@@ -118,6 +118,36 @@ func Test_Object(t *testing.T) {
 	t.Log("PreSignedGetObject Success.")
 }
 
+func Test_DeleteObjects(t *testing.T) {
+	sc := NewS3()
+	err := sc.MakeBucket(TEST_BUCKET)
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+		panic(err)
+	}
+	defer sc.CleanEnv()
+	key1 := TEST_KEY + "1"
+	key2 := TEST_KEY + "2"
+	err = sc.PutObject(TEST_BUCKET, key1, TEST_VALUE)
+	if err != nil {
+		t.Fatal("PutObject err:", err)
+	}
+	defer sc.DeleteObject(TEST_BUCKET, key1)
+	err = sc.PutObject(TEST_BUCKET, key2, TEST_VALUE)
+	if err != nil {
+		t.Fatal("PutObject err:", err)
+	}
+	defer sc.DeleteObject(TEST_BUCKET, key2)
+	keys := make(map[string]string)
+	keys[key1] = ""
+	keys[key2] = ""
+	err = sc.DeleteObjects(TEST_BUCKET, keys)
+	if err != nil {
+		t.Fatal("DeleteObjects err:", err)
+	}
+	t.Log("DeleteObjects Success.")
+}
+
 func Test_CopyObjectWithoutMD5(t *testing.T) {
 	TEST_COPY_KEY := "COPYED:" + TEST_KEY
 	svc := NewS3WithoutMD5()
