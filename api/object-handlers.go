@@ -481,16 +481,18 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	targetObjectName := reqCtx.ObjectName
 	targetBucket := reqCtx.BucketInfo
 
-	if forbidOverwriteStr, ok := r.Header["X-Uos-Forbid-Overwrite"]; ok {
-		forbidOverwrite, err := strconv.ParseBool(forbidOverwriteStr[0])
-		if err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
-		if forbidOverwrite {
-			if reqCtx.ObjectInfo != nil {
-				WriteErrorResponse(w, r, ErrForbiddenOverwriteKey)
+	if reqCtx.BucketInfo.Versioning == BucketVersioningDisabled {
+		if forbidOverwriteStr, ok := r.Header["X-Uos-Forbid-Overwrite"]; ok {
+			forbidOverwrite, err := strconv.ParseBool(forbidOverwriteStr[0])
+			if err != nil {
+				WriteErrorResponse(w, r, err)
 				return
+			}
+			if forbidOverwrite {
+				if reqCtx.ObjectInfo != nil {
+					WriteErrorResponse(w, r, ErrForbiddenOverwriteKey)
+					return
+				}
 			}
 		}
 	}
@@ -812,16 +814,18 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if forbidOverwriteStr, ok := r.Header["X-Uos-Forbid-Overwrite"]; ok {
-		forbidOverwrite, err := strconv.ParseBool(forbidOverwriteStr[0])
-		if err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
-		if forbidOverwrite {
-			if reqCtx.ObjectInfo != nil {
-				WriteErrorResponse(w, r, ErrForbiddenOverwriteKey)
+	if reqCtx.BucketInfo.Versioning == BucketVersioningDisabled {
+		if forbidOverwriteStr, ok := r.Header["X-Uos-Forbid-Overwrite"]; ok {
+			forbidOverwrite, err := strconv.ParseBool(forbidOverwriteStr[0])
+			if err != nil {
+				WriteErrorResponse(w, r, err)
 				return
+			}
+			if forbidOverwrite {
+				if reqCtx.ObjectInfo != nil {
+					WriteErrorResponse(w, r, ErrForbiddenOverwriteKey)
+					return
+				}
 			}
 		}
 	}
@@ -1447,16 +1451,18 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 		return
 	}
 
-	if forbidOverwriteStr, ok := r.Header["X-Uos-Forbid-Overwrite"]; ok {
-		forbidOverwrite, err := strconv.ParseBool(forbidOverwriteStr[0])
-		if err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
-		if forbidOverwrite {
-			if reqCtx.ObjectInfo != nil {
-				WriteErrorResponse(w, r, ErrForbiddenOverwriteKey)
+	if reqCtx.BucketInfo.Versioning == BucketVersioningDisabled {
+		if forbidOverwriteStr, ok := r.Header["X-Uos-Forbid-Overwrite"]; ok {
+			forbidOverwrite, err := strconv.ParseBool(forbidOverwriteStr[0])
+			if err != nil {
+				WriteErrorResponse(w, r, err)
 				return
+			}
+			if forbidOverwrite {
+				if reqCtx.ObjectInfo != nil {
+					WriteErrorResponse(w, r, ErrForbiddenOverwriteKey)
+					return
+				}
 			}
 		}
 	}
@@ -2065,20 +2071,21 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		WriteErrorResponse(w, r, ErrInvalidObjectName)
 		return
 	}
-	if forbidOverwriteStr, ok := r.Header["X-Uos-Forbid-Overwrite"]; ok {
-		forbidOverwrite, err := strconv.ParseBool(forbidOverwriteStr[0])
-		if err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
-		if forbidOverwrite {
-			if reqCtx.ObjectInfo != nil {
-				WriteErrorResponse(w, r, ErrForbiddenOverwriteKey)
+	if reqCtx.BucketInfo.Versioning == BucketVersioningDisabled {
+		if forbidOverwriteStr, ok := r.Header["X-Uos-Forbid-Overwrite"]; ok {
+			forbidOverwrite, err := strconv.ParseBool(forbidOverwriteStr[0])
+			if err != nil {
+				WriteErrorResponse(w, r, err)
 				return
+			}
+			if forbidOverwrite {
+				if reqCtx.ObjectInfo != nil {
+					WriteErrorResponse(w, r, ErrForbiddenOverwriteKey)
+					return
+				}
 			}
 		}
 	}
-
 	bucket := reqCtx.BucketInfo
 	logger.Info("PostObjectHandler formValues", formValues)
 
