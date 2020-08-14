@@ -1188,13 +1188,8 @@ func (yig *YigStorage) CopyObjectWithRestoreDeceiver(reqCtx RequestContext, targ
 		cipherKey, []byte("")).([]byte)
 	targetObject.LastModifiedTime = time.Now().UTC()
 	targetObject.CreateTime = uint64(targetObject.LastModifiedTime.UnixNano())
-	if isTranStorageClassOnly {
-		targetObject.VersionId = sourceObject.VersionId
-	} else {
-		targetObject.VersionId = targetObject.GenVersionId(targetBucket.Versioning)
-	}
+	targetObject.VersionId = targetObject.GenVersionId(targetBucket.Versioning)
 
-	result.LastModified = targetObject.LastModifiedTime
 	err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, true)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
