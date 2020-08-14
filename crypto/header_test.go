@@ -15,6 +15,7 @@
 package crypto
 
 import (
+	"github.com/journeymidnight/yig/brand"
 	"net/http"
 	"sort"
 	"testing"
@@ -42,13 +43,13 @@ var kmsIsRequestedTests = []struct {
 			"X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id": []string{""},
 		},
 		Expected: true,
-	}, // 5
+	},                                                                                          // 5
 	{Header: http.Header{"X-Amz-Server-Side-Encryption": []string{"AES256"}}, Expected: false}, // 6
 }
 
 func TestKMSIsRequested(t *testing.T) {
 	for i, test := range kmsIsRequestedTests {
-		if got := S3KMS.IsRequested(test.Header); got != test.Expected {
+		if got := S3KMS.IsRequested(test.Header, brand.Brand(&brand.Aws{})); got != test.Expected {
 			t.Errorf("Test %d: Wanted %v but got %v", i, test.Expected, got)
 		}
 	}
@@ -58,16 +59,16 @@ var s3IsRequestedTests = []struct {
 	Header   http.Header
 	Expected bool
 }{
-	{Header: http.Header{"X-Amz-Server-Side-Encryption": []string{"AES256"}}, Expected: true},         // 0
-	{Header: http.Header{"X-Amz-Server-Side-Encryption": []string{"AES-256"}}, Expected: true},        // 1
-	{Header: http.Header{"X-Amz-Server-Side-Encryption": []string{""}}, Expected: true},               // 2
-	{Header: http.Header{"X-Amz-Server-Side-Encryptio": []string{"AES256"}}, Expected: false},         // 3
-	{Header: http.Header{"X-Amz-Server-Side-Encryption": []string{SSEAlgorithmKMS}}, Expected: false}, // 4
+	{Header: http.Header{"X-Amz-Server-Side-Encryption": []string{"AES256"}}, Expected: true},   // 0
+	{Header: http.Header{"X-Amz-Server-Side-Encryption": []string{"AES-256"}}, Expected: true},  // 1
+	{Header: http.Header{"X-Amz-Server-Side-Encryption": []string{""}}, Expected: true},         // 2
+	{Header: http.Header{"X-Amz-Server-Side-Encryptio": []string{"AES256"}}, Expected: false},   // 3
+	{Header: http.Header{"X-Amz-Server-Side-Encryption": []string{"aws:kms"}}, Expected: false}, // 4
 }
 
 func TestS3IsRequested(t *testing.T) {
 	for i, test := range s3IsRequestedTests {
-		if got := S3.IsRequested(test.Header); got != test.Expected {
+		if got := S3.IsRequested(test.Header, brand.Brand(&brand.Aws{})); got != test.Expected {
 			t.Errorf("Test %d: Wanted %v but got %v", i, test.Expected, got)
 		}
 	}
@@ -85,7 +86,7 @@ var s3ParseTests = []struct {
 
 func TestS3Parse(t *testing.T) {
 	for i, test := range s3ParseTests {
-		if err := S3.ParseHTTP(test.Header); err != test.ExpectedErr {
+		if err := S3.ParseHTTP(test.Header, brand.Brand(&brand.Aws{})); err != test.ExpectedErr {
 			t.Errorf("Test %d: Wanted '%v' but got '%v'", i, test.ExpectedErr, err)
 		}
 	}
@@ -127,7 +128,7 @@ var ssecIsRequestedTests = []struct {
 
 func TestSSECIsRequested(t *testing.T) {
 	for i, test := range ssecIsRequestedTests {
-		if got := SSEC.IsRequested(test.Header); got != test.Expected {
+		if got := SSEC.IsRequested(test.Header, brand.Brand(&brand.Aws{})); got != test.Expected {
 			t.Errorf("Test %d: Wanted %v but got %v", i, test.Expected, got)
 		}
 	}
@@ -169,7 +170,7 @@ var ssecCopyIsRequestedTests = []struct {
 
 func TestSSECopyIsRequested(t *testing.T) {
 	for i, test := range ssecCopyIsRequestedTests {
-		if got := SSECopy.IsRequested(test.Header); got != test.Expected {
+		if got := SSECopy.IsRequested(test.Header, brand.Brand(&brand.Aws{})); got != test.Expected {
 			t.Errorf("Test %d: Wanted %v but got %v", i, test.Expected, got)
 		}
 	}
@@ -240,7 +241,7 @@ var ssecParseTests = []struct {
 func TestSSECParse(t *testing.T) {
 	var zeroKey [32]byte
 	for i, test := range ssecParseTests {
-		key, err := SSEC.ParseHTTP(test.Header)
+		key, err := SSEC.ParseHTTP(test.Header, brand.Brand(&brand.Aws{}))
 		if err != test.ExpectedErr {
 			t.Errorf("Test %d: want error '%v' but got '%v'", i, test.ExpectedErr, err)
 		}
@@ -319,7 +320,7 @@ var ssecCopyParseTests = []struct {
 func TestSSECopyParse(t *testing.T) {
 	var zeroKey [32]byte
 	for i, test := range ssecCopyParseTests {
-		key, err := SSECopy.ParseHTTP(test.Header)
+		key, err := SSECopy.ParseHTTP(test.Header, brand.Brand(&brand.Aws{}))
 		if err != test.ExpectedErr {
 			t.Errorf("Test %d: want error '%v' but got '%v'", i, test.ExpectedErr, err)
 		}

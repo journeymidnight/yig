@@ -13,6 +13,7 @@ import (
 	"errors"
 
 	"github.com/journeymidnight/yig/api/datatype"
+	. "github.com/journeymidnight/yig/brand"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
@@ -20,11 +21,6 @@ import (
 
 	//	"net"
 	"strconv"
-)
-
-const (
-	SignV2Algorithm = "AWS"
-	SignV4Algorithm = "AWS4-HMAC-SHA256"
 )
 
 func verifyDate(dateString string) (bool, error) {
@@ -53,17 +49,17 @@ func verifyNotExpires(dateString string) (bool, error) {
 	return true, nil
 }
 
-func buildCanonicalizedAmzHeaders(headers *http.Header) string {
-	var amzHeaders []string
+func buildCanonicalizedAmzHeaders(headers *http.Header, brandName Brand) string {
+	var headerFields []string
 	for k := range *headers {
-		if strings.HasPrefix(strings.ToLower(k), "x-amz-") {
-			amzHeaders = append(amzHeaders, k)
+		if strings.HasPrefix(strings.ToLower(k), strings.ToLower(brandName.GetGeneralFieldFullName(XGeneralName))) {
+			headerFields = append(headerFields, k)
 		}
 	}
-	sort.Strings(amzHeaders)
+	sort.Strings(headerFields)
 	ans := ""
 	// TODO use bytes.Buffer
-	for _, h := range amzHeaders {
+	for _, h := range headerFields {
 		values := (*headers)[h] // Don't use Header.Get() here because we need ALL values
 		ans += strings.ToLower(h) + ":" + strings.Join(values, ",") + "\n"
 	}
@@ -130,7 +126,7 @@ func dictate(secretKey string, stringToSign string, signature []byte) error {
 	return nil
 }
 
-func DoesSignatureMatchV2(r *http.Request) (credential common.Credential, err error) {
+func DoesSignatureMatchV2(r *http.Request, brandName Brand) (credential common.Credential, err error) {
 	authorizationHeader := r.Header.Get("Authorization")
 	splitHeader := strings.Split(authorizationHeader, " ")
 	// Authorization = "AWS" + " " + AWSAccessKeyId + ":" + Signature;
@@ -160,7 +156,7 @@ func DoesSignatureMatchV2(r *http.Request) (credential common.Credential, err er
 	stringToSign += r.Header.Get("Content-Type") + "\n"
 
 	amzDateHeaderIncluded := true
-	date := r.Header.Get("x-amz-date")
+	date := r.Header.Get(brandName.GetGeneralFieldFullName(XDate))
 	if date == "" {
 		amzDateHeaderIncluded = false
 		date = r.Header.Get("Date")
@@ -175,23 +171,22 @@ func DoesSignatureMatchV2(r *http.Request) (credential common.Credential, err er
 	}
 	// "if you include the x-amz-date header, use the empty string for the Date when
 	// constructing the StringToSign."
-	// See http://docs.aws.amazon.com/AmazonS3/latest/dev/RESTAuthentication.html
 	if amzDateHeaderIncluded {
 		stringToSign += "\n"
 	} else {
 		stringToSign += date + "\n"
 	}
 
-	stringToSign += buildCanonicalizedAmzHeaders(&r.Header)
+	stringToSign += buildCanonicalizedAmzHeaders(&r.Header, brandName)
 	stringToSign += buildCanonicalizedResource(r)
 	helper.Logger.Info("stringtosign", stringToSign, credential.SecretAccessKey)
 	helper.Logger.Info("credential", credential.UserId, credential.AccessKeyID, credential.SecretAccessKey)
 	return credential, dictate(credential.SecretAccessKey, stringToSign, signature)
 }
 
-func DoesPresignedSignatureMatchV2(r *http.Request) (credential common.Credential, err error) {
+func DoesPresignedSignatureMatchV2(r *http.Request, brandName Brand) (credential common.Credential, err error) {
 	query := r.URL.Query()
-	accessKey := query.Get("AWSAccessKeyId")
+	accessKey := query.Get(brandName.GetSpecialFieldFullName(AccessKeyId))
 	expires := query.Get("Expires")
 	signatureString := query.Get("Signature")
 
@@ -219,16 +214,16 @@ func DoesPresignedSignatureMatchV2(r *http.Request) (credential common.Credentia
 	stringToSign += r.Header.Get("Content-Md5") + "\n"
 	stringToSign += r.Header.Get("Content-Type") + "\n"
 	stringToSign += expires + "\n"
-	stringToSign += buildCanonicalizedAmzHeaders(&r.Header)
+	stringToSign += buildCanonicalizedAmzHeaders(&r.Header, brandName)
 	stringToSign += buildCanonicalizedResource(r)
 
 	return credential, dictate(credential.SecretAccessKey, stringToSign, signature)
 }
 
-func DoesPolicySignatureMatchV2(formValues map[string]string) (credential common.Credential,
+func DoesPolicySignatureMatchV2(formValues map[string]string, brandName Brand) (credential common.Credential,
 	err error) {
 
-	if accessKey, ok := formValues["AWSAccessKeyId"]; ok {
+	if accessKey, ok := formValues[brandName.GetSpecialFieldFullName(AccessKeyId)]; ok {
 		credential, err = iam.GetCredential(accessKey)
 		if err != nil {
 			return credential, err

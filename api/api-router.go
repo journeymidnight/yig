@@ -49,6 +49,9 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 		bucket.Methods("PUT").Path("/{object:.+}").HandlerFunc(api.CopyObjectPartHandler).
 			Queries("partNumber", "{partNumber:[0-9]+}", "uploadId", "{uploadId:.*}").
 			HeadersRegexp("X-Amz-Copy-Source", ".*?(/).*?")
+		bucket.Methods("PUT").Path("/{object:.+}").HandlerFunc(api.CopyObjectPartHandler).
+			Queries("partNumber", "{partNumber:[0-9]+}", "uploadId", "{uploadId:.*}").
+			HeadersRegexp("X-Uos-Copy-Source", ".*?(/).*?")
 		// PutObjectPart
 		bucket.Methods("PUT").Path("/{object:.+}").HandlerFunc(api.PutObjectPartHandler).
 			Queries("partNumber", "{partNumber:[0-9]+}", "uploadId", "{uploadId:.*}")
@@ -67,8 +70,12 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 		// CopyObject
 		bucket.Methods("PUT").Path("/{object:.+}").HeadersRegexp("X-Amz-Copy-Source", ".*?(/).*?").
 			HandlerFunc(api.CopyObjectHandler)
+		bucket.Methods("PUT").Path("/{object:.+}").HeadersRegexp("X-Uos-Copy-Source", ".*?(/).*?").
+			HandlerFunc(api.CopyObjectHandler)
 		// RenameObject
 		bucket.Methods("PUT").Path("/{object:.+}").HeadersRegexp("X-Amz-Rename-Source-Key", ".*?").
+			HandlerFunc(api.RenameObjectHandler)
+		bucket.Methods("PUT").Path("/{object:.+}").HeadersRegexp("X-Uos-Rename-Source-Key", ".*?").
 			HandlerFunc(api.RenameObjectHandler)
 		// RestoreObject
 		bucket.Methods("POST").Path("/{object:.+}").HandlerFunc(api.RestoreObjectHandler).

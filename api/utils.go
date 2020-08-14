@@ -25,6 +25,7 @@ import (
 	"regexp"
 	"strings"
 
+	. "github.com/journeymidnight/yig/brand"
 	"github.com/journeymidnight/yig/crypto"
 	"github.com/journeymidnight/yig/storage"
 )
@@ -123,6 +124,6 @@ func setXmlHeader(w http.ResponseWriter) {
 
 // hasServerSideEncryptionHeader returns true if the given HTTP header
 // contains server-side-encryption.
-func hasServerSideEncryptionHeader(header http.Header) bool {
-	return crypto.S3.IsRequested(header) || crypto.SSEC.IsRequested(header)
+func hasServerSideEncryptionHeader(header http.Header, brandName Brand) bool {
+	return crypto.S3.IsRequested(header, brandName) || crypto.SSEC.IsRequested(header, brandName)
 }

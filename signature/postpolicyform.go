@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	. "github.com/journeymidnight/yig/brand"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 )
@@ -44,9 +45,11 @@ var startsWithConds = map[string]bool{
 	"$success_action_redirect": true,
 	"$redirect":                true,
 	"$success_action_status":   false,
-	"$x-amz-algorithm":         false,
-	"$x-amz-credential":        false,
-	"$x-amz-date":              false,
+}
+var startsWithXConds = map[GeneralFieldName]bool{
+	XAlgorithm:  false,
+	XCredential: false,
+	XDate:       false,
 }
 
 // Add policy conditionals.
@@ -232,7 +235,7 @@ func checkPolicyCond(op string, input1, input2 string) bool {
 }
 
 // checkPostPolicy - apply policy conditions and validate input values.
-func CheckPostPolicy(formValues map[string]string) error {
+func CheckPostPolicy(formValues map[string]string, brandName Brand) error {
 	/// Decoding policy
 	policyBytes, err := base64.StdEncoding.DecodeString(formValues["Policy"])
 	if err != nil {
@@ -258,6 +261,9 @@ func CheckPostPolicy(formValues map[string]string) error {
 		// Operator for the current policy condition
 		op := policy.Operator
 		// If the current policy condition is known
+		for key, value := range startsWithXConds {
+			startsWithConds["$"+strings.ToLower(brandName.GetGeneralFieldFullName(key))] = value
+		}
 		if startsWithSupported, condFound := startsWithConds[policy.Key]; condFound {
 			// Check if the current condition supports starts-with operator
 			if op == policyCondStartsWith && !startsWithSupported {
@@ -269,8 +275,9 @@ func CheckPostPolicy(formValues map[string]string) error {
 				return fmt.Errorf("Invalid according to Policy: Policy Condition failed")
 			}
 		} else {
-			// This covers all conditions X-Amz-Meta-* and X-Amz-*
-			if strings.HasPrefix(policy.Key, "$x-amz-meta-") || strings.HasPrefix(policy.Key, "$x-amz-") {
+			// This covers all conditions X-***-Meta-* and X-***-*
+			if strings.HasPrefix(policy.Key, "$"+strings.ToLower(brandName.GetGeneralFieldFullName(XMeta))+"-") ||
+				strings.HasPrefix(policy.Key, "$"+strings.ToLower(brandName.GetGeneralFieldFullName(XGeneralName))) {
 				// Check if policy condition is satisfied
 				condPassed = checkPolicyCond(op, formValues[formCanonicalName], policy.Value)
 				if !condPassed {

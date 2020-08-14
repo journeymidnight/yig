@@ -21,20 +21,21 @@ import (
 	"strings"
 	"time"
 
+	. "github.com/journeymidnight/yig/brand"
 	. "github.com/journeymidnight/yig/error"
 	meta "github.com/journeymidnight/yig/meta/types"
 )
 
 // Validates the preconditions for CopyObject, returns nil if validates
 // Preconditions supported are:
-//  x-amz-copy-source-if-modified-since
-//  x-amz-copy-source-if-unmodified-since
-//  x-amz-copy-source-if-match
-//  x-amz-copy-source-if-none-match
-func checkObjectPreconditions(w http.ResponseWriter, r *http.Request, object *meta.Object) error {
-	// x-amz-copy-source-if-modified-since: Return the object only if it has been modified
+//  x-***-copy-source-if-modified-since
+//  x-***-copy-source-if-unmodified-since
+//  x-***-copy-source-if-match
+//  x-***-copy-source-if-none-match
+func checkObjectPreconditions(w http.ResponseWriter, r *http.Request, object *meta.Object, brandName Brand) error {
+	// x-***-copy-source-if-modified-since: Return the object only if it has been modified
 	// since the specified time
-	ifModifiedSinceHeader := r.Header.Get("x-amz-copy-source-if-modified-since")
+	ifModifiedSinceHeader := r.Header.Get(brandName.GetGeneralFieldFullName(XCopySourceIfModifiedSince))
 	if ifModifiedSinceHeader != "" {
 		givenTime, err := time.Parse(http.TimeFormat, ifModifiedSinceHeader)
 		if err != nil {
@@ -46,9 +47,9 @@ func checkObjectPreconditions(w http.ResponseWriter, r *http.Request, object *me
 		}
 	}
 
-	// x-amz-copy-source-if-unmodified-since : Return the object only if it has not been
+	// x-***-copy-source-if-unmodified-since : Return the object only if it has not been
 	// modified since the specified time
-	ifUnmodifiedSinceHeader := r.Header.Get("x-amz-copy-source-if-unmodified-since")
+	ifUnmodifiedSinceHeader := r.Header.Get(brandName.GetGeneralFieldFullName(XCopySourceIfUnmodifiedSince))
 	if ifUnmodifiedSinceHeader != "" {
 		givenTime, err := time.Parse(http.TimeFormat, ifUnmodifiedSinceHeader)
 		if err != nil {
@@ -60,9 +61,9 @@ func checkObjectPreconditions(w http.ResponseWriter, r *http.Request, object *me
 		}
 	}
 
-	// x-amz-copy-source-if-match : Return the object only if its entity tag (ETag) is the
+	// x-***-copy-source-if-match : Return the object only if its entity tag (ETag) is the
 	// same as the one specified
-	ifMatchETagHeader := r.Header.Get("x-amz-copy-source-if-match")
+	ifMatchETagHeader := r.Header.Get(brandName.GetGeneralFieldFullName(XCopySourceIfMatch))
 	if ifMatchETagHeader != "" {
 		if !isETagEqual(object.Etag, ifMatchETagHeader) {
 			// If the object ETag does not match with the specified ETag.
@@ -72,7 +73,7 @@ func checkObjectPreconditions(w http.ResponseWriter, r *http.Request, object *me
 
 	// If-None-Match : Return the object only if its entity tag (ETag) is different from the
 	// one specified
-	ifNoneMatchETagHeader := r.Header.Get("x-amz-copy-source-if-none-match")
+	ifNoneMatchETagHeader := r.Header.Get(brandName.GetGeneralFieldFullName(XCopySourceIfNoneMatch))
 	if ifNoneMatchETagHeader != "" {
 		if isETagEqual(object.Etag, ifNoneMatchETagHeader) {
 			// If the object ETag matches with the specified ETag.

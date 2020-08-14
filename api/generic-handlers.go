@@ -29,15 +29,15 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/backend"
-	"github.com/journeymidnight/yig/meta"
-	"github.com/journeymidnight/yig/meta/types"
-	"github.com/journeymidnight/yig/redis"
-	"github.com/journeymidnight/yig/signature"
-
+	"github.com/journeymidnight/yig/brand"
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
+	"github.com/journeymidnight/yig/meta"
+	"github.com/journeymidnight/yig/meta/types"
+	"github.com/journeymidnight/yig/redis"
+	"github.com/journeymidnight/yig/signature"
 )
 
 // HandlerFunc - useful to chain different middleware http.Handler
@@ -72,17 +72,20 @@ type corsHandler struct {
 }
 
 func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := GetRequestContext(r)
 	w.Header().Add("Vary", "Origin")
 	origin := r.Header.Get("Origin")
 
 	if InReservedOrigins(origin) {
+		for _, value := range CommonS3ResponseXHeaders {
+			CommonS3ResponseHeaders = append(CommonS3ResponseHeaders, strings.ToLower(ctx.BrandType.GetGeneralFieldFullName(value)))
+		}
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Access-Control-Allow-Headers", r.Header.Get("Access-Control-Request-Headers"))
 		w.Header().Set("Access-Control-Allow-Methods", r.Header.Get("Access-Control-Request-Method"))
 		w.Header().Set("Access-Control-Expose-Headers", strings.Join(CommonS3ResponseHeaders, ","))
 	}
 
-	ctx := GetRequestContext(r)
 	bucket := ctx.BucketInfo
 
 	// If bucket CORS exists, overwrite the in-reserved CORS Headers
@@ -113,10 +116,6 @@ func SetCorsHandler(h http.Handler, _ *meta.Meta) http.Handler {
 	return corsHandler{h}
 }
 
-func ContextLogger(r *http.Request) log.Logger {
-	return r.Context().Value(RequestContextKey).(RequestContext).Logger
-}
-
 type RequestIdHandler struct {
 	handler http.Handler
 }
@@ -124,8 +123,10 @@ type RequestIdHandler struct {
 func (h RequestIdHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	requestID := string(helper.GenerateRandomId())
 	logger := helper.Logger.NewWithRequestID(requestID)
+	brandName := brand.DistinguishBrandName(r)
 	ctx := context.WithValue(r.Context(), RequestIdKey, requestID)
 	ctx = context.WithValue(ctx, ContextLoggerKey, logger)
+	ctx = context.WithValue(ctx, brand.BrandNameKey, brandName)
 	h.handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
@@ -148,6 +149,9 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 
 	logger := r.Context().Value(ContextLoggerKey).(log.Logger)
 	reqCtx.Logger = logger
+
+	brandName := brand.GetContextBrand(r)
+	reqCtx.BrandType = brandName
 	reqCtx.VersionId = helper.Ternary(r.URL.Query().Get("versionId") == "null", types.NullVersion, r.URL.Query().Get("versionId")).(string)
 	err := FillBucketAndObjectInfo(&reqCtx, r, h.meta)
 
@@ -156,7 +160,7 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	authType := signature.GetRequestAuthType(r)
+	authType := signature.GetRequestAuthType(r, brandName)
 	if authType == signature.AuthTypeUnknown {
 		WriteErrorResponse(w, r, ErrSignatureVersionNotSupported)
 		return

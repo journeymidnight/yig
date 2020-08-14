@@ -28,7 +28,6 @@ import (
 	"bytes"
 	"crypto/subtle"
 	"encoding/hex"
-	"github.com/journeymidnight/yig/sts"
 	"net/http"
 	"net/url"
 	"sort"
@@ -36,14 +35,11 @@ import (
 	"time"
 
 	. "github.com/journeymidnight/yig/api/datatype"
+	. "github.com/journeymidnight/yig/brand"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/iam/common"
-)
-
-// AWS Signature Version '4' constants.
-const (
-	signV4Algorithm = "AWS4-HMAC-SHA256"
+	"github.com/journeymidnight/yig/sts"
 )
 
 // getSignedHeaders generate a string i.e alphabetically sorted,
@@ -108,31 +104,31 @@ func getCanonicalHeaders(signedHeaders http.Header) string {
 }
 
 // getScope generate a string of a specific date, an AWS region, and a service.
-func getScope(t time.Time, region string) string {
+func getScope(t time.Time, region string, brandName Brand) string {
 	scope := strings.Join([]string{
 		t.Format(YYYYMMDD),
 		region,
 		"s3",
-		"aws4_request",
+		strings.ToLower(brandName.GetSpecialFieldFullName(SignRequest)),
 	}, "/")
 	return scope
 }
 
 // getStringToSign a string based on selected query values.
-func getStringToSign(canonicalRequest string, t time.Time, region string) string {
-	stringToSign := signV4Algorithm + "\n" + t.Format(Iso8601Format) + "\n"
-	stringToSign = stringToSign + getScope(t, region) + "\n"
+func getStringToSign(canonicalRequest string, brandName Brand, t time.Time, region string) string {
+	stringToSign := brandName.GetSpecialFieldFullName(SignV4Algorithm) + "\n" + t.Format(Iso8601Format) + "\n"
+	stringToSign = stringToSign + getScope(t, region, brandName) + "\n"
 	canonicalRequestBytes := sum256([]byte(canonicalRequest))
 	stringToSign = stringToSign + hex.EncodeToString(canonicalRequestBytes[:])
 	return stringToSign
 }
 
 // getSigningKey hmac seed to calculate final signature.
-func getSigningKey(secretKey string, t time.Time, region string) []byte {
-	date := sumHMAC([]byte("AWS4"+secretKey), []byte(t.Format(YYYYMMDD)))
+func getSigningKey(secretKey string, brandName Brand, t time.Time, region string) []byte {
+	date := sumHMAC([]byte(brandName.GetSpecialFieldFullName(SignV4)+secretKey), []byte(t.Format(YYYYMMDD)))
 	regionBytes := sumHMAC(date, []byte(region))
 	service := sumHMAC(regionBytes, []byte("s3"))
-	signingKey := sumHMAC(service, []byte("aws4_request"))
+	signingKey := sumHMAC(service, []byte(strings.ToLower(brandName.GetSpecialFieldFullName(SignRequest))))
 	return signingKey
 }
 
@@ -144,9 +140,9 @@ func getSignature(signingKey []byte, stringToSign string) string {
 // doesPolicySignatureMatch - Verify query headers with post policy
 //     - http://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-HTTPPOSTConstructPolicy.html
 // returns true if matches, false otherwise. if error is not nil then it is always false
-func DoesPolicySignatureMatchV4(formValues map[string]string) (credential common.Credential, err error) {
+func DoesPolicySignatureMatchV4(formValues map[string]string, brandName Brand) (credential common.Credential, err error) {
 	// Parse credential tag.
-	credHeader, err := parseCredential(formValues["X-Amz-Credential"])
+	credHeader, err := parseCredential(formValues[brandName.GetGeneralFieldFullName(XCredential)], brandName)
 	if err != nil {
 		return credential, err
 	}
@@ -158,7 +154,7 @@ func DoesPolicySignatureMatchV4(formValues map[string]string) (credential common
 	}
 
 	// Parse date string.
-	t, e := time.Parse(Iso8601Format, formValues["X-Amz-Date"])
+	t, e := time.Parse(Iso8601Format, formValues[brandName.GetGeneralFieldFullName(XDate)])
 	if e != nil {
 		return credential, ErrMalformedDate
 	}
@@ -168,13 +164,13 @@ func DoesPolicySignatureMatchV4(formValues map[string]string) (credential common
 		return credential, e
 	}
 	// Get signing key.
-	signingKey := getSigningKey(credential.SecretAccessKey, t, region)
+	signingKey := getSigningKey(credential.SecretAccessKey, brandName, t, region)
 
 	// Get signature.
 	newSignature := getSignature(signingKey, formValues["Policy"])
 
 	// Verify signature.
-	if newSignature != formValues["X-Amz-Signature"] {
+	if newSignature != formValues[brandName.GetGeneralFieldFullName(XSignature)] {
 		return credential, ErrSignatureDoesNotMatch
 	}
 	return credential, nil
@@ -183,15 +179,15 @@ func DoesPolicySignatureMatchV4(formValues map[string]string) (credential common
 // doesPresignedSignatureMatch - Verify query headers with presigned signature
 //     - http://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-query-string-auth.html
 // returns true if matches, false otherwise. if error is not nil then it is always false
-func DoesPresignedSignatureMatchV4(r *http.Request,
+func DoesPresignedSignatureMatchV4(r *http.Request, brandName Brand,
 	validateRegion bool) (credential common.Credential, err error) {
 	// Parse request query string.
-	preSignValues, err := parsePreSignV4(r.URL.Query(), r.Header)
+	preSignValues, err := parsePreSignV4(r.URL.Query(), r.Header, brandName)
 	if err != nil {
 		return credential, err
 	}
 
-	if securityToken := r.URL.Query().Get(sts.SecurityTokenHeader); securityToken != "" {
+	if securityToken := r.URL.Query().Get(brandName.GetGeneralFieldFullName(XSecurityToken)); securityToken != "" {
 		credential, err = sts.VerifyToken(preSignValues.Credential.accessKey,
 			securityToken)
 	} else {
@@ -229,10 +225,10 @@ func DoesPresignedSignatureMatchV4(r *http.Request,
 	query := make(url.Values)
 	for k, v := range r.URL.Query() {
 		// Delete queries that is not used to calculate the signature
-		if !strings.HasPrefix(k, "X-Amz") {
+		if !strings.HasPrefix(strings.ToLower(k), strings.ToLower(brandName.GetGeneralFieldFullName(XGeneralName))) {
 			continue
 		}
-		if k == "X-Amz-Signature" {
+		if k == brandName.GetGeneralFieldFullName(XSignature) {
 			continue
 		}
 
@@ -243,10 +239,10 @@ func DoesPresignedSignatureMatchV4(r *http.Request,
 		query.Encode(), r.URL.Path, r.Method)
 
 	// Get string to sign from canonical request.
-	presignedStringToSign := getStringToSign(presignedCanonicalReq, preSignValues.Date, region)
+	presignedStringToSign := getStringToSign(presignedCanonicalReq, brandName, preSignValues.Date, region)
 
 	// Get hmac presigned signing key.
-	presignedSigningKey := getSigningKey(credential.SecretAccessKey, preSignValues.Date, region)
+	presignedSigningKey := getSigningKey(credential.SecretAccessKey, brandName, preSignValues.Date, region)
 
 	// Get new signature.
 	newSignature := getSignature(presignedSigningKey, presignedStringToSign)
@@ -259,15 +255,15 @@ func DoesPresignedSignatureMatchV4(r *http.Request,
 }
 
 // get credential but not verify it, used only for signed v4 auth
-func getCredentialUnverified(r *http.Request) (credential common.Credential, err error) {
+func getCredentialUnverified(r *http.Request, brandName Brand) (credential common.Credential, err error) {
 	v4Auth := r.Header.Get("Authorization")
 
-	signV4Values, err := parseSignV4(v4Auth, r.Header)
+	signV4Values, err := parseSignV4(v4Auth, r.Header, brandName)
 	if err != nil {
 		return credential, err
 	}
 
-	if securityToken := r.Header.Get(sts.SecurityTokenHeader); securityToken != "" {
+	if securityToken := r.Header.Get(brandName.GetGeneralFieldFullName(XSecurityToken)); securityToken != "" {
 		credential, err = sts.VerifyToken(signV4Values.Credential.accessKey,
 			securityToken)
 	} else {
@@ -279,13 +275,13 @@ func getCredentialUnverified(r *http.Request) (credential common.Credential, err
 // doesSignatureMatch - Verify authorization header with calculated header in accordance with
 //     - http://docs.aws.amazon.com/AmazonS3/latest/API/sig-v4-authenticating-requests.html
 // returns true if matches, false otherwise. if error is not nil then it is always false
-func DoesSignatureMatchV4(hashedPayload string, r *http.Request,
+func DoesSignatureMatchV4(hashedPayload string, r *http.Request, brandName Brand,
 	validateRegion bool) (credential common.Credential, err error) {
 	// Save authorization header.
 	v4Auth := r.Header.Get("Authorization")
 
 	// Parse signature version '4' header.
-	signV4Values, err := parseSignV4(v4Auth, r.Header)
+	signV4Values, err := parseSignV4(v4Auth, r.Header, brandName)
 	if err != nil {
 		return credential, err
 	}
@@ -295,7 +291,7 @@ func DoesSignatureMatchV4(hashedPayload string, r *http.Request,
 	// The x-amz-content-sha256 header is required for all AWS Signature Version 4 requests.
 	// It provides a hash of the request payload. If there is no payload, you must provide
 	// the hash of an empty string.
-	hashedPayloadReceived := r.Header.Get("X-Amz-Content-Sha256")
+	hashedPayloadReceived := r.Header.Get(brandName.GetGeneralFieldFullName(XContentSha))
 	if hashedPayloadReceived != "UNSIGNED-PAYLOAD" && hashedPayloadReceived != hashedPayload {
 		return credential, ErrContentSHA256Mismatch
 	}
@@ -316,7 +312,7 @@ func DoesSignatureMatchV4(hashedPayload string, r *http.Request,
 
 	// Extract date, if not present throw error.
 	var date string
-	if date = r.Header.Get("x-amz-date"); date == "" {
+	if date = r.Header.Get(brandName.GetGeneralFieldFullName(XDate)); date == "" {
 		if date = r.Header.Get("Date"); date == "" {
 			return credential, ErrMissingDateHeader
 		}
@@ -339,9 +335,9 @@ func DoesSignatureMatchV4(hashedPayload string, r *http.Request,
 		r.URL.Path, r.Method)
 
 	// Get string to sign from canonical request.
-	stringToSign := getStringToSign(canonicalRequest, t, region)
+	stringToSign := getStringToSign(canonicalRequest, brandName, t, region)
 
-	if securityToken := r.Header.Get(sts.SecurityTokenHeader); securityToken != "" {
+	if securityToken := r.Header.Get(brandName.GetGeneralFieldFullName(XSecurityToken)); securityToken != "" {
 		credential, err = sts.VerifyToken(signV4Values.Credential.accessKey,
 			securityToken)
 	} else {
@@ -351,7 +347,7 @@ func DoesSignatureMatchV4(hashedPayload string, r *http.Request,
 		return credential, err
 	}
 	// Get hmac signing key.
-	signingKey := getSigningKey(credential.SecretAccessKey, t, region)
+	signingKey := getSigningKey(credential.SecretAccessKey, brandName, t, region)
 
 	// Calculate signature.
 	newSignature := getSignature(signingKey, stringToSign)

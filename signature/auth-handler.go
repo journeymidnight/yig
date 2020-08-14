@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"strings"
 
+	. "github.com/journeymidnight/yig/brand"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/iam/common"
 )
@@ -33,15 +34,15 @@ import (
 // Verify if request has AWS Signature
 // for v2, the Authorization header starts with "AWS ",
 // for v4, starts with "AWS4-HMAC-SHA256 " (notice the space after string)
-func isRequestSignature(r *http.Request) (bool, AuthType) {
+func isRequestSignature(r *http.Request, brandName Brand) (bool, AuthType) {
 	if _, ok := r.Header["Authorization"]; ok {
 		if len(r.Header.Get("Authorization")) == 0 {
 			return false, AuthTypeUnknown
 		}
 		header := r.Header.Get("Authorization")
-		if strings.HasPrefix(header, signV4Algorithm+" ") {
+		if strings.HasPrefix(header, brandName.GetSpecialFieldFullName(SignV4Algorithm)+" ") {
 			return true, AuthTypeSignedV4
-		} else if strings.HasPrefix(header, SignV2Algorithm+" ") {
+		} else if strings.HasPrefix(header, brandName.GetSpecialFieldFullName(SignV2Algorithm)+" ") {
 			return true, AuthTypeSignedV2
 		}
 	}
@@ -49,10 +50,10 @@ func isRequestSignature(r *http.Request) (bool, AuthType) {
 }
 
 // Verify if request is AWS presigned
-func isRequestPresigned(r *http.Request) (bool, AuthType) {
-	if _, ok := r.URL.Query()["X-Amz-Credential"]; ok {
+func isRequestPresigned(r *http.Request, brandName Brand) (bool, AuthType) {
+	if _, ok := r.URL.Query()[brandName.GetGeneralFieldFullName(XCredential)]; ok {
 		return true, AuthTypePresignedV4
-	} else if _, ok := r.URL.Query()["AWSAccessKeyId"]; ok {
+	} else if _, ok := r.URL.Query()[brandName.GetSpecialFieldFullName(AccessKeyId)]; ok {
 		return true, AuthTypePresignedV2
 	}
 	return false, AuthTypeUnknown
@@ -72,8 +73,8 @@ func isRequestPostPolicySignature(r *http.Request) bool {
 }
 
 // Verify if the request has AWS Streaming Signature Version '4'. This is only valid for 'PUT' operation.
-func isRequestSignStreamingV4(r *http.Request) bool {
-	return r.Header.Get("X-Amz-Content-Sha256") == streamingContentSHA256 &&
+func isRequestSignStreamingV4(r *http.Request, brandName Brand) bool {
+	return r.Header.Get(brandName.GetGeneralFieldFullName(XContentSha)) == brandName.GetSpecialFieldFullName(StreamingContentSHA256) &&
 		r.Method == http.MethodPut
 }
 
@@ -93,12 +94,12 @@ const (
 )
 
 // Get request authentication type.
-func GetRequestAuthType(r *http.Request) AuthType {
-	if isRequestSignStreamingV4(r) {
+func GetRequestAuthType(r *http.Request, brandName Brand) AuthType {
+	if isRequestSignStreamingV4(r, brandName) {
 		return AuthTypeStreamingSigned
-	} else if isSignature, version := isRequestSignature(r); isSignature {
+	} else if isSignature, version := isRequestSignature(r, brandName); isSignature {
 		return version
-	} else if isPresigned, version := isRequestPresigned(r); isPresigned {
+	} else if isPresigned, version := isRequestPresigned(r, brandName); isPresigned {
 		return version
 	} else if isRequestPostPolicySignature(r) {
 		return AuthTypePostPolicy
@@ -137,17 +138,18 @@ func IsReqAuthenticated(r *http.Request) (c common.Credential, e error) {
 	// Populate back the payload.
 	r.Body = ioutil.NopCloser(bytes.NewReader(payload))
 	validateRegion := false // TODO: Validate region.
-	switch GetRequestAuthType(r) {
+	brandName := GetContextBrand(r)
+	switch GetRequestAuthType(r, brandName) {
 	case AuthTypePresignedV4:
-		return DoesPresignedSignatureMatchV4(r, validateRegion)
+		return DoesPresignedSignatureMatchV4(r, brandName, validateRegion)
 	case AuthTypeSignedV4:
-		return DoesSignatureMatchV4(hex.EncodeToString(sum256(payload)), r, validateRegion)
+		return DoesSignatureMatchV4(hex.EncodeToString(sum256(payload)), r, brandName, validateRegion)
 	case AuthTypePresignedV2:
-		return DoesPresignedSignatureMatchV2(r)
+		return DoesPresignedSignatureMatchV2(r, brandName)
 	case AuthTypeSignedV2:
-		return DoesSignatureMatchV2(r)
+		return DoesSignatureMatchV2(r, brandName)
 	case AuthTypeStreamingSigned:
-		credential, _, _, _, err := CalculateSeedSignature(r)
+		credential, _, _, _, err := CalculateSeedSignature(r, brandName)
 		return credential, err
 	}
 	return c, ErrAccessDenied

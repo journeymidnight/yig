@@ -17,7 +17,7 @@ func (api ObjectAPIHandlers) PutBucketEncryptionHandler(w http.ResponseWriter, r
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
+	switch signature.GetRequestAuthType(r, ctx.BrandType) {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
