@@ -2185,8 +2185,8 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 	if reqCtx.BucketInfo.Versioning == BucketVersioningDisabled {
-		if forbidOverwriteStr, ok := r.Header["X-Uos-Forbid-Overwrite"]; ok {
-			forbidOverwrite, err := strconv.ParseBool(forbidOverwriteStr[0])
+		if forbidOverwriteStr, ok := formValues["X-Uos-Forbid-Overwrite"]; ok {
+			forbidOverwrite, err := strconv.ParseBool(forbidOverwriteStr)
 			if err != nil {
 				WriteErrorResponse(w, r, err)
 				return
