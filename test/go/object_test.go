@@ -28,7 +28,7 @@ func Test_Object(t *testing.T) {
 	//set forbid overwrite
 	out, err := sc.PutObjectWithOverwrite(TEST_BUCKET, TEST_KEY, TEST_VALUE+"-overwrite", true)
 	if err == nil {
-		t.Fatal("Forbid overwrite Failed!",out)
+		t.Fatal("Forbid overwrite Failed!", out)
 	}
 	t.Log("Forbid overwrite Success!", out)
 	t.Log("Forbid overwrite Success!", err)
@@ -72,14 +72,14 @@ func Test_Object(t *testing.T) {
 	t.Log("DeleteObject Success!")
 
 	pbi := &PostObjectInput{
-		Url:        fmt.Sprintf("http://s3.test.com:8080/%s", TEST_BUCKET),
+		Url:        fmt.Sprintf("http://"+Endpoint+"/%s", TEST_BUCKET),
 		Bucket:     TEST_BUCKET,
 		ObjName:    TEST_KEY,
 		Expiration: time.Now().UTC().Add(time.Duration(1 * time.Hour)),
 		Date:       time.Now().UTC(),
 		Region:     "r",
-		AK:         "hehehehe",
-		SK:         "hehehehe",
+		AK:         AccessKey,
+		SK:         SecretKey,
 		FileSize:   1024,
 	}
 
