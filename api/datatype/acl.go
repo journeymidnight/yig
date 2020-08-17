@@ -2,6 +2,7 @@ package datatype
 
 import (
 	"encoding/xml"
+
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 )
@@ -39,6 +40,7 @@ const (
 const (
 	ACL_GROUP_TYPE_ALL_USERS           = "http://acs.amazonaws.com/groups/global/AllUsers"
 	ACL_GROUP_TYPE_AUTHENTICATED_USERS = "http://acs.amazonaws.com/groups/global/AuthenticatedUsers"
+	ACL_GROUP_TYPE_LOG_DELIVERY        = "http://acs.amazonaws.com/groups/s3/LogDelivery"
 )
 
 const (
@@ -51,7 +53,7 @@ const (
 
 type Acl struct {
 	CannedAcl string
-	// TODO fancy ACLs
+	Policy    AccessControlPolicy
 }
 
 type AccessControlPolicy struct {
@@ -70,8 +72,8 @@ type Grant struct {
 
 type Grantee struct {
 	XMLName      xml.Name `xml:"Grantee"`
-	XmlnsXsi     string   `xml:"xmlns:xsi,attr"`
-	XsiType      string   `xml:"http://www.w3.org/2001/XMLSchema-instance type,attr"`
+	XmlnsXsi     string   `xml:"xmlns xsi,attr,omitempty"`
+	XsiType      string   `xml:"http://www.w3.org/2001/XMLSchema-instance type,attr,omitempty"`
 	URI          string   `xml:"URI,omitempty"`
 	ID           string   `xml:"ID,omitempty"`
 	DisplayName  string   `xml:"DisplayName,omitempty"`
@@ -108,6 +110,24 @@ func IsValidCannedAcl(acl Acl) (err error) {
 		return
 	}
 	return
+}
+
+func IsPermissionMatchedById(policy AccessControlPolicy, permission string, userId string) bool {
+	for _, grant := range policy.AccessControlList {
+		if grant.Grantee.ID == userId && grant.Permission == permission {
+			return true
+		}
+	}
+	return false
+}
+
+func IsPermissionMatchedByGroup(policy AccessControlPolicy, permission string, uri string) bool {
+	for _, grant := range policy.AccessControlList {
+		if grant.Grantee.URI == uri && grant.Permission == permission {
+			return true
+		}
+	}
+	return false
 }
 
 // the function will be deleted, because we will use AccessControlPolicy instead canned acl stored in hbase

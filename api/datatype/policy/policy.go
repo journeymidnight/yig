@@ -37,9 +37,9 @@ type Args struct {
 
 // Policy - bucket policy.
 type Policy struct {
-	ID         ID `json:"Id,omitempty"`
-	Version    string
-	Statements []Statement `json:"Statement"`
+	ID         ID          `json:"Id,omitempty"`
+	Version    string      `json:"Version,omitempty"`
+	Statements []Statement `json:"Statement,omitempty"`
 }
 
 type IsPolicyAllowedResult int

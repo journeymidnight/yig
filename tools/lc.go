@@ -1,6 +1,8 @@
 package main
 
 import (
+	"io"
+
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/lifecycle"
 	. "github.com/journeymidnight/yig/context"
@@ -13,7 +15,6 @@ import (
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/storage"
 	"github.com/robfig/cron"
-	"io"
 
 	"os"
 	"os/signal"
@@ -85,7 +86,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 	}
 	bucketLC := bucket.Lifecycle
 
-	ncvRules, cvRules, abortMultipartRules := bucketLC.FilterRulesByNonCurrentVersion()
+	ncvRules, cvRules, abortMultipartRules := bucketLC.FilterRules()
 
 	var reqCtx RequestContext
 	reqCtx.BucketName = bucket.Name
@@ -168,7 +169,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				helper.Logger.Info("After ComputeActionFromNonCurrentVersion:", action, storageClass)
 				// Delete or transition
 				if action == lifecycle.DeleteAction {
-					_, err = yig.DeleteObject(reqCtx, common.Credential{UserId: bucket.OwnerId})
+					_, err = yig.DeleteObject(reqCtx, common.Credential{ExternUserId: bucket.OwnerId, ExternRootId: bucket.OwnerId})
 					if err != nil {
 						helper.Logger.Error(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, err)
 						continue
@@ -277,9 +278,10 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 
 				// process expired object delete marker;
 				// If not set expiredObjectDeleteMarker,pass process
-				if action == lifecycle.DeleteMarkerAction {
+				if action == lifecycle.DeleteVersionAction {
 					reqCtx.VersionId = reqCtx.ObjectInfo.VersionId
-					_, err = yig.DeleteObject(reqCtx, common.Credential{UserId: bucket.OwnerId})
+					helper.Logger.Info("$%$%$%$% deletemarker", reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId)
+					_, err = yig.DeleteObject(reqCtx, common.Credential{ExternUserId: bucket.OwnerId, ExternRootId: bucket.OwnerId})
 					if err != nil {
 						helper.Logger.Error(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, err)
 						continue
@@ -289,7 +291,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				// process expired object
 				if action == lifecycle.DeleteAction {
 					reqCtx.VersionId = ""
-					_, err = yig.DeleteObject(reqCtx, common.Credential{UserId: bucket.OwnerId})
+					_, err = yig.DeleteObject(reqCtx, common.Credential{ExternUserId: bucket.OwnerId, ExternRootId: bucket.OwnerId})
 					if err != nil {
 						helper.Logger.Error(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, err)
 						continue
@@ -330,7 +332,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				return nil
 			}
 			for _, object := range result.Uploads {
-				helper.Logger.Info("Object info:", object, bucket.Name)
+				helper.Logger.Info("Object info:", bucket.Name, object.Key, object.StorageClass, object.Owner, object.UploadId, object.Initiator, object.Initiated)
 
 				lastt, err := time.Parse(time.RFC3339, object.Initiated)
 				if err != nil {
@@ -344,7 +346,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 
 				// process abort object
 				if action == lifecycle.AbortMultipartUploadAction {
-					err = yig.AbortMultipartUpload(reqCtx, common.Credential{UserId: bucket.OwnerId}, object.UploadId)
+					_, err = yig.AbortMultipartUpload(reqCtx, common.Credential{ExternUserId: bucket.OwnerId, ExternRootId: bucket.OwnerId}, object.UploadId)
 					if err != nil {
 						helper.Logger.Error(bucket.Name, object.Key, object.UploadId, err)
 						continue
@@ -377,7 +379,9 @@ func checkObjectOtherVersion(commonPrefix string, reqCtx RequestContext) (bool, 
 	if err != nil {
 		return false, err
 	}
+	helper.Logger.Info("$%$%$%$% len(tempInfo.Objects)", len(tempInfo.Objects))
 	if len(tempInfo.Objects) != 0 && tempInfo.Objects[0].Key == reqCtx.ObjectInfo.Name {
+		helper.Logger.Info("$%$%$%$%", tempInfo.Objects, tempInfo.Objects[0].Key, reqCtx.ObjectInfo.Name)
 		return true, nil
 	} else {
 		return false, nil
@@ -386,8 +390,10 @@ func checkObjectOtherVersion(commonPrefix string, reqCtx RequestContext) (bool, 
 
 func transitionObject(reqCtx RequestContext, storageClass string) (result datatype.PutObjectResult, err error) {
 	sourceObject := reqCtx.ObjectInfo
+	sourceBucket := reqCtx.BucketInfo
 	var credential common.Credential
-	credential.UserId = sourceObject.OwnerId
+	credential.ExternUserId = sourceBucket.OwnerId
+	credential.ExternRootId = sourceBucket.OwnerId
 
 	var sseRequest datatype.SseRequest
 	sseRequest.Type = sourceObject.SseType
@@ -430,6 +436,7 @@ func transitionObject(reqCtx RequestContext, storageClass string) (result dataty
 	// Note that sourceObject and targetObject are pointers
 	targetObject := &meta.Object{}
 	targetObject.ACL = sourceObject.ACL
+	targetObject.OwnerId = sourceObject.OwnerId
 	targetObject.BucketName = sourceObject.BucketName
 	targetObject.Name = sourceObject.Name
 	targetObject.Size = sourceObject.Size
@@ -444,6 +451,7 @@ func transitionObject(reqCtx RequestContext, storageClass string) (result dataty
 	targetObject.StorageClass = targetStorageClass
 	targetObject.CreateTime = sourceObject.CreateTime
 
+	//TODO: change version when glacier transition?
 	result, err = yig.CopyObject(reqCtx, targetObject, sourceObject, pipeReader, credential, sseRequest, isMetadataOnly, true)
 	if err != nil {
 		return result, err

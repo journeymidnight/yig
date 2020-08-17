@@ -1,31 +1,39 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 	"time"
+
+	iam "github.com/journeymidnight/yig/iam/common"
+
+	"github.com/journeymidnight/yig/meta/common"
 
 	. "github.com/journeymidnight/yig/context"
 
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/meta"
-	bus "github.com/journeymidnight/yig/mq"
 )
 
 type ResponseRecorder struct {
 	http.ResponseWriter
 	status        int
 	size          int64
-	operationName string
+	operationName Operation
 	serverCost    time.Duration
 	requestTime   time.Duration
 	errorCode     string
 
-	storageClass       string
 	targetStorageClass string
 	bucketLogging      bool
 	cdn_request        bool
+
+	// StorageClass -> deltaSize
+	deltaSizeInfo map[common.StorageClass]int64
+	// record unexpired STANDARD_IA and GLACIER infos when handle DeleteObjects
+	unexpiredObjectsInfo []common.UnexpiredTriple
+
+	credential *iam.Credential
 }
 
 const timeLayoutStr = "2006-01-02 15:04:05"
@@ -34,6 +42,7 @@ func NewResponseRecorder(w http.ResponseWriter) *ResponseRecorder {
 	return &ResponseRecorder{
 		ResponseWriter: w,
 		status:         http.StatusOK,
+		deltaSizeInfo:  make(map[common.StorageClass]int64),
 	}
 }
 
@@ -66,28 +75,6 @@ func (a AccessLogHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		objectLastModifiedTime := ctx.ObjectInfo.LastModifiedTime.Format(timeLayoutStr)
 		elems["last_modified_time"] = objectLastModifiedTime
 	}
-	a.notify(elems)
-}
-
-func (a AccessLogHandler) notify(elems map[string]string) {
-	if len(elems) == 0 {
-		return
-	}
-	val, err := helper.MsgPackMarshal(elems)
-	if err != nil {
-		helper.Logger.Error("Failed to pack", elems, "err:", err)
-		return
-	}
-
-	err = bus.MsgSender.AsyncSend(val)
-	if err != nil {
-		helper.Logger.Error(
-			fmt.Sprintf("Failed to send message [%v] to message queue, err: %v",
-				elems, err))
-		return
-	}
-	helper.Logger.Info(fmt.Sprintf("Succeed to send message [%v] to message queue.",
-		elems))
 }
 
 func NewAccessLogHandler(handler http.Handler, _ *meta.Meta) http.Handler {
@@ -97,5 +84,32 @@ func NewAccessLogHandler(handler http.Handler, _ *meta.Meta) http.Handler {
 	return AccessLogHandler{
 		handler: handler,
 		format:  format,
+	}
+}
+
+func SetOperationName(w http.ResponseWriter, name Operation) {
+	if w, ok := w.(*ResponseRecorder); ok {
+		w.operationName = name
+	}
+}
+
+func SetDeltaSize(w http.ResponseWriter, storageClass common.StorageClass, delta int64) {
+	if w, ok := w.(*ResponseRecorder); ok {
+		w.deltaSizeInfo[storageClass] = common.CorrectDeltaSize(storageClass, delta)
+	}
+}
+
+func SetCredential(w http.ResponseWriter, credential *iam.Credential) {
+	if w, ok := w.(*ResponseRecorder); ok {
+		w.credential = credential
+	}
+}
+
+func SetUnexpiredInfo(w http.ResponseWriter, info []common.UnexpiredTriple) {
+	if len(info) == 0 {
+		return
+	}
+	if w, ok := w.(*ResponseRecorder); ok {
+		w.unexpiredObjectsInfo = info
 	}
 }

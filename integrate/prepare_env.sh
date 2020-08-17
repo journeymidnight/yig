@@ -27,5 +27,3 @@ docker cp yig.sql mysql:/yig.sql
 prepare_mysql
 echo "creating TiDB db..."
 prepare_tidb
-echo "creating Vault..."
-prepare_vault

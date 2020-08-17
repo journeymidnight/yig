@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-redis/redis_rate/v8"
+
 	"github.com/bsm/redislock"
 	"github.com/cep21/circuit"
 	"github.com/go-redis/redis/v7"
@@ -24,6 +26,7 @@ type Redis interface {
 	Get(table RedisDatabase, key string,
 		unmarshal func([]byte) (interface{}, error)) (interface{}, error)
 	Remove(table RedisDatabase, key string) error
+	RemoveLock(key string)
 
 	// Get Usages
 	// `start` and `end` are inclusive
@@ -45,14 +48,20 @@ type Redis interface {
 
 var RedisConn Redis
 var RedisClient redislock.RedisClient
+var QosLimiter *redis_rate.Limiter
 var Locker *redislock.Client
 
 const (
 	InvalidQueueName = "InvalidQueue"
 	keyvalue         = "000102030405060708090A0B0C0D0E0FF0E0D0C0B0A090807060504030201000" // This is the key for hash sum !
+	RESTOREINFO      = "Restore:"
 )
 
 type RedisDatabase int
+
+func RemoveLock(key string) {
+	RedisConn.RemoveLock(key)
+}
 
 func (r RedisDatabase) String() string {
 	return strconv.Itoa(int(r))
@@ -75,6 +84,10 @@ var DataTables = []RedisDatabase{FileTable}
 
 func GenMutexKey(object *types.Object) string {
 	return object.BucketName + ":" + object.ObjectId + ":" + object.VersionId
+}
+
+func GenMutexKeyForRestore(freezer *types.Freezer) string {
+	return RESTOREINFO + freezer.BucketName + ":" + freezer.Name + ":" + freezer.VersionId
 }
 
 func Initialize() {
@@ -116,6 +129,7 @@ func InitializeSingle() interface{} {
 	cb = circuitbreak.NewCacheCircuit()
 	client = redis.NewClient(options)
 	RedisClient = client
+	QosLimiter = redis_rate.NewLimiter(client)
 	r := &SingleRedis{
 		client:  client,
 		circuit: cb,
@@ -344,6 +358,13 @@ func (s *SingleRedis) Check() {
 	}
 }
 
+func (s *SingleRedis) RemoveLock(key string) {
+	_, err := s.client.Del(key).Result()
+	if err != nil {
+		helper.Logger.Error("Failed to delete redis object", err)
+	}
+}
+
 type ClusterRedis struct {
 	cluster *redis.ClusterClient
 	circuit *circuit.Circuit
@@ -358,6 +379,7 @@ func InitializeCluster() interface{} {
 		ReadTimeout:  time.Duration(helper.CONFIG.RedisReadTimeout) * time.Second,
 		WriteTimeout: time.Duration(helper.CONFIG.RedisWriteTimeout) * time.Second,
 		IdleTimeout:  time.Duration(helper.CONFIG.RedisPoolIdleTimeout) * time.Second,
+		MinIdleConns: helper.CONFIG.RedisMinIdleConns,
 	}
 
 	if helper.CONFIG.RedisPassword != "" {
@@ -367,6 +389,7 @@ func InitializeCluster() interface{} {
 	cb = circuitbreak.NewCacheCircuit()
 	cluster = redis.NewClusterClient(clusterRedis)
 	RedisClient = cluster
+	QosLimiter = redis_rate.NewLimiter(client)
 	r := &ClusterRedis{
 		cluster: cluster,
 		circuit: cb,
@@ -394,7 +417,7 @@ func (c *ClusterRedis) Set(table RedisDatabase, key string, value interface{}) e
 				return err
 			}
 			// Use table.String() + hashkey as Redis key
-			r, err := conn.Set(table.String()+hashkey, string(encodedValue), 30*time.Second).Result()
+			r, err := conn.Set(table.String()+hashkey, string(encodedValue), time.Duration(helper.CONFIG.MetaCacheTTL)*time.Second).Result()
 			if err == redis.Nil {
 				return nil
 			}
@@ -578,6 +601,13 @@ func (c *ClusterRedis) Check() {
 	)
 	if c.circuit.IsOpen() {
 		helper.Logger.Warn(circuitbreak.CacheCircuitIsOpenErr)
+	}
+}
+
+func (c *ClusterRedis) RemoveLock(key string) {
+	_, err := c.cluster.Del(key).Result()
+	if err != nil {
+		helper.Logger.Error("Failed to delete redis object", err)
 	}
 }
 

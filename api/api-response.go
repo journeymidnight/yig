@@ -66,8 +66,8 @@ func GenerateListBucketsResponse(buckets []meta.Bucket, credential common.Creden
 	var data = ListBucketsResponse{}
 	var owner = Owner{}
 
-	owner.ID = credential.UserId
-	owner.DisplayName = credential.DisplayName
+	owner.ID = credential.ExternRootId
+	owner.DisplayName = credential.ExternRootName
 
 	for _, bucket := range buckets {
 		var listbucket = Bucket{}
@@ -259,6 +259,14 @@ func WriteErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
 		releaseErr := reqCtx.Mutex.Release()
 		helper.Logger.Info("Release redis lock ", reqCtx.BucketName, reqCtx.ObjectName, reqCtx.ObjectInfo.ObjectId, reqCtx.RequestID, releaseErr)
 	}
+	handled := WriteErrorResponseHeaders(w, r, err)
+	if !handled {
+		WriteErrorResponseNoHeader(w, r, err, r.URL.Path)
+	}
+}
+
+// writeErrorResponse write error headers
+func WriteErrorResponseWithoutContext(w http.ResponseWriter, r *http.Request, err error) {
 	handled := WriteErrorResponseHeaders(w, r, err)
 	if !handled {
 		WriteErrorResponseNoHeader(w, r, err, r.URL.Path)

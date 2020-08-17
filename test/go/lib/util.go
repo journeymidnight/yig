@@ -14,13 +14,13 @@ import (
 )
 
 func GenTestObjectUrl(sc *S3Client) string {
-	return "http://" + *sc.Client.Config.Endpoint + string(os.PathSeparator) + TEST_BUCKET + string(os.PathSeparator) + TEST_KEY
+	return "http://" + *sc.Client.Config.Endpoint + string(os.PathSeparator) + TestBucket + string(os.PathSeparator) + TestKey
 }
 
 func GenTestSpecialCharaterObjectUrl(sc *S3Client) string {
-	urlchange := url.QueryEscape(TEST_KEY_SPECIAL)
+	urlchange := url.QueryEscape(TestKeySpecial)
 	urlchange = strings.Replace(urlchange, "+", "%20", -1)
-	return "http://" + *sc.Client.Config.Endpoint + string(os.PathSeparator) + TEST_BUCKET + string(os.PathSeparator) + urlchange
+	return "http://" + *sc.Client.Config.Endpoint + string(os.PathSeparator) + TestBucket + string(os.PathSeparator) + urlchange
 }
 
 func TransferToS3AccessLifecycleConfiguration(config *lifecycle.Lifecycle) (lc *s3.BucketLifecycleConfiguration) {
@@ -147,8 +147,8 @@ func TransferToS3AccessRestoreRequest(config *datatype.Restore) (s3RestoreConfig
 }
 
 func (sc *S3Client) CleanEnv() {
-	sc.DeleteObject(TEST_BUCKET, TEST_KEY)
-	sc.DeleteBucket(TEST_BUCKET)
+	sc.DeleteObject(TestBucket, TestKey)
+	sc.DeleteBucket(TestBucket)
 }
 
 type AccessPolicyGroup struct {
@@ -160,17 +160,17 @@ type AccessPolicyGroup struct {
 type HTTPRequestToGetObjectType func(url string, requestCondition string) (status int, val []byte, err error)
 
 func (sc *S3Client) TestAnonymousAccessResult(policyGroup AccessPolicyGroup, resultCode int) (err error) {
-	err = sc.PutBucketPolicy(TEST_BUCKET, policyGroup.BucketPolicy)
+	err = sc.PutBucketPolicy(TestBucket, policyGroup.BucketPolicy)
 	if err != nil {
 		return
 	}
 
-	err = sc.PutBucketAcl(TEST_BUCKET, policyGroup.BucketACL)
+	err = sc.PutBucketAcl(TestBucket, policyGroup.BucketACL)
 	if err != nil {
 		return
 	}
 
-	err = sc.PutObjectAcl(TEST_BUCKET, TEST_KEY, policyGroup.ObjectACL)
+	err = sc.PutObjectAcl(TestBucket, TestKey, policyGroup.ObjectACL)
 	if err != nil {
 		return
 	}
@@ -185,17 +185,17 @@ func (sc *S3Client) TestAnonymousAccessResult(policyGroup AccessPolicyGroup, res
 
 func (sc *S3Client) TestAnonymousAccessResultWithPolicyCondition(policyGroup AccessPolicyGroup, resultCode int,
 	requestCondition string, HTTPRequestToGetObject HTTPRequestToGetObjectType) (err error) {
-	err = sc.PutBucketAcl(TEST_BUCKET, policyGroup.BucketACL)
+	err = sc.PutBucketAcl(TestBucket, policyGroup.BucketACL)
 	if err != nil {
 		return
 	}
 
-	err = sc.PutObjectAcl(TEST_BUCKET, TEST_KEY, policyGroup.ObjectACL)
+	err = sc.PutObjectAcl(TestBucket, TestKey, policyGroup.ObjectACL)
 	if err != nil {
 		return
 	}
 
-	err = sc.PutBucketPolicy(TEST_BUCKET, policyGroup.BucketPolicy)
+	err = sc.PutBucketPolicy(TestBucket, policyGroup.BucketPolicy)
 	if err != nil {
 		return
 	}

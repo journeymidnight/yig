@@ -11,6 +11,6 @@ const (
 )
 
 var (
-	XXTEA_KEY         = []byte("hehehehe")
+	//XXTEA_KEY         = []byte("hehehehe")
 	SSE_S3_MASTER_KEY = []byte("hehehehehehehehehehehehehehehehe") // 32 bytes to select AES-256
 )

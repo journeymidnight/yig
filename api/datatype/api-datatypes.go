@@ -19,6 +19,8 @@ package datatype
 import (
 	"encoding/xml"
 	"time"
+
+	"github.com/journeymidnight/yig/meta/common"
 )
 
 const (
@@ -314,6 +316,7 @@ type PutObjectResult struct {
 	Md5          string
 	VersionId    string
 	LastModified time.Time
+	DeltaInfo    map[common.StorageClass]int64
 }
 
 type RenameObjectResult struct {
@@ -328,6 +331,14 @@ type AppendObjectResult struct {
 type DeleteObjectResult struct {
 	DeleteMarker bool
 	VersionId    string
+	DeltaSize    DeltaSizeInfo
+}
+
+type DeleteObjectsResult struct {
+	DeleteErrors   []DeleteError
+	DeletedObjects []ObjectIdentifier
+	DeltaResult    []int64
+	UnexpiredInfo  []common.UnexpiredTriple
 }
 
 type PutObjectPartResult struct {
@@ -336,6 +347,8 @@ type PutObjectPartResult struct {
 	SseAwsKmsKeyIdBase64    string
 	SseCustomerAlgorithm    string
 	SseCustomerKeyMd5Base64 string
+	LastModified            time.Time
+	DeltaSize               DeltaSizeInfo
 }
 
 type CompleteMultipartResult struct {
@@ -345,6 +358,11 @@ type CompleteMultipartResult struct {
 	SseAwsKmsKeyIdBase64    string
 	SseCustomerAlgorithm    string
 	SseCustomerKeyMd5Base64 string
+}
+
+type DeltaSizeInfo struct {
+	StorageClass common.StorageClass
+	Delta        int64
 }
 
 type SseRequest struct {

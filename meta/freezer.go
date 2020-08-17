@@ -3,6 +3,8 @@ package meta
 import (
 	. "database/sql/driver"
 
+	"github.com/journeymidnight/yig/meta/common"
+
 	"github.com/journeymidnight/yig/meta/types"
 )
 
@@ -42,10 +44,52 @@ func (m *Meta) DeleteFreezer(freezer *types.Freezer) (err error) {
 		return err
 	}
 
-	err = m.Client.PutFreezerToGarbageCollection(freezer, tx)
+	err = m.PutFreezerToGarbageCollection(freezer)
 	if err != nil {
 		return err
 	}
 
 	return err
+}
+
+func (m *Meta) PutFreezer(freezer *types.Freezer, status common.RestoreStatus) error {
+	tx, err := m.Client.NewTrans()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			m.Client.AbortTrans(tx)
+		}
+	}()
+
+	err = m.Client.PutFreezer(freezer, status, tx)
+	if err != nil {
+		return err
+	}
+
+	return m.Client.CommitTrans(tx)
+}
+
+func (m *Meta) DeleteFreezerWithoutCephObject(bucketName, objectName, version string, freezerType types.ObjectType, createTime uint64) (err error) {
+	var tx Tx
+	tx, err = m.Client.NewTrans()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			err = m.Client.CommitTrans(tx)
+		}
+		if err != nil {
+			m.Client.AbortTrans(tx)
+		}
+	}()
+
+	err = m.Client.DeleteFreezer(bucketName, objectName, version, freezerType, createTime, tx)
+	if err != nil {
+		return err
+	}
+
+	return
 }

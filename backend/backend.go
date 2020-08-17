@@ -33,6 +33,8 @@ type Cluster interface {
 		offset int64, length uint64) (io.ReadCloser, error)
 	// remove an object
 	Remove(poolName, objectName string) error
+	// close the cluster client
+	Close()
 }
 
 // Backend plugins should implement this interface

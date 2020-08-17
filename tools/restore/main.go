@@ -9,66 +9,37 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/journeymidnight/yig-restore/compression"
-	"github.com/journeymidnight/yig-restore/helper"
-	"github.com/journeymidnight/yig-restore/log"
-	"github.com/journeymidnight/yig-restore/plugins/config"
-	"github.com/journeymidnight/yig-restore/redis"
-	"github.com/journeymidnight/yig-restore/restore"
-	"github.com/journeymidnight/yig-restore/storage"
+	"github.com/journeymidnight/yig/meta"
+
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/log"
+	"github.com/journeymidnight/yig/storage"
 )
 
-var (
-	AllPluginMap map[string]*config.YigPlugin
-)
+const DefaultRestoreLog = "/var/log/yig/restore.log"
 
 func main() {
 	rand.Seed(time.Now().UnixNano())
 
 	// Load configuration files
-	helper.ReadConfig()
+	helper.SetupConfig()
 
 	// yig log
-	logLevel := log.ParseLevel(helper.Conf.LogLevel)
-	helper.Logger = log.NewFileLogger(helper.Conf.LogPath, logLevel)
+	logLevel := log.ParseLevel(helper.CONFIG.LogLevel)
+	helper.Logger = log.NewFileLogger(DefaultRestoreLog, logLevel)
 	defer helper.Logger.Close()
-	helper.Logger.Info("Yig-Restore conf:", helper.Conf)
-	helper.Logger.Info("Yig-Restore ID:", helper.Conf.InstanceId)
 
-	// Read all *.so from plugins directory, and fill the variable allPlugins
-	AllPluginMap = config.InitialPlugins()
-	if helper.Conf.EnableCompression == true {
-		compress, err := compression.InitCompression(AllPluginMap)
-		if err != nil {
-			helper.Logger.Error("Failed to create compression unis, err:", err)
-			panic("failed to create compression unis")
-		}
-		if compress == nil {
-			helper.Logger.Error("Failed to create compression unis, unis is nil.")
-			panic("failed to create compression unis, unis is nil.")
-		}
-		helper.Logger.Info("Succeed to create compression unis.")
-	}
+	yig := storage.New(int(meta.NoCache), false, nil)
 
-	// Initialize redis connection
-	redis.Initialize()
-	defer redis.Close()
-
-	yig := storage.New()
-	restoreServer := &restore.ServerConfig{
-		Logger:      helper.Logger,
-		Helper:      helper.Conf,
-		ObjectLayer: yig,
-	}
-	go restore.Restore(*restoreServer)
+	go Restore(yig)
 
 	signal.Ignore()
-	restore.SignalQueue = make(chan os.Signal)
-	restore.ShutDown = make(chan bool)
-	signal.Notify(restore.SignalQueue, syscall.SIGINT, syscall.SIGTERM,
+	SignalQueue = make(chan os.Signal)
+	ShutDown = make(chan bool)
+	signal.Notify(SignalQueue, syscall.SIGINT, syscall.SIGTERM,
 		syscall.SIGQUIT, syscall.SIGHUP, syscall.SIGUSR1)
 	for {
-		s := <-restore.SignalQueue
+		s := <-SignalQueue
 		switch s {
 		case syscall.SIGHUP:
 			fmt.Print("Recieve signal SIGHUP")
@@ -78,16 +49,16 @@ func main() {
 			go DumpStacks()
 			break
 		case syscall.SIGQUIT:
-			restore.ShutDown <- true
-			restore.Crontab.Stop()
-			restore.WG.Wait()
+			ShutDown <- true
+			Crontab.Stop()
+			WG.Wait()
 			fmt.Print("Recieve signal:", s.String())
 			fmt.Print("Stop yig restore...")
 			return
 		default:
-			restore.ShutDown <- true
-			restore.Crontab.Stop()
-			restore.WG.Wait()
+			ShutDown <- true
+			Crontab.Stop()
+			WG.Wait()
 			fmt.Print("Recieve signal:", s.String())
 			fmt.Print("Stop yig restore...")
 			return

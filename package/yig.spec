@@ -13,7 +13,7 @@ URL:		http://github.com/journeymidnight/yig
 Source0:	%{name}-%{version}-%{rel}.tar.gz
 BuildRoot:	%(mktemp -ud %{_tmppath}/%{name}-%{version}-%{release}-XXXXXX)
 #BuildRequires:  
-Requires:       libradosstriper1,librados2,librdkafka1
+Requires:       libradosstriper1,librados2
 
 %description
 
@@ -31,20 +31,17 @@ make build_internal
 %install
 rm -rf %{buildroot}
 install -D -m 755 admin %{buildroot}%{_bindir}/yig_admin
-install -D -m 755 delete %{buildroot}%{_bindir}/yig_delete_daemon
 install -D -m 755 getrediskeys %{buildroot}%{_bindir}/yig_getrediskeys
 install -D -m 755 lc     %{buildroot}%{_bindir}/yig_lifecycle_daemon
-install -D -m 755 migrate     %{buildroot}%{_bindir}/yig_migrate_daemon
+install -D -m 755 yig-restore     %{buildroot}%{_bindir}/yig-restore
 install -D -m 755 %{_builddir}/yig/yig %{buildroot}%{_bindir}/yig
 install -D -m 644 package/yig.logrotate %{buildroot}/etc/logrotate.d/yig.logrotate
 install -D -m 644 package/access.logrotate %{buildroot}/etc/logrotate.d/access.logrotate
-install -D -m 644 package/yig_delete.logrotate %{buildroot}/etc/logrotate.d/yig_delete.logrotate
 install -D -m 644 package/yig_lc.logrotate %{buildroot}/etc/logrotate.d/yig_lc.logrotate
-install -D -m 644 package/yig_migrate.logrotate %{buildroot}/etc/logrotate.d/yig_migrate.logrotate
+install -D -m 644 package/yig_restore.logrotate %{buildroot}/etc/logrotate.d/yig_restore.logrotate
 install -D -m 644 package/yig.service   %{buildroot}/usr/lib/systemd/system/yig.service
-install -D -m 644 package/yig_delete.service   %{buildroot}/usr/lib/systemd/system/yig_delete.service
 install -D -m 644 package/yig_lc.service   %{buildroot}/usr/lib/systemd/system/yig_lc.service
-install -D -m 644 package/yig_migrate.service %{buildroot}/usr/lib/systemd/system/yig_migrate.service
+install -D -m 644 package/yig_restore.service %{buildroot}/usr/lib/systemd/system/yig_restore.service
 install -D -m 644 conf/yig.toml %{buildroot}%{_sysconfdir}/yig/yig.toml
 install -d %{buildroot}%{_sysconfdir}/yig/plugins/
 cp -a plugins/*.so %{buildroot}%{_sysconfdir}/yig/plugins/
@@ -54,10 +51,8 @@ install -d %{buildroot}/var/log/yig/
 
 %post
 systemctl enable yig
-systemctl enable yig_delete
 systemctl enable yig_lc
-systemctl enable yig_migrate
-
+systemctl enable yig-restore
 
 %preun
 
@@ -70,20 +65,16 @@ rm -rf %{buildroot}
 /etc/yig/plugins/*
 /usr/bin/yig_admin
 /usr/bin/yig
-/usr/bin/yig_delete_daemon
 /usr/bin/yig_getrediskeys
 /usr/bin/yig_lifecycle_daemon
-/usr/bin/yig_migrate_daemon
+/usr/bin/yig-restore
 /etc/logrotate.d/yig.logrotate
 /etc/logrotate.d/access.logrotate
-/etc/logrotate.d/yig_delete.logrotate
 /etc/logrotate.d/yig_lc.logrotate
-/etc/logrotate.d/yig_migrate.logrotate
+/etc/logrotate.d/yig_restore.logrotate
 %dir /var/log/yig/
 /usr/lib/systemd/system/yig.service
-/usr/lib/systemd/system/yig_delete.service
 /usr/lib/systemd/system/yig_lc.service
-/usr/lib/systemd/system/yig_migrate.service
-
+/usr/lib/systemd/system/yig_restore.service
 
 %changelog

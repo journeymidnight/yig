@@ -20,8 +20,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/journeymidnight/yig/meta/common"
+
 	. "github.com/journeymidnight/yig/context"
 	"github.com/journeymidnight/yig/helper"
+
+	"gopkg.in/bufio.v1"
 )
 
 const (
@@ -29,7 +33,7 @@ const (
 		"{object_size} {requester_id} {project_id} {remote_addr} {http_x_real_ip} {request_length} {server_cost} " +
 		"{request_time} {http_status} {error_code} {body_bytes_sent} {http_referer} {http_user_agent}"
 
-	BillingLogFormat = "{is_private_subnet} {storage_class} {target_storage_class} {bucket_logging} {cdn_request}"
+	BillingLogFormat = "{is_private_subnet} {storage_class} {target_storage_class} {bucket_logging} {cdn_request} {region_id} {create_time} {delta_size} {unexpired_objects_info}"
 )
 
 // Replacer is a type which can replace placeholder
@@ -174,10 +178,16 @@ func (r *replacer) getSubstitution(key string) string {
 	case "{request_id}":
 		return GetRequestContext(r.request).RequestID
 	case "{operation_name}":
-		return r.responseRecorder.operationName
+		if r.responseRecorder.operationName == "" {
+			return "-"
+		}
+		return string(r.responseRecorder.operationName)
 	case "{host_name}":
 		return r.request.Host
 	case "{region_id}":
+		if helper.CONFIG.Region == "" {
+			return "-"
+		}
 		return helper.CONFIG.Region
 	case "{bucket_name}":
 		bucketName := GetRequestContext(r.request).BucketName
@@ -204,10 +214,13 @@ func (r *replacer) getSubstitution(key string) string {
 		return requester_id
 	case "{project_id}":
 		bucketInfo := GetRequestContext(r.request).BucketInfo
-		if bucketInfo == nil {
+		if bucketInfo != nil {
+			return bucketInfo.OwnerId
+		} else if cre := r.responseRecorder.credential; cre != nil {
+			return cre.ExternRootId
+		} else {
 			return "-"
 		}
-		return bucketInfo.OwnerId
 	case "{remote_addr}":
 		return r.request.RemoteAddr
 	case "{http_x_real_ip}":
@@ -266,7 +279,7 @@ func (r *replacer) getSubstitution(key string) string {
 		}
 		return objectInfo.StorageClass.ToString()
 	case "{target_storage_class}":
-		if r.request.Header.Get("X-Amz-Copy-Source") != "" && r.request.Header.Get("X-Amz-Metadata-Directive") != "" {
+		if r.request.Method == http.MethodPut || r.request.Method == http.MethodPost {
 			storageClassFromHeader, err := getStorageClassFromHeader(r.request.Header)
 			if err != nil {
 				return "-"
@@ -287,9 +300,34 @@ func (r *replacer) getSubstitution(key string) string {
 		var judgeFunc JudgeCdnRequest
 		judgeFunc = judgeCdnRequestFromQuery
 		return strconv.FormatBool(judgeFunc(r.request))
-	default:
-		return "-"
+	case "{create_time}":
+		objectInfo := GetRequestContext(r.request).ObjectInfo
+		if objectInfo == nil {
+			return "-"
+		}
+		return strconv.FormatUint(objectInfo.CreateTime, 10)
+	case "{delta_size}":
+		return strconv.FormatInt(r.responseRecorder.deltaSizeInfo[common.ObjectStorageClassStandard], 10) + "," +
+			strconv.FormatInt(r.responseRecorder.deltaSizeInfo[common.ObjectStorageClassStandardIa], 10) + "," +
+			strconv.FormatInt(r.responseRecorder.deltaSizeInfo[common.ObjectStorageClassGlacier], 10)
+	case "{unexpired_objects_info}":
+		// The format like :  $o1.StorageClass,$o1.Size,$o1.SurvivalTime|$o2.StorageClass,$o2.Size,$o2.SurvivalTime|...
+		if len(r.responseRecorder.unexpiredObjectsInfo) == 0 {
+			return "-"
+		}
+		buf := bufio.NewBuffer([]byte{})
+		for _, v := range r.responseRecorder.unexpiredObjectsInfo {
+			buf.WriteString(v.StorageClass.ToString())
+			buf.WriteString(",")
+			buf.WriteString(strconv.FormatInt(v.Size, 10))
+			buf.WriteString(",")
+			buf.WriteString(strconv.FormatInt(v.SurvivalTime, 10))
+			buf.WriteString("|")
+		}
+		ret := buf.String()
+		return ret[:len(ret)-1]
 	}
+
 	return r.emptyValue
 }
 

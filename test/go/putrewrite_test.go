@@ -1,10 +1,11 @@
 package _go
 
 import (
+	"testing"
+
 	"github.com/journeymidnight/aws-sdk-go/aws"
 	"github.com/journeymidnight/aws-sdk-go/service/s3"
 	. "github.com/journeymidnight/yig/test/go/lib"
-	"testing"
 )
 
 const (
@@ -29,36 +30,36 @@ type PutObjectInput struct {
 }
 
 var testRewriteUnits = PutRewriteTestUnits{
-	Bucket: TEST_BUCKET,
+	Bucket: TestBucket,
 	units: []Unit{
 		{
 			Objects: PutObjectInput{
-				Bucket: TEST_BUCKET,
-				Key:    TEST_KEY,
+				Bucket: TestBucket,
+				Key:    TestKey,
 				Values: []string{TEST_PUT_VALUE1, TEST_PUT_VALUE2},
 			},
 			Fn: doPutWithPut,
 		},
 		{
 			Objects: PutObjectInput{
-				Bucket: TEST_BUCKET,
-				Key:    TEST_KEY,
+				Bucket: TestBucket,
+				Key:    TestKey,
 				Values: []string{TEST_PUT_VALUE1},
 			},
 			Fn: doPutWithMulti,
 		},
 		{
 			Objects: PutObjectInput{
-				Bucket: TEST_BUCKET,
-				Key:    TEST_KEY,
+				Bucket: TestBucket,
+				Key:    TestKey,
 				Values: []string{TEST_PUT_VALUE1},
 			},
 			Fn: doMultiWithPut,
 		},
 		{
 			Objects: PutObjectInput{
-				Bucket: TEST_BUCKET,
-				Key:    TEST_KEY,
+				Bucket: TestBucket,
+				Key:    TestKey,
 			},
 			Fn: doMultiWithMulti,
 		},

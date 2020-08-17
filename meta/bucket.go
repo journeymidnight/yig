@@ -38,10 +38,6 @@ func (m *Meta) GetBuckets() (buckets []Bucket, err error) {
 	return
 }
 
-func (m *Meta) UpdateUsage(bucketName string, size int64) {
-	m.Client.UpdateUsage(bucketName, size, nil)
-}
-
 func (m *Meta) GetUsage(bucketName string) (int64, error) {
 	m.Cache.Remove(redis.BucketTable, bucketName)
 	bucket, err := m.GetBucket(bucketName, true)
@@ -60,9 +56,9 @@ func (m *Meta) GetBucketInfo(bucketName string) (*Bucket, error) {
 	return bucket, nil
 }
 
-func (m *Meta) GetUserInfo(uid string) ([]string, error) {
-	m.Cache.Remove(redis.UserTable, uid)
-	buckets, err := m.GetUserBuckets(uid, true)
+func (m *Meta) GetUserInfo(userId string) ([]string, error) {
+	m.Cache.Remove(redis.UserTable, userId)
+	buckets, err := m.GetUserBuckets(userId, true)
 	if err != nil {
 		return nil, err
 	}

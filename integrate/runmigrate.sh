@@ -1,4 +1,4 @@
-yuBASEDIR=$(dirname $(pwd))
+BASEDIR=$(dirname $(pwd))
 echo ${BASEDIR}
 WORKDIR=$1
 sudo docker rm --force migrate

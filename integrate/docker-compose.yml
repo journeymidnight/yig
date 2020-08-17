@@ -37,37 +37,170 @@ services:
         ipv4_address: "10.5.0.9"
   
 
-  tidb:
-    image: pingcap/tidb:v2.1.1
-    container_name: tidb
+  pd0:
+    image: pingcap/pd:latest
+    container_name: pd0
+    ports:
+      - "2379:2379"
+    volumes:
+      - ./tikvconf/pd.toml:/pd.toml:ro
+      - ./data:/data
+      - ./logs:/logs
+    command:
+      - --name=pd0
+      - --client-urls=http://0.0.0.0:2379
+      - --peer-urls=http://0.0.0.0:2380
+      - --advertise-client-urls=http://pd0:2379
+      - --advertise-peer-urls=http://pd0:2380
+      - --initial-cluster=pd0=http://pd0:2380,pd1=http://pd1:2380,pd2=http://pd2:2380
+      - --data-dir=/data/pd0
+      - --config=/pd.toml
+#      - --log-file=/logs/pd0.log
     networks:
       vpcbr:
-        ipv4_address: "10.5.0.17"
+        ipv4_address: "10.5.0.100"
+
+  pd1:
+    image: pingcap/pd:latest
+    container_name: pd1
+    ports:
+      - "2378:2378"
+    volumes:
+      - ./tikvconf/pd.toml:/pd.toml:ro
+      - ./data:/data
+      - ./logs:/logs
+    command:
+      - --name=pd1
+      - --client-urls=http://0.0.0.0:2378
+      - --peer-urls=http://0.0.0.0:2380
+      - --advertise-client-urls=http://pd1:2378
+      - --advertise-peer-urls=http://pd1:2380
+      - --initial-cluster=pd0=http://pd0:2380,pd1=http://pd1:2380,pd2=http://pd2:2380
+      - --data-dir=/data/pd1
+      - --config=/pd.toml
+#      - --log-file=/logs/pd1.log
+    networks:
+      vpcbr:
+        ipv4_address: "10.5.0.101"
+
+  pd2:
+    image: pingcap/pd:latest
+    container_name: pd2
+    ports:
+      - "2377:2377"
+    volumes:
+      - ./tikvconf/pd.toml:/pd.toml:ro
+      - ./data:/data
+      - ./logs:/logs
+    command:
+      - --name=pd2
+      - --client-urls=http://0.0.0.0:2377
+      - --peer-urls=http://0.0.0.0:2380
+      - --advertise-client-urls=http://pd2:2377
+      - --advertise-peer-urls=http://pd2:2380
+      - --initial-cluster=pd0=http://pd0:2380,pd1=http://pd1:2380,pd2=http://pd2:2380
+      - --data-dir=/data/pd2
+      - --config=/pd.toml
+#      - --log-file=/logs/pd2.log
+    networks:
+      vpcbr:
+        ipv4_address: "10.5.0.102"
+
+  tikv0:
+    image: pingcap/tikv:latest
+    container_name: tikv0
+    ports:
+      - "20160:20160"
+    volumes:
+      - ./tikvconf/tikv.toml:/tikv.toml:ro
+      - ./data:/data
+      - ./logs:/logs
+    command:
+      - --addr=0.0.0.0:20160
+      - --advertise-addr=tikv0:20160
+      - --data-dir=/data/tikv0
+      - --pd=pd0:2379,pd1:2378,pd2:2377
+      - --config=/tikv.toml
+#      - --log-file=/logs/tikv0.log
+    depends_on:
+      - "pd0"
+      - "pd1"
+      - "pd2"
+    networks:
+       vpcbr:
+         ipv4_address: "10.5.0.103"
+
+  tikv1:
+    image: pingcap/tikv:latest
+    container_name: tikv1
+    ports:
+      - "20161:20161"
+
+    volumes:
+      - ./tikvconf/tikv.toml:/tikv.toml:ro
+      - ./data:/data
+      - ./logs:/logs
+    command:
+      - --addr=0.0.0.0:20161
+      - --advertise-addr=tikv1:20161
+      - --data-dir=/data/tikv1
+      - --pd=pd0:2379,pd1:2378,pd2:2377
+      - --config=/tikv.toml
+#      - --log-file=/logs/tikv1.log
+    depends_on:
+      - "pd0"
+      - "pd1"
+      - "pd2"
+    networks:
+       vpcbr:
+         ipv4_address: "10.5.0.104"
+
+  tikv2:
+    image: pingcap/tikv:latest
+    container_name: tikv2
+    ports:
+      - "20162:20162"
+
+    volumes:
+      - ./tikvconf/tikv.toml:/tikv.toml:ro
+      - ./data:/data
+      - ./logs:/logs
+    command:
+      - --addr=0.0.0.0:20162
+      - --advertise-addr=tikv2:20162
+      - --data-dir=/data/tikv2
+      - --pd=pd0:2379,pd1:2378,pd2:2377
+      - --config=/tikv.toml
+#      - --log-file=/logs/tikv2.log
+    depends_on:
+      - "pd0"
+      - "pd1"
+      - "pd2"
+    networks:
+       vpcbr:
+         ipv4_address: "10.5.0.105"
+
+  tidb:
+    image: pingcap/tidb:latest
+    container_name: tidb
     ports:
       - "4000:4000"
       - "10080:10080"
     volumes:
-      - ./tidbconf/tidb.toml:/tidb.toml:ro
+      - ./tikvconf/tidb.toml:/tidb.toml:ro
+      - ./logs:/logs
     command:
-      - --store=mocktikv
+      - --store=tikv
+      - --path=pd0:2379,pd1:2378,pd2:2377
       - --config=/tidb.toml
-      - -L=debug
-  
-  vault:
-    image: vault
-    container_name: vault
-    ports:
-      - "8200:8200"
-    environment:
-      - VAULT_DEV_LISTEN_ADDRESS=0.0.0.0:8200
-      - VAULT_DEV_ROOT_TOKEN_ID=myroot
-      - VAULT_TOKEN=myroot
-      - VAULT_ADDR=http://127.0.0.1:8200
-    cap_add:
-      - IPC_LOCK
+      - --log-file=/logs/tidb.log
+    depends_on:
+      - "tikv0"
+      - "tikv1"
+      - "tikv2"
     networks:
-      vpcbr:
-        ipv4_address: "10.5.0.19"
+       vpcbr:
+         ipv4_address: "10.5.0.17"
 
   zookeeper:
     image: confluentinc/cp-zookeeper:latest

@@ -40,7 +40,7 @@ type ObjectLayer interface {
 		credential common.Credential) error
 	GetBucketLifecycle(reqCtx RequestContext, credential common.Credential) (lifecycle.Lifecycle, error)
 	DelBucketLifecycle(reqCtx RequestContext, credential common.Credential) error
-	SetBucketAcl(reqCtx RequestContext, policy datatype.AccessControlPolicy, acl datatype.Acl,
+	SetBucketAcl(reqCtx RequestContext, acl datatype.Acl,
 		credential common.Credential) error
 	GetBucketAcl(reqCtx RequestContext, credential common.Credential) (datatype.AccessControlPolicyResponse, error)
 	SetBucketCors(reqCtx RequestContext, cors datatype.Cors, credential common.Credential) error
@@ -90,13 +90,12 @@ type ObjectLayer interface {
 		sseRequest datatype.SseRequest, isMetadataOnly, isTranStorageClassOnly bool) (result datatype.PutObjectResult, err error)
 	RenameObject(reqCtx RequestContext, targetObject *meta.Object, sourceObject string, credential common.Credential) (result datatype.RenameObjectResult, err error)
 	PutObjectMeta(bucket *meta.Bucket, targetObject *meta.Object, credential common.Credential) (err error)
-	SetObjectAcl(reqCtx RequestContext, policy datatype.AccessControlPolicy,
-		acl datatype.Acl, credential common.Credential) error
+	SetObjectAcl(reqCtx RequestContext, acl datatype.Acl, credential common.Credential) error
 	GetObjectAcl(reqCtx RequestContext, credential common.Credential) (
 		policy datatype.AccessControlPolicyResponse, err error)
 	DeleteObject(reqCtx RequestContext, credential common.Credential) (datatype.DeleteObjectResult,
 		error)
-
+	DeleteObjects(reqCtx RequestContext, credential common.Credential, objects []datatype.ObjectIdentifier) (result datatype.DeleteObjectsResult, err error)
 	// Multipart operations.
 	ListMultipartUploads(reqCtx RequestContext, credential common.Credential,
 		request datatype.ListUploadsRequest) (result datatype.ListMultipartUploadsResponse, err error)
@@ -107,11 +106,11 @@ type ObjectLayer interface {
 		size int64, data io.ReadCloser, md5Hex string,
 		sse datatype.SseRequest) (result datatype.PutObjectPartResult, err error)
 	CopyObjectPart(bucketName, objectName, uploadId string, partId int, size int64, data io.Reader,
-		credential common.Credential, sse datatype.SseRequest) (result datatype.PutObjectResult,
+		credential common.Credential, sse datatype.SseRequest) (result datatype.PutObjectPartResult,
 		err error)
 	ListObjectParts(credential common.Credential, bucket, object string,
 		request datatype.ListPartsRequest) (result datatype.ListPartsResponse, err error)
-	AbortMultipartUpload(reqCtx RequestContext, credential common.Credential, uploadID string) error
+	AbortMultipartUpload(reqCtx RequestContext, credential common.Credential, uploadID string) (datatype.DeltaSizeInfo, error)
 	CompleteMultipartUpload(reqCtx RequestContext, credential common.Credential, uploadID string,
 		uploadedParts []meta.CompletePart) (result datatype.CompleteMultipartResult, err error)
 
@@ -120,4 +119,5 @@ type ObjectLayer interface {
 	GetFreezerStatus(bucketName string, objectName string, version string) (freezer *meta.Freezer, err error)
 	CreateFreezer(freezer *meta.Freezer) (err error)
 	UpdateFreezerDate(freezer *meta.Freezer, date int, isIncrement bool) (err error)
+	EliminateObject(freezer *meta.Freezer) (err error)
 }

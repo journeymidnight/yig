@@ -14,7 +14,7 @@ import (
 	. "github.com/journeymidnight/yig/meta/types"
 )
 
-func (t *TidbClient) GetObject(bucketName, objectName, version string) (*Object, error) {
+func (t *TidbClient) GetObject(bucketName, objectName, version string, tx Tx) (*Object, error) {
 	var ibucketname, iname, customattributes, acl, lastModifiedTime string
 	var err error
 	var row *sql.Row
@@ -313,7 +313,7 @@ func (t *TidbClient) AppendObject(object *Object, updateUsage bool) (err error) 
 	}
 
 	if updateUsage {
-		err = t.UpdateUsage(object.BucketName, object.Size, tx)
+		err = t.UpdateUsage(object.BucketName, object.DeltaSize, tx)
 		if err != nil {
 			return err
 		}
@@ -339,12 +339,12 @@ func (t *TidbClient) UpdateAppendObject(object *Object) (err error) {
 	sql, args := object.GetUpdateSql()
 	_, err = tx.Exec(sql, args...)
 
-	if object.Pool == "rabbit" {
+	if object.Pool == backend.SMALL_FILE_POOLNAME {
 		sql, args = object.GetUpdateHotSql()
 		_, err = tx.Exec(sql, args...)
 	}
 
-	return t.UpdateUsage(object.BucketName, object.Size, tx)
+	return t.UpdateUsage(object.BucketName, object.DeltaSize, tx)
 }
 
 func (t *TidbClient) MigrateObject(object *Object) (err error) {
@@ -466,51 +466,13 @@ func (t *TidbClient) UpdateObject(object *Object, multipart *Multipart, updateUs
 	}
 
 	if updateUsage {
-		err = t.UpdateUsage(object.BucketName, object.Size, tx)
+		err = t.UpdateUsage(object.BucketName, object.DeltaSize, tx)
 		if err != nil {
 			return err
 		}
 	}
 
 	return err
-}
-
-func (t *TidbClient) UpdateFreezerObject(object *Object, tx Tx) (err error) {
-	if tx == nil {
-		tx, err = t.Client.Begin()
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err == nil {
-				err = tx.(*sql.Tx).Commit()
-			}
-			if err != nil {
-				tx.(*sql.Tx).Rollback()
-			}
-		}()
-	}
-	txn := tx.(*sql.Tx)
-	sqltext := "delete from objectpart where objectname=? and bucketname=? and version=?;"
-	_, err = txn.Exec(sqltext, object.Name, object.BucketName, object.VersionId)
-	if err != nil {
-		return err
-	}
-
-	sql, args := object.GetGlacierUpdateSql()
-	_, err = txn.Exec(sql, args...)
-	if object.Parts != nil {
-		partVersion := math.MaxUint64 - object.CreateTime
-		v := strconv.FormatUint(partVersion, 10)
-		for _, p := range object.Parts {
-			psql, args := p.GetCreateSql(object.BucketName, object.Name, v)
-			_, err = txn.Exec(psql, args...)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 func (t *TidbClient) DeleteObject(object *Object, tx Tx) (err error) {

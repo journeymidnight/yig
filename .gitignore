@@ -4,7 +4,6 @@ test/*.html
 .DS_Store
 admin
 build
-delete
 getrediskeys
 yig
 integrate/cephconf
@@ -12,6 +11,7 @@ integrate/data
 integrate/logs
 yig
 lc
+yig-restore
 migrate
 *.log
 *.swp
@@ -19,3 +19,5 @@ yig
 *.rpm
 rpm-build/
 *.so
+tools/tikvtool/tikvtool
+tikv-tool

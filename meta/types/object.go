@@ -4,11 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"strconv"
 	"time"
 
 	"github.com/journeymidnight/yig/api/datatype"
-	"github.com/journeymidnight/yig/meta/common"
+	. "github.com/journeymidnight/yig/meta/common"
 )
 
 const NullVersion = "0"
@@ -41,8 +40,10 @@ type Object struct {
 	InitializationVector []byte
 	// ObjectType include `Normal`, `Appendable`, 'Multipart'
 	Type         ObjectType
-	StorageClass common.StorageClass
+	StorageClass StorageClass
 	CreateTime   uint64 // Timestamp(nanosecond)
+
+	DeltaSize int64 // record delta size when update
 }
 
 type ObjectType int
@@ -86,7 +87,7 @@ func (o *Object) GenVersionId(bucketVersionType datatype.BucketVersioningType) s
 		return NullVersion
 	}
 
-	return strconv.FormatUint(math.MaxUint64-o.CreateTime, 10)
+	return fmt.Sprintf("%020d", math.MaxUint64-o.CreateTime)
 }
 
 //Tidb related function
@@ -167,8 +168,8 @@ func (o *Object) GetUpdateAttrsSql() (string, []interface{}) {
 }
 
 func (o *Object) GetUpdateNameSql(sourceObject string) (string, []interface{}) {
-	sql := "update objects set name=? where bucketname=? and name=? and version=0"
-	args := []interface{}{o.Name, o.BucketName, sourceObject}
+	sql := "update objects set name=? where bucketname=? and name=? and version=?"
+	args := []interface{}{o.Name, o.BucketName, sourceObject, o.VersionId}
 	return sql, args
 }
 
@@ -184,4 +185,29 @@ func (o *Object) GetGlacierUpdateSql() (string, []interface{}) {
 		"size=?,objectid=?,etag=?,initializationvector=?,storageclass=? where bucketname=? and name=? and version=?"
 	args := []interface{}{o.Location, o.Pool, o.Size, o.ObjectId, o.Etag, o.InitializationVector, o.StorageClass, o.BucketName, o.Name, o.VersionId}
 	return sql, args
+}
+
+const (
+	DeadLineForStandardIa = 720 * time.Hour  // 30 days
+	DeadLineForGlacier    = 1440 * time.Hour // 60 days
+)
+
+func (o *Object) IsUnexpired() (bool, int64) {
+	if o == nil {
+		return false, 0
+	}
+	var expiredDeleteTime time.Time
+	if o.StorageClass == ObjectStorageClassStandardIa {
+		expiredDeleteTime = o.LastModifiedTime.Add(DeadLineForStandardIa)
+	} else if o.StorageClass == ObjectStorageClassGlacier {
+		expiredDeleteTime = o.LastModifiedTime.Add(DeadLineForGlacier)
+	}
+	// if delta < 0 ,the object should be record as unexpired
+	delta := time.Now().UTC().Sub(expiredDeleteTime).Nanoseconds()
+	// transfer to second
+	delta /= 1e9
+	if delta < 0 {
+		return true, -delta
+	}
+	return false, 0
 }

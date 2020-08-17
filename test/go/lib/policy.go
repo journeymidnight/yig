@@ -13,7 +13,7 @@ const (
 			"Principal": {"AWS":"*"},
 			"Action": ["s3:GetObject"],
 			"Resource": [
-				"arn:aws:s3:::` + TEST_BUCKET + `/*"
+				"arn:aws:s3:::` + TestBucket + `/*"
 			]
 			}]
 		}`
@@ -25,7 +25,7 @@ const (
 			"Principal": {"AWS":"*"},
 			"Action": ["s3:GetObject"],
 			"Resource": [
-				"arn:aws:s3:::` + TEST_BUCKET + `/test/*"
+				"arn:aws:s3:::` + TestBucket + `/test/*"
 			]
 			}]
 		}`
@@ -42,8 +42,8 @@ const (
 					},
 					"Action":["s3:GetObject"],
 					"Resource":[
-							"arn:aws:s3:::` + TEST_BUCKET + `",
-							"arn:aws:s3:::` + TEST_BUCKET + `/*"
+							"arn:aws:s3:::` + TestBucket + `",
+							"arn:aws:s3:::` + TestBucket + `/*"
 					],
 					"Condition":
 							{"StringLike":{"aws:Referer":["http://www.genltemen.com/*","http://genltemen.com/*"]}}
@@ -63,8 +63,8 @@ const (
 					},
 					"Action":["s3:GetObject"],
 					"Resource":[
-							"arn:aws:s3:::` + TEST_BUCKET + `",
-							"arn:aws:s3:::` + TEST_BUCKET + `/*"
+							"arn:aws:s3:::` + TestBucket + `",
+							"arn:aws:s3:::` + TestBucket + `/*"
 					],
 					"Condition":
 							{"StringNotLike":{"aws:Referer":["http://www.thief.com/*","http://thief.com/*"]}}
@@ -84,8 +84,8 @@ const (
 					},
 					"Action":["s3:GetObject"],
 					"Resource":[
-							"arn:aws:s3:::` + TEST_BUCKET + `",
-							"arn:aws:s3:::` + TEST_BUCKET + `/*"
+							"arn:aws:s3:::` + TestBucket + `",
+							"arn:aws:s3:::` + TestBucket + `/*"
 					],
 					"Condition":
 							{"StringLike":{"aws:Referer":["http://www.thief.com/*","http://thief.com/*"]}}
@@ -105,8 +105,8 @@ const (
 					},
 					"Action":["s3:GetObject"],
 					"Resource":[
-							"arn:aws:s3:::` + TEST_BUCKET + `",
-							"arn:aws:s3:::` + TEST_BUCKET + `/*"
+							"arn:aws:s3:::` + TestBucket + `",
+							"arn:aws:s3:::` + TestBucket + `/*"
 					],
 					"Condition":
 							{"StringNotLike":{"aws:Referer":["http://www.genltemen.com/*","http://genltemen.com/*"]}}
@@ -123,7 +123,7 @@ const (
       				"Effect":"Allow",
       				"Principal":"*",
       				"Action":"s3:GetObject",
-      				"Resource":"arn:aws:s3:::` + TEST_BUCKET + `/*",
+      				"Resource":"arn:aws:s3:::` + TestBucket + `/*",
      				"Condition": {
         				"IpAddress": {
           					"aws:SourceIp": "10.0.12.0/24"
@@ -142,7 +142,7 @@ const (
       				"Effect":"Allow",
       				"Principal":"*",
       				"Action":"s3:GetObject",
-      				"Resource":"arn:aws:s3:::` + TEST_BUCKET + `/*",
+      				"Resource":"arn:aws:s3:::` + TestBucket + `/*",
      				"Condition": {
         				"NotIpAddress": {
           					"aws:SourceIp": "10.0.11.0/24"
@@ -161,7 +161,7 @@ const (
       				"Effect":"Deny",
       				"Principal":"*",
       				"Action":"s3:GetObject",
-      				"Resource":"arn:aws:s3:::` + TEST_BUCKET + `/*",
+      				"Resource":"arn:aws:s3:::` + TestBucket + `/*",
      				"Condition": {
         				"IpAddress": {
           					"aws:SourceIp": "10.0.11.0/24"
@@ -180,7 +180,7 @@ const (
       				"Effect":"Deny",
       				"Principal":"*",
       				"Action":"s3:GetObject",
-      				"Resource":"arn:aws:s3:::` + TEST_BUCKET + `/*",
+      				"Resource":"arn:aws:s3:::` + TestBucket + `/*",
      				"Condition": {
         				"NotIpAddress": {
           					"aws:SourceIp": "10.0.12.0/24"
@@ -188,6 +188,20 @@ const (
      				}
    				}
   			]
+	}`
+
+	SetBucketPolicyAllowSpecifyID = `{
+		"Id":"PolicyId2",
+		"Version":"2012-10-17",
+		"Statement":[
+		  	{
+				"Sid":"SpecifyID",
+				"Effect":"Allow",
+				"Principal":{"AWS":["idforha"]},
+				"Action":"s3:GetObject",
+				"Resource":"arn:aws:s3:::` + TestBucket + `/*"
+			}
+		]
 	}`
 )
 

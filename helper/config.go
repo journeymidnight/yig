@@ -13,6 +13,11 @@ const (
 	YIG_CONF_PATH         = "/etc/yig/yig.toml"
 	MIN_BUFFER_SIZE int64 = 512 << 10 // 512k
 	MAX_BUFEER_SIZE int64 = 8 << 20   // 8M
+
+	DEFAULTSPEC    = "@every 1h"
+	DEFAULTLOCK    = 45 // 45min
+	DEFAULTREFRESH = 30 // 30 min
+
 )
 
 type Config struct {
@@ -29,26 +34,29 @@ type Config struct {
 	BindAdminAddress     string                  `toml:"admin_listener"`
 	SSLKeyPath           string                  `toml:"ssl_key_path"`
 	SSLCertPath          string                  `toml:"ssl_cert_path"`
-	ZookeeperAddress     string                  `toml:"zk_address"`
 
 	InstanceId             string // if empty, generated one at server startup
 	ConcurrentRequestLimit int
-	DebugMode              bool   `toml:"debug_mode"`
-	EnablePProf            bool   `toml:"enable_pprof"`
-	BindPProfAddress       string `toml:"pprof_listener"`
-	AdminKey               string `toml:"admin_key"` //used for tools/admin to communicate with yig
-	GcThread               int    `toml:"gc_thread"`
-	LcThread               int    `toml:"lc_thread"` //used for tools/lc only, set worker numbers to do lc
-	MgThread               int    `toml:"mg_thread"`
-	MgScanInterval         int    `toml:"mg_scan_interval"`
-	MgObjectCooldown       int    `toml:"mg_object_cooldown"`
-	LogLevel               string `toml:"log_level"` // "info", "warn", "error"
-	CephConfigPattern      string `toml:"ceph_config_pattern"`
-	ReservedOrigins        string `toml:"reserved_origins"` // www.ccc.com,www.bbb.com,127.0.0.1
-	MetaStore              string `toml:"meta_store"`
-	TidbInfo               string `toml:"tidb_info"`
-	KeepAlive              bool   `toml:"keepalive"`
-	EnableCompression      bool   `toml:"enable_compression"`
+
+	MgThread         int `toml:"mg_thread"`
+	MgScanInterval   int `toml:"mg_scan_interval"`
+	MgObjectCooldown int `toml:"mg_object_cooldown"`
+
+	DebugMode         bool     `toml:"debug_mode"`
+	EnablePProf       bool     `toml:"enable_pprof"`
+	BindPProfAddress  string   `toml:"pprof_listener"`
+	AdminKey          string   `toml:"admin_key"` //used for tools/admin to communicate with yig
+	LcThread          int      //used for tools/lc only, set worker numbers to do lc
+	LogLevel          string   `toml:"log_level"` // "info", "warn", "error"
+	CephConfigPattern string   `toml:"ceph_config_pattern"`
+	ReservedOrigins   string   `toml:"reserved_origins"` // www.ccc.com,www.bbb.com,127.0.0.1
+	MetaStore         string   `toml:"meta_store"`
+	TidbInfo          string   `toml:"tidb_info"`
+	PdAddress         []string `toml:"pd_address"`
+	KeepAlive         bool     `toml:"keepalive"`
+	EnableCompression bool     `toml:"enable_compression"`
+	KafkaBrokers      []string `toml:"kafka_brokers"` // list of `IP:Port`
+	GcTopic           string   `toml:"gc_topic"`
 
 	LifecycleSpec string `toml:"lifecycle_spec"` // use for Lifecycle timing
 
@@ -60,6 +68,7 @@ type Config struct {
 	RedisConnectionNumber int      `toml:"redis_connection_number"` // number of connections to redis(i.e max concurrent request number)
 	RedisPassword         string   `toml:"redis_password"`          // redis auth password
 	MetaCacheType         int      `toml:"meta_cache_type"`
+	MetaCacheTTL          int      `toml:"meta_cache_ttl"` //ttl second
 	EnableDataCache       bool     `toml:"enable_data_cache"`
 	RedisMaxRetries       int      `toml:"redis_max_retries"`
 	RedisConnectTimeout   int      `toml:"redis_connect_timeout"`
@@ -68,6 +77,7 @@ type Config struct {
 	RedisKeepAlive        int      `toml:"redis_keepalive"`
 	RedisPoolMaxIdle      int      `toml:"redis_pool_max_idle"`
 	RedisPoolIdleTimeout  int      `toml:"redis_pool_idle_timeout"`
+	RedisMinIdleConns     int      `toml:"redis_min_idle_conns"`
 
 	// DB Connection parameters
 	DbMaxOpenConns       int `toml:"db_max_open_conns"`
@@ -93,6 +103,16 @@ type Config struct {
 	UploadMaxChunkSize  int64 `toml:"upload_max_chunk_size"`
 	BigFileThreshold    int64 `toml:"big_file_threshold"`
 
+	EnableQoS            bool `toml:"enable_qos"`
+	DefaultReadOps       int  `toml:"default_read_ops"`
+	DefaultWriteOps      int  `toml:"default_write_ops"`
+	DefaultBandwidthKBps int  `toml:"default_bandwidth_kbps"`
+
+	EnableRestoreObjectCron bool     `toml:"enable_restore_object_cron"`
+	RestoreObjectSpec       string   `toml:"restore_object_spec"`
+	LockTime                int      `toml:"lock_time"`
+	RefreshLockTime         int      `toml:"refresh_lock_time"`
+	LogDeliveryGroup        []string `toml:"log_delivery_group"`
 }
 
 type PluginConfig struct {
@@ -133,7 +153,6 @@ func MarshalTOMLConfig() error {
 	CONFIG.BindAdminAddress = c.BindAdminAddress
 	CONFIG.SSLKeyPath = c.SSLKeyPath
 	CONFIG.SSLCertPath = c.SSLCertPath
-	CONFIG.ZookeeperAddress = c.ZookeeperAddress
 	CONFIG.DebugMode = c.DebugMode
 	CONFIG.EnablePProf = c.EnablePProf
 	CONFIG.BindPProfAddress = c.BindPProfAddress
@@ -141,14 +160,15 @@ func MarshalTOMLConfig() error {
 	CONFIG.CephConfigPattern = c.CephConfigPattern
 	CONFIG.ReservedOrigins = c.ReservedOrigins
 	CONFIG.TidbInfo = c.TidbInfo
+	CONFIG.PdAddress = c.PdAddress
 	CONFIG.KeepAlive = c.KeepAlive
 	CONFIG.EnableCompression = c.EnableCompression
+	CONFIG.KafkaBrokers = c.KafkaBrokers
+	CONFIG.GcTopic = c.GcTopic
 	CONFIG.InstanceId = Ternary(c.InstanceId == "",
 		string(GenerateRandomId()), c.InstanceId).(string)
 	CONFIG.ConcurrentRequestLimit = Ternary(c.ConcurrentRequestLimit == 0,
 		10000, c.ConcurrentRequestLimit).(int)
-	CONFIG.GcThread = Ternary(c.GcThread == 0,
-		1, c.GcThread).(int)
 	CONFIG.LcThread = Ternary(c.LcThread == 0,
 		1, c.LcThread).(int)
 	CONFIG.MgThread = Ternary(c.MgThread == 0,
@@ -171,6 +191,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.RedisPassword = c.RedisPassword
 	CONFIG.RedisConnectionNumber = Ternary(c.RedisConnectionNumber == 0,
 		10, c.RedisConnectionNumber).(int)
+	CONFIG.MetaCacheTTL = Ternary(c.MetaCacheTTL < 30, 30, c.MetaCacheTTL).(int)
 	CONFIG.EnableDataCache = c.EnableDataCache
 	CONFIG.RedisMaxRetries = Ternary(c.RedisMaxRetries < 0, 1000, c.RedisMaxRetries).(int)
 	CONFIG.MetaCacheType = c.MetaCacheType
@@ -180,6 +201,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.RedisKeepAlive = Ternary(c.RedisKeepAlive < 0, 0, c.RedisKeepAlive).(int)
 	CONFIG.RedisPoolMaxIdle = Ternary(c.RedisPoolMaxIdle < 0, 0, c.RedisPoolMaxIdle).(int)
 	CONFIG.RedisPoolIdleTimeout = Ternary(c.RedisPoolIdleTimeout < 0, 0, c.RedisPoolIdleTimeout).(int)
+	CONFIG.RedisMinIdleConns = Ternary(c.RedisMinIdleConns < 0, 12, c.RedisMinIdleConns).(int)
 
 	CONFIG.DbMaxOpenConns = Ternary(c.DbMaxOpenConns < 0, 0, c.DbMaxOpenConns).(int)
 	CONFIG.DbMaxIdleConns = Ternary(c.DbMaxIdleConns < 0, 0, c.DbMaxIdleConns).(int)
@@ -196,6 +218,17 @@ func MarshalTOMLConfig() error {
 	CONFIG.UploadMinChunkSize = Ternary(c.UploadMinChunkSize < MIN_BUFFER_SIZE || c.UploadMinChunkSize > MAX_BUFEER_SIZE, MIN_BUFFER_SIZE, c.UploadMinChunkSize).(int64)
 	CONFIG.UploadMaxChunkSize = Ternary(c.UploadMaxChunkSize < CONFIG.UploadMinChunkSize || c.UploadMaxChunkSize > MAX_BUFEER_SIZE, MAX_BUFEER_SIZE, c.UploadMaxChunkSize).(int64)
 	CONFIG.BigFileThreshold = Ternary(c.BigFileThreshold == 0, int64(1048576), c.BigFileThreshold).(int64)
+
+	CONFIG.EnableQoS = c.EnableQoS
+	CONFIG.DefaultReadOps = Ternary(c.DefaultReadOps <= 0, 2000, c.DefaultReadOps).(int)
+	CONFIG.DefaultWriteOps = Ternary(c.DefaultWriteOps <= 0, 1000, c.DefaultWriteOps).(int)
+	CONFIG.DefaultBandwidthKBps = Ternary(c.DefaultBandwidthKBps <= 0, 102400, c.DefaultBandwidthKBps).(int)
+
+	CONFIG.EnableRestoreObjectCron = Ternary(c.EnableRestoreObjectCron, true, false).(bool)
+	CONFIG.RestoreObjectSpec = Ternary(c.RestoreObjectSpec == "", DEFAULTSPEC, c.RestoreObjectSpec).(string)
+	CONFIG.LockTime = Ternary(c.LockTime <= 0, DEFAULTLOCK, c.LockTime).(int)
+	CONFIG.RefreshLockTime = Ternary(c.RefreshLockTime <= 0, DEFAULTREFRESH, c.RefreshLockTime).(int)
+	CONFIG.LogDeliveryGroup = c.LogDeliveryGroup
 	return nil
 }
 

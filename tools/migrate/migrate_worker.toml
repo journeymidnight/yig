@@ -1,0 +1,5 @@
+CoolDownSecond = 600
+DispatchTopic = "migrate"
+ThreadsPerWorker = 2
+Partitions = 1
+CephConfigPattern = "/etc/ceph/*.conf"

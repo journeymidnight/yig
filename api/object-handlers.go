@@ -65,7 +65,6 @@ func getStorageClassFromHeader(header http.Header) (StorageClass, error) {
 	storageClassStr := header.Get("X-Amz-Storage-Class")
 
 	if storageClassStr != "" {
-		helper.Logger.Info("Get storage class header:", storageClassStr)
 		return MatchStorageClassIndex(storageClassStr)
 	} else {
 		// If you don't specify this header, Amazon S3 uses STANDARD
@@ -122,7 +121,7 @@ func (api ObjectAPIHandlers) errAllowableObjectNotFound(w http.ResponseWriter, r
 				err = ErrAccessDenied
 			}
 		default:
-			if ctx.BucketInfo.OwnerId == credential.UserId {
+			if ctx.BucketInfo.OwnerId == credential.ExternRootId {
 				err = ErrNoSuchKey
 			} else {
 				err = ErrAccessDenied
@@ -169,7 +168,7 @@ func newGetObjectResponseWriter(w http.ResponseWriter, r *http.Request, object *
 
 func (o *GetObjectResponseWriter) Write(p []byte) (int, error) {
 	if !o.dataWritten {
-		if o.version != "" {
+		if o.version != meta.NullVersion && o.version != "" {
 			o.w.Header().Set("x-amz-version-id", o.version)
 		}
 		// Set any additional requested response headers.
@@ -196,6 +195,7 @@ func (o *GetObjectResponseWriter) Write(p []byte) (int, error) {
 // This implementation of the GET operation retrieves object. To use GET,
 // you must have READ access to the object.
 func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Request) {
+	SetOperationName(w, OpGetObject)
 	reqCtx := GetRequestContext(r)
 	logger := reqCtx.Logger
 	var credential common.Credential
@@ -209,7 +209,6 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	reqVersion := reqCtx.VersionId
 	// Fetch object stat info.
 	object, err := api.ObjectAPI.GetObjectInfoByCtx(reqCtx, credential)
 	if err != nil {
@@ -231,12 +230,11 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		WriteErrorResponse(w, r, ErrNoSuchKey)
 		return
 	}
-
 	if object.StorageClass == ObjectStorageClassGlacier {
-		freezer, err := api.ObjectAPI.GetFreezer(reqCtx.BucketName, reqCtx.ObjectName, reqVersion)
+		freezer, err := api.ObjectAPI.GetFreezer(reqCtx.BucketName, reqCtx.ObjectName, object.VersionId)
 		if err != nil {
 			if err == ErrNoSuchKey {
-				logger.Error("Unable to get glacier object with no restore")
+				logger.Error("Unable to get glacier object with because of ErrNoSuchKey")
 				WriteErrorResponse(w, r, ErrInvalidGlacierObject)
 				return
 			}
@@ -245,7 +243,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			return
 		}
 		if freezer.Status != ObjectHasRestored {
-			logger.Error("Unable to get glacier object with no restore")
+			logger.Error("Unable to get glacier object because object has not restored:", freezer.Status)
 			WriteErrorResponse(w, r, ErrInvalidGlacierObject)
 			return
 		}
@@ -309,7 +307,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	// io.Writer type which keeps track if any data was written.
-	writer := newGetObjectResponseWriter(w, r, object, hrange, http.StatusOK, reqVersion)
+	writer := newGetObjectResponseWriter(w, r, object, hrange, http.StatusOK, object.VersionId)
 
 	switch object.SseType {
 	case "":
@@ -324,9 +322,6 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		w.Header().Set("X-Amz-Server-Side-Encryption-Customer-Key-Md5",
 			r.Header.Get("X-Amz-Server-Side-Encryption-Customer-Key-Md5"))
 	}
-
-	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "GetObject"
 
 	// Reads the object at startOffset and writes to mw.
 	if err := api.ObjectAPI.GetObject(object, startOffset, length, writer, sseRequest); err != nil {
@@ -367,6 +362,8 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 // The HEAD operation retrieves metadata from an object without returning the object itself.
 // TODO refactor HEAD and GET
 func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Request) {
+	//ResponseRecorder
+	SetOperationName(w, OpHeadObject)
 	reqCtx := GetRequestContext(r)
 	logger := reqCtx.Logger
 	var credential common.Credential
@@ -465,9 +462,6 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 			r.Header.Get("X-Amz-Server-Side-Encryption-Customer-Key-Md5"))
 	}
 
-	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "HeadObject"
-
 	// Successful response.
 	// Set standard object headers.
 	SetObjectHeaders(w, object, nil, http.StatusOK)
@@ -478,6 +472,9 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 // This implementation of the PUT operation adds an object to a bucket
 // while reading the object from another source.
 func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Request) {
+	//ResponseRecorder
+	SetOperationName(w, OpCopyObject)
+
 	reqCtx := GetRequestContext(r)
 	logger := reqCtx.Logger
 	targetBucketName := reqCtx.BucketName
@@ -581,47 +578,20 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	// If the object metadata is modified or the object storage type is converted, the following conditions are met
 	// For non-archive storage object modification metadata and type conversion, no copy operation is required
 	// For objects that were originally archived and stored for metadata modification and storage type modification, only database metadata needs to be modified.
-	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName &&
-		(sourceObject.StorageClass == ObjectStorageClassGlacier || targetStorageClass != ObjectStorageClassGlacier) {
-		if targetBucket.Versioning == BucketVersioningDisabled {
+	if sourceBucketName == targetBucketName && sourceObjectName == targetObjectName {
+		if sourceObject.StorageClass == ObjectStorageClassGlacier && targetStorageClass != ObjectStorageClassGlacier {
+			WriteErrorResponse(w, r, ErrInvalidStorageClassConvert)
+			return
+		}
+		if targetBucket.Versioning == BucketVersioningDisabled || (targetBucket.Versioning == BucketVersioningSuspended && sourceObject.VersionId == meta.NullVersion) {
 			isMetadataOnly = true
-		} else if targetBucket.Versioning == BucketVersioningSuspended && sourceObject.VersionId == meta.NullVersion {
-			isMetadataOnly = true
+		}
+		if sourceObject.StorageClass != ObjectStorageClassGlacier && targetStorageClass == ObjectStorageClassGlacier {
+			isMetadataOnly = false
 		}
 	}
 
 	truelySourceObject := sourceObject
-	if sourceObject.StorageClass == ObjectStorageClassGlacier {
-		// When only modifying object metadata, there is no need to unfreeze the object
-		if !(isMetadataOnly && targetStorageClass == ObjectStorageClassGlacier) {
-			freezer, err := api.ObjectAPI.GetFreezer(sourceBucketName, sourceObjectName, sourceVersion)
-			if err != nil {
-				if err == ErrNoSuchKey {
-					logger.Error("Unable to get glacier object with no restore")
-					WriteErrorResponse(w, r, ErrInvalidGlacierObject)
-					return
-				}
-				logger.Error("Unable to get glacier object info err:", err)
-				WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
-				return
-			}
-			if freezer.Status != ObjectHasRestored || freezer.Pool == "" {
-				logger.Error("Unable to get glacier object with no restore")
-				WriteErrorResponse(w, r, ErrInvalidGlacierObject)
-				return
-			}
-			if targetStorageClass != ObjectStorageClassGlacier {
-				sourceObject.OwnerId = freezer.OwnerId
-				sourceObject.Etag = freezer.Etag
-				sourceObject.Size = freezer.Size
-				sourceObject.Parts = freezer.Parts
-				sourceObject.Pool = freezer.Pool
-				sourceObject.Location = freezer.Location
-				sourceObject.ObjectId = freezer.ObjectId
-				sourceObject.VersionId = freezer.VersionId
-			}
-		}
-	}
 
 	// maximum Upload size for object in a single CopyObject operation.
 	if isMaxObjectSize(sourceObject.Size) {
@@ -649,7 +619,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	targetObject.Pool = sourceObject.Pool
 	targetObject.Location = sourceObject.Location
 	targetObject.StorageClass = targetStorageClass
-	targetObject.CreateTime = sourceObject.CreateTime
+	targetObject.CreateTime = uint64(time.Now().UnixNano())
 
 	directive := r.Header.Get("X-Amz-Metadata-Directive")
 	if directive == "COPY" || directive == "" {
@@ -716,9 +686,9 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "CopyObject"
-
+	for s, v := range result.DeltaInfo {
+		SetDeltaSize(w, s, v)
+	}
 	// write success response.
 	WriteSuccessResponse(w, r, encodedSuccessResponse)
 	// Explicitly close the reader, to avoid fd leaks.
@@ -730,6 +700,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 // Do not support bucket to enable multiVersion renaming;
 // Folder renaming operation is not supported.
 func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.Request) {
+	SetOperationName(w, OpRenameObject)
 	reqCtx := GetRequestContext(r)
 	logger := reqCtx.Logger
 	bucketName := reqCtx.BucketName
@@ -802,8 +773,7 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 	}
 	response := GenerateRenameObjectResponse(result.LastModified)
 	encodedSuccessResponse := EncodeResponse(response)
-	// ResponseRecorder
-	w.(*ResponseRecorder).operationName = "RenameObject"
+
 	// write success response.
 	WriteSuccessResponse(w, r, encodedSuccessResponse)
 }
@@ -812,6 +782,7 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 // ----------
 // This implementation of the PUT operation adds an object to a bucket.
 func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Request) {
+	SetOperationName(w, OpPutObject)
 	reqCtx := GetRequestContext(r)
 	logger := reqCtx.Logger
 	// If the matching failed, it means that the X-Amz-Copy-Source was
@@ -930,6 +901,22 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// do bucket policy check first
+	isAllow, err := IsBucketPolicyAllowed(&credential, reqCtx.BucketInfo, r, policy.PutObjectAction, reqCtx.ObjectName)
+	helper.Logger.Info("checkRequestAuth1:", isAllow, err)
+	if err == nil && isAllow == false {
+		//then do ram policy check if the request is from a sub user of who own this bucket
+		if credential.ExternRootId == reqCtx.BucketInfo.OwnerId {
+			isAllow, err = IsRamPolicyAllowed(credential.Policy, r, policy.PutObjectAction)
+			helper.Logger.Info("checkRequestAuth2:", isAllow, err)
+		}
+	}
+	if err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+	credential.AllowOtherUserAccess = isAllow
+
 	var result PutObjectResult
 	result, err = api.ObjectAPI.PutObject(reqCtx, credential, size, dataReadCloser,
 		metadata, acl, sseRequest, storageClass)
@@ -956,10 +943,9 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 			w.Header().Set(headerName, header)
 		}
 	}
-
-	// ResponseRecorder
-	w.(*ResponseRecorder).operationName = "PutObject"
-
+	for sc, v := range result.DeltaInfo {
+		SetDeltaSize(w, sc, v)
+	}
 	WriteSuccessResponse(w, r, nil)
 }
 
@@ -967,13 +953,13 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 // ----------
 // This implementation of the POST operation append an object in a bucket.
 func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.Request) {
+	SetOperationName(w, OpAppendObject)
 	reqCtx := GetRequestContext(r)
 	logger := reqCtx.Logger
 	bucketName := reqCtx.BucketName
 	objectName := reqCtx.ObjectName
 
 	logger.Info("Appending object:", bucketName, objectName)
-	handleStart := time.Now()
 
 	var authType = signature.GetRequestAuthType(r)
 	var err error
@@ -1074,6 +1060,22 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// do bucket policy check first
+	isAllow, err := IsBucketPolicyAllowed(&credential, reqCtx.BucketInfo, r, policy.PutObjectAction, reqCtx.ObjectName)
+	helper.Logger.Info("checkRequestAuth1:", isAllow, err)
+	if err == nil && isAllow == false {
+		//then do ram policy check if the request is from a sub user of who own this bucket
+		if credential.ExternRootId == reqCtx.BucketInfo.OwnerId {
+			isAllow, err = IsRamPolicyAllowed(credential.Policy, r, policy.PutObjectAction)
+			helper.Logger.Info("checkRequestAuth2:", isAllow, err)
+		}
+	}
+	if err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+	credential.AllowOtherUserAccess = isAllow
+
 	// Check whether the object is exist or not
 	// Check whether the bucket is owned by the specified user
 	objInfo, err := api.ObjectAPI.GetObjectInfoByCtx(reqCtx, credential)
@@ -1147,17 +1149,20 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 		}
 	}
 
+	if reqCtx.ObjectInfo == nil {
+		SetDeltaSize(w, storageClass, size)
+	} else {
+		SetDeltaSize(w, reqCtx.ObjectInfo.StorageClass, size)
+	}
+
 	// Set next position
 	w.Header().Set("X-Amz-Next-Append-Position", strconv.FormatInt(result.NextPosition, 10))
 
-	// ResponseRecorder
-	w.(*ResponseRecorder).operationName = "AppendObject"
 	WriteSuccessResponse(w, r, nil)
-	handleEnd := time.Now()
-	logger.Info("Appending object finish response, cost:", bucketName, objectName, position, size, handleEnd.Sub(handleStart).Milliseconds())
 }
 
 func (api ObjectAPIHandlers) PutObjectMeta(w http.ResponseWriter, r *http.Request) {
+	SetOperationName(w, OpPutObjectMeta)
 	reqCtx := GetRequestContext(r)
 	logger := reqCtx.Logger
 	bucketName := reqCtx.BucketName
@@ -1198,13 +1203,11 @@ func (api ObjectAPIHandlers) PutObjectMeta(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// ResponseRecorder
-	w.(*ResponseRecorder).operationName = "PutObjectMeta"
-
 	WriteSuccessResponse(w, r, nil)
 }
 
 func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http.Request) {
+	SetOperationName(w, OpRestoreObject)
 	reqCtx := GetRequestContext(r)
 	logger := reqCtx.Logger
 	var credential common.Credential
@@ -1219,7 +1222,7 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 	}
 
 	// Fetch object stat info.
-	object, err := api.ObjectAPI.GetObjectInfo(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, credential)
+	object, err := api.ObjectAPI.GetObjectInfoByCtx(reqCtx, credential)
 	if err != nil {
 		logger.Error("Unable to fetch object info:", err)
 		if err == ErrNoSuchKey {
@@ -1245,6 +1248,7 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 	if err != nil {
 		logger.Error("Unable to get freezer info:", err)
 		WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
+		return
 	}
 
 	freezer, err := api.ObjectAPI.GetFreezerStatus(object.BucketName, object.Name, object.VersionId)
@@ -1252,12 +1256,14 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		logger.Error("Unable to get restore object status", object.BucketName, object.Name,
 			"error:", err)
 		WriteErrorResponse(w, r, err)
+		return
 	}
 	if err == ErrNoSuchKey || freezer.Name == "" {
 		status, err := MatchStatusIndex("READY")
 		if err != nil {
 			logger.Error("Unable to get freezer status:", err)
 			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
+			return
 		}
 
 		lifeTime := info.Days
@@ -1277,62 +1283,55 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		if err != nil {
 			logger.Error("Unable to create freezer:", err)
 			WriteErrorResponse(w, r, ErrCreateRestoreObject)
+			return
 		}
 		logger.Info("Submit thaw request successfully")
 
 		// ResponseRecorder
 		w.WriteHeader(http.StatusAccepted)
-		w.(*ResponseRecorder).operationName = "RestoreObject"
-
 		WriteSuccessResponseWithStatus(w, nil, http.StatusAccepted)
+		return
 	}
+
 	if freezer.Status == ObjectHasRestored {
 		err = api.ObjectAPI.UpdateFreezerDate(freezer, info.Days, true)
 		if err != nil {
 			logger.Error("Unable to Update freezer date:", err)
 			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
+			return
 		}
 
 		// ResponseRecorder
-		w.(*ResponseRecorder).operationName = "RestoreObject"
 		WriteSuccessResponse(w, r, nil)
+		return
 	} else {
 		if freezer.LifeTime != info.Days {
 			err = api.ObjectAPI.UpdateFreezerDate(freezer, info.Days, false)
 			if err != nil {
 				logger.Error("Unable to Update freezer date:", err)
 				WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
+				return
 			}
 		}
-		// ResponseRecorder
-		w.(*ResponseRecorder).operationName = "RestoreObject"
+
 		WriteSuccessResponseWithStatus(w, nil, http.StatusAccepted)
+		return
 	}
 }
 
 func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.Request) {
+	SetOperationName(w, OpPutObjectAcl)
 	reqCtx := GetRequestContext(r)
 	logger := ContextLogger(r)
 	objectName := reqCtx.ObjectName
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.PutObjectAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 	var acl Acl
-	var policy AccessControlPolicy
 	if _, ok := r.Header["X-Amz-Acl"]; ok {
 		acl, err = getAclFromHeader(r.Header)
 		if err != nil {
@@ -1347,7 +1346,7 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 			WriteErrorResponse(w, r, ErrInvalidAcl)
 			return
 		}
-		err = xml.Unmarshal(aclBuffer, &policy)
+		err = xml.Unmarshal(aclBuffer, &acl.Policy)
 		if err != nil {
 			logger.Error("Unable to Unmarshal XML for ACL:", err)
 			WriteErrorResponse(w, r, ErrInternalError)
@@ -1355,7 +1354,7 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 		}
 	}
 
-	err = api.ObjectAPI.SetObjectAcl(reqCtx, policy, acl, credential)
+	err = api.ObjectAPI.SetObjectAcl(reqCtx, acl, credential)
 	if err != nil {
 		logger.Error("Unable to set ACL for object", objectName,
 			"error:", err)
@@ -1366,32 +1365,20 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 		w.Header().Set("x-amz-version-id", reqCtx.VersionId)
 	}
 
-	// ResponseRecorder
-	w.(*ResponseRecorder).operationName = "PutObjectAcl"
-
 	WriteSuccessResponse(w, r, nil)
 }
 
 func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.Request) {
+	SetOperationName(w, OpGetObjectAcl)
 	reqCtx := GetRequestContext(r)
 	logger := ContextLogger(r)
 	objectName := reqCtx.ObjectName
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.GetObjectAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	acl, err := api.ObjectAPI.GetObjectAcl(reqCtx, credential)
@@ -1415,8 +1402,6 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 
 	setXmlHeader(w)
 
-	// ResponseRecorder
-	w.(*ResponseRecorder).operationName = "GetObjectAcl"
 	WriteSuccessResponse(w, r, aclBuffer)
 }
 
@@ -1424,6 +1409,7 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 
 // NewMultipartUploadHandler - New multipart upload
 func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r *http.Request) {
+	SetOperationName(w, OpNewMultipartUpload)
 	reqCtx := GetRequestContext(r)
 	logger := ContextLogger(r)
 	bucketName := reqCtx.BucketName
@@ -1436,19 +1422,9 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.PutObjectAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	acl, err := getAclFromHeader(r.Header)
@@ -1501,15 +1477,13 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 		}
 	}
 
-	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "NewMultipartUpload"
-
 	// write success response.
 	WriteSuccessResponse(w, r, encodedSuccessResponse)
 }
 
 // PutObjectPartHandler - Upload part
 func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http.Request) {
+	SetOperationName(w, OpPutObjectPart)
 	reqCtx := GetRequestContext(r)
 	logger := reqCtx.Logger
 
@@ -1577,6 +1551,22 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 		return
 	}
 
+	// do bucket policy check first
+	isAllow, err := IsBucketPolicyAllowed(&credential, reqCtx.BucketInfo, r, policy.PutObjectAction, reqCtx.ObjectName)
+	helper.Logger.Info("checkRequestAuth1:", isAllow, err)
+	if err == nil && isAllow == false {
+		//then do ram policy check if the request is from a sub user of who own this bucket
+		if credential.ExternRootId == reqCtx.BucketInfo.OwnerId {
+			isAllow, err = IsRamPolicyAllowed(credential.Policy, r, policy.PutObjectAction)
+			helper.Logger.Info("checkRequestAuth2:", isAllow, err)
+		}
+	}
+	if err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+	credential.AllowOtherUserAccess = isAllow
+
 	var result PutObjectPartResult
 	// No need to verify signature, anonymous request access is already allowed.
 	result, err = api.ObjectAPI.PutObjectPart(reqCtx, credential,
@@ -1606,14 +1596,14 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 			result.SseCustomerKeyMd5Base64)
 	}
 
-	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "PutObjectPart"
-
+	SetDeltaSize(w, result.DeltaSize.StorageClass, result.DeltaSize.Delta)
 	WriteSuccessResponse(w, r, nil)
 }
 
 // Upload part - copy
 func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *http.Request) {
+	//ResponseRecorder
+	SetOperationName(w, OpCopyObjectPart)
 	reqCtx := GetRequestContext(r)
 	logger := ContextLogger(r)
 	targetBucketName := reqCtx.BucketName
@@ -1626,19 +1616,9 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.PutObjectAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	targetUploadId := r.URL.Query().Get("uploadId")
@@ -1793,11 +1773,11 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 		return
 	}
 
-	response := GenerateCopyObjectPartResponse(result.Md5, result.LastModified)
+	response := GenerateCopyObjectPartResponse(result.ETag, result.LastModified)
 	encodedSuccessResponse := EncodeResponse(response)
 	// write headers
-	if result.Md5 != "" {
-		w.Header()["ETag"] = []string{"\"" + result.Md5 + "\""}
+	if result.ETag != "" {
+		w.Header()["ETag"] = []string{"\"" + result.ETag + "\""}
 	}
 	if sourceVersion != "" {
 		w.Header().Set("x-amz-copy-source-version-id", sourceVersion)
@@ -1813,52 +1793,39 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 			w.Header().Set(headerName, header)
 		}
 	}
-
-	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "CopyObjectPart"
-
+	SetDeltaSize(w, result.DeltaSize.StorageClass, result.DeltaSize.Delta)
 	// write success response.
 	WriteSuccessResponse(w, r, encodedSuccessResponse)
 }
 
 // AbortMultipartUploadHandler - Abort multipart upload
 func (api ObjectAPIHandlers) AbortMultipartUploadHandler(w http.ResponseWriter, r *http.Request) {
+	SetOperationName(w, OpAbortMultipartUpload)
 	reqCtx := GetRequestContext(r)
 	logger := reqCtx.Logger
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
-		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
-	}
 
-	uploadId := r.URL.Query().Get("uploadId")
-	if err := api.ObjectAPI.AbortMultipartUpload(reqCtx, credential, uploadId); err != nil {
-
-		logger.Error("Unable to abort multipart upload:", err)
+	if credential, err = checkRequestAuth(r, policy.AbortMultipartUploadAction); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
 
-	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "AbortMultipartUpload"
-
+	uploadId := r.URL.Query().Get("uploadId")
+	delta, err := api.ObjectAPI.AbortMultipartUpload(reqCtx, credential, uploadId)
+	if err != nil {
+		logger.Error("Unable to abort multipart upload:", err)
+		WriteErrorResponse(w, r, err)
+		return
+	}
+	SetDeltaSize(w, delta.StorageClass, delta.Delta)
 	WriteSuccessNoContent(w)
 }
 
 // ListObjectPartsHandler - List object parts
 func (api ObjectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *http.Request) {
+	SetOperationName(w, OpListObjectParts)
 	reqCtx := GetRequestContext(r)
 	logger := reqCtx.Logger
 	bucketName := reqCtx.BucketName
@@ -1866,19 +1833,9 @@ func (api ObjectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.ListMultipartUploadPartsAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	request, err := parseListObjectPartsQuery(r.URL.Query())
@@ -1894,16 +1851,13 @@ func (api ObjectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 		return
 	}
 	encodedSuccessResponse := EncodeResponse(listPartsInfo)
-
-	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "ListObjectParts"
-
 	// Write success response.
 	WriteSuccessResponse(w, r, encodedSuccessResponse)
 }
 
 // CompleteMultipartUploadHandler - Complete multipart upload
 func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWriter, r *http.Request) {
+	SetOperationName(w, OpCompleteMultipartUpload)
 	reqCtx := GetRequestContext(r)
 	logger := ContextLogger(r)
 
@@ -1912,20 +1866,11 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r) {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.PutObjectAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
-		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
+
 	completeMultipartBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
 		logger.Error(
@@ -2005,10 +1950,12 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 			result.SseCustomerKeyMd5Base64)
 	}
 
+	if reqCtx.ObjectInfo != nil {
+		SetDeltaSize(w, reqCtx.ObjectInfo.StorageClass, -reqCtx.ObjectInfo.Size)
+	}
+
 	setXmlHeader(w)
 
-	//ResponseRecorder
-	w.(*ResponseRecorder).operationName = "CompleteMultipartUpload"
 	// write success response.
 	WriteSuccessResponse(w, r, encodedSuccessResponse)
 }
@@ -2017,22 +1964,13 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 
 // DeleteObjectHandler - delete an object
 func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.Request) {
+	SetOperationName(w, OpDeleteObject)
 	reqCtx := GetRequestContext(r)
 	var credential common.Credential
 	var err error
-	switch reqCtx.AuthType {
-	default:
-		// For all unknown auth types return error.
-		WriteErrorResponse(w, r, ErrAccessDenied)
+	if credential, err = checkRequestAuth(r, policy.DeleteObjectAction); err != nil {
+		WriteErrorResponse(w, r, err)
 		return
-	case signature.AuthTypeAnonymous:
-		break
-	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
-		signature.AuthTypeSignedV2, signature.AuthTypePresignedV2:
-		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
-			return
-		}
 	}
 
 	// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectDELETE.html
@@ -2048,8 +1986,18 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 	if result.VersionId != "" && result.VersionId != meta.NullVersion {
 		w.Header().Set("x-amz-version-id", result.VersionId)
 	}
-	// ResponseRecorder
-	w.(*ResponseRecorder).operationName = "DeleteObject"
+
+	SetDeltaSize(w, result.DeltaSize.StorageClass, result.DeltaSize.Delta)
+
+	var unexpiredInfo []UnexpiredTriple
+	if ok, delta := reqCtx.ObjectInfo.IsUnexpired(); ok {
+		unexpiredInfo = append(unexpiredInfo, UnexpiredTriple{
+			StorageClass: reqCtx.ObjectInfo.StorageClass,
+			Size:         CorrectDeltaSize(reqCtx.ObjectInfo.StorageClass, reqCtx.ObjectInfo.Size),
+			SurvivalTime: delta,
+		})
+	}
+	SetUnexpiredInfo(w, unexpiredInfo)
 	WriteSuccessNoContent(w)
 }
 
@@ -2061,6 +2009,7 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 var ValidSuccessActionStatus = []string{"200", "201", "204"}
 
 func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Request) {
+	SetOperationName(w, OpPostObject)
 	reqCtx := GetRequestContext(r)
 	logger := reqCtx.Logger
 	var err error
@@ -2179,7 +2128,9 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 	if !helper.StringInSlice(status, ValidSuccessActionStatus) {
 		status = "204"
 	}
-
+	for sc, v := range result.DeltaInfo {
+		SetDeltaSize(w, sc, v)
+	}
 	statusCode, _ := strconv.Atoi(status)
 	switch statusCode {
 	case 200, 204:
@@ -2192,9 +2143,6 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 			ETag:     result.Md5,
 		})
 		w.WriteHeader(201)
-
-		// ResponseRecorder
-		w.(*ResponseRecorder).operationName = "PostObject"
 
 		w.Write(encodedSuccessResponse)
 	}

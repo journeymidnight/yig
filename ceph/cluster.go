@@ -19,13 +19,13 @@ import (
 )
 
 const (
-	MON_TIMEOUT                = "10"
-	OSD_TIMEOUT                = "10"
-	STRIPE_UNIT                = 512 << 10 /* 512K */
-	STRIPE_COUNT               = 2
+	MON_TIMEOUT                = "0"
+	OSD_TIMEOUT                = "0"
+	STRIPE_UNIT                = 4 << 20 /* 4M */
+	STRIPE_COUNT               = 1
 	APPEND_STRIPE_UNIT         = 32 << 10 /* 32K */
 	APPEND_STRIPE_COUNT        = 1
-	OBJECT_SIZE                = 8 << 20 /* 8M */
+	OBJECT_SIZE                = 4 << 20 /* 4M */
 	AIO_CONCURRENT             = 4
 	DEFAULT_CEPHCONFIG_PATTERN = "conf/*.conf"
 	MIN_CHUNK_SIZE             = 512 << 10       // 512K
@@ -51,6 +51,28 @@ func Initialize(config helper.Config) map[string]backend.Cluster {
 	}
 
 	return clusters
+}
+
+// Exactly `Initialize` but without log output, return generated errors
+func PureInitialize(cephConfigPattern string) (map[string]backend.Cluster, error) {
+	if cephConfigPattern == "" {
+		cephConfigPattern = DEFAULT_CEPHCONFIG_PATTERN
+	}
+	cephConfigFiles, err := filepath.Glob(cephConfigPattern)
+	if err != nil || len(cephConfigFiles) == 0 {
+		return nil, errors.New("no ceph conf found")
+	}
+
+	clusters := make(map[string]backend.Cluster)
+	for _, conf := range cephConfigFiles {
+		c, err := PureNewCephStorage(conf)
+		if err != nil {
+			return nil, err
+		}
+		clusters[c.Name] = c
+	}
+
+	return clusters, nil
 }
 
 type CephCluster struct {
@@ -97,6 +119,50 @@ func NewCephStorage(configFile string) *CephCluster {
 
 	helper.Logger.Info("Ceph Cluster", name, "is ready, InstanceId is", name, id)
 	return &cluster
+}
+
+// Exactly `NewCephStorage`, but without log output, return errors
+func PureNewCephStorage(configFile string) (*CephCluster, error) {
+
+	conn, err := rados.NewConn("admin")
+	if err != nil {
+		return nil, fmt.Errorf("rados new conn: %w", err)
+	}
+	err = conn.SetConfigOption("rados_mon_op_timeout", MON_TIMEOUT)
+	if err != nil {
+		return nil, fmt.Errorf("set MON_TIMEOUT error: %w", err)
+	}
+	err = conn.SetConfigOption("rados_osd_op_timeout", OSD_TIMEOUT)
+	if err != nil {
+		return nil, fmt.Errorf("set OSD_TIMEOUT error: %w", err)
+	}
+
+	err = conn.ReadConfigFile(configFile)
+	if err != nil {
+		return nil, fmt.Errorf("open file %s failed: %w", configFile, err)
+	}
+
+	err = conn.Connect()
+	if err != nil {
+		return nil, fmt.Errorf("connect to remote cluster %s failed: %w",
+			configFile, err)
+	}
+
+	name, err := conn.GetFSID()
+	if err != nil {
+		conn.Shutdown()
+		return nil, fmt.Errorf("get %s FSID failed: %w", configFile, err)
+	}
+
+	id := conn.GetInstanceID()
+
+	cluster := CephCluster{
+		Conn:       radosConn{conn},
+		Name:       name,
+		InstanceId: id,
+	}
+
+	return &cluster, nil
 }
 
 func setStripeLayout(p StriperPool) int {
@@ -267,7 +333,7 @@ func (cluster *CephCluster) doSmallAppend(poolname string, oid string, offset ui
 	defer pool.Destroy()
 	striper, err := pool.CreateStriper()
 	if err != nil {
-		return 0, fmt.Errorf("Bad ioctx of pool %s", poolname)
+		return 0, fmt.Errorf("Bad ioctx of pool %s,err:%s", poolname, err.Error())
 	}
 	defer striper.Destroy()
 
@@ -363,13 +429,13 @@ func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
 
 	pool, err := cluster.Conn.OpenPool(poolname)
 	if err != nil {
-		return oid, 0, fmt.Errorf("Bad poolname %s", poolname)
+		return oid, 0, fmt.Errorf("Bad poolname %s err:%s", poolname, err.Error())
 	}
 	defer pool.Destroy()
 
 	striper, err := pool.CreateStriper()
 	if err != nil {
-		return oid, 0, fmt.Errorf("Bad ioctx of pool %s", poolname)
+		return oid, 0, fmt.Errorf("Bad ioctx of pool %s err:%s", poolname, err.Error())
 	}
 	defer striper.Destroy()
 
@@ -396,7 +462,7 @@ func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
 		if err != nil && err != io.EOF {
 			drain_pending(pending)
 			return oid, 0,
-				fmt.Errorf("Read from client failed. pool:%s oid:%s", poolname, oid)
+				fmt.Errorf("Read from client failed. pool:%s oid:%s err:%s", poolname, oid, err.Error())
 		}
 		if count == 0 {
 			break
@@ -418,7 +484,7 @@ func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
 			c.Release()
 			drain_pending(pending)
 			return oid, 0,
-				fmt.Errorf("Bad io. pool:%s oid:%s", poolname, oid)
+				fmt.Errorf("Bad io. pool:%s oid:%s err:%s", poolname, oid, err.Error())
 		}
 		pending.PushBack(c)
 
@@ -426,7 +492,7 @@ func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
 			if ret := wait_pending_front(pending); ret < 0 {
 				drain_pending(pending)
 				return oid, 0,
-					fmt.Errorf("Error drain_pending in pending_has_completed. pool:%s oid:%s", poolname, oid)
+					fmt.Errorf("Error drain_pending in pending_has_completed. pool:%s oid:%s err:%s", poolname, oid, err.Error())
 			}
 		}
 
@@ -434,7 +500,7 @@ func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
 			if ret := wait_pending_front(pending); ret < 0 {
 				drain_pending(pending)
 				return oid, 0,
-					fmt.Errorf("Error wait_pending_front. pool:%s oid:%s", poolname, oid)
+					fmt.Errorf("Error wait_pending_front. pool:%s oid:%s err:%s", poolname, oid, err.Error())
 			}
 		}
 		offset += uint64(len(pending_data))
@@ -470,8 +536,8 @@ func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
 		c, err = striper.WriteAIO(oid, pending_data[:slice_offset], offset)
 		if err != nil {
 			c.Release()
-			return oid, 0, fmt.Errorf("error writing remaining data, pool:%s oid:%s",
-				poolname, oid)
+			return oid, 0, fmt.Errorf("error writing remaining data, pool:%s oid:%s err:%s",
+				poolname, oid, err.Error())
 		}
 		pending.PushBack(c)
 	}
@@ -507,14 +573,14 @@ func (cluster *CephCluster) Append(poolname string, existName string, data io.Re
 	pool, err := cluster.Conn.OpenPool(poolname)
 	if err != nil {
 		return oid, 0,
-			fmt.Errorf("Bad poolname %s", poolname)
+			fmt.Errorf("Bad poolname %s err:%s", poolname, err.Error())
 	}
 	defer pool.Destroy()
 
 	striper, err := pool.CreateStriper()
 	if err != nil {
 		return oid, 0,
-			fmt.Errorf("Bad ioctx of pool %s", poolname)
+			fmt.Errorf("Bad ioctx of pool %s err:%s", poolname, err.Error())
 	}
 	defer striper.Destroy()
 
@@ -550,7 +616,7 @@ func (cluster *CephCluster) Append(poolname string, existName string, data io.Re
 		_, err = striper.Write(oid, pending_data, uint64(offset))
 		if err != nil {
 			return oid, 0,
-				fmt.Errorf("Bad io. pool:%s oid:%s", poolname, oid)
+				fmt.Errorf("Bad io. pool:%s oid:%s err:%s", poolname, oid, err.Error())
 		}
 
 		offset += int64(len(pending_data))
@@ -586,7 +652,7 @@ func (cluster *CephCluster) Append(poolname string, existName string, data io.Re
 		_, err = striper.Write(oid, pending_data, uint64(offset))
 		if err != nil {
 			return oid, 0,
-				fmt.Errorf("Bad io. pool:%s oid:%s", poolname, oid)
+				fmt.Errorf("Bad io. pool:%s oid:%s err:%s", poolname, oid, err.Error())
 		}
 	}
 
@@ -760,4 +826,8 @@ func (cluster *CephCluster) GetUsage() (usage backend.Usage, err error) {
 	}
 	usage.UsedSpacePercent = int(stat.Kb_used * uint64(100) / stat.Kb)
 	return
+}
+
+func (cluster *CephCluster) Close() {
+	cluster.Conn.Shutdown()
 }

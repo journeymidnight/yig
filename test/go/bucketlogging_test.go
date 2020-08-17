@@ -11,9 +11,10 @@ import (
 func Test_BucketLogging(t *testing.T) {
 	sc := NewS3()
 	defer func() {
-		sc.DeleteBucket(TEST_BUCKET)
+		sc.DeleteBucket(TestBucket)
+		sc.DeleteBucket("testTargetBucket")
 	}()
-	err := sc.MakeBucket(TEST_BUCKET)
+	err := sc.MakeBucket(TestBucket)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
@@ -29,14 +30,14 @@ func Test_BucketLogging(t *testing.T) {
 		TargetBucket: aws.String("testTargetBucket"),
 		TargetPrefix: aws.String("testTargetPrefix"),
 	}
-	err = sc.PutBucketLogging(TEST_BUCKET, rules)
+	err = sc.PutBucketLogging(TestBucket, rules)
 	if err != nil {
 		t.Fatal("PutBucketLogging err:", err)
 		panic(err)
 	}
 	t.Log("PutBucketLogging Success.")
 
-	out, err := sc.GetBucketLogging(TEST_BUCKET)
+	out, err := sc.GetBucketLogging(TestBucket)
 	if err != nil {
 		t.Fatal("GetBucketLogging err:", err)
 		panic(err)
@@ -47,7 +48,7 @@ func Test_BucketLogging(t *testing.T) {
 		TargetBucket: aws.String(""),
 		TargetPrefix: aws.String(""),
 	}
-	err = sc.PutBucketLogging(TEST_BUCKET, rules)
+	err = sc.PutBucketLogging(TestBucket, rules)
 	if err != nil {
 		t.Fatal("DeleteBucketLogging err:", err)
 		panic(err)
@@ -59,7 +60,7 @@ func Test_BucketLogging(t *testing.T) {
 		t.Fatal("DeleteBucket err:", err)
 		panic(err)
 	}
-	err = sc.DeleteBucket(TEST_BUCKET)
+	err = sc.DeleteBucket(TestBucket)
 	if err != nil {
 		t.Fatal("DeleteBucket err:", err)
 		panic(err)

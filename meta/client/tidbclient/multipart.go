@@ -109,10 +109,10 @@ func (t *TidbClient) CreateMultipart(multipart Multipart) (err error) {
 	return
 }
 
-func (t *TidbClient) PutObjectPart(multipart *Multipart, part *Part) (err error) {
+func (t *TidbClient) PutObjectPart(multipart *Multipart, part *Part) (deltaSize int64, err error) {
 	tx, err := t.Client.Begin()
 	if err != nil {
-		return err
+		return 0, err
 	}
 	defer func() {
 		if err == nil {
@@ -125,22 +125,23 @@ func (t *TidbClient) PutObjectPart(multipart *Multipart, part *Part) (err error)
 	uploadtime := math.MaxUint64 - multipart.InitialTime
 	lastt, err := time.Parse(CREATE_TIME_LAYOUT, part.LastModified)
 	if err != nil {
-		return
+		return 0, err
 	}
 	lastModified := lastt.Format(TIME_LAYOUT_TIDB)
 	sqltext := "insert into multipartpart(partnumber,size,objectid,offset,etag,lastmodified,initializationvector,bucketname,objectname,uploadtime) " +
 		"values(?,?,?,?,?,?,?,?,?,?)"
 
+	_, err = tx.Exec(sqltext, part.PartNumber, part.Size, part.ObjectId, part.Offset, part.Etag, lastModified, part.InitializationVector, multipart.BucketName, multipart.ObjectName, uploadtime)
 	var removedSize int64 = 0
 	if part, ok := multipart.Parts[part.PartNumber]; ok {
 		removedSize += part.Size
 	}
-	err = t.UpdateUsage(multipart.BucketName, part.Size-removedSize, tx)
+	deltaSize = part.Size - removedSize
+	err = t.UpdateUsage(multipart.BucketName, deltaSize, tx)
 	if err != nil {
 		return
 	}
-	_, err = tx.Exec(sqltext, part.PartNumber, part.Size, part.ObjectId, part.Offset, part.Etag, lastModified, part.InitializationVector, multipart.BucketName, multipart.ObjectName, uploadtime)
-	return
+	return deltaSize, nil
 }
 
 func (t *TidbClient) DeleteMultipart(multipart *Multipart, tx Tx) (err error) {
@@ -269,13 +270,13 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 			if err != nil {
 				return
 			}
-			upload.Owner.ID = user.UserId
+			upload.Owner.ID = user.ExternUserId
 			upload.Owner.DisplayName = user.DisplayName
 			user, err = iam.GetCredentialByUserId(initiatorid)
 			if err != nil {
 				return
 			}
-			upload.Initiator.ID = user.UserId
+			upload.Initiator.ID = user.ExternUserId
 			upload.Initiator.DisplayName = user.DisplayName
 			timestamp := int64(math.MaxUint64 - uploadtime)
 			s := timestamp / 1e9

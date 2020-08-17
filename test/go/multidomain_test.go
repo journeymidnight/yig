@@ -9,26 +9,26 @@ import (
 func Test_MultiDomain(t *testing.T) {
 	sc := NewS3Internal()
 	defer sc.CleanEnv()
-	err := sc.MakeBucket(TEST_BUCKET)
+	err := sc.MakeBucket(TestBucket)
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
 	t.Log("MakeBucket Success.")
 
-	err = sc.PutObject(TEST_BUCKET, TEST_KEY, TEST_VALUE)
+	err = sc.PutObject(TestBucket, TestKey, TestValue)
 	if err != nil {
 		t.Fatal("PutObject err:", err)
 		panic(err)
 	}
 	t.Log("PutObject Success.")
 
-	err = sc.DeleteObject(TEST_BUCKET, TEST_KEY)
+	err = sc.DeleteObject(TestBucket, TestKey)
 	if err != nil {
 		t.Fatal("DeleteObject err:", err)
 	}
 
-	err = sc.DeleteBucket(TEST_BUCKET)
+	err = sc.DeleteBucket(TestBucket)
 	if err != nil {
 		t.Fatal("DeleteBucket err:", err)
 		panic(err)

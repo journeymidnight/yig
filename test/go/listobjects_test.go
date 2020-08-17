@@ -17,9 +17,9 @@ type TestListObjectsCase struct {
 
 func Test_ListObjects_With_StorageClass(t *testing.T) {
 	testCases := []TestListObjectsCase{
-		{TEST_BUCKET, TEST_KEY, TEST_VALUE, s3.ObjectStorageClassStandard, s3.ObjectStorageClassStandard},
-		{TEST_BUCKET, TEST_KEY, TEST_VALUE, s3.ObjectStorageClassStandardIa, s3.ObjectStorageClassStandardIa},
-		{TEST_BUCKET, TEST_KEY, TEST_VALUE, s3.ObjectStorageClassGlacier, s3.ObjectStorageClassGlacier},
+		{TestBucket, TestKey, TestValue, s3.ObjectStorageClassStandard, s3.ObjectStorageClassStandard},
+		{TestBucket, TestKey, TestValue, s3.ObjectStorageClassStandardIa, s3.ObjectStorageClassStandardIa},
+		{TestBucket, TestKey, TestValue, s3.ObjectStorageClassGlacier, s3.ObjectStorageClassGlacier},
 	}
 	sc := NewS3()
 	defer sc.CleanEnv()

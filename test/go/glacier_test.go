@@ -27,14 +27,14 @@ const (
 
 func Test_PutObjectWithGlacier(t *testing.T) {
 	sc := NewS3()
-	err := sc.MakeBucket(TEST_BUCKET)
+	err := sc.MakeBucket(TestBucket)
 	defer sc.CleanEnv()
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
 
-	err = sc.PutObjectWithStorageClass(TEST_BUCKET, TEST_KEY, TEST_VALUE, s3.StorageClassGlacier)
+	err = sc.PutObjectWithStorageClass(TestBucket, TestKey, TestValue, s3.StorageClassGlacier)
 	if err != nil {
 		t.Fatal("PutObject err:", err)
 	}
@@ -43,14 +43,14 @@ func Test_PutObjectWithGlacier(t *testing.T) {
 
 func Test_RestoreObject(t *testing.T) {
 	sc := NewS3()
-	err := sc.MakeBucket(TEST_BUCKET)
+	err := sc.MakeBucket(TestBucket)
 	defer sc.CleanEnv()
 	if err != nil {
 		t.Fatal("MakeBucket err:", err)
 		panic(err)
 	}
 
-	err = sc.PutObjectWithStorageClass(TEST_BUCKET, TEST_KEY, TEST_VALUE, s3.ObjectStorageClassGlacier)
+	err = sc.PutObjectWithStorageClass(TestBucket, TestKey, TestValue, s3.ObjectStorageClassGlacier)
 	if err != nil {
 		t.Fatal("PutObject err:", err)
 	}
@@ -66,18 +66,18 @@ func Test_RestoreObject(t *testing.T) {
 		t.Fatal("RestoreObject err:", "empty restoreRequest!")
 	}
 
-	err = sc.RestoreObject(TEST_BUCKET, TEST_KEY, restoreRequest)
+	err = sc.RestoreObject(TestBucket, TestKey, restoreRequest)
 	if err != nil {
 		t.Fatal("RestoreObject err:", err)
 	}
 	t.Log("RestoreObject Success!")
 
-	err = sc.DeleteObject(TEST_BUCKET, TEST_KEY)
+	err = sc.DeleteObject(TestBucket, TestKey)
 	if err != nil {
 		t.Fatal("DeleteObject err:", err)
 	}
 	t.Log("DeleteObject Success!")
-	err = sc.DeleteBucket(TEST_BUCKET)
+	err = sc.DeleteBucket(TestBucket)
 	if err != nil {
 		t.Fatal("DeleteBucket err:", err)
 	}

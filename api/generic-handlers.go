@@ -308,22 +308,26 @@ func FillBucketAndObjectInfo(reqCtx *RequestContext, r *http.Request, meta *meta
 			return err
 		}
 		if reqCtx.BucketInfo != nil && reqCtx.ObjectName != "" {
+			var cacheMeta bool
+			if r.Method == http.MethodGet || r.Method == http.MethodHead {
+				cacheMeta = true
+			}
 			if reqCtx.BucketInfo.Versioning == datatype.BucketVersioningDisabled {
 				if reqCtx.VersionId != "" {
 					return ErrInvalidVersioning
 				}
-				reqCtx.ObjectInfo, err = meta.GetObject(reqCtx.BucketInfo.Name, reqCtx.ObjectName, types.NullVersion, true)
+				reqCtx.ObjectInfo, err = meta.GetObject(reqCtx.BucketInfo.Name, reqCtx.ObjectName, types.NullVersion, cacheMeta)
 				if err != nil && err != ErrNoSuchKey {
 					return err
 				}
 			} else if reqCtx.BucketInfo.Versioning == datatype.BucketVersioningSuspended &&
 				r.Method != http.MethodGet && r.Method != http.MethodHead && reqCtx.VersionId == "" {
-				reqCtx.ObjectInfo, err = meta.GetObject(reqCtx.BucketInfo.Name, reqCtx.ObjectName, types.NullVersion, true)
+				reqCtx.ObjectInfo, err = meta.GetObject(reqCtx.BucketInfo.Name, reqCtx.ObjectName, types.NullVersion, cacheMeta)
 				if err != nil && err != ErrNoSuchKey {
 					return err
 				}
 			} else {
-				reqCtx.ObjectInfo, err = meta.GetObject(reqCtx.BucketInfo.Name, reqCtx.ObjectName, reqCtx.VersionId, true)
+				reqCtx.ObjectInfo, err = meta.GetObject(reqCtx.BucketInfo.Name, reqCtx.ObjectName, reqCtx.VersionId, cacheMeta)
 				if err != nil && err != ErrNoSuchKey {
 					return err
 				}
@@ -408,20 +412,22 @@ type QosHandler struct {
 }
 
 func (h *QosHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := GetRequestContext(r)
-	if len(ctx.BucketName) == 0 {
-		h.handler.ServeHTTP(w, r)
-		return
-	}
-	var allow bool
-	if r.Method == "GET" || r.Method == "HEAD" { // read operations
-		allow = h.meta.QosMeta.AllowReadQuery(ctx.BucketName)
-	} else { // write operations
-		allow = h.meta.QosMeta.AllowWriteQuery(ctx.BucketName)
-	}
-	if !allow {
-		WriteErrorResponse(w, r, ErrRequestLimitExceeded)
-		return
+	if helper.CONFIG.EnableQoS {
+		ctx := GetRequestContext(r)
+		if len(ctx.BucketName) == 0 {
+			h.handler.ServeHTTP(w, r)
+			return
+		}
+		var allow bool
+		if r.Method == "GET" || r.Method == "HEAD" { // read operations
+			allow = h.meta.QosMeta.AllowReadQuery(ctx.BucketName)
+		} else { // write operations
+			allow = h.meta.QosMeta.AllowWriteQuery(ctx.BucketName)
+		}
+		if !allow {
+			WriteErrorResponse(w, r, ErrRequestLimitExceeded)
+			return
+		}
 	}
 	h.handler.ServeHTTP(w, r)
 }

@@ -28,12 +28,13 @@ import (
 	"bytes"
 	"crypto/subtle"
 	"encoding/hex"
-	"github.com/journeymidnight/yig/sts"
 	"net/http"
 	"net/url"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/journeymidnight/yig/sts"
 
 	. "github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"

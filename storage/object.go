@@ -2,15 +2,17 @@ package storage
 
 import (
 	"crypto/md5"
+	"database/sql/driver"
 	"encoding/hex"
 	"errors"
 	"io"
 	"math/rand"
 	"path"
 	"sync"
+	"sync/atomic"
 	"time"
 
-	"github.com/journeymidnight/yig/api/datatype"
+	. "github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/backend"
 	. "github.com/journeymidnight/yig/context"
 	"github.com/journeymidnight/yig/crypto"
@@ -38,73 +40,6 @@ func (yig *YigStorage) pickRandomCluster() (cluster backend.Cluster) {
 		cluster = c
 		break
 	}
-	return
-}
-
-func (yig *YigStorage) PickSpecificCluster(poolName string) (cluster backend.Cluster) {
-	var idx int
-	if poolName == backend.BIG_FILE_POOLNAME {
-		idx = 1
-	} else {
-		idx = 0
-	}
-
-	if v, ok := cMap.Load(poolName); ok {
-		return v.(backend.Cluster)
-	}
-
-	// TODO: Add Ticker to change Map
-	var needCheck bool
-	queryTime := latestQueryTime[idx]
-	if time.Since(queryTime).Hours() > 24 { // check used space every 24 hours
-		latestQueryTime[idx] = time.Now()
-		needCheck = true
-	}
-	var totalWeight int
-	clusterWeights := make(map[string]int, len(yig.DataStorage))
-	metaClusters, err := yig.MetaStorage.GetClusters()
-	if err != nil {
-		cluster = yig.pickRandomCluster()
-		return
-	}
-	for _, cluster := range metaClusters {
-		if cluster.Weight == 0 {
-			continue
-		}
-		if cluster.Pool != poolName {
-			continue
-		}
-		if needCheck {
-			usage, err := yig.DataStorage[cluster.Fsid].GetUsage()
-			if err != nil {
-				helper.Logger.Warn("Error getting used space: ", err,
-					"fsid: ", cluster.Fsid)
-				continue
-			}
-			if usage.UsedSpacePercent > CLUSTER_MAX_USED_SPACE_PERCENT {
-				helper.Logger.Warn("Cluster used space exceed ",
-					CLUSTER_MAX_USED_SPACE_PERCENT, cluster.Fsid)
-				continue
-			}
-		}
-		totalWeight += cluster.Weight
-		clusterWeights[cluster.Fsid] = cluster.Weight
-	}
-	if len(clusterWeights) == 0 || totalWeight == 0 {
-		cluster = yig.pickRandomCluster()
-		return
-	}
-	N := rand.Intn(totalWeight)
-	n := 0
-	for fsid, weight := range clusterWeights {
-		n += weight
-		if n > N {
-			cluster = yig.DataStorage[fsid]
-			break
-		}
-	}
-
-	cMap.Store(poolName, cluster)
 	return
 }
 
@@ -258,7 +193,7 @@ func getAlignedReader(cluster backend.Cluster, poolName, objectName string, obje
 }
 
 func (yig *YigStorage) GetObject(object *meta.Object, startOffset int64,
-	length int64, writer io.Writer, sseRequest datatype.SseRequest) (err error) {
+	length int64, writer io.Writer, sseRequest SseRequest) (err error) {
 	var encryptionKey []byte
 	if object.SseType == crypto.S3.String() {
 		if yig.KMS == nil {
@@ -398,6 +333,89 @@ func copyEncryptedPart(pool string, part *meta.Part, cluster backend.Cluster,
 	return err
 }
 
+func CheckBucketAclForGetObjectInfo(bucket *meta.Bucket, credential common.Credential) (err error) {
+	if !credential.AllowOtherUserAccess {
+		//an CanonicalUser request
+		if !(bucket.OwnerId == credential.ExternRootId && credential.ExternUserId == credential.ExternRootId) {
+			if bucket.ACL.CannedAcl != "" {
+				switch bucket.ACL.CannedAcl {
+				case "public-read-write":
+					break
+				default:
+					return ErrBucketAccessForbidden
+				}
+			} else {
+				switch true {
+				case IsPermissionMatchedById(bucket.ACL.Policy, ACL_PERM_READ, credential.ExternUserId) ||
+					IsPermissionMatchedById(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, credential.ExternUserId):
+					break
+				case IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_READ, ACL_GROUP_TYPE_ALL_USERS) ||
+					IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_ALL_USERS):
+					break
+				case IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_READ, ACL_GROUP_TYPE_AUTHENTICATED_USERS) ||
+					IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_AUTHENTICATED_USERS):
+					if credential.ExternUserId != "" {
+						break
+					}
+				case IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_READ, ACL_GROUP_TYPE_LOG_DELIVERY) ||
+					IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_LOG_DELIVERY):
+					if helper.StringInSlice(credential.ExternUserId, helper.CONFIG.LogDeliveryGroup) {
+						break
+					}
+				default:
+					return ErrBucketAccessForbidden
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func CheckObjectAclForGetObjectInfo(bucket *meta.Bucket, object *meta.Object, credential common.Credential) (err error) {
+	if !credential.AllowOtherUserAccess {
+		//an CanonicalUser request
+		if !(bucket.OwnerId == credential.ExternRootId && credential.ExternUserId == credential.ExternRootId) {
+			if object.ACL.CannedAcl != "" {
+				switch object.ACL.CannedAcl {
+				case "public-read", "public-read-write":
+					break
+				case "authenticated-read":
+					if credential.ExternUserId == "" {
+						err = ErrAccessDenied
+						return
+					}
+				default:
+					err = ErrAccessDenied
+					return
+				}
+			} else {
+				switch true {
+				case IsPermissionMatchedById(object.ACL.Policy, ACL_PERM_READ, credential.ExternUserId) ||
+					IsPermissionMatchedById(object.ACL.Policy, ACL_PERM_FULL_CONTROL, credential.ExternUserId):
+					break
+				case IsPermissionMatchedByGroup(object.ACL.Policy, ACL_PERM_READ, ACL_GROUP_TYPE_ALL_USERS) ||
+					IsPermissionMatchedByGroup(object.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_ALL_USERS):
+					break
+				case IsPermissionMatchedByGroup(object.ACL.Policy, ACL_PERM_READ, ACL_GROUP_TYPE_AUTHENTICATED_USERS) ||
+					IsPermissionMatchedByGroup(object.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_AUTHENTICATED_USERS):
+					if credential.ExternUserId != "" {
+						break
+					}
+				case IsPermissionMatchedByGroup(object.ACL.Policy, ACL_PERM_READ, ACL_GROUP_TYPE_LOG_DELIVERY) ||
+					IsPermissionMatchedByGroup(object.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_LOG_DELIVERY):
+					if helper.StringInSlice(credential.ExternUserId, helper.CONFIG.LogDeliveryGroup) {
+						break
+					}
+				default:
+					err = ErrAccessDenied
+					return
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 	version string, credential common.Credential) (object *meta.Object, err error) {
 
@@ -406,7 +424,7 @@ func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 		return
 	}
 
-	if bucket.Versioning == datatype.BucketVersioningDisabled {
+	if bucket.Versioning == BucketVersioningDisabled {
 		if version != "" {
 			return nil, ErrInvalidVersioning
 		}
@@ -422,26 +440,8 @@ func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 		return nil, err
 	}
 
-	if !credential.AllowOtherUserAccess {
-		switch object.ACL.CannedAcl {
-		case "public-read", "public-read-write":
-			break
-		case "authenticated-read":
-			if credential.UserId == "" {
-				err = ErrAccessDenied
-				return
-			}
-		case "bucket-owner-read", "bucket-owner-full-control":
-			if bucket.OwnerId != credential.UserId {
-				err = ErrAccessDenied
-				return
-			}
-		default:
-			if object.OwnerId != credential.UserId {
-				err = ErrAccessDenied
-				return
-			}
-		}
+	if CheckBucketAclForGetObjectInfo(bucket, credential) != nil && CheckObjectAclForGetObjectInfo(bucket, object, credential) != nil {
+		return nil, ErrAccessDenied
 	}
 
 	return
@@ -452,37 +452,21 @@ func (yig *YigStorage) GetObjectInfoByCtx(ctx RequestContext, credential common.
 	if bucket == nil {
 		return nil, ErrNoSuchBucket
 	}
+
 	object = ctx.ObjectInfo
 	if object == nil {
 		return nil, ErrNoSuchKey
 	}
 
-	if !credential.AllowOtherUserAccess {
-		switch object.ACL.CannedAcl {
-		case "public-read", "public-read-write":
-			break
-		case "authenticated-read":
-			if credential.UserId == "" {
-				err = ErrAccessDenied
-				return
-			}
-		case "bucket-owner-read", "bucket-owner-full-control":
-			if bucket.OwnerId != credential.UserId {
-				err = ErrAccessDenied
-				return
-			}
-		default:
-			if object.OwnerId != credential.UserId {
-				err = ErrAccessDenied
-				return
-			}
-		}
+	if CheckBucketAclForGetObjectInfo(bucket, credential) != nil && CheckObjectAclForGetObjectInfo(bucket, object, credential) != nil {
+		return nil, ErrAccessDenied
 	}
+
 	return
 }
 
 func (yig *YigStorage) GetObjectAcl(reqCtx RequestContext, credential common.Credential) (
-	policy datatype.AccessControlPolicyResponse, err error) {
+	policy AccessControlPolicyResponse, err error) {
 	bucket := reqCtx.BucketInfo
 	if bucket == nil {
 		return policy, ErrNoSuchBucket
@@ -494,34 +478,58 @@ func (yig *YigStorage) GetObjectAcl(reqCtx RequestContext, credential common.Cre
 	}
 
 	if !credential.AllowOtherUserAccess {
-		switch object.ACL.CannedAcl {
-		case "public-read", "public-read-write":
-			break
-		case "authenticated-read":
-			if credential.UserId == "" {
-				err = ErrAccessDenied
-				return
-			}
-		case "bucket-owner-read", "bucket-owner-full-control":
-			if bucket.OwnerId != credential.UserId {
-				err = ErrAccessDenied
-				return
-			}
-		default:
-			if object.OwnerId != credential.UserId {
-				err = ErrAccessDenied
-				return
+		//an CanonicalUser request
+		if !(bucket.OwnerId == credential.ExternRootId && credential.ExternUserId == credential.ExternRootId) {
+			if object.ACL.CannedAcl != "" {
+				switch object.ACL.CannedAcl {
+				case "public-read", "public-read-write":
+					break
+				case "authenticated-read":
+					if credential.ExternUserId == "" {
+						err = ErrAccessDenied
+						return
+					}
+				default:
+					err = ErrAccessDenied
+					return
+				}
+			} else {
+				switch true {
+				case IsPermissionMatchedById(object.ACL.Policy, ACL_PERM_READ_ACP, credential.ExternUserId) ||
+					IsPermissionMatchedById(object.ACL.Policy, ACL_PERM_FULL_CONTROL, credential.ExternUserId):
+					break
+				case IsPermissionMatchedByGroup(object.ACL.Policy, ACL_PERM_READ_ACP, ACL_GROUP_TYPE_ALL_USERS) ||
+					IsPermissionMatchedByGroup(object.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_ALL_USERS):
+					break
+				case IsPermissionMatchedByGroup(object.ACL.Policy, ACL_PERM_READ_ACP, ACL_GROUP_TYPE_AUTHENTICATED_USERS) ||
+					IsPermissionMatchedByGroup(object.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_AUTHENTICATED_USERS):
+					if credential.ExternUserId != "" {
+						break
+					}
+				case IsPermissionMatchedByGroup(object.ACL.Policy, ACL_PERM_READ_ACP, ACL_GROUP_TYPE_LOG_DELIVERY) ||
+					IsPermissionMatchedByGroup(object.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_LOG_DELIVERY):
+					if helper.StringInSlice(credential.ExternUserId, helper.CONFIG.LogDeliveryGroup) {
+						break
+					}
+				default:
+					err = ErrAccessDenied
+					return
+				}
 			}
 		}
 	}
 
-	owner := datatype.Owner{ID: credential.UserId, DisplayName: credential.DisplayName}
+	owner := Owner{ID: object.OwnerId, DisplayName: object.OwnerId}
 	bucketCred, err := iam.GetCredentialByUserId(bucket.OwnerId)
 	if err != nil {
 		return
 	}
-	bucketOwner := datatype.Owner{ID: bucketCred.UserId, DisplayName: bucketCred.DisplayName}
-	policy, err = datatype.CreatePolicyFromCanned(owner, bucketOwner, object.ACL)
+	bucketOwner := Owner{ID: bucketCred.ExternUserId, DisplayName: bucketCred.DisplayName}
+	if object.ACL.CannedAcl != "" {
+		policy, err = CreatePolicyFromCanned(owner, bucketOwner, object.ACL)
+	} else {
+		DeepCopyAclPolicy(&object.ACL.Policy, &policy)
+	}
 	if err != nil {
 		return
 	}
@@ -529,7 +537,7 @@ func (yig *YigStorage) GetObjectAcl(reqCtx RequestContext, credential common.Cre
 	return
 }
 
-func (yig *YigStorage) SetObjectAcl(reqCtx RequestContext, policy datatype.AccessControlPolicy, acl datatype.Acl,
+func (yig *YigStorage) SetObjectAcl(reqCtx RequestContext, acl Acl,
 	credential common.Credential) error {
 
 	bucket := reqCtx.BucketInfo
@@ -542,19 +550,42 @@ func (yig *YigStorage) SetObjectAcl(reqCtx RequestContext, policy datatype.Acces
 		return ErrNoSuchKey
 	}
 
-	if acl.CannedAcl == "" {
-		newCannedAcl, err := datatype.GetCannedAclFromPolicy(policy)
-		if err != nil {
-			return err
+	if !credential.AllowOtherUserAccess {
+		//an CanonicalUser request
+		if !(bucket.OwnerId == credential.ExternRootId && credential.ExternUserId == credential.ExternRootId) {
+			if object.ACL.CannedAcl != "" {
+				switch object.ACL.CannedAcl {
+				case "public-read-write":
+					break
+				default:
+					return ErrAccessDenied
+				}
+			} else {
+				switch true {
+				case IsPermissionMatchedById(object.ACL.Policy, ACL_PERM_WRITE_ACP, credential.ExternUserId) ||
+					IsPermissionMatchedById(object.ACL.Policy, ACL_PERM_FULL_CONTROL, credential.ExternUserId):
+					break
+				case IsPermissionMatchedByGroup(object.ACL.Policy, ACL_PERM_WRITE_ACP, ACL_GROUP_TYPE_ALL_USERS) ||
+					IsPermissionMatchedByGroup(object.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_ALL_USERS):
+					break
+				case IsPermissionMatchedByGroup(object.ACL.Policy, ACL_PERM_WRITE_ACP, ACL_GROUP_TYPE_AUTHENTICATED_USERS) ||
+					IsPermissionMatchedByGroup(object.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_AUTHENTICATED_USERS):
+					if credential.ExternUserId != "" {
+						break
+					}
+				case IsPermissionMatchedByGroup(object.ACL.Policy, ACL_PERM_WRITE_ACP, ACL_GROUP_TYPE_LOG_DELIVERY) ||
+					IsPermissionMatchedByGroup(object.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_LOG_DELIVERY):
+					if helper.StringInSlice(credential.ExternUserId, helper.CONFIG.LogDeliveryGroup) {
+						break
+					}
+				default:
+					return ErrAccessDenied
+				}
+			}
 		}
-		acl = newCannedAcl
 	}
 
-	if bucket.OwnerId != credential.UserId {
-		return ErrAccessDenied
-	}
-
-	object.ACL = acl
+	DeepCopyAcl(&acl, &object.ACL)
 	err := yig.MetaStorage.UpdateObjectAcl(object)
 	if err != nil {
 		return err
@@ -578,8 +609,8 @@ func (yig *YigStorage) SetObjectAcl(reqCtx RequestContext, policy datatype.Acces
 // SHA256 is calculated only for v4 signed authentication
 // Encryptor is enabled when user set SSE headers
 func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Credential,
-	size int64, data io.ReadCloser, metadata map[string]string, acl datatype.Acl,
-	sseRequest datatype.SseRequest, storageClass StorageClass) (result datatype.PutObjectResult, err error) {
+	size int64, data io.ReadCloser, metadata map[string]string, acl Acl,
+	sseRequest SseRequest, storageClass StorageClass) (result PutObjectResult, err error) {
 	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
 	defer data.Close()
 	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, bucketName, objectName)
@@ -593,15 +624,45 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 		return result, ErrNoSuchBucket
 	}
 
-	switch bucket.ACL.CannedAcl {
-	case "public-read-write":
-		break
-	default:
-		// HACK: for put log temporary
-		if credential.UserId == "JustForPutLog" {
-			credential.UserId = bucket.OwnerId
-		} else if bucket.OwnerId != credential.UserId {
-			return result, ErrBucketAccessForbidden
+	if !credential.AllowOtherUserAccess {
+		//an CanonicalUser request
+		if !(bucket.OwnerId == credential.ExternRootId && credential.ExternUserId == credential.ExternRootId) {
+			if bucket.ACL.CannedAcl != "" {
+				switch bucket.ACL.CannedAcl {
+				case "public-read-write":
+					break
+				default:
+					// HACK: for put log temporary
+					if credential.ExternUserId == "JustForPutLog" {
+						credential.ExternUserId = bucket.OwnerId
+					} else {
+						err = ErrBucketAccessForbidden
+						return
+					}
+				}
+			} else {
+				switch true {
+				case IsPermissionMatchedById(bucket.ACL.Policy, ACL_PERM_WRITE, credential.ExternUserId) ||
+					IsPermissionMatchedById(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, credential.ExternUserId):
+					break
+				case IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_WRITE, ACL_GROUP_TYPE_ALL_USERS) ||
+					IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_ALL_USERS):
+					break
+				case IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_WRITE, ACL_GROUP_TYPE_AUTHENTICATED_USERS) ||
+					IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_AUTHENTICATED_USERS):
+					if credential.ExternUserId != "" {
+						break
+					}
+				case IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_WRITE, ACL_GROUP_TYPE_LOG_DELIVERY) ||
+					IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_LOG_DELIVERY):
+					if helper.StringInSlice(credential.ExternUserId, helper.CONFIG.LogDeliveryGroup) {
+						break
+					}
+				default:
+					err = ErrBucketAccessForbidden
+					return
+				}
+			}
 		}
 	}
 
@@ -676,8 +737,8 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 	}
 
 	// HACK: for put log temporary
-	if credential.UserId == "JustForPutLog" {
-		credential.UserId = bucket.OwnerId
+	if credential.ExternUserId == "JustForPutLog" {
+		credential.ExternUserId = bucket.OwnerId
 	}
 
 	// TODO validate bucket policy and fancy ACL
@@ -687,14 +748,14 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 		BucketName:       bucketName,
 		Location:         cluster.ID(),
 		Pool:             poolName,
-		OwnerId:          credential.UserId,
+		OwnerId:          credential.ExternRootId,
 		Size:             int64(bytesWritten),
 		ObjectId:         objectId,
 		LastModifiedTime: now,
 		Etag:             calculatedMd5,
 		ContentType:      metadata["Content-Type"],
 		ACL:              acl,
-		NullVersion:      helper.Ternary(bucket.Versioning == datatype.BucketVersioningEnabled, false, true).(bool),
+		NullVersion:      helper.Ternary(bucket.Versioning == BucketVersioningEnabled, false, true).(bool),
 		DeleteMarker:     false,
 		SseType:          sseRequest.Type,
 		EncryptionKey: helper.Ternary(sseRequest.Type == crypto.S3.String(),
@@ -706,7 +767,7 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 		CreateTime:           uint64(now.UnixNano()),
 	}
 	object.VersionId = object.GenVersionId(bucket.Versioning)
-	if object.StorageClass == ObjectStorageClassGlacier && bucket.Versioning != datatype.BucketVersioningEnabled {
+	if object.StorageClass == ObjectStorageClassGlacier && bucket.Versioning != BucketVersioningEnabled {
 		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
 		if err == nil {
 			err = yig.MetaStorage.DeleteFreezer(freezer)
@@ -722,14 +783,14 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 	if object.VersionId != meta.NullVersion {
 		result.VersionId = object.VersionId
 	}
-	err = yig.MetaStorage.PutObject(reqCtx, object, nil, true)
+	result.DeltaInfo, err = yig.MetaStorage.PutObject(reqCtx, object, nil, true)
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
 		return
-	} else {
+	} else if reqCtx.ObjectInfo != nil {
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":"+object.VersionId)
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.VersionId)
-		if reqCtx.ObjectInfo != nil && reqCtx.BucketInfo.Versioning != datatype.BucketVersioningEnabled {
+		if reqCtx.BucketInfo.Versioning != BucketVersioningEnabled {
 			go yig.removeOldObject(reqCtx.ObjectInfo)
 		}
 	}
@@ -737,12 +798,45 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 }
 
 func (yig *YigStorage) PutObjectMeta(bucket *meta.Bucket, targetObject *meta.Object, credential common.Credential) (err error) {
-	switch bucket.ACL.CannedAcl {
-	case "public-read-write":
-		break
-	default:
-		if bucket.OwnerId != credential.UserId {
-			return ErrBucketAccessForbidden
+	if !credential.AllowOtherUserAccess {
+		//an CanonicalUser request
+		if !(bucket.OwnerId == credential.ExternRootId && credential.ExternUserId == credential.ExternRootId) {
+			if bucket.ACL.CannedAcl != "" {
+				switch bucket.ACL.CannedAcl {
+				case "public-read-write":
+					break
+				default:
+					// HACK: for put log temporary
+					if credential.ExternUserId == "JustForPutLog" {
+						credential.ExternUserId = bucket.OwnerId
+					} else {
+						err = ErrBucketAccessForbidden
+						return
+					}
+				}
+			} else {
+				switch true {
+				case IsPermissionMatchedById(bucket.ACL.Policy, ACL_PERM_WRITE, credential.ExternUserId) ||
+					IsPermissionMatchedById(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, credential.ExternUserId):
+					break
+				case IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_WRITE, ACL_GROUP_TYPE_ALL_USERS) ||
+					IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_ALL_USERS):
+					break
+				case IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_WRITE, ACL_GROUP_TYPE_AUTHENTICATED_USERS) ||
+					IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_AUTHENTICATED_USERS):
+					if credential.ExternUserId != "" {
+						break
+					}
+				case IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_WRITE, ACL_GROUP_TYPE_LOG_DELIVERY) ||
+					IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_LOG_DELIVERY):
+					if helper.StringInSlice(credential.ExternUserId, helper.CONFIG.LogDeliveryGroup) {
+						break
+					}
+				default:
+					err = ErrBucketAccessForbidden
+					return
+				}
+			}
 		}
 	}
 
@@ -758,17 +852,51 @@ func (yig *YigStorage) PutObjectMeta(bucket *meta.Bucket, targetObject *meta.Obj
 	return nil
 }
 
-func (yig *YigStorage) RenameObject(reqCtx RequestContext, targetObject *meta.Object, sourceObject string, credential common.Credential) (result datatype.RenameObjectResult, err error) {
+func (yig *YigStorage) RenameObject(reqCtx RequestContext, targetObject *meta.Object, sourceObject string, credential common.Credential) (result RenameObjectResult, err error) {
 	bucket := reqCtx.BucketInfo
 	if bucket == nil {
 		return result, ErrNoSuchBucket
 	}
-	switch bucket.ACL.CannedAcl {
-	case "public-read-write":
-		break
-	default:
-		if bucket.OwnerId != credential.UserId {
-			return result, ErrBucketAccessForbidden
+
+	if !credential.AllowOtherUserAccess {
+		//an CanonicalUser request
+		if !(bucket.OwnerId == credential.ExternRootId && credential.ExternUserId == credential.ExternRootId) {
+			if bucket.ACL.CannedAcl != "" {
+				switch bucket.ACL.CannedAcl {
+				case "public-read-write":
+					break
+				default:
+					// HACK: for put log temporary
+					if credential.ExternUserId == "JustForPutLog" {
+						credential.ExternUserId = bucket.OwnerId
+					} else {
+						err = ErrBucketAccessForbidden
+						return
+					}
+				}
+			} else {
+				switch true {
+				case IsPermissionMatchedById(bucket.ACL.Policy, ACL_PERM_WRITE, credential.ExternUserId) ||
+					IsPermissionMatchedById(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, credential.ExternUserId):
+					break
+				case IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_WRITE, ACL_GROUP_TYPE_ALL_USERS) ||
+					IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_ALL_USERS):
+					break
+				case IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_WRITE, ACL_GROUP_TYPE_AUTHENTICATED_USERS) ||
+					IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_AUTHENTICATED_USERS):
+					if credential.ExternUserId != "" {
+						break
+					}
+				case IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_WRITE, ACL_GROUP_TYPE_LOG_DELIVERY) ||
+					IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_LOG_DELIVERY):
+					if helper.StringInSlice(credential.ExternUserId, helper.CONFIG.LogDeliveryGroup) {
+						break
+					}
+				default:
+					err = ErrBucketAccessForbidden
+					return
+				}
+			}
 		}
 	}
 
@@ -787,7 +915,8 @@ func (yig *YigStorage) RenameObject(reqCtx RequestContext, targetObject *meta.Ob
 }
 
 func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Object, sourceObject *meta.Object, source io.Reader, credential common.Credential,
-	sseRequest datatype.SseRequest, isMetadataOnly, isTranStorageClassOnly bool) (result datatype.PutObjectResult, err error) {
+	sseRequest SseRequest, isMetadataOnly, isTranStorageClassOnly bool) (result PutObjectResult, err error) {
+	result.DeltaInfo = make(map[StorageClass]int64)
 	var oid string
 	var maybeObjectToRecycle objectToRecycle
 	var encryptionKey []byte
@@ -801,38 +930,60 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 		return result, ErrNoSuchBucket
 	}
 
-	switch targetBucket.ACL.CannedAcl {
-	case "public-read-write":
-		break
-	default:
-		if targetBucket.OwnerId != credential.UserId {
-			return result, ErrBucketAccessForbidden
+	if !credential.AllowOtherUserAccess {
+		//an CanonicalUser request
+		if !(targetBucket.OwnerId == credential.ExternRootId && credential.ExternUserId == credential.ExternRootId) {
+			if targetBucket.ACL.CannedAcl != "" {
+				switch targetBucket.ACL.CannedAcl {
+				case "public-read-write":
+					break
+				default:
+					err = ErrBucketAccessForbidden
+					return
+				}
+			} else {
+				switch true {
+				case IsPermissionMatchedById(targetBucket.ACL.Policy, ACL_PERM_WRITE, credential.ExternUserId) ||
+					IsPermissionMatchedById(targetBucket.ACL.Policy, ACL_PERM_FULL_CONTROL, credential.ExternUserId):
+					break
+				case IsPermissionMatchedByGroup(targetBucket.ACL.Policy, ACL_PERM_WRITE, ACL_GROUP_TYPE_ALL_USERS) ||
+					IsPermissionMatchedByGroup(targetBucket.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_ALL_USERS):
+					break
+				case IsPermissionMatchedByGroup(targetBucket.ACL.Policy, ACL_PERM_WRITE, ACL_GROUP_TYPE_AUTHENTICATED_USERS) ||
+					IsPermissionMatchedByGroup(targetBucket.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_AUTHENTICATED_USERS):
+					if credential.ExternUserId != "" {
+						break
+					}
+				case IsPermissionMatchedByGroup(targetBucket.ACL.Policy, ACL_PERM_WRITE, ACL_GROUP_TYPE_LOG_DELIVERY) ||
+					IsPermissionMatchedByGroup(targetBucket.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_LOG_DELIVERY):
+					if helper.StringInSlice(credential.ExternUserId, helper.CONFIG.LogDeliveryGroup) {
+						break
+					}
+				default:
+					err = ErrBucketAccessForbidden
+					return
+				}
+			}
 		}
 	}
 
 	if isMetadataOnly {
 		targetObject.LastModifiedTime = sourceObject.LastModifiedTime
 		targetObject.VersionId = sourceObject.VersionId
-		if sourceObject.StorageClass == ObjectStorageClassGlacier {
-			err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, true, false)
-			if err != nil {
-				helper.Logger.Error("Copy Object with same source and target with GLACIER object, sql fails:", err)
-				return result, ErrInternalError
-			}
-		} else {
-			err = yig.MetaStorage.ReplaceObjectMetas(targetObject)
-			if err != nil {
-				helper.Logger.Error("Copy Object with same source and target, sql fails:", err)
-				return result, ErrInternalError
-			}
+
+		err = yig.MetaStorage.ReplaceObjectMetas(targetObject)
+		if err != nil {
+			helper.Logger.Error("Copy Object with same source and target, sql fails:", err)
+			return result, ErrInternalError
 		}
 
-		result.LastModified = targetObject.LastModifiedTime
-		if targetBucket.Versioning == datatype.BucketVersioningEnabled {
-			result.VersionId = targetObject.VersionId
-		}
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":"+targetObject.VersionId)
 		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.VersionId)
+
+		if targetObject.StorageClass != sourceObject.StorageClass {
+			result.DeltaInfo[sourceObject.StorageClass] -= sourceObject.Size
+			result.DeltaInfo[targetObject.StorageClass] += targetObject.Size
+		}
 		return result, nil
 	}
 
@@ -849,7 +1000,8 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 		for i := 1; i <= len(targetObject.Parts); i++ {
 			part := targetObject.Parts[i]
 			targetParts[i] = part
-			result, err = func() (result datatype.PutObjectResult, err error) {
+			result, err = func() (result PutObjectResult, err error) {
+				result.DeltaInfo = make(map[StorageClass]int64)
 				pr, pw := io.Pipe()
 				defer pr.Close()
 				var total = part.Size
@@ -960,8 +1112,8 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 
 	targetObject.Location = cephCluster.ID()
 	targetObject.Pool = poolName
-	targetObject.OwnerId = credential.UserId
-	targetObject.NullVersion = helper.Ternary(targetBucket.Versioning == datatype.BucketVersioningEnabled, false, true).(bool)
+	targetObject.OwnerId = credential.ExternRootId
+	targetObject.NullVersion = helper.Ternary(targetBucket.Versioning == BucketVersioningEnabled, false, true).(bool)
 	targetObject.DeleteMarker = false
 	targetObject.SseType = sseRequest.Type
 	targetObject.EncryptionKey = helper.Ternary(sseRequest.Type == crypto.S3.String(),
@@ -975,13 +1127,16 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 	}
 
 	result.LastModified = targetObject.LastModifiedTime
+	// Non-glacier object to glacier object with same object name and bucket name
 	if targetObject.StorageClass == ObjectStorageClassGlacier && targetObject.Name == sourceObject.Name && targetObject.BucketName == sourceObject.BucketName {
 		targetObject.LastModifiedTime = sourceObject.LastModifiedTime
 		result.LastModified = targetObject.LastModifiedTime
 		targetObject.CreateTime = sourceObject.CreateTime
-		err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, false, isTranStorageClassOnly)
+		err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject)
+		result.DeltaInfo[sourceObject.StorageClass] -= sourceObject.Size
+		result.DeltaInfo[targetObject.StorageClass] += targetObject.Size
 	} else {
-		err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, true)
+		result.DeltaInfo, err = yig.MetaStorage.PutObject(reqCtx, targetObject, nil, true)
 	}
 	if err != nil {
 		RecycleQueue <- maybeObjectToRecycle
@@ -989,7 +1144,7 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 	} else {
 		yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":"+targetObject.VersionId)
 		yig.DataCache.Remove(targetObject.BucketName + ":" + targetObject.Name + ":" + targetObject.VersionId)
-		if reqCtx.ObjectInfo != nil && reqCtx.BucketInfo.Versioning != datatype.BucketVersioningEnabled {
+		if reqCtx.ObjectInfo != nil && reqCtx.BucketInfo.Versioning != BucketVersioningEnabled {
 			go yig.removeOldObject(reqCtx.ObjectInfo)
 		}
 	}
@@ -1034,8 +1189,8 @@ func (yig *YigStorage) removeObjectVersion(bucketName, objectName, version strin
 
 //TODO: Append Support Encryption
 func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Credential,
-	offset uint64, size int64, data io.ReadCloser, metadata map[string]string, acl datatype.Acl,
-	sseRequest datatype.SseRequest, storageClass StorageClass, objInfo *meta.Object) (result datatype.AppendObjectResult, err error) {
+	offset uint64, size int64, data io.ReadCloser, metadata map[string]string, acl Acl,
+	sseRequest SseRequest, storageClass StorageClass, objInfo *meta.Object) (result AppendObjectResult, err error) {
 	prepareStart := time.Now()
 	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
 	defer data.Close()
@@ -1070,12 +1225,40 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 		}
 	}
 
-	switch bucket.ACL.CannedAcl {
-	case "public-read-write":
-		break
-	default:
-		if bucket.OwnerId != credential.UserId {
-			return result, ErrBucketAccessForbidden
+	if !credential.AllowOtherUserAccess {
+		//an CanonicalUser request
+		if !(bucket.OwnerId == credential.ExternRootId && credential.ExternUserId == credential.ExternRootId) {
+			if bucket.ACL.CannedAcl != "" {
+				switch bucket.ACL.CannedAcl {
+				case "public-read-write":
+					break
+				default:
+					err = ErrBucketAccessForbidden
+					return
+				}
+			} else {
+				switch true {
+				case IsPermissionMatchedById(bucket.ACL.Policy, ACL_PERM_WRITE, credential.ExternUserId) ||
+					IsPermissionMatchedById(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, credential.ExternUserId):
+					break
+				case IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_WRITE, ACL_GROUP_TYPE_ALL_USERS) ||
+					IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_ALL_USERS):
+					break
+				case IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_WRITE, ACL_GROUP_TYPE_AUTHENTICATED_USERS) ||
+					IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_AUTHENTICATED_USERS):
+					if credential.ExternUserId != "" {
+						break
+					}
+				case IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_WRITE, ACL_GROUP_TYPE_LOG_DELIVERY) ||
+					IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_LOG_DELIVERY):
+					if helper.StringInSlice(credential.ExternUserId, helper.CONFIG.LogDeliveryGroup) {
+						break
+					}
+				default:
+					err = ErrBucketAccessForbidden
+					return
+				}
+			}
 		}
 	}
 	//TODO: Append Support Encryption
@@ -1163,7 +1346,7 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 		BucketName:           bucketName,
 		Location:             cephCluster.ID(),
 		Pool:                 poolName,
-		OwnerId:              credential.UserId,
+		OwnerId:              credential.ExternRootId,
 		Size:                 objSize + int64(bytesWritten),
 		ObjectId:             oid,
 		LastModifiedTime:     now,
@@ -1180,12 +1363,13 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 		StorageClass:         storageClass,
 		VersionId:            meta.NullVersion,
 		CreateTime:           uint64(now.UnixNano()),
+		DeltaSize:            int64(bytesWritten),
 	}
 
 	result.LastModified = object.LastModifiedTime
 	result.NextPosition = object.Size
 	md5End := time.Now()
-	err = yig.MetaStorage.AppendObject(object, objInfo != nil)
+	err = yig.MetaStorage.AppendObject(object, objInfo)
 	if err != nil {
 		return
 	}
@@ -1216,7 +1400,7 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 //
 // See http://docs.aws.amazon.com/AmazonS3/latest/dev/Versioning.html
 func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
-	credential common.Credential) (result datatype.DeleteObjectResult, err error) {
+	credential common.Credential) (result DeleteObjectResult, err error) {
 
 	bucket, object := reqCtx.BucketInfo, reqCtx.ObjectInfo
 	if bucket == nil {
@@ -1224,31 +1408,61 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 	}
 
 	bucketName, objectName, reqVersion := reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId
-	switch bucket.ACL.CannedAcl {
-	case "public-read-write":
-		break
-	default:
-		if bucket.OwnerId != credential.UserId && credential.UserId != "" {
-			return result, ErrBucketAccessForbidden
+
+	if !credential.AllowOtherUserAccess {
+		//an CanonicalUser request
+		if !(bucket.OwnerId == credential.ExternRootId && credential.ExternUserId == credential.ExternRootId) {
+			if bucket.ACL.CannedAcl != "" {
+				switch bucket.ACL.CannedAcl {
+				case "public-read-write":
+					break
+				default:
+					err = ErrBucketAccessForbidden
+					return
+				}
+			} else {
+				switch true {
+				case IsPermissionMatchedById(bucket.ACL.Policy, ACL_PERM_WRITE, credential.ExternUserId) ||
+					IsPermissionMatchedById(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, credential.ExternUserId):
+					break
+				case IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_WRITE, ACL_GROUP_TYPE_ALL_USERS) ||
+					IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_ALL_USERS):
+					break
+				case IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_WRITE, ACL_GROUP_TYPE_AUTHENTICATED_USERS) ||
+					IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_AUTHENTICATED_USERS):
+					if credential.ExternUserId != "" {
+						break
+					}
+				case IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_WRITE, ACL_GROUP_TYPE_LOG_DELIVERY) ||
+					IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_LOG_DELIVERY):
+					if helper.StringInSlice(credential.ExternUserId, helper.CONFIG.LogDeliveryGroup) {
+						break
+					}
+				default:
+					err = ErrBucketAccessForbidden
+					return
+				}
+			}
 		}
-	} // TODO policy and fancy ACL
+	}
 
 	switch bucket.Versioning {
-	case datatype.BucketVersioningDisabled:
+	case BucketVersioningDisabled:
 		if reqVersion != "" && reqVersion != meta.NullVersion {
 			return result, ErrNoSuchVersion
 		}
 		if object == nil {
-			return result, ErrNoSuchKey
+			return result, nil
 		}
 		err = yig.MetaStorage.DeleteObject(object)
 		if err != nil {
 			return
 		}
-	case datatype.BucketVersioningEnabled:
+		result.DeltaSize = DeltaSizeInfo{StorageClass: object.StorageClass, Delta: -object.Size}
+	case BucketVersioningEnabled:
 		if reqVersion != "" {
 			if object == nil {
-				return result, ErrNoSuchKey
+				return result, nil
 			}
 			err = yig.MetaStorage.DeleteObject(object)
 			if err != nil {
@@ -1258,30 +1472,33 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 				result.DeleteMarker = true
 			}
 			result.VersionId = object.VersionId
-
+			result.DeltaSize = DeltaSizeInfo{StorageClass: object.StorageClass, Delta: -object.Size}
 		} else {
 			// Add delete marker                                    |
 			if object == nil {
 				object = &meta.Object{
 					BucketName: bucketName,
 					Name:       objectName,
-					OwnerId:    credential.UserId,
+					OwnerId:    bucket.OwnerId,
 				}
 			}
 			object.DeleteMarker = true
 			object.LastModifiedTime = time.Now().UTC()
 			object.CreateTime = uint64(object.LastModifiedTime.UnixNano())
 			object.VersionId = object.GenVersionId(bucket.Versioning)
+			object.Size = int64(len(objectName))
 			err = yig.MetaStorage.AddDeleteMarker(object)
 			if err != nil {
 				return
 			}
 			result.VersionId = object.VersionId
+			//TODO: develop inherit storage class of bucket？
+			result.DeltaSize = DeltaSizeInfo{StorageClass: ObjectStorageClassStandard, Delta: object.Size}
 		}
-	case datatype.BucketVersioningSuspended:
+	case BucketVersioningSuspended:
 		if reqVersion != "" {
 			if object == nil {
-				return result, ErrNoSuchKey
+				return result, nil
 			}
 			err = yig.MetaStorage.DeleteObject(object)
 			if err != nil {
@@ -1291,6 +1508,7 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 				result.DeleteMarker = true
 			}
 			result.VersionId = object.VersionId
+			result.DeltaSize = DeltaSizeInfo{StorageClass: object.StorageClass, Delta: -object.Size}
 		} else {
 			nullVersionExist := (object != nil)
 			if !nullVersionExist {
@@ -1298,23 +1516,25 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 				object = &meta.Object{
 					BucketName:       bucketName,
 					Name:             objectName,
-					OwnerId:          credential.UserId,
+					OwnerId:          bucket.OwnerId,
 					DeleteMarker:     true,
 					LastModifiedTime: now,
 					VersionId:        meta.NullVersion,
 					CreateTime:       uint64(now.UnixNano()),
+					Size:             int64(len(objectName)),
 				}
 				err = yig.MetaStorage.AddDeleteMarker(object)
 				if err != nil {
 					return
 				}
+				result.DeltaSize = DeltaSizeInfo{StorageClass: ObjectStorageClassStandard, Delta: object.Size}
 			} else {
 				err = yig.MetaStorage.DeleteSuspendedObject(object)
 				if err != nil {
 					return
 				}
+				result.DeltaSize = DeltaSizeInfo{StorageClass: object.StorageClass, Delta: -object.Size}
 			}
-
 		}
 	default:
 		helper.Logger.Error("Invalid bucket versioning:", bucketName)
@@ -1331,4 +1551,258 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 		}
 	}
 	return result, nil
+}
+
+func (yig *YigStorage) DeleteObjects(reqCtx RequestContext, credential common.Credential,
+	objects []ObjectIdentifier) (result DeleteObjectsResult, err error) {
+	bucket := reqCtx.BucketInfo
+	if bucket == nil {
+		return result, ErrNoSuchBucket
+	}
+
+	if !credential.AllowOtherUserAccess {
+		//an CanonicalUser request
+		if !(bucket.OwnerId == credential.ExternRootId && credential.ExternUserId == credential.ExternRootId) {
+			if bucket.ACL.CannedAcl != "" {
+				switch bucket.ACL.CannedAcl {
+				case "public-read-write":
+					break
+				default:
+					err = ErrBucketAccessForbidden
+					return
+				}
+			} else {
+				switch true {
+				case IsPermissionMatchedById(bucket.ACL.Policy, ACL_PERM_WRITE, credential.ExternUserId) ||
+					IsPermissionMatchedById(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, credential.ExternUserId):
+					break
+				case IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_WRITE, ACL_GROUP_TYPE_ALL_USERS) ||
+					IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_ALL_USERS):
+					break
+				case IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_WRITE, ACL_GROUP_TYPE_AUTHENTICATED_USERS) ||
+					IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_AUTHENTICATED_USERS):
+					if credential.ExternUserId != "" {
+						break
+					}
+				case IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_WRITE, ACL_GROUP_TYPE_LOG_DELIVERY) ||
+					IsPermissionMatchedByGroup(bucket.ACL.Policy, ACL_PERM_FULL_CONTROL, ACL_GROUP_TYPE_LOG_DELIVERY):
+					if helper.StringInSlice(credential.ExternUserId, helper.CONFIG.LogDeliveryGroup) {
+						break
+					}
+				default:
+					err = ErrBucketAccessForbidden
+					return
+				}
+			}
+		}
+	}
+
+	var tx driver.Tx
+	tx, err = yig.MetaStorage.NewTrans()
+	if err != nil {
+		return result, err
+	}
+	defer func() {
+		if err == nil {
+			err = yig.MetaStorage.CommitTrans(tx)
+		}
+		if err != nil {
+			yig.MetaStorage.AbortTrans(tx)
+		}
+	}()
+
+	getFunc := func(o ObjectIdentifier, tx driver.Tx) (object *meta.Object, err error) {
+		// GetObject
+		bucketName, objectName, version := bucket.Name, o.ObjectName, o.VersionId
+		if version == "null" {
+			version = meta.NullVersion
+		}
+		if bucket.Versioning == BucketVersioningDisabled {
+			if version != "" && version != meta.NullVersion {
+				return object, ErrInvalidVersioning
+			}
+			object, err = yig.MetaStorage.GetObject(bucketName, objectName, meta.NullVersion, false)
+		} else {
+			object, err = yig.MetaStorage.GetObject(bucketName, objectName, version, false)
+		}
+		return object, err
+	}
+
+	deleteFunc := func(object *meta.Object, tx driver.Tx) (result DeleteObjectResult, err error) {
+		bucketName, objectName, version := bucket.Name, object.Name, object.VersionId
+		switch bucket.Versioning {
+		case BucketVersioningDisabled:
+			if version != "" && version != meta.NullVersion {
+				return result, ErrNoSuchVersion
+			}
+			if object == nil {
+				return result, nil
+			}
+			err = yig.MetaStorage.DeleteObjectWithTx(object, tx)
+			if err != nil {
+				return result, err
+			}
+			result.DeltaSize = DeltaSizeInfo{StorageClass: object.StorageClass, Delta: -object.Size}
+		case BucketVersioningEnabled:
+			if version != "" {
+				if object == nil {
+					return result, nil
+				}
+				err = yig.MetaStorage.DeleteObjectWithTx(object, tx)
+				if err != nil {
+					return
+				}
+				if object.DeleteMarker {
+					result.DeleteMarker = true
+				}
+				result.VersionId = object.VersionId
+				result.DeltaSize = DeltaSizeInfo{StorageClass: object.StorageClass, Delta: -object.Size}
+			} else {
+				// Add delete marker                                    |
+				if object == nil {
+					object = &meta.Object{
+						BucketName: bucketName,
+						Name:       objectName,
+						OwnerId:    bucket.OwnerId,
+					}
+				}
+				object.DeleteMarker = true
+				object.LastModifiedTime = time.Now().UTC()
+				object.CreateTime = uint64(object.LastModifiedTime.UnixNano())
+				object.VersionId = object.GenVersionId(bucket.Versioning)
+				object.Size = int64(len(object.Name))
+				err = yig.MetaStorage.AddDeleteMarker(object)
+				if err != nil {
+					return
+				}
+				result.VersionId = object.VersionId
+				//TODO: develop inherit storage class of bucket？
+				result.DeltaSize = DeltaSizeInfo{StorageClass: ObjectStorageClassStandard, Delta: object.Size}
+			}
+		case BucketVersioningSuspended:
+			if version != "" {
+				if object == nil {
+					return result, nil
+				}
+				err = yig.MetaStorage.DeleteObjectWithTx(object, tx)
+				if err != nil {
+					return
+				}
+				if object.DeleteMarker {
+					result.DeleteMarker = true
+				}
+				result.VersionId = object.VersionId
+				result.DeltaSize = DeltaSizeInfo{StorageClass: object.StorageClass, Delta: -object.Size}
+			} else {
+				nullVersionExist := (object != nil)
+				if !nullVersionExist {
+					now := time.Now().UTC()
+					object = &meta.Object{
+						BucketName:       bucketName,
+						Name:             objectName,
+						OwnerId:          bucket.OwnerId,
+						DeleteMarker:     true,
+						LastModifiedTime: now,
+						VersionId:        meta.NullVersion,
+						CreateTime:       uint64(now.UnixNano()),
+						Size:             int64(len(object.Name)),
+					}
+					err = yig.MetaStorage.AddDeleteMarker(object)
+					if err != nil {
+						return
+					}
+					result.DeltaSize = DeltaSizeInfo{StorageClass: ObjectStorageClassStandard, Delta: object.Size}
+				} else {
+					err = yig.MetaStorage.DeleteSuspendedObject(object)
+					if err != nil {
+						return
+					}
+					result.DeltaSize = DeltaSizeInfo{StorageClass: object.StorageClass, Delta: -object.Size}
+				}
+			}
+		default:
+			helper.Logger.Error("Invalid bucket versioning:", bucketName)
+			return result, ErrInternalError
+		}
+		return result, nil
+	}
+
+	var deleteErrors []DeleteError
+	var deletedObjects []ObjectIdentifier
+	var deltaResult = make([]int64, len(StorageClassIndexMap))
+	var unexpiredInfo []UnexpiredTriple
+	var wg = sync.WaitGroup{}
+	for _, o := range objects {
+		wg.Add(1)
+		go func(o ObjectIdentifier) {
+			object, err := getFunc(o, tx)
+			defer wg.Done()
+			if err != nil && err == ErrNoSuchKey {
+				deletedObjects = append(deletedObjects, ObjectIdentifier{
+					ObjectName:   o.ObjectName,
+					VersionId:    o.VersionId,
+					DeleteMarker: o.DeleteMarker,
+					DeleteMarkerVersionId: helper.Ternary(o.DeleteMarker,
+						o.VersionId, "").(string),
+				})
+				return
+			}
+			var delResult DeleteObjectResult
+			if err == nil {
+				delResult, err = deleteFunc(object, tx)
+			}
+			if err == nil {
+				if object.VersionId != "" {
+					yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucket.Name+":"+object.Name+":"+object.VersionId)
+					yig.DataCache.Remove(bucket.Name + ":" + object.Name + ":" + object.VersionId)
+				} else if reqCtx.ObjectInfo != nil {
+					yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucket.Name+":"+object.Name+":"+object.VersionId)
+					yig.DataCache.Remove(bucket.Name + ":" + object.Name + ":" + object.VersionId)
+				}
+				deletedObjects = append(deletedObjects, ObjectIdentifier{
+					ObjectName:   object.Name,
+					VersionId:    object.VersionId,
+					DeleteMarker: delResult.DeleteMarker,
+					DeleteMarkerVersionId: helper.Ternary(delResult.DeleteMarker,
+						delResult.VersionId, "").(string),
+				})
+
+				if ok, delta := object.IsUnexpired(); ok {
+					unexpiredInfo = append(unexpiredInfo, UnexpiredTriple{
+						StorageClass: object.StorageClass,
+						Size:         CorrectDeltaSize(object.StorageClass, object.Size),
+						SurvivalTime: delta,
+					})
+				}
+				if delResult.DeltaSize.Delta != 0 {
+					atomic.AddInt64(&deltaResult[delResult.DeltaSize.StorageClass], CorrectDeltaSize(object.StorageClass, object.Size))
+				}
+			} else {
+				helper.Logger.Error("Unable to delete object:", err)
+				apiErrorCode, ok := err.(ApiErrorCode)
+				if ok {
+					deleteErrors = append(deleteErrors, DeleteError{
+						Code:      ErrorCodeResponse[apiErrorCode].AwsErrorCode,
+						Message:   ErrorCodeResponse[apiErrorCode].Description,
+						Key:       object.Name,
+						VersionId: object.VersionId,
+					})
+				} else {
+					deleteErrors = append(deleteErrors, DeleteError{
+						Code:      "InternalError",
+						Message:   "We encountered an internal error, please try again.",
+						Key:       object.Name,
+						VersionId: object.VersionId,
+					})
+				}
+			}
+		}(o)
+	}
+
+	wg.Wait()
+	result.DeletedObjects = deletedObjects
+	result.UnexpiredInfo = unexpiredInfo
+	result.DeleteErrors = deleteErrors
+	result.DeltaResult = deltaResult
+	return
 }

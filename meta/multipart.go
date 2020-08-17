@@ -8,10 +8,10 @@ func (m *Meta) GetMultipart(bucketName, objectName, uploadId string) (multipart 
 	return m.Client.GetMultipart(bucketName, objectName, uploadId)
 }
 
-func (m *Meta) DeleteMultipart(multipart Multipart) (err error) {
+func (m *Meta) DeleteMultipart(multipart Multipart) (removedSize int64, err error) {
 	tx, err := m.Client.NewTrans()
 	if err != nil {
-		return err
+		return
 	}
 	defer func() {
 		if err != nil {
@@ -22,7 +22,6 @@ func (m *Meta) DeleteMultipart(multipart Multipart) (err error) {
 	if err != nil {
 		return
 	}
-	var removedSize int64 = 0
 	for _, p := range multipart.Parts {
 		removedSize += p.Size
 	}
@@ -31,9 +30,9 @@ func (m *Meta) DeleteMultipart(multipart Multipart) (err error) {
 		return
 	}
 	err = m.Client.CommitTrans(tx)
-	return
+	return -removedSize, nil
 }
 
-func (m *Meta) PutObjectPart(multipart Multipart, part Part) (err error) {
+func (m *Meta) PutObjectPart(multipart Multipart, part Part) (deltaSize int64, err error) {
 	return m.Client.PutObjectPart(&multipart, &part)
 }

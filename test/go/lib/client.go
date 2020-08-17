@@ -16,16 +16,20 @@ const (
 	EndpointInternal = "s3-internal.test.com:8080"
 	AccessKey        = "hehehehe"
 	SecretKey        = "hehehehe"
+	AccessKeyH       = "hahahaha"
+	SecretKeyH       = "hahahaha"
 	Region           = "RegionHeHe"
 
-	TEST_BUCKET         = "mybucket"
-	TEST_COPY_BUCKET    = "mycopybucket"
-	TEST_KEY            = "testput"
-	TEST_KEY_SPECIAL    = "testputspecial:!@$%^&*()_+=-;?><| "
-	TEST_VALUE          = "valueput"
-	TEST_ILLEGALREFERER = "http://www.thief.com/"
-	TEST_LEGALREFERER   = "http://www.genltemen.com/"
-	TEST_COMMONREFERER  = "http://www.common.com/"
+	TestBucket           = "mybucket"
+	TestCopyBucket       = TestBucket + "copy"
+	TestLifecycleBucket1 = TestBucket + "1"
+	TestLifecycleBucket2 = TestBucket + "2"
+	TestKey              = "testput"
+	TestKeySpecial       = "testputspecial:!@$%^&*()_+=-;?><| "
+	TestValue            = "valueput"
+	TestIllegalReferer   = "http://www.thief.com/"
+	TestLegalReferer     = "http://www.genltemen.com/"
+	TestCommonReferer    = "http://www.common.com/"
 )
 
 func NewS3WithoutMD5() *S3Client {
@@ -72,6 +76,23 @@ func NewS3Internal() *S3Client {
 			Credentials: creds,
 			DisableSSL:  aws.Bool(true),
 			Endpoint:    aws.String(EndpointInternal),
+			Region:      aws.String(Region),
+		},
+	),
+	),
+	)
+	return &S3Client{s3client}
+}
+
+func NewS3Ha() *S3Client {
+	creds := credentials.NewStaticCredentials(AccessKeyH, SecretKeyH, "")
+
+	// By default make sure a region is specified
+	s3client := s3.New(session.Must(session.NewSession(
+		&aws.Config{
+			Credentials: creds,
+			DisableSSL:  aws.Bool(true),
+			Endpoint:    aws.String(Endpoint),
 			Region:      aws.String(Region),
 		},
 	),
