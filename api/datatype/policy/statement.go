@@ -106,15 +106,15 @@ func (statement Statement) isValid() error {
 			if !statement.Resources.objectResourceExists() && !statement.Resources.bucketResourceExists() {
 				return fmt.Errorf("unsupported Resource found %v for action %v", statement.Resources, action)
 			}
-		}
-
-		if action.isObjectAction() {
-			if !statement.Resources.objectResourceExists() {
-				return fmt.Errorf("unsupported Resource found %v for action %v", statement.Resources, action)
-			}
 		} else {
-			if !statement.Resources.bucketResourceExists() {
-				return fmt.Errorf("unsupported Resource found %v for action %v", statement.Resources, action)
+			if action.isObjectAction() {
+				if !statement.Resources.objectResourceExists() {
+					return fmt.Errorf("unsupported Resource found %v for action %v", statement.Resources, action)
+				}
+			} else {
+				if !statement.Resources.bucketResourceExists() {
+					return fmt.Errorf("unsupported Resource found %v for action %v", statement.Resources, action)
+				}
 			}
 		}
 
