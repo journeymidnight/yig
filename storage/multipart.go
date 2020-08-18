@@ -138,6 +138,12 @@ func (yig *YigStorage) NewMultipartUpload(reqCtx RequestContext, credential comm
 			}
 		}
 	}
+
+	if reqCtx.IsObjectForbidOverwrite {
+		if reqCtx.ObjectInfo != nil {
+			return "", ErrForbiddenOverwriteKey
+		}
+	}
 	contentType, ok := metadata["Content-Type"]
 	if !ok {
 		contentType = "application/octet-stream"
