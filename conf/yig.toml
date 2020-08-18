@@ -88,6 +88,9 @@ log_delivery_group = ["hahahaha"]
 # Ceph Config
 ceph_config_pattern = "/etc/ceph/*.conf"
 
+# Restore Mode
+fake_restore = true
+
 # Plugin Config
 [plugins.dummy_compression]
 path = "/etc/yig/plugins/dummy_compression_plugin.so"

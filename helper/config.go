@@ -113,6 +113,10 @@ type Config struct {
 	LockTime                int      `toml:"lock_time"`
 	RefreshLockTime         int      `toml:"refresh_lock_time"`
 	LogDeliveryGroup        []string `toml:"log_delivery_group"`
+
+	// The switch that decides whether to use the real thawing logic,
+	// if it is on, the thawing logic is a false thawing mode that only modifies the database state
+	FakeRestore bool `toml:"fake_restore"`
 }
 
 type PluginConfig struct {
@@ -229,6 +233,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.LockTime = Ternary(c.LockTime <= 0, DEFAULTLOCK, c.LockTime).(int)
 	CONFIG.RefreshLockTime = Ternary(c.RefreshLockTime <= 0, DEFAULTREFRESH, c.RefreshLockTime).(int)
 	CONFIG.LogDeliveryGroup = c.LogDeliveryGroup
+	CONFIG.FakeRestore = c.FakeRestore
 	return nil
 }
 
