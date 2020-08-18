@@ -606,9 +606,11 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 		}
 	}
 
-	if reqCtx.IsObjectForbidOverwrite {
-		if reqCtx.ObjectInfo != nil {
-			return result, ErrForbiddenOverwriteKey
+	if bucket.Versioning == datatype.BucketVersioningDisabled {
+		if reqCtx.IsObjectForbidOverwrite {
+			if reqCtx.ObjectInfo != nil {
+				return result, ErrForbiddenOverwriteKey
+			}
 		}
 	}
 	md5Writer := md5.New()
@@ -824,9 +826,11 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 		}
 	}
 
-	if reqCtx.IsObjectForbidOverwrite {
-		if reqCtx.ObjectInfo != nil {
-			return result, ErrForbiddenOverwriteKey
+	if targetBucket.Versioning == datatype.BucketVersioningDisabled {
+		if reqCtx.IsObjectForbidOverwrite {
+			if reqCtx.ObjectInfo != nil {
+				return result, ErrForbiddenOverwriteKey
+			}
 		}
 	}
 
@@ -1041,9 +1045,11 @@ func (yig *YigStorage) CopyObjectWithRestoreDeceiver(reqCtx RequestContext, targ
 		}
 	}
 
-	if reqCtx.IsObjectForbidOverwrite {
-		if reqCtx.ObjectInfo != nil {
-			return result, ErrForbiddenOverwriteKey
+	if targetBucket.Versioning == datatype.BucketVersioningDisabled {
+		if reqCtx.IsObjectForbidOverwrite {
+			if reqCtx.ObjectInfo != nil {
+				return result, ErrForbiddenOverwriteKey
+			}
 		}
 	}
 

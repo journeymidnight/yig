@@ -87,9 +87,11 @@ func (yig *YigStorage) NewMultipartUpload(reqCtx RequestContext, credential comm
 		}
 	}
 
-	if reqCtx.IsObjectForbidOverwrite {
-		if reqCtx.ObjectInfo != nil {
-			return "", ErrForbiddenOverwriteKey
+	if bucket.Versioning == datatype.BucketVersioningDisabled {
+		if reqCtx.IsObjectForbidOverwrite {
+			if reqCtx.ObjectInfo != nil {
+				return "", ErrForbiddenOverwriteKey
+			}
 		}
 	}
 	// TODO policy and fancy ACL
