@@ -666,6 +666,11 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 		}
 	}
 
+	if reqCtx.IsObjectForbidOverwrite {
+		if reqCtx.ObjectInfo != nil {
+			return result, ErrForbiddenOverwriteKey
+		}
+	}
 	md5Writer := md5.New()
 
 	// Limit the reader to its provided size if specified.
@@ -964,6 +969,12 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 					return
 				}
 			}
+		}
+	}
+
+	if reqCtx.IsObjectForbidOverwrite {
+		if reqCtx.ObjectInfo != nil {
+			return result, ErrForbiddenOverwriteKey
 		}
 	}
 
