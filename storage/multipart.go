@@ -86,6 +86,12 @@ func (yig *YigStorage) NewMultipartUpload(reqCtx RequestContext, credential comm
 			return "", ErrBucketAccessForbidden
 		}
 	}
+
+	if reqCtx.IsObjectForbidOverwrite {
+		if reqCtx.ObjectInfo != nil {
+			return "", ErrForbiddenOverwriteKey
+		}
+	}
 	// TODO policy and fancy ACL
 
 	contentType, ok := metadata["Content-Type"]
