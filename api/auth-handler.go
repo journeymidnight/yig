@@ -12,7 +12,7 @@ import (
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
-	meta "github.com/journeymidnight/yig/meta/types"
+	"github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/signature"
 )
 
@@ -67,7 +67,21 @@ func checkRequestAuth(r *http.Request, action policy.Action) (c common.Credentia
 	return c, ErrAccessDenied
 }
 
-func IsBucketPolicyAllowed(c *common.Credential, bucket *meta.Bucket, r *http.Request, action policy.Action, objectName string) (allow bool, err error) {
+func checkSourceBucketAuth(r *http.Request, action policy.Action, bucket *types.Bucket, object string, c *common.Credential) (err error) {
+	isAllow, err := IsBucketPolicyAllowed(c, bucket, r, action, object)
+	helper.Logger.Debug("checkRequestAuth2:", isAllow, err)
+	if err == nil && isAllow == false {
+		//then do ram policy check if the request is from a sub user of who own this bucket
+		if c.ExternRootId == bucket.OwnerId {
+			isAllow, err = IsRamPolicyAllowed(c.Policy, r, action)
+			helper.Logger.Debug("checkRequestAuth3:", isAllow, err)
+		}
+	}
+	c.AllowOtherUserAccess = isAllow
+	return
+}
+
+func IsBucketPolicyAllowed(c *common.Credential, bucket *types.Bucket, r *http.Request, action policy.Action, objectName string) (allow bool, err error) {
 	if bucket == nil {
 		return false, ErrNoSuchBucket
 	}
