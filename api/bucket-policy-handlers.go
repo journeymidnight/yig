@@ -18,6 +18,7 @@ package api
 
 import (
 	"encoding/json"
+	"github.com/journeymidnight/yig/helper"
 	"io"
 	"net/http"
 
@@ -65,6 +66,7 @@ func (api ObjectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *ht
 
 	bucketPolicy, err := policy.ParseConfig(io.LimitReader(r.Body, r.ContentLength), reqCtx.BucketName)
 	if err != nil {
+		helper.Logger.Error("PutBucketPolicyHandler ParseConfig error", err)
 		WriteErrorResponse(w, r, ErrMalformedPolicy)
 		return
 	}

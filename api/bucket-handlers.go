@@ -458,7 +458,7 @@ func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.
 			return
 		}
 	} else {
-		aclBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 1024))
+		aclBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
 		if err != nil {
 			logger.Error("Unable to read ACL body:", err)
 			WriteErrorResponse(w, r, ErrInvalidAcl)
@@ -466,7 +466,7 @@ func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.
 		}
 		err = xml.Unmarshal(aclBuffer, &acl.Policy)
 		if err != nil {
-			logger.Error("Unable to parse ACLs XML body:", err)
+			logger.Error("Unable to parse ACLs XML body:", err, aclBuffer)
 			WriteErrorResponse(w, r, ErrInternalError)
 			return
 		}
