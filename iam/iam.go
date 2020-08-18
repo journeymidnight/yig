@@ -55,6 +55,7 @@ func GetCredential(accessKey string) (credential common.Credential, err error) {
 		credential, err = iamClient.GetCredential(accessKey)
 		if err != nil {
 			accessKeyLockMap.Delete(accessKey)
+			helper.Logger.Error("GetCredential failed0", err)
 			return credential, err
 		}
 		entry := cache.CacheEntry{

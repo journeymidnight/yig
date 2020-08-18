@@ -100,7 +100,7 @@ const (
 	/* FullContorlAction - FullContorl is a general action include
 	all actions above with allow Effect
 	*/
-	FullContorlAction = "s3:FullContorl"
+	FullContorlAction = "s3:FullControl"
 
 	/* DenyAccessAction - DenyAccess is a general action include
 	all actions above with deny Effect
