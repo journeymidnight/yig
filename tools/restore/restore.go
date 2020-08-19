@@ -131,9 +131,7 @@ func RestoreNotFinished(freezer meta.Freezer, w *sync.WaitGroup) {
 		targetObject.BucketName = targetBucketName
 		targetObject.Name = targetObjectName
 		targetObject.Size = sourceObject.Size
-		targetObject.Etag = sourceObject.Etag
 		targetObject.Parts = sourceObject.Parts
-		targetObject.OwnerId = sourceObject.OwnerId
 		targetObject.VersionId = sourceObject.VersionId
 		targetObject.Type = sourceObject.Type
 		targetObject.CreateTime = sourceObject.CreateTime
@@ -233,15 +231,12 @@ func RestoreObject(freezer meta.Freezer) {
 		targetObject.BucketName = targetBucketName
 		targetObject.Name = targetObjectName
 		targetObject.Size = sourceObject.Size
-		targetObject.Etag = sourceObject.Etag
-		targetObject.OwnerId = sourceObject.OwnerId
 		targetObject.VersionId = sourceObject.VersionId
 		targetObject.Type = sourceObject.Type
 		targetObject.CreateTime = sourceObject.CreateTime
 		targetObject.Parts = sourceObject.Parts
 		targetObject.PartsIndex = sourceObject.PartsIndex
 
-		helper.Logger.Info("============================", targetObject)
 		err = yig.RestoreObject(targetObject, pipeReader, true)
 		if err != nil {
 			_ = yig.MetaStorage.Client.UpdateFreezerStatus(targetObject.BucketName, targetObject.Name, targetObject.VersionId, 1, 0)

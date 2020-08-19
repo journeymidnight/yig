@@ -813,10 +813,14 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 		CreateTime:       uint64(now.UnixNano()),
 	}
 	object.VersionId = object.GenVersionId(bucket.Versioning)
-	if object.StorageClass == ObjectStorageClassGlacier && bucket.Versioning != datatype.BucketVersioningEnabled {
+	eldObject := reqCtx.ObjectInfo
+	if eldObject == nil {
+		eldObject = object
+	}
+	if eldObject.StorageClass == ObjectStorageClassGlacier && bucket.Versioning != datatype.BucketVersioningEnabled {
 		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
 		if err == nil {
-			err = yig.MetaStorage.DeleteFreezer(freezer)
+			err = yig.MetaStorage.DeleteFreezer(freezer, helper.CONFIG.FakeRestore)
 			if err != nil {
 				return result, err
 			}

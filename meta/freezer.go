@@ -24,7 +24,7 @@ func (m *Meta) UpdateFreezerDate(freezer *types.Freezer) error {
 	return m.Client.UpdateFreezerDate(freezer.BucketName, freezer.Name, freezer.VersionId, freezer.LifeTime)
 }
 
-func (m *Meta) DeleteFreezer(freezer *types.Freezer) (err error) {
+func (m *Meta) DeleteFreezer(freezer *types.Freezer, fakeRestore bool) (err error) {
 	var tx Tx
 	tx, err = m.Client.NewTrans()
 	if err != nil {
@@ -44,9 +44,11 @@ func (m *Meta) DeleteFreezer(freezer *types.Freezer) (err error) {
 		return err
 	}
 
-	err = m.PutFreezerToGarbageCollection(freezer)
-	if err != nil {
-		return err
+	if !fakeRestore {
+		err = m.PutFreezerToGarbageCollection(freezer)
+		if err != nil {
+			return err
+		}
 	}
 
 	return err

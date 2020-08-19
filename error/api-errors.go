@@ -199,6 +199,7 @@ const (
 	ErrMissingSSEAlgorithmOrKMSMasterKeyIDInEncryptionRule
 	ErrInvalidStatus
 	ErrInvalidRestoreInfo
+	ErrInvalidRestoreDate
 	ErrCreateRestoreObject
 	ErrInvalidGlacierObject
 	ErrInvalidStorageClassConvert
@@ -947,6 +948,12 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		Description:    "Defrost parameter setting error.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
+	ErrInvalidRestoreDate: {
+		AwsErrorCode:   "ErrInvalidRestoreDate",
+		Description:    "Wrong defrosting time, valid range 1-30 days.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+
 	ErrInvalidGlacierObject: {
 		AwsErrorCode:   "InvalidGlacierObject",
 		Description:    "Glacier objects need to be thawed before this operation can be performed.",

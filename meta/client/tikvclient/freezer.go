@@ -211,10 +211,8 @@ func (c *TiKVClient) PutFreezer(freezer *Freezer, status common.RestoreStatus, t
 	f.LastModifiedTime = freezer.LastModifiedTime
 	f.Location = freezer.Location
 	f.Pool = freezer.Pool
-	f.OwnerId = freezer.OwnerId
 	f.Size = freezer.Size
 	f.ObjectId = freezer.ObjectId
-	f.Etag = freezer.Etag
 	f.Parts = freezer.Parts
 	newVal, err := helper.MsgPackMarshal(f)
 	if err != nil {

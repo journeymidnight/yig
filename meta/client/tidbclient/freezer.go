@@ -22,7 +22,7 @@ func (t *TidbClient) CreateFreezer(freezer *Freezer) (err error) {
 func (t *TidbClient) GetFreezer(bucketName, objectName, version string) (freezer *Freezer, err error) {
 	var lastmodifiedtime string
 	var iversion uint64
-	sqltext := "select bucketname,objectname,version,status,lifetime,lastmodifiedtime,IFNULL(location,''),IFNULL(pool,''),IFNULL(ownerid,''),IFNULL(size,'0'),IFNULL(objectid,''),IFNULL(etag,''),type,createtime " +
+	sqltext := "select bucketname,objectname,version,status,lifetime,lastmodifiedtime,IFNULL(location,''),IFNULL(pool,''),IFNULL(size,'0'),IFNULL(objectid,''),type,createtime " +
 		"from restoreobjects where bucketname=? and objectname=? and version=?;"
 	row := t.Client.QueryRow(sqltext, bucketName, objectName, version)
 	freezer = &Freezer{}
@@ -35,10 +35,8 @@ func (t *TidbClient) GetFreezer(bucketName, objectName, version string) (freezer
 		&lastmodifiedtime,
 		&freezer.Location,
 		&freezer.Pool,
-		&freezer.OwnerId,
 		&freezer.Size,
 		&freezer.ObjectId,
-		&freezer.Etag,
 		&freezer.Type,
 		&freezer.CreateTime,
 	)

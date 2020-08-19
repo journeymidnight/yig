@@ -774,17 +774,6 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 		CreateTime:           uint64(now.UnixNano()),
 	}
 	object.VersionId = object.GenVersionId(bucket.Versioning)
-	if object.StorageClass == ObjectStorageClassGlacier && bucket.Versioning != BucketVersioningEnabled {
-		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
-		if err == nil {
-			err = yig.MetaStorage.DeleteFreezer(freezer)
-			if err != nil {
-				return result, err
-			}
-		} else if err != ErrNoSuchKey {
-			return result, err
-		}
-	}
 
 	result.LastModified = object.LastModifiedTime
 	result.ObjectSize = object.Size
@@ -1186,7 +1175,7 @@ func (yig *YigStorage) removeOldObject(object *meta.Object) (err error) {
 		freezer, err := yig.GetFreezer(object.BucketName, object.Name, object.VersionId)
 		if err == nil {
 			if freezer.Name == object.Name {
-				err = yig.MetaStorage.DeleteFreezer(freezer)
+				err = yig.MetaStorage.DeleteFreezer(freezer, helper.CONFIG.FakeRestore)
 				if err != nil {
 					return err
 				}
@@ -1226,7 +1215,7 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 			freezer, err := yig.GetFreezer(objInfo.BucketName, objInfo.Name, objInfo.VersionId)
 			if err == nil {
 				if freezer.Name == objInfo.Name {
-					err = yig.MetaStorage.DeleteFreezer(freezer)
+					err = yig.MetaStorage.DeleteFreezer(freezer, helper.CONFIG.FakeRestore)
 					if err != nil {
 						return result, err
 					}
@@ -1462,6 +1451,18 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 		}
 	}
 
+	if object.StorageClass == ObjectStorageClassGlacier && bucket.Versioning != BucketVersioningEnabled {
+		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
+		if err == nil {
+			err = yig.MetaStorage.DeleteFreezer(freezer, helper.CONFIG.FakeRestore)
+			if err != nil {
+				return result, err
+			}
+		} else if err != ErrNoSuchKey {
+			return result, err
+		}
+	}
+
 	switch bucket.Versioning {
 	case BucketVersioningDisabled:
 		if reqVersion != "" && reqVersion != meta.NullVersion {
@@ -1646,6 +1647,17 @@ func (yig *YigStorage) DeleteObjects(reqCtx RequestContext, credential common.Cr
 
 	deleteFunc := func(object *meta.Object, tx driver.Tx) (result DeleteObjectResult, err error) {
 		bucketName, objectName, version := bucket.Name, object.Name, object.VersionId
+		if object.StorageClass == ObjectStorageClassGlacier && bucket.Versioning != BucketVersioningEnabled {
+			freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
+			if err == nil {
+				err = yig.MetaStorage.DeleteFreezer(freezer, helper.CONFIG.FakeRestore)
+				if err != nil {
+					return result, err
+				}
+			} else if err != ErrNoSuchKey {
+				return result, err
+			}
+		}
 		switch bucket.Versioning {
 		case BucketVersioningDisabled:
 			if version != "" && version != meta.NullVersion {

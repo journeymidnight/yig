@@ -28,7 +28,7 @@ func (yig *YigStorage) GetFreezer(bucketName string, objectName string, version 
 
 func (yig *YigStorage) UpdateFreezerDate(freezer *meta.Freezer, date int, isIncrement bool) (err error) {
 	if date > 30 || date < 1 {
-		date = 1
+		return ErrInvalidRestoreDate
 	}
 	var lifeTime int
 	if isIncrement {
@@ -38,7 +38,7 @@ func (yig *YigStorage) UpdateFreezerDate(freezer *meta.Freezer, date int, isIncr
 		}
 		lifeTime = freezerInfo.LifeTime + date
 		if lifeTime > 30 {
-			lifeTime = 30
+			return ErrInvalidRestoreDate
 		}
 	} else {
 		lifeTime = date
@@ -63,11 +63,7 @@ func (yig *YigStorage) EliminateObject(freezer *meta.Freezer) (err error) {
 }
 
 func (yig *YigStorage) removeByFreezer(freezer *meta.Freezer) (err error) {
-	err = yig.MetaStorage.DeleteFreezer(freezer)
-	if err != nil {
-		return
-	}
-	return nil
+	return yig.MetaStorage.DeleteFreezer(freezer, helper.CONFIG.FakeRestore)
 }
 
 func (yig *YigStorage) pickCluster() (cluster backend.Cluster, poolName string) {
@@ -208,7 +204,7 @@ func (yig *YigStorage) RestoreObject(targetObject *meta.Freezer, source io.Reade
 		}
 		if int64(bytesWritten) < targetObject.Size {
 			RecycleQueue <- maybeObjectToRecycle
-			helper.Logger.Error("Copy ", "error:", bytesWritten, targetObject.Size)
+			helper.Logger.Warn("Copy ", "error:", bytesWritten, targetObject.Size)
 			return ErrIncompleteBody
 		}
 		targetObject.ObjectId = oid
