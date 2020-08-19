@@ -534,8 +534,15 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	logger.Info("Copying object from", sourceBucketName, sourceObjectName,
 		sourceVersion, "to", targetBucketName, targetObjectName)
 
+	sourceBucket, err := api.ObjectAPI.GetBucket(sourceBucketName)
+	if err != nil {
+		WriteErrorResponse(w, r, ErrInvalidCopySource)
+	}
+
+	credentialUpdate := credential
+	err = checkSourceBucketAuth(r, policy.GetObjectAction, sourceBucket, sourceObjectName, &credentialUpdate)
 	sourceObject, err := api.ObjectAPI.GetObjectInfo(sourceBucketName, sourceObjectName,
-		sourceVersion, credential)
+		sourceVersion, credentialUpdate)
 
 	if err != nil {
 		logger.Error("Unable to fetch object info:", err)
