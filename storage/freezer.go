@@ -14,6 +14,11 @@ import (
 	meta "github.com/journeymidnight/yig/meta/types"
 )
 
+const (
+	SIZE_SUM_MIN = 64 << 20 // 64M
+	SIZE_SUM_MAX = 4 << 30  // 4G
+)
+
 func (yig *YigStorage) GetFreezerStatus(bucketName string, objectName string, version string) (freezer *meta.Freezer, err error) {
 	return yig.MetaStorage.GetFreezerStatus(bucketName, objectName, version)
 }
@@ -214,7 +219,18 @@ func (yig *YigStorage) RestoreObject(targetObject *meta.Freezer, source io.Reade
 
 		targetObject.Location = cephCluster.ID()
 		targetObject.Pool = poolName
+	} else {
+		var timeNum int64
+		if targetObject.Size < SIZE_SUM_MIN {
+			timeNum = rand.Int63n(10)
+		} else if targetObject.Size < SIZE_SUM_MAX && targetObject.Size > SIZE_SUM_MIN {
+			timeNum = targetObject.Size/SIZE_SUM_MIN + rand.Int63n(10) + 10
+		} else {
+			timeNum = targetObject.Size/SIZE_SUM_MAX + rand.Int63n(10) + 60
+		}
+		time.Sleep(time.Duration(timeNum))
 	}
+
 	targetObject.LastModifiedTime = time.Now().UTC()
 	targetObject.Status, err = common.MatchStatusIndex("RESTORING")
 	if err != nil {

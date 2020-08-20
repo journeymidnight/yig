@@ -11,6 +11,7 @@ import (
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/storage"
 	"github.com/robfig/cron/v3"
+	"math/rand"
 
 	"io"
 	"sync"
@@ -46,6 +47,7 @@ func InitializeRedis() {
 
 func Restore(instance *storage.YigStorage) {
 	InitializeRedis()
+	rand.Seed(time.Now().UnixNano())
 	yig = instance
 	mutexs = make(map[string]*redislock.Lock)
 
