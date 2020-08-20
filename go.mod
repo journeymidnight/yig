@@ -4,6 +4,8 @@ go 1.13
 
 replace github.com/journeymidnight/aws-sdk-go => github.com/Zstro/aws-sdk-go v1.18.2
 
+replace github.com/journeymidnight/aws-sdk-go => github.com/Zstro/aws-sdk-go v1.18.2
+
 require (
 	10.0.45.221/meepo/cron.git v0.0.0-20200729015409-137e31c90d6f
 	10.0.45.221/meepo/kafka.git v0.1.0
