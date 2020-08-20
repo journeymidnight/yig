@@ -222,11 +222,11 @@ func (yig *YigStorage) RestoreObject(targetObject *meta.Freezer, source io.Reade
 	} else {
 		var timeNum int64
 		if targetObject.Size < SIZE_SUM_MIN {
-			timeNum = rand.Int63n(10)
+			timeNum = rand.Int63n(60)
 		} else if targetObject.Size < SIZE_SUM_MAX && targetObject.Size > SIZE_SUM_MIN {
-			timeNum = targetObject.Size/SIZE_SUM_MIN + rand.Int63n(10) + 10
+			timeNum = targetObject.Size/SIZE_SUM_MIN + rand.Int63n(60) + 10
 		} else {
-			timeNum = targetObject.Size/SIZE_SUM_MAX + rand.Int63n(10) + 60
+			timeNum = targetObject.Size/SIZE_SUM_MAX + rand.Int63n(60) + 60
 		}
 		time.Sleep(time.Duration(timeNum))
 	}
