@@ -38,6 +38,16 @@ func (s3client *S3Client) PutObjectOutput(bucketName, key, value string) (out *s
 	return s3client.Client.PutObject(params)
 }
 
+func (s3client *S3Client) PutObjectWithOverwrite(bucketName, key, value string, forbidOverwrite bool) (out *s3.PutObjectOutput, err error) {
+	params := &s3.PutObjectInput{
+		Bucket:          aws.String(bucketName),
+		Key:             aws.String(key),
+		Body:            bytes.NewReader([]byte(value)),
+		ForbidOverwrite: aws.Bool(forbidOverwrite),
+	}
+	return s3client.Client.PutObject(params)
+}
+
 func (s3client *S3Client) PutObjectPreSignedWithSpecifiedBody(bucketName, key, value string, expire time.Duration) (url string, err error) {
 	params := &s3.PutObjectInput{
 		Bucket: aws.String(bucketName),

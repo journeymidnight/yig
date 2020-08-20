@@ -187,6 +187,9 @@ func (a IamV3Client) GetCredential(accessKey string) (credential common.Credenti
 		case "3007":
 			// Arrears
 			return credential, ErrSuspendedAccessKeyID
+		case "3009":
+			// AK invalid
+			return credential, ErrInvalidAccessKeyID
 		default:
 			slog.Error("Get Error from UCO")
 			return credential, ErrInternalError

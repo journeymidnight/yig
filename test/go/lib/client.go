@@ -29,14 +29,14 @@ const (
 )
 
 func NewS3WithoutMD5() *S3Client {
-	creds := credentials.NewStaticCredentials("hehehehe", "hehehehe", "")
+	creds := credentials.NewStaticCredentials(AccessKey, SecretKey, "")
 
 	// By default make sure a region is specified
 	s3client := s3.New(session.Must(session.NewSession(
 		&aws.Config{
 			Credentials:                   creds,
 			DisableSSL:                    aws.Bool(true),
-			Endpoint:                      aws.String("s3.test.com:8080"),
+			Endpoint:                      aws.String(Endpoint),
 			Region:                        aws.String("r"),
 			S3DisableContentMD5Validation: aws.Bool(true),
 		},

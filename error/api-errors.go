@@ -78,6 +78,7 @@ const (
 	ErrNoSuchBucket
 	ErrNoSuchBucketPolicy
 	ErrNoSuchKey
+	ErrForbiddenOverwriteKey
 	ErrNoSuchUpload
 	ErrNoSuchVersion
 	ErrNotImplemented
@@ -408,6 +409,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "NoSuchKey",
 		Description:    "The specified key does not exist.",
 		HttpStatusCode: http.StatusNotFound,
+	},
+	ErrForbiddenOverwriteKey: {
+		AwsErrorCode:   "ForbiddenOverwriteKey",
+		Description:    "The specified key has forbidden overwrite.",
+		HttpStatusCode: http.StatusForbidden,
 	},
 	ErrNoSuchUpload: {
 		AwsErrorCode:   "NoSuchUpload",
