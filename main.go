@@ -56,6 +56,11 @@ func main() {
 	// access log
 	helper.AccessLogger = log.NewFileLogger(helper.CONFIG.AccessLogPath, log.InfoLevel)
 	defer helper.AccessLogger.Close()
+	// error log
+	if helper.CONFIG.ErrorLogPath != "" {
+		helper.ErrorLogger = log.NewFileLogger(helper.CONFIG.ErrorLogPath, log.InfoLevel)
+		defer helper.ErrorLogger.Close()
+	}
 
 	if helper.CONFIG.MetaCacheType > 0 || helper.CONFIG.EnableDataCache {
 		redis.Initialize()
