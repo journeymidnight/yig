@@ -46,6 +46,8 @@ const (
 	ErrIncompleteBody
 	ErrInternalError
 	ErrInvalidAccessKeyID
+	ErrSuspendedAccessKeyID
+	ErrForbiddenAccessKeyID
 	ErrInvalidBucketName
 	ErrInvalidObjectName
 	ErrInvalidDigest
@@ -76,6 +78,7 @@ const (
 	ErrNoSuchBucket
 	ErrNoSuchBucketPolicy
 	ErrNoSuchKey
+	ErrForbiddenOverwriteKey
 	ErrNoSuchUpload
 	ErrNoSuchVersion
 	ErrNotImplemented
@@ -340,6 +343,16 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		Description:    "The access key ID you provided does not exist in our records.",
 		HttpStatusCode: http.StatusForbidden,
 	},
+	ErrSuspendedAccessKeyID: {
+		AwsErrorCode:   "SuspendedAccessKeyID",
+		Description:    "The access key ID you provided has been suspended due to insufficient balance.",
+		HttpStatusCode: http.StatusForbidden,
+	},
+	ErrForbiddenAccessKeyID: {
+		AwsErrorCode:   "ForbiddenAccessKeyID",
+		Description:    "The access key ID you provided has forbidden.",
+		HttpStatusCode: http.StatusForbidden,
+	},
 	ErrInvalidBucketName: {
 		AwsErrorCode:   "InvalidBucketName",
 		Description:    "The specified bucket name is not valid.",
@@ -394,6 +407,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "NoSuchKey",
 		Description:    "The specified key does not exist.",
 		HttpStatusCode: http.StatusNotFound,
+	},
+	ErrForbiddenOverwriteKey: {
+		AwsErrorCode:   "ForbiddenOverwriteKey",
+		Description:    "The specified key has forbidden overwrite.",
+		HttpStatusCode: http.StatusForbidden,
 	},
 	ErrNoSuchUpload: {
 		AwsErrorCode:   "NoSuchUpload",

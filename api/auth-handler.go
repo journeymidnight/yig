@@ -60,6 +60,9 @@ func checkRequestAuth(r *http.Request, action policy.Action) (c common.Credentia
 			}
 		}
 	case signature.AuthTypeAnonymous:
+		if action == policy.ListAllMyBucketsAction {
+			return c, ErrAccessDenied
+		}
 		isAllow, err := IsBucketPolicyAllowed(&c, ctx.BucketInfo, r, action, ctx.ObjectName)
 		c.AllowOtherUserAccess = isAllow
 		return c, err

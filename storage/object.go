@@ -666,6 +666,13 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 		}
 	}
 
+	if bucket.Versioning == BucketVersioningDisabled {
+		if reqCtx.IsObjectForbidOverwrite {
+			if reqCtx.ObjectInfo != nil {
+				return result, ErrForbiddenOverwriteKey
+			}
+		}
+	}
 	md5Writer := md5.New()
 
 	// Limit the reader to its provided size if specified.
@@ -963,6 +970,14 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 					err = ErrBucketAccessForbidden
 					return
 				}
+			}
+		}
+	}
+
+	if targetBucket.Versioning == BucketVersioningDisabled {
+		if reqCtx.IsObjectForbidOverwrite {
+			if reqCtx.ObjectInfo != nil {
+				return result, ErrForbiddenOverwriteKey
 			}
 		}
 	}

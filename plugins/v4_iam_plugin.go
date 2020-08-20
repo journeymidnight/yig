@@ -6,7 +6,6 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"hash"
 	"io"
 	"io/ioutil"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/journeymidnight/yig/api/datatype/policy"
 	"github.com/journeymidnight/yig/circuitbreak"
+	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	_ "github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/iam/common"
@@ -187,27 +187,50 @@ func (a IamV4Client) GetCredential(accessKey string) (credential common.Credenti
 		response, err := a.httpClient.Do(request)
 		if err != nil {
 			slog.Error("GetCredential send request failed", err)
-			return credential, err
+			return credential, ErrInternalError
+		}
+		slog.Info("GetCredential to IAM return status ", response.Status)
+		if response.StatusCode != 200 {
+			slog.Error("GetCredential to IAM failed return code = ", response.StatusCode, " UCO Exception!!")
+			return credential, ErrInternalError
 		}
 		var resp = new(QueryResp)
 		body := response.Body
 		jsonBytes, err := ioutil.ReadAll(body)
 		if err != nil {
 			slog.Error("Read IAM response err:", err)
-			return credential, err
+			return credential, ErrInternalError
 		}
 		defer body.Close()
 		s := string(jsonBytes)
 		slog.Info("Read IAM JSON:", s)
 		err = json.Unmarshal(jsonBytes, resp)
 		if err != nil {
-			slog.Error("Read IAM JSON err:", err)
-			return credential, err
+			slog.Error(" IAM JSON:", s, "Read IAM JSON err:", err)
+			return credential, ErrInternalError
 		}
-		slog.Info("GetCredential to IAM return status ", response.Status)
-		if response.StatusCode != 200 {
-			slog.Warn("GetCredential to IAM failed return code = ", response.StatusCode)
-			return credential, fmt.Errorf("GetCredential to IAM failed retcode = %d", response.StatusCode)
+		switch resp.Code {
+		case "0":
+			// normal
+			break
+		case "1":
+			slog.Error("Get Error from OP")
+			return credential, ErrInternalError
+		case "3005":
+			// AK and SK have forbidden
+			return credential, ErrForbiddenAccessKeyID
+		case "3006":
+			// The user has not signed the agreement
+			return credential, ErrInvalidAccessKeyID
+		case "3007":
+			// Arrears
+			return credential, ErrSuspendedAccessKeyID
+		case "3009":
+			// AK invalid
+			return credential, ErrInvalidAccessKeyID
+		default:
+			slog.Error("Get Error from UCO")
+			return credential, ErrInternalError
 		}
 
 		value := resp.Res.Access
