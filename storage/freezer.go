@@ -134,85 +134,87 @@ func (yig *YigStorage) RestoreObject(targetObject *meta.Freezer, source io.Reade
 	var oid string
 	var maybeObjectToRecycle objectToRecycle
 
-	if needUpdateStatus {
-		err = yig.MetaStorage.Client.UpdateFreezerStatus(targetObject.BucketName, targetObject.Name, targetObject.VersionId, common.ObjectNeedRestore, common.ObjectRestoring)
-		if err != nil {
-			helper.Logger.Error("Upload Freezer status failed!")
-			return
+	if helper.CONFIG.FakeRestore {
+		if needUpdateStatus {
+			err = yig.MetaStorage.Client.UpdateFreezerStatus(targetObject.BucketName, targetObject.Name, targetObject.VersionId, common.ObjectNeedRestore, common.ObjectRestoring)
+			if err != nil {
+				helper.Logger.Error("Upload Freezer status failed!")
+				return
+			}
 		}
-	}
 
-	// Limit the reader to its provided size if specified.
-	var limitedDataReader io.Reader
-	limitedDataReader = io.LimitReader(source, targetObject.Size)
+		// Limit the reader to its provided size if specified.
+		var limitedDataReader io.Reader
+		limitedDataReader = io.LimitReader(source, targetObject.Size)
 
-	cephCluster, poolName := yig.pickCluster()
+		cephCluster, poolName := yig.pickCluster()
 
-	if len(targetObject.Parts) != 0 {
-		var targetParts = make(map[int]*meta.Part, len(targetObject.Parts))
-		for i := 1; i <= len(targetObject.Parts); i++ {
-			part := targetObject.Parts[i]
-			targetParts[i] = part
-			err = func() (err error) {
-				pr, pw := io.Pipe()
-				defer pr.Close()
-				var total = part.Size
-				go func() {
-					_, err = io.CopyN(pw, source, total)
-					if err != nil {
-						return
+		if len(targetObject.Parts) != 0 {
+			var targetParts = make(map[int]*meta.Part, len(targetObject.Parts))
+			for i := 1; i <= len(targetObject.Parts); i++ {
+				part := targetObject.Parts[i]
+				targetParts[i] = part
+				err = func() (err error) {
+					pr, pw := io.Pipe()
+					defer pr.Close()
+					var total = part.Size
+					go func() {
+						_, err = io.CopyN(pw, source, total)
+						if err != nil {
+							return
+						}
+						pw.Close()
+					}()
+					var bytesW uint64
+					oid, bytesW, err = cephCluster.Put(poolName, pr)
+					maybeObjectToRecycle = objectToRecycle{
+						location: cephCluster.ID(),
+						pool:     poolName,
+						objectId: oid,
 					}
-					pw.Close()
+					if bytesW < uint64(part.Size) {
+						RecycleQueue <- maybeObjectToRecycle
+						helper.Logger.Error("Copy part", i, "error:", bytesW, part.Size)
+						return ErrIncompleteBody
+					}
+					if err != nil {
+						return err
+					}
+					part.LastModified = time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT)
+					part.ObjectId = oid
+					return nil
 				}()
-				var bytesW uint64
-				oid, bytesW, err = cephCluster.Put(poolName, pr)
-				maybeObjectToRecycle = objectToRecycle{
-					location: cephCluster.ID(),
-					pool:     poolName,
-					objectId: oid,
-				}
-				if bytesW < uint64(part.Size) {
-					RecycleQueue <- maybeObjectToRecycle
-					helper.Logger.Error("Copy part", i, "error:", bytesW, part.Size)
-					return ErrIncompleteBody
-				}
 				if err != nil {
 					return err
 				}
-				part.LastModified = time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT)
-				part.ObjectId = oid
-				return nil
-			}()
-			if err != nil {
-				return err
 			}
+			targetObject.ObjectId = ""
+			targetObject.Parts = targetParts
+		} else {
+			var bytesWritten uint64
+			oid, bytesWritten, err = cephCluster.Put(poolName, limitedDataReader)
+			if err != nil {
+				return
+			}
+			// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
+			// so the object in Ceph could be removed asynchronously
+			maybeObjectToRecycle = objectToRecycle{
+				location: cephCluster.ID(),
+				pool:     poolName,
+				objectId: oid,
+			}
+			if int64(bytesWritten) < targetObject.Size {
+				RecycleQueue <- maybeObjectToRecycle
+				helper.Logger.Warn("Copy ", "error:", bytesWritten, targetObject.Size)
+				return ErrIncompleteBody
+			}
+			targetObject.ObjectId = oid
 		}
-		targetObject.ObjectId = ""
-		targetObject.Parts = targetParts
-	} else {
-		var bytesWritten uint64
-		oid, bytesWritten, err = cephCluster.Put(poolName, limitedDataReader)
-		if err != nil {
-			return
-		}
-		// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
-		// so the object in Ceph could be removed asynchronously
-		maybeObjectToRecycle = objectToRecycle{
-			location: cephCluster.ID(),
-			pool:     poolName,
-			objectId: oid,
-		}
-		if int64(bytesWritten) < targetObject.Size {
-			RecycleQueue <- maybeObjectToRecycle
-			helper.Logger.Warn("Copy ", "error:", bytesWritten, targetObject.Size)
-			return ErrIncompleteBody
-		}
-		targetObject.ObjectId = oid
-	}
-	// TODO validate bucket policy and fancy ACL
+		// TODO validate bucket policy and fancy ACL
 
-	targetObject.Location = cephCluster.ID()
-	targetObject.Pool = poolName
+		targetObject.Location = cephCluster.ID()
+		targetObject.Pool = poolName
+	}
 	targetObject.LastModifiedTime = time.Now().UTC()
 	targetObject.Status, err = common.MatchStatusIndex("RESTORING")
 	if err != nil {

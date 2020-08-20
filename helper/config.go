@@ -14,7 +14,6 @@ const (
 	MIN_BUFFER_SIZE int64 = 512 << 10 // 512k
 	MAX_BUFEER_SIZE int64 = 8 << 20   // 8M
 
-	DEFAULTSPEC    = "@every 1h"
 	DEFAULTLOCK    = 45 // 45min
 	DEFAULTREFRESH = 30 // 30 min
 
@@ -108,15 +107,12 @@ type Config struct {
 	DefaultWriteOps      int  `toml:"default_write_ops"`
 	DefaultBandwidthKBps int  `toml:"default_bandwidth_kbps"`
 
-	EnableRestoreObjectCron bool     `toml:"enable_restore_object_cron"`
-	RestoreObjectSpec       string   `toml:"restore_object_spec"`
-	LockTime                int      `toml:"lock_time"`
-	RefreshLockTime         int      `toml:"refresh_lock_time"`
-	LogDeliveryGroup        []string `toml:"log_delivery_group"`
-
 	// The switch that decides whether to use the real thawing logic,
 	// if it is on, the thawing logic is a false thawing mode that only modifies the database state
-	FakeRestore bool `toml:"fake_restore"`
+	FakeRestore      bool     `toml:"fake_restore"`
+	LockTime         int      `toml:"lock_time"`
+	RefreshLockTime  int      `toml:"refresh_lock_time"`
+	LogDeliveryGroup []string `toml:"log_delivery_group"`
 }
 
 type PluginConfig struct {
@@ -228,12 +224,10 @@ func MarshalTOMLConfig() error {
 	CONFIG.DefaultWriteOps = Ternary(c.DefaultWriteOps <= 0, 1000, c.DefaultWriteOps).(int)
 	CONFIG.DefaultBandwidthKBps = Ternary(c.DefaultBandwidthKBps <= 0, 102400, c.DefaultBandwidthKBps).(int)
 
-	CONFIG.EnableRestoreObjectCron = Ternary(c.EnableRestoreObjectCron, true, false).(bool)
-	CONFIG.RestoreObjectSpec = Ternary(c.RestoreObjectSpec == "", DEFAULTSPEC, c.RestoreObjectSpec).(string)
+	CONFIG.FakeRestore = c.FakeRestore
 	CONFIG.LockTime = Ternary(c.LockTime <= 0, DEFAULTLOCK, c.LockTime).(int)
 	CONFIG.RefreshLockTime = Ternary(c.RefreshLockTime <= 0, DEFAULTREFRESH, c.RefreshLockTime).(int)
 	CONFIG.LogDeliveryGroup = c.LogDeliveryGroup
-	CONFIG.FakeRestore = c.FakeRestore
 	return nil
 }
 
