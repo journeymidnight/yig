@@ -1451,15 +1451,18 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 		}
 	}
 
-	if object.StorageClass == ObjectStorageClassGlacier && bucket.Versioning != BucketVersioningEnabled {
-		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
-		if err == nil {
-			err = yig.MetaStorage.DeleteFreezer(freezer, helper.CONFIG.FakeRestore)
-			if err != nil {
+	if object.StorageClass == ObjectStorageClassGlacier {
+		if bucket.Versioning == BucketVersioningDisabled ||
+			(bucket.Versioning == BucketVersioningEnabled && object.VersionId != "") {
+			freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
+			if err == nil {
+				err = yig.MetaStorage.DeleteFreezer(freezer, helper.CONFIG.FakeRestore)
+				if err != nil {
+					return result, err
+				}
+			} else if err != ErrNoSuchKey {
 				return result, err
 			}
-		} else if err != ErrNoSuchKey {
-			return result, err
 		}
 	}
 
@@ -1647,15 +1650,18 @@ func (yig *YigStorage) DeleteObjects(reqCtx RequestContext, credential common.Cr
 
 	deleteFunc := func(object *meta.Object, tx driver.Tx) (result DeleteObjectResult, err error) {
 		bucketName, objectName, version := bucket.Name, object.Name, object.VersionId
-		if object.StorageClass == ObjectStorageClassGlacier && bucket.Versioning != BucketVersioningEnabled {
-			freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
-			if err == nil {
-				err = yig.MetaStorage.DeleteFreezer(freezer, helper.CONFIG.FakeRestore)
-				if err != nil {
+		if object.StorageClass == ObjectStorageClassGlacier {
+			if bucket.Versioning == BucketVersioningDisabled ||
+				(bucket.Versioning == BucketVersioningEnabled && object.VersionId != "") {
+				freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
+				if err == nil {
+					err = yig.MetaStorage.DeleteFreezer(freezer, helper.CONFIG.FakeRestore)
+					if err != nil {
+						return result, err
+					}
+				} else if err != ErrNoSuchKey {
 					return result, err
 				}
-			} else if err != ErrNoSuchKey {
-				return result, err
 			}
 		}
 		switch bucket.Versioning {
