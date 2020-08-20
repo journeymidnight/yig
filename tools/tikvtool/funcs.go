@@ -1,9 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
+
+	"github.com/journeymidnight/yig/meta/types"
 
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/meta/client/tikvclient"
@@ -14,6 +18,39 @@ func SetFunc(key, value string) error {
 	c := tikvclient.NewClient(strings.Split(global.PDs, ","))
 	var k, v = []byte(key), []byte(value)
 	var err error
+
+	if _, ok := TableMap[global.Table]; ok {
+		fmt.Println("Args:", global.Args.Value())
+		var argMap = make(map[string]string)
+		for _, v := range global.Args {
+			sp := strings.Split(v, ",")
+			for _, v2 := range sp {
+				sp2 := strings.SplitN(v2, "=", 2)
+				if len(sp) < 2 {
+					return fmt.Errorf("invalid args format: %s", global.Args)
+				}
+				argMap[sp2[0]] = sp2[1]
+			}
+		}
+		switch global.Table {
+		case TableClusters:
+			// Key: c\{PoolName}\{Fsid}\{Backend}
+			k = tikvclient.GenKey(tikvclient.TableClusterPrefix, argMap["pool"], argMap["fsid"], argMap["backend"])
+			weight, err := strconv.Atoi(value)
+			if err != nil {
+				return fmt.Errorf("invalid value: %s for table %s", value, global.Table)
+			}
+			v, err = helper.MsgPackMarshal(weight)
+			if err != nil {
+				return fmt.Errorf("MsgPackMarshal err: %s", err)
+			}
+		}
+		fmt.Println("Put:", string(k), value)
+		return c.TxPut(k, v)
+	} else if global.Table != "" {
+		return fmt.Errorf("invalid table name: %s", global.Table)
+	}
+
 	if global.IsKeyBytes {
 		k, err = ParseToBytes(key)
 		if err != nil {
@@ -41,6 +78,46 @@ func GetFunc(key string) error {
 	c := tikvclient.NewClient(strings.Split(global.PDs, ","))
 	var k []byte
 	var err error
+	if _, ok := TableMap[global.Table]; ok {
+		fmt.Println("Args:", global.Args.Value())
+		var argMap = make(map[string]string)
+		for _, v := range global.Args {
+			sp := strings.Split(v, ",")
+			for _, v2 := range sp {
+				sp2 := strings.SplitN(v2, "=", 2)
+				if len(sp) < 2 {
+					return fmt.Errorf("invalid args format: %s", global.Args)
+				}
+				argMap[sp2[0]] = sp2[1]
+			}
+		}
+		switch global.Table {
+		case TableObjects:
+			if global.Version == "" {
+				k = tikvclient.GenKey(global.Bucket, key)
+			} else {
+				k = tikvclient.GenKey(global.Bucket, key, global.Version)
+			}
+			printKey := bytes.Replace(k, []byte{0x31}, []byte("\\"), -1)
+			fmt.Println("key:", string(printKey))
+			var o types.Object
+			ok, err := c.TxGet(k, &o, nil)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return fmt.Errorf("no such key")
+			}
+			fmt.Printf("val: %+v \n", o)
+
+		case TableClusters:
+
+		}
+
+	} else if global.Table != "" {
+		return fmt.Errorf("invalid table name: %s", global.Table)
+	}
+
 	if global.IsKeyBytes {
 		k, err = ParseToBytes(key)
 		if err != nil {
@@ -88,6 +165,8 @@ func ScanFunc(startKey, endKey string, maxKeys int) (err error) {
 		} else if strings.Index(endKey, "$") != -1 {
 			endKey = strings.ReplaceAll(endKey, "$", tikvclient.TableMaxKeySuffix)
 		}
+	} else if global.Table != "" {
+		return fmt.Errorf("invalid table name: %s", global.Table)
 	}
 
 	sk, ek = []byte(startKey), []byte(endKey)

@@ -33,6 +33,7 @@ type GlobalOption struct {
 	Bucket       string
 	Object       string
 	Version      string
+	Args         cli.StringSlice // Format is "k1=v1,k2=v2,k3=v3..."
 }
 
 var global GlobalOption
@@ -89,6 +90,11 @@ func main() {
 			Name:        "versionid,V",
 			Usage:       "Set version id",
 			Destination: &global.Version,
+		},
+		cli.StringSliceFlag{
+			Name:  "args",
+			Usage: "set args",
+			Value: &global.Args,
 		},
 	}
 

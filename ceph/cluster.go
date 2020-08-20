@@ -492,7 +492,7 @@ func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
 			if ret := wait_pending_front(pending); ret < 0 {
 				drain_pending(pending)
 				return oid, 0,
-					fmt.Errorf("Error drain_pending in pending_has_completed. pool:%s oid:%s err:%s", poolname, oid, err.Error())
+					fmt.Errorf("Error drain_pending in pending_has_completed. pool:%s oid:%s", poolname, oid)
 			}
 		}
 
@@ -500,7 +500,7 @@ func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
 			if ret := wait_pending_front(pending); ret < 0 {
 				drain_pending(pending)
 				return oid, 0,
-					fmt.Errorf("Error wait_pending_front. pool:%s oid:%s err:%s", poolname, oid, err.Error())
+					fmt.Errorf("Error wait_pending_front. pool:%s oid:%s", poolname, oid)
 			}
 		}
 		offset += uint64(len(pending_data))
