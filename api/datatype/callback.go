@@ -13,6 +13,8 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -29,14 +31,16 @@ const (
 	CallBackBody           = "X-Uos-Callback-Body"
 	CallbackAuth           = "X-Uos-Callback-Auth"
 	NeedCallbackAuth       = "1"
-	CallBackLocationPrefix = "X-Uos-Callback-Custom-"
+	CallBackLocationPrefix = "${X-Uos-Callback-Customize-"
 	Authorization          = "Authorization"
 	ContentType            = "Content-Type"
 	Date                   = "X-Uos-Date"
 	CallbackAuthorization  = "UOS-CALLBACK-AUTH"
+	MaxBodySize            = 1 << 20 // 1M
 )
 
 var (
+	// Supported image format
 	ImageSupportContentType = []string{
 		"image/jpeg",
 		"application/x-jpg",
@@ -44,236 +48,288 @@ var (
 		"application/x-png",
 		"image/gif",
 	}
+	// Supported image suffix format
 	ImageSupportSuffix = []string{
 		".jpg",
 		".jpeg",
 		".png",
 		".gif",
 	}
-	CallBackInfo = map[string]string{
-		"bucket":     "${bucket}",
-		"filename":   "${filename}",
-		"etag":       "${etag}",
-		"objectSize": "${objectSize}",
-		"mimeType":   "${mimeType}",
-		"createTime": "${createTime}",
-		"height":     "${height}",
-		"width":      "${width}",
+	// Parameters that can be used by magic variables
+	CallBackInfo = []string{
+		"${bucket}",
+		"${filename}",
+		"${etag}",
+		"${objectSize}",
+		"${mimeType}",
+		"${createTime}",
+	}
+	CallBackInfoImg = []string{
+		"${image.height}",
+		"${image.width}",
+		"${image.format}",
 	}
 )
 
-type CallBackInfos struct {
+type CallBackMagicInfos struct {
 	BucketName string
 	FileName   string
+	VersionId  string
 	Etag       string
 	ObjectSize int64
 	MimeType   string
 	CreateTime uint64
 	Height     int
 	Width      int
+	Format     string
 }
+
+type (
+	// Used to store magic variable parameters
+	MagicParam map[string]string
+	// Used to store user-defined parameters
+	Location map[string]string
+	// Used to store user-defined constant parameters
+	Constant map[string]string
+)
 
 type CallBackMessage struct {
 	Url        string
 	Auth       bool
-	Location   map[string]string
-	Info       map[string]string
+	Magic      MagicParam
+	Location   Location
+	Constant   Constant
+	Infos      map[string]string // Record the last parameters to be put into the POST request
 	Credential common.Credential
 }
 
-func GetCallbackFromHeader(header http.Header) (isCallback bool, message CallBackMessage) {
-	message = CallBackMessage{}
-	url := header.Get(CallBackUrl)
-	body := header.Get(CallBackBody)
-	if url == "" || body == "" {
-		return false, message
+func (c *CallBackMessage) IsCallbackImgNeedParse(contentType string, objectName string) (bool, error) {
+	for _, info := range c.Magic {
+		for _, key := range CallBackInfoImg {
+			if info == key {
+				return hasCallbackImageCanParse(contentType, objectName)
+			}
+		}
 	}
-	message.Url = url
+	return false, nil
+}
+
+func GetCallbackFromHeader(header http.Header) (isCallback bool, message CallBackMessage, err error) {
+	message = CallBackMessage{}
+	bodyUrl := header.Get(CallBackUrl)
+	body := header.Get(CallBackBody)
+	if bodyUrl == "" && body == "" {
+		return false, message, nil
+	} else if (bodyUrl == "" && body != "") || (bodyUrl != "" && body == "") {
+		return false, message, ErrInvalidCallbackParameter
+	}
+	message.Url = bodyUrl
 	auth := header.Get(CallbackAuth)
 	if auth == NeedCallbackAuth {
 		message.Auth = true
 	}
-	info := make(map[string]string)
-	infoSplits := strings.Split(body, "&")
-	for _, split := range infoSplits {
-		header := strings.Split(split, "=")
-		for key, _ := range CallBackInfo {
-			if key == header[0] {
-				info[header[0]] = header[1]
+	message.Magic = make(map[string]string)
+	message.Location = make(map[string]string)
+	message.Constant = make(map[string]string)
+	info, err := url.ParseQuery(body)
+	if err != nil {
+		return false, message, ErrInvalidCallbackBodyParameter
+	}
+	for k, v := range info {
+		// Parse magic variables
+		for _, key := range CallBackInfo {
+			if key == v[0] {
+				message.Magic[k] = v[0]
+				break
 			}
 		}
-	}
-	message.Info = info
-	location := map[string]string{}
-	for head, value := range header {
-		if strings.HasPrefix(head, CallBackLocationPrefix) {
-			location[head] = value[0]
+		if _, ok := message.Magic[k]; ok {
+			break
 		}
+		for _, key := range CallBackInfoImg {
+			if key == v[0] {
+				message.Magic[k] = v[0]
+				break
+			}
+		}
+		if _, ok := message.Magic[k]; ok {
+			break
+		}
+		// Parse custom variables
+		if strings.HasPrefix(v[0], CallBackLocationPrefix) {
+			markWithoutPrefix := strings.TrimPrefix(v[0], "${")
+			mark := strings.TrimSuffix(markWithoutPrefix, "}")
+			if mark == markWithoutPrefix {
+				return false, message, ErrInvalidCallbackBodyParameter
+			}
+			mark = textproto.CanonicalMIMEHeaderKey(mark)
+			message.Location[k] = header.Get(mark)
+			break
+		}
+		// Parse user-defined constant parameters
+		message.Constant[k] = v[0]
 	}
-	message.Location = location
-	return true, message
+	return true, message, nil
 }
 
-func GetCallbackFromForm(formValues map[string]string) (isCallback bool, message CallBackMessage) {
+func GetCallbackFromForm(formValues map[string]string) (isCallback bool, message CallBackMessage, err error) {
 	message = CallBackMessage{}
-	url := formValues[CallBackUrl]
+	bodyUrl := formValues[CallBackUrl]
 	body := formValues[CallBackBody]
-	if url == "" || body == "" {
-		return false, message
+	if bodyUrl == "" && body == "" {
+		return false, message, nil
+	} else if (bodyUrl == "" && body != "") || (bodyUrl != "" && body == "") {
+		return false, message, ErrInvalidCallbackParameter
 	}
-	message.Url = url
+	message.Url = bodyUrl
 	auth := formValues[CallbackAuth]
 	if auth == NeedCallbackAuth {
 		message.Auth = true
 	}
-	info := make(map[string]string)
-	infoSplits := strings.Split(body, "&")
-	for _, split := range infoSplits {
-		header := strings.Split(split, "=")
-		for key, _ := range CallBackInfo {
-			if key == header[0] {
-				info[header[0]] = header[1]
+	message.Magic = make(map[string]string)
+	message.Location = make(map[string]string)
+	message.Constant = make(map[string]string)
+	info, err := url.ParseQuery(body)
+	if err != nil {
+		return false, message, ErrInvalidCallbackBodyParameter
+	}
+	for k, v := range info {
+		// Parse magic variables
+		for _, key := range CallBackInfo {
+			if key == v[0] {
+				message.Magic[k] = v[0]
+				break
 			}
 		}
-	}
-	message.Info = info
-	location := map[string]string{}
-	for head, value := range formValues {
-		if strings.HasPrefix(head, CallBackLocationPrefix) {
-			location[head] = value
+		if _, ok := message.Magic[k]; ok {
+			break
 		}
+		for _, key := range CallBackInfoImg {
+			if key == v[0] {
+				message.Magic[k] = v[0]
+				break
+			}
+		}
+		if _, ok := message.Magic[k]; ok {
+			break
+		}
+		// Parse custom variables
+		if strings.HasPrefix(v[0], CallBackLocationPrefix) {
+			markWithoutPrefix := strings.TrimPrefix(v[0], "${")
+			mark := strings.TrimSuffix(markWithoutPrefix, "}")
+			if mark == markWithoutPrefix {
+				return false, message, ErrInvalidCallbackBodyParameter
+			}
+			message.Location[k] = formValues[mark]
+			break
+		}
+		// Parse user-defined constant parameters
+		message.Constant[k] = v[0]
 	}
-	message.Location = location
-	return true, message
+	return true, message, nil
 }
 
-func IsCallbackImageInfo(contentType string, objectName string) bool {
+func hasCallbackImageCanParse(contentType string, objectName string) (bool, error) {
 	for _, v := range ImageSupportContentType {
 		if contentType == v {
-			return true
+			return true, nil
 		}
 	}
 	for _, v := range ImageSupportSuffix {
 		if strings.Contains(objectName, v) {
-			return true
+			return true, nil
 		}
 	}
-	return false
+	return false, ErrInvalidCallbackMagicImageType
 }
 
-func ValidCallbackImgInfo(infos map[string]string) bool {
-	for key, _ := range infos {
-		if key == "width" || key == "height" {
-			return true
-		}
-	}
-	return false
-}
-
-func ValidCallbackInfo(info map[string]string, noValidInfo CallBackInfos, location map[string]string) (map[string]string, error) {
-	for key, value := range info {
-		switch key {
-		case "bucket":
-			if value == CallBackInfo[key] {
-				if noValidInfo.BucketName != "" {
-					info[key] = noValidInfo.BucketName
-				} else {
-					info[key] = ""
-				}
+func ParseCallbackInfos(magicInfo CallBackMagicInfos, message CallBackMessage) (messageFinished CallBackMessage, err error) {
+	info := make(map[string]string)
+	// Replace the corresponding magic variable with the object parameter
+	for key, value := range message.Magic {
+		switch value {
+		case "${bucket}":
+			if magicInfo.BucketName != "" {
+				info[key] = magicInfo.BucketName
+			} else {
+				return message, ErrGetCallbackMagicParameter
 			}
 			break
-		case "filename":
-			if value == CallBackInfo[key] {
-				if noValidInfo.FileName != "" {
-					info[key] = noValidInfo.FileName
-				} else {
-					info[key] = ""
-				}
+		case "${filename}":
+			if magicInfo.FileName != "" {
+				info[key] = magicInfo.FileName
+			} else {
+				return message, ErrGetCallbackMagicParameter
 			}
 			break
-		case "etag":
-			if value == CallBackInfo[key] {
-				if noValidInfo.Etag != "" {
-					info[key] = noValidInfo.Etag
-				} else {
-					info[key] = ""
-				}
+		case "${etag}":
+			if magicInfo.Etag != "" {
+				info[key] = magicInfo.Etag
+			} else {
+				return message, ErrGetCallbackMagicParameter
 			}
 			break
-		case "objectSize":
-			if value == CallBackInfo[key] {
-				if noValidInfo.ObjectSize != 0 {
-					info[key] = strconv.FormatInt(noValidInfo.ObjectSize, 10)
-				} else {
-					info[key] = ""
-				}
+		case "${objectSize}":
+			if magicInfo.ObjectSize > 0 {
+				info[key] = strconv.FormatInt(magicInfo.ObjectSize, 10)
+			} else {
+				return message, ErrGetCallbackMagicParameter
 			}
 			break
-		case "mimeType":
-			if value == CallBackInfo[key] {
-				if noValidInfo.MimeType != "" {
-					info[key] = noValidInfo.MimeType
-				} else {
-					info[key] = ""
-				}
+		case "${mimeType}":
+			if magicInfo.MimeType != "" {
+				info[key] = magicInfo.MimeType
+			} else {
+				return message, ErrGetCallbackMagicParameter
 			}
 			break
-		case "createTime":
-			if value == CallBackInfo[key] {
-				if noValidInfo.CreateTime != 0 {
-					info[key] = strconv.FormatUint(noValidInfo.CreateTime, 10)
-				} else {
-					info[key] = ""
-				}
+		case "${createTime}":
+			if magicInfo.CreateTime > 0 {
+				info[key] = strconv.FormatUint(magicInfo.CreateTime, 10)
+			} else {
+				return message, ErrGetCallbackMagicParameter
 			}
 			break
-		case "height":
-			if value == CallBackInfo[key] {
-				if noValidInfo.Height != 0 {
-					info[key] = strconv.Itoa(noValidInfo.Height)
-				} else {
-					info[key] = ""
-				}
+		case "${image.height}":
+			if magicInfo.Height > 0 {
+				info[key] = strconv.Itoa(magicInfo.Height)
+			} else {
+				return message, ErrGetCallbackMagicParameter
 			}
 			break
-		case "width":
-			if value == CallBackInfo[key] {
-				if noValidInfo.Width != 0 {
-					info[key] = strconv.Itoa(noValidInfo.Width)
-				} else {
-					info[key] = ""
-				}
+		case "${image.width}":
+			if magicInfo.Width > 0 {
+				info[key] = strconv.Itoa(magicInfo.Width)
+			} else {
+				return message, ErrGetCallbackMagicParameter
 			}
 			break
-		case "location":
-			customs := strings.Split(value, ",")
-			for _, custom := range customs {
-				custom = strings.TrimPrefix(custom, "${")
-				custom = strings.TrimSuffix(custom, "}")
-				custom = strings.ToLower(custom)
-				for k, v := range location {
-					lowerK := strings.ToLower(k)
-					if custom == lowerK {
-						k = strings.TrimPrefix(k, CallBackLocationPrefix)
-						k = strings.ToLower(k)
-						if info[k] != "" {
-							return nil, ErrValidCallBackInfo
-						}
-						info[k] = v
-					}
-				}
+		case "${image.format}":
+			if magicInfo.Format != "" {
+				info[key] = magicInfo.Format
+			} else {
+				return message, ErrGetCallbackMagicParameter
 			}
 			break
 		}
 	}
-	return info, nil
+	// Inject user-specified constants
+	for k, v := range message.Constant {
+		info[k] = v
+	}
+	// Inject user-specified custom variables
+	for k, v := range message.Location {
+		info[k] = v
+	}
+	message.Infos = info
+	return message, nil
 }
 
 func PostCallbackMessage(credential common.Credential, message CallBackMessage) (result string, err error) {
 	client := http.Client{
 		Timeout: MaxCallbackTimeout,
 	}
-	req, err := getPostRequest(credential, message)
+	req, err := newPostRequest(credential, message)
 	if err != nil {
 		helper.Logger.Warn("Callback error with getPostRequest:", err)
 		return "", ErrCallBackFailed
@@ -281,9 +337,9 @@ func PostCallbackMessage(credential common.Credential, message CallBackMessage) 
 	resp, err := client.Do(req)
 	defer resp.Body.Close()
 	if err != nil {
+		resp.Body.Close()
 		if err == http.ErrHandlerTimeout {
 			resp, err = client.Do(req)
-			defer resp.Body.Close()
 			if err != nil {
 				if err == http.ErrHandlerTimeout {
 					helper.Logger.Warn("Callback error with doRequest Timeout:", err)
@@ -294,7 +350,7 @@ func PostCallbackMessage(credential common.Credential, message CallBackMessage) 
 			}
 		}
 	}
-	info, err := ioutil.ReadAll(resp.Body)
+	info, err := ioutil.ReadAll(io.LimitReader(resp.Body, MaxBodySize))
 	if err != nil {
 		helper.Logger.Warn("Callback error with readResponse:", err)
 		return "", ErrCallBackFailed
@@ -302,10 +358,10 @@ func PostCallbackMessage(credential common.Credential, message CallBackMessage) 
 	return string(info), nil
 }
 
-func getPostRequest(credential common.Credential, message CallBackMessage) (*http.Request, error) {
+func newPostRequest(credential common.Credential, message CallBackMessage) (*http.Request, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	for k, v := range message.Info {
+	for k, v := range message.Infos {
 		if v != "" {
 			if err := writer.WriteField(k, v); err != nil {
 				return nil, err
@@ -340,10 +396,10 @@ func getSignatureForCallback(credential common.Credential, date string) string {
 	return CallbackAuthorization + " " + credential.AccessKeyID + ":" + base64.StdEncoding.EncodeToString(signature)
 }
 
-func GetImageInfoFromReader(reader io.Reader) (height, width int) {
-	img, _, err := image.Decode(reader)
+func GetImageInfoFromReader(reader io.Reader) (height, width int, imageType string, err error) {
+	img, imageType, err := image.Decode(reader)
 	if err != nil {
-		return
+		return 0, 0, "", ErrInvalidCallbackMagicImageType
 	}
 	bounds := img.Bounds()
 	width = bounds.Max.X

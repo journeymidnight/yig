@@ -203,6 +203,10 @@ const (
 	ErrCreateRestoreObject
 	ErrInvalidGlacierObject
 	ErrInvalidStorageClassConvert
+	ErrInvalidCallbackParameter
+	ErrInvalidCallbackBodyParameter
+	ErrGetCallbackMagicParameter
+	ErrInvalidCallbackMagicImageType
 	ErrObjectMovedPermanently
 	ErrObjectMutexProtected
 	ErrRequestLimitExceeded
@@ -1000,8 +1004,28 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		HttpStatusCode: http.StatusTooManyRequests,
 	},
 	ErrInvalidStorageClassConvert: {
-		AwsErrorCode:   "",
+		AwsErrorCode:   "InvalidStorageClassConvert",
 		Description:    "Glacier object cannot convert to another storage class.",
+		HttpStatusCode: http.StatusForbidden,
+	},
+	ErrInvalidCallbackParameter: {
+		AwsErrorCode:   "InvalidCallbackParameter",
+		Description:    "Request interface callback parameter error",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidCallbackBodyParameter: {
+		AwsErrorCode:   "InvalidCallbackBodyParameter",
+		Description:    "Request interface callback body parameter error",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrGetCallbackMagicParameter: {
+		AwsErrorCode:   "GetCallbackMagicParameter",
+		Description:    "Failed to get object magic parameter.",
+		HttpStatusCode: http.StatusInternalServerError,
+	},
+	ErrInvalidCallbackMagicImageType: {
+		AwsErrorCode:   "InvalidCallbackMagicImageType",
+		Description:    "The request to parse the image information failed, the image format is not supported.",
 		HttpStatusCode: http.StatusForbidden,
 	},
 }

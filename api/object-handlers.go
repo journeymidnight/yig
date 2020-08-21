@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/xml"
+	"github.com/journeymidnight/yig/log"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -968,10 +969,6 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 	credential.AllowOtherUserAccess = isAllow
 
-	var isCallback bool
-	var callbackMessage CallBackMessage
-	isCallback, callbackMessage = GetCallbackFromHeader(r.Header)
-
 	var result PutObjectResult
 	result, err = api.ObjectAPI.PutObject(reqCtx, credential, size, dataReadCloser,
 		metadata, acl, sseRequest, storageClass)
@@ -981,49 +978,24 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	isCallback, callbackMessage, err := GetCallbackFromHeader(r.Header)
+	if err != nil {
+		logger.Warn("Unable to get callback info with PutObject request:", reqCtx.ObjectName, "error:", err)
+		WriteErrorResponse(w, r, err)
+		return
+	}
 	if isCallback {
-		var noValidInfo CallBackInfos
-		if ValidCallbackImgInfo(callbackMessage.Info) {
-			if IsCallbackImageInfo(metadata["Content-Type"], reqCtx.ObjectName) {
-				objectInfo, err := api.ObjectAPI.GetObjectInfo(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, credential)
-				if err != nil {
-					logger.Warn("PutObject with callback failed get object info:", err)
-					WriteErrorResponse(w, r, ErrCallBackFailed)
-					return
-				}
-				startOffset := int64(0)
-				length := objectInfo.Size
-				sse := SseRequest{
-					Type: objectInfo.SseType,
-				}
-				pipeReader, pipeWriter := io.Pipe()
-				go func() {
-					err = api.ObjectAPI.GetObject(objectInfo, startOffset, length, pipeWriter, sse)
-					if err != nil {
-						logger.Warn("PutObject with callback failed get object info:", err)
-						pipeWriter.CloseWithError(err)
-						return
-					}
-					pipeWriter.Close()
-				}()
-				noValidInfo.Height, noValidInfo.Width = GetImageInfoFromReader(pipeReader)
-			}
+		callbackMagicInfos := CallBackMagicInfos{
+			BucketName: reqCtx.BucketName,
+			FileName:   reqCtx.ObjectName,
+			VersionId:  reqCtx.VersionId,
+			Etag:       result.Md5,
+			ObjectSize: result.ObjectSize,
+			MimeType:   metadata["Content-Type"],
+			CreateTime: uint64(result.LastModified.UnixNano()),
 		}
-		noValidInfo.ObjectSize = result.ObjectSize
-		noValidInfo.CreateTime = uint64(result.LastModified.UnixNano())
-		noValidInfo.MimeType = metadata["Content-Type"]
-		noValidInfo.Etag = result.Md5
-		noValidInfo.FileName = reqCtx.ObjectName
-		noValidInfo.BucketName = reqCtx.BucketName
-		callbackMessage.Info, err = ValidCallbackInfo(callbackMessage.Info, noValidInfo, callbackMessage.Location)
+		resultCallback, err := api.CallbackProcess(callbackMagicInfos, callbackMessage, logger, credential)
 		if err != nil {
-			logger.Warn("PutObject with Callback err : Get callback info error")
-			WriteErrorResponse(w, r, err)
-			return
-		}
-		resultCallback, err := PostCallbackMessage(credential, callbackMessage)
-		if err != nil {
-			logger.Warn("PutObject with Callback err")
 			WriteErrorResponse(w, r, err)
 			return
 		}
@@ -2029,10 +2001,6 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 		completeParts = append(completeParts, part)
 	}
 
-	var isCallback bool
-	var callbackMessage CallBackMessage
-	isCallback, callbackMessage = GetCallbackFromHeader(r.Header)
-
 	var result CompleteMultipartResult
 	result, err = api.ObjectAPI.CompleteMultipartUpload(reqCtx, credential, uploadId, completeParts)
 
@@ -2049,49 +2017,24 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 		return
 	}
 
+	isCallback, callbackMessage, err := GetCallbackFromHeader(r.Header)
+	if err != nil {
+		logger.Warn("Unable to get callback info with Complete multipart upload request:", reqCtx.ObjectName, "error:", err)
+		WriteErrorResponse(w, r, err)
+		return
+	}
 	if isCallback {
-		var noValidInfo CallBackInfos
-		if ValidCallbackImgInfo(callbackMessage.Info) {
-			if IsCallbackImageInfo(result.ContentType, reqCtx.ObjectName) {
-				objectInfo, err := api.ObjectAPI.GetObjectInfo(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, credential)
-				if err != nil {
-					logger.Warn("Complete multipart upload with callback failed get object info:", err)
-					WriteErrorResponse(w, r, ErrCallBackFailed)
-					return
-				}
-				startOffset := int64(0)
-				length := objectInfo.Size
-				sse := SseRequest{
-					Type: objectInfo.SseType,
-				}
-				pipeReader, pipeWriter := io.Pipe()
-				go func() {
-					err = api.ObjectAPI.GetObject(objectInfo, startOffset, length, pipeWriter, sse)
-					if err != nil {
-						logger.Warn("Complete multipart upload with callback failed get object info:", err)
-						pipeWriter.CloseWithError(err)
-						return
-					}
-					pipeWriter.Close()
-				}()
-				noValidInfo.Height, noValidInfo.Width = GetImageInfoFromReader(pipeReader)
-			}
+		callbackMagicInfos := CallBackMagicInfos{
+			BucketName: reqCtx.BucketName,
+			FileName:   reqCtx.ObjectName,
+			VersionId:  reqCtx.VersionId,
+			Etag:       result.ETag,
+			ObjectSize: result.ObjectSize,
+			MimeType:   result.ContentType,
+			CreateTime: result.CreateTime,
 		}
-		noValidInfo.ObjectSize = result.ObjectSize
-		noValidInfo.CreateTime = result.CreateTime
-		noValidInfo.MimeType = result.ContentType
-		noValidInfo.Etag = result.ETag
-		noValidInfo.FileName = reqCtx.ObjectName
-		noValidInfo.BucketName = reqCtx.BucketName
-		callbackMessage.Info, err = ValidCallbackInfo(callbackMessage.Info, noValidInfo, callbackMessage.Location)
+		resultCallback, err := api.CallbackProcess(callbackMagicInfos, callbackMessage, logger, credential)
 		if err != nil {
-			logger.Warn("Complete multipart upload with Callback err : Get callback info error")
-			WriteErrorResponse(w, r, err)
-			return
-		}
-		resultCallback, err := PostCallbackMessage(credential, callbackMessage)
-		if err != nil {
-			logger.Warn("Complete multipart upload with Callback err")
 			WriteErrorResponse(w, r, err)
 			return
 		}
@@ -2279,10 +2222,6 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var isCallback bool
-	var callbackMessage CallBackMessage
-	isCallback, callbackMessage = GetCallbackFromForm(formValues)
-
 	result, err := api.ObjectAPI.PutObject(reqCtx, credential, -1, fileBody,
 		metadata, acl, sseRequest, storageClass)
 	if err != nil {
@@ -2291,49 +2230,24 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	isCallback, callbackMessage, err := GetCallbackFromHeader(r.Header)
+	if err != nil {
+		logger.Warn("Unable to get callback info with Complete multipart upload request:", reqCtx.ObjectName, "error:", err)
+		WriteErrorResponse(w, r, err)
+		return
+	}
 	if isCallback {
-		var noValidInfo CallBackInfos
-		if ValidCallbackImgInfo(callbackMessage.Info) {
-			if IsCallbackImageInfo(metadata["Content-Type"], reqCtx.ObjectName) {
-				objectInfo, err := api.ObjectAPI.GetObjectInfo(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, credential)
-				if err != nil {
-					logger.Warn("PostObject with callback failed get object info:", err)
-					WriteErrorResponse(w, r, ErrCallBackFailed)
-					return
-				}
-				startOffset := int64(0)
-				length := objectInfo.Size
-				sse := SseRequest{
-					Type: objectInfo.SseType,
-				}
-				pipeReader, pipeWriter := io.Pipe()
-				go func() {
-					err = api.ObjectAPI.GetObject(objectInfo, startOffset, length, pipeWriter, sse)
-					if err != nil {
-						logger.Warn("PostObject with callback failed get object info:", err)
-						pipeWriter.CloseWithError(err)
-						return
-					}
-					pipeWriter.Close()
-				}()
-				noValidInfo.Height, noValidInfo.Width = GetImageInfoFromReader(pipeReader)
-			}
+		callbackMagicInfos := CallBackMagicInfos{
+			BucketName: bucketName,
+			FileName:   objectName,
+			VersionId:  reqCtx.VersionId,
+			Etag:       result.Md5,
+			ObjectSize: result.ObjectSize,
+			MimeType:   metadata["Content-Type"],
+			CreateTime: uint64(result.LastModified.UnixNano()),
 		}
-		noValidInfo.ObjectSize = result.ObjectSize
-		noValidInfo.CreateTime = uint64(result.LastModified.UnixNano())
-		noValidInfo.MimeType = metadata["Content-Type"]
-		noValidInfo.Etag = result.Md5
-		noValidInfo.FileName = reqCtx.ObjectName
-		noValidInfo.BucketName = reqCtx.BucketName
-		callbackMessage.Info, err = ValidCallbackInfo(callbackMessage.Info, noValidInfo, callbackMessage.Location)
+		resultCallback, err := api.CallbackProcess(callbackMagicInfos, callbackMessage, logger, credential)
 		if err != nil {
-			logger.Warn("PostObject with Callback err : Get callback info error")
-			WriteErrorResponse(w, r, err)
-			return
-		}
-		resultCallback, err := PostCallbackMessage(credential, callbackMessage)
-		if err != nil {
-			logger.Warn("PostObject with Callback err")
 			WriteErrorResponse(w, r, err)
 			return
 		}
@@ -2384,4 +2298,49 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 
 		w.Write(encodedSuccessResponse)
 	}
+}
+
+func (api ObjectAPIHandlers) CallbackProcess(callbackMagicInfos CallBackMagicInfos, callbackMessage CallBackMessage, logger log.Logger, credential common.Credential) (result string, err error) {
+	isNeedImageInfo, err := callbackMessage.IsCallbackImgNeedParse(callbackMagicInfos.MimeType, callbackMagicInfos.FileName)
+	if err != nil {
+		logger.Warn("Error callback image type with Complete multipart upload request:", callbackMagicInfos.FileName, "error:", err)
+		return "", err
+	}
+	if isNeedImageInfo {
+		objectInfo, err := api.ObjectAPI.GetObjectInfo(callbackMagicInfos.BucketName, callbackMagicInfos.FileName, callbackMagicInfos.VersionId, credential)
+		if err != nil {
+			logger.Warn("Complete multipart upload with callback failed get object info:", err)
+			return "", ErrCallBackFailed
+		}
+		startOffset := int64(0)
+		length := objectInfo.Size
+		sse := SseRequest{
+			Type: objectInfo.SseType,
+		}
+		pipeReader, pipeWriter := io.Pipe()
+		go func() {
+			err = api.ObjectAPI.GetObject(objectInfo, startOffset, length, pipeWriter, sse)
+			if err != nil {
+				logger.Warn("Complete multipart upload with callback failed get object info:", err)
+				pipeWriter.CloseWithError(err)
+				return
+			}
+			pipeWriter.Close()
+		}()
+		callbackMagicInfos.Height, callbackMagicInfos.Width, callbackMagicInfos.Format, err = GetImageInfoFromReader(pipeReader)
+		if err != nil {
+			return "", err
+		}
+	}
+	callbackMessage, err = ParseCallbackInfos(callbackMagicInfos, callbackMessage)
+	if err != nil {
+		logger.Warn("PostObject with Callback err : Get callback info error")
+		return "", err
+	}
+	result, err = PostCallbackMessage(credential, callbackMessage)
+	if err != nil {
+		logger.Warn("PostObject with Callback err")
+		return "", err
+	}
+	return
 }
