@@ -144,7 +144,7 @@ func GetCallbackFromHeader(header http.Header) (isCallback bool, message CallBac
 			}
 		}
 		if _, ok := message.Magic[k]; ok {
-			break
+			continue
 		}
 		for _, key := range CallBackInfoImg {
 			if key == v[0] {
@@ -153,7 +153,7 @@ func GetCallbackFromHeader(header http.Header) (isCallback bool, message CallBac
 			}
 		}
 		if _, ok := message.Magic[k]; ok {
-			break
+			continue
 		}
 		// Parse custom variables
 		if strings.HasPrefix(v[0], CallBackLocationPrefix) {
@@ -164,7 +164,7 @@ func GetCallbackFromHeader(header http.Header) (isCallback bool, message CallBac
 			}
 			mark = textproto.CanonicalMIMEHeaderKey(mark)
 			message.Location[k] = header.Get(mark)
-			break
+			continue
 		}
 		// Parse user-defined constant parameters
 		message.Constant[k] = v[0]
@@ -334,6 +334,7 @@ func PostCallbackMessage(credential common.Credential, message CallBackMessage) 
 		helper.Logger.Warn("Callback error with getPostRequest:", err)
 		return "", ErrCallBackFailed
 	}
+	helper.Logger.Println("The generated user's callback request is", req)
 	resp, err := client.Do(req)
 	defer resp.Body.Close()
 	if err != nil {

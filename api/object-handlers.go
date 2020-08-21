@@ -2230,7 +2230,7 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	isCallback, callbackMessage, err := GetCallbackFromHeader(r.Header)
+	isCallback, callbackMessage, err := GetCallbackFromForm(formValues)
 	if err != nil {
 		logger.Warn("Unable to get callback info with Complete multipart upload request:", reqCtx.ObjectName, "error:", err)
 		WriteErrorResponse(w, r, err)

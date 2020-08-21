@@ -50,7 +50,7 @@ func Test_Callback(t *testing.T) {
 	req.Header.Add("x-amz-storage-class", "STANDARD")
 	req.Header.Add("x-amz-date", time.Now().UTC().Format(Iso8601Format))
 	req.Header.Add("X-Uos-Callback-Url", "http://127.0.0.1:9099/testcallback")
-	req.Header.Add("X-Uos-Callback-Body", "bucket=${bucket}&filename=${filename}&etag=${etag}&objectSize=${objectSize}&mimeType=${mimeType}&createTime=${createTime}&height=${height}&width=${width}&location=${x-uos-callback-custom-test}")
+	req.Header.Add("X-Uos-Callback-Body", "bucket=${bucket}&filename=${filename}&etag=${etag}&objectSize=${objectSize}&mimeType=${mimeType}&createTime=${createTime}&height=${height}&width=${width}&location=${x-uos-callback-customize-test}")
 	req.Header.Add("X-Uos-Callback-Auth", "1")
 	req.Header.Add("x-uos-callback-custom-test", "test")
 	signature := GetSignatureV2(req, AccessKey, SecretKey)
