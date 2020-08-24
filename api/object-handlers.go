@@ -604,7 +604,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		if sourceObject.StorageClass != ObjectStorageClassGlacier && targetStorageClass == ObjectStorageClassGlacier {
 			isMetadataOnly = false
 		}
-		if sourceObject.StorageClass == targetStorageClass {
+		if sourceObject.StorageClass != targetStorageClass {
 			isTranStorageClassOnly = true
 		}
 	}
@@ -624,7 +624,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 				WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
 				return
 			}
-			if freezer.Status != ObjectHasRestored || freezer.Pool == "" {
+			if freezer.Status != ObjectHasRestored {
 				logger.Error("Unable to get glacier object with no restore")
 				WriteErrorResponse(w, r, ErrInvalidGlacierObject)
 				return
