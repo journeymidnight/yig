@@ -110,10 +110,6 @@ func (c *TiKVClient) DeleteFreezer(bucketName, objectName, versionId string, obj
 	return c.TxDelete(key)
 }
 
-func (c *TiKVClient) ListFreezersWithStatusAll(status common.RestoreStatus) (retFreezers []Freezer, err error) {
-	return c.ListFreezersWithStatus(-1, status)
-}
-
 func (c *TiKVClient) ListFreezersWithStatus(maxKeys int, status common.RestoreStatus) (retFreezers []Freezer, err error) {
 	startKey := genFreezerKey(TableMinKeySuffix, TableMinKeySuffix, NullVersion)
 	endKey := genFreezerKey(TableMaxKeySuffix, TableMaxKeySuffix, TableMaxKeySuffix)

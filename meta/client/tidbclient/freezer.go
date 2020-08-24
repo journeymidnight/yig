@@ -145,10 +145,17 @@ func (t *TidbClient) DeleteFreezerPart(bucketName, objectName string, createTime
 	return nil
 }
 
-func (t *TidbClient) ListFreezersWithStatusAll(status common.RestoreStatus) (retFreezers []Freezer, err error) {
+func (t *TidbClient) ListFreezersWithStatus(maxKeys int, status common.RestoreStatus) (retFreezers []Freezer, err error) {
 	var lastmodifidtime string
-	sql := "bucketname,objectname,version,lifetime,lastmodifiedtime,type,createtime from restoreobjects where status=? order by bucketname,objectname,version"
-	rows, err := t.Client.Query(sql, status)
+	var sqlText string
+	var rows *sql.Rows
+	if maxKeys != -1 {
+		sqlText = "bucketname,objectname,version,lifetime,lastmodifiedtime,type,createtime from restoreobjects where status=? order by bucketname,objectname,version;"
+		rows, err = t.Client.Query(sqlText, status)
+	} else {
+		sqlText = "bucketname,objectname,version,lifetime,lastmodifiedtime,type,createtime from restoreobjects where status=? order by bucketname,objectname,version limit ?;"
+		rows, err = t.Client.Query(sqlText, status, maxKeys)
+	}
 	if err != nil {
 		return
 	}
@@ -170,58 +177,6 @@ func (t *TidbClient) ListFreezersWithStatusAll(status common.RestoreStatus) (ret
 		}
 		retFreezer.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastmodifidtime)
 		retFreezers = append(retFreezers, *retFreezer)
-	}
-	return
-}
-
-func (t *TidbClient) ListFreezersWithStatus(maxKeys int, status common.RestoreStatus) (retFreezers []Freezer, err error) {
-	var count int
-	var marker string
-	var lastmodifidtime string
-	marker = ""
-	for {
-		if marker == "" {
-			count = 0
-		}
-		var loopCount int
-		loopCount = 0
-		var sqltext string
-		var rows *sql.Rows
-		if marker == "" {
-			sqltext = "select bucketname,objectname,version,lifetime,lastmodifiedtime,type,createtime from restoreobjects where status=? order by bucketname,objectname,version limit ?;"
-			rows, err = t.Client.Query(sqltext, status, maxKeys)
-		} else {
-			sqltext = "select bucketname,objectname,version,lifetime,lastmodifiedtime,type,createtime from restoreobjects where name >=? and status=? order by bucketname,objectname,version limit ?,?;"
-			rows, err = t.Client.Query(sqltext, marker, status, count-1, count+maxKeys)
-		}
-		if err != nil {
-			return
-		}
-		defer rows.Close()
-		for rows.Next() {
-			count += 1
-			loopCount += 1
-			retFreezer := &Freezer{}
-			err = rows.Scan(
-				&retFreezer.BucketName,
-				&retFreezer.Name,
-				&retFreezer.VersionId,
-				&retFreezer.Status,
-				&retFreezer.LifeTime,
-				&lastmodifidtime,
-				&retFreezer.Type,
-				&retFreezer.CreateTime,
-			)
-			if err != nil {
-				return
-			}
-			retFreezer.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastmodifidtime)
-			retFreezers = append(retFreezers, *retFreezer)
-			marker = retFreezer.Name
-		}
-		if loopCount < maxKeys {
-			break
-		}
 	}
 	return
 }
