@@ -6,6 +6,7 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/xml"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	. "github.com/journeymidnight/yig/test/go/lib"
 	"io/ioutil"
@@ -151,10 +152,10 @@ func Test_CallbackCompleteMultipartUpload(t *testing.T) {
 	reqComplete.Header.Add("x-amz-date", time.Now().UTC().Format(Iso8601Format))
 	reqComplete.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	reqComplete.Header.Add("X-Uos-Callback-Url", "http://127.0.0.1:9099/testcallback")
-	reqComplete.Header.Add("X-Uos-Callback-Body", "b=${bucket}&name=${filename}&objectS=${objectSize}&location=${x-uos-callback-customize-test}&multipart=${x-uos-callback-customize-multipart}")
+	reqComplete.Header.Add("X-Uos-Callback-Body", "b=${bucket}&name=${filename}&objectS=${objectSize}&location=${x-uos-callback-customize-test}&multipart=${x-uos-callback-customize-image}")
 	reqComplete.Header.Add("X-Uos-Callback-Auth", "1")
 	reqComplete.Header.Add("x-uos-callback-custom-test", "test")
-	reqComplete.Header.Add("x-uos-callback-customize-multipart", "1")
+	reqComplete.Header.Add("x-uos-callback-customize-image", "1")
 	signatureComplete := GetSignatureV2(reqComplete, AccessKey, SecretKey)
 	reqComplete.Header.Add("Authorization", signatureComplete)
 	respComplete, err := client.Do(reqComplete)
@@ -167,6 +168,40 @@ func Test_CallbackCompleteMultipartUpload(t *testing.T) {
 		t.Error("The callback return parameter is not obtained", respComplete)
 	}
 
+}
+
+func Test_CallbackPostObject(t *testing.T) {
+	go server(t)
+	sc := NewS3()
+	sc.MakeBucket(TestCallbackBucket)
+	defer sc.DeleteBucket(TestCallbackBucket)
+	pbi := &PostObjectInput{
+		Url:        fmt.Sprintf("http://"+Endpoint+"/%s", TestCallbackBucket),
+		Bucket:     TestCallbackBucket,
+		ObjName:    TestCallbackObject,
+		Expiration: time.Now().UTC().Add(time.Duration(1 * time.Hour)),
+		Date:       time.Now().UTC(),
+		Region:     "r",
+		AK:         AccessKey,
+		SK:         SecretKey,
+		FileSize:   1024,
+	}
+	url := "http://127.0.0.1:9099/testcallback"
+	body := "b=${bucket}&name=${filename}&objectS=${objectSize}&location=${x-uos-callback-customize-test}&multipart=${x-uos-callback-customize-image}"
+	body = base64.StdEncoding.EncodeToString([]byte(body))
+	auth := "1"
+	info := make(map[string]string)
+	info["x-uos-callback-custom-test"] = "test"
+	info["x-uos-callback-customize-image"] = "1"
+	resp, err := sc.PostObjectWithCallback(pbi, url, body, auth, info)
+	defer resp.Body.Close()
+	if err != nil {
+		t.Fatal("PostObject err:", err)
+	}
+	t.Log("PostObject Success!", resp.Header)
+	if resp.Header.Get("X-Uos-Callback-Result") != "It is OK!" {
+		t.Error("The callback return parameter is not obtained", resp)
+	}
 }
 
 func GetSignatureV2(r *http.Request, ak, sk string) (signature string) {
@@ -279,7 +314,7 @@ func server(t *testing.T) {
 		}
 
 		if c.Request.MultipartForm != nil {
-			if v, ok := c.Request.MultipartForm.Value["multipart"]; ok && v[0] != "1" {
+			if v, ok := c.Request.MultipartForm.Value["image"]; ok && v[0] != "1" {
 				if _, ok := c.Request.MultipartForm.Value["width"]; ok {
 					t.Error("Failed to get picture parameters")
 				}

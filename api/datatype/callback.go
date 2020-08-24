@@ -189,6 +189,11 @@ func GetCallbackFromForm(formValues map[string]string) (isCallback bool, message
 	message.Magic = make(map[string]string)
 	message.Location = make(map[string]string)
 	message.Constant = make(map[string]string)
+	decodeBody, err := base64.StdEncoding.DecodeString(body)
+	if err != nil {
+		return false, message, ErrInvalidCallbackParameter
+	}
+	body = string(decodeBody)
 	info, err := url.ParseQuery(body)
 	if err != nil {
 		return false, message, ErrInvalidCallbackBodyParameter
