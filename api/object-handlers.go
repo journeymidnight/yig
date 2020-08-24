@@ -994,12 +994,13 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 			MimeType:   metadata["Content-Type"],
 			CreateTime: uint64(result.LastModified.UnixNano()),
 		}
+		callbackMessage.Credential = credential
 		resultCallback, err := api.CallbackProcess(callbackMagicInfos, callbackMessage, logger, credential)
 		if err != nil {
 			WriteErrorResponse(w, r, err)
 			return
 		}
-		w.Header().Set("x-uos-callback-result", resultCallback)
+		w.Header().Add("x-uos-callback-result", resultCallback)
 	}
 
 	if result.Md5 != "" {
@@ -2033,12 +2034,13 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 			MimeType:   result.ContentType,
 			CreateTime: result.CreateTime,
 		}
+		callbackMessage.Credential = credential
 		resultCallback, err := api.CallbackProcess(callbackMagicInfos, callbackMessage, logger, credential)
 		if err != nil {
 			WriteErrorResponse(w, r, err)
 			return
 		}
-		w.Header().Set("x-uos-callback-result", resultCallback)
+		w.Header().Add("x-uos-callback-result", resultCallback)
 	}
 
 	// Get object location.
@@ -2246,12 +2248,13 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 			MimeType:   metadata["Content-Type"],
 			CreateTime: uint64(result.LastModified.UnixNano()),
 		}
+		callbackMessage.Credential = credential
 		resultCallback, err := api.CallbackProcess(callbackMagicInfos, callbackMessage, logger, credential)
 		if err != nil {
 			WriteErrorResponse(w, r, err)
 			return
 		}
-		w.Header().Set("x-uos-callback-result", resultCallback)
+		w.Header().Add("x-uos-callback-result", resultCallback)
 	}
 
 	if result.Md5 != "" {
@@ -2337,7 +2340,7 @@ func (api ObjectAPIHandlers) CallbackProcess(callbackMagicInfos CallBackMagicInf
 		logger.Warn("PostObject with Callback err : Get callback info error")
 		return "", err
 	}
-	result, err = PostCallbackMessage(credential, callbackMessage)
+	result, err = PostCallbackMessage(callbackMessage)
 	if err != nil {
 		logger.Warn("PostObject with Callback err")
 		return "", err

@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base64"
+	"encoding/xml"
 	"github.com/gin-gonic/gin"
 	. "github.com/journeymidnight/yig/test/go/lib"
 	"io/ioutil"
@@ -27,7 +28,7 @@ const (
 
 var domain = []string{"s3.test.com"}
 
-func Test_Callback(t *testing.T) {
+func Test_CallbackPutObject(t *testing.T) {
 	go server(t)
 	sc := NewS3()
 	sc.MakeBucket(TestCallbackBucket)
@@ -67,6 +68,105 @@ func Test_Callback(t *testing.T) {
 	if res.Header.Get("X-Uos-Callback-Result") != "It is OK!" {
 		t.Error("The callback return parameter is not obtained")
 	}
+}
+
+func Test_CallbackCompleteMultipartUpload(t *testing.T) {
+	go server(t)
+	sc := NewS3()
+	sc.MakeBucket(TestCallbackBucket)
+	defer sc.DeleteBucket(TestCallbackBucket)
+	type SConfig struct {
+		XMLName  xml.Name `xml:"InitiateMultipartUploadResult"`
+		Bucket   string   `xml:"Bucket"`
+		Key      string   `xml:"Key"`
+		UploadId string   `xml:"UploadId"`
+	}
+	baseurl := "http://" + TestCallbackBucket + "." + Endpoint + "/" + TestCallbackObject
+	url := baseurl + "?uploads"
+	req, err := http.NewRequest("POST", url, nil)
+	if err != nil {
+		t.Error(err)
+	}
+	client := http.Client{}
+	req.Header.Add("Content-Type", "text/pain")
+	req.Header.Add("x-amz-storage-class", "STANDARD")
+	req.Header.Add("x-amz-date", time.Now().UTC().Format(Iso8601Format))
+	signature := GetSignatureV2(req, AccessKey, SecretKey)
+	req.Header.Add("Authorization", signature)
+	v := SConfig{}
+	res, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(" createmultipartupload")
+	data, err := ioutil.ReadAll(res.Body)
+	//	v := SConfig{}
+	defer res.Body.Close()
+	err = xml.Unmarshal(data, &v)
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log("createmultipartupload!", v)
+	t.Log("uploadid", v.UploadId)
+
+	// start upload parts
+	fd1 := make([]byte, 5242880)
+	fdb := bytes.NewReader(fd1)
+	uploadid := v.UploadId
+	etag := make(map[string]string)
+	for i := 1; i < 3; i++ {
+		number := strconv.Itoa(i)
+		urlupload := baseurl + "?partNumber=" + number + "&uploadId=" + uploadid
+		req_upload, _ := http.NewRequest("PUT", urlupload, fdb)
+		req_upload.Header.Add("Content-Type", "text/pain")
+		req.Header.Add("Content-Length", "5242880")
+		req_upload.Header.Add("x-amz-date", time.Now().UTC().Format(Iso8601Format))
+		signature_upload := GetSignatureV2(req_upload, AccessKey, SecretKey)
+		req_upload.Header.Add("Authorization", signature_upload)
+		res_upload, err := client.Do(req_upload)
+		etag[number] = res_upload.Header.Get("Etag")
+		if err != nil {
+			t.Error(err)
+		}
+		t.Log("uploadpart:", i)
+		t.Log("print uploadprocess", etag[number])
+	}
+
+	// complete multipartupload
+	CompleteMultipartUploadxml := `<CompleteMultipartUpload xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+			<Part>
+                <ETag>` + etag["1"] + `</ETag>
+				<PartNumber>1</PartNumber>
+			</Part>
+			<Part>
+                <ETag>` + etag["2"] + `</ETag>
+				<PartNumber>2</PartNumber>
+			</Part>
+			</CompleteMultipartUpload>`
+	//	reqbody := bytes.NewReader(CompleteMultipartUpload)
+	//	form := CompleteMultipartUpload{}
+	//	formbody := xml.Unmarshal(([]byte(CompleteMultipartUploadxml), &form)
+	urlComplete := baseurl + "?uploadId=" + uploadid
+	reqComplete, err := http.NewRequest("POST", urlComplete, strings.NewReader(CompleteMultipartUploadxml))
+	reqComplete.Header.Add("x-amz-date", time.Now().UTC().Format(Iso8601Format))
+	reqComplete.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	reqComplete.Header.Add("X-Uos-Callback-Url", "http://127.0.0.1:9099/testcallback")
+	reqComplete.Header.Add("X-Uos-Callback-Body", "b=${bucket}&name=${filename}&objectS=${objectSize}&location=${x-uos-callback-customize-test}&multipart=${x-uos-callback-customize-multipart}")
+	reqComplete.Header.Add("X-Uos-Callback-Auth", "1")
+	reqComplete.Header.Add("x-uos-callback-custom-test", "test")
+	reqComplete.Header.Add("x-uos-callback-customize-multipart", "1")
+	signatureComplete := GetSignatureV2(reqComplete, AccessKey, SecretKey)
+	reqComplete.Header.Add("Authorization", signatureComplete)
+	respComplete, err := client.Do(reqComplete)
+	if err != nil {
+		t.Error("completemultipartupload falied", err)
+	}
+	defer sc.DeleteObject(TestCallbackBucket, TestCallbackObject)
+
+	if respComplete.Header.Get("X-Uos-Callback-Result") != "It is OK!" {
+		t.Error("The callback return parameter is not obtained", respComplete)
+	}
+
 }
 
 func GetSignatureV2(r *http.Request, ak, sk string) (signature string) {
@@ -179,8 +279,10 @@ func server(t *testing.T) {
 		}
 
 		if c.Request.MultipartForm != nil {
-			if c.Request.MultipartForm.Value["width"][0] == "" {
-				t.Error("Failed to get picture parameters")
+			if v, ok := c.Request.MultipartForm.Value["multipart"]; ok && v[0] != "1" {
+				if _, ok := c.Request.MultipartForm.Value["width"]; ok {
+					t.Error("Failed to get picture parameters")
+				}
 			}
 			t.Log(c.Request.MultipartForm.Value)
 		}

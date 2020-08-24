@@ -325,16 +325,16 @@ func ParseCallbackInfos(magicInfo CallBackMagicInfos, message CallBackMessage) (
 	return message, nil
 }
 
-func PostCallbackMessage(credential common.Credential, message CallBackMessage) (result string, err error) {
+func PostCallbackMessage(message CallBackMessage) (result string, err error) {
 	client := http.Client{
 		Timeout: MaxCallbackTimeout,
 	}
-	req, err := newPostRequest(credential, message)
+	req, err := newPostRequest(message)
 	if err != nil {
 		helper.Logger.Warn("Callback error with getPostRequest:", err)
 		return "", ErrCallBackFailed
 	}
-	helper.Logger.Println("The generated user's callback request is", req)
+	helper.Logger.Println("The generated user's callback request is", req, message)
 	resp, err := client.Do(req)
 	defer resp.Body.Close()
 	if err != nil {
@@ -359,7 +359,7 @@ func PostCallbackMessage(credential common.Credential, message CallBackMessage) 
 	return string(info), nil
 }
 
-func newPostRequest(credential common.Credential, message CallBackMessage) (*http.Request, error) {
+func newPostRequest(message CallBackMessage) (*http.Request, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	for k, v := range message.Infos {
@@ -379,7 +379,7 @@ func newPostRequest(credential common.Credential, message CallBackMessage) (*htt
 	}
 	date := time.Now().UTC().Format(Iso8601FormatTime)
 	if message.Auth {
-		signature := getSignatureForCallback(credential, date)
+		signature := getSignatureForCallback(message.Credential, date)
 		req.Header.Add(Authorization, signature)
 	}
 	req.Header.Add(ContentType, writer.FormDataContentType())
