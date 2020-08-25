@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/journeymidnight/yig/meta/client/tidbclient"
 
 	"github.com/journeymidnight/yig/meta/common"
 
@@ -437,4 +440,74 @@ func RepairFunc(hourKey string) (err error) {
 
 func genUserBucketKey(ownerId, bucketName string) []byte {
 	return tikvclient.GenKey(tikvclient.TableUserBucketPrefix, ownerId, bucketName)
+}
+
+func LoadPidToUidMap() map[string]string {
+	return map[string]string{
+		"c747848b-4556-4fc6-a3e4-b15f51568e5d": "af39459b-cedf-4057-9572-8daa1b74723f",
+	}
+}
+
+func MigrateFunc() (err error) {
+	reflectMap := LoadPidToUidMap()
+	if global.TidbAddr == "" {
+		return errors.New("no tidb address set")
+	}
+
+	if global.Bucket == "" {
+		return errors.New("no bucket set")
+	}
+
+	// New Tidb
+	tidbCli := &tidbclient.TidbClient{}
+	conn, err := sql.Open("mysql", helper.CONFIG.TidbInfo)
+	if err != nil {
+		return err
+	}
+	conn.SetMaxIdleConns(10)
+	conn.SetMaxOpenConns(100)
+	conn.SetConnMaxLifetime(time.Duration(30) * time.Second)
+	tidbCli.Client = conn
+
+	// New Tikv
+	tikvCli := tikvclient.NewClient(strings.Split(global.PDs, ","))
+
+	// Migrate bucket
+	b, err := tidbCli.GetBucket(global.Bucket)
+	if err != nil {
+		return err
+	}
+	fmt.Println(fmt.Sprintf("BucketInfo: %+v", b))
+
+	userId := reflectMap[b.OwnerId]
+	if userId == "" {
+		return fmt.Errorf("no such userId of projectId: %s", b.OwnerId)
+	}
+
+	if !global.Verbose {
+		b.OwnerId = userId
+		err = tikvCli.PutNewBucket(*b)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Migrate objects by bucket
+	objects, err := GetObjectsByBucket(tidbCli, global.Bucket)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Total objects count:", len(objects), "of bucket:", global.Bucket)
+
+	for _, object := range objects {
+		fmt.Println(fmt.Sprintf("ObjectInfo: %+v", object))
+		if !global.Verbose {
+			object.OwnerId = userId
+			err = tikvCli.PutObject(object, nil, false)
+			if err != nil {
+				fmt.Println("Put object err:", err, "of bucket:", global.Bucket)
+				return err
+			}
+		}
+	}
 }

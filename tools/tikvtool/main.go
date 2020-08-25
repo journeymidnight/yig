@@ -25,6 +25,7 @@ var maxKeys int
 
 type GlobalOption struct {
 	PDs          string
+	TidbAddr     string
 	Verbose      bool
 	IsKeyBytes   bool
 	IsValueBytes bool
@@ -55,6 +56,12 @@ func main() {
 			Value:       "pd1:2378, pd2:2377",
 			Usage:       "One or a set of pd addresses. e.g: pd1:2379 or pd1:2379,pd2:2378,pd3:2377",
 			Destination: &global.PDs,
+		},
+		cli.StringFlag{
+			Name:        "tidb",
+			Value:       "",
+			Usage:       "tidb address. e.g: \"root:password@tcp(10.5.0.17:4000)/yig\"",
+			Destination: &global.TidbAddr,
 		},
 		cli.BoolFlag{
 			Name:        "verbose, z",
@@ -188,6 +195,14 @@ func main() {
 				return RepairFunc(c.Args()[0])
 			},
 			ArgsUsage: "Repair the data before this hour. e.g. 2020082012",
+		},
+		{
+			Name:  "migrate",
+			Usage: "migrate origin tidb data to tikv",
+			Action: func(c *cli.Context) error {
+				return MigrateFunc()
+			},
+			ArgsUsage: "Migrate the data to tikv from tidb by bucket name",
 		},
 	}
 
