@@ -1358,15 +1358,15 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		targetFreezer.Type = object.Type
 		targetFreezer.CreateTime = object.CreateTime
 		targetFreezer.VersionId = object.VersionId
-		if helper.CONFIG.FakeRestore {
+		if helper.CONFIG.RestoreMigratesFile {
+			err = api.ObjectAPI.CreateFreezer(targetFreezer)
+		} else {
 			targetFreezer.Pool = object.Pool
 			targetFreezer.Location = object.Location
 			targetFreezer.ObjectId = object.ObjectId
 			targetFreezer.Parts = object.Parts
 			targetFreezer.PartsIndex = object.PartsIndex
 			err = api.ObjectAPI.RestoreObject(targetFreezer)
-		} else {
-			err = api.ObjectAPI.CreateFreezer(targetFreezer)
 		}
 		if err != nil {
 			logger.Error("Unable to create freezer:", err)

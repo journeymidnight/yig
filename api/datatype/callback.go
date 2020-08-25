@@ -345,14 +345,9 @@ func PostCallbackMessage(message CallBackMessage) (result string, err error) {
 	if err != nil {
 		resp.Body.Close()
 		if err == http.ErrHandlerTimeout {
-			resp, err = client.Do(req)
+			resp, err = doWithRetry(req, 1)
 			if err != nil {
-				if err == http.ErrHandlerTimeout {
-					helper.Logger.Warn("Callback error with doRequest Timeout:", err)
-					return "", ErrCallBackFailed
-				}
-				helper.Logger.Warn("Callback error with doRequest:", err)
-				return "", ErrCallBackFailed
+				return "", err
 			}
 		}
 	}
@@ -390,6 +385,33 @@ func newPostRequest(message CallBackMessage) (*http.Request, error) {
 	req.Header.Add(ContentType, writer.FormDataContentType())
 	req.Header.Add(Date, date)
 	return req, nil
+}
+
+func doWithRetry(req *http.Request, times int) (resp *http.Response, err error) {
+	client := http.Client{
+		Timeout: MaxCallbackTimeout,
+	}
+	for i := 0; i < times; i++ {
+		resp, err = client.Do(req)
+		if err != nil {
+			if err == http.ErrHandlerTimeout {
+				continue
+			}
+			helper.Logger.Warn("Callback error with doRequest:", err)
+			return nil, ErrCallBackFailed
+		} else {
+			break
+		}
+	}
+	if err != nil {
+		if err == http.ErrHandlerTimeout {
+			helper.Logger.Warn("Callback error with doRequest Timeout:", err)
+			return nil, ErrCallBackFailed
+		}
+		helper.Logger.Warn("Callback error with doRequest:", err)
+		return nil, ErrCallBackFailed
+	}
+	return resp, nil
 }
 
 func getSignatureForCallback(credential common.Credential, date string) string {

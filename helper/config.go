@@ -109,10 +109,10 @@ type Config struct {
 
 	// The switch that decides whether to use the real thawing logic,
 	// if it is on, the thawing logic is a false thawing mode that only modifies the database state
-	FakeRestore      bool     `toml:"fake_restore"`
-	LockTime         int      `toml:"lock_time"`
-	RefreshLockTime  int      `toml:"refresh_lock_time"`
-	LogDeliveryGroup []string `toml:"log_delivery_group"`
+	RestoreMigratesFile bool     `toml:"restore_migrates_file"`
+	LockTime            int      `toml:"lock_time"`
+	RefreshLockTime     int      `toml:"refresh_lock_time"`
+	LogDeliveryGroup    []string `toml:"log_delivery_group"`
 }
 
 type PluginConfig struct {
@@ -186,7 +186,6 @@ func MarshalTOMLConfig() error {
 	CONFIG.EnableUsagePush = c.EnableUsagePush
 	CONFIG.RedisStore = Ternary(c.RedisStore == "", "single", c.RedisStore).(string)
 	CONFIG.RedisAddress = c.RedisAddress
-	CONFIG.EnableUsagePush = c.EnableUsagePush
 	CONFIG.RedisGroup = c.RedisGroup
 	CONFIG.RedisPassword = c.RedisPassword
 	CONFIG.RedisConnectionNumber = Ternary(c.RedisConnectionNumber == 0,
@@ -224,7 +223,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.DefaultWriteOps = Ternary(c.DefaultWriteOps <= 0, 1000, c.DefaultWriteOps).(int)
 	CONFIG.DefaultBandwidthKBps = Ternary(c.DefaultBandwidthKBps <= 0, 102400, c.DefaultBandwidthKBps).(int)
 
-	CONFIG.FakeRestore = c.FakeRestore
+	CONFIG.RestoreMigratesFile = c.RestoreMigratesFile
 	CONFIG.LockTime = Ternary(c.LockTime <= 0, DEFAULTLOCK, c.LockTime).(int)
 	CONFIG.RefreshLockTime = Ternary(c.RefreshLockTime <= 0, DEFAULTREFRESH, c.RefreshLockTime).(int)
 	CONFIG.LogDeliveryGroup = c.LogDeliveryGroup

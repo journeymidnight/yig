@@ -357,7 +357,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrForbiddenAccessKeyID: {
 		AwsErrorCode:   "ForbiddenAccessKeyID",
-		Description:    "The access key ID you provided has forbidden.",
+		Description:    "The access key ID you provided has been forbidden.",
 		HttpStatusCode: http.StatusForbidden,
 	},
 	ErrInvalidBucketName: {
@@ -417,7 +417,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrForbiddenOverwriteKey: {
 		AwsErrorCode:   "ForbiddenOverwriteKey",
-		Description:    "The specified key has forbidden overwrite.",
+		Description:    "The specified key has been forbidden overwrite.",
 		HttpStatusCode: http.StatusForbidden,
 	},
 	ErrNoSuchUpload: {

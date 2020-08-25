@@ -86,7 +86,7 @@ default_bandwidth_kbps = 102400 # 100MB
 ceph_config_pattern = "/etc/ceph/*.conf"
 
 # Restore Mode
-fake_restore = true
+restore_migrates_file = false
 
 # Plugin Config
 [plugins.dummy_compression]

@@ -66,7 +66,7 @@ func (yig *YigStorage) EliminateObject(freezer *meta.Freezer) (err error) {
 }
 
 func (yig *YigStorage) removeByFreezer(freezer *meta.Freezer) (err error) {
-	return yig.MetaStorage.DeleteFreezer(freezer, helper.CONFIG.FakeRestore)
+	return yig.MetaStorage.DeleteFreezer(freezer)
 }
 
 func (yig *YigStorage) RestoreObject(freezer *meta.Freezer) (err error) {

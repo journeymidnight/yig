@@ -19,7 +19,8 @@ func (m *Meta) GetFreezer(bucketName string, objectName string, version string) 
 	if err != nil {
 		return nil, err
 	}
-	if helper.CONFIG.FakeRestore {
+	// Fake Thaw Simulation
+	if !helper.CONFIG.RestoreMigratesFile {
 		timeNow := time.Now().UTC()
 		if freezer.LastModifiedTime.UnixNano() > timeNow.UnixNano() {
 			freezer.Status = common.ObjectRestoring
@@ -33,7 +34,8 @@ func (m *Meta) GetFreezerStatus(bucketName string, objectName string, version st
 	if err != nil {
 		return nil, err
 	}
-	if helper.CONFIG.FakeRestore {
+	// Fake Thaw Simulation
+	if !helper.CONFIG.RestoreMigratesFile {
 		timeNow := time.Now()
 		if freezer.LastModifiedTime.UnixNano() > timeNow.UnixNano() {
 			freezer.Status = common.ObjectRestoring
@@ -46,7 +48,7 @@ func (m *Meta) UpdateFreezerDate(freezer *types.Freezer) error {
 	return m.Client.UpdateFreezerDate(freezer.BucketName, freezer.Name, freezer.VersionId, freezer.LifeTime)
 }
 
-func (m *Meta) DeleteFreezer(freezer *types.Freezer, fakeRestore bool) (err error) {
+func (m *Meta) DeleteFreezer(freezer *types.Freezer) (err error) {
 	var tx Tx
 	tx, err = m.Client.NewTrans()
 	if err != nil {
@@ -66,7 +68,7 @@ func (m *Meta) DeleteFreezer(freezer *types.Freezer, fakeRestore bool) (err erro
 		return err
 	}
 
-	if !fakeRestore {
+	if helper.CONFIG.RestoreMigratesFile {
 		err = m.PutFreezerToGarbageCollection(freezer)
 		if err != nil {
 			return err

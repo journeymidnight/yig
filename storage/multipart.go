@@ -820,7 +820,7 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 	if eldObject.StorageClass == ObjectStorageClassGlacier && bucket.Versioning != datatype.BucketVersioningEnabled {
 		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
 		if err == nil {
-			err = yig.MetaStorage.DeleteFreezer(freezer, helper.CONFIG.FakeRestore)
+			err = yig.MetaStorage.DeleteFreezer(freezer)
 			if err != nil {
 				return result, err
 			}

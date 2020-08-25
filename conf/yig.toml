@@ -89,7 +89,7 @@ log_delivery_group = ["hahahaha"]
 ceph_config_pattern = "/etc/ceph/*.conf"
 
 # Restore Mode
-fake_restore = true
+restore_migrates_file = false
 
 # Plugin Config
 [plugins.dummy_compression]

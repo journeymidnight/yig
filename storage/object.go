@@ -1175,7 +1175,7 @@ func (yig *YigStorage) removeOldObject(object *meta.Object) (err error) {
 		freezer, err := yig.GetFreezer(object.BucketName, object.Name, object.VersionId)
 		if err == nil {
 			if freezer.Name == object.Name {
-				err = yig.MetaStorage.DeleteFreezer(freezer, helper.CONFIG.FakeRestore)
+				err = yig.MetaStorage.DeleteFreezer(freezer)
 				if err != nil {
 					return err
 				}
@@ -1215,7 +1215,7 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 			freezer, err := yig.GetFreezer(objInfo.BucketName, objInfo.Name, objInfo.VersionId)
 			if err == nil {
 				if freezer.Name == objInfo.Name {
-					err = yig.MetaStorage.DeleteFreezer(freezer, helper.CONFIG.FakeRestore)
+					err = yig.MetaStorage.DeleteFreezer(freezer)
 					if err != nil {
 						return result, err
 					}
@@ -1456,7 +1456,7 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 			(bucket.Versioning == BucketVersioningEnabled && object.VersionId != "") {
 			freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
 			if err == nil {
-				err = yig.MetaStorage.DeleteFreezer(freezer, helper.CONFIG.FakeRestore)
+				err = yig.MetaStorage.DeleteFreezer(freezer)
 				if err != nil {
 					return result, err
 				}
@@ -1655,7 +1655,7 @@ func (yig *YigStorage) DeleteObjects(reqCtx RequestContext, credential common.Cr
 				(bucket.Versioning == BucketVersioningEnabled && object.VersionId != "") {
 				freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
 				if err == nil {
-					err = yig.MetaStorage.DeleteFreezer(freezer, helper.CONFIG.FakeRestore)
+					err = yig.MetaStorage.DeleteFreezer(freezer)
 					if err != nil {
 						return result, err
 					}
