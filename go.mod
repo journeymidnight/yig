@@ -2,6 +2,8 @@ module github.com/journeymidnight/yig
 
 go 1.12
 
+replace github.com/journeymidnight/aws-sdk-go => github.com/Zstro/aws-sdk-go v1.18.2
+
 require (
 	10.0.45.221/meepo/cron.git v0.0.0-20200729015409-137e31c90d6f
 	10.0.45.221/meepo/kafka.git v0.1.0
@@ -32,6 +34,6 @@ require (
 	github.com/ugorji/go/codec v1.1.7
 	github.com/urfave/cli v1.22.4
 	github.com/xxtea/xxtea-go v0.0.0-20170828040851-35c4b17eecf6
-	golang.org/x/sys v0.0.0-20191010194322-b09406accb47
+	golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd
 	gopkg.in/bufio.v1 v1.0.0-20140618132640-567b2bfa514e
 )

@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/journeymidnight/yig/api/datatype"
+	. "github.com/journeymidnight/yig/error"
 	. "github.com/journeymidnight/yig/meta/common"
 )
 
@@ -66,11 +67,11 @@ func getMultipartUploadId(initialTime uint64) string {
 func GetInitialTimeFromUploadId(uploadId string) (uint64, error) {
 	timeStr, err := Decrypt(uploadId)
 	if err != nil {
-		return 0, err
+		return 0, ErrNoSuchUpload
 	}
 	initialTime, err := strconv.ParseUint(timeStr, 10, 64)
 	if err != nil {
-		return 0, err
+		return 0, ErrNoSuchUpload
 	}
 	return initialTime, nil
 }
