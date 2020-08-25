@@ -28,8 +28,12 @@ const (
 
 var domain = []string{"s3.test.com"}
 
+var Shutdown chan int
+
 func Test_CallbackPutObject(t *testing.T) {
+	Shutdown = make(chan int)
 	go server()
+	defer close()
 	sc := NewS3()
 	sc.MakeBucket(TestCallbackBucket)
 	defer sc.DeleteBucket(TestCallbackBucket)
@@ -71,7 +75,9 @@ func Test_CallbackPutObject(t *testing.T) {
 }
 
 func Test_CallbackCompleteMultipartUpload(t *testing.T) {
+	Shutdown = make(chan int)
 	go server()
+	defer close()
 	sc := NewS3()
 	sc.MakeBucket(TestCallbackBucket)
 	defer sc.DeleteBucket(TestCallbackBucket)
@@ -170,7 +176,9 @@ func Test_CallbackCompleteMultipartUpload(t *testing.T) {
 }
 
 func Test_CallbackPostObject(t *testing.T) {
+	Shutdown = make(chan int)
 	go server()
+	defer close()
 	sc := NewS3()
 	sc.MakeBucket(TestCallbackBucket)
 	defer sc.DeleteBucket(TestCallbackBucket)
@@ -299,8 +307,19 @@ func hasBucketInDomain(host string, domains []string) (ok bool, bucket string) {
 }
 
 func server() {
+	server := &http.Server{Addr: ":9099"}
 	http.HandleFunc("/testcallback", handler)
-	http.ListenAndServe(":9099", nil)
+	go func() {
+		select {
+		case <-Shutdown:
+			server.Close()
+		}
+	}()
+	server.ListenAndServe()
+}
+
+func close() {
+	Shutdown <- 1
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
