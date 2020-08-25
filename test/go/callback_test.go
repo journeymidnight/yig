@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
-	"github.com/gin-gonic/gin"
 	. "github.com/journeymidnight/yig/test/go/lib"
 	"io/ioutil"
 	"net/http"
@@ -30,7 +29,7 @@ const (
 var domain = []string{"s3.test.com"}
 
 func Test_CallbackPutObject(t *testing.T) {
-	go server(t)
+	go server()
 	sc := NewS3()
 	sc.MakeBucket(TestCallbackBucket)
 	defer sc.DeleteBucket(TestCallbackBucket)
@@ -72,7 +71,7 @@ func Test_CallbackPutObject(t *testing.T) {
 }
 
 func Test_CallbackCompleteMultipartUpload(t *testing.T) {
-	go server(t)
+	go server()
 	sc := NewS3()
 	sc.MakeBucket(TestCallbackBucket)
 	defer sc.DeleteBucket(TestCallbackBucket)
@@ -171,7 +170,7 @@ func Test_CallbackCompleteMultipartUpload(t *testing.T) {
 }
 
 func Test_CallbackPostObject(t *testing.T) {
-	go server(t)
+	go server()
 	sc := NewS3()
 	sc.MakeBucket(TestCallbackBucket)
 	defer sc.DeleteBucket(TestCallbackBucket)
@@ -299,37 +298,37 @@ func hasBucketInDomain(host string, domains []string) (ok bool, bucket string) {
 	return false, ""
 }
 
-func server(t *testing.T) {
-	// Engin
-	router := gin.Default()
-	//router := gin.New()
+func server() {
+	http.HandleFunc("/testcallback", handler)
+	http.ListenAndServe(":9099", nil)
+}
 
-	router.POST("/testcallback", func(c *gin.Context) {
-		c.Request.ParseMultipartForm(1024 << 10)
+func handler(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseMultipartForm(1024 << 10)
+	if err != nil {
+		fmt.Println("ParseMultipartForm err:", err)
+	}
 
-		date := c.Request.Header.Get(Date)
-		signature := getSignatureForCallback(date)
-		auth := c.Request.Header.Get(Authorization)
-		if auth != signature {
-			t.Error("Signature verification failed")
-		}
+	date := r.Header.Get(Date)
+	signature := getSignatureForCallback(date)
+	auth := r.Header.Get(Authorization)
+	if auth != signature {
+		fmt.Println("Signature verification failed")
+	}
 
-		if c.Request.MultipartForm != nil {
-			if v, ok := c.Request.MultipartForm.Value["image"]; ok && v[0] != "1" {
-				if _, ok := c.Request.MultipartForm.Value["width"]; ok {
-					t.Error("Failed to get picture parameters")
-				}
+	if r.MultipartForm != nil {
+		if v, ok := r.MultipartForm.Value["image"]; ok && v[0] != "1" {
+			if _, ok := r.MultipartForm.Value["width"]; ok {
+				fmt.Println("Failed to get picture parameters")
 			}
-			t.Log(c.Request.MultipartForm.Value)
 		}
-		c.String(http.StatusOK, "It is OK!")
-	})
-
-	router.GET("/test", func(context *gin.Context) {
-		context.String(http.StatusOK, "Hello!")
-	})
-
-	router.Run("0.0.0.0:9099")
+		fmt.Println(r.MultipartForm.Value)
+	}
+	_, err = w.Write([]byte("It is OK!"))
+	if err != nil {
+		fmt.Println("Write return info err:", err)
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func getSignatureForCallback(date string) string {
