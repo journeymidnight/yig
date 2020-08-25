@@ -79,6 +79,9 @@ func (yig *YigStorage) RestoreObject(freezer *meta.Freezer) (err error) {
 	var timeNum int64
 	// Fake thawing time simulation, calculate the thawing time according to the size and add the simulated jitter delay and the reference time
 	timeNum = (freezer.Size/SUM_BLOCKSIZE)*SUM_BENCHMARKTIMECONSUMING + rand.Int63n(60) + SUM_BASETIME
+	if timeNum > 300 {
+		timeNum = 300
+	}
 	timeNow := time.Now().UTC()
 	freezer.LastModifiedTime = timeNow.Add(time.Duration(timeNum) * time.Second)
 	freezer.Status, err = common.MatchStatusIndex("RESTORING")
