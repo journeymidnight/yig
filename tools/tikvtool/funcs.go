@@ -510,4 +510,5 @@ func MigrateFunc() (err error) {
 			}
 		}
 	}
+	return nil
 }
