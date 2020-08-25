@@ -140,6 +140,7 @@ func GetCallbackFromHeader(header http.Header) (isCallback bool, message CallBac
 		for _, key := range CallBackInfo {
 			if key == v[0] {
 				message.Magic[k] = v[0]
+				break
 			}
 		}
 		if _, ok := message.Magic[k]; ok {
@@ -148,6 +149,7 @@ func GetCallbackFromHeader(header http.Header) (isCallback bool, message CallBac
 		for _, key := range CallBackInfoImg {
 			if key == v[0] {
 				message.Magic[k] = v[0]
+				break
 			}
 		}
 		if _, ok := message.Magic[k]; ok {
@@ -201,6 +203,7 @@ func GetCallbackFromForm(formValues map[string]string) (isCallback bool, message
 		for _, key := range CallBackInfo {
 			if key == v[0] {
 				message.Magic[k] = v[0]
+				break
 			}
 		}
 		if _, ok := message.Magic[k]; ok {
@@ -209,6 +212,7 @@ func GetCallbackFromForm(formValues map[string]string) (isCallback bool, message
 		for _, key := range CallBackInfoImg {
 			if key == v[0] {
 				message.Magic[k] = v[0]
+				break
 			}
 		}
 		if _, ok := message.Magic[k]; ok {
@@ -216,12 +220,18 @@ func GetCallbackFromForm(formValues map[string]string) (isCallback bool, message
 		}
 		// Parse custom variables
 		if strings.HasPrefix(strings.ToLower(v[0]), CallBackLocationPrefix) {
-			markWithoutPrefix := strings.TrimPrefix(v[0], "${")
+			markWithoutPrefix := strings.TrimPrefix(strings.ToLower(v[0]), "${")
 			mark := strings.TrimSuffix(markWithoutPrefix, "}")
 			if mark == markWithoutPrefix {
 				return false, message, ErrInvalidCallbackBodyParameter
 			}
-			message.Location[k] = formValues[mark]
+			for formKey, formValue := range formValues {
+				formKey = strings.ToLower(formKey)
+				if formKey == mark {
+					message.Location[k] = formValue
+					break
+				}
+			}
 			continue
 		}
 		// Parse user-defined constant parameters
@@ -316,11 +326,15 @@ func ParseCallbackInfos(magicInfo CallBackMagicInfos, message CallBackMessage) (
 	}
 	// Inject user-specified constants
 	for k, v := range message.Constant {
-		info[k] = v
+		if !strings.HasPrefix(v, "$") {
+			info[k] = v
+		}
 	}
 	// Inject user-specified custom variables
 	for k, v := range message.Location {
-		info[k] = v
+		if !strings.HasPrefix(v, "$") {
+			info[k] = v
+		}
 	}
 	message.Infos = info
 	return message, nil
