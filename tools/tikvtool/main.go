@@ -22,10 +22,10 @@ import (
 
 var table, startKey, endKey string
 var maxKeys int
-var verbose bool
 
 type GlobalOption struct {
 	PDs          string
+	Verbose      bool
 	IsKeyBytes   bool
 	IsValueBytes bool
 	IsMsgPack    bool
@@ -55,6 +55,11 @@ func main() {
 			Value:       "pd1:2378, pd2:2377",
 			Usage:       "One or a set of pd addresses. e.g: pd1:2379 or pd1:2379,pd2:2378,pd3:2377",
 			Destination: &global.PDs,
+		},
+		cli.BoolFlag{
+			Name:        "verbose, z",
+			Usage:       "verbose option",
+			Destination: &global.Verbose,
 		},
 		cli.BoolFlag{
 			Name:        "keybytes",
@@ -172,15 +177,17 @@ func main() {
 			Action: func(c *cli.Context) error {
 				return DropFunc()
 			},
-			ArgsUsage: "[--verbose|-v]",
-			Flags: []cli.Flag{
-				cli.BoolFlag{
-					Name:        "verbose,v",
-					Required:    false,
-					Usage:       "print deleted key",
-					Destination: &verbose,
-				},
+		},
+		{
+			Name:  "repair",
+			Usage: "repair the usage of specified bucket",
+			Action: func(c *cli.Context) error {
+				if len(c.Args()) != 1 {
+					return errors.New("Invalid arguments.")
+				}
+				return RepairFunc(c.Args()[0])
 			},
+			ArgsUsage: "Repair the data before this hour. e.g. 2020082012",
 		},
 	}
 
