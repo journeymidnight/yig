@@ -52,9 +52,9 @@ func Test_CallbackPutObject(t *testing.T) {
 	req.Header.Add("x-amz-storage-class", "STANDARD")
 	req.Header.Add("x-amz-date", time.Now().UTC().Format(Iso8601Format))
 	req.Header.Add("X-Uos-Callback-Url", "http://127.0.0.1:9099/testcallback")
-	req.Header.Add("X-Uos-Callback-Body", "bucket=${bucket}&filename=${filename}&etag=${etag}&objectSize=${objectSize}&mimeType=${mimeType}&createTime=${createTime}&height=${height}&width=${width}&location=${x-uos-callback-customize-test}")
+	req.Header.Add("X-Uos-Callback-Body", "bucket=${bucket}&filename=${filename}&etag=${etag}&objectSize=${objectSize}&mimeType=${mimeType}&createTime=${createTime}&height=${image.height}&width=${image.width}&format=${image.format}&location=${x-uos-callback-customize-test}")
 	req.Header.Add("X-Uos-Callback-Auth", "1")
-	req.Header.Add("x-uos-callback-custom-test", "test")
+	req.Header.Add("X-Uos-Callback-Customize-Test", "test")
 	signature := GetSignatureV2(req, AccessKey, SecretKey)
 	req.Header.Add("Authorization", signature)
 	res, err := http.DefaultClient.Do(req)
@@ -152,9 +152,9 @@ func Test_CallbackCompleteMultipartUpload(t *testing.T) {
 	reqComplete.Header.Add("x-amz-date", time.Now().UTC().Format(Iso8601Format))
 	reqComplete.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	reqComplete.Header.Add("X-Uos-Callback-Url", "http://127.0.0.1:9099/testcallback")
-	reqComplete.Header.Add("X-Uos-Callback-Body", "b=${bucket}&name=${filename}&objectS=${objectSize}&location=${x-uos-callback-customize-test}&multipart=${x-uos-callback-customize-image}")
+	reqComplete.Header.Add("X-Uos-Callback-Body", "b=${bucket}&name=${filename}&objectS=${objectSize}&location=${x-uos-callback-customize-test}&image=${x-uos-callback-customize-image}")
 	reqComplete.Header.Add("X-Uos-Callback-Auth", "1")
-	reqComplete.Header.Add("x-uos-callback-custom-test", "test")
+	reqComplete.Header.Add("x-uos-callback-customize-test", "test")
 	reqComplete.Header.Add("x-uos-callback-customize-image", "1")
 	signatureComplete := GetSignatureV2(reqComplete, AccessKey, SecretKey)
 	reqComplete.Header.Add("Authorization", signatureComplete)
@@ -187,12 +187,12 @@ func Test_CallbackPostObject(t *testing.T) {
 		FileSize:   1024,
 	}
 	url := "http://127.0.0.1:9099/testcallback"
-	body := "b=${bucket}&name=${filename}&objectS=${objectSize}&location=${x-uos-callback-customize-test}&multipart=${x-uos-callback-customize-image}"
+	body := "b=${bucket}&name=${filename}&objectS=${objectSize}&location=${X-Uos-Callback-Customize-Test}&image=${X-Uos-Callback-Customize-Image}"
 	body = base64.StdEncoding.EncodeToString([]byte(body))
 	auth := "1"
 	info := make(map[string]string)
-	info["x-uos-callback-custom-test"] = "test"
-	info["x-uos-callback-customize-image"] = "1"
+	info["X-Uos-Callback-Customize-Test"] = "test"
+	info["X-Uos-Callback-Customize-Image"] = "1"
 	resp, err := sc.PostObjectWithCallback(pbi, url, body, auth, info)
 	defer resp.Body.Close()
 	if err != nil {
@@ -202,6 +202,7 @@ func Test_CallbackPostObject(t *testing.T) {
 	if resp.Header.Get("X-Uos-Callback-Result") != "It is OK!" {
 		t.Error("The callback return parameter is not obtained", resp)
 	}
+	defer sc.DeleteObject(TestCallbackBucket, TestCallbackObject)
 }
 
 func GetSignatureV2(r *http.Request, ak, sk string) (signature string) {

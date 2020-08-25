@@ -31,7 +31,7 @@ const (
 	CallBackBody           = "X-Uos-Callback-Body"
 	CallbackAuth           = "X-Uos-Callback-Auth"
 	NeedCallbackAuth       = "1"
-	CallBackLocationPrefix = "${X-Uos-Callback-Customize-"
+	CallBackLocationPrefix = "${x-uos-callback-customize-"
 	Authorization          = "Authorization"
 	ContentType            = "Content-Type"
 	Date                   = "X-Uos-Date"
@@ -140,7 +140,6 @@ func GetCallbackFromHeader(header http.Header) (isCallback bool, message CallBac
 		for _, key := range CallBackInfo {
 			if key == v[0] {
 				message.Magic[k] = v[0]
-				break
 			}
 		}
 		if _, ok := message.Magic[k]; ok {
@@ -149,14 +148,13 @@ func GetCallbackFromHeader(header http.Header) (isCallback bool, message CallBac
 		for _, key := range CallBackInfoImg {
 			if key == v[0] {
 				message.Magic[k] = v[0]
-				break
 			}
 		}
 		if _, ok := message.Magic[k]; ok {
 			continue
 		}
 		// Parse custom variables
-		if strings.HasPrefix(v[0], CallBackLocationPrefix) {
+		if strings.HasPrefix(strings.ToLower(v[0]), CallBackLocationPrefix) {
 			markWithoutPrefix := strings.TrimPrefix(v[0], "${")
 			mark := strings.TrimSuffix(markWithoutPrefix, "}")
 			if mark == markWithoutPrefix {
@@ -203,30 +201,28 @@ func GetCallbackFromForm(formValues map[string]string) (isCallback bool, message
 		for _, key := range CallBackInfo {
 			if key == v[0] {
 				message.Magic[k] = v[0]
-				break
 			}
 		}
 		if _, ok := message.Magic[k]; ok {
-			break
+			continue
 		}
 		for _, key := range CallBackInfoImg {
 			if key == v[0] {
 				message.Magic[k] = v[0]
-				break
 			}
 		}
 		if _, ok := message.Magic[k]; ok {
-			break
+			continue
 		}
 		// Parse custom variables
-		if strings.HasPrefix(v[0], CallBackLocationPrefix) {
+		if strings.HasPrefix(strings.ToLower(v[0]), CallBackLocationPrefix) {
 			markWithoutPrefix := strings.TrimPrefix(v[0], "${")
 			mark := strings.TrimSuffix(markWithoutPrefix, "}")
 			if mark == markWithoutPrefix {
 				return false, message, ErrInvalidCallbackBodyParameter
 			}
 			message.Location[k] = formValues[mark]
-			break
+			continue
 		}
 		// Parse user-defined constant parameters
 		message.Constant[k] = v[0]
