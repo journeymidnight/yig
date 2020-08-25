@@ -392,7 +392,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 			WriteErrorResponse(w, r, err)
 			return
 		}
-		if freezer.Status == ObjectHasRestored {
+		if freezer != nil && freezer.Status == ObjectHasRestored {
 			w.Header().Set("x-amz-restore", "ongoing-request='true'")
 		} else {
 			w.Header().Set("x-amz-restore", "ongoing-request='false'")
