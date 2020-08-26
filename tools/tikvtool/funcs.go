@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -460,7 +461,7 @@ func MigrateFunc() (err error) {
 
 	// New Tidb
 	tidbCli := &tidbclient.TidbClient{}
-	conn, err := sql.Open("mysql", helper.CONFIG.TidbInfo)
+	conn, err := sql.Open("mysql", global.TidbAddr)
 	if err != nil {
 		return err
 	}
@@ -500,7 +501,8 @@ func MigrateFunc() (err error) {
 	fmt.Println("Total objects count:", len(objects), "of bucket:", global.Bucket)
 
 	for _, object := range objects {
-		fmt.Println(fmt.Sprintf("ObjectInfo: %+v", object))
+		ob, _ := json.Marshal(object)
+		fmt.Println(string(ob))
 		if !global.Verbose {
 			object.OwnerId = userId
 			err = tikvCli.PutObject(object, nil, false)

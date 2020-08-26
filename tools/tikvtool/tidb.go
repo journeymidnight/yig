@@ -11,6 +11,7 @@ import (
 )
 
 func GetObjectsByBucket(t *tidbclient.TidbClient, bucketName string) ([]*types.Object, error) {
+	var objects []*types.Object
 	var customattributes, acl, lastModifiedTime string
 	sqltext := "select bucketname,name,version,location,pool,ownerid,size,objectid,lastmodifiedtime,etag,contenttype," +
 		"customattributes,acl,nullversion,deletemarker,ssetype,encryptionkey,initializationvector,type,storageclass,createtime from objects where bucketname=?;"
@@ -70,8 +71,9 @@ func GetObjectsByBucket(t *tidbclient.TidbClient, bucketName string) ([]*types.O
 				o.PartsIndex = &types.SimpleIndex{Index: sortedPartNum}
 			}
 		}
+		objects = append(objects, o)
 	}
-
+	return objects, nil
 }
 
 func getParts(bucketName, objectName string, version uint64, cli *sql.DB) (parts map[int]*types.Part, err error) {
