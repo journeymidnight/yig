@@ -992,7 +992,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 			Etag:       result.Md5,
 			ObjectSize: result.ObjectSize,
 			MimeType:   metadata["Content-Type"],
-			CreateTime: uint64(result.LastModified.UnixNano()),
+			CreateTime: uint64(result.LastModified.UnixNano() / 1e6),
 		}
 		callbackMessage.Credential = credential
 		resultCallback, err := api.CallbackProcess(callbackMagicInfos, callbackMessage, logger, credential)
@@ -2041,7 +2041,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 			Etag:       result.ETag,
 			ObjectSize: result.ObjectSize,
 			MimeType:   result.ContentType,
-			CreateTime: result.CreateTime,
+			CreateTime: result.CreateTime / 1e6,
 		}
 		callbackMessage.Credential = credential
 		resultCallback, err := api.CallbackProcess(callbackMagicInfos, callbackMessage, logger, credential)
@@ -2255,7 +2255,7 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 			Etag:       result.Md5,
 			ObjectSize: result.ObjectSize,
 			MimeType:   metadata["Content-Type"],
-			CreateTime: uint64(result.LastModified.UnixNano()),
+			CreateTime: uint64(result.LastModified.Unix() / 1e6),
 		}
 		callbackMessage.Credential = credential
 		resultCallback, err := api.CallbackProcess(callbackMagicInfos, callbackMessage, logger, credential)

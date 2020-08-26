@@ -29,9 +29,9 @@ func TestGetImageInfoFromReader(t *testing.T) {
 		panic(err)
 	}
 	defer resp.Body.Close()
-	height, width, imageType := GetImageInfoFromReader(resp.Body)
-	if height == 0 || width == 0 || imageType == "" {
-		t.Errorf("Failed to get picture information!")
+	height, width, imageType, err := GetImageInfoFromReader(resp.Body)
+	if height == 0 || width == 0 || imageType == "" || err != nil {
+		t.Errorf("Failed to get picture information!", err)
 	}
 	t.Log("Get picture information successfully!", height, width, imageType)
 }
