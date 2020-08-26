@@ -2,19 +2,23 @@ package _go
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
-	. "github.com/journeymidnight/yig/test/go/lib"
 	"io/ioutil"
 	"net/http"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
+
+	"github.com/gorilla/mux"
+	. "github.com/journeymidnight/yig/test/go/lib"
 )
 
 const (
@@ -32,8 +36,8 @@ var Shutdown chan int
 
 func Test_CallbackPutObject(t *testing.T) {
 	Shutdown = make(chan int)
-	go server()
-	defer close()
+	var wg sync.WaitGroup
+	go server(t, &wg)
 	sc := NewS3()
 	sc.MakeBucket(TestCallbackBucket)
 	defer sc.DeleteBucket(TestCallbackBucket)
@@ -72,12 +76,14 @@ func Test_CallbackPutObject(t *testing.T) {
 	if res.Header.Get("X-Uos-Callback-Result") != "It is OK!" {
 		t.Error("The callback return parameter is not obtained")
 	}
+	close()
+	wg.Wait()
 }
 
 func Test_CallbackCompleteMultipartUpload(t *testing.T) {
 	Shutdown = make(chan int)
-	go server()
-	defer close()
+	var wg sync.WaitGroup
+	go server(t, &wg)
 	sc := NewS3()
 	sc.MakeBucket(TestCallbackBucket)
 	defer sc.DeleteBucket(TestCallbackBucket)
@@ -172,13 +178,14 @@ func Test_CallbackCompleteMultipartUpload(t *testing.T) {
 	if respComplete.Header.Get("X-Uos-Callback-Result") != "It is OK!" {
 		t.Error("The callback return parameter is not obtained", respComplete)
 	}
-
+	close()
+	wg.Wait()
 }
 
 func Test_CallbackPostObject(t *testing.T) {
 	Shutdown = make(chan int)
-	go server()
-	defer close()
+	var wg sync.WaitGroup
+	go server(t, &wg)
 	sc := NewS3()
 	sc.MakeBucket(TestCallbackBucket)
 	defer sc.DeleteBucket(TestCallbackBucket)
@@ -210,6 +217,8 @@ func Test_CallbackPostObject(t *testing.T) {
 		t.Error("The callback return parameter is not obtained", resp)
 	}
 	defer sc.DeleteObject(TestCallbackBucket, TestCallbackObject)
+	close()
+	wg.Wait()
 }
 
 func GetSignatureV2(r *http.Request, ak, sk string) (signature string) {
@@ -306,16 +315,30 @@ func hasBucketInDomain(host string, domains []string) (ok bool, bucket string) {
 	return false, ""
 }
 
-func server() {
-	server := &http.Server{Addr: ":9099"}
-	http.HandleFunc("/testcallback", handler)
+func server(t *testing.T, wg *sync.WaitGroup) {
+	wg.Add(1)
+	var wait time.Duration
+	wait = 2 * time.Second
+	r := mux.NewRouter()
+	r.HandleFunc("/testcallback", handler).Methods("POST")
+	srv := &http.Server{
+		Handler:      r,
+		Addr:         "0.0.0.0:9099",
+		WriteTimeout: 5 * time.Second,
+		ReadTimeout:  5 * time.Second,
+		IdleTimeout:  5 * time.Second,
+	}
 	go func() {
-		select {
-		case <-Shutdown:
-			server.Close()
+		if err := srv.ListenAndServe(); err != nil {
+			fmt.Println(err)
 		}
 	}()
-	server.ListenAndServe()
+	<-Shutdown
+	ctx, cancel := context.WithTimeout(context.Background(), wait)
+	defer cancel()
+	srv.Shutdown(ctx)
+	t.Log("shutting down")
+	wg.Done()
 }
 
 func close() {
