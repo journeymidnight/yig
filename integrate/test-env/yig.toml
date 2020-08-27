@@ -42,6 +42,7 @@ redis_write_timeout = 1
 redis_keepalive = 60
 redis_pool_max_idle = 3
 redis_pool_idle_timeout = 30
+redis_Min_Idle_Conns = 12
 
 cache_circuit_check_interval = 3
 cache_circuit_close_sleep_window = 1
@@ -72,6 +73,9 @@ ceph_config_pattern = "/etc/ceph/*.conf"
 feature_not_support_for_bucket = ["notification","replication","tagging","requestPayment"]
 # Valid values include: torrent、glacier、standard_ia、intelligent_tiering、onezone_ia、deep_archive、rrs、append
 feature_not_support_for_object = ["torrent","intelligent_tiering","onezone_ia","deep_archive","rrs"]
+
+# Restore Mode
+restore_deceiver_switch = true
 
 # Plugin Config
 [plugins.dummy_encryption_kms]

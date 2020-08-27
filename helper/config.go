@@ -68,6 +68,7 @@ type Config struct {
 	RedisKeepAlive        int      `toml:"redis_keepalive"`
 	RedisPoolMaxIdle      int      `toml:"redis_pool_max_idle"`
 	RedisPoolIdleTimeout  int      `toml:"redis_pool_idle_timeout"`
+	RedisMinIdleConns     int      `toml:"redis_Min_Idle_Conns"`
 
 	// DB Connection parameters
 	DbMaxOpenConns       int `toml:"db_max_open_conns"`
@@ -96,6 +97,10 @@ type Config struct {
 	// Make a list of unsupported functions to ensure that customers will not produce wrong operations
 	FeatureNotSupportForBucket []string `toml:"feature_not_support_for_bucket"`
 	FeatureNotSupportForObject []string `toml:"feature_not_support_for_object"`
+
+	// The switch that decides whether to use the real thawing logic,
+	// if it is on, the thawing logic is a false thawing mode that only modifies the database state
+	RestoreDeceiverSwitch bool `toml:"restore_deceiver_switch"`
 }
 
 type PluginConfig struct {
@@ -183,6 +188,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.RedisKeepAlive = Ternary(c.RedisKeepAlive < 0, 0, c.RedisKeepAlive).(int)
 	CONFIG.RedisPoolMaxIdle = Ternary(c.RedisPoolMaxIdle < 0, 0, c.RedisPoolMaxIdle).(int)
 	CONFIG.RedisPoolIdleTimeout = Ternary(c.RedisPoolIdleTimeout < 0, 0, c.RedisPoolIdleTimeout).(int)
+	CONFIG.RedisMinIdleConns = Ternary(c.RedisMinIdleConns < 0, 12, c.RedisMinIdleConns).(int)
 
 	CONFIG.DbMaxOpenConns = Ternary(c.DbMaxOpenConns < 0, 0, c.DbMaxOpenConns).(int)
 	CONFIG.DbMaxIdleConns = Ternary(c.DbMaxIdleConns < 0, 0, c.DbMaxIdleConns).(int)
@@ -201,6 +207,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.BigFileThreshold = Ternary(c.BigFileThreshold == 0, int64(1048576), c.BigFileThreshold).(int64)
 	CONFIG.FeatureNotSupportForBucket = c.FeatureNotSupportForBucket
 	CONFIG.FeatureNotSupportForObject = c.FeatureNotSupportForObject
+	CONFIG.RestoreDeceiverSwitch = c.RestoreDeceiverSwitch
 	return nil
 }
 

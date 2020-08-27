@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/journeymidnight/yig/api/datatype"
+	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/meta/common"
 )
@@ -67,11 +68,11 @@ func getMultipartUploadId(initialTime uint64) string {
 func GetInitialTimeFromUploadId(uploadId string) (uint64, error) {
 	timeStr, err := common.Decrypt(uploadId)
 	if err != nil {
-		return 0, err
+		return 0, ErrNoSuchUpload
 	}
 	initialTime, err := strconv.ParseUint(timeStr, 10, 64)
 	if err != nil {
-		return 0, err
+		return 0, ErrNoSuchUpload
 	}
 	return initialTime, nil
 }
@@ -83,6 +84,13 @@ func GetMultipartUploadIdByDbTime(uploadtime uint64) string {
 
 func (p *Part) GetCreateSql(bucketname, objectname, version string) (string, []interface{}) {
 	sql := "insert into objectpart(partnumber,size,objectid,offset,etag,lastmodified,initializationvector,bucketname,objectname,version) " +
+		"values(?,?,?,?,?,?,?,?,?,?)"
+	args := []interface{}{p.PartNumber, p.Size, p.ObjectId, p.Offset, p.Etag, p.LastModified, p.InitializationVector, bucketname, objectname, version}
+	return sql, args
+}
+
+func (p *Part) GetCreateFreezerSql(bucketname, objectname, version string) (string, []interface{}) {
+	sql := "insert into restoreobjectpart(partnumber,size,objectid,offset,etag,lastmodified,initializationvector,bucketname,objectname,version) " +
 		"values(?,?,?,?,?,?,?,?,?,?)"
 	args := []interface{}{p.PartNumber, p.Size, p.ObjectId, p.Offset, p.Etag, p.LastModified, p.InitializationVector, bucketname, objectname, version}
 	return sql, args

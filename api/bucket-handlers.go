@@ -306,48 +306,14 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 		return
 	}
 
-	var deleteErrors []DeleteError
-	var deletedObjects []ObjectIdentifier
-	// Loop through all the objects and delete them sequentially.
-	for _, object := range deleteObjects.Objects {
-		reqCtx.ObjectName = object.ObjectName
-		reqCtx.VersionId = object.VersionId
-		reqCtx.ObjectInfo, err = api.ObjectAPI.GetObjectInfo(reqCtx.BucketName, object.ObjectName, object.VersionId, credential)
-		if err != nil && err != ErrNoSuchKey {
-			WriteErrorResponse(w, r, err)
-			return
-		}
-		result, err := api.ObjectAPI.DeleteObject(reqCtx, credential)
-		if err == nil {
-			deletedObjects = append(deletedObjects, ObjectIdentifier{
-				ObjectName:   object.ObjectName,
-				VersionId:    object.VersionId,
-				DeleteMarker: result.DeleteMarker,
-				DeleteMarkerVersionId: helper.Ternary(result.DeleteMarker,
-					result.VersionId, "").(string),
-			})
-		} else {
-			logger.Error("Unable to delete object:", err)
-			apiErrorCode, ok := err.(ApiErrorCode)
-			if ok {
-				deleteErrors = append(deleteErrors, DeleteError{
-					Code:      ErrorCodeResponse[apiErrorCode].AwsErrorCode,
-					Message:   ErrorCodeResponse[apiErrorCode].Description,
-					Key:       object.ObjectName,
-					VersionId: object.VersionId,
-				})
-			} else {
-				deleteErrors = append(deleteErrors, DeleteError{
-					Code:      "InternalError",
-					Message:   "We encountered an internal error, please try again.",
-					Key:       object.ObjectName,
-					VersionId: object.VersionId,
-				})
-			}
-		}
+	result, err := api.ObjectAPI.DeleteObjects(reqCtx, credential, deleteObjects.Objects)
+	if err != nil {
+		WriteErrorResponse(w, r, err)
+		return
 	}
+
 	// Generate response
-	response := GenerateMultiDeleteResponse(deleteObjects.Quiet, deletedObjects, deleteErrors)
+	response := GenerateMultiDeleteResponse(deleteObjects.Quiet, result.DeletedObjects, result.DeleteErrors)
 	encodedSuccessResponse := EncodeResponse(response)
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "DeleteMultipleObjects"

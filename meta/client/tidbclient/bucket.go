@@ -452,26 +452,23 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 					}
 				}
 
-				if meta.DeleteMarker {
-					objectMap[meta.Name] = nil
-					continue
-				}
+				if !meta.DeleteMarker {
+					o := modifyMetaToObjectResult(meta)
 
-				o := modifyMetaToObjectResult(meta)
+					count++
+					if count == maxKeys {
+						listInfo.NextMarker = o.Key
+					}
 
-				count++
-				if count == maxKeys {
-					listInfo.NextMarker = o.Key
-				}
-
-				if count > maxKeys {
-					previousNullObjectMeta = nil
-					listInfo.IsTruncated = true
-					exit = true
-					break
+					if count > maxKeys {
+						previousNullObjectMeta = nil
+						listInfo.IsTruncated = true
+						exit = true
+						break
+					}
+					listInfo.Objects = append(listInfo.Objects, o)
 				}
 				objectMap[meta.Name] = nil
-				listInfo.Objects = append(listInfo.Objects, o)
 
 				// Compare once
 				previousNullObjectMeta = nil
@@ -483,11 +480,6 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			}
 
 			if !strings.HasPrefix(objMeta.Name, prefix) {
-				continue
-			}
-
-			// If delete marker, do continue
-			if objMeta.DeleteMarker {
 				continue
 			}
 
@@ -524,6 +516,14 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				continue
 			} else {
 				previousNullObjectMeta = nil
+			}
+
+			// If delete marker, need to confirm whether it is the latest version,
+			// if it is the latest version, skip other versions,
+			// if it is not the latest version, return to the latest version
+			if objMeta.DeleteMarker {
+				objectMap[objMeta.Name] = nil
+				continue
 			}
 
 			var o = modifyMetaToObjectResult(objMeta)
@@ -817,7 +817,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 
 					o := modifyMetaToVersionedObjectResult(*previousNullObjectMeta)
 					listInfo.Objects = append(listInfo.Objects, o)
-
+					previousNullObjectMeta = nil
 				} else {
 					// Compare which is the latest of null version object and versioned object
 					var o datatype.VersionedObject
@@ -880,6 +880,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 					continue
 				}
 			}
+
 			if objMeta.VersionId == NullVersion {
 				previousNullObjectMeta = &objMeta
 				continue
