@@ -28,12 +28,12 @@ import (
 	"bytes"
 	"crypto/subtle"
 	"encoding/hex"
-	"github.com/journeymidnight/yig/sts"
 	"net/http"
-	"net/url"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/journeymidnight/yig/sts"
 
 	. "github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
@@ -225,18 +225,15 @@ func DoesPresignedSignatureMatchV4(r *http.Request,
 	/// Verify finally if signature is same.
 
 	// Construct the query.
+	query := r.URL.Query()
+	query.Del("X-Amz-Signature")
 
-	query := make(url.Values)
-	for k, v := range r.URL.Query() {
-		// Delete queries that is not used to calculate the signature
-		if !strings.HasPrefix(k, "X-Amz") {
-			continue
+	// FIXME: Due to some business reasons, some non-S3 headers will not be signed
+	for k := range query {
+		lk := strings.ToLower(k)
+		if strings.HasPrefix(lk, "x-") && !strings.HasPrefix(lk, "x-amz") {
+			query.Del(k)
 		}
-		if k == "X-Amz-Signature" {
-			continue
-		}
-
-		query[k] = v
 	}
 
 	presignedCanonicalReq := getCanonicalRequest(extractedSignedHeaders, UnsignedPayload,

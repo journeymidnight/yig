@@ -154,20 +154,20 @@ func (api ObjectAPIHandlers) DeleteBucketWebsiteHandler(w http.ResponseWriter, r
 }
 
 func (api ObjectAPIHandlers) HandledByWebsite(w http.ResponseWriter, r *http.Request) (handled bool) {
-	ctx := GetRequestContext(r)
-	logger := ctx.Logger
-	if ctx.BucketInfo == nil {
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
+	if reqCtx.BucketInfo == nil {
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return true
 	}
-	if ctx.AuthType != signature.AuthTypeAnonymous {
+	if reqCtx.AuthType != signature.AuthTypeAnonymous {
 		return false
 	}
 
-	website := ctx.BucketInfo.Website
+	website := reqCtx.BucketInfo.Website
 	// redirect
 	if redirect := website.RedirectAllRequestsTo; redirect != nil && redirect.HostName != "" {
-		if !ctx.IsBucketDomain {
+		if !reqCtx.IsBucketDomain {
 			WriteErrorResponse(w, r, ErrSecondLevelDomainForbidden)
 			return true
 		}
@@ -180,7 +180,7 @@ func (api ObjectAPIHandlers) HandledByWebsite(w http.ResponseWriter, r *http.Req
 	}
 
 	if id := website.IndexDocument; id != nil && id.Suffix != "" {
-		if !ctx.IsBucketDomain {
+		if !reqCtx.IsBucketDomain {
 			WriteErrorResponse(w, r, ErrSecondLevelDomainForbidden)
 			return true
 		}
@@ -189,24 +189,25 @@ func (api ObjectAPIHandlers) HandledByWebsite(w http.ResponseWriter, r *http.Req
 		if len(website.RoutingRules) != 0 {
 			for _, rule := range website.RoutingRules {
 				// If the condition matches, handle redirect
-				if rule.Match(ctx.ObjectName, "") {
-					rule.DoRedirect(w, r, ctx.ObjectName)
+				if rule.Match(reqCtx.ObjectName, "") {
+					rule.DoRedirect(w, r, reqCtx.ObjectName)
 					return true
 				}
 			}
 		}
 
 		// handle IndexDocument
-		if strings.HasSuffix(ctx.ObjectName, "/") || ctx.ObjectName == "" {
-			indexName := ctx.ObjectName + id.Suffix
+		if strings.HasSuffix(reqCtx.ObjectName, "/") || reqCtx.ObjectName == "" {
+			indexName := reqCtx.ObjectName + id.Suffix
 			credential := common.Credential{}
-			isAllow, err := IsBucketPolicyAllowed(credential.UserId, ctx.BucketInfo, r, policy.GetObjectAction, indexName)
+			isAllow, err := IsBucketPolicyAllowed(credential.UserId, reqCtx.BucketInfo, r, policy.GetObjectAction, indexName)
+
 			if err != nil {
 				WriteErrorResponse(w, r, err)
 				return true
 			}
 			credential.AllowOtherUserAccess = isAllow
-			index, err := api.ObjectAPI.GetObjectInfo(ctx.BucketName, indexName, "", credential)
+			index, err := api.ObjectAPI.GetObjectInfo(reqCtx.BucketName, indexName, "", credential)
 			if err != nil {
 				if err == ErrNoSuchKey {
 					api.errAllowableObjectNotFound(w, r, credential)
@@ -215,7 +216,7 @@ func (api ObjectAPIHandlers) HandledByWebsite(w http.ResponseWriter, r *http.Req
 				WriteErrorResponse(w, r, err)
 				return true
 			}
-			writer := newGetObjectResponseWriter(w, r, index, nil, http.StatusOK, "")
+			writer := newGetObjectResponseWriter(w, r, index, nil, http.StatusOK, "", reqCtx.AuthType)
 			// Reads the object at startOffset and writes to mw.
 			if err := api.ObjectAPI.GetObject(index, 0, index.Size, writer, datatype.SseRequest{}); err != nil {
 				logger.Error("Unable to write to client:", err)
@@ -243,28 +244,28 @@ func (api ObjectAPIHandlers) HandledByWebsite(w http.ResponseWriter, r *http.Req
 
 func (api ObjectAPIHandlers) ReturnWebsiteErrorDocument(w http.ResponseWriter, r *http.Request, statusCode int) (handled bool) {
 	w.(*ResponseRecorder).operationName = "GetObject"
-	ctx := GetRequestContext(r)
-	logger := ctx.Logger
-	if ctx.BucketInfo == nil {
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
+	if reqCtx.BucketInfo == nil {
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return true
 	}
-	website := ctx.BucketInfo.Website
+	website := reqCtx.BucketInfo.Website
 	if ed := website.ErrorDocument; ed != nil && ed.Key != "" {
 		indexName := ed.Key
 		credential := common.Credential{}
-		isAllow, err := IsBucketPolicyAllowed(credential.UserId, ctx.BucketInfo, r, policy.GetObjectAction, indexName)
+		isAllow, err := IsBucketPolicyAllowed(credential.UserId, reqCtx.BucketInfo, r, policy.GetObjectAction, indexName)
 		if err != nil {
 			WriteErrorResponse(w, r, err)
 			return true
 		}
 		credential.AllowOtherUserAccess = isAllow
-		index, err := api.ObjectAPI.GetObjectInfo(ctx.BucketName, indexName, "", credential)
+		index, err := api.ObjectAPI.GetObjectInfo(reqCtx.BucketName, indexName, "", credential)
 		if err != nil {
 			WriteErrorResponse(w, r, err)
 			return true
 		}
-		writer := newGetObjectResponseWriter(w, r, index, nil, http.StatusNotFound, "")
+		writer := newGetObjectResponseWriter(w, r, index, nil, http.StatusNotFound, "", reqCtx.AuthType)
 		// Reads the object at startOffset and writes to mw.
 		if err := api.ObjectAPI.GetObject(index, 0, index.Size, writer, datatype.SseRequest{}); err != nil {
 			logger.Error("Unable to write to client:", err)
