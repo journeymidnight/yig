@@ -83,7 +83,25 @@ type Brand interface {
 
 // Verify if request header field is X-Amz or X-UOS
 // if can not find, UOS by default
-func DistinguishBrandName(r *http.Request) Brand {
+func DistinguishBrandName(r *http.Request, postValues map[string]string) Brand {
+	if postValues != nil {
+		for field, value := range postValues {
+			if strings.Contains(strings.ToLower(field), "x-amz-") ||
+				strings.Contains(value, "AWS") || strings.Contains(strings.ToLower(value), "x-amz-") {
+				return &Aws{
+					Name: AWSName,
+				}
+			} else if strings.Contains(strings.ToLower(field), "x-uos-") ||
+				strings.Contains(value, "UOS") || strings.Contains(strings.ToLower(value), "x-uos-") {
+				return &Uos{
+					Name: UOSName,
+				}
+			}
+		}
+		return &Uos{
+			Name: UOSName,
+		}
+	}
 	for field, value := range r.Header {
 		if "authorization" == strings.ToLower(field) {
 			if strings.Contains(value[0], "AWS") || strings.Contains(strings.ToLower(value[0]), "x-amz-") {

@@ -25,21 +25,21 @@ type ContextLoggerKeyType string
 const ContextLoggerKey ContextLoggerKeyType = "ContextLogger"
 
 type RequestContext struct {
-	RequestID      string
-	Logger         log.Logger
-	BucketName     string
-	ObjectName     string
-	BucketInfo     *types.Bucket
-	ObjectInfo     *types.Object
-	Lifecycle      *lifecycle.Lifecycle
-	BrandType      brand.Brand
-	AuthType       signature.AuthType
-	IsBucketDomain bool
+	RequestID               string
+	Logger                  log.Logger
+	BucketName              string
+	ObjectName              string
+	BucketInfo              *types.Bucket
+	ObjectInfo              *types.Object
+	Lifecycle               *lifecycle.Lifecycle
+	BrandType               brand.Brand
+	AuthType                signature.AuthType
+	IsBucketDomain          bool
 	IsObjectForbidOverwrite bool
-	Body           io.ReadCloser
-	FormValues     map[string]string
-	VersionId      string
-	Mutex          *redislock.Lock
+	Body                    io.ReadCloser
+	FormValues              map[string]string
+	VersionId               string
+	Mutex                   *redislock.Lock
 }
 
 func GetRequestContext(r *http.Request) RequestContext {

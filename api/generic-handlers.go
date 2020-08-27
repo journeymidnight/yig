@@ -123,10 +123,8 @@ type RequestIdHandler struct {
 func (h RequestIdHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	requestID := string(helper.GenerateRandomId())
 	logger := helper.Logger.NewWithRequestID(requestID)
-	brandName := brand.DistinguishBrandName(r)
 	ctx := context.WithValue(r.Context(), RequestIdKey, requestID)
 	ctx = context.WithValue(ctx, ContextLoggerKey, logger)
-	ctx = context.WithValue(ctx, brand.BrandNameKey, brandName)
 	h.handler.ServeHTTP(w, r.WithContext(ctx))
 }
 
@@ -150,10 +148,10 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	logger := r.Context().Value(ContextLoggerKey).(log.Logger)
 	reqCtx.Logger = logger
 
-	brandName := brand.GetContextBrand(r)
-	reqCtx.BrandType = brandName
 	reqCtx.VersionId = helper.Ternary(r.URL.Query().Get("versionId") == "null", types.NullVersion, r.URL.Query().Get("versionId")).(string)
 	err := FillBucketAndObjectInfo(&reqCtx, r, h.meta)
+	brandName := brand.DistinguishBrandName(r, reqCtx.FormValues)
+	reqCtx.BrandType = brandName
 
 	if err != nil {
 		WriteErrorResponse(w, r, err)
@@ -190,6 +188,7 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	}
 
 	ctx := context.WithValue(r.Context(), RequestContextKey, reqCtx)
+	ctx = context.WithValue(ctx, brand.BrandNameKey, brandName)
 	h.handler.ServeHTTP(w, r.WithContext(ctx))
 
 }
