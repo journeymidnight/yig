@@ -2,6 +2,7 @@ package _go
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"testing"
 	"time"
@@ -695,6 +696,70 @@ func cleanMeta(sc *S3Client, unit MetaTestUnit) {
 	}
 }
 
+func Test_OverridingResponseHeaderValues(t *testing.T) {
+	sc := NewS3()
+	err := sc.MakeBucket(TestBucket)
+	defer sc.CleanEnv()
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+	}
+
+	var originContentType = "image/png"
+	var newContentType = "text/plain"
+
+	err = sc.PutObjectWithOpt(TestBucket, TestKey, TestValue, WithContentType(originContentType))
+	if err != nil {
+		t.Fatal("PutObjectWithOpt err:", err)
+	}
+	o, err := sc.GetObjectOutPut(TestBucket, TestKey)
+	if err != nil {
+		t.Fatal("GetObjectOutPut err:", err)
+	}
+	o.Body.Close()
+	if o.ContentType == nil || *o.ContentType != originContentType {
+		t.Fatal("o.ContentType != originContentType ", *o.ContentType, originContentType)
+	}
+
+	o, err = sc.GetObjectOutPutWithOpt(TestBucket, TestKey, WithResponseContentType(newContentType))
+	if err != nil {
+		t.Fatal("GetObjectOutPutWithOpt err:", err)
+	}
+	o.Body.Close()
+	if o.ContentType == nil || *o.ContentType != newContentType {
+		t.Fatal("o.ContentType != originContentType ", *o.ContentType, newContentType)
+	}
+
+	// Test pre-signed
+	url, err := sc.GetObjectPreSignedWithOpt(TestBucket, TestKey, 24*time.Hour, WithResponseContentType(newContentType))
+	res, err := http.Get(url)
+	if err != nil {
+		t.Fatal("Get public-read object err:", err)
+	}
+	content, _ := ioutil.ReadAll(res.Body)
+	t.Log(string(content))
+	defer res.Body.Close()
+	if res.Header.Get("Content-Type") != newContentType {
+		t.Fatal("override header cannot be used with an unsigned (anonymous) request.", res.Header.Get("Content-Type"))
+	}
+
+	// You must sign the request, either using an Authorization header or a presigned URL,
+	//when using these parameters. They cannot be used with an unsigned (anonymous) request.
+	err = sc.PutObjectAcl(TestBucket, TestKey, ObjectCannedACLPublicRead)
+	if err != nil {
+		t.Fatal("PutObjectAcl err:", err)
+	}
+
+	url = GenTestObjectUrl(sc)
+	res, err = http.Get(url)
+	if err != nil {
+		t.Fatal("Get public-read object err:", err)
+	}
+	defer res.Body.Close()
+	if res.Header.Get("Content-Type") != originContentType {
+		t.Fatal("override header cannot be used with an unsigned (anonymous) request.", res.Header.Get("Content-Type"))
+	}
+}
+
 func Test_PutObjectMeta(t *testing.T) {
 	sc := NewS3()
 	CleanMetaUnits(sc)
@@ -819,5 +884,4 @@ func PrintListResult(t *testing.T, out *s3.ListObjectsOutput) {
 	} else {
 		t.Log("NextMarker:", *out.NextMarker)
 	}
-
 }
