@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -279,7 +280,22 @@ func (s3Client *S3Client) PostObject(pbi *PostObjectInput) error {
 		return err
 	}
 	if resp.StatusCode >= 300 {
-		return errors.New(fmt.Sprintf("post object for url %s returns %d", pbi.Url, resp.StatusCode))
+		type responseError struct {
+			XMLName xml.Name `xml:"ErrorResponse"`
+			Code    string   `xml:"Error>Code"`
+			Message string   `xml:"Error>Message"`
+		}
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		respErr := responseError{}
+		err = xml.Unmarshal(bodyBytes, &respErr)
+		if err != nil {
+			return err
+		}
+		return errors.New(fmt.Sprintf("post object for url %s returns %d, and message: (%s) %s", pbi.Url, resp.StatusCode,
+			respErr.Code, respErr.Message))
 	}
 
 	return nil
