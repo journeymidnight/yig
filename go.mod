@@ -7,8 +7,6 @@ replace (
 
 	github.com/Sirupsen/logrus => github.com/sirupsen/logrus v1.4.1
 
-	github.com/journeymidnight/aws-sdk-go => github.com/Zstro/aws-sdk-go v1.18.2
-
 	golang.org/x/crypto => github.com/golang/crypto v0.0.0-20190404164418-38d8ce5564a5
 	golang.org/x/exp => github.com/golang/exp v0.0.0-20190409044807-56b785ea58b2
 	golang.org/x/image => github.com/golang/image v0.0.0-20190321063152-3fc05d484e9f
@@ -44,7 +42,7 @@ require (
 	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/gorilla/mux v1.7.4
 	github.com/jmespath/go-jmespath v0.3.0 // indirect
-	github.com/journeymidnight/aws-sdk-go v1.18.1
+	github.com/journeymidnight/aws-sdk-go v1.18.2
 	github.com/journeymidnight/radoshttpd v0.0.0-20190617133011-609666b51136
 	//github.com/journeymidnight/radoshttpd v0.0.0-20190911073816-6df3523aa9e3
 	github.com/minio/highwayhash v1.0.0
