@@ -20,59 +20,59 @@ type GeneralFieldName string
 
 const (
 	XGeneralName                 GeneralFieldName = "-"
-	XContentSha                                   = "-Content-Sha256"
-	XCredential                                   = "-Credential"
-	XAlgorithm                                    = "-Algorithm"
-	XACL                                          = "-Acl"
-	XDate                                         = "-Date"
-	XMeta                                         = "-Meta"
-	XExpires                                      = "-Expires"
-	XSignature                                    = "-Signature"
-	XSignedHeaders                                = "-SignedHeaders"
-	XSecurityToken                                = "-Security-Token"
-	XStorageClass                                 = "-Storage-Class"
-	XServerSideEncryption                         = "-Server-Side-Encryption"                                // ServerSideEncryption is the general AWS SSE HTTP header key.
-	XSSEKmsContext                                = "-Context"                                               // SSEKmsContext is the HTTP header key referencing the SSE-KMS encryption context.
-	XSSECAlgorithm                                = "-Server-Side-Encryption-Customer-Algorithm"             // SSECAlgorithm is the HTTP header key referencing the SSE-C algorithm.
-	XSSECKey                                      = "-Server-Side-Encryption-Customer-Key"                   // SSECKey is the HTTP header key referencing the SSE-C client-provided key..
-	XSSECKeyMD5                                   = "-Server-Side-Encryption-Customer-Key-Md5"               // SSECKeyMD5 is the HTTP header key referencing the MD5 sum of the client-provided key.
-	XSSECopyAlgorithm                             = "-Copy-Source-Server-Side-Encryption-Customer-Algorithm" // SSECopyAlgorithm is the HTTP header key referencing the SSE-C algorithm for SSE-C copy requests.
-	XSSECopyKey                                   = "-Copy-Source-Server-Side-Encryption-Customer-Key"       // SSECopyKey is the HTTP header key referencing the SSE-C client-provided key for SSE-C copy requests.
-	XSSECopyKeyMD5                                = "-Copy-Source-Server-Side-Encryption-Customer-Key-Md5"   // SSECopyKeyMD5 is the HTTP header key referencing the MD5 sum of the client key for SSE-C copy requests.
-	XRestore                                      = "-Restore"
-	XForbidOverwrite                              = "-Forbid-Overwrite"
-	XCopySource                                   = "-Copy-Source"
-	XCopySourceRange                              = "-Copy-Source-Range"
-	XCopySourceIfModifiedSince                    = "-Copy-Source-If-Modified-Since"
-	XCopySourceIfUnmodifiedSince                  = "-Copy-Source-If-Unmodified-Since"
-	XCopySourceIfMatch                            = "-Copy-Source-If-Match"
-	XCopySourceIfNoneMatch                        = "-Copy-Source-If-None-Match"
-	XCopySourceVersionId                          = "-Copy-Source-Version-Id"
-	XRenameSourceKey                              = "-Rename-Source-Key"
-	XDecodedContentLength                         = "-Decoded-Content-Length"
-	XMetadataDirective                            = "-Metadata-Directive"
-	XVersionId                                    = "-Version-Id"
-	XNextAppendPosition                           = "-Next-Append-Position"
-	XDeleteMarker                                 = "-Delete-Marker"
-	XObjectType                                   = "-Object-Type"
-	XID2                                          = "-Id-2"
-	XRequestId                                    = "-Request-Id"
+	XContentSha                  GeneralFieldName = "-Content-Sha256"
+	XCredential                  GeneralFieldName = "-Credential"
+	XAlgorithm                   GeneralFieldName = "-Algorithm"
+	XACL                         GeneralFieldName = "-Acl"
+	XDate                        GeneralFieldName = "-Date"
+	XMeta                        GeneralFieldName = "-Meta"
+	XExpires                     GeneralFieldName = "-Expires"
+	XSignature                   GeneralFieldName = "-Signature"
+	XSignedHeaders               GeneralFieldName = "-SignedHeaders"
+	XSecurityToken               GeneralFieldName = "-Security-Token"
+	XStorageClass                GeneralFieldName = "-Storage-Class"
+	XServerSideEncryption        GeneralFieldName = "-Server-Side-Encryption"                                // ServerSideEncryption is the general AWS SSE HTTP header key.
+	XSSEKmsContext               GeneralFieldName = "-Context"                                               // SSEKmsContext is the HTTP header key referencing the SSE-KMS encryption context.
+	XSSECAlgorithm               GeneralFieldName = "-Server-Side-Encryption-Customer-Algorithm"             // SSECAlgorithm is the HTTP header key referencing the SSE-C algorithm.
+	XSSECKey                     GeneralFieldName = "-Server-Side-Encryption-Customer-Key"                   // SSECKey is the HTTP header key referencing the SSE-C client-provided key..
+	XSSECKeyMD5                  GeneralFieldName = "-Server-Side-Encryption-Customer-Key-Md5"               // SSECKeyMD5 is the HTTP header key referencing the MD5 sum of the client-provided key.
+	XSSECopyAlgorithm            GeneralFieldName = "-Copy-Source-Server-Side-Encryption-Customer-Algorithm" // SSECopyAlgorithm is the HTTP header key referencing the SSE-C algorithm for SSE-C copy requests.
+	XSSECopyKey                  GeneralFieldName = "-Copy-Source-Server-Side-Encryption-Customer-Key"       // SSECopyKey is the HTTP header key referencing the SSE-C client-provided key for SSE-C copy requests.
+	XSSECopyKeyMD5               GeneralFieldName = "-Copy-Source-Server-Side-Encryption-Customer-Key-Md5"   // SSECopyKeyMD5 is the HTTP header key referencing the MD5 sum of the client key for SSE-C copy requests.
+	XRestore                     GeneralFieldName = "-Restore"
+	XForbidOverwrite             GeneralFieldName = "-Forbid-Overwrite"
+	XCopySource                  GeneralFieldName = "-Copy-Source"
+	XCopySourceRange             GeneralFieldName = "-Copy-Source-Range"
+	XCopySourceIfModifiedSince   GeneralFieldName = "-Copy-Source-If-Modified-Since"
+	XCopySourceIfUnmodifiedSince GeneralFieldName = "-Copy-Source-If-Unmodified-Since"
+	XCopySourceIfMatch           GeneralFieldName = "-Copy-Source-If-Match"
+	XCopySourceIfNoneMatch       GeneralFieldName = "-Copy-Source-If-None-Match"
+	XCopySourceVersionId         GeneralFieldName = "-Copy-Source-Version-Id"
+	XRenameSourceKey             GeneralFieldName = "-Rename-Source-Key"
+	XDecodedContentLength        GeneralFieldName = "-Decoded-Content-Length"
+	XMetadataDirective           GeneralFieldName = "-Metadata-Directive"
+	XVersionId                   GeneralFieldName = "-Version-Id"
+	XNextAppendPosition          GeneralFieldName = "-Next-Append-Position"
+	XDeleteMarker                GeneralFieldName = "-Delete-Marker"
+	XObjectType                  GeneralFieldName = "-Object-Type"
+	XID2                         GeneralFieldName = "-Id-2"
+	XRequestId                   GeneralFieldName = "-Request-Id"
 )
 
 type SpecialFieldName string
 
 const (
 	SpecialName            SpecialFieldName = ""
-	AccessKeyId                             = "AccessKeyId"
-	SignV2Algorithm                         = ""
-	SignV4Algorithm                         = "4-HMAC-SHA256"
-	SignV4ChunkedAlgorithm                  = "4-HMAC-SHA256-PAYLOAD"
-	SignV4                                  = "4"
-	SignRequest                             = "4_request" // need strings.ToLower
-	Chunked                                 = "-chunked"
-	StreamingContentSHA256                  = "STREAMING"
-	SSEAlgorithmKMS                         = ":kms"        // SSEAlgorithmKMS is the value of 'X-***-Server-Side-Encryption' for SSE-KMS.
-	SSEKmsID                                = "-Kms-Key-Id" // SSEKmsID is the HTTP header key referencing the SSE-KMS key ID.
+	AccessKeyId            SpecialFieldName = "AccessKeyId"
+	SignV2Algorithm        SpecialFieldName = ""
+	SignV4Algorithm        SpecialFieldName = "4-HMAC-SHA256"
+	SignV4ChunkedAlgorithm SpecialFieldName = "4-HMAC-SHA256-PAYLOAD"
+	SignV4                 SpecialFieldName = "4"
+	SignRequest            SpecialFieldName = "4_request" // need strings.ToLower
+	Chunked                SpecialFieldName = "-chunked"
+	StreamingContentSHA256 SpecialFieldName = "STREAMING"
+	SSEAlgorithmKMS        SpecialFieldName = ":kms"        // SSEAlgorithmKMS is the value of 'X-***-Server-Side-Encryption' for SSE-KMS.
+	SSEKmsID               SpecialFieldName = "-Kms-Key-Id" // SSEKmsID is the HTTP header key referencing the SSE-KMS key ID.
 )
 
 type Brand interface {
