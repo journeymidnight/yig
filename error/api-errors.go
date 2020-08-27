@@ -123,6 +123,8 @@ const (
 	ErrMetadataHeader
 	ErrMaintenance
 	// Add new error codes here.
+	ErrCallBackFailed
+	ErrValidCallBackInfo
 
 	// SSE-S3 related API errors
 	ErrInvalidEncryptionMethod
@@ -197,9 +199,14 @@ const (
 	ErrMissingSSEAlgorithmOrKMSMasterKeyIDInEncryptionRule
 	ErrInvalidStatus
 	ErrInvalidRestoreInfo
+	ErrInvalidRestoreDate
 	ErrCreateRestoreObject
 	ErrInvalidGlacierObject
 	ErrInvalidStorageClassConvert
+	ErrInvalidCallbackParameter
+	ErrInvalidCallbackBodyParameter
+	ErrGetCallbackMagicParameter
+	ErrInvalidCallbackMagicImageType
 	ErrObjectMovedPermanently
 	ErrObjectMutexProtected
 	ErrRequestLimitExceeded
@@ -350,7 +357,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrForbiddenAccessKeyID: {
 		AwsErrorCode:   "ForbiddenAccessKeyID",
-		Description:    "The access key ID you provided has forbidden.",
+		Description:    "The access key ID you provided has been forbidden.",
 		HttpStatusCode: http.StatusForbidden,
 	},
 	ErrInvalidBucketName: {
@@ -410,7 +417,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrForbiddenOverwriteKey: {
 		AwsErrorCode:   "ForbiddenOverwriteKey",
-		Description:    "The specified key has forbidden overwrite.",
+		Description:    "The specified key has been forbidden overwrite.",
 		HttpStatusCode: http.StatusForbidden,
 	},
 	ErrNoSuchUpload: {
@@ -945,6 +952,12 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		Description:    "Defrost parameter setting error.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
+	ErrInvalidRestoreDate: {
+		AwsErrorCode:   "ErrInvalidRestoreDate",
+		Description:    "Wrong defrosting time, valid range 1-30 days.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+
 	ErrInvalidGlacierObject: {
 		AwsErrorCode:   "InvalidGlacierObject",
 		Description:    "Glacier objects need to be thawed before this operation can be performed.",
@@ -975,14 +988,44 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		Description:    "Temporary maintenance, please retry your request",
 		HttpStatusCode: http.StatusServiceUnavailable,
 	},
+	ErrCallBackFailed: {
+		AwsErrorCode:   "ErrCallBackFailed",
+		Description:    "File upload was successful, but the callback failed",
+		HttpStatusCode: http.StatusNonAuthoritativeInfo,
+	},
+	ErrValidCallBackInfo: {
+		AwsErrorCode:   "ErrValidCallBackInfo",
+		Description:    "File upload was successful, but the callback failed with wrong body values",
+		HttpStatusCode: http.StatusBadRequest,
+	},
 	ErrRequestLimitExceeded: {
 		AwsErrorCode:   "ErrRequestLimitExceeded",
 		Description:    "Request limit exceeded",
 		HttpStatusCode: http.StatusTooManyRequests,
 	},
 	ErrInvalidStorageClassConvert: {
-		AwsErrorCode:   "",
+		AwsErrorCode:   "InvalidStorageClassConvert",
 		Description:    "Glacier object cannot convert to another storage class.",
+		HttpStatusCode: http.StatusForbidden,
+	},
+	ErrInvalidCallbackParameter: {
+		AwsErrorCode:   "InvalidCallbackParameter",
+		Description:    "Request interface callback parameter error",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidCallbackBodyParameter: {
+		AwsErrorCode:   "InvalidCallbackBodyParameter",
+		Description:    "Request interface callback body parameter error",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrGetCallbackMagicParameter: {
+		AwsErrorCode:   "GetCallbackMagicParameter",
+		Description:    "Failed to get object magic parameter.",
+		HttpStatusCode: http.StatusInternalServerError,
+	},
+	ErrInvalidCallbackMagicImageType: {
+		AwsErrorCode:   "InvalidCallbackMagicImageType",
+		Description:    "The request to parse the image information failed, the image format is not supported.",
 		HttpStatusCode: http.StatusForbidden,
 	},
 }

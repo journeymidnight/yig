@@ -11,7 +11,7 @@ import (
 
 const pluginName = "dummy_iam"
 
-const ramPolicy = `{"Statement":[{"Principal":"*","Action":"s3:FullContorl","Effect":"Allow","Resource":"arn:aws:s3:::*"}],"Version":"2012-10-17"}`
+const ramPolicy = `{"Statement":[{"Principal":"*","Action":"s3:FullControl","Effect":"Allow","Resource":"arn:aws:s3:::*"}],"Version":"2012-10-17"}`
 
 //The variable MUST be named as Exported.
 //the code in yig-plugin will lookup this symbol

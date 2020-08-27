@@ -14,7 +14,7 @@ import (
 	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/storage"
-	"github.com/robfig/cron"
+	"github.com/robfig/cron/v3"
 
 	"os"
 	"os/signal"

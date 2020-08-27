@@ -774,19 +774,9 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 		CreateTime:           uint64(now.UnixNano()),
 	}
 	object.VersionId = object.GenVersionId(bucket.Versioning)
-	if object.StorageClass == ObjectStorageClassGlacier && bucket.Versioning != BucketVersioningEnabled {
-		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
-		if err == nil {
-			err = yig.MetaStorage.DeleteFreezer(freezer)
-			if err != nil {
-				return result, err
-			}
-		} else if err != ErrNoSuchKey {
-			return result, err
-		}
-	}
 
 	result.LastModified = object.LastModifiedTime
+	result.ObjectSize = object.Size
 	if object.VersionId != meta.NullVersion {
 		result.VersionId = object.VersionId
 	}
@@ -1002,151 +992,153 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 		return result, nil
 	}
 
-	// Limit the reader to its provided size if specified.
-	var limitedDataReader io.Reader
-	limitedDataReader = io.LimitReader(source, targetObject.Size)
+	if !helper.CONFIG.RestoreMigratesFile && !isTranStorageClassOnly {
+		// Limit the reader to its provided size if specified.
+		var limitedDataReader io.Reader
+		limitedDataReader = io.LimitReader(source, targetObject.Size)
 
-	cephCluster, poolName := yig.pickClusterAndPool(targetObject.BucketName,
-		targetObject.Name, targetObject.StorageClass, targetObject.Size, false)
+		cephCluster, poolName := yig.pickClusterAndPool(targetObject.BucketName,
+			targetObject.Name, targetObject.StorageClass, targetObject.Size, false)
 
-	if len(targetObject.Parts) != 0 {
-		var targetParts = make(map[int]*meta.Part, len(targetObject.Parts))
-		//		etaglist := make([]string, len(sourceObject.Parts))
-		for i := 1; i <= len(targetObject.Parts); i++ {
-			part := targetObject.Parts[i]
-			targetParts[i] = part
-			result, err = func() (result PutObjectResult, err error) {
-				result.DeltaInfo = make(map[StorageClass]int64)
-				pr, pw := io.Pipe()
-				defer pr.Close()
-				var total = part.Size
-				go func() {
-					_, err = io.CopyN(pw, source, total)
-					if err != nil {
-						return
+		if len(targetObject.Parts) != 0 {
+			var targetParts = make(map[int]*meta.Part, len(targetObject.Parts))
+			//		etaglist := make([]string, len(sourceObject.Parts))
+			for i := 1; i <= len(targetObject.Parts); i++ {
+				part := targetObject.Parts[i]
+				targetParts[i] = part
+				result, err = func() (result PutObjectResult, err error) {
+					result.DeltaInfo = make(map[StorageClass]int64)
+					pr, pw := io.Pipe()
+					defer pr.Close()
+					var total = part.Size
+					go func() {
+						_, err = io.CopyN(pw, source, total)
+						if err != nil {
+							return
+						}
+						pw.Close()
+					}()
+					md5Writer := md5.New()
+					dataReader := io.TeeReader(pr, md5Writer)
+					var bytesW uint64
+					var storageReader io.Reader
+					var initializationVector []byte
+					if len(encryptionKey) != 0 {
+						initializationVector, err = newInitializationVector()
+						if err != nil {
+							return
+						}
 					}
-					pw.Close()
+					storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
+					throttleReader := yig.MetaStorage.QosMeta.NewThrottleReader(targetBucket.Name, storageReader)
+					defer throttleReader.Close()
+					oid, bytesW, err = cephCluster.Put(poolName, throttleReader)
+					maybeObjectToRecycle = objectToRecycle{
+						location:   cephCluster.ID(),
+						pool:       poolName,
+						objectId:   oid,
+						objectType: meta.ObjectTypeMultipart,
+					}
+					if bytesW < uint64(part.Size) {
+						RecycleQueue <- maybeObjectToRecycle
+						helper.Logger.Error("Copy part", i, "error:", bytesW, part.Size)
+						return result, ErrIncompleteBody
+					}
+					if err != nil {
+						return result, err
+					}
+					calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
+					//we will only chack part etag,overall etag will be same if each part of etag is same
+					if calculatedMd5 != part.Etag {
+						err = ErrInternalError
+						RecycleQueue <- maybeObjectToRecycle
+						return result, err
+					}
+					part.LastModified = time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT)
+					part.ObjectId = oid
+
+					part.InitializationVector = initializationVector
+					return result, nil
 				}()
-				md5Writer := md5.New()
-				dataReader := io.TeeReader(pr, md5Writer)
-				var bytesW uint64
-				var storageReader io.Reader
-				var initializationVector []byte
-				if len(encryptionKey) != 0 {
-					initializationVector, err = newInitializationVector()
-					if err != nil {
-						return
-					}
-				}
-				storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
-				throttleReader := yig.MetaStorage.QosMeta.NewThrottleReader(targetBucket.Name, storageReader)
-				defer throttleReader.Close()
-				oid, bytesW, err = cephCluster.Put(poolName, throttleReader)
-				maybeObjectToRecycle = objectToRecycle{
-					location:   cephCluster.ID(),
-					pool:       poolName,
-					objectId:   oid,
-					objectType: meta.ObjectTypeMultipart,
-				}
-				if bytesW < uint64(part.Size) {
-					RecycleQueue <- maybeObjectToRecycle
-					helper.Logger.Error("Copy part", i, "error:", bytesW, part.Size)
-					return result, ErrIncompleteBody
-				}
 				if err != nil {
 					return result, err
 				}
-				calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
-				//we will only chack part etag,overall etag will be same if each part of etag is same
-				if calculatedMd5 != part.Etag {
-					err = ErrInternalError
-					RecycleQueue <- maybeObjectToRecycle
-					return result, err
-				}
-				part.LastModified = time.Now().UTC().Format(meta.CREATE_TIME_LAYOUT)
-				part.ObjectId = oid
-
-				part.InitializationVector = initializationVector
-				return result, nil
-			}()
-			if err != nil {
-				return result, err
 			}
-		}
-		targetObject.ObjectId = ""
-		targetObject.Parts = targetParts
-		result.Md5 = targetObject.Etag
-	} else {
-		md5Writer := md5.New()
+			targetObject.ObjectId = ""
+			targetObject.Parts = targetParts
+			result.Md5 = targetObject.Etag
+		} else {
+			md5Writer := md5.New()
 
-		// Mapping a shorter name for the object
-		dataReader := io.TeeReader(limitedDataReader, md5Writer)
-		var storageReader io.Reader
-		var initializationVector []byte
-		if len(encryptionKey) != 0 {
-			initializationVector, err = newInitializationVector()
+			// Mapping a shorter name for the object
+			dataReader := io.TeeReader(limitedDataReader, md5Writer)
+			var storageReader io.Reader
+			var initializationVector []byte
+			if len(encryptionKey) != 0 {
+				initializationVector, err = newInitializationVector()
+				if err != nil {
+					return
+				}
+			}
+			storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
 			if err != nil {
 				return
 			}
-		}
-		storageReader, err = wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
-		if err != nil {
-			return
-		}
-		var bytesWritten uint64
-		throttleReader := yig.MetaStorage.QosMeta.NewThrottleReader(targetBucket.Name, storageReader)
-		defer throttleReader.Close()
-		oid, bytesWritten, err = cephCluster.Put(poolName, throttleReader)
-		if err != nil {
-			return
-		}
-		// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
-		// so the object in Ceph could be removed asynchronously
-		maybeObjectToRecycle = objectToRecycle{
-			location:   cephCluster.ID(),
-			pool:       poolName,
-			objectId:   oid,
-			objectType: meta.ObjectTypeNormal,
-		}
-		if int64(bytesWritten) < targetObject.Size {
-			RecycleQueue <- maybeObjectToRecycle
-			helper.Logger.Error("Copy ", "error:", bytesWritten, targetObject.Size)
-			return result, ErrIncompleteBody
-		}
+			var bytesWritten uint64
+			throttleReader := yig.MetaStorage.QosMeta.NewThrottleReader(targetBucket.Name, storageReader)
+			defer throttleReader.Close()
+			oid, bytesWritten, err = cephCluster.Put(poolName, throttleReader)
+			if err != nil {
+				return
+			}
+			// Should metadata update failed, add `maybeObjectToRecycle` to `RecycleQueue`,
+			// so the object in Ceph could be removed asynchronously
+			maybeObjectToRecycle = objectToRecycle{
+				location:   cephCluster.ID(),
+				pool:       poolName,
+				objectId:   oid,
+				objectType: meta.ObjectTypeNormal,
+			}
+			if int64(bytesWritten) < targetObject.Size {
+				RecycleQueue <- maybeObjectToRecycle
+				helper.Logger.Error("Copy ", "error:", bytesWritten, targetObject.Size)
+				return result, ErrIncompleteBody
+			}
 
-		calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
-		if calculatedMd5 != targetObject.Etag {
-			RecycleQueue <- maybeObjectToRecycle
-			return result, ErrBadDigest
+			calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
+			if calculatedMd5 != targetObject.Etag {
+				RecycleQueue <- maybeObjectToRecycle
+				return result, ErrBadDigest
+			}
+			result.Md5 = calculatedMd5
+			targetObject.ObjectId = oid
+			targetObject.InitializationVector = initializationVector
 		}
-		result.Md5 = calculatedMd5
-		targetObject.ObjectId = oid
-		targetObject.InitializationVector = initializationVector
+		// TODO validate bucket policy and fancy ACL
+
+		targetObject.Location = cephCluster.ID()
+		targetObject.Pool = poolName
+		targetObject.OwnerId = credential.ExternRootId
+		targetObject.NullVersion = helper.Ternary(targetBucket.Versioning == BucketVersioningEnabled, false, true).(bool)
+		targetObject.DeleteMarker = false
+		targetObject.SseType = sseRequest.Type
+		targetObject.EncryptionKey = helper.Ternary(sseRequest.Type == crypto.S3.String(),
+			cipherKey, []byte("")).([]byte)
+		targetObject.LastModifiedTime = time.Now().UTC()
 	}
-	// TODO validate bucket policy and fancy ACL
-
-	targetObject.Location = cephCluster.ID()
-	targetObject.Pool = poolName
-	targetObject.OwnerId = credential.ExternRootId
-	targetObject.NullVersion = helper.Ternary(targetBucket.Versioning == BucketVersioningEnabled, false, true).(bool)
-	targetObject.DeleteMarker = false
-	targetObject.SseType = sseRequest.Type
-	targetObject.EncryptionKey = helper.Ternary(sseRequest.Type == crypto.S3.String(),
-		cipherKey, []byte("")).([]byte)
-	targetObject.LastModifiedTime = time.Now().UTC()
-	targetObject.CreateTime = uint64(targetObject.LastModifiedTime.UnixNano())
 	if isTranStorageClassOnly {
+		targetObject.LastModifiedTime = sourceObject.LastModifiedTime
 		targetObject.VersionId = sourceObject.VersionId
+		targetObject.CreateTime = sourceObject.CreateTime
 	} else {
+		targetObject.LastModifiedTime = time.Now().UTC()
 		targetObject.VersionId = targetObject.GenVersionId(targetBucket.Versioning)
+		targetObject.CreateTime = uint64(targetObject.LastModifiedTime.UnixNano())
 	}
 
 	result.LastModified = targetObject.LastModifiedTime
-	// Non-glacier object to glacier object with same object name and bucket name
-	if targetObject.StorageClass == ObjectStorageClassGlacier && targetObject.Name == sourceObject.Name && targetObject.BucketName == sourceObject.BucketName {
-		targetObject.LastModifiedTime = sourceObject.LastModifiedTime
-		result.LastModified = targetObject.LastModifiedTime
-		targetObject.CreateTime = sourceObject.CreateTime
+	// Non-glacier object to glacier object with real migrates file
+	if isTranStorageClassOnly && helper.CONFIG.RestoreMigratesFile {
 		err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject)
 		result.DeltaInfo[sourceObject.StorageClass] -= sourceObject.Size
 		result.DeltaInfo[targetObject.StorageClass] += targetObject.Size
@@ -1461,6 +1453,23 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 		}
 	}
 
+	if object != nil {
+		if object.StorageClass == ObjectStorageClassGlacier {
+			if bucket.Versioning == BucketVersioningDisabled ||
+				(bucket.Versioning == BucketVersioningEnabled && object.VersionId != "") {
+				freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
+				if err == nil {
+					err = yig.MetaStorage.DeleteFreezer(freezer)
+					if err != nil {
+						return result, err
+					}
+				} else if err != ErrNoSuchKey {
+					return result, err
+				}
+			}
+		}
+	}
+
 	switch bucket.Versioning {
 	case BucketVersioningDisabled:
 		if reqVersion != "" && reqVersion != meta.NullVersion {
@@ -1645,6 +1654,22 @@ func (yig *YigStorage) DeleteObjects(reqCtx RequestContext, credential common.Cr
 
 	deleteFunc := func(object *meta.Object, tx driver.Tx) (result DeleteObjectResult, err error) {
 		bucketName, objectName, version := bucket.Name, object.Name, object.VersionId
+		if object != nil {
+			if object.StorageClass == ObjectStorageClassGlacier {
+				if bucket.Versioning == BucketVersioningDisabled ||
+					(bucket.Versioning == BucketVersioningEnabled && object.VersionId != "") {
+					freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
+					if err == nil {
+						err = yig.MetaStorage.DeleteFreezer(freezer)
+						if err != nil {
+							return result, err
+						}
+					} else if err != ErrNoSuchKey {
+						return result, err
+					}
+				}
+			}
+		}
 		switch bucket.Versioning {
 		case BucketVersioningDisabled:
 			if version != "" && version != meta.NullVersion {

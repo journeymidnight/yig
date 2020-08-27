@@ -2,9 +2,11 @@ package meta
 
 import (
 	. "database/sql/driver"
+	"github.com/journeymidnight/yig/helper"
+
+	"time"
 
 	"github.com/journeymidnight/yig/meta/common"
-
 	"github.com/journeymidnight/yig/meta/types"
 )
 
@@ -13,11 +15,33 @@ func (m *Meta) CreateFreezer(freezer *types.Freezer) error {
 }
 
 func (m *Meta) GetFreezer(bucketName string, objectName string, version string) (freezer *types.Freezer, err error) {
-	return m.Client.GetFreezer(bucketName, objectName, version)
+	freezer, err = m.Client.GetFreezer(bucketName, objectName, version)
+	if err != nil {
+		return nil, err
+	}
+	// Fake Thaw Simulation
+	if !helper.CONFIG.RestoreMigratesFile {
+		timeNow := time.Now().UTC()
+		if freezer.LastModifiedTime.UnixNano() > timeNow.UnixNano() {
+			freezer.Status = common.ObjectRestoring
+		}
+	}
+	return
 }
 
 func (m *Meta) GetFreezerStatus(bucketName string, objectName string, version string) (freezer *types.Freezer, err error) {
-	return m.Client.GetFreezerStatus(bucketName, objectName, version)
+	freezer, err = m.Client.GetFreezerStatus(bucketName, objectName, version)
+	if err != nil {
+		return nil, err
+	}
+	// Fake Thaw Simulation
+	if !helper.CONFIG.RestoreMigratesFile {
+		timeNow := time.Now()
+		if freezer.LastModifiedTime.UnixNano() > timeNow.UnixNano() {
+			freezer.Status = common.ObjectRestoring
+		}
+	}
+	return
 }
 
 func (m *Meta) UpdateFreezerDate(freezer *types.Freezer) error {
@@ -44,9 +68,11 @@ func (m *Meta) DeleteFreezer(freezer *types.Freezer) (err error) {
 		return err
 	}
 
-	err = m.PutFreezerToGarbageCollection(freezer)
-	if err != nil {
-		return err
+	if helper.CONFIG.RestoreMigratesFile {
+		err = m.PutFreezerToGarbageCollection(freezer)
+		if err != nil {
+			return err
+		}
 	}
 
 	return err

@@ -23,7 +23,7 @@ import (
 	"github.com/journeymidnight/yig/mods"
 )
 
-const RootPolicy = `{"Statement":[{"Principal":"*","Action":"s3:FullContorl","Effect":"Allow","Resource":"arn:aws:s3:::*"}],"Version":"2012-10-17"}`
+const RootPolicy = `{"Statement":[{"Principal":"*","Action":"s3:FullControl","Effect":"Allow","Resource":"arn:aws:s3:::*"}],"Version":"2012-10-17"}`
 
 type AccessKeyItemList struct {
 	Page    int             `json:"page"`
