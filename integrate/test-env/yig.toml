@@ -77,6 +77,9 @@ default_bandwidth_kbps = 102400 # 100MB
 # Ceph Config
 ceph_config_pattern = "/etc/ceph/*.conf"
 
+# Restore Mode
+restore_migrates_file = false
+
 # Plugin Config
 [plugins.dummy_encryption_kms]
 path = "/etc/yig/plugins/dummy_kms_plugin.so"

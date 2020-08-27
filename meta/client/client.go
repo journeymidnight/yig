@@ -70,8 +70,7 @@ type Client interface {
 	GetFreezerStatus(bucketName, objectName, version string) (freezer *Freezer, err error)
 	UpdateFreezerDate(bucketName, objectName, version string, lifetime int) (err error)
 	DeleteFreezer(bucketName, objectName, versionId string, objectType ObjectType, createTime uint64, tx Tx) (err error)
-	ListFreezers(maxKeys int) (retFreezers []Freezer, err error)
-	ListFreezersNeedContinue(maxKeys int, status common.RestoreStatus) (retFreezers []Freezer, err error)
+	ListFreezersWithStatus(maxKeys int, status common.RestoreStatus) (retFreezers []Freezer, err error)
 	PutFreezer(freezer *Freezer, status common.RestoreStatus, tx Tx) (err error)
 	UpdateFreezerStatus(bucketName, objectName, version string, status, statusSetting common.RestoreStatus) (err error)
 

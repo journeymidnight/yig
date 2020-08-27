@@ -22,7 +22,7 @@ func (t *TidbClient) CreateFreezer(freezer *Freezer) (err error) {
 func (t *TidbClient) GetFreezer(bucketName, objectName, version string) (freezer *Freezer, err error) {
 	var lastmodifiedtime string
 	var iversion uint64
-	sqltext := "select bucketname,objectname,version,status,lifetime,lastmodifiedtime,IFNULL(location,''),IFNULL(pool,''),IFNULL(ownerid,''),IFNULL(size,'0'),IFNULL(objectid,''),IFNULL(etag,''),type,createtime " +
+	sqltext := "select bucketname,objectname,version,status,lifetime,lastmodifiedtime,IFNULL(location,''),IFNULL(pool,''),IFNULL(size,'0'),IFNULL(objectid,''),type,createtime " +
 		"from restoreobjects where bucketname=? and objectname=? and version=?;"
 	row := t.Client.QueryRow(sqltext, bucketName, objectName, version)
 	freezer = &Freezer{}
@@ -35,10 +35,8 @@ func (t *TidbClient) GetFreezer(bucketName, objectName, version string) (freezer
 		&lastmodifiedtime,
 		&freezer.Location,
 		&freezer.Pool,
-		&freezer.OwnerId,
 		&freezer.Size,
 		&freezer.ObjectId,
-		&freezer.Etag,
 		&freezer.Type,
 		&freezer.CreateTime,
 	)
@@ -147,54 +145,38 @@ func (t *TidbClient) DeleteFreezerPart(bucketName, objectName string, createTime
 	return nil
 }
 
-func (t *TidbClient) ListFreezers(maxKeys int) (retFreezers []Freezer, err error) {
-	var count int
-	var marker string
+func (t *TidbClient) ListFreezersWithStatus(maxKeys int, status common.RestoreStatus) (retFreezers []Freezer, err error) {
 	var lastmodifidtime string
-	marker = ""
-	for {
-		if marker == "" {
-			count = 0
-		}
-		var loopCount int
-		loopCount = 0
-		var sqltext string
-		var rows *sql.Rows
-		if marker == "" {
-			sqltext = "select bucketname,objectname,version,status,lifetime,lastmodifiedtime,type,createtime from restoreobjects order by bucketname,objectname,version limit ?;"
-			rows, err = t.Client.Query(sqltext, maxKeys)
-		} else {
-			sqltext = "select bucketname,objectname,version,status,lifetime,lastmodifiedtime,type,createtime from restoreobjects where name >=? order by bucketname,objectname,version limit ?,?;"
-			rows, err = t.Client.Query(sqltext, marker, count-1, count+maxKeys)
-		}
+	var sqlText string
+	var rows *sql.Rows
+	if maxKeys != -1 {
+		sqlText = "bucketname,objectname,version,lifetime,lastmodifiedtime,type,createtime from restoreobjects where status=? order by bucketname,objectname,version;"
+		rows, err = t.Client.Query(sqlText, status)
+	} else {
+		sqlText = "bucketname,objectname,version,lifetime,lastmodifiedtime,type,createtime from restoreobjects where status=? order by bucketname,objectname,version limit ?;"
+		rows, err = t.Client.Query(sqlText, status, maxKeys)
+	}
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		retFreezer := &Freezer{}
+		err = rows.Scan(
+			&retFreezer.BucketName,
+			&retFreezer.Name,
+			&retFreezer.VersionId,
+			&retFreezer.Status,
+			&retFreezer.LifeTime,
+			&lastmodifidtime,
+			&retFreezer.Type,
+			&retFreezer.CreateTime,
+		)
 		if err != nil {
 			return
 		}
-		defer rows.Close()
-		for rows.Next() {
-			count += 1
-			loopCount += 1
-			retFreezer := &Freezer{}
-			err = rows.Scan(
-				&retFreezer.BucketName,
-				&retFreezer.Name,
-				&retFreezer.VersionId,
-				&retFreezer.Status,
-				&retFreezer.LifeTime,
-				&lastmodifidtime,
-				&retFreezer.Type,
-				&retFreezer.CreateTime,
-			)
-			if err != nil {
-				return
-			}
-			retFreezer.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastmodifidtime)
-			retFreezers = append(retFreezers, *retFreezer)
-			marker = retFreezer.Name
-		}
-		if loopCount < maxKeys {
-			break
-		}
+		retFreezer.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastmodifidtime)
+		retFreezers = append(retFreezers, *retFreezer)
 	}
 	return
 }
@@ -238,57 +220,6 @@ func (t *TidbClient) UpdateFreezerStatus(bucketName, objectName, version string,
 		return err
 	}
 	return nil
-}
-
-func (t *TidbClient) ListFreezersNeedContinue(maxKeys int, status common.RestoreStatus) (retFreezers []Freezer, err error) {
-	var count int
-	var marker string
-	marker = ""
-	for {
-		if marker == "" {
-			count = 0
-		}
-		var loopCount int
-		loopCount = 0
-		var sqltext string
-		var rows *sql.Rows
-		if marker == "" {
-			sqltext = "select bucketname,objectname,version,lifetime,lastmodifiedtime,type,createtime from restoreobjects where status=? order by bucketname,objectname,version limit ?;"
-			rows, err = t.Client.Query(sqltext, status, maxKeys)
-		} else {
-			sqltext = "select bucketname,objectname,version,lifetime,lastmodifiedtime,type,createtime from restoreobjects where name >=? and status=? order by bucketname,objectname,version limit ?,?;"
-			rows, err = t.Client.Query(sqltext, marker, status, count-1, count+maxKeys)
-		}
-		if err != nil {
-			return
-		}
-		defer rows.Close()
-		for rows.Next() {
-			count += 1
-			loopCount += 1
-			var lastmodifidtime string
-			retFreezer := &Freezer{}
-			err = rows.Scan(
-				&retFreezer.BucketName,
-				&retFreezer.Name,
-				&retFreezer.VersionId,
-				&retFreezer.LifeTime,
-				&lastmodifidtime,
-				&retFreezer.Type,
-				&retFreezer.CreateTime,
-			)
-			if err != nil {
-				return
-			}
-			retFreezer.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastmodifidtime)
-			retFreezers = append(retFreezers, *retFreezer)
-			marker = retFreezer.Name
-		}
-		if loopCount < maxKeys {
-			break
-		}
-	}
-	return
 }
 
 //common function

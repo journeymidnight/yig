@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"encoding/xml"
+	"github.com/journeymidnight/yig/log"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -253,8 +254,6 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			WriteErrorResponse(w, r, ErrInvalidGlacierObject)
 			return
 		}
-		object.Etag = freezer.Etag
-		object.Size = freezer.Size
 		object.Parts = freezer.Parts
 		object.Pool = freezer.Pool
 		object.Location = freezer.Location
@@ -399,7 +398,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 			WriteErrorResponse(w, r, err)
 			return
 		}
-		if freezer.Status == ObjectHasRestored {
+		if freezer != nil && freezer.Status == ObjectHasRestored {
 			w.Header().Set("x-amz-restore", "ongoing-request='true'")
 		} else {
 			w.Header().Set("x-amz-restore", "ongoing-request='false'")
@@ -597,7 +596,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var isMetadataOnly bool
+	var isMetadataOnly, isTranStorageClassOnly bool
 
 	// If the object metadata is modified or the object storage type is converted, the following conditions are met
 	// For non-archive storage object modification metadata and type conversion, no copy operation is required
@@ -613,9 +612,38 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		if sourceObject.StorageClass != ObjectStorageClassGlacier && targetStorageClass == ObjectStorageClassGlacier {
 			isMetadataOnly = false
 		}
+		if sourceObject.StorageClass != targetStorageClass && targetBucket.Versioning != BucketVersioningEnabled {
+			isTranStorageClassOnly = true
+		}
 	}
 
 	truelySourceObject := sourceObject
+	if sourceObject.StorageClass == ObjectStorageClassGlacier {
+		// When only modifying object metadata, there is no need to unfreeze the object
+		if !isMetadataOnly {
+			freezer, err := api.ObjectAPI.GetFreezer(sourceBucketName, sourceObjectName, sourceObject.VersionId)
+			if err != nil {
+				if err == ErrNoSuchKey {
+					logger.Error("Unable to get glacier object with no restore")
+					WriteErrorResponse(w, r, ErrInvalidGlacierObject)
+					return
+				}
+				logger.Error("Unable to get glacier object info err:", err)
+				WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
+				return
+			}
+			if freezer.Status != ObjectHasRestored {
+				logger.Error("Unable to get glacier object with no restore")
+				WriteErrorResponse(w, r, ErrInvalidGlacierObject)
+				return
+			}
+			sourceObject.Parts = freezer.Parts
+			sourceObject.PartsIndex = freezer.PartsIndex
+			sourceObject.Pool = freezer.Pool
+			sourceObject.Location = freezer.Location
+			sourceObject.ObjectId = freezer.ObjectId
+		}
+	}
 
 	// maximum Upload size for object in a single CopyObject operation.
 	if isMaxObjectSize(sourceObject.Size) {
@@ -644,6 +672,9 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	targetObject.Location = sourceObject.Location
 	targetObject.StorageClass = targetStorageClass
 	targetObject.CreateTime = uint64(time.Now().UnixNano())
+	targetObject.SseType = sourceObject.SseType
+	targetObject.EncryptionKey = sourceObject.EncryptionKey
+	targetObject.InitializationVector = sourceObject.InitializationVector
 
 	directive := r.Header.Get("X-Amz-Metadata-Directive")
 	if directive == "COPY" || directive == "" {
@@ -679,7 +710,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	// Create the object.
-	result, err := api.ObjectAPI.CopyObject(reqCtx, targetObject, truelySourceObject, pipeReader, credential, sseRequest, isMetadataOnly, false)
+	result, err := api.ObjectAPI.CopyObject(reqCtx, targetObject, truelySourceObject, pipeReader, credential, sseRequest, isMetadataOnly, isTranStorageClassOnly)
 	if err != nil {
 		logger.Error("CopyObject failed:", err)
 		WriteErrorResponse(w, r, err)
@@ -956,6 +987,31 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		logger.Error("Unable to create object", reqCtx.ObjectName, "error:", err)
 		WriteErrorResponse(w, r, err)
 		return
+	}
+
+	isCallback, callbackMessage, err := GetCallbackFromHeader(r.Header)
+	if err != nil {
+		logger.Warn("Unable to get callback info with PutObject request:", reqCtx.ObjectName, "error:", err)
+		WriteErrorResponse(w, r, err)
+		return
+	}
+	if isCallback {
+		callbackMagicInfos := CallBackMagicInfos{
+			BucketName: reqCtx.BucketName,
+			FileName:   reqCtx.ObjectName,
+			VersionId:  reqCtx.VersionId,
+			Etag:       result.Md5,
+			ObjectSize: result.ObjectSize,
+			MimeType:   metadata["Content-Type"],
+			CreateTime: uint64(result.LastModified.UnixNano() / 1e6),
+		}
+		callbackMessage.Credential = credential
+		resultCallback, err := api.CallbackProcess(callbackMagicInfos, callbackMessage, logger, credential)
+		if err != nil {
+			WriteErrorResponse(w, r, err)
+			return
+		}
+		w.Header().Add("x-uos-callback-result", resultCallback)
 	}
 
 	if result.Md5 != "" {
@@ -1300,7 +1356,9 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 
 		lifeTime := info.Days
 		if lifeTime < 1 || lifeTime > 30 {
-			lifeTime = 1
+			logger.Warn("The user has set the wrong defrost time")
+			WriteErrorResponse(w, r, ErrInvalidRestoreDate)
+			return
 		}
 
 		targetFreezer := &meta.Freezer{}
@@ -1311,7 +1369,16 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		targetFreezer.Type = object.Type
 		targetFreezer.CreateTime = object.CreateTime
 		targetFreezer.VersionId = object.VersionId
-		err = api.ObjectAPI.CreateFreezer(targetFreezer)
+		if helper.CONFIG.RestoreMigratesFile {
+			err = api.ObjectAPI.CreateFreezer(targetFreezer)
+		} else {
+			targetFreezer.Pool = object.Pool
+			targetFreezer.Location = object.Location
+			targetFreezer.ObjectId = object.ObjectId
+			targetFreezer.Parts = object.Parts
+			targetFreezer.PartsIndex = object.PartsIndex
+			err = api.ObjectAPI.RestoreObject(targetFreezer)
+		}
 		if err != nil {
 			logger.Error("Unable to create freezer:", err)
 			WriteErrorResponse(w, r, ErrCreateRestoreObject)
@@ -1328,6 +1395,11 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 	if freezer.Status == ObjectHasRestored {
 		err = api.ObjectAPI.UpdateFreezerDate(freezer, info.Days, true)
 		if err != nil {
+			if err == ErrInvalidRestoreDate {
+				logger.Warn("The user has set the wrong defrost time")
+				WriteErrorResponse(w, r, err)
+				return
+			}
 			logger.Error("Unable to Update freezer date:", err)
 			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
 			return
@@ -1340,6 +1412,11 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		if freezer.LifeTime != info.Days {
 			err = api.ObjectAPI.UpdateFreezerDate(freezer, info.Days, false)
 			if err != nil {
+				if err == ErrInvalidRestoreDate {
+					logger.Warn("The user has set the wrong defrost time")
+					WriteErrorResponse(w, r, err)
+					return
+				}
 				logger.Error("Unable to Update freezer date:", err)
 				WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
 				return
@@ -1747,7 +1824,6 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 			err = ErrInvalidGlacierObject
 			return
 		}
-		sourceObject.Etag = freezer.Etag
 		sourceObject.Size = freezer.Size
 		sourceObject.Parts = freezer.Parts
 		sourceObject.Pool = freezer.Pool
@@ -1962,6 +2038,31 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 		return
 	}
 
+	isCallback, callbackMessage, err := GetCallbackFromHeader(r.Header)
+	if err != nil {
+		logger.Warn("Unable to get callback info with Complete multipart upload request:", reqCtx.ObjectName, "error:", err)
+		WriteErrorResponse(w, r, err)
+		return
+	}
+	if isCallback {
+		callbackMagicInfos := CallBackMagicInfos{
+			BucketName: reqCtx.BucketName,
+			FileName:   reqCtx.ObjectName,
+			VersionId:  reqCtx.VersionId,
+			Etag:       result.ETag,
+			ObjectSize: result.ObjectSize,
+			MimeType:   result.ContentType,
+			CreateTime: result.CreateTime / 1e6,
+		}
+		callbackMessage.Credential = credential
+		resultCallback, err := api.CallbackProcess(callbackMagicInfos, callbackMessage, logger, credential)
+		if err != nil {
+			WriteErrorResponse(w, r, err)
+			return
+		}
+		w.Header().Add("x-uos-callback-result", resultCallback)
+	}
+
 	// Get object location.
 	location := GetLocation(r)
 	// Generate complete multipart response.
@@ -2150,6 +2251,32 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		WriteErrorResponse(w, r, err)
 		return
 	}
+
+	isCallback, callbackMessage, err := GetCallbackFromForm(formValues)
+	if err != nil {
+		logger.Warn("Unable to get callback info with Complete multipart upload request:", reqCtx.ObjectName, "error:", err)
+		WriteErrorResponse(w, r, err)
+		return
+	}
+	if isCallback {
+		callbackMagicInfos := CallBackMagicInfos{
+			BucketName: bucketName,
+			FileName:   objectName,
+			VersionId:  reqCtx.VersionId,
+			Etag:       result.Md5,
+			ObjectSize: result.ObjectSize,
+			MimeType:   metadata["Content-Type"],
+			CreateTime: uint64(result.LastModified.UnixNano() / 1e6),
+		}
+		callbackMessage.Credential = credential
+		resultCallback, err := api.CallbackProcess(callbackMagicInfos, callbackMessage, logger, credential)
+		if err != nil {
+			WriteErrorResponse(w, r, err)
+			return
+		}
+		w.Header().Add("x-uos-callback-result", resultCallback)
+	}
+
 	if result.Md5 != "" {
 		w.Header().Set("ETag", "\""+result.Md5+"\"")
 	}
@@ -2194,4 +2321,49 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 
 		w.Write(encodedSuccessResponse)
 	}
+}
+
+func (api ObjectAPIHandlers) CallbackProcess(callbackMagicInfos CallBackMagicInfos, callbackMessage CallBackMessage, logger log.Logger, credential common.Credential) (result string, err error) {
+	isNeedImageInfo, err := callbackMessage.IsCallbackImgNeedParse(callbackMagicInfos.MimeType, callbackMagicInfos.FileName)
+	if err != nil {
+		logger.Warn("Error callback image type with Complete multipart upload request:", callbackMagicInfos.FileName, "error:", err)
+		return "", err
+	}
+	if isNeedImageInfo {
+		objectInfo, err := api.ObjectAPI.GetObjectInfo(callbackMagicInfos.BucketName, callbackMagicInfos.FileName, callbackMagicInfos.VersionId, credential)
+		if err != nil {
+			logger.Warn("Complete multipart upload with callback failed get object info:", err)
+			return "", ErrCallBackFailed
+		}
+		startOffset := int64(0)
+		length := objectInfo.Size
+		sse := SseRequest{
+			Type: objectInfo.SseType,
+		}
+		pipeReader, pipeWriter := io.Pipe()
+		go func() {
+			err = api.ObjectAPI.GetObject(objectInfo, startOffset, length, pipeWriter, sse)
+			if err != nil {
+				logger.Warn("Complete multipart upload with callback failed get object info:", err)
+				pipeWriter.CloseWithError(err)
+				return
+			}
+			pipeWriter.Close()
+		}()
+		callbackMagicInfos.Height, callbackMagicInfos.Width, callbackMagicInfos.Format, err = GetImageInfoFromReader(pipeReader)
+		if err != nil {
+			return "", err
+		}
+	}
+	callbackMessage, err = ParseCallbackInfos(callbackMagicInfos, callbackMessage)
+	if err != nil {
+		logger.Warn("PostObject with Callback err : Get callback info error")
+		return "", err
+	}
+	result, err = PostCallbackMessage(callbackMessage)
+	if err != nil {
+		logger.Warn("PostObject with Callback err")
+		return "", err
+	}
+	return
 }
