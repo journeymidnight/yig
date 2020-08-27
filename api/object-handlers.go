@@ -2255,7 +2255,7 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 			Etag:       result.Md5,
 			ObjectSize: result.ObjectSize,
 			MimeType:   metadata["Content-Type"],
-			CreateTime: uint64(result.LastModified.Unix() / 1e6),
+			CreateTime: uint64(result.LastModified.UnixNano() / 1e6),
 		}
 		callbackMessage.Credential = credential
 		resultCallback, err := api.CallbackProcess(callbackMagicInfos, callbackMessage, logger, credential)
