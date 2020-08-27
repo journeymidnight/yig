@@ -604,7 +604,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		if sourceObject.StorageClass != ObjectStorageClassGlacier && targetStorageClass == ObjectStorageClassGlacier {
 			isMetadataOnly = false
 		}
-		if sourceObject.StorageClass != targetStorageClass {
+		if sourceObject.StorageClass != targetStorageClass && targetBucket.Versioning != BucketVersioningEnabled {
 			isTranStorageClassOnly = true
 		}
 	}
