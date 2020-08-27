@@ -86,6 +86,4 @@ func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *
 		w.Header()["x-amz-delete-marker"] = []string{"true"}
 		statusCode = http.StatusNotFound
 	}
-
-	w.WriteHeader(statusCode)
 }
