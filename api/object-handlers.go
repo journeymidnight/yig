@@ -664,6 +664,9 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	targetObject.Location = sourceObject.Location
 	targetObject.StorageClass = targetStorageClass
 	targetObject.CreateTime = uint64(time.Now().UnixNano())
+	targetObject.SseType = sourceObject.SseType
+	targetObject.EncryptionKey = sourceObject.EncryptionKey
+	targetObject.InitializationVector = sourceObject.InitializationVector
 
 	directive := r.Header.Get("X-Amz-Metadata-Directive")
 	if directive == "COPY" || directive == "" {
