@@ -29,6 +29,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"net/http"
+	"net/textproto"
 	"sort"
 	"strings"
 	"time"
@@ -225,8 +226,8 @@ func DoesPresignedSignatureMatchV4(r *http.Request, brandName Brand,
 
 	// FIXME: Due to some business reasons, some non-S3 headers will not be signed
 	for k := range query {
-		lk := strings.ToLower(k)
-		if strings.HasPrefix(lk, "x-") && !strings.HasPrefix(lk, brandName.GetGeneralFieldFullName(XGeneralName)) {
+		lk := textproto.CanonicalMIMEHeaderKey(k)
+		if strings.HasPrefix(lk, "X-") && !strings.HasPrefix(lk, brandName.GetGeneralFieldFullName(XGeneralName)) {
 			query.Del(k)
 		}
 	}
