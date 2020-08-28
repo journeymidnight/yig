@@ -29,7 +29,6 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"net/http"
-	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -221,18 +220,15 @@ func DoesPresignedSignatureMatchV4(r *http.Request, brandName Brand,
 	/// Verify finally if signature is same.
 
 	// Construct the query.
+	query := r.URL.Query()
+	query.Del(brandName.GetGeneralFieldFullName(XSignature))
 
-	query := make(url.Values)
-	for k, v := range r.URL.Query() {
-		// Delete queries that is not used to calculate the signature
-		if !strings.HasPrefix(strings.ToLower(k), strings.ToLower(brandName.GetGeneralFieldFullName(XGeneralName))) {
-			continue
+	// FIXME: Due to some business reasons, some non-S3 headers will not be signed
+	for k := range query {
+		lk := strings.ToLower(k)
+		if strings.HasPrefix(lk, "x-") && !strings.HasPrefix(lk, brandName.GetGeneralFieldFullName(XGeneralName)) {
+			query.Del(k)
 		}
-		if k == brandName.GetGeneralFieldFullName(XSignature) {
-			continue
-		}
-
-		query[k] = v
 	}
 
 	presignedCanonicalReq := getCanonicalRequest(extractedSignedHeaders, UnsignedPayload,

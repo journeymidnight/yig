@@ -87,6 +87,4 @@ func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *
 		w.Header()[brandName.GetGeneralFieldFullName(XDeleteMarker)] = []string{"true"}
 		statusCode = http.StatusNotFound
 	}
-
-	w.WriteHeader(statusCode)
 }

@@ -162,10 +162,11 @@ type GetObjectResponseWriter struct {
 	hrange      *HttpRange
 	statusCode  int
 	version     string
+	authType    signature.AuthType
 }
 
-func newGetObjectResponseWriter(w http.ResponseWriter, r *http.Request, object *meta.Object, hrange *HttpRange, statusCode int, version string) *GetObjectResponseWriter {
-	return &GetObjectResponseWriter{false, w, r, object, hrange, statusCode, version}
+func newGetObjectResponseWriter(w http.ResponseWriter, r *http.Request, object *meta.Object, hrange *HttpRange, statusCode int, version string, authType signature.AuthType) *GetObjectResponseWriter {
+	return &GetObjectResponseWriter{false, w, r, object, hrange, statusCode, version, authType}
 }
 
 func (o *GetObjectResponseWriter) Write(p []byte) (int, error) {
@@ -174,11 +175,16 @@ func (o *GetObjectResponseWriter) Write(p []byte) (int, error) {
 		if o.version != "" {
 			o.w.Header().Set(grandName.GetGeneralFieldFullName(XVersionId), o.version)
 		}
-		// Set any additional requested response headers.
-		setGetRespHeaders(o.w, o.r.URL.Query())
 		// Set headers on the first write.
 		// Set standard object headers.
 		SetObjectHeaders(o.w, o.object, o.hrange, o.statusCode, grandName)
+		// Set any additional requested response headers.
+		// You must sign the request, either using an Authorization header or a presigned URL, when using these parameters.
+		// They cannot be used with an unsigned (anonymous) request.
+		if o.authType > signature.AuthTypeAnonymous && o.statusCode == http.StatusOK {
+			setGetRespHeaders(o.w, o.r.URL.Query())
+		}
+		o.w.WriteHeader(o.statusCode)
 
 		o.dataWritten = true
 	}
@@ -211,7 +217,6 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	reqVersion := reqCtx.VersionId
 	// Fetch object stat info.
 	object, err := api.ObjectAPI.GetObjectInfoByCtx(reqCtx, credential)
 	if err != nil {
@@ -230,6 +235,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			return
 		}
 		SetObjectHeaders(w, object, nil, http.StatusNotFound, reqCtx.BrandType)
+		w.WriteHeader(http.StatusNotFound)
 		WriteErrorResponse(w, r, ErrNoSuchKey)
 		return
 	}
@@ -311,7 +317,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	}
 
 	// io.Writer type which keeps track if any data was written.
-	writer := newGetObjectResponseWriter(w, r, object, hrange, http.StatusOK, reqVersion)
+	writer := newGetObjectResponseWriter(w, r, object, hrange, http.StatusOK, reqCtx.VersionId, reqCtx.AuthType)
 
 	switch object.SseType {
 	case "":
@@ -411,6 +417,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 			return
 		}
 		SetObjectHeaders(w, object, nil, http.StatusNotFound, reqCtx.BrandType)
+		w.WriteHeader(http.StatusNotFound)
 		WriteErrorResponse(w, r, ErrNoSuchKey)
 		return
 	}
@@ -473,6 +480,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 	// Successful response.
 	// Set standard object headers.
 	SetObjectHeaders(w, object, nil, http.StatusOK, reqCtx.BrandType)
+	w.WriteHeader(http.StatusOK)
 }
 
 // CopyObjectHandler - Copy Object
