@@ -742,6 +742,18 @@ func Test_OverridingResponseHeaderValues(t *testing.T) {
 		t.Fatal("override header cannot be used with an unsigned (anonymous) request.", res.Header.Get("Content-Type"))
 	}
 
+	url, err = sc.GetObjectPreSignedWithOpt(TestBucket, TestKey, 24*time.Hour, WithResponseContentType(newContentType))
+	res, err = http.Get(url + "&X-Oss-Referer=cdn")
+	if err != nil {
+		t.Fatal("Get public-read object err:", err)
+	}
+	content, _ = ioutil.ReadAll(res.Body)
+	t.Log(string(content))
+	defer res.Body.Close()
+	if res.Header.Get("Content-Type") != newContentType {
+		t.Fatal("override header cannot be used with an unsigned (anonymous) request.", res.Header.Get("Content-Type"))
+	}
+
 	// You must sign the request, either using an Authorization header or a presigned URL,
 	//when using these parameters. They cannot be used with an unsigned (anonymous) request.
 	err = sc.PutObjectAcl(TestBucket, TestKey, ObjectCannedACLPublicRead)
