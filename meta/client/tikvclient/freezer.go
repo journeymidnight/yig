@@ -110,38 +110,7 @@ func (c *TiKVClient) DeleteFreezer(bucketName, objectName, versionId string, obj
 	return c.TxDelete(key)
 }
 
-func (c *TiKVClient) ListFreezers(maxKeys int) (retFreezers []Freezer, err error) {
-	startKey := genFreezerKey(TableMinKeySuffix, TableMinKeySuffix, NullVersion)
-	endKey := genFreezerKey(TableMaxKeySuffix, TableMaxKeySuffix, TableMaxKeySuffix)
-	tx, err := c.TxnCli.Begin(context.TODO())
-	if err != nil {
-		return nil, err
-	}
-	it, err := tx.Iter(context.TODO(), key.Key(startKey), key.Key(endKey))
-	if err != nil {
-		return nil, err
-	}
-	defer it.Close()
-	for it.Valid() {
-		v := it.Value()
-		var f Freezer
-		err = helper.MsgPackUnMarshal(v, &f)
-		if err != nil {
-			return nil, err
-		}
-		retFreezers = append(retFreezers, f)
-		maxKeys--
-		if maxKeys == 0 {
-			break
-		}
-		if err := it.Next(context.TODO()); err != nil && it.Valid() {
-			return nil, err
-		}
-	}
-	return
-}
-
-func (c *TiKVClient) ListFreezersNeedContinue(maxKeys int, status common.RestoreStatus) (retFreezers []Freezer, err error) {
+func (c *TiKVClient) ListFreezersWithStatus(maxKeys int, status common.RestoreStatus) (retFreezers []Freezer, err error) {
 	startKey := genFreezerKey(TableMinKeySuffix, TableMinKeySuffix, NullVersion)
 	endKey := genFreezerKey(TableMaxKeySuffix, TableMaxKeySuffix, TableMaxKeySuffix)
 	tx, err := c.TxnCli.Begin(context.TODO())
@@ -167,9 +136,11 @@ func (c *TiKVClient) ListFreezersNeedContinue(maxKeys int, status common.Restore
 			continue
 		}
 		retFreezers = append(retFreezers, f)
-		maxKeys--
-		if maxKeys == 0 {
-			break
+		if maxKeys != -1 {
+			maxKeys--
+			if maxKeys == 0 {
+				break
+			}
 		}
 		if err := it.Next(context.TODO()); err != nil && it.Valid() {
 			return nil, err
@@ -211,10 +182,8 @@ func (c *TiKVClient) PutFreezer(freezer *Freezer, status common.RestoreStatus, t
 	f.LastModifiedTime = freezer.LastModifiedTime
 	f.Location = freezer.Location
 	f.Pool = freezer.Pool
-	f.OwnerId = freezer.OwnerId
 	f.Size = freezer.Size
 	f.ObjectId = freezer.ObjectId
-	f.Etag = freezer.Etag
 	f.Parts = freezer.Parts
 	newVal, err := helper.MsgPackMarshal(f)
 	if err != nil {

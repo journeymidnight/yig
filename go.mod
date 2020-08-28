@@ -1,6 +1,6 @@
 module github.com/journeymidnight/yig
 
-go 1.12
+go 1.13
 
 replace github.com/journeymidnight/aws-sdk-go => github.com/Zstro/aws-sdk-go v1.18.2
 
@@ -25,11 +25,10 @@ require (
 	github.com/gorilla/mux v1.7.4
 	github.com/journeymidnight/aws-sdk-go v1.18.1
 	github.com/journeymidnight/client-go v0.0.0-20200729060155-b153ed4551ed
-	github.com/journeymidnight/radoshttpd v0.0.0-20190617133011-609666b51136
-	//github.com/journeymidnight/radoshttpd v0.0.0-20190911073816-6df3523aa9e3
+	github.com/journeymidnight/radoshttpd v0.0.0-20190911073816-6df3523aa9e3
 	github.com/minio/highwayhash v1.0.0
 	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
-	github.com/robfig/cron v1.2.0
+	github.com/robfig/cron/v3 v3.0.0
 	github.com/stretchr/testify v1.4.0
 	github.com/ugorji/go/codec v1.1.7
 	github.com/urfave/cli v1.22.4

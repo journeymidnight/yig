@@ -316,6 +316,7 @@ type PutObjectResult struct {
 	Md5          string
 	VersionId    string
 	LastModified time.Time
+	ObjectSize   int64
 	DeltaInfo    map[common.StorageClass]int64
 }
 
@@ -352,6 +353,9 @@ type PutObjectPartResult struct {
 }
 
 type CompleteMultipartResult struct {
+	ObjectSize              int64
+	ContentType             string
+	CreateTime              uint64
 	ETag                    string
 	VersionId               string
 	SseType                 string

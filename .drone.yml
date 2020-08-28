@@ -16,7 +16,7 @@ workspace:
 
 steps:
 - name: build & test
-  image: centos-yig:v1.0.1
+  image: centos-yig:v1.0.2
   commands:
   - export GOPROXY=https://goproxy.cn
   - export GO111MODULE=on
@@ -40,6 +40,7 @@ steps:
   - ps aux|grep migrate
   - python test/sanity.py
   - pushd test/go
+  - export GOPROXY=https://goproxy.cn
   - go test -v
   - popd
   when:
@@ -49,7 +50,7 @@ steps:
 
 
 - name: clean up database
-  image: centos-yig:v1.0.1
+  image: centos-yig:v1.0.2
   commands:
   - echo " //TODO clean TiKV"
   when:
@@ -57,7 +58,7 @@ steps:
     - failure
 
 - name: make package with test
-  image: centos-yig:v1.0.1
+  image: centos-yig:v1.0.2
   environment:
     VER_DRONE: ${DRONE_SOURCE_BRANCH}
     REL_DRONE: ALPHA
@@ -102,7 +103,7 @@ steps:
   - make package with test
 
 - name: deploy the test package to the target environment
-  image: centos-yig:v1.0.1
+  image: centos-yig:v1.0.2
   commands:
   - cd integrate
   - curDate=yig_$(date "+%Y%m%d-%H%M%S")
@@ -121,7 +122,7 @@ steps:
 
 
 - name: make package with published
-  image: centos-yig:v1.0.1
+  image: centos-yig:v1.0.2
   environment:
     VER_DRONE: ${DRONE_TAG=latest}
     REL_DRONE: PUB

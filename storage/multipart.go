@@ -813,7 +813,11 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 		CreateTime:       uint64(now.UnixNano()),
 	}
 	object.VersionId = object.GenVersionId(bucket.Versioning)
-	if object.StorageClass == ObjectStorageClassGlacier && bucket.Versioning != datatype.BucketVersioningEnabled {
+	eldObject := reqCtx.ObjectInfo
+	if eldObject == nil {
+		eldObject = object
+	}
+	if eldObject.StorageClass == ObjectStorageClassGlacier && bucket.Versioning != datatype.BucketVersioningEnabled {
 		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
 		if err == nil {
 			err = yig.MetaStorage.DeleteFreezer(freezer)
@@ -831,6 +835,9 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 	}
 
 	sseRequest := multipart.Metadata.SseRequest
+	result.ObjectSize = object.Size
+	result.ContentType = object.ContentType
+	result.CreateTime = object.CreateTime
 	result.SseType = sseRequest.Type
 	result.SseAwsKmsKeyIdBase64 = base64.StdEncoding.EncodeToString([]byte(sseRequest.SseAwsKmsKeyId))
 	result.SseCustomerAlgorithm = sseRequest.SseCustomerAlgorithm

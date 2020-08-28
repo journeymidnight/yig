@@ -317,6 +317,77 @@ func (s3Client *S3Client) PostObject(pbi *PostObjectInput) error {
 	return nil
 }
 
+func (s3Client *S3Client) PostObjectWithCallback(pbi *PostObjectInput, url, callbackBody, auth string, customInfos map[string]string) (resp *http.Response, err error) {
+	commons := make(map[string]string)
+	conditions := make(map[string]string)
+	formParams := make(map[string]string)
+	var matches [][]string
+	// credential, pls refer to https://docs.amazonaws.cn/en_us/general/latest/gr/sigv4-create-string-to-sign.html
+	cred := fmt.Sprintf("%s/%s/%s/s3/aws4_request", pbi.AK, pbi.Date.Format(datatype.YYYYMMDD), pbi.Region)
+	encMethod := "AES256"
+
+	commons["acl"] = "public-read"
+	commons["x-amz-meta-uuid"] = "14365123651274"
+	commons["x-amz-server-side-encryption"] = encMethod
+	commons["x-amz-credential"] = cred
+	commons["x-amz-algorithm"] = "AWS4-HMAC-SHA256"
+	commons["x-amz-date"] = pbi.Date.Format(datatype.Iso8601Format)
+	commons["X-Uos-Callback-Url"] = url
+	commons["X-Uos-Callback-Body"] = callbackBody
+	commons["X-Uos-Callback-Auth"] = auth
+	for k, v := range customInfos {
+		commons[k] = v
+	}
+	// Support custom fields
+	commons["x:hehe"] = "hehe"
+
+	conditions["bucket"] = pbi.Bucket
+	for k, v := range commons {
+		conditions[k] = v
+		formParams[k] = v
+	}
+	// set key
+	matches = append(matches, []string{"starts-with", "$key", pbi.ObjName})
+
+	policyStr, err := s3Client.newPostFormPolicy(pbi.Expiration, conditions, matches)
+	if err != nil {
+		return nil, err
+	}
+	t, _ := time.Parse(datatype.Iso8601Format, commons["x-amz-date"])
+	signKey := getSigningKey(pbi.SK, t, pbi.Region)
+	sig := getSignature(signKey, policyStr)
+
+	formParams["Policy"] = policyStr
+	formParams["x-amz-signature"] = sig
+	formParams["key"] = pbi.ObjName
+
+	body, contentType, err := s3Client.newPostFormBody(formParams, "file", pbi.ObjName, pbi.FileSize)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", pbi.Url, body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", contentType)
+	tr := &http.Transport{
+		MaxIdleConns:       10,
+		IdleConnTimeout:    30 * time.Second,
+		DisableCompression: true,
+	}
+	client := &http.Client{Transport: tr}
+	resp, err = client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 300 {
+		return resp, errors.New(fmt.Sprintf("post object for url %s returns %d", pbi.Url, resp.StatusCode))
+	}
+	return
+}
+
 type postPolicyElem struct {
 	Expiration string        `json:"expiration"`
 	Conditions []interface{} `json:"conditions"`
