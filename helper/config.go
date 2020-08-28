@@ -27,6 +27,7 @@ type Config struct {
 	LogPath              string                  `toml:"log_path"`
 	AccessLogPath        string                  `toml:"access_log_path"`
 	AccessLogFormat      string                  `toml:"access_log_format"`
+	ErrorLogPath         string                  `toml:"error_log_path"`
 	PanicLogPath         string                  `toml:"panic_log_path"`
 	PidFile              string                  `toml:"pid_file"`
 	BindApiAddress       string                  `toml:"api_listener"`
@@ -147,6 +148,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.LogPath = c.LogPath
 	CONFIG.AccessLogPath = c.AccessLogPath
 	CONFIG.AccessLogFormat = c.AccessLogFormat
+	CONFIG.ErrorLogPath = c.ErrorLogPath
 	CONFIG.PanicLogPath = c.PanicLogPath
 	CONFIG.PidFile = c.PidFile
 	CONFIG.BindApiAddress = c.BindApiAddress

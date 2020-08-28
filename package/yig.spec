@@ -34,6 +34,7 @@ install -D -m 755 admin %{buildroot}%{_bindir}/yig_admin
 install -D -m 755 getrediskeys %{buildroot}%{_bindir}/yig_getrediskeys
 install -D -m 755 lc     %{buildroot}%{_bindir}/yig_lifecycle_daemon
 install -D -m 755 yig-restore     %{buildroot}%{_bindir}/yig-restore
+install -D -m 755 tikv-tool  %{buildroot}%{_bindir}/tikv-tool
 install -D -m 755 %{_builddir}/yig/yig %{buildroot}%{_bindir}/yig
 install -D -m 644 package/yig.logrotate %{buildroot}/etc/logrotate.d/yig.logrotate
 install -D -m 644 package/access.logrotate %{buildroot}/etc/logrotate.d/access.logrotate
@@ -68,6 +69,7 @@ rm -rf %{buildroot}
 /usr/bin/yig_getrediskeys
 /usr/bin/yig_lifecycle_daemon
 /usr/bin/yig-restore
+/usr/bin/tikv-tool
 /etc/logrotate.d/yig.logrotate
 /etc/logrotate.d/access.logrotate
 /etc/logrotate.d/yig_lc.logrotate

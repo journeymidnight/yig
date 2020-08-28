@@ -62,6 +62,10 @@ func NewLogger(out io.WriteCloser, logLevel Level) Logger {
 	return l
 }
 
+func (l Logger) GetLogger() *log.Logger {
+	return l.logger
+}
+
 func (l Logger) NewWithRequestID(requestID string) Logger {
 	return Logger{
 		out:       l.out,

@@ -1,9 +1,20 @@
 package main
 
 import (
+	"context"
+	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
+	"time"
+
+	"github.com/journeymidnight/yig/meta/client/tidbclient"
+
+	"github.com/journeymidnight/yig/meta/common"
+
+	"github.com/journeymidnight/yig/meta/types"
 
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/meta/client/tikvclient"
@@ -14,6 +25,39 @@ func SetFunc(key, value string) error {
 	c := tikvclient.NewClient(strings.Split(global.PDs, ","))
 	var k, v = []byte(key), []byte(value)
 	var err error
+
+	if _, ok := TableMap[global.Table]; ok {
+		fmt.Println("Args:", global.Args.Value())
+		var argMap = make(map[string]string)
+		for _, v := range global.Args {
+			sp := strings.Split(v, ",")
+			for _, v2 := range sp {
+				sp2 := strings.SplitN(v2, "=", 2)
+				if len(sp) < 2 {
+					return fmt.Errorf("invalid args format: %s", global.Args)
+				}
+				argMap[sp2[0]] = sp2[1]
+			}
+		}
+		switch global.Table {
+		case TableClusters:
+			// Key: c\{PoolName}\{Fsid}\{Backend}
+			k = tikvclient.GenKey(tikvclient.TableClusterPrefix, argMap["pool"], argMap["fsid"], argMap["backend"])
+			weight, err := strconv.Atoi(value)
+			if err != nil {
+				return fmt.Errorf("invalid value: %s for table %s", value, global.Table)
+			}
+			v, err = helper.MsgPackMarshal(weight)
+			if err != nil {
+				return fmt.Errorf("MsgPackMarshal err: %s", err)
+			}
+		}
+		fmt.Println("Put:", string(k), value)
+		return c.TxPut(k, v)
+	} else if global.Table != "" {
+		return fmt.Errorf("invalid table name: %s", global.Table)
+	}
+
 	if global.IsKeyBytes {
 		k, err = ParseToBytes(key)
 		if err != nil {
@@ -41,6 +85,45 @@ func GetFunc(key string) error {
 	c := tikvclient.NewClient(strings.Split(global.PDs, ","))
 	var k []byte
 	var err error
+	if _, ok := TableMap[global.Table]; ok {
+		fmt.Println("Args:", global.Args.Value())
+		var argMap = make(map[string]string)
+		for _, v := range global.Args {
+			sp := strings.Split(v, ",")
+			for _, v2 := range sp {
+				sp2 := strings.SplitN(v2, "=", 2)
+				if len(sp) < 2 {
+					return fmt.Errorf("invalid args format: %s", global.Args)
+				}
+				argMap[sp2[0]] = sp2[1]
+			}
+		}
+		switch global.Table {
+		case TableObjects:
+			if global.Version == "" {
+				k = tikvclient.GenKey(global.Bucket, key)
+			} else {
+				k = tikvclient.GenKey(global.Bucket, key, global.Version)
+			}
+			fmt.Println("key:", string(DecodeKey(k)))
+			var o types.Object
+			ok, err := c.TxGet(k, &o, nil)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return fmt.Errorf("no such key")
+			}
+			fmt.Printf("val: %+v \n", o)
+
+		case TableClusters:
+
+		}
+
+	} else if global.Table != "" {
+		return fmt.Errorf("invalid table name: %s", global.Table)
+	}
+
 	if global.IsKeyBytes {
 		k, err = ParseToBytes(key)
 		if err != nil {
@@ -88,6 +171,8 @@ func ScanFunc(startKey, endKey string, maxKeys int) (err error) {
 		} else if strings.Index(endKey, "$") != -1 {
 			endKey = strings.ReplaceAll(endKey, "$", tikvclient.TableMaxKeySuffix)
 		}
+	} else if global.Table != "" {
+		return fmt.Errorf("invalid table name: %s", global.Table)
 	}
 
 	sk, ek = []byte(startKey), []byte(endKey)
@@ -173,5 +258,259 @@ func DropFunc() error {
 		}
 	}
 	fmt.Println("Delete key count:", count)
+	return nil
+}
+
+func RepairFunc(hourKey string) (err error) {
+	if global.Bucket == "" {
+		fmt.Println("You must specified a bucket.")
+		return nil
+	}
+
+	repairTime, err := time.ParseInLocation("2006010215", hourKey, time.Local)
+	if err != nil {
+		return
+	}
+	repairTs := repairTime.UnixNano()
+	c := tikvclient.NewClient(strings.Split(global.PDs, ","))
+	fmt.Println("====== Start Repair Bucket :", global.Bucket, "======")
+	fmt.Println("Repair Time:", repairTime)
+	fmt.Println("Repair TimeStamp:", repairTs)
+	startKey := tikvclient.GenKey(global.Bucket, tikvclient.TableMinKeySuffix)
+	endKey := tikvclient.GenKey(global.Bucket, tikvclient.TableMaxKeySuffix)
+
+	tx, err := c.TxnCli.Begin(context.TODO())
+	if err != nil {
+		return
+	}
+	defer func() {
+		if err == nil {
+			err = tx.Commit(context.Background())
+		}
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	fmt.Println("Check bucket...")
+	bucketKey := tikvclient.GenKey(tikvclient.TableBucketPrefix, global.Bucket)
+	var b types.Bucket
+	ok, err := c.TxGet(bucketKey, &b, tx)
+	if err != nil {
+		return
+	}
+	if !ok {
+		fmt.Println("No such bucket:", global.Bucket)
+		return
+	}
+	fmt.Println("Check bucket ok!")
+	it, err := tx.Iter(context.TODO(), startKey, endKey)
+	if err != nil {
+		return err
+	}
+	defer it.Close()
+
+	var o_standard, o_standardIa, o_glacier int64
+	fmt.Println("Scan object...")
+
+	// scan object
+	for it.Valid() {
+		k, v := it.Key(), it.Value()
+		var o types.Object
+		err := helper.MsgPackUnMarshal(v, &o)
+		printKey := string(EncodeKey(k))
+		if err != nil {
+			fmt.Println("MsgPackUnMarshal err:", err, "key:", printKey)
+			break
+		}
+		if o.CreateTime > uint64(repairTs) {
+			if err := it.Next(context.TODO()); err != nil && it.Valid() {
+				return err
+			}
+			continue
+		}
+		fmt.Println("Key:", printKey, "StorageClass:", o.StorageClass.ToString(), "Size:", o.Size, "CTime:", o.CreateTime)
+		switch o.StorageClass {
+		case common.ObjectStorageClassStandard:
+			o_standard += o.Size
+		case common.ObjectStorageClassStandardIa:
+			o_standardIa += common.CorrectDeltaSize(o.StorageClass, o.Size)
+		case common.ObjectStorageClassGlacier:
+			o_glacier += common.CorrectDeltaSize(o.StorageClass, o.Size)
+		}
+
+		if err := it.Next(context.TODO()); err != nil && it.Valid() {
+			return err
+		}
+	}
+	fmt.Println("Scan object result: Standard:", o_standard, "StandardIA:", o_standardIa, "Glacier:", o_glacier)
+
+	var p_standard, p_standardIa, p_glacier int64
+	startKey = tikvclient.GenKey(tikvclient.TableMultipartPrefix, global.Bucket, tikvclient.TableMinKeySuffix)
+	endKey = tikvclient.GenKey(tikvclient.TableMultipartPrefix, global.Bucket, tikvclient.TableMaxKeySuffix)
+	fmt.Println("Scan multipart...")
+	it, err = tx.Iter(context.TODO(), startKey, endKey)
+	if err != nil {
+		return
+	}
+
+	// scan multipart
+	for it.Valid() {
+		k, v := it.Key(), it.Value()
+		var m types.Multipart
+		err := helper.MsgPackUnMarshal(v, &m)
+		printKey := string(EncodeKey(k))
+		if err != nil {
+			fmt.Println("MsgPackUnMarshal err:", err, "key:", printKey)
+			break
+		}
+		startPartKey := tikvclient.GenKey(tikvclient.TableObjectPartPrefix, global.Bucket, m.ObjectName, tikvclient.TableMinKeySuffix)
+		endPartKey := tikvclient.GenKey(tikvclient.TableObjectPartPrefix, global.Bucket, m.ObjectName, tikvclient.TableMaxKeySuffix)
+		it2, err := tx.Iter(context.TODO(), startPartKey, endPartKey)
+		if err != nil {
+			return err
+		}
+		for it2.Valid() {
+			k2, v2 := it2.Key(), it2.Value()
+			var p types.Part
+			err := helper.MsgPackUnMarshal(v2, &p)
+			printKey := string(EncodeKey(k2))
+			if err != nil {
+				fmt.Println("MsgPackUnMarshal err:", err, "key:", printKey)
+				break
+			}
+
+			partCTime, err := time.ParseInLocation(types.CREATE_TIME_LAYOUT, p.LastModified, time.Local)
+			if err != nil {
+				return err
+			}
+			partCTs := partCTime.UnixNano()
+			if partCTs > repairTs {
+				if err := it2.Next(context.TODO()); err != nil && it2.Valid() {
+					return err
+				}
+				continue
+			}
+
+			fmt.Println("Key:", printKey, "StorageClass:", m.Metadata.StorageClass.ToString(), "PartNumber:", p.PartNumber, "Size:", p.Size, "CTime:", partCTs)
+			switch m.Metadata.StorageClass {
+			case common.ObjectStorageClassStandard:
+				p_standard += p.Size
+			case common.ObjectStorageClassStandardIa:
+				p_standardIa += common.CorrectDeltaSize(m.Metadata.StorageClass, p.Size)
+			case common.ObjectStorageClassGlacier:
+				p_glacier += common.CorrectDeltaSize(m.Metadata.StorageClass, p.Size)
+			}
+			if err := it2.Next(context.TODO()); err != nil && it2.Valid() {
+				return err
+			}
+		}
+
+		if err := it.Next(context.TODO()); err != nil && it.Valid() {
+			return err
+		}
+	}
+
+	fmt.Println("Scan multipart result: Standard:", p_standard, "StandardIA:", p_standardIa, "Glacier:", p_glacier)
+	standard := o_standard + p_standard
+	standardIa := o_standardIa + p_standardIa
+	glacier := o_glacier + p_glacier
+	fmt.Println("Sum result of bucket: ", b.Name, "Standard:", standard, "StandardIA:", standardIa, "Glacier:", glacier)
+
+	// Update TiKV
+	if !global.Verbose {
+		key := genUserBucketKey(b.OwnerId, b.Name)
+		val := tikvclient.BucketUsage{
+			Standard:   standard,
+			StandardIa: standardIa,
+			Glacier:    glacier,
+		}
+		v, err := helper.MsgPackMarshal(val)
+		if err != nil {
+			return err
+		}
+		err = tx.Set(key, v)
+		if err != nil {
+			return err
+		}
+	}
+
+	fmt.Println("Finished")
+	return
+}
+
+func genUserBucketKey(ownerId, bucketName string) []byte {
+	return tikvclient.GenKey(tikvclient.TableUserBucketPrefix, ownerId, bucketName)
+}
+
+func LoadPidToUidMap() map[string]string {
+	return map[string]string{
+		"c747848b-4556-4fc6-a3e4-b15f51568e5d": "af39459b-cedf-4057-9572-8daa1b74723f",
+	}
+}
+
+func MigrateFunc() (err error) {
+	reflectMap := LoadPidToUidMap()
+	if global.TidbAddr == "" {
+		return errors.New("no tidb address set")
+	}
+
+	if global.Bucket == "" {
+		return errors.New("no bucket set")
+	}
+
+	// New Tidb
+	tidbCli := &tidbclient.TidbClient{}
+	conn, err := sql.Open("mysql", global.TidbAddr)
+	if err != nil {
+		return err
+	}
+	conn.SetMaxIdleConns(10)
+	conn.SetMaxOpenConns(100)
+	conn.SetConnMaxLifetime(time.Duration(30) * time.Second)
+	tidbCli.Client = conn
+
+	// New Tikv
+	tikvCli := tikvclient.NewClient(strings.Split(global.PDs, ","))
+
+	// Migrate bucket
+	b, err := tidbCli.GetBucket(global.Bucket)
+	if err != nil {
+		return err
+	}
+	fmt.Println(fmt.Sprintf("BucketInfo: %+v", b))
+
+	userId := reflectMap[b.OwnerId]
+	if userId == "" {
+		return fmt.Errorf("no such userId of projectId: %s", b.OwnerId)
+	}
+
+	if !global.Verbose {
+		b.OwnerId = userId
+		err = tikvCli.PutNewBucket(*b)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Migrate objects by bucket
+	objects, err := GetObjectsByBucket(tidbCli, global.Bucket)
+	if err != nil {
+		return err
+	}
+	fmt.Println("Total objects count:", len(objects), "of bucket:", global.Bucket)
+
+	for _, object := range objects {
+		ob, _ := json.Marshal(object)
+		fmt.Println(string(ob))
+		if !global.Verbose {
+			object.OwnerId = userId
+			err = tikvCli.PutObject(object, nil, false)
+			if err != nil {
+				fmt.Println("Put object err:", err, "of bucket:", global.Bucket)
+				return err
+			}
+		}
+	}
 	return nil
 }

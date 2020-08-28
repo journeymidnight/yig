@@ -94,6 +94,7 @@ func configureServer(c *ServerConfig) *api.Server {
 			WriteTimeout:   10 * time.Minute,
 			Handler:        configureServerHandler(c),
 			MaxHeaderBytes: 1 << 20,
+			ErrorLog:       helper.ErrorLogger.GetLogger(),
 		},
 	}
 	apiServer.Server.SetKeepAlivesEnabled(helper.CONFIG.KeepAlive)

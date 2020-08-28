@@ -17,6 +17,31 @@ import (
 	"github.com/journeymidnight/yig/api/datatype"
 )
 
+func (s3client *S3Client) PutObjectWithOpt(bucketName, key, value string, options ...PutObjectOption) (err error) {
+	params := &s3.PutObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(key),
+		Body:   bytes.NewReader([]byte(value)),
+	}
+	for _, o := range options {
+		o(params)
+	}
+	if _, err = s3client.Client.PutObject(params); err != nil {
+		return err
+	}
+	return
+}
+
+type PutObjectOption func(p *s3.PutObjectInput)
+
+func WithContentType(contentType string) PutObjectOption {
+	return func(p *s3.PutObjectInput) {
+		p.ContentType = aws.String(contentType)
+	}
+}
+
+// TODO: Self-supplement more options
+
 func (s3client *S3Client) PutObject(bucketName, key, value string) (err error) {
 	params := &s3.PutObjectInput{
 		Bucket: aws.String(bucketName),
@@ -100,10 +125,41 @@ func (s3client *S3Client) GetObjectOutPut(bucketName, key string) (out *s3.GetOb
 	return s3client.Client.GetObject(params)
 }
 
+type GetObjectOption func(p *s3.GetObjectInput)
+
+func (s3client *S3Client) GetObjectOutPutWithOpt(bucketName, key string, options ...GetObjectOption) (out *s3.GetObjectOutput, err error) {
+	params := &s3.GetObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(key),
+	}
+	for _, o := range options {
+		o(params)
+	}
+	return s3client.Client.GetObject(params)
+}
+
+func WithResponseContentType(contentType string) GetObjectOption {
+	return func(p *s3.GetObjectInput) {
+		p.ResponseContentType = aws.String(contentType)
+	}
+}
+
 func (s3client *S3Client) GetObjectPreSigned(bucketName, key string, expire time.Duration) (url string, err error) {
 	params := &s3.GetObjectInput{
 		Bucket: aws.String(bucketName),
 		Key:    aws.String(key),
+	}
+	req, _ := s3client.Client.GetObjectRequest(params)
+	return req.Presign(expire)
+}
+
+func (s3client *S3Client) GetObjectPreSignedWithOpt(bucketName, key string, expire time.Duration, options ...GetObjectOption) (url string, err error) {
+	params := &s3.GetObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(key),
+	}
+	for _, o := range options {
+		o(params)
 	}
 	req, _ := s3client.Client.GetObjectRequest(params)
 	return req.Presign(expire)

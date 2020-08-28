@@ -95,7 +95,7 @@ var testUnits = []WebsiteTestUnit{
 	// Configure bucket as a website but redirect all requests
 	{
 		WebsiteConfiguration: &s3.WebsiteConfiguration{
-			RedirectAllRequestsTo: &s3.RedirectAllRequestsTo{HostName: aws.String("sina.com")},
+			RedirectAllRequestsTo: &s3.RedirectAllRequestsTo{HostName: aws.String("baidu.com")},
 		},
 		Buckets: []string{TestBucket},
 		Objects: []ObjectInput{

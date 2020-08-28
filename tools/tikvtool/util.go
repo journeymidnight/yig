@@ -30,3 +30,12 @@ func FormatKey(key []byte) string {
 	b := bytes.Replace(key, []byte(tikvclient.TableSeparator), []byte("\\"), -1)
 	return string(b)
 }
+
+func DecodeKey(k []byte) []byte {
+	return bytes.Replace(k, []byte("\\"), []byte{31}, -1)
+}
+
+// can be printed
+func EncodeKey(k []byte) []byte {
+	return bytes.Replace(k, []byte{31}, []byte("\\"), -1)
+}

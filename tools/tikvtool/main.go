@@ -22,10 +22,11 @@ import (
 
 var table, startKey, endKey string
 var maxKeys int
-var verbose bool
 
 type GlobalOption struct {
 	PDs          string
+	TidbAddr     string
+	Verbose      bool
 	IsKeyBytes   bool
 	IsValueBytes bool
 	IsMsgPack    bool
@@ -33,6 +34,7 @@ type GlobalOption struct {
 	Bucket       string
 	Object       string
 	Version      string
+	Args         cli.StringSlice // Format is "k1=v1,k2=v2,k3=v3..."
 }
 
 var global GlobalOption
@@ -54,6 +56,17 @@ func main() {
 			Value:       "pd1:2378, pd2:2377",
 			Usage:       "One or a set of pd addresses. e.g: pd1:2379 or pd1:2379,pd2:2378,pd3:2377",
 			Destination: &global.PDs,
+		},
+		cli.StringFlag{
+			Name:        "tidb",
+			Value:       "",
+			Usage:       "tidb address. e.g: \"root:password@tcp(10.5.0.17:4000)/yig\"",
+			Destination: &global.TidbAddr,
+		},
+		cli.BoolFlag{
+			Name:        "verbose, z",
+			Usage:       "verbose option",
+			Destination: &global.Verbose,
 		},
 		cli.BoolFlag{
 			Name:        "keybytes",
@@ -89,6 +102,11 @@ func main() {
 			Name:        "versionid,V",
 			Usage:       "Set version id",
 			Destination: &global.Version,
+		},
+		cli.StringSliceFlag{
+			Name:  "args",
+			Usage: "set args",
+			Value: &global.Args,
 		},
 	}
 
@@ -166,15 +184,25 @@ func main() {
 			Action: func(c *cli.Context) error {
 				return DropFunc()
 			},
-			ArgsUsage: "[--verbose|-v]",
-			Flags: []cli.Flag{
-				cli.BoolFlag{
-					Name:        "verbose,v",
-					Required:    false,
-					Usage:       "print deleted key",
-					Destination: &verbose,
-				},
+		},
+		{
+			Name:  "repair",
+			Usage: "repair the usage of specified bucket",
+			Action: func(c *cli.Context) error {
+				if len(c.Args()) != 1 {
+					return errors.New("Invalid arguments.")
+				}
+				return RepairFunc(c.Args()[0])
 			},
+			ArgsUsage: "Repair the data before this hour. e.g. 2020082012",
+		},
+		{
+			Name:  "migrate",
+			Usage: "migrate origin tidb data to tikv",
+			Action: func(c *cli.Context) error {
+				return MigrateFunc()
+			},
+			ArgsUsage: "Migrate the data to tikv from tidb by bucket name",
 		},
 	}
 

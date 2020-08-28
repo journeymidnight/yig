@@ -7,6 +7,7 @@ import (
 // Global singleton loggers
 var Logger log.Logger
 var AccessLogger log.Logger
+var ErrorLogger log.Logger
 
 func PanicOnError(err error, message string) {
 	if err != nil {
