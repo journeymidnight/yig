@@ -102,6 +102,17 @@ func DistinguishBrandName(r *http.Request, postValues map[string]string) Brand {
 			Name: UOSName,
 		}
 	}
+	for field, _ := range r.URL.Query() {
+		if strings.Contains(field, "AWS") || strings.Contains(strings.ToLower(field), "x-amz-") {
+			return &Aws{
+				Name: AWSName,
+			}
+		} else if strings.Contains(field, "UOS") || strings.Contains(strings.ToLower(field), "x-uos-") {
+			return &Uos{
+				Name: UOSName,
+			}
+		}
+	}
 	for field, value := range r.Header {
 		if "authorization" == strings.ToLower(field) {
 			if strings.Contains(value[0], "AWS") || strings.Contains(strings.ToLower(value[0]), "x-amz-") {
