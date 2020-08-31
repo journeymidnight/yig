@@ -6,8 +6,8 @@ import (
 	"net/http"
 )
 
-func getAclFromHeader(h http.Header, brandName Brand) (acl Acl, err error) {
-	acl.CannedAcl = h.Get(brandName.GetGeneralFieldFullName(XACL))
+func getAclFromHeader(h http.Header, brand Brand) (acl Acl, err error) {
+	acl.CannedAcl = h.Get(brand.GetGeneralFieldFullName(XACL))
 	if acl.CannedAcl == "" {
 		acl.CannedAcl = "private"
 	}

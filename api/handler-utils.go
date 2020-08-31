@@ -72,7 +72,7 @@ var supportedHeaders = []string{
 }
 
 // extractMetadataFromHeader extracts metadata from HTTP header.
-func extractMetadataFromHeader(header http.Header, brandName Brand) map[string]string {
+func extractMetadataFromHeader(header http.Header, brand Brand) map[string]string {
 	metadata := make(map[string]string)
 	// Save standard supported headers.
 	for _, supportedHeader := range supportedHeaders {
@@ -84,7 +84,7 @@ func extractMetadataFromHeader(header http.Header, brandName Brand) map[string]s
 	}
 	// Go through all other headers for any additional headers that needs to be saved.
 	for key := range header {
-		if strings.HasPrefix(strings.ToLower(key), strings.ToLower(brandName.GetGeneralFieldFullName(XMeta))+"-") {
+		if strings.HasPrefix(strings.ToLower(key), strings.ToLower(brand.GetGeneralFieldFullName(XMeta))+"-") {
 			value, ok := header[key]
 			if ok {
 				metadata[key] = strings.Join(value, ",")
@@ -96,15 +96,15 @@ func extractMetadataFromHeader(header http.Header, brandName Brand) map[string]s
 	return metadata
 }
 
-func parseSseHeader(header http.Header, brandName Brand) (request SseRequest, err error) {
+func parseSseHeader(header http.Header, brand Brand) (request SseRequest, err error) {
 	// sse three options are mutually exclusive
-	if crypto.S3.IsRequested(header, brandName) && crypto.SSEC.IsRequested(header, brandName) {
+	if crypto.S3.IsRequested(header, brand) && crypto.SSEC.IsRequested(header, brand) {
 		return request, ErrIncompatibleEncryptionMethod
 	}
 
-	if sse := header.Get(brandName.GetGeneralFieldFullName(XServerSideEncryption)); sse != "" {
+	if sse := header.Get(brand.GetGeneralFieldFullName(XServerSideEncryption)); sse != "" {
 		switch sse {
-		case strings.ToLower(brandName.GetSpecialFieldFullName(SSEAlgorithmKMS)):
+		case strings.ToLower(brand.GetSpecialFieldFullName(SSEAlgorithmKMS)):
 			err = ErrNotImplemented
 			return request, err
 		case crypto.SSEAlgorithmAES256:
@@ -115,7 +115,7 @@ func parseSseHeader(header http.Header, brandName Brand) (request SseRequest, er
 		}
 	}
 
-	if sse := header.Get(brandName.GetGeneralFieldFullName(XSSECAlgorithm)); sse != "" {
+	if sse := header.Get(brand.GetGeneralFieldFullName(XSSECAlgorithm)); sse != "" {
 		if sse == crypto.SSEAlgorithmAES256 {
 			request.Type = crypto.SSEC.String()
 		} else {
@@ -133,7 +133,7 @@ func parseSseHeader(header http.Header, brandName Brand) (request SseRequest, er
 		return request, nil
 	case crypto.SSEC.String():
 		// validate ssec header
-		key, err := crypto.SSEC.ParseHTTP(header, brandName)
+		key, err := crypto.SSEC.ParseHTTP(header, brand)
 		if err != nil {
 			return request, err
 		}
@@ -143,13 +143,13 @@ func parseSseHeader(header http.Header, brandName Brand) (request SseRequest, er
 	}
 
 	// SSECCopy not support now.
-	if sse := header.Get(brandName.GetGeneralFieldFullName(XSSECopyAlgorithm)); sse != "" {
+	if sse := header.Get(brand.GetGeneralFieldFullName(XSSECopyAlgorithm)); sse != "" {
 		if sse != crypto.SSEAlgorithmAES256 {
 			err = ErrInvalidSseHeader
 			return
 		}
 		request.CopySourceSseCustomerAlgorithm = sse
-		key := header.Get(brandName.GetGeneralFieldFullName(XSSECopyKey))
+		key := header.Get(brand.GetGeneralFieldFullName(XSSECopyKey))
 		if key == "" {
 			err = ErrInvalidSseHeader
 			return
@@ -165,7 +165,7 @@ func parseSseHeader(header http.Header, brandName Brand) (request SseRequest, er
 			return
 		}
 		request.CopySourceSseCustomerKey = request.CopySourceSseCustomerKey[:32]
-		userMd5 := header.Get(brandName.GetGeneralFieldFullName(XSSECopyKeyMD5))
+		userMd5 := header.Get(brand.GetGeneralFieldFullName(XSSECopyKeyMD5))
 		if userMd5 == "" {
 			err = ErrInvalidSseHeader
 			return

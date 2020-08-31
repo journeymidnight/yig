@@ -49,10 +49,10 @@ func verifyNotExpires(dateString string) (bool, error) {
 	return true, nil
 }
 
-func buildCanonicalizedAmzHeaders(headers *http.Header, brandName Brand) string {
+func buildCanonicalizedAmzHeaders(headers *http.Header, brand Brand) string {
 	var headerFields []string
 	for k := range *headers {
-		if strings.HasPrefix(strings.ToLower(k), strings.ToLower(brandName.GetGeneralFieldFullName(XGeneralName))) {
+		if strings.HasPrefix(strings.ToLower(k), strings.ToLower(brand.GetGeneralFieldFullName(XGeneralName))) {
 			headerFields = append(headerFields, k)
 		}
 	}
@@ -126,7 +126,7 @@ func dictate(secretKey string, stringToSign string, signature []byte) error {
 	return nil
 }
 
-func DoesSignatureMatchV2(r *http.Request, brandName Brand) (credential common.Credential, err error) {
+func DoesSignatureMatchV2(r *http.Request, brand Brand) (credential common.Credential, err error) {
 	authorizationHeader := r.Header.Get("Authorization")
 	splitHeader := strings.Split(authorizationHeader, " ")
 	// Authorization = "AWS" + " " + AWSAccessKeyId + ":" + Signature;
@@ -156,7 +156,7 @@ func DoesSignatureMatchV2(r *http.Request, brandName Brand) (credential common.C
 	stringToSign += r.Header.Get("Content-Type") + "\n"
 
 	amzDateHeaderIncluded := true
-	date := r.Header.Get(brandName.GetGeneralFieldFullName(XDate))
+	date := r.Header.Get(brand.GetGeneralFieldFullName(XDate))
 	if date == "" {
 		amzDateHeaderIncluded = false
 		date = r.Header.Get("Date")
@@ -177,16 +177,16 @@ func DoesSignatureMatchV2(r *http.Request, brandName Brand) (credential common.C
 		stringToSign += date + "\n"
 	}
 
-	stringToSign += buildCanonicalizedAmzHeaders(&r.Header, brandName)
+	stringToSign += buildCanonicalizedAmzHeaders(&r.Header, brand)
 	stringToSign += buildCanonicalizedResource(r)
 	helper.Logger.Info("stringtosign", stringToSign, credential.SecretAccessKey)
 	helper.Logger.Info("credential", credential.UserId, credential.AccessKeyID, credential.SecretAccessKey)
 	return credential, dictate(credential.SecretAccessKey, stringToSign, signature)
 }
 
-func DoesPresignedSignatureMatchV2(r *http.Request, brandName Brand) (credential common.Credential, err error) {
+func DoesPresignedSignatureMatchV2(r *http.Request, brand Brand) (credential common.Credential, err error) {
 	query := r.URL.Query()
-	accessKey := query.Get(brandName.GetSpecialFieldFullName(AccessKeyId))
+	accessKey := query.Get(brand.GetSpecialFieldFullName(AccessKeyId))
 	expires := query.Get("Expires")
 	signatureString := query.Get("Signature")
 
@@ -214,16 +214,16 @@ func DoesPresignedSignatureMatchV2(r *http.Request, brandName Brand) (credential
 	stringToSign += r.Header.Get("Content-Md5") + "\n"
 	stringToSign += r.Header.Get("Content-Type") + "\n"
 	stringToSign += expires + "\n"
-	stringToSign += buildCanonicalizedAmzHeaders(&r.Header, brandName)
+	stringToSign += buildCanonicalizedAmzHeaders(&r.Header, brand)
 	stringToSign += buildCanonicalizedResource(r)
 
 	return credential, dictate(credential.SecretAccessKey, stringToSign, signature)
 }
 
-func DoesPolicySignatureMatchV2(formValues map[string]string, brandName Brand) (credential common.Credential,
+func DoesPolicySignatureMatchV2(formValues map[string]string, brand Brand) (credential common.Credential,
 	err error) {
 
-	if accessKey, ok := formValues[brandName.GetSpecialFieldFullName(AccessKeyId)]; ok {
+	if accessKey, ok := formValues[brand.GetSpecialFieldFullName(AccessKeyId)]; ok {
 		credential, err = iam.GetCredential(accessKey)
 		if err != nil {
 			return credential, err

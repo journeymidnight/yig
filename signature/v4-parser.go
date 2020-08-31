@@ -42,7 +42,7 @@ type credentialHeader struct {
 	}
 }
 
-func parseCredential(credentialValue string, brandName Brand) (credentialHeader, error) {
+func parseCredential(credentialValue string, brand Brand) (credentialHeader, error) {
 	credElements := strings.Split(strings.TrimSpace(credentialValue), "/")
 	if len(credElements) != 5 {
 		return credentialHeader{}, ErrCredMalformed
@@ -68,7 +68,7 @@ func parseCredential(credentialValue string, brandName Brand) (credentialHeader,
 		return credentialHeader{}, ErrInvalidService
 	}
 	cred.scope.service = credElements[3]
-	if credElements[4] != strings.ToLower(brandName.GetSpecialFieldFullName(SignRequest)) {
+	if credElements[4] != strings.ToLower(brand.GetSpecialFieldFullName(SignRequest)) {
 		return credentialHeader{}, ErrInvalidRequestVersion
 	}
 	cred.scope.request = credElements[4]
@@ -78,7 +78,7 @@ func parseCredential(credentialValue string, brandName Brand) (credentialHeader,
 // parse credentialHeader string into its structured form.
 // Credential=<your-access-key-id>/<date>/<aws-region>/<aws-service>/aws4_request
 // <aws-service> is always "s3" for us
-func parseCredentialHeader(credElement string, brandName Brand) (credentialHeader, error) {
+func parseCredentialHeader(credElement string, brand Brand) (credentialHeader, error) {
 	creds := strings.Split(strings.TrimSpace(credElement), "=")
 	if len(creds) != 2 {
 		return credentialHeader{}, ErrMissingFields
@@ -86,7 +86,7 @@ func parseCredentialHeader(credElement string, brandName Brand) (credentialHeade
 	if creds[0] != "Credential" {
 		return credentialHeader{}, ErrMissingCredTag
 	}
-	return parseCredential(creds[1], brandName)
+	return parseCredential(creds[1], brand)
 }
 
 // Parse signature string.
@@ -110,7 +110,7 @@ func headerSigned(header string, headers []string) bool {
 	return false
 }
 
-func parseSignedHeadersContent(signedHeader string, headers http.Header, brandName Brand,
+func parseSignedHeadersContent(signedHeader string, headers http.Header, brand Brand,
 	requireContentType bool) ([]string, error) {
 	signedHeaders := strings.Split(signedHeader, ";")
 	// It's implied in the calculation process that the headers are sorted
@@ -124,7 +124,7 @@ func parseSignedHeadersContent(signedHeader string, headers http.Header, brandNa
 	//  X-***-* headers
 	for k := range headers {
 		lower := strings.ToLower(k)
-		if strings.HasPrefix(lower, brandName.GetGeneralFieldFullName(XGeneralName)) {
+		if strings.HasPrefix(lower, brand.GetGeneralFieldFullName(XGeneralName)) {
 			if !headerSigned(lower, signedHeaders) {
 				return nil, ErrMissingRequiredSignedHeader
 			}
@@ -145,7 +145,7 @@ func parseSignedHeadersContent(signedHeader string, headers http.Header, brandNa
 // Parse signed headers string.
 // SignedHeaders is a semicolon-separated list of request headers names used to
 // compute signature, must be in lowercase. e.g. host;range;x-***-date
-func parseSignedHeaders(signedHdrElement string, headers http.Header, brandName Brand,
+func parseSignedHeaders(signedHdrElement string, headers http.Header, brand Brand,
 	requireContentType bool) ([]string, error) {
 	signedHdrFields := strings.Split(strings.TrimSpace(signedHdrElement), "=")
 	if len(signedHdrFields) != 2 {
@@ -154,7 +154,7 @@ func parseSignedHeaders(signedHdrElement string, headers http.Header, brandName 
 	if signedHdrFields[0] != "SignedHeaders" {
 		return nil, ErrMissingSignHeadersTag
 	}
-	return parseSignedHeadersContent(signedHdrFields[1], headers, brandName, requireContentType)
+	return parseSignedHeadersContent(signedHdrFields[1], headers, brand, requireContentType)
 }
 
 // signValues data type represents structured form of AWS Signature V4 header.
@@ -180,9 +180,9 @@ type preSignValues struct {
 //   querystring += &X-***-SignedHeaders=signed_headers
 //   querystring += &X-***-Signature=signature
 //
-func parsePreSignV4(query url.Values, headers http.Header, brandName Brand) (preSignValues, error) {
+func parsePreSignV4(query url.Values, headers http.Header, brand Brand) (preSignValues, error) {
 	// Verify if the query algorithm is supported or not.
-	if query.Get(brandName.GetGeneralFieldFullName(XAlgorithm)) != brandName.GetSpecialFieldFullName(SignV4Algorithm) {
+	if query.Get(brand.GetGeneralFieldFullName(XAlgorithm)) != brand.GetSpecialFieldFullName(SignV4Algorithm) {
 		return preSignValues{}, ErrInvalidQuerySignatureAlgo
 	}
 
@@ -191,32 +191,32 @@ func parsePreSignV4(query url.Values, headers http.Header, brandName Brand) (pre
 
 	var err error
 	// Save credential.
-	preSignV4Values.Credential, err = parseCredential(query.Get(brandName.GetGeneralFieldFullName(XCredential)), brandName)
+	preSignV4Values.Credential, err = parseCredential(query.Get(brand.GetGeneralFieldFullName(XCredential)), brand)
 	if err != nil {
 		return preSignValues{}, err
 	}
 
 	// Save date in native time.Time.
-	preSignV4Values.Date, err = time.Parse(Iso8601Format, query.Get(brandName.GetGeneralFieldFullName(XDate)))
+	preSignV4Values.Date, err = time.Parse(Iso8601Format, query.Get(brand.GetGeneralFieldFullName(XDate)))
 	if err != nil {
 		return preSignValues{}, ErrMalformedDate
 	}
 
 	// Save expires in native time.Duration.
-	preSignV4Values.Expires, err = time.ParseDuration(query.Get(brandName.GetGeneralFieldFullName(XExpires)) + "s")
+	preSignV4Values.Expires, err = time.ParseDuration(query.Get(brand.GetGeneralFieldFullName(XExpires)) + "s")
 	if err != nil {
 		return preSignValues{}, ErrMalformedExpires
 	}
 
 	// Save signed headers.
 	preSignV4Values.SignedHeaders, err =
-		parseSignedHeadersContent(query.Get(brandName.GetGeneralFieldFullName(XSignedHeaders)), headers, brandName, false)
+		parseSignedHeadersContent(query.Get(brand.GetGeneralFieldFullName(XSignedHeaders)), headers, brand, false)
 	if err != nil {
 		return preSignValues{}, err
 	}
 
 	// Save signature.
-	preSignV4Values.Signature = query.Get(brandName.GetGeneralFieldFullName(XSignature))
+	preSignV4Values.Signature = query.Get(brand.GetGeneralFieldFullName(XSignature))
 
 	// Return structured form of signature query string.
 	return preSignV4Values, nil
@@ -226,7 +226,7 @@ func parsePreSignV4(query url.Values, headers http.Header, brandName Brand) (pre
 //
 //    Authorization: algorithm Credential=XXX,SignedHeaders=XXX,Signature=XXX
 //
-func parseSignV4(v4Auth string, headers http.Header, brandName Brand) (signValues, error) {
+func parseSignV4(v4Auth string, headers http.Header, brand Brand) (signValues, error) {
 	// Replace all spaced strings, some clients can send spaced
 	// parameters and some won't. So we pro-actively remove any spaces
 	// to make parsing easier.
@@ -236,7 +236,7 @@ func parseSignV4(v4Auth string, headers http.Header, brandName Brand) (signValue
 	}
 
 	// Strip off the Algorithm prefix.
-	v4Auth = strings.TrimPrefix(v4Auth, brandName.GetSpecialFieldFullName(SignV4Algorithm))
+	v4Auth = strings.TrimPrefix(v4Auth, brand.GetSpecialFieldFullName(SignV4Algorithm))
 	authFields := strings.Split(strings.TrimSpace(v4Auth), ",")
 	if len(authFields) != 3 {
 		return signValues{}, ErrMissingFields
@@ -247,7 +247,7 @@ func parseSignV4(v4Auth string, headers http.Header, brandName Brand) (signValue
 
 	var err error
 	// Save credential values.
-	signV4Values.Credential, err = parseCredentialHeader(authFields[0], brandName)
+	signV4Values.Credential, err = parseCredentialHeader(authFields[0], brand)
 	if err != nil {
 		return signValues{}, err
 	}
@@ -256,7 +256,7 @@ func parseSignV4(v4Auth string, headers http.Header, brandName Brand) (signValue
 	// Usually we should have content-type in SignedHeaders, But in offical Amazon's S3
 	// PHP SDK, it does not sign content-type since 3.*. So we do not verify content-type
 	// in SignedHeaders
-	signV4Values.SignedHeaders, err = parseSignedHeaders(authFields[1], headers, brandName, false)
+	signV4Values.SignedHeaders, err = parseSignedHeaders(authFields[1], headers, brand, false)
 	if err != nil {
 		return signValues{}, err
 	}

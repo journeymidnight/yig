@@ -106,8 +106,8 @@ func ignoreUnsupportedObjectResources(h resourceHandler, req *http.Request) bool
 
 // Checks requests for not supported Object resources
 func ignoreUnsupportedStorageClass(h resourceHandler, req *http.Request) (bool, error) {
-	brandName := brand.GetContextBrand(req)
-	storageClass, err := getStorageClassFromHeader(req.Header, brandName)
+	brand := brand.GetContextBrand(req)
+	storageClass, err := getStorageClassFromHeader(req.Header, brand)
 	if err != nil {
 		return false, err
 	}

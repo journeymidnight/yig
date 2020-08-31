@@ -20,7 +20,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/journeymidnight/yig/brand"
+	. "github.com/journeymidnight/yig/brand"
 	. "github.com/journeymidnight/yig/context"
 	"github.com/journeymidnight/yig/helper"
 )
@@ -164,7 +164,7 @@ func (r *replacer) setReplacedValue(key, value string) {
 
 // getSubstitution retrieves value from corresponding key
 func (r *replacer) getSubstitution(key string) string {
-	brandName := brand.GetContextBrand(r.request)
+	brand := GetContextBrand(r.request)
 	// search default replacements in the end
 	switch key {
 	case "{time_local}":
@@ -267,9 +267,9 @@ func (r *replacer) getSubstitution(key string) string {
 		}
 		return objectInfo.StorageClass.ToString()
 	case "{target_storage_class}":
-		if r.request.Header.Get(brandName.GetGeneralFieldFullName(brand.XCopySource)) != "" &&
-			r.request.Header.Get(brandName.GetGeneralFieldFullName(brand.XMetadataDirective)) != "" {
-			storageClassFromHeader, err := getStorageClassFromHeader(r.request.Header, brandName)
+		if r.request.Header.Get(brand.GetGeneralFieldFullName(XCopySource)) != "" &&
+			r.request.Header.Get(brand.GetGeneralFieldFullName(XMetadataDirective)) != "" {
+			storageClassFromHeader, err := getStorageClassFromHeader(r.request.Header, brand)
 			if err != nil {
 				return "-"
 			}

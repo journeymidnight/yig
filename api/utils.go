@@ -124,6 +124,6 @@ func setXmlHeader(w http.ResponseWriter) {
 
 // hasServerSideEncryptionHeader returns true if the given HTTP header
 // contains server-side-encryption.
-func hasServerSideEncryptionHeader(header http.Header, brandName Brand) bool {
-	return crypto.S3.IsRequested(header, brandName) || crypto.SSEC.IsRequested(header, brandName)
+func hasServerSideEncryptionHeader(header http.Header, brand Brand) bool {
+	return crypto.S3.IsRequested(header, brand) || crypto.SSEC.IsRequested(header, brand)
 }

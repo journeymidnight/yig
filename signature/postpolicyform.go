@@ -235,7 +235,7 @@ func checkPolicyCond(op string, input1, input2 string) bool {
 }
 
 // checkPostPolicy - apply policy conditions and validate input values.
-func CheckPostPolicy(formValues map[string]string, brandName Brand) error {
+func CheckPostPolicy(formValues map[string]string, brand Brand) error {
 	/// Decoding policy
 	policyBytes, err := base64.StdEncoding.DecodeString(formValues["Policy"])
 	if err != nil {
@@ -262,7 +262,7 @@ func CheckPostPolicy(formValues map[string]string, brandName Brand) error {
 		op := policy.Operator
 		// If the current policy condition is known
 		for key, value := range startsWithXConds {
-			startsWithConds["$"+strings.ToLower(brandName.GetGeneralFieldFullName(key))] = value
+			startsWithConds["$"+strings.ToLower(brand.GetGeneralFieldFullName(key))] = value
 		}
 		if startsWithSupported, condFound := startsWithConds[policy.Key]; condFound {
 			// Check if the current condition supports starts-with operator
@@ -276,8 +276,8 @@ func CheckPostPolicy(formValues map[string]string, brandName Brand) error {
 			}
 		} else {
 			// This covers all conditions X-***-Meta-* and X-***-*
-			if strings.HasPrefix(policy.Key, "$"+strings.ToLower(brandName.GetGeneralFieldFullName(XMeta))+"-") ||
-				strings.HasPrefix(policy.Key, "$"+strings.ToLower(brandName.GetGeneralFieldFullName(XGeneralName))) {
+			if strings.HasPrefix(policy.Key, "$"+strings.ToLower(brand.GetGeneralFieldFullName(XMeta))+"-") ||
+				strings.HasPrefix(policy.Key, "$"+strings.ToLower(brand.GetGeneralFieldFullName(XGeneralName))) {
 				// Check if policy condition is satisfied
 				condPassed = checkPolicyCond(op, formValues[formCanonicalName], policy.Value)
 				if !condPassed {

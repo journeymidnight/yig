@@ -47,15 +47,15 @@ type s3 struct{}
 
 // IsRequested returns true if the HTTP headers indicates that
 // the S3 client requests SSE-S3.
-func (s3) IsRequested(h http.Header, brandName Brand) bool {
-	_, ok := h[brandName.GetGeneralFieldFullName(XServerSideEncryption)]
-	return ok && strings.ToLower(h.Get(brandName.GetGeneralFieldFullName(XServerSideEncryption))) != brandName.GetSpecialFieldFullName(SSEAlgorithmKMS) // Return only true if the SSE header is specified and does not contain the SSE-KMS value
+func (s3) IsRequested(h http.Header, brand Brand) bool {
+	_, ok := h[brand.GetGeneralFieldFullName(XServerSideEncryption)]
+	return ok && strings.ToLower(h.Get(brand.GetGeneralFieldFullName(XServerSideEncryption))) != brand.GetSpecialFieldFullName(SSEAlgorithmKMS) // Return only true if the SSE header is specified and does not contain the SSE-KMS value
 }
 
 // ParseHTTP parses the SSE-S3 related HTTP headers and checks
 // whether they contain valid values.
-func (s3) ParseHTTP(h http.Header, brandName Brand) (err error) {
-	if h.Get(brandName.GetGeneralFieldFullName(XServerSideEncryption)) != SSEAlgorithmAES256 {
+func (s3) ParseHTTP(h http.Header, brand Brand) (err error) {
+	if h.Get(brand.GetGeneralFieldFullName(XServerSideEncryption)) != SSEAlgorithmAES256 {
 		err = ErrInvalidEncryptionMethod
 	}
 	return
@@ -69,15 +69,15 @@ type s3KMS struct{}
 
 // IsRequested returns true if the HTTP headers indicates that
 // the S3 client requests SSE-KMS.
-func (s3KMS) IsRequested(h http.Header, brandName Brand) bool {
-	if _, ok := h[brandName.GetSpecialFieldFullName(SSEKmsID)]; ok {
+func (s3KMS) IsRequested(h http.Header, brand Brand) bool {
+	if _, ok := h[brand.GetSpecialFieldFullName(SSEKmsID)]; ok {
 		return true
 	}
-	if _, ok := h[brandName.GetGeneralFieldFullName(XSSEKmsContext)]; ok {
+	if _, ok := h[brand.GetGeneralFieldFullName(XSSEKmsContext)]; ok {
 		return true
 	}
-	if _, ok := h[brandName.GetGeneralFieldFullName(XServerSideEncryption)]; ok {
-		return strings.ToUpper(h.Get(brandName.GetGeneralFieldFullName(XServerSideEncryption))) != SSEAlgorithmAES256 // Return only true if the SSE header is specified and does not contain the SSE-S3 value
+	if _, ok := h[brand.GetGeneralFieldFullName(XServerSideEncryption)]; ok {
+		return strings.ToUpper(h.Get(brand.GetGeneralFieldFullName(XServerSideEncryption))) != SSEAlgorithmAES256 // Return only true if the SSE header is specified and does not contain the SSE-S3 value
 	}
 	return false
 }
@@ -97,14 +97,14 @@ type ssecCopy struct{}
 
 // IsRequested returns true if the HTTP headers contains
 // at least one SSE-C header. SSE-C copy headers are ignored.
-func (ssec) IsRequested(h http.Header, brandName Brand) bool {
-	if _, ok := h[brandName.GetGeneralFieldFullName(XSSECAlgorithm)]; ok {
+func (ssec) IsRequested(h http.Header, brand Brand) bool {
+	if _, ok := h[brand.GetGeneralFieldFullName(XSSECAlgorithm)]; ok {
 		return true
 	}
-	if _, ok := h[brandName.GetGeneralFieldFullName(XSSECKey)]; ok {
+	if _, ok := h[brand.GetGeneralFieldFullName(XSSECKey)]; ok {
 		return true
 	}
-	if _, ok := h[brandName.GetGeneralFieldFullName(XSSECKeyMD5)]; ok {
+	if _, ok := h[brand.GetGeneralFieldFullName(XSSECKeyMD5)]; ok {
 		return true
 	}
 	return false
@@ -113,14 +113,14 @@ func (ssec) IsRequested(h http.Header, brandName Brand) bool {
 // IsRequested returns true if the HTTP headers contains
 // at least one SSE-C copy header. Regular SSE-C headers
 // are ignored.
-func (ssecCopy) IsRequested(h http.Header, brandName Brand) bool {
-	if _, ok := h[brandName.GetGeneralFieldFullName(XSSECopyAlgorithm)]; ok {
+func (ssecCopy) IsRequested(h http.Header, brand Brand) bool {
+	if _, ok := h[brand.GetGeneralFieldFullName(XSSECopyAlgorithm)]; ok {
 		return true
 	}
-	if _, ok := h[brandName.GetGeneralFieldFullName(XSSECopyKey)]; ok {
+	if _, ok := h[brand.GetGeneralFieldFullName(XSSECopyKey)]; ok {
 		return true
 	}
-	if _, ok := h[brandName.GetGeneralFieldFullName(XSSECopyKeyMD5)]; ok {
+	if _, ok := h[brand.GetGeneralFieldFullName(XSSECopyKeyMD5)]; ok {
 		return true
 	}
 	return false
@@ -128,22 +128,22 @@ func (ssecCopy) IsRequested(h http.Header, brandName Brand) bool {
 
 // ParseHTTP parses the SSE-C headers and returns the SSE-C client key
 // on success. SSE-C copy headers are ignored.
-func (ssec) ParseHTTP(h http.Header, brandName Brand) (key [32]byte, err error) {
-	if h.Get(brandName.GetGeneralFieldFullName(XSSECAlgorithm)) != SSEAlgorithmAES256 {
+func (ssec) ParseHTTP(h http.Header, brand Brand) (key [32]byte, err error) {
+	if h.Get(brand.GetGeneralFieldFullName(XSSECAlgorithm)) != SSEAlgorithmAES256 {
 		return key, ErrInvalidCustomerAlgorithm
 	}
-	if h.Get(brandName.GetGeneralFieldFullName(XSSECKey)) == "" {
+	if h.Get(brand.GetGeneralFieldFullName(XSSECKey)) == "" {
 		return key, ErrMissingCustomerKey
 	}
-	if h.Get(brandName.GetGeneralFieldFullName(XSSECKeyMD5)) == "" {
+	if h.Get(brand.GetGeneralFieldFullName(XSSECKeyMD5)) == "" {
 		return key, ErrMissingCustomerKeyMD5
 	}
 
-	clientKey, err := base64.StdEncoding.DecodeString(h.Get(brandName.GetGeneralFieldFullName(XSSECKey)))
+	clientKey, err := base64.StdEncoding.DecodeString(h.Get(brand.GetGeneralFieldFullName(XSSECKey)))
 	if err != nil || len(clientKey) != 32 { // The client key must be 256 bits long
 		return key, ErrInvalidCustomerKey
 	}
-	keyMD5, err := base64.StdEncoding.DecodeString(h.Get(brandName.GetGeneralFieldFullName(XSSECKeyMD5)))
+	keyMD5, err := base64.StdEncoding.DecodeString(h.Get(brand.GetGeneralFieldFullName(XSSECKeyMD5)))
 	if md5Sum := md5.Sum(clientKey); err != nil || !bytes.Equal(md5Sum[:], keyMD5) {
 		return key, ErrCustomerKeyMD5Mismatch
 	}
@@ -153,22 +153,22 @@ func (ssec) ParseHTTP(h http.Header, brandName Brand) (key [32]byte, err error) 
 
 // ParseHTTP parses the SSE-C copy headers and returns the SSE-C client key
 // on success. Regular SSE-C headers are ignored.
-func (ssecCopy) ParseHTTP(h http.Header, brandName Brand) (key [32]byte, err error) {
-	if h.Get(brandName.GetGeneralFieldFullName(XSSECopyAlgorithm)) != SSEAlgorithmAES256 {
+func (ssecCopy) ParseHTTP(h http.Header, brand Brand) (key [32]byte, err error) {
+	if h.Get(brand.GetGeneralFieldFullName(XSSECopyAlgorithm)) != SSEAlgorithmAES256 {
 		return key, ErrInvalidCustomerAlgorithm
 	}
-	if h.Get(brandName.GetGeneralFieldFullName(XSSECopyKey)) == "" {
+	if h.Get(brand.GetGeneralFieldFullName(XSSECopyKey)) == "" {
 		return key, ErrMissingCustomerKey
 	}
-	if h.Get(brandName.GetGeneralFieldFullName(XSSECopyKeyMD5)) == "" {
+	if h.Get(brand.GetGeneralFieldFullName(XSSECopyKeyMD5)) == "" {
 		return key, ErrMissingCustomerKeyMD5
 	}
 
-	clientKey, err := base64.StdEncoding.DecodeString(h.Get(brandName.GetGeneralFieldFullName(XSSECopyKey)))
+	clientKey, err := base64.StdEncoding.DecodeString(h.Get(brand.GetGeneralFieldFullName(XSSECopyKey)))
 	if err != nil || len(clientKey) != 32 { // The client key must be 256 bits long
 		return key, ErrInvalidCustomerKey
 	}
-	keyMD5, err := base64.StdEncoding.DecodeString(h.Get(brandName.GetGeneralFieldFullName(XSSECopyKeyMD5)))
+	keyMD5, err := base64.StdEncoding.DecodeString(h.Get(brand.GetGeneralFieldFullName(XSSECopyKeyMD5)))
 	if md5Sum := md5.Sum(clientKey); err != nil || !bytes.Equal(md5Sum[:], keyMD5) {
 		return key, ErrCustomerKeyMD5Mismatch
 	}

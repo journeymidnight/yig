@@ -25,15 +25,15 @@ var (
 	IgnoredFormRegExpV2 = regexp.MustCompile("(?i)Awsaccesskeyid|Signature|File|Policy|X-Ignore-.+")
 )
 
-func GetPostPolicyType(formValues map[string]string, brandName Brand) PostPolicyType {
+func GetPostPolicyType(formValues map[string]string, brand Brand) PostPolicyType {
 	if _, ok := formValues["Policy"]; !ok {
 		return PostPolicyAnonymous
 	}
 	if _, ok := formValues["Signature"]; ok {
 		return PostPolicyV2
 	}
-	if algorithm, ok := formValues[brandName.GetGeneralFieldFullName(XAlgorithm)]; ok {
-		if algorithm == brandName.GetSpecialFieldFullName(SignV4Algorithm) {
+	if algorithm, ok := formValues[brand.GetGeneralFieldFullName(XAlgorithm)]; ok {
+		if algorithm == brand.GetSpecialFieldFullName(SignV4Algorithm) {
 			return PostPolicyV4
 		}
 	}

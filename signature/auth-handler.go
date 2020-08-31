@@ -34,15 +34,15 @@ import (
 // Verify if request has AWS Signature
 // for v2, the Authorization header starts with "AWS ",
 // for v4, starts with "AWS4-HMAC-SHA256 " (notice the space after string)
-func isRequestSignature(r *http.Request, brandName Brand) (bool, AuthType) {
+func isRequestSignature(r *http.Request, brand Brand) (bool, AuthType) {
 	if _, ok := r.Header["Authorization"]; ok {
 		if len(r.Header.Get("Authorization")) == 0 {
 			return false, AuthTypeUnknown
 		}
 		header := r.Header.Get("Authorization")
-		if strings.HasPrefix(header, brandName.GetSpecialFieldFullName(SignV4Algorithm)+" ") {
+		if strings.HasPrefix(header, brand.GetSpecialFieldFullName(SignV4Algorithm)+" ") {
 			return true, AuthTypeSignedV4
-		} else if strings.HasPrefix(header, brandName.GetSpecialFieldFullName(SignV2Algorithm)+" ") {
+		} else if strings.HasPrefix(header, brand.GetSpecialFieldFullName(SignV2Algorithm)+" ") {
 			return true, AuthTypeSignedV2
 		}
 	}
@@ -50,10 +50,10 @@ func isRequestSignature(r *http.Request, brandName Brand) (bool, AuthType) {
 }
 
 // Verify if request is AWS presigned
-func isRequestPresigned(r *http.Request, brandName Brand) (bool, AuthType) {
-	if _, ok := r.URL.Query()[brandName.GetGeneralFieldFullName(XCredential)]; ok {
+func isRequestPresigned(r *http.Request, brand Brand) (bool, AuthType) {
+	if _, ok := r.URL.Query()[brand.GetGeneralFieldFullName(XCredential)]; ok {
 		return true, AuthTypePresignedV4
-	} else if _, ok := r.URL.Query()[brandName.GetSpecialFieldFullName(AccessKeyId)]; ok {
+	} else if _, ok := r.URL.Query()[brand.GetSpecialFieldFullName(AccessKeyId)]; ok {
 		return true, AuthTypePresignedV2
 	}
 	return false, AuthTypeUnknown
@@ -73,8 +73,8 @@ func isRequestPostPolicySignature(r *http.Request) bool {
 }
 
 // Verify if the request has AWS Streaming Signature Version '4'. This is only valid for 'PUT' operation.
-func isRequestSignStreamingV4(r *http.Request, brandName Brand) bool {
-	return r.Header.Get(brandName.GetGeneralFieldFullName(XContentSha)) == brandName.GetSpecialFieldFullName(StreamingContentSHA256) &&
+func isRequestSignStreamingV4(r *http.Request, brand Brand) bool {
+	return r.Header.Get(brand.GetGeneralFieldFullName(XContentSha)) == brand.GetSpecialFieldFullName(StreamingContentSHA256) &&
 		r.Method == http.MethodPut
 }
 
@@ -94,12 +94,12 @@ const (
 )
 
 // Get request authentication type.
-func GetRequestAuthType(r *http.Request, brandName Brand) AuthType {
-	if isRequestSignStreamingV4(r, brandName) {
+func GetRequestAuthType(r *http.Request, brand Brand) AuthType {
+	if isRequestSignStreamingV4(r, brand) {
 		return AuthTypeStreamingSigned
-	} else if isSignature, version := isRequestSignature(r, brandName); isSignature {
+	} else if isSignature, version := isRequestSignature(r, brand); isSignature {
 		return version
-	} else if isPresigned, version := isRequestPresigned(r, brandName); isPresigned {
+	} else if isPresigned, version := isRequestPresigned(r, brand); isPresigned {
 		return version
 	} else if isRequestPostPolicySignature(r) {
 		return AuthTypePostPolicy
@@ -138,18 +138,18 @@ func IsReqAuthenticated(r *http.Request) (c common.Credential, e error) {
 	// Populate back the payload.
 	r.Body = ioutil.NopCloser(bytes.NewReader(payload))
 	validateRegion := false // TODO: Validate region.
-	brandName := GetContextBrand(r)
-	switch GetRequestAuthType(r, brandName) {
+	brand := GetContextBrand(r)
+	switch GetRequestAuthType(r, brand) {
 	case AuthTypePresignedV4:
-		return DoesPresignedSignatureMatchV4(r, brandName, validateRegion)
+		return DoesPresignedSignatureMatchV4(r, brand, validateRegion)
 	case AuthTypeSignedV4:
-		return DoesSignatureMatchV4(hex.EncodeToString(sum256(payload)), r, brandName, validateRegion)
+		return DoesSignatureMatchV4(hex.EncodeToString(sum256(payload)), r, brand, validateRegion)
 	case AuthTypePresignedV2:
-		return DoesPresignedSignatureMatchV2(r, brandName)
+		return DoesPresignedSignatureMatchV2(r, brand)
 	case AuthTypeSignedV2:
-		return DoesSignatureMatchV2(r, brandName)
+		return DoesSignatureMatchV2(r, brand)
 	case AuthTypeStreamingSigned:
-		credential, _, _, _, err := CalculateSeedSignature(r, brandName)
+		credential, _, _, _, err := CalculateSeedSignature(r, brand)
 		return credential, err
 	}
 	return c, ErrAccessDenied

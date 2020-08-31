@@ -15,10 +15,11 @@
 package crypto
 
 import (
-	"github.com/journeymidnight/yig/brand"
 	"net/http"
 	"sort"
 	"testing"
+
+	. "github.com/journeymidnight/yig/brand"
 )
 
 var kmsIsRequestedTests = []struct {
@@ -49,7 +50,7 @@ var kmsIsRequestedTests = []struct {
 
 func TestKMSIsRequested(t *testing.T) {
 	for i, test := range kmsIsRequestedTests {
-		if got := S3KMS.IsRequested(test.Header, brand.Brand(&brand.Aws{})); got != test.Expected {
+		if got := S3KMS.IsRequested(test.Header, Brand(&Aws{})); got != test.Expected {
 			t.Errorf("Test %d: Wanted %v but got %v", i, test.Expected, got)
 		}
 	}
@@ -68,7 +69,7 @@ var s3IsRequestedTests = []struct {
 
 func TestS3IsRequested(t *testing.T) {
 	for i, test := range s3IsRequestedTests {
-		if got := S3.IsRequested(test.Header, brand.Brand(&brand.Aws{})); got != test.Expected {
+		if got := S3.IsRequested(test.Header, Brand(&Aws{})); got != test.Expected {
 			t.Errorf("Test %d: Wanted %v but got %v", i, test.Expected, got)
 		}
 	}
@@ -86,7 +87,7 @@ var s3ParseTests = []struct {
 
 func TestS3Parse(t *testing.T) {
 	for i, test := range s3ParseTests {
-		if err := S3.ParseHTTP(test.Header, brand.Brand(&brand.Aws{})); err != test.ExpectedErr {
+		if err := S3.ParseHTTP(test.Header, Brand(&Aws{})); err != test.ExpectedErr {
 			t.Errorf("Test %d: Wanted '%v' but got '%v'", i, test.ExpectedErr, err)
 		}
 	}
@@ -128,7 +129,7 @@ var ssecIsRequestedTests = []struct {
 
 func TestSSECIsRequested(t *testing.T) {
 	for i, test := range ssecIsRequestedTests {
-		if got := SSEC.IsRequested(test.Header, brand.Brand(&brand.Aws{})); got != test.Expected {
+		if got := SSEC.IsRequested(test.Header, Brand(&Aws{})); got != test.Expected {
 			t.Errorf("Test %d: Wanted %v but got %v", i, test.Expected, got)
 		}
 	}
@@ -170,7 +171,7 @@ var ssecCopyIsRequestedTests = []struct {
 
 func TestSSECopyIsRequested(t *testing.T) {
 	for i, test := range ssecCopyIsRequestedTests {
-		if got := SSECopy.IsRequested(test.Header, brand.Brand(&brand.Aws{})); got != test.Expected {
+		if got := SSECopy.IsRequested(test.Header, Brand(&Aws{})); got != test.Expected {
 			t.Errorf("Test %d: Wanted %v but got %v", i, test.Expected, got)
 		}
 	}
@@ -241,7 +242,7 @@ var ssecParseTests = []struct {
 func TestSSECParse(t *testing.T) {
 	var zeroKey [32]byte
 	for i, test := range ssecParseTests {
-		key, err := SSEC.ParseHTTP(test.Header, brand.Brand(&brand.Aws{}))
+		key, err := SSEC.ParseHTTP(test.Header, Brand(&Aws{}))
 		if err != test.ExpectedErr {
 			t.Errorf("Test %d: want error '%v' but got '%v'", i, test.ExpectedErr, err)
 		}
@@ -320,7 +321,7 @@ var ssecCopyParseTests = []struct {
 func TestSSECopyParse(t *testing.T) {
 	var zeroKey [32]byte
 	for i, test := range ssecCopyParseTests {
-		key, err := SSECopy.ParseHTTP(test.Header, brand.Brand(&brand.Aws{}))
+		key, err := SSECopy.ParseHTTP(test.Header, Brand(&Aws{}))
 		if err != test.ExpectedErr {
 			t.Errorf("Test %d: want error '%v' but got '%v'", i, test.ExpectedErr, err)
 		}

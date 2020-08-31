@@ -5,9 +5,9 @@ import (
 	"strings"
 )
 
-type BrandNameKeyType string
+type BrandKeyType string
 
-const BrandNameKey BrandNameKeyType = "BrandName"
+const BrandKey BrandKeyType = "Brand"
 
 const (
 	XAmzName = "X-Amz"
@@ -190,5 +190,5 @@ func (u *Uos) GetSpecialFieldFullName(field SpecialFieldName) string {
 }
 
 func GetContextBrand(r *http.Request) Brand {
-	return r.Context().Value(BrandNameKey).(Brand)
+	return r.Context().Value(BrandKey).(Brand)
 }

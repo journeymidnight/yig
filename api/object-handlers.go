@@ -62,8 +62,8 @@ func setGetRespHeaders(w http.ResponseWriter, reqParams url.Values) {
 	}
 }
 
-func getStorageClassFromHeader(header http.Header, brandName Brand) (StorageClass, error) {
-	storageClassStr := header.Get(brandName.GetGeneralFieldFullName(XStorageClass))
+func getStorageClassFromHeader(header http.Header, brand Brand) (StorageClass, error) {
+	storageClassStr := header.Get(brand.GetGeneralFieldFullName(XStorageClass))
 
 	if storageClassStr != "" {
 		helper.Logger.Info("Get storage class header:", storageClassStr)

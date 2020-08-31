@@ -29,7 +29,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/backend"
-	"github.com/journeymidnight/yig/brand"
+	. "github.com/journeymidnight/yig/brand"
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
@@ -150,15 +150,15 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 
 	reqCtx.VersionId = helper.Ternary(r.URL.Query().Get("versionId") == "null", types.NullVersion, r.URL.Query().Get("versionId")).(string)
 	err := FillBucketAndObjectInfo(&reqCtx, r, h.meta)
-	brandName := brand.DistinguishBrandName(r, reqCtx.FormValues)
-	reqCtx.BrandType = brandName
+	brand := DistinguishBrandName(r, reqCtx.FormValues)
+	reqCtx.BrandType = brand
 
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
 
-	authType := signature.GetRequestAuthType(r, brandName)
+	authType := signature.GetRequestAuthType(r, brand)
 	if authType == signature.AuthTypeUnknown {
 		WriteErrorResponse(w, r, ErrSignatureVersionNotSupported)
 		return
@@ -188,7 +188,7 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	}
 
 	ctx := context.WithValue(r.Context(), RequestContextKey, reqCtx)
-	ctx = context.WithValue(ctx, brand.BrandNameKey, brandName)
+	ctx = context.WithValue(ctx, BrandKey, brand)
 	h.handler.ServeHTTP(w, r.WithContext(ctx))
 
 }
