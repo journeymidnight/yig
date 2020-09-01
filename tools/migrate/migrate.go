@@ -332,12 +332,14 @@ func (w MigrateWorker) processEntry(object types.Object) {
 		destCluster := w.pickSpecificCluster(backend.BIG_FILE_POOLNAME)
 		if destCluster == nil {
 			w.logger.Error("Empty destination cluster")
+			reader.Close()
 			return
 		}
 		newOid, bytesWritten, err := destCluster.Append(backend.BIG_FILE_POOLNAME,
 			"", reader, 0, sourceObject.Size)
 		if err != nil {
 			w.logger.Error("cephCluster.Append error:", err, newOid)
+			reader.Close()
 			time.Sleep(time.Second)
 			continue
 		}
@@ -345,6 +347,7 @@ func (w MigrateWorker) processEntry(object types.Object) {
 			_ = destCluster.Remove(backend.BIG_FILE_POOLNAME, newOid)
 			w.logger.Error("cephCluster.Append write length to hdd not equal the object size:",
 				newOid, bytesWritten, sourceObject.Size)
+			reader.Close()
 			time.Sleep(time.Second)
 			continue
 		}
@@ -358,6 +361,7 @@ func (w MigrateWorker) processEntry(object types.Object) {
 			_ = destCluster.Remove(backend.BIG_FILE_POOLNAME, newOid)
 			w.logger.Error("cephCluster.Append MigrateObject failed:",
 				err.Error(), newSourceObject.Pool, newSourceObject.ObjectId)
+			reader.Close()
 			time.Sleep(time.Second)
 			continue
 		}
@@ -365,12 +369,14 @@ func (w MigrateWorker) processEntry(object types.Object) {
 		if err != nil {
 			w.logger.Error("cephCluster.Append Remove data from rabbit failed:",
 				err.Error(), newSourceObject.Pool, newSourceObject.ObjectId)
+			reader.Close()
 			return
 		}
 		w.InvalidCache(newSourceObject)
 		w.logger.Info("migrate success for bucket: ", sourceObject.BucketName+
 			" name: "+sourceObject.Name+" version: "+sourceObject.VersionId+
 			" oldoid: "+sourceObject.ObjectId+" newoid: "+newSourceObject.ObjectId)
+		reader.Close()
 		return
 	}
 }
