@@ -1815,7 +1815,7 @@ func (yig *YigStorage) DeleteObjects(reqCtx RequestContext, credential common.Cr
 					})
 				}
 				if delResult.DeltaSize.Delta != 0 {
-					atomic.AddInt64(&deltaResult[delResult.DeltaSize.StorageClass], CorrectDeltaSize(object.StorageClass, object.Size))
+					atomic.AddInt64(&deltaResult[delResult.DeltaSize.StorageClass], CorrectDeltaSize(delResult.DeltaSize.StorageClass, delResult.DeltaSize.Delta))
 				}
 			} else {
 				helper.Logger.Error("Unable to delete object:", err)
