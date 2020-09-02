@@ -176,14 +176,16 @@ func (o *GetObjectResponseWriter) Write(p []byte) (int, error) {
 		}
 		// Set headers on the first write.
 		// Set standard object headers.
-		SetObjectHeaders(o.w, o.object, o.hrange, o.statusCode)
+		hasAlreadySetStatus := SetObjectHeaders(o.w, o.object, o.hrange, o.statusCode)
 		// Set any additional requested response headers.
 		// You must sign the request, either using an Authorization header or a presigned URL, when using these parameters.
 		// They cannot be used with an unsigned (anonymous) request.
 		if o.authType > signature.AuthTypeAnonymous && o.statusCode == http.StatusOK {
 			setGetRespHeaders(o.w, o.r.URL.Query())
 		}
-		o.w.WriteHeader(o.statusCode)
+		if !hasAlreadySetStatus {
+			o.w.WriteHeader(o.statusCode)
+		}
 		o.dataWritten = true
 	}
 	n, err := o.w.Write(p)
@@ -233,8 +235,9 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			WriteErrorResponse(w, r, ErrMethodNotAllowed)
 			return
 		}
-		SetObjectHeaders(w, object, nil, http.StatusNotFound)
-		w.WriteHeader(http.StatusNotFound)
+		if hasAlreadySetStatus := SetObjectHeaders(w, object, nil, http.StatusNotFound); hasAlreadySetStatus {
+			return
+		}
 		WriteErrorResponse(w, r, ErrNoSuchKey)
 		return
 	}
@@ -411,8 +414,9 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 			WriteErrorResponse(w, r, ErrMethodNotAllowed)
 			return
 		}
-		SetObjectHeaders(w, object, nil, http.StatusNotFound)
-		w.WriteHeader(http.StatusNotFound)
+		if hasAlreadySetStatus := SetObjectHeaders(w, object, nil, http.StatusNotFound); hasAlreadySetStatus {
+			return
+		}
 		WriteErrorResponse(w, r, ErrNoSuchKey)
 		return
 	}
@@ -471,8 +475,9 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 
 	// Successful response.
 	// Set standard object headers.
-	SetObjectHeaders(w, object, nil, http.StatusOK)
-	w.WriteHeader(http.StatusOK)
+	if hasAlreadySetStatus := SetObjectHeaders(w, object, nil, http.StatusOK); !hasAlreadySetStatus {
+		w.WriteHeader(http.StatusOK)
+	}
 }
 
 // CopyObjectHandler - Copy Object

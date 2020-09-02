@@ -44,7 +44,8 @@ func EncodeResponse(response interface{}) []byte {
 }
 
 // Write object header
-func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *HttpRange, statusCode int) {
+func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *HttpRange, statusCode int) (hasAlreadySetStatus bool) {
+	newCode := statusCode
 	// set object-related metadata headers
 	lastModified := object.LastModifiedTime.UTC().Format(http.TimeFormat)
 	w.Header().Set("Last-Modified", lastModified)
@@ -75,7 +76,7 @@ func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *
 		// Override content-length
 		w.Header().Set("Content-Length", strconv.FormatInt(contentRange.GetLength(), 10))
 		w.Header().Set("Content-Range", contentRange.String())
-		w.WriteHeader(http.StatusPartialContent)
+		newCode = http.StatusPartialContent
 	}
 
 	if object.VersionId != meta.NullVersion {
@@ -84,6 +85,11 @@ func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *
 
 	if object.DeleteMarker {
 		w.Header()["x-amz-delete-marker"] = []string{"true"}
-		statusCode = http.StatusNotFound
+		newCode = http.StatusNotFound
 	}
+	if newCode != statusCode {
+		w.WriteHeader(newCode)
+		return true
+	}
+	return false
 }
