@@ -219,7 +219,7 @@ func (w MigrateWorker) Init(handle task.Handle, jobID int) (task.AsyncTask, erro
 	if err != nil {
 		return nil, err
 	}
-	cephClusters, err := ceph.PureInitialize(conf.CephConfigPattern)
+	cephClusters, err := ceph.PureInitialize(conf.CephConfigPattern, 1)
 	if err != nil {
 		return nil, err
 	}
