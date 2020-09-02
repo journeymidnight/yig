@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"strconv"
 
-	. "github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/helper"
 	meta "github.com/journeymidnight/yig/meta/types"
 )
@@ -44,8 +43,7 @@ func EncodeResponse(response interface{}) []byte {
 }
 
 // Write object header
-func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *HttpRange, statusCode int) (hasAlreadySetStatus bool) {
-	newCode := statusCode
+func SetObjectHeaders(w http.ResponseWriter, object *meta.Object) {
 	// set object-related metadata headers
 	lastModified := object.LastModifiedTime.UTC().Format(http.TimeFormat)
 	w.Header().Set("Last-Modified", lastModified)
@@ -71,25 +69,11 @@ func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *
 		w.Header().Set("X-Amz-Next-Append-Position", strconv.FormatInt(object.Size, 10))
 	}
 
-	// for providing ranged content
-	if contentRange != nil && contentRange.OffsetBegin > -1 {
-		// Override content-length
-		w.Header().Set("Content-Length", strconv.FormatInt(contentRange.GetLength(), 10))
-		w.Header().Set("Content-Range", contentRange.String())
-		newCode = http.StatusPartialContent
-	}
-
 	if object.VersionId != meta.NullVersion {
 		w.Header()["x-amz-version-id"] = []string{object.VersionId}
 	}
 
 	if object.DeleteMarker {
 		w.Header()["x-amz-delete-marker"] = []string{"true"}
-		newCode = http.StatusNotFound
 	}
-	if newCode != statusCode {
-		w.WriteHeader(newCode)
-		return true
-	}
-	return false
 }
