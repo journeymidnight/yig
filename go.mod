@@ -53,4 +53,5 @@ require (
 	github.com/stretchr/testify v1.5.1
 	github.com/ugorji/go v1.1.4
 	github.com/xxtea/xxtea-go v0.0.0-20170828040851-35c4b17eecf6
+	golang.org/x/sys v0.0.0-20191010194322-b09406accb47
 )

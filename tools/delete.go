@@ -45,6 +45,9 @@ func deleteFromCeph(index int) {
 		)
 		garbage := <-gcTaskQ
 		gcWaitgroup.Add(1)
+		if garbage.Location == "" || (garbage.ObjectId == "" && len(garbage.Parts) == 0) {
+			goto release
+		}
 		if len(garbage.Parts) == 0 {
 			err = yigs[index].DataStorage[garbage.Location].
 				Remove(garbage.Pool, garbage.ObjectId)
@@ -73,7 +76,10 @@ func deleteFromCeph(index int) {
 			}
 		}
 	release:
-		yigs[index].MetaStorage.RemoveGarbageCollection(garbage)
+		err = yigs[index].MetaStorage.RemoveGarbageCollection(garbage)
+		if err != nil {
+			helper.Logger.Warn("Remove garbage err :", err, "\n garbage info :", garbage)
+		}
 		gcWaitgroup.Done()
 	}
 }
