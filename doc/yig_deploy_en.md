@@ -20,22 +20,22 @@ sed -i '/SELINUX/s/enforcing/disabled/' /etc/selinux/config
 Run the command below to change the hostname.
 
 ```
-hostnamectl set-hostname  ceph117
-hostnamectl set-hostname  ceph118
-hostnamectl set-hostname  ceph119
+hostnamectl set-hostname  node1
+hostnamectl set-hostname  node2
+hostnamectl set-hostname  node3
 ```
 
 Edit the /etc/hosts file on all node with the vim editor and add lines with the IP address and hostnames of all cluster nodes.
 
 ```
-173.20.4.117 ceph117
-173.20.4.118 ceph118
-173.20.4.119 ceph119
+173.20.4.117 node1
+173.20.4.118 node2
+173.20.4.119 node3
 ```
 
 ### 3.Configure the SSH Server
 
-Configure ceph117 for an SSH passwordless login to other nodes. Execute the following commands from ceph117:
+Configure node1 for an SSH passwordless login to other nodes. Execute the following commands from node1:
 
 ```markup
 ssh-keygen
@@ -72,18 +72,14 @@ net.ipv4.tcp_timestamps=1
 net.ipv4.tcp_keepalive_time = 1200
 net.ipv4.ip_local_port_range = 1024 65000
 net.ipv4.tcp_max_tw_buckets = 5000
-net.ipv4.tcp_max_syn_backlog = 8192
-net.ipv4.tcp_syncookies = 1
-net.ipv4.tcp_tw_reuse = 1
-net.ipv4.tcp_tw_recycle = 1
 net.ipv4.tcp_fin_timeout = 30
 net.ipv4.conf.all.arp_ignore = 1
 net.ipv4.conf.all.arp_announce = 2
 net.ipv4.conf.lo.arp_ignore = 1
 net.ipv4.conf.lo.arp_announce = 2
 Edit the sysctl.conf file with vim.
-[root@ceph117 ~]# vi /etc/sysctl.conf  
-[root@ceph117 ~]# sysctl -p
+[root@node1 ~]# vi /etc/sysctl.conf  
+[root@node1 ~]# sysctl -p
 ```
 
 ## TiDB
@@ -93,7 +89,7 @@ Refer to the TIDB community [offline-deployment](https://docs.pingcap.com/tidb/s
 Connect to the TiDB cluster using the MySQL client.Create database yig and table
 
 ```
-[root@ceph117 ~]# mysql -u root -h 173.20.4.117 -P 4000 -p
+[root@node1 ~]# mysql -u root -h 173.20.4.117 -P 4000 -p
 MySQL [(none)]> create database yig;
 MySQL [(none)]> use yig;
 MySQL [yig]> source /usr/local/yig/yig.sql;
@@ -252,7 +248,7 @@ make sure the services are up and running
 docker ps|grep kafka
 ```
 
-Check the ZooKeeper logs to verify that ZooKeeper is healthy. For example, for service ceph117:
+Check the ZooKeeper logs to verify that ZooKeeper is healthy. For example, for service node1:
 
 ```
 docker logs kafka
@@ -271,29 +267,29 @@ Note that either way, you need to make sure you have Rabbit, Tiger, and Turtle p
 create replicated pool
 
 ```
-[root@ceph117 ~]# ceph osd pool create rabbit 128 128
-[root@ceph117 ~]# ceph osd pool create tiger 128 128
-[root@ceph117 ~]# ceph osd pool create turtle 128 128
+[root@node1 ~]# ceph osd pool create rabbit 128 128
+[root@node1 ~]# ceph osd pool create tiger 128 128
+[root@node1 ~]# ceph osd pool create turtle 128 128
 ```
 
 create a new erasure code profile::
 
 ```
-[root@ceph117 ~]# ceph osd erasure-code-profile set fsecprofile k=2 m=1 crush-failure-domain=host crush-root={{ your_root}}
+[root@node1 ~]# ceph osd erasure-code-profile set fsecprofile k=2 m=1 crush-failure-domain=host crush-root={{ your_root}}
 ```
 
 create erasure rule:
 
 ```
-[root@ceph117 ~]# ceph osd crush rule create-erasure sata fsecprofile
+[root@node1 ~]# ceph osd crush rule create-erasure sata fsecprofile
 ```
 
 create ec pool
 
 ```
-[root@ceph117 ~]# ceph osd pool create rabbit 128 128
-[root@ceph117 ~]# ceph osd pool create tiger 128 128 erasure fsecprofile sata
-[root@ceph117 ~]# ceph osd pool create turtle 128 128 erasure fsecprofile sata
+[root@node1 ~]# ceph osd pool create rabbit 128 128
+[root@node1 ~]# ceph osd pool create tiger 128 128 erasure fsecprofile sata
+[root@node1 ~]# ceph osd pool create turtle 128 128 erasure fsecprofile sata
 ```
 
 ## Caddy
@@ -359,7 +355,7 @@ enable_usage_push = false
 enable_compression = false
 redis_store = "single"
 redis_address = "173.20.4.117:6379"
-redis_group = ["ceph117:6379","ceph118:6379","ceph119:6379"]
+redis_group = ["node1:6379","node2:6379","node3:6379"]
 redis_password = ""
 redis_connection_number = 10
 memory_cache_max_entry_count = 100000
@@ -422,7 +418,7 @@ path = "/etc/yig/plugins/dummy_mq_plugin.so"
 enable = true
 [plugins.dummy_mq.args]
 topic = "topic1"
-url = "ceph117:9092"
+url = "node1:9092"
 
 [plugins.dummy_iam]
 path = "/etc/yig/plugins/dummy_iam_plugin.so"
@@ -470,12 +466,12 @@ multipart_chunk_size_mb = 5
 Connect to your yig and test：
 
 ```
-[root@ceph117 ~]# s3cmd ls 
-[root@ceph117 ~]# s3cmd mb s3://test
-[root@ceph117 ~]# touch hehe
-[root@ceph117 ~]# s3cmd put hehe s3://test
-[root@ceph117 ~]# s3cmd get s3://test/hehe
-[root@ceph117 ~]# s3cmd del s3://test/hehe
-[root@ceph117 ~]# s3cmd rb s3://test
+[root@node1 ~]# s3cmd ls 
+[root@node1 ~]# s3cmd mb s3://test
+[root@node1 ~]# touch hehe
+[root@node1 ~]# s3cmd put hehe s3://test
+[root@node1 ~]# s3cmd get s3://test/hehe
+[root@node1 ~]# s3cmd del s3://test/hehe
+[root@node1 ~]# s3cmd rb s3://test
 ```
 

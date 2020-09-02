@@ -16,22 +16,22 @@ sed -i '/SELINUX/s/enforcing/disabled/' /etc/selinux/config
 各个机器下分别执行如下命令
 
 ```
-hostnamectl set-hostname  ceph117
-hostnamectl set-hostname  ceph118
-hostnamectl set-hostname  ceph119
+hostnamectl set-hostname  node1
+hostnamectl set-hostname  node2
+hostnamectl set-hostname  node3
 ```
 
 修改后在每台机器上修改/etc/hosts文件
 
 ```
-173.20.4.117 ceph117
-173.20.4.118 ceph118
-173.20.4.119 ceph119
+173.20.4.117 node1
+173.20.4.118 node2
+173.20.4.119 node3
 ```
 
 ### 3.配置master节点免密钥登陆节点
 
-选择一台部署主机，这里选择ceph117，在root用户下开启SSH互信操作
+选择一台部署主机，这里选择node1，在root用户下开启SSH互信操作
 
 ```
 在部署节点上， 使用这个命令ssh-keygen   一路回车 ，生成公钥。
@@ -64,18 +64,14 @@ net.ipv4.tcp_timestamps=1
 net.ipv4.tcp_keepalive_time = 1200
 net.ipv4.ip_local_port_range = 1024 65000
 net.ipv4.tcp_max_tw_buckets = 5000
-net.ipv4.tcp_max_syn_backlog = 8192
-net.ipv4.tcp_syncookies = 1
-net.ipv4.tcp_tw_reuse = 1
-net.ipv4.tcp_tw_recycle = 1
 net.ipv4.tcp_fin_timeout = 30
 net.ipv4.conf.all.arp_ignore = 1
 net.ipv4.conf.all.arp_announce = 2
 net.ipv4.conf.lo.arp_ignore = 1
 net.ipv4.conf.lo.arp_announce = 2
 手动调整内核参数方法如下：
-[root@ceph117 ~]# vi /etc/sysctl.conf  #将上述条目参数加到文件末尾
-[root@ceph117 ~]# sysctl -p
+[root@node1 ~]# vi /etc/sysctl.conf  #将上述条目参数加到文件末尾
+[root@node1 ~]# sysctl -p
 ```
 
 ## 部署TiDB
@@ -89,7 +85,7 @@ net.ipv4.conf.lo.arp_announce = 2
 未安装mysql需先安装mysql
 
 ```
-[root@ceph117 ~]# mysql -u root -h 173.20.4.117 -P 4000 -p
+[root@node1 ~]# mysql -u root -h 173.20.4.117 -P 4000 -p
 MySQL [(none)]> create database yig;
 MySQL [(none)]> use yig;
 MySQL [yig]> source /usr/local/yig/yig.sql;
@@ -301,15 +297,15 @@ docker logs kafka
 创建三副本标准pool
 
 ```
-[root@ceph117 ~]# ceph osd pool create rabbit 128 128
-[root@ceph117 ~]# ceph osd pool create tiger 128 128
-[root@ceph117 ~]# ceph osd pool create turtle 128 128
+[root@node1 ~]# ceph osd pool create rabbit 128 128
+[root@node1 ~]# ceph osd pool create tiger 128 128
+[root@node1 ~]# ceph osd pool create turtle 128 128
 ```
 
 配置纠删码，请以root登录MON节点，进行以下操作（根据实际需要）:
 
 ```
-[root@ceph117 ~]# ceph osd erasure-code-profile set fsecprofile k=2 m=1 crush-failure-domain=host crush-root={{ your_root}}
+[root@node1 ~]# ceph osd erasure-code-profile set fsecprofile k=2 m=1 crush-failure-domain=host crush-root={{ your_root}}
 ```
 
 创建纠删码规则:
@@ -317,15 +313,15 @@ docker logs kafka
 设置规则文件:
 
 ```
-[root@ceph117 ~]# ceph osd crush rule create-erasure sata fsecprofile
+[root@node1 ~]# ceph osd crush rule create-erasure sata fsecprofile
 ```
 
 创建ec pool
 
 ```
-[root@ceph117 ~]# ceph osd pool create rabbit 128 128
-[root@ceph117 ~]# ceph osd pool create tiger 128 128 erasure fsecprofile sata
-[root@ceph117 ~]# ceph osd pool create turtle 128 128 erasure fsecprofile sata
+[root@node1 ~]# ceph osd pool create rabbit 128 128
+[root@node1 ~]# ceph osd pool create tiger 128 128 erasure fsecprofile sata
+[root@node1 ~]# ceph osd pool create turtle 128 128 erasure fsecprofile sata
 ```
 
 ## 部署Caddy
@@ -391,7 +387,7 @@ enable_usage_push = false
 enable_compression = false
 redis_store = "single"
 redis_address = "173.20.4.117:6379"
-redis_group = ["ceph117:6379","ceph118:6379","ceph119:6379"]
+redis_group = ["node1:6379","node2:6379","node3:6379"]
 redis_password = ""
 redis_connection_number = 10
 memory_cache_max_entry_count = 100000
@@ -454,7 +450,7 @@ path = "/etc/yig/plugins/dummy_mq_plugin.so"
 enable = true
 [plugins.dummy_mq.args]
 topic = "topic1"
-url = "ceph117:9092"
+url = "node1:9092"
 
 [plugins.dummy_iam]
 path = "/etc/yig/plugins/dummy_iam_plugin.so"
@@ -480,10 +476,10 @@ systemctl start yig
 登录到相应节点使用systemctl status {服务名}进行查看
 检查TiDB服务状态：
 在TiDB节点使用mysql语句进行连接：
-[root@ceph117 ~]# mysql -u root -h 173.20.4.117 -P 4000 -p
+[root@node1 ~]# mysql -u root -h 173.20.4.117 -P 4000 -p
 检查Ceph状态：
 在ceph监控节点使用下面语句查看：
-[root@ceph117 ~]# ceph -s
+[root@node1 ~]# ceph -s
 
 ### 验证s3
 
@@ -513,12 +509,12 @@ multipart_chunk_size_mb = 5
 使用s3cmd在Yig服务节点的机器上使用以下语句测试是否可用：
 
 ```
-[root@ceph117 ~]# s3cmd ls 
-[root@ceph117 ~]# s3cmd mb s3://test
-[root@ceph117 ~]# touch hehe
-[root@ceph117 ~]# s3cmd put hehe s3://test
-[root@ceph117 ~]# s3cmd get s3://test/hehe
-[root@ceph117 ~]# s3cmd del s3://test/hehe
-[root@ceph117 ~]# s3cmd rb s3://test
+[root@node1 ~]# s3cmd ls 
+[root@node1 ~]# s3cmd mb s3://test
+[root@node1 ~]# touch hehe
+[root@node1 ~]# s3cmd put hehe s3://test
+[root@node1 ~]# s3cmd get s3://test/hehe
+[root@node1 ~]# s3cmd del s3://test/hehe
+[root@node1 ~]# s3cmd rb s3://test
 ```
 
