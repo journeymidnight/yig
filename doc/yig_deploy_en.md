@@ -264,7 +264,7 @@ Refer to the Ceph community
 
 Note that either way, you need to make sure you have Rabbit, Tiger, and Turtle pools, or you won't be able to use the Yig object storage cluster.
 
-create replicated pool
+create replicated pool，pg number should be adjusted according to the real environmnet
 
 ```
 [root@node1 ~]# ceph osd pool create rabbit 128 128

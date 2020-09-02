@@ -294,7 +294,7 @@ docker logs kafka
 
 请注意，无论使用哪种方式创建存储池，都需要保证有rabbit、tiger、turtle三种存储池，否则将无法使用Yig对象存储集群
 
-创建三副本标准pool
+创建三副本标准pool，pgnum根据实际环境计算，计算方法参考社区
 
 ```
 [root@node1 ~]# ceph osd pool create rabbit 128 128
