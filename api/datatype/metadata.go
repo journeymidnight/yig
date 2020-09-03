@@ -57,7 +57,7 @@ func (w *MetaConfiguration) parse(brand Brand) (MetaDataReq, error) {
 
 	if len(w.Headers.MetaData) != 0 {
 		for _, reqHeader := range w.Headers.MetaData {
-			customizeMeta := strings.HasPrefix(reqHeader.Key, brand.GetGeneralFieldFullName(XMeta)+"-")
+			customizeMeta := strings.HasPrefix(reqHeader.Key, brand.GetHeaderFieldKey(XMeta))
 			if !customizeMeta {
 				for n, supportHeader := range supportedCommonMetaHeaders {
 					if reqHeader.Key == supportHeader {

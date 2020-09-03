@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/journeymidnight/yig/brand"
 	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
@@ -42,6 +43,8 @@ func main() {
 		redis.Initialize()
 		defer redis.RedisConn.Close()
 	}
+
+	brand.Initialize(helper.CONFIG.Brand)
 
 	// Read all *.so from plugins directory, and fill the variable allPlugins
 	allPluginMap := mods.InitialPlugins()

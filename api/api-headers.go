@@ -28,10 +28,6 @@ import (
 	meta "github.com/journeymidnight/yig/meta/types"
 )
 
-// Refer: https://docs.aws.amazon.com/AmazonS3/latest/API/RESTCommonResponseHeaders.html
-var CommonS3ResponseHeaders = []string{"Content-Length", "Content-Type", "Connection", "Date", "ETag", "Server"}
-var CommonS3ResponseXHeaders = []GeneralFieldName{XDeleteMarker, XID2, XRequestId, XVersionId}
-
 // Encodes the response headers into XML format.
 func EncodeResponse(response interface{}) []byte {
 	var bytesBuffer bytes.Buffer
@@ -64,11 +60,11 @@ func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *
 		w.Header().Set("Cache-Control", "no-store")
 	}
 
-	w.Header().Set(brand.GetGeneralFieldFullName(XObjectType), object.ObjectTypeToString())
-	w.Header().Set(brand.GetGeneralFieldFullName(XStorageClass), object.StorageClass.ToString())
+	w.Header().Set(brand.GetHeaderFieldKey(XObjectType), object.ObjectTypeToString())
+	w.Header().Set(brand.GetHeaderFieldKey(XStorageClass), object.StorageClass.ToString())
 	w.Header().Set("Content-Length", strconv.FormatInt(object.Size, 10))
 	if object.Type == meta.ObjectTypeAppendable {
-		w.Header().Set(brand.GetGeneralFieldFullName(XNextAppendPosition), strconv.FormatInt(object.Size, 10))
+		w.Header().Set(brand.GetHeaderFieldKey(XNextAppendPosition), strconv.FormatInt(object.Size, 10))
 	}
 
 	// for providing ranged content
@@ -80,11 +76,11 @@ func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *
 	}
 
 	if object.VersionId != meta.NullVersion {
-		w.Header()[brand.GetGeneralFieldFullName(XVersionId)] = []string{object.VersionId}
+		w.Header()[brand.GetHeaderFieldKey(XVersionId)] = []string{object.VersionId}
 	}
 
 	if object.DeleteMarker {
-		w.Header()[brand.GetGeneralFieldFullName(XDeleteMarker)] = []string{"true"}
+		w.Header()[brand.GetHeaderFieldKey(XDeleteMarker)] = []string{"true"}
 		statusCode = http.StatusNotFound
 	}
 }

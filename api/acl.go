@@ -7,7 +7,7 @@ import (
 )
 
 func getAclFromHeader(h http.Header, brand Brand) (acl Acl, err error) {
-	acl.CannedAcl = h.Get(brand.GetGeneralFieldFullName(XACL))
+	acl.CannedAcl = h.Get(brand.GetHeaderFieldKey(XACL))
 	if acl.CannedAcl == "" {
 		acl.CannedAcl = "private"
 	}

@@ -267,8 +267,8 @@ func (r *replacer) getSubstitution(key string) string {
 		}
 		return objectInfo.StorageClass.ToString()
 	case "{target_storage_class}":
-		if r.request.Header.Get(brand.GetGeneralFieldFullName(XCopySource)) != "" &&
-			r.request.Header.Get(brand.GetGeneralFieldFullName(XMetadataDirective)) != "" {
+		if r.request.Header.Get(brand.GetHeaderFieldKey(XCopySource)) != "" &&
+			r.request.Header.Get(brand.GetHeaderFieldKey(XMetadataDirective)) != "" {
 			storageClassFromHeader, err := getStorageClassFromHeader(r.request.Header, brand)
 			if err != nil {
 				return "-"

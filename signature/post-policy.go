@@ -32,8 +32,8 @@ func GetPostPolicyType(formValues map[string]string, brand Brand) PostPolicyType
 	if _, ok := formValues["Signature"]; ok {
 		return PostPolicyV2
 	}
-	if algorithm, ok := formValues[brand.GetGeneralFieldFullName(XAlgorithm)]; ok {
-		if algorithm == brand.GetSpecialFieldFullName(SignV4Algorithm) {
+	if algorithm, ok := formValues[brand.GetHeaderFieldKey(XAlgorithm)]; ok {
+		if algorithm == brand.GetHeaderFieldValue(SignV4Algorithm) {
 			return PostPolicyV4
 		}
 	}

@@ -40,9 +40,9 @@ func isRequestSignature(r *http.Request, brand Brand) (bool, AuthType) {
 			return false, AuthTypeUnknown
 		}
 		header := r.Header.Get("Authorization")
-		if strings.HasPrefix(header, brand.GetSpecialFieldFullName(SignV4Algorithm)+" ") {
+		if strings.HasPrefix(header, brand.GetHeaderFieldValue(SignV4Algorithm)+" ") {
 			return true, AuthTypeSignedV4
-		} else if strings.HasPrefix(header, brand.GetSpecialFieldFullName(SignV2Algorithm)+" ") {
+		} else if strings.HasPrefix(header, brand.GetHeaderFieldValue(SignV2Algorithm)+" ") {
 			return true, AuthTypeSignedV2
 		}
 	}
@@ -51,9 +51,9 @@ func isRequestSignature(r *http.Request, brand Brand) (bool, AuthType) {
 
 // Verify if request is AWS presigned
 func isRequestPresigned(r *http.Request, brand Brand) (bool, AuthType) {
-	if _, ok := r.URL.Query()[brand.GetGeneralFieldFullName(XCredential)]; ok {
+	if _, ok := r.URL.Query()[brand.GetHeaderFieldKey(XCredential)]; ok {
 		return true, AuthTypePresignedV4
-	} else if _, ok := r.URL.Query()[brand.GetSpecialFieldFullName(AccessKeyId)]; ok {
+	} else if _, ok := r.URL.Query()[brand.GetHeaderFieldKey(AccessKeyId)]; ok {
 		return true, AuthTypePresignedV2
 	}
 	return false, AuthTypeUnknown
@@ -74,7 +74,7 @@ func isRequestPostPolicySignature(r *http.Request) bool {
 
 // Verify if the request has AWS Streaming Signature Version '4'. This is only valid for 'PUT' operation.
 func isRequestSignStreamingV4(r *http.Request, brand Brand) bool {
-	return r.Header.Get(brand.GetGeneralFieldFullName(XContentSha)) == brand.GetSpecialFieldFullName(StreamingContentSHA256) &&
+	return r.Header.Get(brand.GetHeaderFieldKey(XContentSha)) == brand.GetHeaderFieldValue(StreamingContentSHA256) &&
 		r.Method == http.MethodPut
 }
 

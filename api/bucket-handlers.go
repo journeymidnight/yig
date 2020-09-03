@@ -508,7 +508,7 @@ func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.
 
 	var acl Acl
 	var policy AccessControlPolicy
-	if _, ok := r.Header[reqCtx.BrandType.GetGeneralFieldFullName(brand.XACL)]; ok {
+	if _, ok := r.Header[reqCtx.BrandType.GetHeaderFieldKey(brand.XACL)]; ok {
 		acl, err = getAclFromHeader(r.Header, reqCtx.BrandType)
 		if err != nil {
 			logger.Error("Unable to read canned ACLs:", err)

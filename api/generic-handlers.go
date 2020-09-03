@@ -77,9 +77,6 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	origin := r.Header.Get("Origin")
 
 	if InReservedOrigins(origin) {
-		for _, value := range CommonS3ResponseXHeaders {
-			CommonS3ResponseHeaders = append(CommonS3ResponseHeaders, strings.ToLower(ctx.BrandType.GetGeneralFieldFullName(value)))
-		}
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Access-Control-Allow-Headers", r.Header.Get("Access-Control-Request-Headers"))
 		w.Header().Set("Access-Control-Allow-Methods", r.Header.Get("Access-Control-Request-Method"))
@@ -150,13 +147,13 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 
 	reqCtx.VersionId = helper.Ternary(r.URL.Query().Get("versionId") == "null", types.NullVersion, r.URL.Query().Get("versionId")).(string)
 	err := FillBucketAndObjectInfo(&reqCtx, r, h.meta)
-	brand := DistinguishBrandName(r, reqCtx.FormValues)
-	reqCtx.BrandType = brand
-
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
+
+	brand := DistinguishBrandName(r, reqCtx.FormValues)
+	reqCtx.BrandType = brand
 
 	authType := signature.GetRequestAuthType(r, brand)
 	if authType == signature.AuthTypeUnknown {

@@ -68,7 +68,7 @@ func parseCredential(credentialValue string, brand Brand) (credentialHeader, err
 		return credentialHeader{}, ErrInvalidService
 	}
 	cred.scope.service = credElements[3]
-	if credElements[4] != strings.ToLower(brand.GetSpecialFieldFullName(SignRequest)) {
+	if credElements[4] != strings.ToLower(brand.GetHeaderFieldValue(SignRequest)) {
 		return credentialHeader{}, ErrInvalidRequestVersion
 	}
 	cred.scope.request = credElements[4]
@@ -124,7 +124,7 @@ func parseSignedHeadersContent(signedHeader string, headers http.Header, brand B
 	//  X-***-* headers
 	for k := range headers {
 		lower := strings.ToLower(k)
-		if strings.HasPrefix(lower, brand.GetGeneralFieldFullName(XGeneralName)) {
+		if strings.HasPrefix(lower, brand.GetHeaderFieldKey(XGeneralName)) {
 			if !headerSigned(lower, signedHeaders) {
 				return nil, ErrMissingRequiredSignedHeader
 			}
@@ -182,7 +182,7 @@ type preSignValues struct {
 //
 func parsePreSignV4(query url.Values, headers http.Header, brand Brand) (preSignValues, error) {
 	// Verify if the query algorithm is supported or not.
-	if query.Get(brand.GetGeneralFieldFullName(XAlgorithm)) != brand.GetSpecialFieldFullName(SignV4Algorithm) {
+	if query.Get(brand.GetHeaderFieldKey(XAlgorithm)) != brand.GetHeaderFieldValue(SignV4Algorithm) {
 		return preSignValues{}, ErrInvalidQuerySignatureAlgo
 	}
 
@@ -191,32 +191,32 @@ func parsePreSignV4(query url.Values, headers http.Header, brand Brand) (preSign
 
 	var err error
 	// Save credential.
-	preSignV4Values.Credential, err = parseCredential(query.Get(brand.GetGeneralFieldFullName(XCredential)), brand)
+	preSignV4Values.Credential, err = parseCredential(query.Get(brand.GetHeaderFieldKey(XCredential)), brand)
 	if err != nil {
 		return preSignValues{}, err
 	}
 
 	// Save date in native time.Time.
-	preSignV4Values.Date, err = time.Parse(Iso8601Format, query.Get(brand.GetGeneralFieldFullName(XDate)))
+	preSignV4Values.Date, err = time.Parse(Iso8601Format, query.Get(brand.GetHeaderFieldKey(XDate)))
 	if err != nil {
 		return preSignValues{}, ErrMalformedDate
 	}
 
 	// Save expires in native time.Duration.
-	preSignV4Values.Expires, err = time.ParseDuration(query.Get(brand.GetGeneralFieldFullName(XExpires)) + "s")
+	preSignV4Values.Expires, err = time.ParseDuration(query.Get(brand.GetHeaderFieldKey(XExpires)) + "s")
 	if err != nil {
 		return preSignValues{}, ErrMalformedExpires
 	}
 
 	// Save signed headers.
 	preSignV4Values.SignedHeaders, err =
-		parseSignedHeadersContent(query.Get(brand.GetGeneralFieldFullName(XSignedHeaders)), headers, brand, false)
+		parseSignedHeadersContent(query.Get(brand.GetHeaderFieldKey(XSignedHeaders)), headers, brand, false)
 	if err != nil {
 		return preSignValues{}, err
 	}
 
 	// Save signature.
-	preSignV4Values.Signature = query.Get(brand.GetGeneralFieldFullName(XSignature))
+	preSignV4Values.Signature = query.Get(brand.GetHeaderFieldKey(XSignature))
 
 	// Return structured form of signature query string.
 	return preSignV4Values, nil
@@ -236,7 +236,7 @@ func parseSignV4(v4Auth string, headers http.Header, brand Brand) (signValues, e
 	}
 
 	// Strip off the Algorithm prefix.
-	v4Auth = strings.TrimPrefix(v4Auth, brand.GetSpecialFieldFullName(SignV4Algorithm))
+	v4Auth = strings.TrimPrefix(v4Auth, brand.GetHeaderFieldValue(SignV4Algorithm))
 	authFields := strings.Split(strings.TrimSpace(v4Auth), ",")
 	if len(authFields) != 3 {
 		return signValues{}, ErrMissingFields

@@ -40,7 +40,7 @@ type SignVerifyReadCloser struct {
 // Initializes a new signature verify reader.
 func newSignVerify(req *http.Request, brand Brand) *SignVerifyReadCloser {
 	// do not need to calculate SHA256 when header is unsigned
-	if req.Header.Get(brand.GetGeneralFieldFullName(XContentSha)) == UnsignedPayload {
+	if req.Header.Get(brand.GetHeaderFieldKey(XContentSha)) == UnsignedPayload {
 		return &SignVerifyReadCloser{
 			Request:      req,
 			Reader:       req.Body,

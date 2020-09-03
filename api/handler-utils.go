@@ -84,7 +84,7 @@ func extractMetadataFromHeader(header http.Header, brand Brand) map[string]strin
 	}
 	// Go through all other headers for any additional headers that needs to be saved.
 	for key := range header {
-		if strings.HasPrefix(strings.ToLower(key), strings.ToLower(brand.GetGeneralFieldFullName(XMeta))+"-") {
+		if strings.HasPrefix(http.CanonicalHeaderKey(key), brand.GetHeaderFieldKey(XMeta)) {
 			value, ok := header[key]
 			if ok {
 				metadata[key] = strings.Join(value, ",")
@@ -102,9 +102,9 @@ func parseSseHeader(header http.Header, brand Brand) (request SseRequest, err er
 		return request, ErrIncompatibleEncryptionMethod
 	}
 
-	if sse := header.Get(brand.GetGeneralFieldFullName(XServerSideEncryption)); sse != "" {
+	if sse := header.Get(brand.GetHeaderFieldKey(XServerSideEncryption)); sse != "" {
 		switch sse {
-		case strings.ToLower(brand.GetSpecialFieldFullName(SSEAlgorithmKMS)):
+		case strings.ToLower(brand.GetHeaderFieldValue(SSEAlgorithmKMS)):
 			err = ErrNotImplemented
 			return request, err
 		case crypto.SSEAlgorithmAES256:
@@ -115,7 +115,7 @@ func parseSseHeader(header http.Header, brand Brand) (request SseRequest, err er
 		}
 	}
 
-	if sse := header.Get(brand.GetGeneralFieldFullName(XSSECAlgorithm)); sse != "" {
+	if sse := header.Get(brand.GetHeaderFieldKey(XSSECAlgorithm)); sse != "" {
 		if sse == crypto.SSEAlgorithmAES256 {
 			request.Type = crypto.SSEC.String()
 		} else {
@@ -143,13 +143,13 @@ func parseSseHeader(header http.Header, brand Brand) (request SseRequest, err er
 	}
 
 	// SSECCopy not support now.
-	if sse := header.Get(brand.GetGeneralFieldFullName(XSSECopyAlgorithm)); sse != "" {
+	if sse := header.Get(brand.GetHeaderFieldKey(XSSECopyAlgorithm)); sse != "" {
 		if sse != crypto.SSEAlgorithmAES256 {
 			err = ErrInvalidSseHeader
 			return
 		}
 		request.CopySourceSseCustomerAlgorithm = sse
-		key := header.Get(brand.GetGeneralFieldFullName(XSSECopyKey))
+		key := header.Get(brand.GetHeaderFieldKey(XSSECopyKey))
 		if key == "" {
 			err = ErrInvalidSseHeader
 			return
@@ -165,7 +165,7 @@ func parseSseHeader(header http.Header, brand Brand) (request SseRequest, err er
 			return
 		}
 		request.CopySourceSseCustomerKey = request.CopySourceSseCustomerKey[:32]
-		userMd5 := header.Get(brand.GetGeneralFieldFullName(XSSECopyKeyMD5))
+		userMd5 := header.Get(brand.GetHeaderFieldKey(XSSECopyKeyMD5))
 		if userMd5 == "" {
 			err = ErrInvalidSseHeader
 			return

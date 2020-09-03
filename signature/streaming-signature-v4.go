@@ -47,7 +47,7 @@ const (
 // getChunkSignature - get chunk signature.
 func getChunkSignature(cred common.Credential, seedSignature string, brand Brand, region string, date time.Time, hashedChunk string) string {
 	// Calculate string to sign.
-	stringToSign := brand.GetSpecialFieldFullName(SignV4ChunkedAlgorithm) + "\n" +
+	stringToSign := brand.GetHeaderFieldValue(SignV4ChunkedAlgorithm) + "\n" +
 		date.Format(datatype.Iso8601Format) + "\n" +
 		getScope(date, region, brand) + "\n" +
 		seedSignature + "\n" +
@@ -81,10 +81,10 @@ func CalculateSeedSignature(r *http.Request, brand Brand) (credential common.Cre
 	}
 
 	// Payload streaming.
-	payload := brand.GetSpecialFieldFullName(StreamingContentSHA256)
+	payload := brand.GetHeaderFieldValue(StreamingContentSHA256)
 
 	// Payload for STREAMING signature should be 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD'
-	if payload != req.Header.Get(brand.GetGeneralFieldFullName(XContentSha)) {
+	if payload != req.Header.Get(brand.GetHeaderFieldKey(XContentSha)) {
 		return credential, "", "", time.Time{}, ErrContentSHA256Mismatch
 	}
 
@@ -94,7 +94,7 @@ func CalculateSeedSignature(r *http.Request, brand Brand) (credential common.Cre
 		return
 	}
 
-	if securityToken := r.Header.Get(brand.GetGeneralFieldFullName(XSecurityToken)); securityToken != "" {
+	if securityToken := r.Header.Get(brand.GetHeaderFieldKey(XSecurityToken)); securityToken != "" {
 		credential, err = sts.VerifyToken(signV4Values.Credential.accessKey,
 			securityToken)
 	} else {
@@ -109,7 +109,7 @@ func CalculateSeedSignature(r *http.Request, brand Brand) (credential common.Cre
 
 	// Extract date, if not present throw error.
 	var dateStr string
-	if dateStr = req.Header.Get(http.CanonicalHeaderKey(brand.GetGeneralFieldFullName(XDate))); dateStr == "" {
+	if dateStr = req.Header.Get(brand.GetHeaderFieldKey(XDate)); dateStr == "" {
 		if dateStr = r.Header.Get("Date"); dateStr == "" {
 			return credential, "", "", time.Time{}, ErrMissingDateHeader
 		}
@@ -433,7 +433,7 @@ func TrimAwsChunkedContentEncoding(contentEnc string, brand Brand) (trimmedConte
 	}
 	var newEncs []string
 	for _, enc := range strings.Split(contentEnc, ",") {
-		if enc != strings.ToLower(brand.GetSpecialFieldFullName(Chunked)) {
+		if enc != strings.ToLower(brand.GetHeaderFieldValue(Chunked)) {
 			newEncs = append(newEncs, enc)
 		}
 	}

@@ -1,3 +1,4 @@
+brand = ["AWS","UOS"]
 s3domain = ["s3.test.com", "s3-internal.test.com"]
 region = "cn-bj-1"
 log_path = "/var/log/yig/yig.log"
