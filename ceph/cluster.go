@@ -610,7 +610,6 @@ func (cluster *CephCluster) Append(poolname string, existName string, data io.Re
 		start := time.Now()
 		count, err := data.Read(slice)
 
-		fmt.Println("count, err", count, err)
 		if count == 0 {
 			break
 		}
@@ -622,7 +621,6 @@ func (cluster *CephCluster) Append(poolname string, existName string, data io.Re
 
 		//is pending_data full?
 		if slice_offset < len(pending_data) {
-			fmt.Println("continue", slice_offset, len(pending_data))
 			continue
 		}
 
