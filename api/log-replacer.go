@@ -20,10 +20,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/journeymidnight/yig/meta/common"
-
+	. "github.com/journeymidnight/yig/brand"
 	. "github.com/journeymidnight/yig/context"
 	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/meta/common"
 
 	"gopkg.in/bufio.v1"
 )
@@ -167,7 +167,7 @@ func (r *replacer) setReplacedValue(key, value string) {
 
 // getSubstitution retrieves value from corresponding key
 func (r *replacer) getSubstitution(key string) string {
-
+	brand := GetContextBrand(r.request)
 	// search default replacements in the end
 	switch key {
 	case "{time_local}":
@@ -280,7 +280,7 @@ func (r *replacer) getSubstitution(key string) string {
 		return objectInfo.StorageClass.ToString()
 	case "{target_storage_class}":
 		if r.request.Method == http.MethodPut || r.request.Method == http.MethodPost {
-			storageClassFromHeader, err := getStorageClassFromHeader(r.request.Header)
+			storageClassFromHeader, err := getStorageClassFromHeader(r.request.Header, brand)
 			if err != nil {
 				return "-"
 			}

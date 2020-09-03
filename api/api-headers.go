@@ -23,13 +23,10 @@ import (
 	"strconv"
 
 	. "github.com/journeymidnight/yig/api/datatype"
+	. "github.com/journeymidnight/yig/brand"
 	"github.com/journeymidnight/yig/helper"
 	meta "github.com/journeymidnight/yig/meta/types"
 )
-
-// Refer: https://docs.aws.amazon.com/AmazonS3/latest/API/RESTCommonResponseHeaders.html
-var CommonS3ResponseHeaders = []string{"Content-Length", "Content-Type", "Connection", "Date", "ETag", "Server",
-	"x-amz-delete-marker", "x-amz-id-2", "x-amz-request-id", "x-amz-version-id"}
 
 // Encodes the response headers into XML format.
 func EncodeResponse(response interface{}) []byte {
@@ -44,7 +41,7 @@ func EncodeResponse(response interface{}) []byte {
 }
 
 // Write object header
-func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *HttpRange, statusCode int) {
+func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *HttpRange, statusCode int, brand Brand) {
 	// set object-related metadata headers
 	lastModified := object.LastModifiedTime.UTC().Format(http.TimeFormat)
 	w.Header().Set("Last-Modified", lastModified)
@@ -63,11 +60,11 @@ func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *
 		w.Header().Set("Cache-Control", "no-store")
 	}
 
-	w.Header().Set("X-Amz-Object-Type", object.ObjectTypeToString())
-	w.Header().Set("X-Amz-Storage-Class", object.StorageClass.ToString())
+	w.Header().Set(brand.GetHeaderFieldKey(XObjectType), object.ObjectTypeToString())
+	w.Header().Set(brand.GetHeaderFieldKey(XStorageClass), object.StorageClass.ToString())
 	w.Header().Set("Content-Length", strconv.FormatInt(object.Size, 10))
 	if object.Type == meta.ObjectTypeAppendable {
-		w.Header().Set("X-Amz-Next-Append-Position", strconv.FormatInt(object.Size, 10))
+		w.Header().Set(brand.GetHeaderFieldKey(XNextAppendPosition), strconv.FormatInt(object.Size, 10))
 	}
 
 	// for providing ranged content
@@ -79,11 +76,11 @@ func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, contentRange *
 	}
 
 	if object.VersionId != meta.NullVersion {
-		w.Header()["x-amz-version-id"] = []string{object.VersionId}
+		w.Header()[brand.GetHeaderFieldKey(XVersionId)] = []string{object.VersionId}
 	}
 
 	if object.DeleteMarker {
-		w.Header()["x-amz-delete-marker"] = []string{"true"}
+		w.Header()[brand.GetHeaderFieldKey(XDeleteMarker)] = []string{"true"}
 		statusCode = http.StatusNotFound
 	}
 }

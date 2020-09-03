@@ -14,6 +14,14 @@
 
 package crypto
 
+const (
+	SSECAlgorithm = "X-Amz-Server-Side-Encryption-Customer-Algorithm"
+	SSECKey       = "X-Amz-Server-Side-Encryption-Customer-Key"
+	SSECKeyMD5    = "X-Amz-Server-Side-Encryption-Customer-Key-Md5"
+	SSECopyKeyMD5 = "X-Amz-Copy-Source-Server-Side-Encryption-Customer-Key-Md5"
+	SSECopyKey    = "X-Amz-Copy-Source-Server-Side-Encryption-Customer-Key"
+)
+
 // RemoveSensitiveEntries removes confidential encryption
 // information - e.g. the SSE-C key - from the metadata map.
 // It has the same semantics as RemoveSensitiveHeaders.
