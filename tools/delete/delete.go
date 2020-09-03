@@ -64,7 +64,7 @@ func (d AsyncDeleteFromCeph) Init(handle task.Handle,
 	if err != nil {
 		return nil, err
 	}
-	cephClusters, err := ceph.PureInitialize(conf.CephConfigPattern)
+	cephClusters, err := ceph.PureInitialize(conf.CephConfigPattern, 1)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +81,12 @@ func (d AsyncDeleteFromCeph) Init(handle task.Handle,
 func (d AsyncDeleteFromCeph) ensureRemoved(location, pool, cephObjectID string) {
 	tried := 0
 	for {
-		err := d.cephClusters[location].Remove(pool, cephObjectID)
+		cluster, ok := d.cephClusters[location]
+		if !ok {
+			d.logger.Error("No such cluster", location)
+			return
+		}
+		err := cluster.Remove(pool, cephObjectID)
 		if err == nil {
 			return
 		}

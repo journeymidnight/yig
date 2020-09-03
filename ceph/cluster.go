@@ -28,6 +28,7 @@ const (
 	OBJECT_SIZE                = 4 << 20 /* 4M */
 	AIO_CONCURRENT             = 4
 	DEFAULT_CEPHCONFIG_PATTERN = "conf/*.conf"
+	DEFAULT_CLIENT_PRIORITY    = 63
 	MIN_CHUNK_SIZE             = 512 << 10       // 512K
 	BUFFER_SIZE                = 1 << 20         // 1M
 	MAX_CHUNK_SIZE             = 8 * BUFFER_SIZE // 8M
@@ -54,9 +55,14 @@ func Initialize(config helper.Config) map[string]backend.Cluster {
 }
 
 // Exactly `Initialize` but without log output, return generated errors
-func PureInitialize(cephConfigPattern string) (map[string]backend.Cluster, error) {
+func PureInitialize(cephConfigPattern string,
+	priority int) (map[string]backend.Cluster, error) {
+
 	if cephConfigPattern == "" {
 		cephConfigPattern = DEFAULT_CEPHCONFIG_PATTERN
+	}
+	if priority < 1 || priority > 63 {
+		priority = DEFAULT_CLIENT_PRIORITY
 	}
 	cephConfigFiles, err := filepath.Glob(cephConfigPattern)
 	if err != nil || len(cephConfigFiles) == 0 {
@@ -65,7 +71,7 @@ func PureInitialize(cephConfigPattern string) (map[string]backend.Cluster, error
 
 	clusters := make(map[string]backend.Cluster)
 	for _, conf := range cephConfigFiles {
-		c, err := PureNewCephStorage(conf)
+		c, err := PureNewCephStorage(conf, priority)
 		if err != nil {
 			return nil, err
 		}
@@ -122,7 +128,7 @@ func NewCephStorage(configFile string) *CephCluster {
 }
 
 // Exactly `NewCephStorage`, but without log output, return errors
-func PureNewCephStorage(configFile string) (*CephCluster, error) {
+func PureNewCephStorage(configFile string, priority int) (*CephCluster, error) {
 
 	conn, err := rados.NewConn("admin")
 	if err != nil {
@@ -135,6 +141,10 @@ func PureNewCephStorage(configFile string) (*CephCluster, error) {
 	err = conn.SetConfigOption("rados_osd_op_timeout", OSD_TIMEOUT)
 	if err != nil {
 		return nil, fmt.Errorf("set OSD_TIMEOUT error: %w", err)
+	}
+	err = conn.SetConfigOption("osd_client_op_priority", strconv.Itoa(priority))
+	if err != nil {
+		return nil, fmt.Errorf("set osd_client_op_priority error: %w", err)
 	}
 
 	err = conn.ReadConfigFile(configFile)
@@ -248,13 +258,15 @@ func (cluster *CephCluster) getUniqUploadName() string {
 
 func (cluster *CephCluster) getUniqUploadNameAsStripeForRabbit() string {
 	v := atomic.AddUint64(&cluster.counter, 1)
-	oid := fmt.Sprintf("%d:%d:%d:%d:%d", cluster.InstanceId, v, APPEND_STRIPE_UNIT, APPEND_STRIPE_COUNT, OBJECT_SIZE)
+	oid := fmt.Sprintf("%d:%d:%d:%d:%d",
+		cluster.InstanceId, v, APPEND_STRIPE_UNIT, APPEND_STRIPE_COUNT, OBJECT_SIZE)
 	return oid
 }
 
 func (cluster *CephCluster) getUniqUploadNameAsStripeForTiger() string {
 	v := atomic.AddUint64(&cluster.counter, 1)
-	oid := fmt.Sprintf("%d:%d:%d:%d:%d", cluster.InstanceId, v, STRIPE_UNIT, STRIPE_COUNT, OBJECT_SIZE)
+	oid := fmt.Sprintf("%d:%d:%d:%d:%d",
+		cluster.InstanceId, v, STRIPE_UNIT, STRIPE_COUNT, OBJECT_SIZE)
 	return oid
 }
 
