@@ -1,11 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -443,10 +446,33 @@ func genUserBucketKey(ownerId, bucketName string) []byte {
 	return tikvclient.GenKey(tikvclient.TableUserBucketPrefix, ownerId, bucketName)
 }
 
+// projectId -> userId
 func LoadPidToUidMap() map[string]string {
-	return map[string]string{
-		"c747848b-4556-4fc6-a3e4-b15f51568e5d": "af39459b-cedf-4057-9572-8daa1b74723f",
+	f, err := os.Open(global.MigrateMapFile)
+	if err != nil {
+		panic(err)
 	}
+	m := make(map[string]string)
+	buf := bufio.NewReader(f)
+	for {
+		line, err := buf.ReadString('\n')
+		sp := strings.Split(line, " ")
+		if len(sp) != 2 {
+			panic("invalid line: " + line)
+		}
+		//projectId -> userId
+		sp[0] = strings.TrimSpace(sp[0])
+		sp[1] = strings.TrimSpace(sp[1])
+		m[sp[0]] = sp[1]
+		fmt.Println("Load projectId:", sp[0], "userId:", sp[1])
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			panic(err)
+		}
+	}
+	return m
 }
 
 func MigrateFunc() (err error) {
@@ -478,7 +504,8 @@ func MigrateFunc() (err error) {
 	if err != nil {
 		return err
 	}
-	fmt.Println(fmt.Sprintf("BucketInfo: %+v", b))
+	bByte, _ := json.Marshal(b)
+	fmt.Println(fmt.Sprintf("BucketInfo: %s", string(bByte)))
 
 	userId := reflectMap[b.OwnerId]
 	if userId == "" {
@@ -489,6 +516,7 @@ func MigrateFunc() (err error) {
 		b.OwnerId = userId
 		err = tikvCli.PutNewBucket(*b)
 		if err != nil {
+			fmt.Println("PutNewBucket err:", err)
 			return err
 		}
 	}
@@ -496,6 +524,7 @@ func MigrateFunc() (err error) {
 	// Migrate objects by bucket
 	objects, err := GetObjectsByBucket(tidbCli, global.Bucket)
 	if err != nil {
+		fmt.Println("GetObjectsByBucket err:", err)
 		return err
 	}
 	fmt.Println("Total objects count:", len(objects), "of bucket:", global.Bucket)
