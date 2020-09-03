@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/journeymidnight/yig/brand"
 	"math/rand"
 	"net/http"
 	_ "net/http/pprof"
@@ -10,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/journeymidnight/yig/brand"
 	"github.com/journeymidnight/yig/compression"
 	"github.com/journeymidnight/yig/crypto"
 

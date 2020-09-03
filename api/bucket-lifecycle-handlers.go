@@ -39,7 +39,7 @@ func (api ObjectAPIHandlers) GetBucketLifeCycleHandler(w http.ResponseWriter, r 
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r, reqCtx.BrandType) {
+	switch signature.GetRequestAuthType(r, reqCtx.Brand) {
 	case signature.AuthTypeAnonymous:
 		break
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,

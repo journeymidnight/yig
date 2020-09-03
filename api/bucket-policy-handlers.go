@@ -45,7 +45,7 @@ func (api ObjectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *ht
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r, reqCtx.BrandType) {
+	switch signature.GetRequestAuthType(r, reqCtx.Brand) {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -102,7 +102,7 @@ func (api ObjectAPIHandlers) DeleteBucketPolicyHandler(w http.ResponseWriter, r 
 	bucket := reqCtx.BucketName
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r, reqCtx.BrandType) {
+	switch signature.GetRequestAuthType(r, reqCtx.Brand) {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -134,7 +134,7 @@ func (api ObjectAPIHandlers) GetBucketPolicyHandler(w http.ResponseWriter, r *ht
 	bucket := reqCtx.BucketName
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r, reqCtx.BrandType) {
+	switch signature.GetRequestAuthType(r, reqCtx.Brand) {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)

@@ -153,7 +153,7 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	}
 
 	brand := DistinguishBrandName(r, reqCtx.FormValues)
-	reqCtx.BrandType = brand
+	reqCtx.Brand = brand
 
 	authType := signature.GetRequestAuthType(r, brand)
 	if authType == signature.AuthTypeUnknown {

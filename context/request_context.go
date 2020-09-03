@@ -32,7 +32,7 @@ type RequestContext struct {
 	BucketInfo              *types.Bucket
 	ObjectInfo              *types.Object
 	Lifecycle               *lifecycle.Lifecycle
-	BrandType               brand.Brand
+	Brand               brand.Brand
 	AuthType                signature.AuthType
 	IsBucketDomain          bool
 	IsObjectForbidOverwrite bool

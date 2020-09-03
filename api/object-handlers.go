@@ -234,7 +234,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			WriteErrorResponse(w, r, ErrMethodNotAllowed)
 			return
 		}
-		SetObjectHeaders(w, object, nil, http.StatusNotFound, reqCtx.BrandType)
+		SetObjectHeaders(w, object, nil, http.StatusNotFound, reqCtx.Brand)
 		w.WriteHeader(http.StatusNotFound)
 		WriteErrorResponse(w, r, ErrNoSuchKey)
 		return
@@ -298,7 +298,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	sseRequest, err := parseSseHeader(r.Header, reqCtx.BrandType)
+	sseRequest, err := parseSseHeader(r.Header, reqCtx.Brand)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -323,14 +323,14 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	case "":
 		break
 	case crypto.S3KMS.String():
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XServerSideEncryption), strings.ToLower(reqCtx.BrandType.GetHeaderFieldValue(SSEAlgorithmKMS)))
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XServerSideEncryption), strings.ToLower(reqCtx.Brand.GetHeaderFieldValue(SSEAlgorithmKMS)))
 		// TODO: not implemented yet
 	case crypto.S3.String():
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XServerSideEncryption), crypto.SSEAlgorithmAES256)
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XServerSideEncryption), crypto.SSEAlgorithmAES256)
 	case crypto.SSEC.String():
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XSSECAlgorithm), crypto.SSEAlgorithmAES256)
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XSSECKeyMD5),
-			r.Header.Get(reqCtx.BrandType.GetHeaderFieldKey(XSSECKeyMD5)))
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XSSECAlgorithm), crypto.SSEAlgorithmAES256)
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XSSECKeyMD5),
+			r.Header.Get(reqCtx.Brand.GetHeaderFieldKey(XSSECKeyMD5)))
 	}
 
 	//ResponseRecorder
@@ -405,9 +405,9 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 			return
 		}
 		if freezer.Status == ObjectHasRestored {
-			w.Header().Set(strings.ToLower(reqCtx.BrandType.GetHeaderFieldKey(XRestore)), "ongoing-request='true'")
+			w.Header().Set(strings.ToLower(reqCtx.Brand.GetHeaderFieldKey(XRestore)), "ongoing-request='true'")
 		} else {
-			w.Header().Set(strings.ToLower(reqCtx.BrandType.GetHeaderFieldKey(XRestore)), "ongoing-request='false'")
+			w.Header().Set(strings.ToLower(reqCtx.Brand.GetHeaderFieldKey(XRestore)), "ongoing-request='false'")
 		}
 	}
 
@@ -416,7 +416,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 			WriteErrorResponse(w, r, ErrMethodNotAllowed)
 			return
 		}
-		SetObjectHeaders(w, object, nil, http.StatusNotFound, reqCtx.BrandType)
+		SetObjectHeaders(w, object, nil, http.StatusNotFound, reqCtx.Brand)
 		w.WriteHeader(http.StatusNotFound)
 		WriteErrorResponse(w, r, ErrNoSuchKey)
 		return
@@ -454,7 +454,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	_, err = parseSseHeader(r.Header, reqCtx.BrandType)
+	_, err = parseSseHeader(r.Header, reqCtx.Brand)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -464,14 +464,14 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 	case "":
 		break
 	case crypto.S3KMS.String():
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XServerSideEncryption), strings.ToLower(reqCtx.BrandType.GetHeaderFieldValue(SSEAlgorithmKMS)))
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XServerSideEncryption), strings.ToLower(reqCtx.Brand.GetHeaderFieldValue(SSEAlgorithmKMS)))
 		// TODO: not implemented yet
 	case crypto.S3.String():
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XServerSideEncryption), crypto.SSEAlgorithmAES256)
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XServerSideEncryption), crypto.SSEAlgorithmAES256)
 	case crypto.SSEC.String():
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XSSECAlgorithm), crypto.SSEAlgorithmAES256)
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XSSECKeyMD5),
-			r.Header.Get(reqCtx.BrandType.GetHeaderFieldKey(XSSECKeyMD5)))
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XSSECAlgorithm), crypto.SSEAlgorithmAES256)
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XSSECKeyMD5),
+			r.Header.Get(reqCtx.Brand.GetHeaderFieldKey(XSSECKeyMD5)))
 	}
 
 	//ResponseRecorder
@@ -479,7 +479,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 
 	// Successful response.
 	// Set standard object headers.
-	SetObjectHeaders(w, object, nil, http.StatusOK, reqCtx.BrandType)
+	SetObjectHeaders(w, object, nil, http.StatusOK, reqCtx.Brand)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -494,7 +494,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	targetObjectName := reqCtx.ObjectName
 	targetBucket := reqCtx.BucketInfo
 
-	if forbidOverwriteStr, ok := r.Header[reqCtx.BrandType.GetHeaderFieldKey(XForbidOverwrite)]; ok {
+	if forbidOverwriteStr, ok := r.Header[reqCtx.Brand.GetHeaderFieldKey(XForbidOverwrite)]; ok {
 		forbidOverwrite, err := strconv.ParseBool(forbidOverwriteStr[0])
 		if err != nil {
 			WriteErrorResponse(w, r, err)
@@ -511,7 +511,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	// copy source is of form: /bucket-name/object-name?versionId=xxxxxx
-	copySource := r.Header.Get(reqCtx.BrandType.GetHeaderFieldKey(XCopySource))
+	copySource := r.Header.Get(reqCtx.Brand.GetHeaderFieldKey(XCopySource))
 
 	// Skip the first element if it is '/', split the rest.
 	if strings.HasPrefix(copySource, "/") {
@@ -565,7 +565,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	sseRequest, err := parseSseHeader(r.Header, reqCtx.BrandType)
+	sseRequest, err := parseSseHeader(r.Header, reqCtx.Brand)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -583,13 +583,13 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	}
 
 	// Verify before x-***-copy-source preconditions before continuing with CopyObject.
-	if err = checkObjectPreconditions(w, r, sourceObject, reqCtx.BrandType); err != nil {
+	if err = checkObjectPreconditions(w, r, sourceObject, reqCtx.Brand); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
 
 	var targetStorageClass StorageClass
-	targetStorageClass, err = getStorageClassFromHeader(r.Header, reqCtx.BrandType)
+	targetStorageClass, err = getStorageClassFromHeader(r.Header, reqCtx.Brand)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -657,7 +657,7 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	targetACL, err := getAclFromHeader(r.Header, reqCtx.BrandType)
+	targetACL, err := getAclFromHeader(r.Header, reqCtx.Brand)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -679,12 +679,12 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	targetObject.StorageClass = targetStorageClass
 	targetObject.CreateTime = sourceObject.CreateTime
 
-	directive := r.Header.Get(reqCtx.BrandType.GetHeaderFieldKey(XMetadataDirective))
+	directive := r.Header.Get(reqCtx.Brand.GetHeaderFieldKey(XMetadataDirective))
 	if directive == "COPY" || directive == "" {
 		targetObject.CustomAttributes = sourceObject.CustomAttributes
 		targetObject.ContentType = sourceObject.ContentType
 	} else if directive == "REPLACE" {
-		newMetadata := extractMetadataFromHeader(r.Header, reqCtx.BrandType)
+		newMetadata := extractMetadataFromHeader(r.Header, reqCtx.Brand)
 		if c, ok := newMetadata["content-type"]; ok {
 			targetObject.ContentType = c
 		} else {
@@ -732,17 +732,17 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 		w.Header()["ETag"] = []string{"\"" + result.Md5 + "\""}
 	}
 	if sourceVersion != "" {
-		w.Header().Set(strings.ToLower(reqCtx.BrandType.GetHeaderFieldKey(XCopySourceVersionId)), sourceVersion)
+		w.Header().Set(strings.ToLower(reqCtx.Brand.GetHeaderFieldKey(XCopySourceVersionId)), sourceVersion)
 	}
 	if result.VersionId != "" {
-		w.Header().Set(strings.ToLower(reqCtx.BrandType.GetHeaderFieldKey(XVersionId)), result.VersionId)
+		w.Header().Set(strings.ToLower(reqCtx.Brand.GetHeaderFieldKey(XVersionId)), result.VersionId)
 	}
 	// Set SSE related headers
 	for _, headerName := range []string{
-		reqCtx.BrandType.GetHeaderFieldKey(XServerSideEncryption),
-		reqCtx.BrandType.GetHeaderFieldKey(SSEKmsID),
-		reqCtx.BrandType.GetHeaderFieldKey(XSSECAlgorithm),
-		reqCtx.BrandType.GetHeaderFieldKey(XSSECKeyMD5),
+		reqCtx.Brand.GetHeaderFieldKey(XServerSideEncryption),
+		reqCtx.Brand.GetHeaderFieldKey(SSEKmsID),
+		reqCtx.Brand.GetHeaderFieldKey(XSSECAlgorithm),
+		reqCtx.Brand.GetHeaderFieldKey(XSSECKeyMD5),
 	} {
 		if header := r.Header.Get(headerName); header != "" {
 			w.Header().Set(headerName, header)
@@ -786,7 +786,7 @@ func (api ObjectAPIHandlers) RenameObjectHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	sourceObjectName := r.Header.Get(reqCtx.BrandType.GetHeaderFieldKey(XRenameSourceKey))
+	sourceObjectName := r.Header.Get(reqCtx.Brand.GetHeaderFieldKey(XRenameSourceKey))
 
 	if sourceObjectName == reqCtx.ObjectName {
 		WriteErrorResponse(w, r, ErrInvalidRenameTarget)
@@ -849,7 +849,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	logger := reqCtx.Logger
 	// If the matching failed, it means that the X-***-Copy-Source was
 	// wrong, fail right here.
-	if _, ok := r.Header[reqCtx.BrandType.GetHeaderFieldKey(XCopySource)]; ok {
+	if _, ok := r.Header[reqCtx.Brand.GetHeaderFieldKey(XCopySource)]; ok {
 		WriteErrorResponse(w, r, ErrInvalidCopySource)
 		return
 	}
@@ -860,7 +860,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	if forbidOverwriteStr, ok := r.Header[reqCtx.BrandType.GetHeaderFieldKey(XForbidOverwrite)]; ok {
+	if forbidOverwriteStr, ok := r.Header[reqCtx.Brand.GetHeaderFieldKey(XForbidOverwrite)]; ok {
 		forbidOverwrite, err := strconv.ParseBool(forbidOverwriteStr[0])
 		if err != nil {
 			WriteErrorResponse(w, r, err)
@@ -871,7 +871,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	// if Content-Length is unknown/missing, deny the request
 	size := r.ContentLength
 	if reqCtx.AuthType == signature.AuthTypeStreamingSigned {
-		if sizeStr, ok := r.Header[reqCtx.BrandType.GetHeaderFieldKey(XDecodedContentLength)]; ok {
+		if sizeStr, ok := r.Header[reqCtx.Brand.GetHeaderFieldKey(XDecodedContentLength)]; ok {
 			if sizeStr[0] == "" {
 				WriteErrorResponse(w, r, ErrMissingContentLength)
 				return
@@ -895,14 +895,14 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	storageClass, err := getStorageClassFromHeader(r.Header, reqCtx.BrandType)
+	storageClass, err := getStorageClassFromHeader(r.Header, reqCtx.Brand)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
 
 	// Save metadata.
-	metadata := extractMetadataFromHeader(r.Header, reqCtx.BrandType)
+	metadata := extractMetadataFromHeader(r.Header, reqCtx.Brand)
 	// Get Content-Md5 sent by client and verify if valid
 	if _, ok := r.Header["Content-Md5"]; !ok {
 		metadata["md5Sum"] = ""
@@ -924,7 +924,7 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 
 	if reqCtx.AuthType == signature.AuthTypeStreamingSigned {
 		if contentEncoding, ok := metadata["content-encoding"]; ok {
-			contentEncoding = signature.TrimAwsChunkedContentEncoding(contentEncoding, reqCtx.BrandType)
+			contentEncoding = signature.TrimAwsChunkedContentEncoding(contentEncoding, reqCtx.Brand)
 			if contentEncoding != "" {
 				// Make sure to trim and save the content-encoding
 				// parameter for a streaming signature which is set
@@ -946,8 +946,8 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	// Support SSE-S3 and SSE-C now
 	var sseRequest SseRequest
 
-	if hasServerSideEncryptionHeader(r.Header, reqCtx.BrandType) && !hasSuffix(reqCtx.ObjectName, "/") { // handle SSE requests
-		sseRequest, err = parseSseHeader(r.Header, reqCtx.BrandType)
+	if hasServerSideEncryptionHeader(r.Header, reqCtx.Brand) && !hasSuffix(reqCtx.ObjectName, "/") { // handle SSE requests
+		sseRequest, err = parseSseHeader(r.Header, reqCtx.Brand)
 		if err != nil {
 			WriteErrorResponse(w, r, err)
 			return
@@ -959,13 +959,13 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		//TODO:add kms
 	}
 
-	acl, err := getAclFromHeader(r.Header, reqCtx.BrandType)
+	acl, err := getAclFromHeader(r.Header, reqCtx.Brand)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
 
-	credential, dataReadCloser, err := signature.VerifyUpload(r, reqCtx.BrandType)
+	credential, dataReadCloser, err := signature.VerifyUpload(r, reqCtx.Brand)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -984,14 +984,14 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 		w.Header()["ETag"] = []string{"\"" + result.Md5 + "\""}
 	}
 	if result.VersionId != "" {
-		w.Header().Set(strings.ToLower(reqCtx.BrandType.GetHeaderFieldKey(XVersionId)), result.VersionId)
+		w.Header().Set(strings.ToLower(reqCtx.Brand.GetHeaderFieldKey(XVersionId)), result.VersionId)
 	}
 	// Set SSE related headers
 	for _, headerName := range []string{
-		reqCtx.BrandType.GetHeaderFieldKey(XServerSideEncryption),
-		reqCtx.BrandType.GetHeaderFieldKey(SSEKmsID),
-		reqCtx.BrandType.GetHeaderFieldKey(XSSECAlgorithm),
-		reqCtx.BrandType.GetHeaderFieldKey(XSSECKeyMD5),
+		reqCtx.Brand.GetHeaderFieldKey(XServerSideEncryption),
+		reqCtx.Brand.GetHeaderFieldKey(SSEKmsID),
+		reqCtx.Brand.GetHeaderFieldKey(XSSECAlgorithm),
+		reqCtx.Brand.GetHeaderFieldKey(XSSECKeyMD5),
 	} {
 		if header := r.Header.Get(headerName); header != "" {
 			w.Header().Set(headerName, header)
@@ -1016,7 +1016,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	logger.Info("Appending object:", bucketName, objectName)
 	handleStart := time.Now()
 
-	var authType = signature.GetRequestAuthType(r, reqCtx.BrandType)
+	var authType = signature.GetRequestAuthType(r, reqCtx.Brand)
 	var err error
 
 	if !isValidObjectName(objectName) {
@@ -1039,7 +1039,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	// if Content-Length is unknown/missing, deny the request
 	size := r.ContentLength
 	if authType == signature.AuthTypeStreamingSigned {
-		if sizeStr := r.Header.Get(reqCtx.BrandType.GetHeaderFieldKey(XDecodedContentLength)); sizeStr != "" {
+		if sizeStr := r.Header.Get(reqCtx.Brand.GetHeaderFieldKey(XDecodedContentLength)); sizeStr != "" {
 			size, err = strconv.ParseInt(sizeStr, 10, 64)
 			if err != nil {
 				WriteErrorResponse(w, r, err)
@@ -1061,14 +1061,14 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	storageClass, err := getStorageClassFromHeader(r.Header, reqCtx.BrandType)
+	storageClass, err := getStorageClassFromHeader(r.Header, reqCtx.Brand)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
 
 	// Save metadata.
-	metadata := extractMetadataFromHeader(r.Header, reqCtx.BrandType)
+	metadata := extractMetadataFromHeader(r.Header, reqCtx.Brand)
 	// Get Content-Md5 sent by client and verify if valid
 	if _, ok := r.Header["Content-Md5"]; !ok {
 		metadata["md5Sum"] = ""
@@ -1090,7 +1090,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 
 	if authType == signature.AuthTypeStreamingSigned {
 		if contentEncoding, ok := metadata["content-encoding"]; ok {
-			contentEncoding = signature.TrimAwsChunkedContentEncoding(contentEncoding, reqCtx.BrandType)
+			contentEncoding = signature.TrimAwsChunkedContentEncoding(contentEncoding, reqCtx.Brand)
 			if contentEncoding != "" {
 				// Make sure to trim and save the content-encoding
 				// parameter for a streaming signature which is set
@@ -1109,7 +1109,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	}
 
 	// Verify auth
-	credential, dataReadCloser, err := signature.VerifyUpload(r, reqCtx.BrandType)
+	credential, dataReadCloser, err := signature.VerifyUpload(r, reqCtx.Brand)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -1130,20 +1130,20 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 
 	if objInfo != nil && objInfo.Size != int64(position) {
 		logger.Info("Current Size:", objInfo.Size, "Position:", position)
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XNextAppendPosition), strconv.FormatInt(objInfo.Size, 10))
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XNextAppendPosition), strconv.FormatInt(objInfo.Size, 10))
 		WriteErrorResponse(w, r, ErrPositionNotEqualToLength)
 		return
 	}
 
 	if err == ErrNoSuchKey {
 		if isFirstAppend(position) {
-			acl, err = getAclFromHeader(r.Header, reqCtx.BrandType)
+			acl, err = getAclFromHeader(r.Header, reqCtx.Brand)
 			if err != nil {
 				WriteErrorResponse(w, r, err)
 				return
 			}
 		} else {
-			w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XNextAppendPosition), "0")
+			w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XNextAppendPosition), "0")
 			WriteErrorResponse(w, r, ErrPositionNotEqualToLength)
 			return
 		}
@@ -1151,8 +1151,8 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 		acl = objInfo.ACL
 	}
 
-	if hasServerSideEncryptionHeader(r.Header, reqCtx.BrandType) && !hasSuffix(objectName, "/") { // handle SSE requests
-		sseRequest, err = parseSseHeader(r.Header, reqCtx.BrandType)
+	if hasServerSideEncryptionHeader(r.Header, reqCtx.Brand) && !hasSuffix(objectName, "/") { // handle SSE requests
+		sseRequest, err = parseSseHeader(r.Header, reqCtx.Brand)
 		if err != nil {
 			WriteErrorResponse(w, r, err)
 			return
@@ -1176,12 +1176,12 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 		w.Header()["ETag"] = []string{"\"" + result.Md5 + "\""}
 	}
 	if result.VersionId != "" {
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XVersionId), result.VersionId)
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XVersionId), result.VersionId)
 	}
 
 	// Set SSE related headers
 	for _, headerName := range []string{
-		reqCtx.BrandType.GetHeaderFieldKey(XServerSideEncryption),
+		reqCtx.Brand.GetHeaderFieldKey(XServerSideEncryption),
 	} {
 		if header := r.Header.Get(headerName); header != "" {
 			w.Header().Set(headerName, header)
@@ -1189,7 +1189,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 	}
 
 	// Set next position
-	w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XNextAppendPosition), strconv.FormatInt(result.NextPosition, 10))
+	w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XNextAppendPosition), strconv.FormatInt(result.NextPosition, 10))
 
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "AppendObject"
@@ -1223,7 +1223,7 @@ func (api ObjectAPIHandlers) PutObjectMeta(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	metaData, err := ParseMetaConfig(io.LimitReader(r.Body, r.ContentLength), reqCtx.BrandType)
+	metaData, err := ParseMetaConfig(io.LimitReader(r.Body, r.ContentLength), reqCtx.Brand)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -1276,7 +1276,7 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 	}
 
 	if object.DeleteMarker {
-		w.Header().Set(strings.ToLower(reqCtx.BrandType.GetHeaderFieldKey(XDeleteMarker)), "true")
+		w.Header().Set(strings.ToLower(reqCtx.Brand.GetHeaderFieldKey(XDeleteMarker)), "true")
 		WriteErrorResponse(w, r, ErrNoSuchKey)
 		return
 	}
@@ -1393,7 +1393,7 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r, reqCtx.BrandType) {
+	switch signature.GetRequestAuthType(r, reqCtx.Brand) {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -1409,8 +1409,8 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 	}
 	var acl Acl
 	var policy AccessControlPolicy
-	if _, ok := r.Header[reqCtx.BrandType.GetHeaderFieldKey(XACL)]; ok {
-		acl, err = getAclFromHeader(r.Header, reqCtx.BrandType)
+	if _, ok := r.Header[reqCtx.Brand.GetHeaderFieldKey(XACL)]; ok {
+		acl, err = getAclFromHeader(r.Header, reqCtx.Brand)
 		if err != nil {
 			WriteErrorResponse(w, r, ErrInvalidAcl)
 			return
@@ -1439,7 +1439,7 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 		return
 	}
 	if reqCtx.VersionId != "" {
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XVersionId), reqCtx.VersionId)
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XVersionId), reqCtx.VersionId)
 	}
 
 	// ResponseRecorder
@@ -1455,7 +1455,7 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r, reqCtx.BrandType) {
+	switch signature.GetRequestAuthType(r, reqCtx.Brand) {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -1486,7 +1486,7 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 	}
 
 	if reqCtx.ObjectInfo.VersionId != meta.NullVersion {
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XVersionId), reqCtx.ObjectInfo.VersionId)
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XVersionId), reqCtx.ObjectInfo.VersionId)
 	}
 
 	setXmlHeader(w)
@@ -1510,7 +1510,7 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 		return
 	}
 
-	if forbidOverwriteStr, ok := r.Header[reqCtx.BrandType.GetHeaderFieldKey(XForbidOverwrite)]; ok {
+	if forbidOverwriteStr, ok := r.Header[reqCtx.Brand.GetHeaderFieldKey(XForbidOverwrite)]; ok {
 		forbidOverwrite, err := strconv.ParseBool(forbidOverwriteStr[0])
 		if err != nil {
 			WriteErrorResponse(w, r, err)
@@ -1521,7 +1521,7 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r, reqCtx.BrandType) {
+	switch signature.GetRequestAuthType(r, reqCtx.Brand) {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -1536,18 +1536,18 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 		}
 	}
 
-	acl, err := getAclFromHeader(r.Header, reqCtx.BrandType)
+	acl, err := getAclFromHeader(r.Header, reqCtx.Brand)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
 
 	// Save metadata.
-	metadata := extractMetadataFromHeader(r.Header, reqCtx.BrandType)
+	metadata := extractMetadataFromHeader(r.Header, reqCtx.Brand)
 
 	var sseRequest SseRequest
-	if hasServerSideEncryptionHeader(r.Header, reqCtx.BrandType) && !hasSuffix(objectName, "/") { // handle SSE requests
-		sseRequest, err = parseSseHeader(r.Header, reqCtx.BrandType)
+	if hasServerSideEncryptionHeader(r.Header, reqCtx.Brand) && !hasSuffix(objectName, "/") { // handle SSE requests
+		sseRequest, err = parseSseHeader(r.Header, reqCtx.Brand)
 		if err != nil {
 			WriteErrorResponse(w, r, err)
 			return
@@ -1559,7 +1559,7 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 		//TODO:add kms
 	}
 
-	storageClass, err := getStorageClassFromHeader(r.Header, reqCtx.BrandType)
+	storageClass, err := getStorageClassFromHeader(r.Header, reqCtx.Brand)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -1576,10 +1576,10 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 	encodedSuccessResponse := EncodeResponse(response)
 	// Set SSE related headers
 	for _, headerName := range []string{
-		reqCtx.BrandType.GetHeaderFieldKey(XServerSideEncryption),
-		reqCtx.BrandType.GetHeaderFieldKey(SSEKmsID),
-		reqCtx.BrandType.GetHeaderFieldKey(XSSECAlgorithm),
-		reqCtx.BrandType.GetHeaderFieldKey(XSSECKeyMD5),
+		reqCtx.Brand.GetHeaderFieldKey(XServerSideEncryption),
+		reqCtx.Brand.GetHeaderFieldKey(SSEKmsID),
+		reqCtx.Brand.GetHeaderFieldKey(XSSECAlgorithm),
+		reqCtx.Brand.GetHeaderFieldKey(XSSECKeyMD5),
 	} {
 		if header := r.Header.Get(headerName); header != "" {
 			w.Header().Set(headerName, header)
@@ -1611,7 +1611,7 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 
 	size := r.ContentLength
 	if authType == signature.AuthTypeStreamingSigned {
-		if sizeStr, ok := r.Header[reqCtx.BrandType.GetHeaderFieldKey(XDecodedContentLength)]; ok {
+		if sizeStr, ok := r.Header[reqCtx.Brand.GetHeaderFieldKey(XDecodedContentLength)]; ok {
 			if sizeStr[0] == "" {
 				WriteErrorResponse(w, r, ErrMissingContentLength)
 				return
@@ -1650,13 +1650,13 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 		return
 	}
 
-	sseRequest, err := parseSseHeader(r.Header, reqCtx.BrandType)
+	sseRequest, err := parseSseHeader(r.Header, reqCtx.Brand)
 	if err != nil {
 		WriteErrorResponse(w, r, ErrInvalidSseHeader)
 		return
 	}
 
-	credential, dataReadCloser, err := signature.VerifyUpload(r, reqCtx.BrandType)
+	credential, dataReadCloser, err := signature.VerifyUpload(r, reqCtx.Brand)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -1680,14 +1680,14 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 	case "":
 		break
 	case crypto.S3KMS.String():
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XServerSideEncryption), strings.ToLower(reqCtx.BrandType.GetHeaderFieldValue(SSEAlgorithmKMS)))
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(SSEKmsID),
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XServerSideEncryption), strings.ToLower(reqCtx.Brand.GetHeaderFieldValue(SSEAlgorithmKMS)))
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(SSEKmsID),
 			result.SseAwsKmsKeyIdBase64)
 	case crypto.S3.String():
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XServerSideEncryption), "AES256")
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XServerSideEncryption), "AES256")
 	case crypto.SSEC.String():
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XSSECopyAlgorithm), "AES256")
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XSSECKeyMD5),
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XSSECopyAlgorithm), "AES256")
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XSSECKeyMD5),
 			result.SseCustomerKeyMd5Base64)
 	}
 
@@ -1711,7 +1711,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r, reqCtx.BrandType) {
+	switch signature.GetRequestAuthType(r, reqCtx.Brand) {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -1742,7 +1742,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 	}
 
 	// copy source is of form: /bucket-name/object-name?versionId=xxxxxx
-	copySource := r.Header.Get(reqCtx.BrandType.GetHeaderFieldKey(XCopySource))
+	copySource := r.Header.Get(reqCtx.Brand.GetHeaderFieldKey(XCopySource))
 
 	// Skip the first element if it is '/', split the rest.
 	if strings.HasPrefix(copySource, "/") {
@@ -1819,20 +1819,20 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 		sourceObject.ObjectId = freezer.ObjectId
 	}
 
-	sseRequest, err := parseSseHeader(r.Header, reqCtx.BrandType)
+	sseRequest, err := parseSseHeader(r.Header, reqCtx.Brand)
 	if err != nil {
 		WriteErrorResponseWithResource(w, r, err, copySource)
 		return
 	}
 
 	// Verify before x-amz-copy-source preconditions before continuing with CopyObject.
-	if err = checkObjectPreconditions(w, r, sourceObject, reqCtx.BrandType); err != nil {
+	if err = checkObjectPreconditions(w, r, sourceObject, reqCtx.Brand); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
 
 	var readOffset, readLength int64
-	copySourceRangeString := r.Header.Get(reqCtx.BrandType.GetHeaderFieldKey(XCopySourceRange))
+	copySourceRangeString := r.Header.Get(reqCtx.Brand.GetHeaderFieldKey(XCopySourceRange))
 	if copySourceRangeString == "" {
 		readOffset = 0
 		readLength = sourceObject.Size
@@ -1885,14 +1885,14 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 		w.Header()["ETag"] = []string{"\"" + result.Md5 + "\""}
 	}
 	if sourceVersion != "" {
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XCopySourceVersionId), sourceVersion)
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XCopySourceVersionId), sourceVersion)
 	}
 	// Set SSE related headers
 	for _, headerName := range []string{
-		reqCtx.BrandType.GetHeaderFieldKey(XServerSideEncryption),
-		reqCtx.BrandType.GetHeaderFieldKey(SSEKmsID),
-		reqCtx.BrandType.GetHeaderFieldKey(XSSECAlgorithm),
-		reqCtx.BrandType.GetHeaderFieldKey(XSSECKeyMD5),
+		reqCtx.Brand.GetHeaderFieldKey(XServerSideEncryption),
+		reqCtx.Brand.GetHeaderFieldKey(SSEKmsID),
+		reqCtx.Brand.GetHeaderFieldKey(XSSECAlgorithm),
+		reqCtx.Brand.GetHeaderFieldKey(XSSECKeyMD5),
 	} {
 		if header := r.Header.Get(headerName); header != "" {
 			w.Header().Set(headerName, header)
@@ -1913,7 +1913,7 @@ func (api ObjectAPIHandlers) AbortMultipartUploadHandler(w http.ResponseWriter, 
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r, reqCtx.BrandType) {
+	switch signature.GetRequestAuthType(r, reqCtx.Brand) {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -1951,7 +1951,7 @@ func (api ObjectAPIHandlers) ListObjectPartsHandler(w http.ResponseWriter, r *ht
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r, reqCtx.BrandType) {
+	switch signature.GetRequestAuthType(r, reqCtx.Brand) {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -1997,7 +1997,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r, reqCtx.BrandType) {
+	switch signature.GetRequestAuthType(r, reqCtx.Brand) {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -2073,20 +2073,20 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	}
 
 	if result.VersionId != "" {
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XVersionId), result.VersionId)
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XVersionId), result.VersionId)
 	}
 	switch result.SseType {
 	case "":
 		break
 	case crypto.S3KMS.String():
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XServerSideEncryption), strings.ToLower(reqCtx.BrandType.GetHeaderFieldValue(SSEAlgorithmKMS)))
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(SSEKmsID),
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XServerSideEncryption), strings.ToLower(reqCtx.Brand.GetHeaderFieldValue(SSEAlgorithmKMS)))
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(SSEKmsID),
 			result.SseAwsKmsKeyIdBase64)
 	case crypto.S3.String():
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XServerSideEncryption), "AES256")
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XServerSideEncryption), "AES256")
 	case crypto.SSEC.String():
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XSSECopyAlgorithm), "AES256")
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XSSECKeyMD5),
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XSSECopyAlgorithm), "AES256")
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XSSECKeyMD5),
 			result.SseCustomerKeyMd5Base64)
 	}
 
@@ -2128,10 +2128,10 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 		return
 	}
 	if result.DeleteMarker {
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XDeleteMarker), "true")
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XDeleteMarker), "true")
 	}
 	if result.VersionId != "" && result.VersionId != meta.NullVersion {
-		w.Header().Set(reqCtx.BrandType.GetHeaderFieldKey(XVersionId), result.VersionId)
+		w.Header().Set(reqCtx.Brand.GetHeaderFieldKey(XVersionId), result.VersionId)
 	}
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "DeleteObject"
@@ -2160,7 +2160,7 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		WriteErrorResponse(w, r, ErrInvalidObjectName)
 		return
 	}
-	if forbidOverwriteStr, ok := formValues[reqCtx.BrandType.GetHeaderFieldKey(XForbidOverwrite)]; ok {
+	if forbidOverwriteStr, ok := formValues[reqCtx.Brand.GetHeaderFieldKey(XForbidOverwrite)]; ok {
 		forbidOverwrite, err := strconv.ParseBool(forbidOverwriteStr)
 		if err != nil {
 			WriteErrorResponse(w, r, err)
@@ -2173,13 +2173,13 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 	logger.Info("PostObjectHandler formValues", formValues)
 
 	var credential common.Credential
-	postPolicyType := signature.GetPostPolicyType(formValues, reqCtx.BrandType)
+	postPolicyType := signature.GetPostPolicyType(formValues, reqCtx.Brand)
 	logger.Info("type", postPolicyType)
 	switch postPolicyType {
 	case signature.PostPolicyV2:
-		credential, err = signature.DoesPolicySignatureMatchV2(formValues, reqCtx.BrandType)
+		credential, err = signature.DoesPolicySignatureMatchV2(formValues, reqCtx.Brand)
 	case signature.PostPolicyV4:
-		credential, err = signature.DoesPolicySignatureMatchV4(formValues, reqCtx.BrandType)
+		credential, err = signature.DoesPolicySignatureMatchV4(formValues, reqCtx.Brand)
 	case signature.PostPolicyAnonymous:
 		if bucket.ACL.CannedAcl != "public-read-write" {
 			WriteErrorResponse(w, r, ErrAccessDenied)
@@ -2194,7 +2194,7 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if err = signature.CheckPostPolicy(formValues, reqCtx.BrandType); err != nil {
+	if err = signature.CheckPostPolicy(formValues, reqCtx.Brand); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -2206,7 +2206,7 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		headerfiedFormValues.Add(key, formValues[key])
 	}
 
-	metadata := extractMetadataFromHeader(headerfiedFormValues, reqCtx.BrandType)
+	metadata := extractMetadataFromHeader(headerfiedFormValues, reqCtx.Brand)
 
 	var acl Acl
 	acl.CannedAcl = headerfiedFormValues.Get("Acl")
@@ -2219,7 +2219,7 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	sseRequest, err := parseSseHeader(headerfiedFormValues, reqCtx.BrandType)
+	sseRequest, err := parseSseHeader(headerfiedFormValues, reqCtx.Brand)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -2233,7 +2233,7 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	storageClass, err := getStorageClassFromHeader(headerfiedFormValues, reqCtx.BrandType)
+	storageClass, err := getStorageClassFromHeader(headerfiedFormValues, reqCtx.Brand)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return

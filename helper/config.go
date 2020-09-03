@@ -16,7 +16,7 @@ const (
 )
 
 type Config struct {
-	Brand                []string                `toml:brand`      // brand name that YIG supported
+	Brand                []string                `toml:"brand"`    // brand name that YIG supported
 	S3Domain             []string                `toml:"s3domain"` // Domain name of YIG
 	Region               string                  `toml:"region"`   // Region name this instance belongs to, e.g cn-bj-1
 	Plugins              map[string]PluginConfig `toml:"plugins"`

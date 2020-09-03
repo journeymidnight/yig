@@ -40,7 +40,7 @@ func (api ObjectAPIHandlers) GetBucketLocationHandler(w http.ResponseWriter, r *
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r, reqCtx.BrandType) {
+	switch signature.GetRequestAuthType(r, reqCtx.Brand) {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -84,7 +84,7 @@ func (api ObjectAPIHandlers) ListMultipartUploadsHandler(w http.ResponseWriter, 
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r, reqCtx.BrandType) {
+	switch signature.GetRequestAuthType(r, reqCtx.Brand) {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -179,7 +179,7 @@ func (api ObjectAPIHandlers) ListVersionedObjectsHandler(w http.ResponseWriter, 
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r, reqCtx.BrandType) {
+	switch signature.GetRequestAuthType(r, reqCtx.Brand) {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -347,7 +347,7 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	acl, err := getAclFromHeader(r.Header, reqCtx.BrandType)
+	acl, err := getAclFromHeader(r.Header, reqCtx.Brand)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -443,7 +443,7 @@ func (api ObjectAPIHandlers) GetBucketLoggingHandler(w http.ResponseWriter, r *h
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r, reqCtx.BrandType) {
+	switch signature.GetRequestAuthType(r, reqCtx.Brand) {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -508,8 +508,8 @@ func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.
 
 	var acl Acl
 	var policy AccessControlPolicy
-	if _, ok := r.Header[reqCtx.BrandType.GetHeaderFieldKey(brand.XACL)]; ok {
-		acl, err = getAclFromHeader(r.Header, reqCtx.BrandType)
+	if _, ok := r.Header[reqCtx.Brand.GetHeaderFieldKey(brand.XACL)]; ok {
+		acl, err = getAclFromHeader(r.Header, reqCtx.Brand)
 		if err != nil {
 			logger.Error("Unable to read canned ACLs:", err)
 			WriteErrorResponse(w, r, ErrInvalidAcl)
@@ -548,7 +548,7 @@ func (api ObjectAPIHandlers) GetBucketAclHandler(w http.ResponseWriter, r *http.
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r, reqCtx.BrandType) {
+	switch signature.GetRequestAuthType(r, reqCtx.Brand) {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -774,7 +774,7 @@ func (api ObjectAPIHandlers) HeadBucketHandler(w http.ResponseWriter, r *http.Re
 
 	var credential common.Credential
 	var err error
-	switch signature.GetRequestAuthType(r, reqCtx.BrandType) {
+	switch signature.GetRequestAuthType(r, reqCtx.Brand) {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
