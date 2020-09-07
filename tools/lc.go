@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"io"
+	"strings"
 
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/lifecycle"
@@ -24,9 +26,11 @@ import (
 )
 
 const (
-	RequestMaxKeys      = 1000
-	SCAN_LIMIT          = 50
-	DEFAULT_LC_LOG_PATH = "/var/log/yig/lc.log"
+	RequestMaxKeys        = 1000
+	ScanLimit             = 50
+	DefaultLcLogPath      = "/var/log/yig/lc.log"
+	DefaultBillingLogPath = "/var/log/yig/lc_billing.log"
+	TimeLayout            = "2006-01-02 15:04:05"
 )
 
 var (
@@ -36,7 +40,29 @@ var (
 	waitgroup       sync.WaitGroup
 	lcHandlerIsOver bool
 	stop            bool
+	billingLogger   log.Logger
 )
+
+func LogBilling(userID, bucketName, objectName string,
+	versionID, uploadID string, delta map[StorageClass]int64) {
+	timeString := time.Now().Format(TimeLayout)
+	deltaStrings := make([]string, 0, len(delta))
+	for class, d := range delta {
+		deltaStrings = append(deltaStrings,
+			fmt.Sprintf("%s:%d", class.ToString(), d))
+	}
+	deltaString := strings.Join(deltaStrings, ",")
+	versionOrUploadID := "-"
+	if len(versionID) != 0 {
+		versionOrUploadID = versionID
+	}
+	if len(uploadID) != 0 {
+		versionOrUploadID = uploadID
+	}
+	billingLogger.Println(
+		fmt.Sprintf("[%s] Delta %s %s %s %s (%s)",
+			timeString, userID, bucketName, objectName, versionOrUploadID, deltaString))
+}
 
 func getLifeCycles() {
 	var marker string
@@ -49,7 +75,7 @@ func getLifeCycles() {
 			return
 		}
 
-		result, err := yig.MetaStorage.ScanLifeCycle(SCAN_LIMIT, marker)
+		result, err := yig.MetaStorage.ScanLifeCycle(ScanLimit, marker)
 		if err != nil {
 			helper.Logger.Error("ScanLifeCycle failed:", err)
 			lcHandlerIsOver = true
@@ -169,21 +195,28 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				helper.Logger.Info("After ComputeActionFromNonCurrentVersion:", action, storageClass)
 				// Delete or transition
 				if action == lifecycle.DeleteAction {
-					_, err = yig.DeleteObject(reqCtx, common.Credential{ExternUserId: bucket.OwnerId, ExternRootId: bucket.OwnerId})
+					result, err := yig.DeleteObject(reqCtx,
+						common.Credential{ExternUserId: bucket.OwnerId, ExternRootId: bucket.OwnerId})
 					if err != nil {
 						helper.Logger.Error(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, err)
 						continue
 					}
+					delta := make(map[StorageClass]int64)
+					delta[result.DeltaSize.StorageClass] = result.DeltaSize.Delta
+					LogBilling(bucket.OwnerId, reqCtx.BucketName, reqCtx.ObjectName,
+						"", "", delta)
 				}
 				if action == lifecycle.TransitionAction {
 					if reqCtx.ObjectInfo.DeleteMarker {
 						continue
 					}
-					_, err = transitionObject(reqCtx, storageClass)
+					result, err := transitionObject(reqCtx, storageClass)
 					if err != nil {
 						helper.Logger.Error(bucket.Name, object.Key, object.LastModified, err)
 						continue
 					}
+					LogBilling(bucket.OwnerId, bucket.Name, object.Key,
+						"", "", result.DeltaInfo)
 				}
 			}
 
@@ -281,35 +314,45 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 				if action == lifecycle.DeleteVersionAction {
 					reqCtx.VersionId = reqCtx.ObjectInfo.VersionId
 					helper.Logger.Info("$%$%$%$% deletemarker", reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId)
-					_, err = yig.DeleteObject(reqCtx, common.Credential{ExternUserId: bucket.OwnerId, ExternRootId: bucket.OwnerId})
+					result, err := yig.DeleteObject(reqCtx,
+						common.Credential{ExternUserId: bucket.OwnerId, ExternRootId: bucket.OwnerId})
 					if err != nil {
 						helper.Logger.Error(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, err)
 						continue
 					}
+					delta := make(map[StorageClass]int64)
+					delta[result.DeltaSize.StorageClass] = result.DeltaSize.Delta
+					LogBilling(bucket.OwnerId, reqCtx.BucketName, reqCtx.ObjectName,
+						reqCtx.VersionId, "", delta)
 				}
 
 				// process expired object
 				if action == lifecycle.DeleteAction {
 					reqCtx.VersionId = ""
-					_, err = yig.DeleteObject(reqCtx, common.Credential{ExternUserId: bucket.OwnerId, ExternRootId: bucket.OwnerId})
+					result, err := yig.DeleteObject(reqCtx,
+						common.Credential{ExternUserId: bucket.OwnerId, ExternRootId: bucket.OwnerId})
 					if err != nil {
 						helper.Logger.Error(reqCtx.BucketName, reqCtx.ObjectName, reqCtx.VersionId, err)
 						continue
 					}
+					delta := make(map[StorageClass]int64)
+					delta[result.DeltaSize.StorageClass] = result.DeltaSize.Delta
+					LogBilling(bucket.OwnerId, reqCtx.BucketName, reqCtx.ObjectName,
+						"", "", delta)
 				}
 				// process transition object
 				if action == lifecycle.TransitionAction {
 					reqCtx.VersionId = reqCtx.ObjectInfo.VersionId
-					_, err = transitionObject(reqCtx, storageClass)
+					result, err := transitionObject(reqCtx, storageClass)
 					if err != nil {
 						helper.Logger.Error(bucket.Name, reqCtx.ObjectName, reqCtx.ObjectInfo.LastModifiedTime, err)
 						continue
 					}
+					LogBilling(bucket.OwnerId, bucket.Name, reqCtx.ObjectName,
+						reqCtx.VersionId, "", result.DeltaInfo)
 				}
 			}
-
 		}
-
 	}
 
 	if len(abortMultipartRules) != 0 {
@@ -346,11 +389,16 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 
 				// process abort object
 				if action == lifecycle.AbortMultipartUploadAction {
-					_, err = yig.AbortMultipartUpload(reqCtx, common.Credential{ExternUserId: bucket.OwnerId, ExternRootId: bucket.OwnerId}, object.UploadId)
+					result, err := yig.AbortMultipartUpload(reqCtx,
+						common.Credential{ExternUserId: bucket.OwnerId, ExternRootId: bucket.OwnerId}, object.UploadId)
 					if err != nil {
 						helper.Logger.Error(bucket.Name, object.Key, object.UploadId, err)
 						continue
 					}
+					delta := make(map[StorageClass]int64)
+					delta[result.StorageClass] = result.Delta
+					LogBilling(bucket.OwnerId, bucket.Name, object.Key,
+						"", object.UploadId, delta)
 				}
 			}
 			if result.IsTruncated == true {
@@ -494,7 +542,7 @@ func LifecycleStart() {
 	stop = false
 	lcHandlerIsOver = false
 
-	taskQ = make(chan meta.LifeCycle, SCAN_LIMIT)
+	taskQ = make(chan meta.LifeCycle, ScanLimit)
 
 	numOfWorkers := helper.CONFIG.LcThread
 	helper.Logger.Info("start lc thread:", numOfWorkers)
@@ -509,7 +557,9 @@ func main() {
 	helper.SetupConfig()
 	logLevel := log.ParseLevel(helper.CONFIG.LogLevel)
 
-	helper.Logger = log.NewFileLogger(DEFAULT_LC_LOG_PATH, logLevel)
+	helper.Logger = log.NewFileLogger(DefaultLcLogPath, logLevel)
+	billingLogger = log.NewFileLogger(DefaultBillingLogPath, logLevel)
+
 	defer helper.Logger.Close()
 	if helper.CONFIG.MetaCacheType > 0 || helper.CONFIG.EnableDataCache {
 		redis.Initialize()
