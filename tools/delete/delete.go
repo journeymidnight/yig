@@ -64,7 +64,7 @@ func (d AsyncDeleteFromCeph) Init(handle task.Handle,
 	if err != nil {
 		return nil, err
 	}
-	cephClusters, err := ceph.PureInitialize(conf.CephConfigPattern)
+	cephClusters, err := ceph.PureInitialize(conf.CephConfigPattern, 1)
 	if err != nil {
 		return nil, err
 	}
