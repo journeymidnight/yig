@@ -21,6 +21,7 @@ import (
 )
 
 var table, startKey, endKey string
+var exportDir, database string
 var maxKeys int
 
 type GlobalOption struct {
@@ -211,6 +212,28 @@ func main() {
 				return MigrateFunc()
 			},
 			ArgsUsage: "Migrate the data to tikv from tidb by bucket name",
+		},
+		{
+			Name:  "parse",
+			Usage: "parse tidb sql data to tikv",
+			Action: func(c *cli.Context) error {
+				return ParseFunc()
+			},
+			ArgsUsage: "Parse tidb sql data to tikv",
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:        "export,e",
+					Value:       "",
+					Usage:       "export dir path",
+					Destination: &exportDir,
+				},
+				cli.StringFlag{
+					Name:        "database,d",
+					Value:       DefaultDatabase,
+					Usage:       "the sql file of specified database you wanna parse",
+					Destination: &database,
+				},
+			},
 		},
 	}
 

@@ -23,13 +23,15 @@ import (
 	"github.com/journeymidnight/yig/meta/client/tikvclient"
 )
 
+var reflectMap map[string]string
+
 // TODO: unfinished
 func SetFunc(key, value string) error {
 	c := tikvclient.NewClient(strings.Split(global.PDs, ","))
 	var k, v = []byte(key), []byte(value)
 	var err error
 
-	if _, ok := TableMap[global.Table]; ok {
+	if t, ok := TableMap[global.Table]; ok && t.ExistInTiKV {
 		fmt.Println("Args:", global.Args.Value())
 		var argMap = make(map[string]string)
 		for _, v := range global.Args {
@@ -88,7 +90,7 @@ func GetFunc(key string) error {
 	c := tikvclient.NewClient(strings.Split(global.PDs, ","))
 	var k []byte
 	var err error
-	if _, ok := TableMap[global.Table]; ok {
+	if t, ok := TableMap[global.Table]; ok && t.ExistInTiKV {
 		fmt.Println("Args:", global.Args.Value())
 		var argMap = make(map[string]string)
 		for _, v := range global.Args {
@@ -151,7 +153,7 @@ func ScanFunc(startKey, endKey string, maxKeys int) (err error) {
 	c := tikvclient.NewClient(strings.Split(global.PDs, ","))
 	var prefix string
 	var sk, ek []byte
-	if _, ok := TableMap[global.Table]; ok {
+	if t, ok := TableMap[global.Table]; ok && t.ExistInTiKV {
 		if TableMap[global.Table].Prefix != "" {
 			prefix = TableMap[global.Table].Prefix + tikvclient.TableSeparator
 		} else {
@@ -450,7 +452,8 @@ func genUserBucketKey(ownerId, bucketName string) []byte {
 func LoadPidToUidMap() map[string]string {
 	f, err := os.Open(global.MigrateMapFile)
 	if err != nil {
-		panic(err)
+		fmt.Println("Cannot open file", global.MigrateMapFile, err)
+		os.Exit(1)
 	}
 	m := make(map[string]string)
 	buf := bufio.NewReader(f)
@@ -464,7 +467,8 @@ func LoadPidToUidMap() map[string]string {
 		}
 		sp := strings.Split(line, " ")
 		if len(sp) != 2 {
-			panic("invalid line: " + line)
+			fmt.Println("invalid line: " + line)
+			os.Exit(1)
 		}
 		//projectId -> userId
 		sp[0] = strings.TrimSpace(sp[0])
@@ -476,7 +480,7 @@ func LoadPidToUidMap() map[string]string {
 }
 
 func MigrateFunc() (err error) {
-	reflectMap := LoadPidToUidMap()
+	reflectMap = LoadPidToUidMap()
 	if global.TidbAddr == "" {
 		return errors.New("no tidb address set")
 	}
@@ -541,5 +545,49 @@ func MigrateFunc() (err error) {
 			}
 		}
 	}
+	return nil
+}
+
+func ParseFunc() (err error) {
+	reflectMap = LoadPidToUidMap()
+	if exportDir == "" {
+		fmt.Println("please specify the export directory by using -e or --export after `parse`.")
+		os.Exit(1)
+	}
+	ok, err := PathExists(exportDir)
+	if err != nil {
+		fmt.Println("open path", exportDir, "err:", err)
+		os.Exit(1)
+	}
+	if !ok {
+		fmt.Println("path", exportDir, "not exist")
+		os.Exit(1)
+	}
+
+	// the tables you wanna parse
+	// NOTE: TableObjectPart and TableRestoreObjectPart should be parsed later
+	var tables []string
+	if global.Table != "" {
+		if _, ok := TableMap[global.Table]; !ok {
+			fmt.Println("table name", global.Table, "is invalid")
+			os.Exit(1)
+		}
+		if global.Table == TableObjects {
+			tables = []string{TableObjects, TableObjectPart}
+		} else if global.Table == TableRestore {
+			tables = []string{TableRestore, TableRestoreObjectPart}
+		} else {
+			tables = []string{global.Table}
+		}
+	} else {
+		tables = []string{
+			TableBuckets, TableUsers, TableObjects, TableObjectPart, TableMultiParts, TableParts, TableClusters, TableHotObjects,
+			TableRestore, TableRestoreObjectPart, TableLifeCycle, TableQos,
+		}
+	}
+	for _, table := range tables {
+		ParseDMLFile(exportDir, database, table)
+	}
+
 	return nil
 }

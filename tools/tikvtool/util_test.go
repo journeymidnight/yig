@@ -22,3 +22,32 @@ func Test_EncodeKey(t *testing.T) {
 		t.Fatal("invalid encode key")
 	}
 }
+
+func Test_ExtractConstant(t *testing.T) {
+	var data = []byte(`'wtf','hehe'`)
+	d := extractConstant(&data)
+	if toString(d) != "wtf" {
+		t.Fatal("not", toString(d), "should be wtf")
+	}
+	if toString(data) != `'hehe'` {
+		t.Fatal("not", toString(data), "should be wtf")
+	}
+}
+
+func Test_ExtractJson(t *testing.T) {
+	data := []byte(`CONVERT('{\"CannedAcl\": \"private\"}' USING UTF8MB4),remain`)
+	s := extractJson(&data)
+	if bytes.Compare(s, []byte(`{\"CannedAcl\": \"private\"}`)) != 0 {
+		t.Fatal("trimJson err data", string(s))
+	}
+	if bytes.Compare(data, []byte(`remain`)) != 0 {
+		t.Fatal("trimJson err remain", string(data))
+	}
+}
+
+func Test_ToString(t *testing.T) {
+	s := toString([]byte("hehe"))
+	if s != "hehe" {
+		t.Fatal(s, "is not hehe")
+	}
+}
