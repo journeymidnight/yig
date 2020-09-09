@@ -242,10 +242,10 @@ func (c *TiKVClient) RenameObject(object *Object, sourceObject string) (err erro
 	return nil
 }
 
-func (c *TiKVClient) DeleteObject(object *Object, tx Tx) error {
+func (c *TiKVClient) DeleteObject(object *Object, tx Tx) (err error) {
 	key := genObjectKey(object.BucketName, object.Name, object.VersionId)
 	if tx == nil {
-		tx, err := c.NewTrans()
+		tx, err = c.NewTrans()
 		if err != nil {
 			return err
 		}
@@ -369,7 +369,7 @@ func (c *TiKVClient) RemoveHotObject(object *Object, tx Tx) (err error) {
 	}
 }
 
-func (c *TiKVClient) UpdateAppendObject(object *Object) error {
+func (c *TiKVClient) UpdateAppendObject(object *Object) (err error) {
 	objectKey := genObjectKey(object.BucketName, object.Name, object.VersionId)
 	hotKey := genHotObjectKey(object.BucketName, object.Name, object.VersionId)
 	tx, err := c.NewTrans()
