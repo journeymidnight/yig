@@ -456,6 +456,12 @@ func LoadPidToUidMap() map[string]string {
 	buf := bufio.NewReader(f)
 	for {
 		line, err := buf.ReadString('\n')
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			panic(err)
+		}
 		sp := strings.Split(line, " ")
 		if len(sp) != 2 {
 			panic("invalid line: " + line)
@@ -465,12 +471,6 @@ func LoadPidToUidMap() map[string]string {
 		sp[1] = strings.TrimSpace(sp[1])
 		m[sp[0]] = sp[1]
 		fmt.Println("Load projectId:", sp[0], "userId:", sp[1])
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			panic(err)
-		}
 	}
 	return m
 }
