@@ -3,9 +3,9 @@ package tikvclient
 import (
 	"context"
 
+	"github.com/journeymidnight/client-go/key"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
-	"github.com/journeymidnight/client-go/key"
 )
 
 // **Key**: l\{BucketName}
@@ -33,7 +33,7 @@ func (c *TiKVClient) GetBucketLifeCycle(bucket Bucket) (*LifeCycle, error) {
 	return &lc, nil
 }
 
-func (c *TiKVClient) RemoveBucketFromLifeCycle(bucket Bucket) error {
+func (c *TiKVClient) RemoveBucketFromLifeCycle(bucket Bucket) (err error) {
 	bucketKey := genBucketKey(bucket.Name)
 	lcKey := genLifecycleKey(bucket.Name)
 	tx, err := c.NewTrans()

@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/journeymidnight/client-go/key"
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
-	"github.com/journeymidnight/client-go/key"
 )
 
 // **Key**: m\{BucketName}\{ObjectName}\{EncodedTime}
@@ -32,8 +32,7 @@ func genObjectPartKey(bucketName, objectName, uploadId string, partNumber int) [
 const MaxPartLimit = 10000
 
 //multipart
-func (c *TiKVClient) GetMultipart(bucketName, objectName, uploadId string) (Multipart, error) {
-	var multipart Multipart
+func (c *TiKVClient) GetMultipart(bucketName, objectName, uploadId string) (multipart Multipart, err error) {
 	initialTime, err := GetInitialTimeFromUploadId(uploadId)
 	if err != nil {
 		return multipart, err
@@ -127,9 +126,9 @@ func (c *TiKVClient) PutObjectPart(multipart *Multipart, part *Part) (deltaSize 
 	return deltaSize, nil
 }
 
-func (c *TiKVClient) DeleteMultipart(multipart *Multipart, tx Tx) error {
+func (c *TiKVClient) DeleteMultipart(multipart *Multipart, tx Tx) (err error) {
 	multipartKey := genMultipartKey(multipart.BucketName, multipart.ObjectName, multipart.InitialTime)
-	err := multipart.GenUploadId()
+	err = multipart.GenUploadId()
 	if err != nil {
 		return err
 	}

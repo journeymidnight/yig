@@ -20,7 +20,7 @@ func GenKey(args ...string) []byte {
 type Range struct {
 	Empty bool
 	Start []byte
-	End []byte
+	End   []byte
 }
 
 func RangeIntersection(a, b Range) Range {
