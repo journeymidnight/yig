@@ -17,7 +17,7 @@ import (
 // **Key**: {BucketName}\{ObjectName}
 // **Versioned Key**: {BucketName}\{ObjectName}\{Version}
 // Version = math.MaxUint64-o.CreateTime
-func genObjectKey(bucketName, objectName, version string) []byte {
+func GenObjectKey(bucketName, objectName, version string) []byte {
 	if version == NullVersion {
 		return GenKey(bucketName, objectName)
 	} else {
@@ -25,7 +25,7 @@ func genObjectKey(bucketName, objectName, version string) []byte {
 	}
 }
 
-func genHotObjectKey(bucketName, objectName, version string) []byte {
+func GenHotObjectKey(bucketName, objectName, version string) []byte {
 	if version == NullVersion {
 		return GenKey(TableHotObjectPrefix, bucketName, objectName)
 	} else {
@@ -35,7 +35,7 @@ func genHotObjectKey(bucketName, objectName, version string) []byte {
 
 //object
 func (c *TiKVClient) GetObject(bucketName, objectName, version string, tx Tx) (*Object, error) {
-	key := genObjectKey(bucketName, objectName, version)
+	key := GenObjectKey(bucketName, objectName, version)
 	var o Object
 	var txn *txnkv.Transaction
 	if tx != nil {
@@ -82,14 +82,14 @@ func (c *TiKVClient) GetLatestObjectVersion(bucketName, objectName string) (obje
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		objKey := genObjectKey(bucketName, objectName, NullVersion)
+		objKey := GenObjectKey(bucketName, objectName, NullVersion)
 		nullObjExist, e1 = c.TxGet(objKey, &o, txn)
 	}()
 
 	go func() {
 		defer wg.Done()
-		versionStartKey := genObjectKey(bucketName, objectName, TableMinKeySuffix)
-		versionEndKey := genObjectKey(bucketName, objectName, TableMaxKeySuffix)
+		versionStartKey := GenObjectKey(bucketName, objectName, TableMinKeySuffix)
+		versionEndKey := GenObjectKey(bucketName, objectName, TableMaxKeySuffix)
 		kvs, e2 = c.TxScan(key.Key(versionStartKey), key.Key(versionEndKey), 1, txn)
 		if e2 != nil {
 			return
@@ -128,7 +128,7 @@ func (c *TiKVClient) GetLatestObjectVersion(bucketName, objectName string) (obje
 }
 
 func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage bool) (err error) {
-	objectKey := genObjectKey(object.BucketName, object.Name, object.VersionId)
+	objectKey := GenObjectKey(object.BucketName, object.Name, object.VersionId)
 
 	tx, err := c.NewTrans()
 	if err != nil {
@@ -169,7 +169,7 @@ func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage
 }
 
 func (c *TiKVClient) UpdateObject(object *Object, multipart *Multipart, updateUsage bool, tx Tx) (err error) {
-	objectKey := genObjectKey(object.BucketName, object.Name, object.VersionId)
+	objectKey := GenObjectKey(object.BucketName, object.Name, object.VersionId)
 	if tx == nil {
 		tx, err = c.NewTrans()
 		if err != nil {
@@ -211,8 +211,8 @@ func (c *TiKVClient) UpdateObject(object *Object, multipart *Multipart, updateUs
 }
 
 func (c *TiKVClient) RenameObject(object *Object, sourceObject string) (err error) {
-	oldKey := genObjectKey(object.BucketName, sourceObject, NullVersion)
-	newKey := genObjectKey(object.BucketName, object.Name, NullVersion)
+	oldKey := GenObjectKey(object.BucketName, sourceObject, NullVersion)
+	newKey := GenObjectKey(object.BucketName, object.Name, NullVersion)
 
 	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
@@ -243,7 +243,7 @@ func (c *TiKVClient) RenameObject(object *Object, sourceObject string) (err erro
 }
 
 func (c *TiKVClient) DeleteObject(object *Object, tx Tx) (err error) {
-	key := genObjectKey(object.BucketName, object.Name, object.VersionId)
+	key := GenObjectKey(object.BucketName, object.Name, object.VersionId)
 	if tx == nil {
 		tx, err = c.NewTrans()
 		if err != nil {
@@ -286,8 +286,8 @@ func (c *TiKVClient) UpdateFreezerObject(object *Object, tx Tx) (err error) {
 }
 
 func (c *TiKVClient) AppendObject(object *Object, updateUsage bool) (err error) {
-	objectKey := genObjectKey(object.BucketName, object.Name, object.VersionId)
-	hotKey := genHotObjectKey(object.BucketName, object.Name, object.VersionId)
+	objectKey := GenObjectKey(object.BucketName, object.Name, object.VersionId)
+	hotKey := GenHotObjectKey(object.BucketName, object.Name, object.VersionId)
 	tx, err := c.NewTrans()
 	if err != nil {
 		return err
@@ -328,8 +328,8 @@ func (c *TiKVClient) AppendObject(object *Object, updateUsage bool) (err error) 
 }
 
 func (c *TiKVClient) MigrateObject(object *Object) (err error) {
-	objectKey := genObjectKey(object.BucketName, object.Name, object.VersionId)
-	hotKey := genHotObjectKey(object.BucketName, object.Name, object.VersionId)
+	objectKey := GenObjectKey(object.BucketName, object.Name, object.VersionId)
+	hotKey := GenHotObjectKey(object.BucketName, object.Name, object.VersionId)
 	tx, err := c.NewTrans()
 	if err != nil {
 		return err
@@ -360,7 +360,7 @@ func (c *TiKVClient) MigrateObject(object *Object) (err error) {
 }
 
 func (c *TiKVClient) RemoveHotObject(object *Object, tx Tx) (err error) {
-	hotKey := genHotObjectKey(object.BucketName, object.Name, object.VersionId)
+	hotKey := GenHotObjectKey(object.BucketName, object.Name, object.VersionId)
 	if tx == nil {
 		return c.TxDelete(hotKey)
 	} else {
@@ -370,8 +370,8 @@ func (c *TiKVClient) RemoveHotObject(object *Object, tx Tx) (err error) {
 }
 
 func (c *TiKVClient) UpdateAppendObject(object *Object) (err error) {
-	objectKey := genObjectKey(object.BucketName, object.Name, object.VersionId)
-	hotKey := genHotObjectKey(object.BucketName, object.Name, object.VersionId)
+	objectKey := GenObjectKey(object.BucketName, object.Name, object.VersionId)
+	hotKey := GenHotObjectKey(object.BucketName, object.Name, object.VersionId)
 	tx, err := c.NewTrans()
 	if err != nil {
 		return err
