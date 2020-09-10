@@ -24,10 +24,12 @@ import (
 )
 
 var reflectMap map[string]string
+var c *tikvclient.TiKVClient
 
 // TODO: unfinished
 func SetFunc(key, value string) error {
-	c := tikvclient.NewClient(strings.Split(global.PDs, ","))
+	c = tikvclient.NewClient(strings.Split(global.PDs, ","))
+	defer c.TxnCli.Close()
 	var k, v = []byte(key), []byte(value)
 	var err error
 
@@ -87,7 +89,8 @@ func SetFunc(key, value string) error {
 
 // TODO: unfinished
 func GetFunc(key string) error {
-	c := tikvclient.NewClient(strings.Split(global.PDs, ","))
+	c = tikvclient.NewClient(strings.Split(global.PDs, ","))
+	defer c.TxnCli.Close()
 	var k []byte
 	var err error
 	if t, ok := TableMap[global.Table]; ok && t.ExistInTiKV {
@@ -150,7 +153,8 @@ func GetFunc(key string) error {
 func ScanFunc(startKey, endKey string, maxKeys int) (err error) {
 	startKey = strings.Replace(startKey, "\\", tikvclient.TableSeparator, -1)
 	endKey = strings.Replace(endKey, "\\", tikvclient.TableSeparator, -1)
-	c := tikvclient.NewClient(strings.Split(global.PDs, ","))
+	c = tikvclient.NewClient(strings.Split(global.PDs, ","))
+	defer c.TxnCli.Close()
 	var prefix string
 	var sk, ek []byte
 	if t, ok := TableMap[global.Table]; ok && t.ExistInTiKV {
@@ -201,7 +205,8 @@ func ScanFunc(startKey, endKey string, maxKeys int) (err error) {
 }
 
 func DelFunc(key string) error {
-	c := tikvclient.NewClient(strings.Split(global.PDs, ","))
+	c = tikvclient.NewClient(strings.Split(global.PDs, ","))
+	defer c.TxnCli.Close()
 	var k []byte
 	var err error
 	if global.IsKeyBytes {
@@ -237,7 +242,8 @@ func DropFunc() error {
 		fmt.Println("invalid input")
 		return nil
 	}
-	c := tikvclient.NewClient(strings.Split(global.PDs, ","))
+	c = tikvclient.NewClient(strings.Split(global.PDs, ","))
+	defer c.TxnCli.Close()
 	var prefix string
 	if table == TableObjects {
 		if global.Bucket == "" {
@@ -277,7 +283,8 @@ func RepairFunc(hourKey string) (err error) {
 		return
 	}
 	repairTs := repairTime.UnixNano()
-	c := tikvclient.NewClient(strings.Split(global.PDs, ","))
+	c = tikvclient.NewClient(strings.Split(global.PDs, ","))
+	defer c.TxnCli.Close()
 	fmt.Println("====== Start Repair Bucket :", global.Bucket, "======")
 	fmt.Println("Repair Time:", repairTime)
 	fmt.Println("Repair TimeStamp:", repairTs)
@@ -424,7 +431,7 @@ func RepairFunc(hourKey string) (err error) {
 
 	// Update TiKV
 	if !global.Verbose {
-		key := genUserBucketKey(b.OwnerId, b.Name)
+		key := GenUserBucketKey(b.OwnerId, b.Name)
 		val := tikvclient.BucketUsage{
 			Standard:   standard,
 			StandardIa: standardIa,
@@ -444,13 +451,13 @@ func RepairFunc(hourKey string) (err error) {
 	return
 }
 
-func genUserBucketKey(ownerId, bucketName string) []byte {
+func GenUserBucketKey(ownerId, bucketName string) []byte {
 	return tikvclient.GenKey(tikvclient.TableUserBucketPrefix, ownerId, bucketName)
 }
 
 // projectId -> userId
-func LoadPidToUidMap() map[string]string {
-	f, err := os.Open(global.MigrateMapFile)
+func LoadPidToUidMap(mapPath string) map[string]string {
+	f, err := os.Open(mapPath)
 	if err != nil {
 		fmt.Println("Cannot open file", global.MigrateMapFile, err)
 		os.Exit(1)
@@ -480,7 +487,7 @@ func LoadPidToUidMap() map[string]string {
 }
 
 func MigrateFunc() (err error) {
-	reflectMap = LoadPidToUidMap()
+	reflectMap = LoadPidToUidMap(global.MigrateMapFile)
 	if global.TidbAddr == "" {
 		return errors.New("no tidb address set")
 	}
@@ -501,8 +508,8 @@ func MigrateFunc() (err error) {
 	tidbCli.Client = conn
 
 	// New Tikv
-	tikvCli := tikvclient.NewClient(strings.Split(global.PDs, ","))
-
+	c = tikvclient.NewClient(strings.Split(global.PDs, ","))
+	defer c.TxnCli.Close()
 	// Migrate bucket
 	b, err := tidbCli.GetBucket(global.Bucket)
 	if err != nil {
@@ -518,7 +525,7 @@ func MigrateFunc() (err error) {
 
 	if !global.Verbose {
 		b.OwnerId = userId
-		err = tikvCli.PutNewBucket(*b)
+		err = c.PutNewBucket(*b)
 		if err != nil {
 			fmt.Println("PutNewBucket err:", err)
 			return err
@@ -538,7 +545,7 @@ func MigrateFunc() (err error) {
 		fmt.Println(string(ob))
 		if !global.Verbose {
 			object.OwnerId = userId
-			err = tikvCli.PutObject(object, nil, false)
+			err = c.PutObject(object, nil, false)
 			if err != nil {
 				fmt.Println("Put object err:", err, "of bucket:", global.Bucket)
 				return err
@@ -548,8 +555,9 @@ func MigrateFunc() (err error) {
 	return nil
 }
 
-func ParseFunc() (err error) {
-	reflectMap = LoadPidToUidMap()
+func ConvertFunc() (err error) {
+	reflectMap = LoadPidToUidMap(global.MigrateMapFile)
+	// Check export dir
 	if exportDir == "" {
 		fmt.Println("please specify the export directory by using -e or --export after `parse`.")
 		os.Exit(1)
@@ -564,8 +572,8 @@ func ParseFunc() (err error) {
 		os.Exit(1)
 	}
 
-	// the tables you wanna parse
-	// NOTE: TableObjectPart and TableRestoreObjectPart should be parsed later
+	// specify the tables you wanna parse
+	// NOTE: TableObjectPart and TableRestoreObjectPart should be parsed together
 	var tables []string
 	if global.Table != "" {
 		if _, ok := TableMap[global.Table]; !ok {
@@ -585,8 +593,12 @@ func ParseFunc() (err error) {
 			TableRestore, TableRestoreObjectPart, TableLifeCycle, TableQos,
 		}
 	}
+
+	tikvCli := tikvclient.NewClient(strings.Split(global.PDs, ","))
+	defer tikvCli.TxnCli.Close()
+
 	for _, table := range tables {
-		ParseDMLFile(exportDir, database, table)
+		ConvertByDMLFile(exportDir, database, table)
 	}
 
 	return nil
