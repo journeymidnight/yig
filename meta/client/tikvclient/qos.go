@@ -8,7 +8,7 @@ import (
 )
 
 // **Key**: q\{UserId}
-func genQoSKey(userId string) []byte {
+func GenQoSKey(userId string) []byte {
 	return GenKey(TableQoSPrefix, userId)
 }
 

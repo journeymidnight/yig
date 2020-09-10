@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-func genUserBucketKey(ownerId, bucketName string) []byte {
+func GenUserBucketKey(ownerId, bucketName string) []byte {
 	return GenKey(TableUserBucketPrefix, ownerId, bucketName)
 }
 
@@ -17,8 +17,8 @@ const (
 //user
 // Key: u\{OwnerId}\{BucketName}
 func (c *TiKVClient) GetUserBuckets(userId string) (buckets []string, err error) {
-	startKey := genUserBucketKey(userId, TableMinKeySuffix)
-	endKey := genUserBucketKey(userId, TableMaxKeySuffix)
+	startKey := GenUserBucketKey(userId, TableMinKeySuffix)
+	endKey := GenUserBucketKey(userId, TableMaxKeySuffix)
 	kvs, err := c.TxScan(startKey, endKey, MaxUserBucketKey, nil)
 	if err != nil {
 		return nil, err
