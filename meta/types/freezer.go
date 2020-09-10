@@ -18,7 +18,7 @@ type Freezer struct {
 	Parts            map[int]*Part
 	PartsIndex       *SimpleIndex
 	Status           RestoreStatus
-	LifeTime         int
+	LifeTime         int // Days to thaw
 	Type             ObjectType
 	CreateTime       uint64 // Timestamp(nanosecond)
 }

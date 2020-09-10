@@ -13,6 +13,11 @@ const (
 	MaxClusterKeyLimit = 1000
 )
 
+// Key: c\{PoolName}\{Fsid}\{Backend}
+func GenClusterKey(pool, fsid string, backendType BackendType) []byte {
+	return GenKey(pool, fsid, strconv.Itoa(int(backendType)))
+}
+
 //cluster
 func (c *TiKVClient) GetClusters() (clusters []Cluster, err error) {
 	startKey := GenKey(TableClusterPrefix, TableMinKeySuffix)
@@ -32,7 +37,6 @@ func (c *TiKVClient) GetClusters() (clusters []Cluster, err error) {
 	return
 }
 
-// Key: c\{PoolName}\{Fsid}\{Backend}
 func getCluster(k, v []byte) (c Cluster, err error) {
 	kStr := string(k)
 	sp := strings.Split(kStr, TableSeparator)

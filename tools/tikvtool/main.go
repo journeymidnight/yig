@@ -214,12 +214,12 @@ func main() {
 			ArgsUsage: "Migrate the data to tikv from tidb by bucket name",
 		},
 		{
-			Name:  "parse",
-			Usage: "parse tidb sql data to tikv",
+			Name:  "convert",
+			Usage: "convert tidb sql data to tikv",
 			Action: func(c *cli.Context) error {
-				return ParseFunc()
+				return ConvertFunc()
 			},
-			ArgsUsage: "Parse tidb sql data to tikv",
+			ArgsUsage: "Convert tidb sql data to tikv",
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:        "export,e",
