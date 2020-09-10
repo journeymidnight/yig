@@ -8,7 +8,8 @@ import (
 const (
 	Iso8601Format           = "20060102T150405Z"
 	YYYYMMDD                = "20060102"
-	PresignedUrlExpireLimit = 7 * 24 * time.Hour
+	// FIXME s3 standard is 7 days, temporarily change for H3C, fxxx
+	PresignedUrlExpireLimit = 30 * 24 * time.Hour
 )
 
 // Supported Amz date formats.
