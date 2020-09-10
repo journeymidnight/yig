@@ -101,7 +101,7 @@ func (c *TiKVClient) TxExist(k []byte) (bool, error) {
 	return true, nil
 }
 
-func (c *TiKVClient) TxPut(args ...interface{}) error {
+func (c *TiKVClient) TxPut(args ...interface{}) (err error) {
 	if len(args)%2 != 0 {
 		return fmt.Errorf("tikv txn put need parameters of two or multiples of two.")
 	}
@@ -133,7 +133,7 @@ func (c *TiKVClient) TxPut(args ...interface{}) error {
 	return nil
 }
 
-func (c *TiKVClient) TxDelete(keys ...[]byte) error {
+func (c *TiKVClient) TxDelete(keys ...[]byte) (err error) {
 	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
 		return err
@@ -181,15 +181,21 @@ func (c *TiKVClient) TxScan(keyPrefix []byte, upperBound []byte, limit int, tx *
 }
 
 func (c *TiKVClient) TxScanCallback(keyPrefix []byte, upperBound []byte,
-	tx *txnkv.Transaction, f func(k, v []byte) error) error {
+	tx *txnkv.Transaction, f func(k, v []byte) error) (err error) {
 
-	var err error
 	if tx == nil {
 		tx, err = c.TxnCli.Begin(context.TODO())
 		if err != nil {
 			return err
 		}
-		defer tx.Commit(context.TODO())
+		defer func() {
+			if err == nil {
+				err = tx.Commit(context.TODO())
+			}
+			if err != nil {
+				tx.Rollback()
+			}
+		}()
 	}
 	it, err := tx.Iter(context.TODO(), keyPrefix, upperBound)
 	if err != nil {
@@ -209,23 +215,23 @@ func (c *TiKVClient) TxScanCallback(keyPrefix []byte, upperBound []byte,
 	return nil
 }
 
-func (c *TiKVClient) TxDeleteRange(keyPrefix []byte, upperBound []byte, limit int, tx *txnkv.Transaction) (int, error) {
-	var err error
-	var count int
+func (c *TiKVClient) TxDeleteRange(keyPrefix []byte, upperBound []byte, limit int,
+	tx *txnkv.Transaction) (count int, err error) {
+
 	if tx == nil {
 		tx, err = c.TxnCli.Begin(context.TODO())
 		if err != nil {
 			return 0, err
 		}
+		defer func() {
+			if err == nil {
+				err = tx.Commit(context.Background())
+			}
+			if err != nil {
+				tx.Rollback()
+			}
+		}()
 	}
-	defer func() {
-		if err == nil {
-			err = tx.Commit(context.Background())
-		}
-		if err != nil {
-			tx.Rollback()
-		}
-	}()
 	it, err := tx.Iter(context.TODO(), key.Key(keyPrefix), key.Key(upperBound))
 	if err != nil {
 		return 0, err

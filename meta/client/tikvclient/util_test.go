@@ -8,7 +8,7 @@ import (
 func TestRangeIntersection(t *testing.T) {
 	a1 := Range{Start: []byte("ccc"), End: []byte("zzz")}
 	b1 := Range{Start: []byte("aaa"), End: []byte("hhh")}
-	expected1 := Range{Start:[]byte("ccc"), End: []byte("hhh")}
+	expected1 := Range{Start: []byte("ccc"), End: []byte("hhh")}
 	out1 := RangeIntersection(a1, b1)
 	if !reflect.DeepEqual(expected1, out1) {
 		t.Error("case 1:", out1, expected1)
