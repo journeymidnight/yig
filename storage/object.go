@@ -425,7 +425,7 @@ func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 	}
 
 	if bucket.Versioning == BucketVersioningDisabled {
-		if version != "" {
+		if version != "" && version != meta.NullVersion {
 			return nil, ErrInvalidVersioning
 		}
 		object, err = yig.MetaStorage.GetObject(bucketName, objectName, meta.NullVersion, true)
