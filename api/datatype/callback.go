@@ -351,9 +351,7 @@ func PostCallbackMessage(message CallBackMessage) (result string, err error) {
 	}
 	helper.Logger.Println("The generated user's callback request is", req, message)
 	resp, err := client.Do(req)
-	defer resp.Body.Close()
 	if err != nil {
-		resp.Body.Close()
 		if err == http.ErrHandlerTimeout {
 			resp, err = doWithRetry(req, 1)
 			if err != nil {
@@ -361,6 +359,7 @@ func PostCallbackMessage(message CallBackMessage) (result string, err error) {
 			}
 		}
 	}
+	defer resp.Body.Close()
 	info, err := ioutil.ReadAll(io.LimitReader(resp.Body, MaxBodySize))
 	if err != nil {
 		helper.Logger.Warn("Callback error with readResponse:", err)
