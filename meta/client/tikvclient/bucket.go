@@ -3,15 +3,14 @@ package tikvclient
 import (
 	"context"
 	. "database/sql/driver"
-	"math"
-	"strings"
-
 	"github.com/journeymidnight/client-go/key"
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/client"
 	. "github.com/journeymidnight/yig/meta/types"
+	"math"
+	"strings"
 )
 
 // **Key**: b\{BucketName}
@@ -240,7 +239,9 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 	if prefix != "" {
 		if marker == "" || strings.Compare(marker, prefix) < 0 {
 			marker = prefix
-			startVersion = ""
+			// HACK: we want to scan ALL versions of a key, for GenObjectKey's current implement,
+			//       set version to `NullVersion`
+			startVersion = NullVersion
 		} else if !strings.HasPrefix(marker, prefix) && strings.Compare(marker, prefix) > 0 {
 			return listInfo, err
 		}
@@ -456,7 +457,13 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 			}
 		}
 
-		startKey = GenObjectKey(bucketName, marker, verIdMarker)
+		// HACK: `verIdMarker` == "" means user wants to scan ALL versions of a key,
+		//       for GenObjectKey's current implement, set version to `NullVersion`
+		versionScanStart := verIdMarker
+		if versionScanStart == "" {
+			versionScanStart = NullVersion
+		}
+		startKey = GenObjectKey(bucketName, marker, versionScanStart)
 		endKey = GenObjectKey(bucketName, marker, TableMaxKeySuffix)
 		tx := txn.(*TikvTx).tx
 		it, err := tx.Iter(context.TODO(), key.Key(startKey), key.Key(endKey))
