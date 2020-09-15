@@ -28,7 +28,7 @@ build_internal:
 	bash plugins/build_plugins_internal.sh
 	go build $(PWD)/tools/admin.go
 	go build $(PWD)/tools/getrediskeys.go
-	go build -o $(PWD)/yig-lc $(PWD)/tools/lc.go
+	go build $(PWD)/tools/lc.go
 	go build -o $(PWD)/tikv-tool $(PWD)/tools/tikvtool/*.go
 	go build -o $(PWD)/yig-restore $(PWD)/tools/restore/*.go
 	cp -f $(PWD)/plugins/*.so $(PWD)/integrate/yigconf/plugins/
