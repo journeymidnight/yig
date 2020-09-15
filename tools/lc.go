@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 
 	"github.com/journeymidnight/yig/api/datatype"
@@ -46,6 +47,7 @@ var (
 func LogBilling(userID, bucketName, objectName string,
 	versionID, uploadID string, delta map[StorageClass]int64) {
 	timeString := time.Now().Format(TimeLayout)
+	objectName = url.PathEscape(objectName) // in case there's a space in object name
 	deltaStrings := make([]string, 0, len(delta))
 	for class, d := range delta {
 		deltaStrings = append(deltaStrings,
