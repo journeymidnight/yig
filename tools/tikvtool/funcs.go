@@ -594,8 +594,8 @@ func ConvertFunc() (err error) {
 		}
 	}
 
-	tikvCli := tikvclient.NewClient(strings.Split(global.PDs, ","))
-	defer tikvCli.TxnCli.Close()
+	c = tikvclient.NewClient(strings.Split(global.PDs, ","))
+	defer c.TxnCli.Close()
 
 	for _, table := range tables {
 		ConvertByDMLFile(exportDir, database, table)
