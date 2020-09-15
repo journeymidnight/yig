@@ -33,5 +33,6 @@ require (
 	github.com/ugorji/go/codec v1.1.7
 	github.com/urfave/cli v1.22.4
 	github.com/xxtea/xxtea-go v0.0.0-20170828040851-35c4b17eecf6
+	golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd
 	gopkg.in/bufio.v1 v1.0.0-20140618132640-567b2bfa514e
 )

@@ -482,7 +482,6 @@ func (_ RestoreConverter) Convert(ref interface{}) (err error) {
 	return c.CreateFreezer(f)
 }
 
-// ======
 type ObjectPartConverter struct{}
 
 func parseObjectPart(dml []byte, ref interface{}) (err error) {
@@ -551,7 +550,6 @@ func (_ RestoreObjectPartConverter) Parse(dml []byte, ref interface{}) (err erro
 }
 
 func (_ RestoreObjectPartConverter) Convert(ref interface{}) (err error) {
-	// TODO: FIXME
 	p := ref.(*types.Part)
 	version := strconv.FormatUint(p.Version, 10)
 	f, err := c.GetFreezer(p.BucketName, p.ObjectName, version)
@@ -568,46 +566,51 @@ func ConvertByDMLFile(dir, database, table string) {
 		fmt.Println("no such table:", table)
 	}
 	dir = strings.TrimRight(dir, "/")
-	dmlFilePath := dir + "/" + database + "." + table + ".sql"
-	f, err := os.Open(dmlFilePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			fmt.Println("WARNING:", dmlFilePath, "does not exist.")
-		}
-		fmt.Println("WARNING:", err, "path:", dmlFilePath)
-		return
-	}
-	defer f.Close()
-
-	var lineCount int
-	rd := bufio.NewReader(f)
-	for {
-		line, err := rd.ReadBytes('\n')
-		if err != nil || io.EOF == err {
-			break
-		}
-		// Skip line 1 of Zone comment and line 2 of 'INSERT INTO VALUES'
-		if lineCount < 2 {
-			lineCount++
-			continue
-		}
-		line = bytes.TrimSuffix(line, []byte("\n"))
-		ref := newRef(table)
-		err = t.Converter.Parse(line, ref)
+	for i := 0; ; i++ {
+		dmlFilePath := dir + "/" + database + "." + table + "." + strconv.Itoa(i) + ".sql"
+		f, err := os.Open(dmlFilePath)
 		if err != nil {
-			if err == ErrInvalidLine {
-				fmt.Println("WARNING: invalid line:", string(line), "in", dmlFilePath)
-			} else {
-				fmt.Println("ERROR:", err, " WHEN parse line", string(line), "in", dmlFilePath)
+			if os.IsNotExist(err) {
+				if i == 0 {
+					fmt.Println("WARNING:", dmlFilePath, "does not exist.")
+				}
+				return
 			}
-			continue
+			fmt.Println("WARNING:", err, "path:", dmlFilePath)
+			return
 		}
-		out, _ := json.Marshal(ref)
-		fmt.Println(string(out))
-		if !global.Verbose {
-			err = t.Converter.Convert(ref)
+		defer f.Close()
+
+		var lineCount int
+		rd := bufio.NewReader(f)
+		for {
+			line, err := rd.ReadBytes('\n')
+			if err != nil || io.EOF == err {
+				break
+			}
+			// Skip line 1 of Zone comment and line 2 of 'INSERT INTO VALUES'
+			if lineCount < 2 {
+				lineCount++
+				continue
+			}
+			line = bytes.TrimSuffix(line, []byte("\n"))
+			ref := newRef(table)
+			err = t.Converter.Parse(line, ref)
 			if err != nil {
-				fmt.Println("ERROR:", err, "convert line:", string(line), "in", dmlFilePath, "out:", string(out))
+				if err == ErrInvalidLine {
+					fmt.Println("WARNING: invalid line:", string(line), "in", dmlFilePath)
+				} else {
+					fmt.Println("ERROR:", err, " WHEN parse line", string(line), "in", dmlFilePath)
+				}
+				continue
+			}
+			out, _ := json.Marshal(ref)
+			fmt.Println(string(out))
+			if !global.Verbose {
+				err = t.Converter.Convert(ref)
+				if err != nil {
+					fmt.Println("ERROR:", err, "convert line:", string(line), "in", dmlFilePath, "out:", string(out))
+				}
 			}
 		}
 	}
