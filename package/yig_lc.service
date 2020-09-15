@@ -1,5 +1,5 @@
 [Unit]
-Description=yig lifecycle process
+Description=yig-lc
 After=network.target
 
 [Service]
@@ -9,7 +9,7 @@ LimitCORE=infinity
 LimitNOFILE=65535
 Type=simple
 StartLimitIntervalSec=60
-ExecStart=/usr/bin/yig_lifecycle_daemon
+ExecStart=/usr/bin/yig-lc
 ExecStop=/usr/bin/kill $MAINPID
 Restart=always
 
