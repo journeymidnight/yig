@@ -30,7 +30,7 @@ func (m *Meta) DeleteMultipart(multipart Multipart) (removedSize int64, err erro
 		return
 	}
 	err = m.Client.CommitTrans(tx)
-	return -removedSize, nil
+	return removedSize, nil
 }
 
 func (m *Meta) PutObjectPart(multipart Multipart, part Part) (deltaSize int64, err error) {
