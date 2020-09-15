@@ -66,8 +66,13 @@ func trimSides(s []byte) []byte {
 }
 
 var (
-	DmlJsonPrefix = []byte("CONVERT('")
-	DmlJsonSuffix = []byte("' USING UTF8MB4)")
+	// dump by Mydumper
+	//DmlJsonPrefix = []byte("CONVERT('")
+	//DmlJsonSuffix = []byte("' USING UTF8MB4)")
+
+	// dump by Dumpling
+	DmlJsonPrefix = []byte("'{")
+	DmlJsonSuffix = []byte("}'")
 )
 
 func extractConstant(ref *[]byte) (data []byte) {
@@ -90,12 +95,27 @@ func extractConstant(ref *[]byte) (data []byte) {
 	return data
 }
 
+// dump by Mydumper
+//func extractJson(ref *[]byte) (data []byte) {
+//	remain := *ref
+//	data = *ref
+//	data = data[len(DmlJsonPrefix):]
+//	data = data[:bytes.Index(data, DmlJsonSuffix)]
+//	remain = remain[len(DmlJsonPrefix)+len(data)+len(DmlJsonSuffix):]
+//	if len(remain) > 0 {
+//		remain = remain[1:] // skip ','
+//	}
+//	*ref = remain
+//	return
+//}
+
+// dump by Dumpling
 func extractJson(ref *[]byte) (data []byte) {
 	remain := *ref
 	data = *ref
-	data = data[len(DmlJsonPrefix):]
-	data = data[:bytes.Index(data, DmlJsonSuffix)]
-	remain = remain[len(DmlJsonPrefix)+len(data)+len(DmlJsonSuffix):]
+	data = data[len(DmlJsonPrefix)-1:]
+	data = data[:bytes.Index(data, DmlJsonSuffix)+1]
+	remain = remain[len(DmlJsonPrefix)+len(data)+len(DmlJsonSuffix)-2:]
 	if len(remain) > 0 {
 		remain = remain[1:] // skip ','
 	}

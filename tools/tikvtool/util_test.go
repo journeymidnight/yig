@@ -35,7 +35,7 @@ func Test_ExtractConstant(t *testing.T) {
 }
 
 func Test_ExtractJson(t *testing.T) {
-	data := []byte(`CONVERT('{\"CannedAcl\": \"private\"}' USING UTF8MB4),remain`)
+	data := []byte(`'{\"CannedAcl\": \"private\"}',remain`)
 	s := extractJson(&data)
 	if bytes.Compare(s, []byte(`{\"CannedAcl\": \"private\"}`)) != 0 {
 		t.Fatal("trimJson err data", string(s))
