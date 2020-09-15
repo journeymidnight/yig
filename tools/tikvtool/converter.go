@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	error2 "github.com/journeymidnight/yig/error"
+
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/meta/common"
 
@@ -92,7 +94,9 @@ func (_ BucketConverter) Parse(dml []byte, ref interface{}) (err error) {
 }
 
 func (_ BucketConverter) Convert(ref interface{}) (err error) {
+	fmt.Println(c == nil)
 	b := ref.(*types.Bucket)
+	fmt.Println(b == nil)
 	return c.PutBucket(*b)
 }
 
@@ -288,7 +292,7 @@ func (_ PartsConverter) Convert(ref interface{}) (err error) {
 	p := ref.(*types.Part)
 	uploadId := types.GetMultipartUploadIdByDbTime(p.Version)
 	partKey := tikvclient.GenObjectPartKey(p.BucketName, p.ObjectName, uploadId, p.PartNumber)
-	return c.TxPut(partKey)
+	return c.TxPut(partKey, *p)
 }
 
 func (_ MultipartsConverter) Convert(ref interface{}) (err error) {
@@ -360,7 +364,6 @@ func (_ UserConverter) Convert(ref interface{}) (err error) {
 
 type QosConverter struct{}
 
-// TODO: add test
 func parseQos(dml []byte, ref interface{}) (err error) {
 	var remain = tidyDml(dml)
 	if remain == nil {
@@ -536,8 +539,17 @@ func (_ ObjectPartConverter) Convert(ref interface{}) (err error) {
 	p := ref.(*types.Part)
 	version := strconv.FormatUint(p.Version, 10)
 	o, err := c.GetObject(p.BucketName, p.ObjectName, version, nil)
-	if err != nil {
+	if err != nil && err != error2.ErrNoSuchKey {
 		return err
+	}
+	if err == error2.ErrNoSuchKey {
+		o, err = c.GetObject(p.BucketName, p.ObjectName, types.NullVersion, nil)
+		if err != nil {
+			return err
+		}
+	}
+	if o.Parts == nil {
+		o.Parts = make(map[int]*types.Part)
 	}
 	o.Parts[p.PartNumber] = p
 	return c.PutObject(o, nil, false)
@@ -553,8 +565,17 @@ func (_ RestoreObjectPartConverter) Convert(ref interface{}) (err error) {
 	p := ref.(*types.Part)
 	version := strconv.FormatUint(p.Version, 10)
 	f, err := c.GetFreezer(p.BucketName, p.ObjectName, version)
-	if err != nil {
+	if err != nil && err != error2.ErrNoSuchKey {
 		return err
+	}
+	if err == error2.ErrNoSuchKey {
+		f, err = c.GetFreezer(p.BucketName, p.ObjectName, types.NullVersion)
+		if err != nil {
+			return err
+		}
+	}
+	if f.Parts == nil {
+		f.Parts = make(map[int]*types.Part)
 	}
 	f.Parts[p.PartNumber] = p
 	return c.CreateFreezer(f)
@@ -568,6 +589,7 @@ func ConvertByDMLFile(dir, database, table string) {
 	dir = strings.TrimRight(dir, "/")
 	for i := 0; ; i++ {
 		dmlFilePath := dir + "/" + database + "." + table + "." + strconv.Itoa(i) + ".sql"
+		fmt.Println("==============" + table + "." + strconv.Itoa(i) + "==============")
 		f, err := os.Open(dmlFilePath)
 		if err != nil {
 			if os.IsNotExist(err) {
