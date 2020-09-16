@@ -358,6 +358,7 @@ func PostCallbackMessage(message CallBackMessage) (result string, err error) {
 				return "", err
 			}
 		}
+		return "", err
 	}
 	defer resp.Body.Close()
 	info, err := ioutil.ReadAll(io.LimitReader(resp.Body, MaxBodySize))
