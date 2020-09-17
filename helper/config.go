@@ -20,6 +20,7 @@ const (
 )
 
 type Config struct {
+	Brand                []string                `toml:"brand"`    // brand name that YIG supported
 	S3Domain             []string                `toml:"s3domain"` // Domain name of YIG
 	Region               string                  `toml:"region"`   // Region name this instance belongs to, e.g cn-bj-1
 	Plugins              map[string]PluginConfig `toml:"plugins"`
@@ -141,6 +142,7 @@ func MarshalTOMLConfig() error {
 		panic("load yig.toml error: " + err.Error())
 	}
 	// setup CONFIG with defaults
+	CONFIG.Brand = c.Brand
 	CONFIG.S3Domain = c.S3Domain
 	CONFIG.Region = c.Region
 	CONFIG.Plugins = c.Plugins

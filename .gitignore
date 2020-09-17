@@ -9,13 +9,11 @@ yig
 integrate/cephconf
 integrate/data
 integrate/logs
-yig
 lc
 yig-restore
 migrate
 *.log
 *.swp
-yig
 *.rpm
 rpm-build/
 *.so

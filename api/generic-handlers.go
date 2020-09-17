@@ -29,6 +29,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/backend"
+	. "github.com/journeymidnight/yig/brand"
 	"github.com/journeymidnight/yig/meta"
 	"github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
@@ -190,10 +191,6 @@ var notImplementedObjectResourceNames = map[string]bool{
 	"torrent": true,
 }
 
-func ContextLogger(r *http.Request) log.Logger {
-	return r.Context().Value(RequestContextKey).(RequestContext).Logger
-}
-
 type RequestIdHandler struct {
 	handler http.Handler
 }
@@ -227,13 +224,15 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	reqCtx.Logger = logger
 	reqCtx.VersionId = helper.Ternary(r.URL.Query().Get("versionId") == "null", types.NullVersion, r.URL.Query().Get("versionId")).(string)
 	err := FillBucketAndObjectInfo(&reqCtx, r, h.meta)
-
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
 
-	authType := signature.GetRequestAuthType(r)
+	brand := DistinguishBrandName(r, reqCtx.FormValues)
+	reqCtx.Brand = brand
+
+	authType := signature.GetRequestAuthType(r, brand)
 	if authType == signature.AuthTypeUnknown {
 		WriteErrorResponse(w, r, ErrSignatureVersionNotSupported)
 		return
@@ -263,6 +262,7 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	}
 
 	ctx := context.WithValue(r.Context(), RequestContextKey, reqCtx)
+	ctx = context.WithValue(ctx, BrandKey, brand)
 	h.handler.ServeHTTP(w, r.WithContext(ctx))
 
 }

@@ -25,6 +25,7 @@ import (
 
 	. "github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/policy"
+	"github.com/journeymidnight/yig/brand"
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
@@ -183,7 +184,7 @@ func (api ObjectAPIHandlers) ListVersionedObjectsHandler(w http.ResponseWriter, 
 // owned by the authenticated sender of the request.
 func (api ObjectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.Request) {
 	SetOperationName(w, OpListBuckets)
-	logger := ContextLogger(r)
+	logger := GetContextLogger(r)
 	// List buckets does not support bucket policies.
 	var credential common.Credential
 	var err error
@@ -300,7 +301,7 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	acl, err := getAclFromHeader(r.Header)
+	acl, err := getAclFromHeader(r.Header, reqCtx.Brand)
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
@@ -450,8 +451,8 @@ func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.
 	}
 
 	var acl Acl
-	if _, ok := r.Header["X-Amz-Acl"]; ok {
-		acl, err = getAclFromHeader(r.Header)
+	if _, ok := r.Header[reqCtx.Brand.GetHeaderFieldKey(brand.XACL)]; ok {
+		acl, err = getAclFromHeader(r.Header, reqCtx.Brand)
 		if err != nil {
 			logger.Error("Unable to read canned ACLs:", err)
 			WriteErrorResponse(w, r, ErrInvalidAcl)

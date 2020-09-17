@@ -5,6 +5,8 @@ import (
 	"net/http"
 
 	"github.com/bsm/redislock"
+	"github.com/journeymidnight/yig/api/datatype/lifecycle"
+	"github.com/journeymidnight/yig/brand"
 	"github.com/journeymidnight/yig/log"
 	"github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/signature"
@@ -29,6 +31,8 @@ type RequestContext struct {
 	ObjectName              string
 	BucketInfo              *types.Bucket
 	ObjectInfo              *types.Object
+	Lifecycle               *lifecycle.Lifecycle
+	Brand                   brand.Brand
 	AuthType                signature.AuthType
 	IsBucketDomain          bool
 	IsObjectForbidOverwrite bool
@@ -47,4 +51,8 @@ func GetRequestContext(r *http.Request) RequestContext {
 		Logger:    r.Context().Value(ContextLoggerKey).(log.Logger),
 		RequestID: r.Context().Value(RequestIdKey).(string),
 	}
+}
+
+func GetContextLogger(r *http.Request) log.Logger {
+	return r.Context().Value(RequestContextKey).(RequestContext).Logger
 }

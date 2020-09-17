@@ -24,7 +24,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
-	"github.com/journeymidnight/yig/sts"
 	"hash"
 	"io"
 	"net/http"
@@ -33,31 +32,30 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/journeymidnight/yig/api/datatype"
+	. "github.com/journeymidnight/yig/brand"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/iam/common"
+	"github.com/journeymidnight/yig/sts"
 )
 
 // Streaming AWS Signature Version '4' constants.
 const (
-	emptySHA256              = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-	streamingContentSHA256   = "STREAMING-AWS4-HMAC-SHA256-PAYLOAD"
-	signV4ChunkedAlgorithm   = "AWS4-HMAC-SHA256-PAYLOAD"
-	streamingContentEncoding = "aws-chunked"
+	emptySHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 )
 
 // getChunkSignature - get chunk signature.
-func getChunkSignature(cred common.Credential, seedSignature string, region string, date time.Time, hashedChunk string) string {
+func getChunkSignature(cred common.Credential, seedSignature string, brand Brand, region string, date time.Time, hashedChunk string) string {
 	// Calculate string to sign.
-	stringToSign := signV4ChunkedAlgorithm + "\n" +
+	stringToSign := brand.GetHeaderFieldValue(SignV4ChunkedAlgorithm) + "\n" +
 		date.Format(datatype.Iso8601Format) + "\n" +
-		getScope(date, region) + "\n" +
+		getScope(date, region, brand) + "\n" +
 		seedSignature + "\n" +
 		emptySHA256 + "\n" +
 		hashedChunk
 
 	// Get hmac signing key.
-	signingKey := getSigningKey(cred.SecretAccessKey, date, region)
+	signingKey := getSigningKey(cred.SecretAccessKey, brand, date, region)
 
 	// Calculate signature.
 	newSignature := getSignature(signingKey, stringToSign)
@@ -69,7 +67,7 @@ func getChunkSignature(cred common.Credential, seedSignature string, region stri
 //     - http://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-streaming.html
 // returns signature, error otherwise if the signature mismatches or any other
 // error while parsing and validating.
-func CalculateSeedSignature(r *http.Request) (credential common.Credential, signature string, region string, date time.Time, err error) {
+func CalculateSeedSignature(r *http.Request, brand Brand) (credential common.Credential, signature string, region string, date time.Time, err error) {
 	// Copy request.
 	req := *r
 
@@ -77,16 +75,16 @@ func CalculateSeedSignature(r *http.Request) (credential common.Credential, sign
 	v4Auth := req.Header.Get("Authorization")
 
 	// Parse signature version '4' header.
-	signV4Values, err := parseSignV4(v4Auth, r.Header)
+	signV4Values, err := parseSignV4(v4Auth, r.Header, brand)
 	if err != nil {
 		return
 	}
 
 	// Payload streaming.
-	payload := streamingContentSHA256
+	payload := brand.GetHeaderFieldValue(StreamingContentSHA256)
 
-	// Payload for STREAMING signature should be 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD'
-	if payload != req.Header.Get("X-Amz-Content-Sha256") {
+	// Payload for STREAMING signature should be 'STREAMING-***4-HMAC-SHA256-PAYLOAD'
+	if payload != req.Header.Get(brand.GetHeaderFieldKey(XContentSha)) {
 		return credential, "", "", time.Time{}, ErrContentSHA256Mismatch
 	}
 
@@ -96,14 +94,11 @@ func CalculateSeedSignature(r *http.Request) (credential common.Credential, sign
 		return
 	}
 
-	if securityToken := r.Header.Get(sts.SecurityTokenHeader); securityToken != "" {
+	if securityToken := r.Header.Get(brand.GetHeaderFieldKey(XSecurityToken)); securityToken != "" {
 		credential, err = sts.VerifyToken(signV4Values.Credential.accessKey,
 			securityToken)
 	} else {
 		credential, err = iam.GetCredential(signV4Values.Credential.accessKey)
-		if err != nil {
-			err = ErrInvalidAccessKeyID
-		}
 	}
 	if err != nil {
 		return credential, "", "", time.Time{}, err
@@ -114,7 +109,7 @@ func CalculateSeedSignature(r *http.Request) (credential common.Credential, sign
 
 	// Extract date, if not present throw error.
 	var dateStr string
-	if dateStr = req.Header.Get(http.CanonicalHeaderKey("x-amz-date")); dateStr == "" {
+	if dateStr = req.Header.Get(brand.GetHeaderFieldKey(XDate)); dateStr == "" {
 		if dateStr = r.Header.Get("Date"); dateStr == "" {
 			return credential, "", "", time.Time{}, ErrMissingDateHeader
 		}
@@ -132,10 +127,10 @@ func CalculateSeedSignature(r *http.Request) (credential common.Credential, sign
 	canonicalRequest := getCanonicalRequest(extractedSignedHeaders, payload, queryStr, req.URL.Path, req.Method)
 
 	// Get string to sign from canonical request.
-	stringToSign := getStringToSign(canonicalRequest, date, signV4Values.Credential.scope.region)
+	stringToSign := getStringToSign(canonicalRequest, brand, date, signV4Values.Credential.scope.region)
 
 	// Get hmac signing key.
-	signingKey := getSigningKey(credential.SecretAccessKey, signV4Values.Credential.scope.date, region)
+	signingKey := getSigningKey(credential.SecretAccessKey, brand, signV4Values.Credential.scope.date, region)
 
 	// Calculate signature.
 	newSignature := getSignature(signingKey, stringToSign)
@@ -163,8 +158,8 @@ var errMalformedEncoding = errors.New("malformed chunked encoding")
 //
 // NewChunkedReader is not needed by normal applications. The http package
 // automatically decodes chunking when reading response bodies.
-func newSignV4ChunkedReader(req *http.Request) (io.ReadCloser, error) {
-	credential, seedSignature, region, seedDate, err := CalculateSeedSignature(req)
+func newSignV4ChunkedReader(req *http.Request, brand Brand) (io.ReadCloser, error) {
+	credential, seedSignature, region, seedDate, err := CalculateSeedSignature(req, brand)
 	if err != nil {
 		return nil, err
 	}
@@ -186,6 +181,7 @@ func newSignV4ChunkedReader(req *http.Request) (io.ReadCloser, error) {
 type s3ChunkedReader struct {
 	body              io.ReadCloser
 	reader            *bufio.Reader
+	brand             Brand
 	cred              common.Credential
 	seedSignature     string
 	seedDate          time.Time
@@ -307,7 +303,7 @@ func (cr *s3ChunkedReader) Read(buf []byte) (n int, err error) {
 			// Calculate the hashed chunk.
 			hashedChunk := hex.EncodeToString(cr.chunkSHA256Writer.Sum(nil))
 			// Calculate the chunk signature.
-			newSignature := getChunkSignature(cr.cred, cr.seedSignature, cr.region, cr.seedDate, hashedChunk)
+			newSignature := getChunkSignature(cr.cred, cr.seedSignature, cr.brand, cr.region, cr.seedDate, hashedChunk)
 			if !compareSignatureV4(cr.chunkSignature, newSignature) {
 				// Chunk signature doesn't match we return signature does not match.
 				cr.err = ErrSignatureDoesNotMatch
@@ -431,13 +427,13 @@ func parseHexUint(v []byte) (n uint64, err error) {
 // Streaming signature clients can have custom content-encoding such as
 // `aws-chunked,gzip` here we need to only save `gzip`.
 // For more refer http://docs.aws.amazon.com/AmazonS3/latest/API/sigv4-streaming.html
-func TrimAwsChunkedContentEncoding(contentEnc string) (trimmedContentEnc string) {
+func TrimAwsChunkedContentEncoding(contentEnc string, brand Brand) (trimmedContentEnc string) {
 	if contentEnc == "" {
 		return contentEnc
 	}
 	var newEncs []string
 	for _, enc := range strings.Split(contentEnc, ",") {
-		if enc != streamingContentEncoding {
+		if enc != strings.ToLower(brand.GetHeaderFieldValue(Chunked)) {
 			newEncs = append(newEncs, enc)
 		}
 	}

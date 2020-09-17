@@ -27,27 +27,10 @@ import (
 	"strings"
 	"time"
 
+	. "github.com/journeymidnight/yig/brand"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 )
-
-// startWithConds - map which indicates if a given condition supports starts-with policy operator
-var startsWithConds = map[string]bool{
-	"$acl":                     true,
-	"$bucket":                  false,
-	"$cache-control":           true,
-	"$content-type":            true,
-	"$content-disposition":     true,
-	"$content-encoding":        true,
-	"$expires":                 true,
-	"$key":                     true,
-	"$success_action_redirect": true,
-	"$redirect":                true,
-	"$success_action_status":   false,
-	"$x-amz-algorithm":         false,
-	"$x-amz-credential":        false,
-	"$x-amz-date":              false,
-}
 
 // Add policy conditionals.
 const (
@@ -232,7 +215,7 @@ func checkPolicyCond(op string, input1, input2 string) bool {
 }
 
 // checkPostPolicy - apply policy conditions and validate input values.
-func CheckPostPolicy(formValues map[string]string) error {
+func CheckPostPolicy(formValues map[string]string, brand Brand) error {
 	/// Decoding policy
 	policyBytes, err := base64.StdEncoding.DecodeString(formValues["Policy"])
 	if err != nil {
@@ -258,7 +241,7 @@ func CheckPostPolicy(formValues map[string]string) error {
 		// Operator for the current policy condition
 		op := policy.Operator
 		// If the current policy condition is known
-		if startsWithSupported, condFound := startsWithConds[policy.Key]; condFound {
+		if startsWithSupported, condFound := StartsWithConds[policy.Key]; condFound {
 			// Check if the current condition supports starts-with operator
 			if op == policyCondStartsWith && !startsWithSupported {
 				return fmt.Errorf("Invalid according to Policy: Policy Condition failed")
@@ -269,8 +252,9 @@ func CheckPostPolicy(formValues map[string]string) error {
 				return fmt.Errorf("Invalid according to Policy: Policy Condition failed")
 			}
 		} else {
-			// This covers all conditions X-Amz-Meta-* and X-Amz-*
-			if strings.HasPrefix(policy.Key, "$x-amz-meta-") || strings.HasPrefix(policy.Key, "$x-amz-") {
+			// This covers all conditions X-***-Meta-* and X-***-*
+			if strings.HasPrefix(policy.Key, "$"+strings.ToLower(brand.GetHeaderFieldKey(XMeta))) ||
+				strings.HasPrefix(policy.Key, "$"+strings.ToLower(brand.GetHeaderFieldKey(XGeneralName))) {
 				// Check if policy condition is satisfied
 				condPassed = checkPolicyCond(op, formValues[formCanonicalName], policy.Value)
 				if !condPassed {

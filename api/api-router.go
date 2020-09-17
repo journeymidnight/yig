@@ -18,7 +18,9 @@ package api
 
 import (
 	router "github.com/gorilla/mux"
+	"github.com/journeymidnight/yig/brand"
 	"github.com/journeymidnight/yig/helper"
+	"net/http"
 )
 
 // objectAPIHandler implements and provides http handlers for S3 API.
@@ -46,9 +48,17 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 		// HeadObject
 		bucket.Methods("HEAD").Path("/{object:.+}").HandlerFunc(api.HeadObjectHandler)
 		// PutObjectPart - Copy
-		bucket.Methods("PUT").Path("/{object:.+}").HandlerFunc(api.CopyObjectPartHandler).
-			Queries("partNumber", "{partNumber:[0-9]+}", "uploadId", "{uploadId:.*}").
-			HeadersRegexp("X-Amz-Copy-Source", ".*?(/).*?")
+		for _, b := range brand.Brands {
+			if b == "AWS" {
+				bucket.Methods("PUT").Path("/{object:.+}").HandlerFunc(api.CopyObjectPartHandler).
+					Queries("partNumber", "{partNumber:[0-9]+}", "uploadId", "{uploadId:.*}").
+					HeadersRegexp(http.CanonicalHeaderKey("X-Amz-Copy-Source"), ".*?(/).*?")
+			} else {
+				bucket.Methods("PUT").Path("/{object:.+}").HandlerFunc(api.CopyObjectPartHandler).
+					Queries("partNumber", "{partNumber:[0-9]+}", "uploadId", "{uploadId:.*}").
+					HeadersRegexp(http.CanonicalHeaderKey("X-"+b+"-Copy-Source"), ".*?(/).*?")
+			}
+		}
 		// PutObjectPart
 		bucket.Methods("PUT").Path("/{object:.+}").HandlerFunc(api.PutObjectPartHandler).
 			Queries("partNumber", "{partNumber:[0-9]+}", "uploadId", "{uploadId:.*}")
@@ -64,12 +74,20 @@ func RegisterAPIRouter(mux *router.Router, api ObjectAPIHandlers) {
 		// AbortMultipartUpload
 		bucket.Methods("DELETE").Path("/{object:.+}").HandlerFunc(api.AbortMultipartUploadHandler).
 			Queries("uploadId", "{uploadId:.*}")
-		// CopyObject
-		bucket.Methods("PUT").Path("/{object:.+}").HeadersRegexp("X-Amz-Copy-Source", ".*?(/).*?").
-			HandlerFunc(api.CopyObjectHandler)
-		// RenameObject
-		bucket.Methods("PUT").Path("/{object:.+}").HeadersRegexp("X-Amz-Rename-Source-Key", ".*?").
-			HandlerFunc(api.RenameObjectHandler)
+		// CopyObject and RenameObject
+		for _, b := range brand.Brands {
+			if b == "AWS" {
+				bucket.Methods("PUT").Path("/{object:.+}").HeadersRegexp("X-Amz-Copy-Source", ".*?(/).*?").
+					HandlerFunc(api.CopyObjectHandler)
+				bucket.Methods("PUT").Path("/{object:.+}").HeadersRegexp("X-Amz-Rename-Source-Key", ".*?").
+					HandlerFunc(api.RenameObjectHandler)
+			} else {
+				bucket.Methods("PUT").Path("/{object:.+}").HeadersRegexp(http.CanonicalHeaderKey("X-"+b+"-Copy-Source"), ".*?(/).*?").
+					HandlerFunc(api.CopyObjectHandler)
+				bucket.Methods("PUT").Path("/{object:.+}").HeadersRegexp(http.CanonicalHeaderKey("X-"+b+"-Rename-Source-Key"), ".*?").
+					HandlerFunc(api.RenameObjectHandler)
+			}
+		}
 		// RestoreObject
 		bucket.Methods("POST").Path("/{object:.+}").HandlerFunc(api.RestoreObjectHandler).
 			Queries("restore", "")

@@ -3,6 +3,7 @@ package datatype
 import (
 	"encoding/xml"
 	"github.com/dustin/go-humanize"
+	. "github.com/journeymidnight/yig/brand"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"io"
@@ -10,10 +11,7 @@ import (
 	"strings"
 )
 
-const (
-	MaxObjectMetaConfigurationSize = 2 * humanize.KiByte
-	CustomizeMetadataHeader        = "X-Amz-Meta-"
-)
+const MaxObjectMetaConfigurationSize = 2 * humanize.KiByte
 
 var supportedCommonMetaHeaders = []string{
 	"Cache-Control",
@@ -46,7 +44,7 @@ type MetaDataReq struct {
 	Data      map[string]string
 }
 
-func (w *MetaConfiguration) parse() (MetaDataReq, error) {
+func (w *MetaConfiguration) parse(brand Brand) (MetaDataReq, error) {
 	metaDataReq := MetaDataReq{}
 	metaDataReq.Data = map[string]string{}
 	if w == nil {
@@ -59,7 +57,7 @@ func (w *MetaConfiguration) parse() (MetaDataReq, error) {
 
 	if len(w.Headers.MetaData) != 0 {
 		for _, reqHeader := range w.Headers.MetaData {
-			customizeMeta := strings.HasPrefix(reqHeader.Key, CustomizeMetadataHeader)
+			customizeMeta := strings.HasPrefix(reqHeader.Key, brand.GetHeaderFieldKey(XMeta))
 			if !customizeMeta {
 				for n, supportHeader := range supportedCommonMetaHeaders {
 					if reqHeader.Key == supportHeader {
@@ -76,7 +74,7 @@ func (w *MetaConfiguration) parse() (MetaDataReq, error) {
 	return metaDataReq, nil
 }
 
-func ParseMetaConfig(reader io.Reader) (metaDataReq MetaDataReq, err error) {
+func ParseMetaConfig(reader io.Reader, brand Brand) (metaDataReq MetaDataReq, err error) {
 	metaConfig := new(MetaConfiguration)
 	metaBuffer, err := ioutil.ReadAll(reader)
 	if err != nil {
@@ -88,7 +86,7 @@ func ParseMetaConfig(reader io.Reader) (metaDataReq MetaDataReq, err error) {
 		helper.Logger.Error("Unable to parse metadata XML body:", err)
 		return metaDataReq, ErrMalformedMetadataConfiguration
 	}
-	metaDataReq, err = metaConfig.parse()
+	metaDataReq, err = metaConfig.parse(brand)
 	if err != nil {
 		return metaDataReq, err
 	}

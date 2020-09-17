@@ -125,6 +125,7 @@ github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af h1:pmfjZENx5i
 github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af/go.mod h1:Nht3zPeWKUH0NzdCt2Blrr5ys8VGpn0CEB0cQHVjt7k=
 github.com/jonboulle/clockwork v0.1.0 h1:VKV+ZcuP6l3yW9doeqz6ziZGgcynBVQO+obU0+0hcPo=
 github.com/jonboulle/clockwork v0.1.0/go.mod h1:Ii8DK3G1RaLaWxj9trq07+26W01tbo22gdxWY5EU2bo=
+github.com/journeymidnight/aws-sdk-go v1.18.2/go.mod h1:whUaJ8HV1RjfctSugKzTwpRCvLNnWcG7QolSuUXmY6w=
 github.com/journeymidnight/client-go v0.0.0-20200729060155-b153ed4551ed h1:CfDUirAC3AqXxIYnNlokjnsBqrcGltBMkSVBlNQZwKc=
 github.com/journeymidnight/client-go v0.0.0-20200729060155-b153ed4551ed/go.mod h1:PhORh0+EEBqbZGnbXmHF1AwHndDEsEGXLA//3pmT3wk=
 github.com/journeymidnight/radoshttpd v0.0.0-20190617133011-609666b51136 h1:ioRwpqJIOz8DOhriRNkd2/DYXYLi44N61N9MnjozzuM=

@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 
+	"github.com/journeymidnight/yig/context"
 	"github.com/journeymidnight/yig/meta"
 )
 
@@ -12,7 +13,7 @@ type logHandler struct {
 
 func (l logHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Serves the request.
-	logger := ContextLogger(r)
+	logger := context.GetContextLogger(r)
 	logger.Info("Start serving", r.Method, r.Host, r.URL)
 	l.handler.ServeHTTP(w, r)
 	logger.Info("Completed", r.Method, r.Host, r.URL)
