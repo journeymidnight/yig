@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	lc "github.com/journeymidnight/yig/api/datatype/lifecycle"
+	"github.com/journeymidnight/yig/brand"
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	. "github.com/journeymidnight/yig/meta/common"
@@ -105,7 +106,8 @@ func ignoreUnsupportedObjectResources(h resourceHandler, req *http.Request) bool
 
 // Checks requests for not supported Object resources
 func ignoreUnsupportedStorageClass(h resourceHandler, req *http.Request) (bool, error) {
-	storageClass, err := getStorageClassFromHeader(req.Header)
+	brand := brand.GetContextBrand(req)
+	storageClass, err := getStorageClassFromHeader(req.Header, brand)
 	if err != nil {
 		return false, err
 	}

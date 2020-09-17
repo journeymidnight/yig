@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/journeymidnight/yig/brand"
 	"github.com/journeymidnight/yig/compression"
 	"github.com/journeymidnight/yig/crypto"
 
@@ -42,6 +43,8 @@ func main() {
 		redis.Initialize()
 		defer redis.RedisConn.Close()
 	}
+
+	brand.Initialize(helper.CONFIG.Brand)
 
 	// Read all *.so from plugins directory, and fill the variable allPlugins
 	allPluginMap := mods.InitialPlugins()

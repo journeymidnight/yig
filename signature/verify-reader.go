@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 
+	. "github.com/journeymidnight/yig/brand"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/iam/common"
 )
@@ -37,9 +38,9 @@ type SignVerifyReadCloser struct {
 }
 
 // Initializes a new signature verify reader.
-func newSignVerify(req *http.Request) *SignVerifyReadCloser {
+func newSignVerify(req *http.Request, brand Brand) *SignVerifyReadCloser {
 	// do not need to calculate SHA256 when header is unsigned
-	if req.Header.Get("x-amz-content-sha256") == UnsignedPayload {
+	if req.Header.Get(brand.GetHeaderFieldKey(XContentSha)) == UnsignedPayload {
 		return &SignVerifyReadCloser{
 			Request:      req,
 			Reader:       req.Body,
@@ -64,7 +65,7 @@ func (v *SignVerifyReadCloser) Verify() (common.Credential, error) {
 	} else {
 		payloadSha256Hex = UnsignedPayload
 	}
-	return DoesSignatureMatchV4(payloadSha256Hex, v.Request, true)
+	return DoesSignatureMatchV4(payloadSha256Hex, v.Request, GetContextBrand(v.Request), true)
 }
 
 func (v *SignVerifyReadCloser) Read(b []byte) (int, error) {
@@ -75,11 +76,11 @@ func (v *SignVerifyReadCloser) Close() error {
 	return v.Request.Body.Close()
 }
 
-func VerifyUpload(r *http.Request) (credential common.Credential,
+func VerifyUpload(r *http.Request, brand Brand) (credential common.Credential,
 	dataReader io.ReadCloser, err error) {
 
 	dataReader = r.Body
-	switch GetRequestAuthType(r) {
+	switch GetRequestAuthType(r, brand) {
 	default:
 		// For all unknown auth types return error.
 		err = ErrAccessDenied
@@ -87,16 +88,16 @@ func VerifyUpload(r *http.Request) (credential common.Credential,
 	case AuthTypeAnonymous:
 		break
 	case AuthTypeSignedV2:
-		credential, err = DoesSignatureMatchV2(r)
+		credential, err = DoesSignatureMatchV2(r, brand)
 	case AuthTypeSignedV4:
-		credential, err = getCredentialUnverified(r)
-		dataReader = newSignVerify(r)
+		credential, err = getCredentialUnverified(r, brand)
+		dataReader = newSignVerify(r, brand)
 	case AuthTypePresignedV2:
-		credential, err = DoesPresignedSignatureMatchV2(r)
+		credential, err = DoesPresignedSignatureMatchV2(r, brand)
 	case AuthTypePresignedV4:
-		credential, err = DoesPresignedSignatureMatchV4(r, true)
+		credential, err = DoesPresignedSignatureMatchV4(r, brand, true)
 	case AuthTypeStreamingSigned:
-		chunkReader, err := newSignV4ChunkedReader(r)
+		chunkReader, err := newSignV4ChunkedReader(r, brand)
 		if err != nil {
 			return credential, nil, err
 		}

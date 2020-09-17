@@ -19,3 +19,4 @@ yig
 *.rpm
 rpm-build/
 *.so
+yig-restore

@@ -29,15 +29,15 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/backend"
-	"github.com/journeymidnight/yig/meta"
-	"github.com/journeymidnight/yig/meta/types"
-	"github.com/journeymidnight/yig/redis"
-	"github.com/journeymidnight/yig/signature"
-
+	. "github.com/journeymidnight/yig/brand"
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
+	"github.com/journeymidnight/yig/meta"
+	"github.com/journeymidnight/yig/meta/types"
+	"github.com/journeymidnight/yig/redis"
+	"github.com/journeymidnight/yig/signature"
 )
 
 // HandlerFunc - useful to chain different middleware http.Handler
@@ -72,6 +72,7 @@ type corsHandler struct {
 }
 
 func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := GetRequestContext(r)
 	w.Header().Add("Vary", "Origin")
 	origin := r.Header.Get("Origin")
 
@@ -82,7 +83,6 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Expose-Headers", strings.Join(CommonS3ResponseHeaders, ","))
 	}
 
-	ctx := GetRequestContext(r)
 	bucket := ctx.BucketInfo
 
 	// If bucket CORS exists, overwrite the in-reserved CORS Headers
@@ -111,10 +111,6 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // setCorsHandler handler for CORS (Cross Origin Resource Sharing)
 func SetCorsHandler(h http.Handler, _ *meta.Meta) http.Handler {
 	return corsHandler{h}
-}
-
-func ContextLogger(r *http.Request) log.Logger {
-	return r.Context().Value(RequestContextKey).(RequestContext).Logger
 }
 
 type RequestIdHandler struct {
@@ -148,15 +144,18 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 
 	logger := r.Context().Value(ContextLoggerKey).(log.Logger)
 	reqCtx.Logger = logger
+
 	reqCtx.VersionId = helper.Ternary(r.URL.Query().Get("versionId") == "null", types.NullVersion, r.URL.Query().Get("versionId")).(string)
 	err := FillBucketAndObjectInfo(&reqCtx, r, h.meta)
-
 	if err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
 
-	authType := signature.GetRequestAuthType(r)
+	brand := DistinguishBrandName(r, reqCtx.FormValues)
+	reqCtx.Brand = brand
+
+	authType := signature.GetRequestAuthType(r, brand)
 	if authType == signature.AuthTypeUnknown {
 		WriteErrorResponse(w, r, ErrSignatureVersionNotSupported)
 		return
@@ -186,6 +185,7 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	}
 
 	ctx := context.WithValue(r.Context(), RequestContextKey, reqCtx)
+	ctx = context.WithValue(ctx, BrandKey, brand)
 	h.handler.ServeHTTP(w, r.WithContext(ctx))
 
 }
