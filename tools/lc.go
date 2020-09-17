@@ -45,11 +45,20 @@ var (
 )
 
 func LogBilling(userID, bucketName, objectName string,
-	versionID, uploadID string, delta map[StorageClass]int64) {
+	versionID, uploadID string, delta map[StorageClass]int64,
+	// surviveTime: storage class -> remaining life in sec
+	surviveTime map[StorageClass]int64) {
 	timeString := time.Now().Format(TimeLayout)
 	objectName = url.PathEscape(objectName) // in case there's a space in object name
 	deltaStrings := make([]string, 0, len(delta))
 	for class, d := range delta {
+		if surviveTime != nil {
+			if sec, ok := surviveTime[class]; ok {
+				deltaStrings = append(deltaStrings,
+					fmt.Sprintf("%s:%d:%d", class.ToString(), d, sec))
+				continue
+			}
+		}
 		deltaStrings = append(deltaStrings,
 			fmt.Sprintf("%s:%d", class.ToString(), d))
 	}
@@ -205,8 +214,12 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 					}
 					delta := make(map[StorageClass]int64)
 					delta[result.DeltaSize.StorageClass] = result.DeltaSize.Delta
+					survival := make(map[StorageClass]int64)
+					if unexpired, sec := reqCtx.ObjectInfo.IsUnexpired(); unexpired {
+						survival[result.DeltaSize.StorageClass] = sec
+					}
 					LogBilling(bucket.OwnerId, reqCtx.BucketName, reqCtx.ObjectName,
-						"", "", delta)
+						"", "", delta, survival)
 				}
 				if action == lifecycle.TransitionAction {
 					if reqCtx.ObjectInfo.DeleteMarker {
@@ -218,7 +231,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 						continue
 					}
 					LogBilling(bucket.OwnerId, bucket.Name, object.Key,
-						"", "", result.DeltaInfo)
+						"", "", result.DeltaInfo, nil)
 				}
 			}
 
@@ -324,8 +337,12 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 					}
 					delta := make(map[StorageClass]int64)
 					delta[result.DeltaSize.StorageClass] = result.DeltaSize.Delta
+					survival := make(map[StorageClass]int64)
+					if unexpired, sec := reqCtx.ObjectInfo.IsUnexpired(); unexpired {
+						survival[result.DeltaSize.StorageClass] = sec
+					}
 					LogBilling(bucket.OwnerId, reqCtx.BucketName, reqCtx.ObjectName,
-						reqCtx.VersionId, "", delta)
+						reqCtx.VersionId, "", delta, survival)
 				}
 
 				// process expired object
@@ -339,8 +356,12 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 					}
 					delta := make(map[StorageClass]int64)
 					delta[result.DeltaSize.StorageClass] = result.DeltaSize.Delta
+					survival := make(map[StorageClass]int64)
+					if unexpired, sec := reqCtx.ObjectInfo.IsUnexpired(); unexpired {
+						survival[result.DeltaSize.StorageClass] = sec
+					}
 					LogBilling(bucket.OwnerId, reqCtx.BucketName, reqCtx.ObjectName,
-						"", "", delta)
+						"", "", delta, survival)
 				}
 				// process transition object
 				if action == lifecycle.TransitionAction {
@@ -351,7 +372,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 						continue
 					}
 					LogBilling(bucket.OwnerId, bucket.Name, reqCtx.ObjectName,
-						reqCtx.VersionId, "", result.DeltaInfo)
+						reqCtx.VersionId, "", result.DeltaInfo, nil)
 				}
 			}
 		}
@@ -400,7 +421,7 @@ func lifecycleUnit(lc meta.LifeCycle) error {
 					delta := make(map[StorageClass]int64)
 					delta[result.StorageClass] = result.Delta
 					LogBilling(bucket.OwnerId, bucket.Name, object.Key,
-						"", object.UploadId, delta)
+						"", object.UploadId, delta, nil)
 				}
 			}
 			if result.IsTruncated == true {
