@@ -813,19 +813,17 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 		CreateTime:       uint64(now.UnixNano()),
 	}
 	object.VersionId = object.GenVersionId(bucket.Versioning)
-	eldObject := reqCtx.ObjectInfo
-	if eldObject == nil {
-		eldObject = object
-	}
-	if eldObject.StorageClass == ObjectStorageClassGlacier && bucket.Versioning != datatype.BucketVersioningEnabled {
-		freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
-		if err == nil {
-			err = yig.MetaStorage.DeleteFreezer(freezer)
-			if err != nil {
+	if eldObject := reqCtx.ObjectInfo; eldObject != nil {
+		if eldObject.StorageClass == ObjectStorageClassGlacier && bucket.Versioning != datatype.BucketVersioningEnabled {
+			freezer, err := yig.MetaStorage.GetFreezer(object.BucketName, object.Name, object.VersionId)
+			if err == nil {
+				err = yig.MetaStorage.DeleteFreezer(freezer)
+				if err != nil {
+					return result, err
+				}
+			} else if err != ErrNoSuchKey {
 				return result, err
 			}
-		} else if err != ErrNoSuchKey {
-			return result, err
 		}
 	}
 
@@ -843,9 +841,10 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 	result.SseCustomerAlgorithm = sseRequest.SseCustomerAlgorithm
 	result.SseCustomerKeyMd5Base64 = base64.StdEncoding.EncodeToString(sseRequest.SseCustomerKey)
 
-	if err == nil {
-		yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":"+object.VersionId)
-		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.VersionId)
+	yig.MetaStorage.Cache.Remove(redis.ObjectTable, bucketName+":"+objectName+":"+object.VersionId)
+	yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.VersionId)
+	if reqCtx.ObjectInfo != nil && reqCtx.BucketInfo.Versioning != datatype.BucketVersioningEnabled {
+		go yig.removeOldObject(reqCtx.ObjectInfo)
 	}
 
 	return
