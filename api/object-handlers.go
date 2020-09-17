@@ -177,12 +177,18 @@ func (o *GetObjectResponseWriter) Write(p []byte) (int, error) {
 		}
 		// Set headers on the first write.
 		// Set standard object headers.
-		SetObjectHeaders(o.w, o.object, o.hrange, o.statusCode, brand)
+		SetObjectHeaders(o.w, o.object, brand)
 		// Set any additional requested response headers.
 		// You must sign the request, either using an Authorization header or a presigned URL, when using these parameters.
 		// They cannot be used with an unsigned (anonymous) request.
 		if o.authType > signature.AuthTypeAnonymous && o.statusCode == http.StatusOK {
 			setGetRespHeaders(o.w, o.r.URL.Query())
+		}
+		if o.hrange != nil && o.hrange.OffsetBegin > -1 {
+			// Override content-length
+			o.w.Header().Set("Content-Length", strconv.FormatInt(o.hrange.GetLength(), 10))
+			o.w.Header().Set("Content-Range", o.hrange.String())
+			o.statusCode = http.StatusPartialContent
 		}
 		o.w.WriteHeader(o.statusCode)
 		o.dataWritten = true
@@ -234,11 +240,15 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 			WriteErrorResponse(w, r, ErrMethodNotAllowed)
 			return
 		}
-		SetObjectHeaders(w, object, nil, http.StatusNotFound, reqCtx.Brand)
-		w.WriteHeader(http.StatusNotFound)
+		SetObjectHeaders(w, object, reqCtx.Brand)
 		WriteErrorResponse(w, r, ErrNoSuchKey)
 		return
 	}
+
+	if object.Type == meta.ObjectTypeAppendable {
+		object.Etag = helper.Md5FromEtag(object.Etag)
+	}
+
 	if object.StorageClass == ObjectStorageClassGlacier {
 		freezer, err := api.ObjectAPI.GetFreezer(reqCtx.BucketName, reqCtx.ObjectName, object.VersionId)
 		if err != nil {
@@ -392,8 +402,12 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	if object.Type == meta.ObjectTypeAppendable {
+		object.Etag = helper.Md5FromEtag(object.Etag)
+	}
+
 	if object.StorageClass == ObjectStorageClassGlacier {
-		freezer, err := api.ObjectAPI.GetFreezerStatus(object.BucketName, object.Name, reqVersion)
+		freezer, err := api.ObjectAPI.GetFreezerStatus(object.BucketName, object.Name, object.VersionId)
 		if err != nil && err != ErrNoSuchKey {
 			logger.Warn("Unable to get restore object status", object.BucketName, object.Name, reqVersion,
 				"error:", err)
@@ -412,8 +426,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 			WriteErrorResponse(w, r, ErrMethodNotAllowed)
 			return
 		}
-		SetObjectHeaders(w, object, nil, http.StatusNotFound, reqCtx.Brand)
-		w.WriteHeader(http.StatusNotFound)
+		SetObjectHeaders(w, object, reqCtx.Brand)
 		WriteErrorResponse(w, r, ErrNoSuchKey)
 		return
 	}
@@ -472,7 +485,7 @@ func (api ObjectAPIHandlers) HeadObjectHandler(w http.ResponseWriter, r *http.Re
 
 	// Successful response.
 	// Set standard object headers.
-	SetObjectHeaders(w, object, nil, http.StatusOK, reqCtx.Brand)
+	SetObjectHeaders(w, object, reqCtx.Brand)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -1787,7 +1800,7 @@ func (api ObjectAPIHandlers) CopyObjectPartHandler(w http.ResponseWriter, r *htt
 		sourceVersion = strings.TrimPrefix(splits[1], "versionId=")
 	}
 	if sourceVersion == "" {
-		sourceVersion = "0"
+		sourceVersion = meta.NullVersion
 	}
 	// X-Amz-Copy-Source should be URL-encoded
 	sourceBucketName, err = url.QueryUnescape(sourceBucketName)

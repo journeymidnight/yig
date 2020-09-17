@@ -3,25 +3,25 @@ package tikvclient
 import (
 	"context"
 
+	"github.com/journeymidnight/client-go/key"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
-	"github.com/journeymidnight/client-go/key"
 )
 
 // **Key**: l\{BucketName}
-func genLifecycleKey(bucketName string) []byte {
+func GenLifecycleKey(bucketName string) []byte {
 	return GenKey(TableLifeCyclePrefix, bucketName)
 }
 
 //lc
 func (c *TiKVClient) PutBucketToLifeCycle(bucket Bucket, lifeCycle LifeCycle) error {
-	bucketKey := genBucketKey(bucket.Name)
-	lcKey := genLifecycleKey(bucket.Name)
+	bucketKey := GenBucketKey(bucket.Name)
+	lcKey := GenLifecycleKey(bucket.Name)
 	return c.TxPut(bucketKey, bucket, lcKey, lifeCycle)
 }
 
 func (c *TiKVClient) GetBucketLifeCycle(bucket Bucket) (*LifeCycle, error) {
-	key := genLifecycleKey(bucket.Name)
+	key := GenLifecycleKey(bucket.Name)
 	var lc LifeCycle
 	ok, err := c.TxGet(key, &lc, nil)
 	if err != nil {
@@ -33,9 +33,9 @@ func (c *TiKVClient) GetBucketLifeCycle(bucket Bucket) (*LifeCycle, error) {
 	return &lc, nil
 }
 
-func (c *TiKVClient) RemoveBucketFromLifeCycle(bucket Bucket) error {
-	bucketKey := genBucketKey(bucket.Name)
-	lcKey := genLifecycleKey(bucket.Name)
+func (c *TiKVClient) RemoveBucketFromLifeCycle(bucket Bucket) (err error) {
+	bucketKey := GenBucketKey(bucket.Name)
+	lcKey := GenLifecycleKey(bucket.Name)
 	tx, err := c.NewTrans()
 	if err != nil {
 		return err
@@ -70,8 +70,8 @@ func (c *TiKVClient) RemoveBucketFromLifeCycle(bucket Bucket) error {
 }
 
 func (c *TiKVClient) ScanLifeCycle(limit int, marker string) (result ScanLifeCycleResult, err error) {
-	startKey := genLifecycleKey(marker)
-	endKey := genLifecycleKey(TableMaxKeySuffix)
+	startKey := GenLifecycleKey(marker)
+	endKey := GenLifecycleKey(TableMaxKeySuffix)
 
 	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {

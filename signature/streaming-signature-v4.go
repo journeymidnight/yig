@@ -83,7 +83,7 @@ func CalculateSeedSignature(r *http.Request, brand Brand) (credential common.Cre
 	// Payload streaming.
 	payload := brand.GetHeaderFieldValue(StreamingContentSHA256)
 
-	// Payload for STREAMING signature should be 'STREAMING-AWS4-HMAC-SHA256-PAYLOAD'
+	// Payload for STREAMING signature should be 'STREAMING-***4-HMAC-SHA256-PAYLOAD'
 	if payload != req.Header.Get(brand.GetHeaderFieldKey(XContentSha)) {
 		return credential, "", "", time.Time{}, ErrContentSHA256Mismatch
 	}

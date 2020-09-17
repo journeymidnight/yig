@@ -477,7 +477,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrSignatureVersionNotSupported: {
 		AwsErrorCode:   "AccessDenied",
-		Description:    "The authorization mechanism you have provided is not supported. Please use AWS4-HMAC-SHA256.",
+		Description:    "The authorization mechanism you have provided is not supported. Please use ***4-HMAC-SHA256.",
 		HttpStatusCode: http.StatusForbidden,
 	},
 	ErrBucketNotEmpty: {

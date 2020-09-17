@@ -3,25 +3,24 @@ package tikvclient
 import (
 	"context"
 	. "database/sql/driver"
-	"math"
-	"strings"
-
 	"github.com/journeymidnight/client-go/key"
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/client"
 	. "github.com/journeymidnight/yig/meta/types"
+	"math"
+	"strings"
 )
 
 // **Key**: b\{BucketName}
-func genBucketKey(bucketName string) []byte {
+func GenBucketKey(bucketName string) []byte {
 	return GenKey(TableBucketPrefix, bucketName)
 }
 
 //bucket
 func (c *TiKVClient) GetBucket(bucketName string) (*Bucket, error) {
-	bucketKey := genBucketKey(bucketName)
+	bucketKey := GenBucketKey(bucketName)
 	var b Bucket
 	ok, err := c.TxGet(bucketKey, &b, nil)
 	if err != nil {
@@ -50,7 +49,7 @@ func (c *TiKVClient) GetBuckets() (buckets []Bucket, err error) {
 }
 
 func (c *TiKVClient) PutBucket(bucket Bucket) error {
-	bucketKey := genBucketKey(bucket.Name)
+	bucketKey := GenBucketKey(bucket.Name)
 	return c.TxPut(bucketKey, bucket)
 }
 
@@ -62,8 +61,8 @@ type BucketUsage struct {
 }
 
 func (c *TiKVClient) PutNewBucket(bucket Bucket) error {
-	bucketKey := genBucketKey(bucket.Name)
-	userBucketKey := genUserBucketKey(bucket.OwnerId, bucket.Name)
+	bucketKey := GenBucketKey(bucket.Name)
+	userBucketKey := GenUserBucketKey(bucket.OwnerId, bucket.Name)
 	existBucket, err := c.TxExist(bucketKey)
 	if err != nil {
 		return err
@@ -80,21 +79,21 @@ func (c *TiKVClient) PutNewBucket(bucket Bucket) error {
 }
 
 func (c *TiKVClient) DeleteBucket(bucket Bucket) error {
-	bucketKey := genBucketKey(bucket.Name)
-	userBucketKey := genUserBucketKey(bucket.OwnerId, bucket.Name)
-	lifeCycleKey := genLifecycleKey(bucket.Name)
+	bucketKey := GenBucketKey(bucket.Name)
+	userBucketKey := GenUserBucketKey(bucket.OwnerId, bucket.Name)
+	lifeCycleKey := GenLifecycleKey(bucket.Name)
 	return c.TxDelete(bucketKey, userBucketKey, lifeCycleKey)
 }
 
 func (c *TiKVClient) ListHotObjects(marker string, maxKeys int) (listInfo ListHotObjectsInfo, err error) {
 	var startKey []byte
 	if marker == "" {
-		startKey = genHotObjectKey(TableMinKeySuffix, TableMinKeySuffix, TableMinKeySuffix)
+		startKey = GenHotObjectKey(TableMinKeySuffix, TableMinKeySuffix, TableMinKeySuffix)
 	} else {
 		startKey = []byte(marker)
 	}
 
-	endKey := genHotObjectKey(TableMaxKeySuffix, TableMaxKeySuffix, TableMaxKeySuffix)
+	endKey := GenHotObjectKey(TableMaxKeySuffix, TableMaxKeySuffix, TableMaxKeySuffix)
 	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
 		return listInfo, err
@@ -150,16 +149,17 @@ func AddEndByteValue(str string) string {
 }
 
 func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (listInfo ListObjectsInfo, err error) {
+	scanStart := marker + string(byte(0))
 	if prefix != "" {
 		if marker == "" || strings.Compare(marker, prefix) < 0 {
-			marker = prefix
+			scanStart = prefix
 		} else if !strings.HasPrefix(marker, prefix) && strings.Compare(marker, prefix) > 0 {
 			return listInfo, nil
 		}
 	}
 
-	startKey := genObjectKey(bucketName, marker+string(byte(0)), NullVersion)
-	endKey := genObjectKey(bucketName, prefix+TableMaxKeySuffix, NullVersion)
+	startKey := GenObjectKey(bucketName, scanStart, NullVersion)
+	endKey := GenObjectKey(bucketName, prefix+TableMaxKeySuffix, NullVersion)
 	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
 		return listInfo, err
@@ -182,7 +182,8 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 			if len(sp) == 2 {
 				prefixKey := prefix + sp[0] + delimiter
 				if prefixKey == marker {
-					startKey = genObjectKey(bucketName, AddEndByteValue(prefixKey), NullVersion)
+					startKey = GenObjectKey(bucketName, AddEndByteValue(prefixKey), NullVersion)
+					it.Close()
 					it, err = tx.Iter(context.TODO(), startKey, endKey)
 					if err != nil {
 						return listInfo, err
@@ -200,7 +201,8 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 					}
 					commonPrefixes[prefixKey] = nil
 				}
-				startKey = genObjectKey(bucketName, AddEndByteValue(prefixKey), NullVersion)
+				startKey = GenObjectKey(bucketName, AddEndByteValue(prefixKey), NullVersion)
+				it.Close()
 				it, err = tx.Iter(context.TODO(), startKey, endKey)
 				if err != nil {
 					return listInfo, err
@@ -233,16 +235,20 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 }
 
 func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter string, maxKeys int) (listInfo ListObjectsInfo, err error) {
+	startVersion := TableMaxKeySuffix
 	if prefix != "" {
 		if marker == "" || strings.Compare(marker, prefix) < 0 {
 			marker = prefix
+			// HACK: we want to scan ALL versions of a key, for GenObjectKey's current implement,
+			//       set version to `NullVersion`
+			startVersion = NullVersion
 		} else if !strings.HasPrefix(marker, prefix) && strings.Compare(marker, prefix) > 0 {
 			return listInfo, err
 		}
 	}
 
-	startKey := genObjectKey(bucketName, marker, TableMaxKeySuffix)
-	endKey := genObjectKey(bucketName, prefix+TableMaxKeySuffix, TableMaxKeySuffix)
+	startKey := GenObjectKey(bucketName, marker, startVersion)
+	endKey := GenObjectKey(bucketName, prefix+TableMaxKeySuffix, TableMaxKeySuffix)
 
 	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
@@ -298,7 +304,8 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			previousNullObjectMeta = nil
 			// Compare once
 			if passKey {
-				startKey = genObjectKey(bucketName, objMeta.Name, TableMaxKeySuffix)
+				startKey = GenObjectKey(bucketName, objMeta.Name, TableMaxKeySuffix)
+				it.Close()
 				it, err = tx.Iter(context.TODO(), startKey, endKey)
 				if err != nil {
 					return listInfo, err
@@ -317,7 +324,8 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			if len(sp) == 2 {
 				prefixKey := prefix + sp[0] + delimiter
 				if prefixKey == marker {
-					startKey = genObjectKey(bucketName, AddEndByteValue(prefixKey), NullVersion)
+					startKey = GenObjectKey(bucketName, AddEndByteValue(prefixKey), NullVersion)
+					it.Close()
 					it, err = tx.Iter(context.TODO(), startKey, endKey)
 					if err != nil {
 						return listInfo, err
@@ -335,7 +343,8 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 					}
 					commonPrefixes[prefixKey] = nil
 				}
-				startKey = genObjectKey(bucketName, AddEndByteValue(prefixKey), NullVersion)
+				startKey = GenObjectKey(bucketName, AddEndByteValue(prefixKey), NullVersion)
+				it.Close()
 				it, err = tx.Iter(context.TODO(), startKey, endKey)
 				if err != nil {
 					return listInfo, err
@@ -354,7 +363,8 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 		}
 
 		// If not null version object
-		startKey = genObjectKey(bucketName, objMeta.Name, TableMaxKeySuffix)
+		startKey = GenObjectKey(bucketName, objMeta.Name, TableMaxKeySuffix)
+		it.Close()
 		it, err = tx.Iter(context.TODO(), startKey, endKey)
 		if err != nil {
 			return listInfo, err
@@ -402,11 +412,10 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 
 func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefix, delimiter string,
 	maxKeys int) (listInfo VersionedListObjectsInfo, err error) {
-	var needCheckMarker = true
 	if prefix != "" {
 		if marker == "" || strings.Compare(marker, prefix) < 0 {
 			marker = prefix
-			needCheckMarker = false
+			verIdMarker = ""
 		} else if !strings.HasPrefix(marker, prefix) && strings.Compare(marker, prefix) > 0 {
 			return listInfo, err
 		}
@@ -419,7 +428,7 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 	var startKey, endKey []byte
 
 	isPrefixMarker := delimiter != "" && strings.HasSuffix(marker, delimiter)
-	if marker != "" && !isPrefixMarker && needCheckMarker {
+	if marker != "" && !isPrefixMarker {
 		var needCompareNull = true
 		var nullObjMeta *Object
 		txn, err := c.NewTrans()
@@ -448,8 +457,14 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 			}
 		}
 
-		startKey = genObjectKey(bucketName, marker, verIdMarker)
-		endKey = genObjectKey(bucketName, marker, TableMaxKeySuffix)
+		// HACK: `verIdMarker` == "" means user wants to scan ALL versions of a key,
+		//       for GenObjectKey's current implement, set version to `NullVersion`
+		versionScanStart := verIdMarker
+		if versionScanStart == "" {
+			versionScanStart = NullVersion
+		}
+		startKey = GenObjectKey(bucketName, marker, versionScanStart)
+		endKey = GenObjectKey(bucketName, marker, TableMaxKeySuffix)
 		tx := txn.(*TikvTx).tx
 		it, err := tx.Iter(context.TODO(), key.Key(startKey), key.Key(endKey))
 		if err != nil {
@@ -498,8 +513,8 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 		return listInfo, nil
 	}
 
-	startKey = genObjectKey(bucketName, marker, TableMaxKeySuffix)
-	endKey = genObjectKey(bucketName, prefix+TableMaxKeySuffix, TableMaxKeySuffix)
+	startKey = GenObjectKey(bucketName, marker, TableMaxKeySuffix)
+	endKey = GenObjectKey(bucketName, prefix+TableMaxKeySuffix, TableMaxKeySuffix)
 	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
 		return listInfo, err
@@ -576,7 +591,8 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 			if len(sp) == 2 {
 				prefixKey := prefix + sp[0] + delimiter
 				if prefixKey == marker {
-					startKey = genObjectKey(bucketName, AddEndByteValue(prefixKey), NullVersion)
+					startKey = GenObjectKey(bucketName, AddEndByteValue(prefixKey), NullVersion)
+					it.Close()
 					it, err = tx.Iter(context.TODO(), startKey, endKey)
 					if err != nil {
 						return listInfo, err
@@ -598,7 +614,8 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 					commonPrefixes[prefixKey] = nil
 				}
 
-				startKey = genObjectKey(bucketName, AddEndByteValue(prefixKey), NullVersion)
+				startKey = GenObjectKey(bucketName, AddEndByteValue(prefixKey), NullVersion)
+				it.Close()
 				it, err = tx.Iter(context.TODO(), startKey, endKey)
 				if err != nil {
 					return listInfo, err

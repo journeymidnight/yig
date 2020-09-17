@@ -16,6 +16,7 @@ package api
 
 import (
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -196,7 +197,7 @@ func (r *replacer) getSubstitution(key string) string {
 		}
 		return bucketName
 	case "{object_name}":
-		objectName := GetRequestContext(r.request).ObjectName
+		objectName := url.PathEscape(GetRequestContext(r.request).ObjectName)
 		if objectName == "" {
 			return "-"
 		}

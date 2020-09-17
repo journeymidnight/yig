@@ -34,7 +34,9 @@ type GlobalOption struct {
 	Bucket       string
 	Object       string
 	Version      string
-	Args         cli.StringSlice // Format is "k1=v1,k2=v2,k3=v3..."
+
+	MigrateMapFile string
+	Args           cli.StringSlice // Format is "k1=v1,k2=v2,k3=v3..."
 }
 
 var global GlobalOption
@@ -107,6 +109,12 @@ func main() {
 			Name:  "args",
 			Usage: "set args",
 			Value: &global.Args,
+		},
+		cli.StringFlag{
+			Name:        "m, map",
+			Usage:       "set reflect project id to user id map file when migrate",
+			Value:       "migrate.map",
+			Destination: &global.MigrateMapFile,
 		},
 	}
 

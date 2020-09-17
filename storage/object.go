@@ -5,6 +5,7 @@ import (
 	"database/sql/driver"
 	"encoding/hex"
 	"errors"
+	"hash"
 	"io"
 	"math/rand"
 	"path"
@@ -425,7 +426,7 @@ func (yig *YigStorage) GetObjectInfo(bucketName string, objectName string,
 	}
 
 	if bucket.Versioning == BucketVersioningDisabled {
-		if version != "" {
+		if version != "" && version != meta.NullVersion {
 			return nil, ErrInvalidVersioning
 		}
 		object, err = yig.MetaStorage.GetObject(bucketName, objectName, meta.NullVersion, true)
@@ -1106,7 +1107,8 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 			}
 
 			calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
-			if calculatedMd5 != targetObject.Etag {
+			savedMd5 := helper.Md5FromEtag(targetObject.Etag)
+			if calculatedMd5 != savedMd5 {
 				RecycleQueue <- maybeObjectToRecycle
 				return result, ErrBadDigest
 			}
@@ -1271,8 +1273,6 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 	//TODO: Append Support Encryption
 	encryptionKey = nil
 
-	md5Writer := md5.New()
-
 	// Limit the reader to its provided size if specified.
 	var limitedDataReader io.Reader
 	if size > 0 { // request.ContentLength is -1 if length is unknown
@@ -1285,6 +1285,7 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 	var poolName, oid string
 	var initializationVector []byte
 	var objSize int64
+	var md5Writer hash.Hash
 	if objInfo != nil {
 		cephCluster = yig.DataStorage[objInfo.Location]
 		// Every appendable file must be treated as a big file
@@ -1293,9 +1294,15 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 		initializationVector = objInfo.InitializationVector
 		objSize = objInfo.Size
 		storageClass = objInfo.StorageClass
+		md5Writer, err = helper.Md5WriterFromEtag(objInfo.Etag)
+		if err != nil {
+			helper.Logger.Error("Md5WriterFromEtag:", err)
+			return result, ErrInternalError
+		}
 		helper.Logger.Info("request append oid:", oid, "iv:", initializationVector, "size:", objSize)
 	} else {
 		// New appendable object
+		md5Writer = md5.New()
 		cephCluster, poolName = yig.pickClusterAndPool(bucketName, objectName, storageClass, size, true)
 		if cephCluster == nil {
 			helper.Logger.Warn("PickOneClusterAndPool error")
@@ -1357,7 +1364,7 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 		Size:                 objSize + int64(bytesWritten),
 		ObjectId:             oid,
 		LastModifiedTime:     now,
-		Etag:                 calculatedMd5,
+		Etag:                 helper.EtagWithInternalState(calculatedMd5, md5Writer),
 		ContentType:          metadata["Content-Type"],
 		ACL:                  acl,
 		NullVersion:          true,

@@ -14,7 +14,7 @@ import (
 	. "github.com/journeymidnight/yig/meta/types"
 )
 
-func genFreezerKey(bucketName, objectName, version string) []byte {
+func GenFreezerKey(bucketName, objectName, version string) []byte {
 	if version == NullVersion {
 		return GenKey(TableFreezerPrefix, bucketName, objectName)
 	} else {
@@ -24,12 +24,12 @@ func genFreezerKey(bucketName, objectName, version string) []byte {
 
 //freezer
 func (c *TiKVClient) CreateFreezer(freezer *Freezer) (err error) {
-	key := genFreezerKey(freezer.BucketName, freezer.Name, freezer.VersionId)
+	key := GenFreezerKey(freezer.BucketName, freezer.Name, freezer.VersionId)
 	return c.TxPut(key, *freezer)
 }
 
 func (c *TiKVClient) GetFreezer(bucketName, objectName, version string) (freezer *Freezer, err error) {
-	key := genFreezerKey(bucketName, objectName, version)
+	key := GenFreezerKey(bucketName, objectName, version)
 	var f Freezer
 	ok, err := c.TxGet(key, &f, nil)
 	if err != nil {
@@ -50,7 +50,7 @@ func (c *TiKVClient) GetFreezer(bucketName, objectName, version string) (freezer
 }
 
 func (c *TiKVClient) GetFreezerStatus(bucketName, objectName, version string) (freezer *Freezer, err error) {
-	key := genFreezerKey(bucketName, objectName, version)
+	key := GenFreezerKey(bucketName, objectName, version)
 	var f Freezer
 	ok, err := c.TxGet(key, &f, nil)
 	if err != nil {
@@ -63,7 +63,7 @@ func (c *TiKVClient) GetFreezerStatus(bucketName, objectName, version string) (f
 }
 
 func (c *TiKVClient) UpdateFreezerDate(bucketName, objectName, version string, lifetime int) (err error) {
-	key := genFreezerKey(bucketName, objectName, version)
+	key := GenFreezerKey(bucketName, objectName, version)
 	tx, err := c.NewTrans()
 	if err != nil {
 		return err
@@ -106,13 +106,13 @@ func (c *TiKVClient) UpdateFreezerDate(bucketName, objectName, version string, l
 }
 
 func (c *TiKVClient) DeleteFreezer(bucketName, objectName, versionId string, objectType ObjectType, createTime uint64, tx Tx) (err error) {
-	key := genFreezerKey(bucketName, objectName, versionId)
+	key := GenFreezerKey(bucketName, objectName, versionId)
 	return c.TxDelete(key)
 }
 
 func (c *TiKVClient) ListFreezersWithStatus(maxKeys int, status common.RestoreStatus) (retFreezers []Freezer, err error) {
-	startKey := genFreezerKey(TableMinKeySuffix, TableMinKeySuffix, NullVersion)
-	endKey := genFreezerKey(TableMaxKeySuffix, TableMaxKeySuffix, TableMaxKeySuffix)
+	startKey := GenFreezerKey(TableMinKeySuffix, TableMinKeySuffix, NullVersion)
+	endKey := GenFreezerKey(TableMaxKeySuffix, TableMaxKeySuffix, TableMaxKeySuffix)
 	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
 		return nil, err
@@ -150,7 +150,7 @@ func (c *TiKVClient) ListFreezersWithStatus(maxKeys int, status common.RestoreSt
 }
 
 func (c *TiKVClient) PutFreezer(freezer *Freezer, status common.RestoreStatus, tx Tx) (err error) {
-	key := genFreezerKey(freezer.BucketName, freezer.Name, freezer.VersionId)
+	key := GenFreezerKey(freezer.BucketName, freezer.Name, freezer.VersionId)
 	if tx == nil {
 		tx, err = c.NewTrans()
 		if err != nil {
@@ -193,7 +193,7 @@ func (c *TiKVClient) PutFreezer(freezer *Freezer, status common.RestoreStatus, t
 }
 
 func (c *TiKVClient) UpdateFreezerStatus(bucketName, objectName, version string, status, statusSetting common.RestoreStatus) (err error) {
-	key := genFreezerKey(bucketName, objectName, version)
+	key := GenFreezerKey(bucketName, objectName, version)
 	tx, err := c.NewTrans()
 	if err != nil {
 		return err
