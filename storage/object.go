@@ -1285,7 +1285,7 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 	var poolName, oid string
 	var initializationVector []byte
 	var objSize int64
-	var md5Writer hash.Hash
+	var wholeObjectMd5Writer, partMd5Writer hash.Hash
 	if objInfo != nil {
 		cephCluster = yig.DataStorage[objInfo.Location]
 		// Every appendable file must be treated as a big file
@@ -1294,7 +1294,7 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 		initializationVector = objInfo.InitializationVector
 		objSize = objInfo.Size
 		storageClass = objInfo.StorageClass
-		md5Writer, err = helper.Md5WriterFromEtag(objInfo.Etag)
+		wholeObjectMd5Writer, err = helper.Md5WriterFromEtag(objInfo.Etag)
 		if err != nil {
 			helper.Logger.Error("Md5WriterFromEtag:", err)
 			return result, ErrInternalError
@@ -1302,7 +1302,7 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 		helper.Logger.Info("request append oid:", oid, "iv:", initializationVector, "size:", objSize)
 	} else {
 		// New appendable object
-		md5Writer = md5.New()
+		wholeObjectMd5Writer = md5.New()
 		cephCluster, poolName = yig.pickClusterAndPool(bucketName, objectName, storageClass, size, true)
 		if cephCluster == nil {
 			helper.Logger.Warn("PickOneClusterAndPool error")
@@ -1317,7 +1317,11 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 		helper.Logger.Info("request first append oid:", oid, "iv:", initializationVector, "size:", objSize)
 	}
 
-	dataReader := io.TeeReader(limitedDataReader, md5Writer)
+	dataReader := io.TeeReader(limitedDataReader, wholeObjectMd5Writer)
+	if len(metadata["md5Sum"]) != 0 {
+		partMd5Writer = md5.New()
+		dataReader = io.TeeReader(dataReader, partMd5Writer)
+	}
 
 	storageReader, err := wrapEncryptionReader(dataReader, encryptionKey, initializationVector)
 	if err != nil {
@@ -1337,14 +1341,15 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 		return result, ErrIncompleteBody
 	}
 
-	calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
-	if userMd5, ok := metadata["md5Sum"]; ok {
-		if userMd5 != "" && userMd5 != calculatedMd5 {
+	if partMd5Writer != nil && len(metadata["md5Sum"]) != 0 {
+		partCalculatedMd5 := hex.EncodeToString(partMd5Writer.Sum(nil))
+		if metadata["md5Sum"] != partCalculatedMd5 {
 			return result, ErrBadDigest
 		}
 	}
 
-	result.Md5 = calculatedMd5
+	wholeObjectCalculatedMd5 := hex.EncodeToString(wholeObjectMd5Writer.Sum(nil))
+	result.Md5 = wholeObjectCalculatedMd5 // it would be set in `ETag` in response
 
 	if signVerifyReader, ok := data.(*signature.SignVerifyReadCloser); ok {
 		credential, err = signVerifyReader.Verify()
@@ -1364,7 +1369,7 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 		Size:                 objSize + int64(bytesWritten),
 		ObjectId:             oid,
 		LastModifiedTime:     now,
-		Etag:                 helper.EtagWithInternalState(calculatedMd5, md5Writer),
+		Etag:                 helper.EtagWithInternalState(wholeObjectCalculatedMd5, wholeObjectMd5Writer),
 		ContentType:          metadata["Content-Type"],
 		ACL:                  acl,
 		NullVersion:          true,
