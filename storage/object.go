@@ -838,6 +838,7 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 	if isMetadataOnly {
 		targetObject.LastModifiedTime = sourceObject.LastModifiedTime
 		targetObject.VersionId = sourceObject.VersionId
+		// FIXME: need fixed or merge code in branch `develop-shanghai`
 		if sourceObject.StorageClass == ObjectStorageClassGlacier {
 			err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, true, false)
 			if err != nil {

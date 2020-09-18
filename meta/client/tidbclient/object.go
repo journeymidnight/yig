@@ -396,8 +396,6 @@ func (t *TidbClient) PutObject(object *Object, multipart *Multipart, updateUsage
 		}
 	}()
 
-	sql, args := object.GetCreateSql()
-	_, err = tx.Exec(sql, args...)
 	if object.Parts != nil {
 		v := math.MaxUint64 - object.CreateTime
 		version := strconv.FormatUint(v, 10)
@@ -409,6 +407,9 @@ func (t *TidbClient) PutObject(object *Object, multipart *Multipart, updateUsage
 			}
 		}
 	}
+
+	sql, args := object.GetCreateSql()
+	_, err = tx.Exec(sql, args...)
 
 	if multipart != nil {
 		err = t.DeleteMultipart(multipart, tx)
@@ -444,8 +445,6 @@ func (t *TidbClient) UpdateObject(object *Object, multipart *Multipart, updateUs
 	}
 	txn := tx.(*sql.Tx)
 
-	sql, args := object.GetUpdateSql()
-	_, err = txn.Exec(sql, args...)
 	if object.Parts != nil {
 		v := math.MaxUint64 - object.CreateTime
 		partVersion := strconv.FormatUint(v, 10)
@@ -457,6 +456,9 @@ func (t *TidbClient) UpdateObject(object *Object, multipart *Multipart, updateUs
 			}
 		}
 	}
+
+	sql, args := object.GetUpdateSql()
+	_, err = txn.Exec(sql, args...)
 
 	if multipart != nil {
 		err = t.DeleteMultipart(multipart, tx)
