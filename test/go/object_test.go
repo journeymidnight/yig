@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"testing"
 	"time"
 
@@ -47,7 +48,7 @@ func Test_Object(t *testing.T) {
 	}
 	t.Log("PutObject Success!")
 
-	err = sc.HeadObject(TestBucket, TestKey)
+	_, err = sc.HeadObject(TestBucket, TestKey)
 	if err != nil {
 		t.Fatal("HeadBucket err:", err)
 	}
@@ -66,7 +67,7 @@ func Test_Object(t *testing.T) {
 	if err != nil {
 		t.Fatal("DeleteObject err:", err)
 	}
-	err = sc.HeadObject(TestBucket, TestKey)
+	_, err = sc.HeadObject(TestBucket, TestKey)
 	if err == nil {
 		t.Fatal("HeadObject err:", err)
 	}
@@ -117,6 +118,78 @@ func Test_Object(t *testing.T) {
 		t.Fatal("StatusCode should be AccessDenied(403), but the code is:", statusCode)
 	}
 	t.Log("PreSignedGetObject Success.")
+}
+
+func Test_GetObjectByRange(t *testing.T) {
+	sc := NewS3()
+	err := sc.MakeBucket(TestBucket)
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+		panic(err)
+	}
+	defer sc.CleanEnv()
+
+	object := "abcdefghi#jklmnopqr$stuvwxyz1@234567890-abcdefghi#jklmnopqr$stuvwxyz1@234567890-abcdefghi#jklmnopqr$stuvwxyz1@234567890-"
+	err = sc.PutObject(TestBucket, TestKey, object)
+	if err != nil {
+		t.Fatal("PutObject err:", err)
+	}
+	t.Log("PutObject Success!")
+
+	out, err := sc.HeadObject(TestBucket, TestKey)
+	if err != nil {
+		t.Fatal("PutObject err:", err)
+	}
+	fmt.Println("Object info: ", out)
+
+	var partRange int64
+	var num int
+	var objects []*s3.GetObjectOutput
+	objectSize := aws.Int64Value(out.ContentLength)
+	// Get object by parts
+	for {
+		num++
+		if partRange+9 <= objectSize {
+			//rangeString := "bytes=" + strconv.FormatInt(partRange, 10) + "-" + strconv.FormatInt(partRange+(20<<10-1), 10)
+			rangeString := "bytes=" + strconv.FormatInt(partRange, 10) + "-" + strconv.FormatInt(partRange+9, 10)
+			fmt.Println("rangeString: ", rangeString)
+			object, err := sc.GetObjectWithRange(TestBucket, TestKey, rangeString)
+			if err != nil {
+				fmt.Println("part ", num, " download err: ", err, "\n rangeString: ", rangeString)
+				t.Fatal("GetObjectWithRange err:", err)
+			}
+
+			fmt.Println("part ", num, " object info: ", object)
+			objects = append(objects, object)
+		} else if partRange < objectSize {
+			rangeString := "bytes=" + strconv.FormatInt(partRange, 10) + "-" + strconv.FormatInt(objectSize-1, 10)
+			fmt.Println("rangeString: ", rangeString)
+			object, err := sc.GetObjectWithRange(TestBucket, TestKey, rangeString)
+			if err != nil {
+				fmt.Println("part ", num, " download err: ", err, "\n rangeString: ", rangeString)
+				t.Fatal("GetObjectWithRange err:", err)
+			}
+			fmt.Println("part ", num, " object info: ", object)
+			objects = append(objects, object)
+			break
+		} else {
+			// when range > object size, s3 wil return object
+			break
+		}
+		partRange += 10
+	}
+
+	var getObject string
+	for _, object := range objects {
+		b, _ := ioutil.ReadAll(object.Body)
+		getObject += string(b)
+		object.Body.Close()
+	}
+
+	if getObject != object {
+		t.Fatal("GetObject err: value is:", getObject, ",\nbut should be:", object)
+	}
+	t.Log("GetObject by range success!")
 }
 
 func Test_CopyObjectWithoutMD5(t *testing.T) {
