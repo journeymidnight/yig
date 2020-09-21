@@ -169,7 +169,7 @@ func (t *TidbClient) PutNewBucket(bucket Bucket) error {
 		return err
 	}
 	user_sql := "insert into users(userid,bucketname) values(?,?)"
-	_, err = t.Client.Exec(user_sql, bucket.OwnerId, bucket.Name)
+	_, err = tx.Exec(user_sql, bucket.OwnerId, bucket.Name)
 	return err
 }
 
