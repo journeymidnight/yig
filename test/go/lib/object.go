@@ -74,6 +74,19 @@ func (s3client *S3Client) PutObjectWithOverwrite(bucketName, key, value string, 
 	return s3client.Client.PutObject(params)
 }
 
+func (s3client *S3Client) PutObjectWithEncryption(bucketName, key, value string) (err error) {
+	params := &s3.PutObjectInput{
+		Bucket:               aws.String(bucketName),
+		Key:                  aws.String(key),
+		Body:                 bytes.NewReader([]byte(value)),
+		ServerSideEncryption: aws.String("AES256"),
+	}
+	if _, err = s3client.Client.PutObject(params); err != nil {
+		return err
+	}
+	return
+}
+
 func (s3client *S3Client) PutObjectPreSignedWithSpecifiedBody(bucketName, key, value string, expire time.Duration) (url string, err error) {
 	params := &s3.PutObjectInput{
 		Bucket: aws.String(bucketName),

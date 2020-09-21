@@ -129,8 +129,40 @@ func Test_GetObjectByRange(t *testing.T) {
 	}
 	defer sc.CleanEnv()
 
+	object := "abcdefghi#jklmnopqIsMyWantedPart!!!r$stuvwxyz1@234567890-"
+	err = sc.PutObjectWithEncryption(TestBucket, TestKey, object)
+	if err != nil {
+		t.Fatal("PutObject err:", err)
+	}
+	t.Log("PutObject Success!")
+
+	var getObject *s3.GetObjectOutput
+	// Get object part
+	rangeString := "bytes=18-34"
+	getObject, err = sc.GetObjectWithRange(TestBucket, TestKey, rangeString)
+	if err != nil {
+		t.Fatal("GetObjectWithRange err:", err)
+	}
+
+	b, _ := ioutil.ReadAll(getObject.Body)
+	value := string(b)
+	if value != "IsMyWantedPart!!!" {
+		t.Fatal("GetObject err: value is:", getObject, ",\nbut should be:", object)
+	}
+	t.Log("GetObject by range success!")
+}
+
+func Test_GetEncryptedObjectByRange(t *testing.T) {
+	sc := NewS3()
+	err := sc.MakeBucket(TestBucket)
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+		panic(err)
+	}
+	defer sc.CleanEnv()
+
 	object := "abcdefghi#jklmnopqr$stuvwxyz1@234567890-abcdefghi#jklmnopqr$stuvwxyz1@234567890-abcdefghi#jklmnopqr$stuvwxyz1@234567890-"
-	err = sc.PutObject(TestBucket, TestKey, object)
+	err = sc.PutObjectWithEncryption(TestBucket, TestKey, object)
 	if err != nil {
 		t.Fatal("PutObject err:", err)
 	}
@@ -150,7 +182,6 @@ func Test_GetObjectByRange(t *testing.T) {
 	for {
 		num++
 		if partRange+9 <= objectSize {
-			//rangeString := "bytes=" + strconv.FormatInt(partRange, 10) + "-" + strconv.FormatInt(partRange+(20<<10-1), 10)
 			rangeString := "bytes=" + strconv.FormatInt(partRange, 10) + "-" + strconv.FormatInt(partRange+9, 10)
 			fmt.Println("rangeString: ", rangeString)
 			object, err := sc.GetObjectWithRange(TestBucket, TestKey, rangeString)
@@ -189,7 +220,7 @@ func Test_GetObjectByRange(t *testing.T) {
 	if getObject != object {
 		t.Fatal("GetObject err: value is:", getObject, ",\nbut should be:", object)
 	}
-	t.Log("GetObject by range success!")
+	t.Log("GetEncryptedObject by range success!")
 }
 
 func Test_CopyObjectWithoutMD5(t *testing.T) {
