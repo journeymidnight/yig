@@ -146,7 +146,17 @@ func wrapAlignedEncryptionReader(reader io.Reader, startOffset int64, encryption
 		return reader, nil
 	}
 
-	alignedOffset := startOffset / AES_BLOCK_SIZE * AES_BLOCK_SIZE
+	counter := startOffset / AES_BLOCK_SIZE
+	alignedOffset := counter * AES_BLOCK_SIZE
+	for ; counter > 0; counter-- {
+		for i := len(initializationVector) - 1; i >= 0; i-- {
+			initializationVector[i]++
+			if initializationVector[i] != 0 {
+				break
+			}
+		}
+	}
+
 	newReader, err := wrapEncryptionReader(reader, encryptionKey, initializationVector)
 	if err != nil {
 		return

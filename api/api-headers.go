@@ -59,6 +59,9 @@ func SetObjectHeaders(w http.ResponseWriter, object *meta.Object, brand Brand) {
 		w.Header().Set("Cache-Control", "no-store")
 	}
 
+	if object.Parts != nil {
+		w.Header().Set(brand.GetHeaderFieldKey(XMpPartsCount), strconv.Itoa(len(object.Parts)))
+	}
 	w.Header().Set(brand.GetHeaderFieldKey(XObjectType), object.ObjectTypeToString())
 	w.Header().Set(brand.GetHeaderFieldKey(XStorageClass), object.StorageClass.ToString())
 	w.Header().Set("Content-Length", strconv.FormatInt(object.Size, 10))
