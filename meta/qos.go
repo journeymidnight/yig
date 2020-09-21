@@ -6,8 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/journeymidnight/yig/redis"
-
+	"github.com/go-redis/redis/v7"
 	"github.com/go-redis/redis_rate/v8"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/meta/client"
@@ -30,9 +29,36 @@ type QosMeta struct {
 }
 
 func NewQosMeta(client client.Client) *QosMeta {
+	var limiter *redis_rate.Limiter
+	if len(helper.CONFIG.RedisQosGroup) < 1 {
+		panic("bad redis address to qos!")
+	} else if len(helper.CONFIG.RedisQosGroup) == 1 {
+		redisClient := redis.NewClient(&redis.Options{
+			Addr:         helper.CONFIG.RedisQosGroup[0],
+			Password:     helper.CONFIG.RedisPassword,
+			MaxRetries:   helper.CONFIG.RedisMaxRetries,
+			DialTimeout:  time.Duration(helper.CONFIG.RedisConnectTimeout) * time.Second,
+			ReadTimeout:  time.Duration(helper.CONFIG.RedisReadTimeout) * time.Second,
+			WriteTimeout: time.Duration(helper.CONFIG.RedisWriteTimeout) * time.Second,
+			IdleTimeout:  time.Duration(helper.CONFIG.RedisPoolIdleTimeout) * time.Second,
+		})
+		limiter = redis_rate.NewLimiter(redisClient)
+	} else if len(helper.CONFIG.RedisQosGroup) > 1 {
+		options := &redis.ClusterOptions{
+			Addrs:        helper.CONFIG.RedisQosGroup,
+			Password:     helper.CONFIG.RedisPassword,
+			DialTimeout:  time.Duration(helper.CONFIG.RedisConnectTimeout) * time.Second,
+			ReadTimeout:  time.Duration(helper.CONFIG.RedisReadTimeout) * time.Second,
+			WriteTimeout: time.Duration(helper.CONFIG.RedisWriteTimeout) * time.Second,
+			IdleTimeout:  time.Duration(helper.CONFIG.RedisPoolIdleTimeout) * time.Second,
+			MinIdleConns: helper.CONFIG.RedisMinIdleConns,
+		}
+		redisCluster := redis.NewClusterClient(options)
+		limiter = redis_rate.NewLimiter(redisCluster)
+	}
 	m := &QosMeta{
 		client:      client,
-		rateLimiter: redis.QosLimiter,
+		rateLimiter: limiter,
 	}
 	if helper.CONFIG.EnableQoS {
 		go m.inMemoryCacheSync()

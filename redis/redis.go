@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-redis/redis_rate/v8"
-
 	"github.com/bsm/redislock"
 	"github.com/cep21/circuit"
 	"github.com/go-redis/redis/v7"
@@ -48,7 +46,6 @@ type Redis interface {
 
 var RedisConn Redis
 var RedisClient redislock.RedisClient
-var QosLimiter *redis_rate.Limiter
 var Locker *redislock.Client
 
 const (
@@ -129,7 +126,6 @@ func InitializeSingle() interface{} {
 	cb = circuitbreak.NewCacheCircuit()
 	client = redis.NewClient(options)
 	RedisClient = client
-	QosLimiter = redis_rate.NewLimiter(client)
 	r := &SingleRedis{
 		client:  client,
 		circuit: cb,
@@ -389,7 +385,6 @@ func InitializeCluster() interface{} {
 	cb = circuitbreak.NewCacheCircuit()
 	cluster = redis.NewClusterClient(clusterRedis)
 	RedisClient = cluster
-	QosLimiter = redis_rate.NewLimiter(client)
 	r := &ClusterRedis{
 		cluster: cluster,
 		circuit: cb,
