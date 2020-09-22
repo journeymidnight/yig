@@ -29,71 +29,77 @@ type QosMeta struct {
 }
 
 func NewQosMeta(client client.Client) *QosMeta {
-	var limiter *redis_rate.Limiter
-	if len(helper.CONFIG.RedisQosGroup) < 1 {
-		panic("bad redis address to qos!")
-	} else if len(helper.CONFIG.RedisQosGroup) == 1 {
-		redisClient := redis.NewClient(&redis.Options{
-			Addr:         helper.CONFIG.RedisQosGroup[0],
-			Password:     helper.CONFIG.RedisPassword,
-			MaxRetries:   helper.CONFIG.RedisMaxRetries,
-			DialTimeout:  time.Duration(helper.CONFIG.RedisConnectTimeout) * time.Second,
-			ReadTimeout:  time.Duration(helper.CONFIG.RedisReadTimeout) * time.Second,
-			WriteTimeout: time.Duration(helper.CONFIG.RedisWriteTimeout) * time.Second,
-			IdleTimeout:  time.Duration(helper.CONFIG.RedisPoolIdleTimeout) * time.Second,
-		})
-		limiter = redis_rate.NewLimiter(redisClient)
-	} else if len(helper.CONFIG.RedisQosGroup) > 1 {
-		options := &redis.ClusterOptions{
-			Addrs:        helper.CONFIG.RedisQosGroup,
-			Password:     helper.CONFIG.RedisPassword,
-			DialTimeout:  time.Duration(helper.CONFIG.RedisConnectTimeout) * time.Second,
-			ReadTimeout:  time.Duration(helper.CONFIG.RedisReadTimeout) * time.Second,
-			WriteTimeout: time.Duration(helper.CONFIG.RedisWriteTimeout) * time.Second,
-			IdleTimeout:  time.Duration(helper.CONFIG.RedisPoolIdleTimeout) * time.Second,
-			MinIdleConns: helper.CONFIG.RedisMinIdleConns,
-		}
-		redisCluster := redis.NewClusterClient(options)
-		limiter = redis_rate.NewLimiter(redisCluster)
-	}
 	m := &QosMeta{
-		client:      client,
-		rateLimiter: limiter,
+		client: client,
 	}
 	if helper.CONFIG.EnableQoS {
+		var limiter *redis_rate.Limiter
+		if len(helper.CONFIG.RedisQosGroup) < 1 {
+			panic("bad redis address to qos!")
+		} else if len(helper.CONFIG.RedisQosGroup) == 1 {
+			redisClient := redis.NewClient(&redis.Options{
+				Addr:         helper.CONFIG.RedisQosGroup[0],
+				Password:     helper.CONFIG.RedisPassword,
+				MaxRetries:   helper.CONFIG.RedisMaxRetries,
+				DialTimeout:  time.Duration(helper.CONFIG.RedisConnectTimeout) * time.Second,
+				ReadTimeout:  time.Duration(helper.CONFIG.RedisReadTimeout) * time.Second,
+				WriteTimeout: time.Duration(helper.CONFIG.RedisWriteTimeout) * time.Second,
+				IdleTimeout:  time.Duration(helper.CONFIG.RedisPoolIdleTimeout) * time.Second,
+			})
+			limiter = redis_rate.NewLimiter(redisClient)
+		} else if len(helper.CONFIG.RedisQosGroup) > 1 {
+			options := &redis.ClusterOptions{
+				Addrs:        helper.CONFIG.RedisQosGroup,
+				Password:     helper.CONFIG.RedisPassword,
+				DialTimeout:  time.Duration(helper.CONFIG.RedisConnectTimeout) * time.Second,
+				ReadTimeout:  time.Duration(helper.CONFIG.RedisReadTimeout) * time.Second,
+				WriteTimeout: time.Duration(helper.CONFIG.RedisWriteTimeout) * time.Second,
+				IdleTimeout:  time.Duration(helper.CONFIG.RedisPoolIdleTimeout) * time.Second,
+				MinIdleConns: helper.CONFIG.RedisMinIdleConns,
+			}
+			redisCluster := redis.NewClusterClient(options)
+			limiter = redis_rate.NewLimiter(redisCluster)
+		}
+		m.rateLimiter = limiter
 		go m.inMemoryCacheSync()
 	}
 	return m
 }
 
 func (m *QosMeta) AllowReadQuery(bucketName string) (allow bool) {
-	userID := m.bucketUser[bucketName]
-	qps := m.userQosLimit[userID].ReadQps
-	if qps <= 0 {
-		qps = helper.CONFIG.DefaultReadOps
+	if helper.CONFIG.EnableQoS {
+		userID := m.bucketUser[bucketName]
+		qps := m.userQosLimit[userID].ReadQps
+		if qps <= 0 {
+			qps = helper.CONFIG.DefaultReadOps
+		}
+		key := fmt.Sprintf("user_rqps_%s", userID)
+		// the key actually used in redis would have a prefix "rate:"
+		result, err := m.rateLimiter.Allow(key, redis_rate.PerSecond(qps))
+		if err != nil {
+			return true
+		}
+		return result.Allowed
 	}
-	key := fmt.Sprintf("user_rqps_%s", userID)
-	// the key actually used in redis would have a prefix "rate:"
-	result, err := m.rateLimiter.Allow(key, redis_rate.PerSecond(qps))
-	if err != nil {
-		return true
-	}
-	return result.Allowed
+	return true
 }
 
 func (m *QosMeta) AllowWriteQuery(bucketName string) (allow bool) {
-	userID := m.bucketUser[bucketName]
-	qps := m.userQosLimit[userID].WriteQps
-	if qps <= 0 {
-		qps = helper.CONFIG.DefaultWriteOps
+	if helper.CONFIG.EnableQoS {
+		userID := m.bucketUser[bucketName]
+		qps := m.userQosLimit[userID].WriteQps
+		if qps <= 0 {
+			qps = helper.CONFIG.DefaultWriteOps
+		}
+		key := fmt.Sprintf("user_wqps_%s", userID)
+		// the key actually used in redis would have a prefix "rate:"
+		result, err := m.rateLimiter.Allow(key, redis_rate.PerSecond(qps))
+		if err != nil {
+			return true
+		}
+		return result.Allowed
 	}
-	key := fmt.Sprintf("user_wqps_%s", userID)
-	// the key actually used in redis would have a prefix "rate:"
-	result, err := m.rateLimiter.Allow(key, redis_rate.PerSecond(qps))
-	if err != nil {
-		return true
-	}
-	return result.Allowed
+	return true
 }
 
 func (m *QosMeta) newThrottler(bucketName string, defaultBufferSize int64) throttler {
