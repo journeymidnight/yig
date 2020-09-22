@@ -66,6 +66,7 @@ type Config struct {
 	RedisStore            string   `toml:"redis_store"`   // Choose redis connection method
 	RedisAddress          string   `toml:"redis_address"` // redis connection string, e.g localhost:1234
 	RedisGroup            []string `toml:"redis_group"`
+	RedisQosGroup         []string `toml:"redis_qos_group"`
 	RedisConnectionNumber int      `toml:"redis_connection_number"` // number of connections to redis(i.e max concurrent request number)
 	RedisPassword         string   `toml:"redis_password"`          // redis auth password
 	MetaCacheType         int      `toml:"meta_cache_type"`
@@ -191,6 +192,7 @@ func MarshalTOMLConfig() error {
 	CONFIG.RedisStore = Ternary(c.RedisStore == "", "single", c.RedisStore).(string)
 	CONFIG.RedisAddress = c.RedisAddress
 	CONFIG.RedisGroup = c.RedisGroup
+	CONFIG.RedisQosGroup = c.RedisQosGroup
 	CONFIG.RedisPassword = c.RedisPassword
 	CONFIG.RedisConnectionNumber = Ternary(c.RedisConnectionNumber == 0,
 		10, c.RedisConnectionNumber).(int)

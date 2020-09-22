@@ -34,6 +34,7 @@ enable_compression = false
 redis_store = "cluster"
 redis_address = "10.0.42.3:6379"
 redis_group = ["10.0.42.4:7000","10.0.42.3:7000","10.0.42.5:7000","10.0.42.4:7001","10.0.42.3:7001","10.0.42.5:7001"]
+redis_qos_group = ["10.0.42.3:6379"]
 redis_password = ""
 redis_connection_number = 10
 memory_cache_max_entry_count = 100000
