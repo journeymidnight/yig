@@ -4,8 +4,8 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"github.com/journeymidnight/yig/redis"
 	"io"
+	"math/big"
 	"path"
 	"sync"
 	"time"
@@ -16,6 +16,7 @@ import (
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/meta"
+	"github.com/journeymidnight/yig/redis"
 )
 
 const (
@@ -148,16 +149,13 @@ func wrapAlignedEncryptionReader(reader io.Reader, startOffset int64, encryption
 
 	counter := startOffset / AES_BLOCK_SIZE
 	alignedOffset := counter * AES_BLOCK_SIZE
-	for ; counter > 0; counter-- {
-		for i := len(initializationVector) - 1; i >= 0; i-- {
-			initializationVector[i]++
-			if initializationVector[i] != 0 {
-				break
-			}
-		}
-	}
 
-	newReader, err := wrapEncryptionReader(reader, encryptionKey, initializationVector)
+	// initializationVector add AES_BLOCK offset counts
+	iv := new(big.Int)
+	iv.SetBytes(initializationVector)
+	iv.Add(iv, big.NewInt(counter))
+
+	newReader, err := wrapEncryptionReader(reader, encryptionKey, iv.Bytes())
 	if err != nil {
 		return
 	}
