@@ -22,7 +22,6 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
-	"github.com/journeymidnight/yig/helper"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -96,25 +95,15 @@ const (
 
 // Get request authentication type.
 func GetRequestAuthType(r *http.Request, brand Brand) AuthType {
-	helper.Logger.Error("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$",r)
-
-
 	if isRequestSignStreamingV4(r, brand) {
 		return AuthTypeStreamingSigned
 	} else if isSignature, version := isRequestSignature(r, brand); isSignature {
-
-		helper.Logger.Error("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$",isSignature)
-
 		return version
 	} else if isPresigned, version := isRequestPresigned(r, brand); isPresigned {
 		return version
 	} else if isRequestPostPolicySignature(r) {
 		return AuthTypePostPolicy
 	} else if _, ok := r.Header["Authorization"]; !ok {
-
-		helper.Logger.Error("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$",r.Header["Authorization"])
-
-
 		return AuthTypeAnonymous
 	}
 	return AuthTypeUnknown
