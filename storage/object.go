@@ -26,7 +26,7 @@ import (
 var latestQueryTime [2]time.Time // 0 is for SMALL_FILE_POOLNAME, 1 is for BIG_FILE_POOLNAME
 const (
 	CLUSTER_MAX_USED_SPACE_PERCENT = 85
-	BIG_FILE_THRESHOLD             = 128 << 10 /* 128K */
+	BIG_FILE_THRESHOLD             = 768 << 10 /* 768K */
 )
 
 func (yig *YigStorage) pickRandomCluster() (cluster backend.Cluster) {
