@@ -74,6 +74,19 @@ func (s3client *S3Client) PutObjectWithOverwrite(bucketName, key, value string, 
 	return s3client.Client.PutObject(params)
 }
 
+func (s3client *S3Client) PutObjectWithEncryption(bucketName, key, value string) (err error) {
+	params := &s3.PutObjectInput{
+		Bucket:               aws.String(bucketName),
+		Key:                  aws.String(key),
+		Body:                 bytes.NewReader([]byte(value)),
+		ServerSideEncryption: aws.String("AES256"),
+	}
+	if _, err = s3client.Client.PutObject(params); err != nil {
+		return err
+	}
+	return
+}
+
 func (s3client *S3Client) PutObjectPreSignedWithSpecifiedBody(bucketName, key, value string, expire time.Duration) (url string, err error) {
 	params := &s3.PutObjectInput{
 		Bucket: aws.String(bucketName),
@@ -93,14 +106,14 @@ func (s3client *S3Client) PutObjectPreSignedWithoutSpecifiedBody(bucketName, key
 	return req.Presign(expire)
 }
 
-func (s3client *S3Client) HeadObject(bucketName, key string) (err error) {
+func (s3client *S3Client) HeadObject(bucketName, key string) (out *s3.HeadObjectOutput, err error) {
 	params := &s3.HeadObjectInput{
 		Bucket: aws.String(bucketName),
 		Key:    aws.String(key),
 	}
-	_, err = s3client.Client.HeadObject(params)
+	out, err = s3client.Client.HeadObject(params)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	return
 }
@@ -116,6 +129,19 @@ func (s3client *S3Client) GetObject(bucketName, key string) (value string, err e
 	}
 	data, err := ioutil.ReadAll(out.Body)
 	return string(data), err
+}
+
+func (s3client *S3Client) GetObjectWithRange(bucketName, key, Range string) (out *s3.GetObjectOutput, err error) {
+	params := &s3.GetObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(key),
+		Range:  aws.String(Range),
+	}
+	out, err = s3client.Client.GetObject(params)
+	if err != nil {
+		return nil, err
+	}
+	return
 }
 
 func (s3client *S3Client) GetObjectOutPut(bucketName, key string) (out *s3.GetObjectOutput, err error) {
@@ -313,10 +339,10 @@ func (s3Client *S3Client) PostObject(pbi *PostObjectInput) error {
 	}
 	if resp.StatusCode >= 300 {
 		type responseError struct {
-			XMLName    xml.Name `xml:"Error"`
-			Code       string   `xml:"Code"`
-			Message    string   `xml:"Message"`
-			RequestId  string   `xml:"RequestId"`
+			XMLName   xml.Name `xml:"Error"`
+			Code      string   `xml:"Code"`
+			Message   string   `xml:"Message"`
+			RequestId string   `xml:"RequestId"`
 		}
 		bodyBytes, err := ioutil.ReadAll(resp.Body)
 		if err != nil {

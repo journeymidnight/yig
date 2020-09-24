@@ -54,6 +54,7 @@ const (
 	XSSECopyKey                  HeaderFieldKey = "-Copy-Source-Server-Side-Encryption-Customer-Key"       // SSECopyKey is the HTTP header key referencing the SSE-C client-provided key for SSE-C copy requests.
 	XSSECopyKeyMD5               HeaderFieldKey = "-Copy-Source-Server-Side-Encryption-Customer-Key-Md5"   // SSECopyKeyMD5 is the HTTP header key referencing the MD5 sum of the client key for SSE-C copy requests.
 	SSEKmsID                     HeaderFieldKey = "-Kms-Key-Id"                                            // SSEKmsID is the HTTP header key referencing the SSE-KMS key ID.
+	XMpPartsCount                HeaderFieldKey = "-Mp-Parts-Count"
 	XRestore                     HeaderFieldKey = "-Restore"
 	XForbidOverwrite             HeaderFieldKey = "-Forbid-Overwrite"
 	XCopySource                  HeaderFieldKey = "-Copy-Source"

@@ -15,7 +15,7 @@ func NewKMS(plugins map[string]*mods.YigPlugin) KMS {
 				helper.Logger.Error("failed to initial KMS plugin:", name, "\nerr:", err)
 				return nil
 			}
-			helper.Logger.Println("Message KMS plugin is", name)
+			helper.Logger.Info("Message KMS plugin is", name)
 			kms = c.(KMS)
 			return kms
 		}
