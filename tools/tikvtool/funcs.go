@@ -573,7 +573,7 @@ func ConvertFunc() (err error) {
 	}
 
 	// specify the tables you wanna parse
-	// NOTE: TableObjectPart and TableRestoreObjectPart should be parsed together
+	// NOTE: TableObjectPart and TableRestoreObjectPart should be parsed first
 	var tables []string
 	if global.Table != "" {
 		if _, ok := TableMap[global.Table]; !ok {
@@ -581,16 +581,16 @@ func ConvertFunc() (err error) {
 			os.Exit(1)
 		}
 		if global.Table == TableObjects {
-			tables = []string{TableObjects, TableObjectPart}
+			tables = []string{TableObjectPart, TableObjects}
 		} else if global.Table == TableRestore {
-			tables = []string{TableRestore, TableRestoreObjectPart}
+			tables = []string{TableRestoreObjectPart, TableRestore}
 		} else {
 			tables = []string{global.Table}
 		}
 	} else {
 		tables = []string{
-			TableBuckets, TableUsers, TableObjects, TableObjectPart, TableMultiParts, TableParts, TableClusters, TableHotObjects,
-			TableRestore, TableRestoreObjectPart, TableLifeCycle, TableQos,
+			TableBuckets, TableUsers, TableObjectPart, TableObjects, TableMultiParts, TableParts, TableClusters, TableHotObjects,
+			TableRestoreObjectPart, TableRestore, TableLifeCycle, TableQos,
 		}
 	}
 

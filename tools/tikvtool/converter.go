@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	error2 "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/helper"
 
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/meta/common"
@@ -128,20 +128,33 @@ func parseObject(dml []byte, ref interface{}) (err error) {
 	o.Etag = toString(extractConstant(&remain))
 	o.ContentType = toString(extractConstant(&remain))
 	attrs := extractJson(&remain)
-	if toString(attrs) == "null" || toString(attrs) == "{}" {
+	if toString(attrs) == "{}" {
 		o.CustomAttributes = nil
+		aclStr := extractJson(&remain)
+		err = json.Unmarshal(aclStr, &o.ACL)
+		if err != nil {
+			return fmt.Errorf("json.Unmarshal o.ACL err: %s", err.Error())
+		}
+	} else if strings.HasPrefix(toString(attrs), "null") {
+		// attr is : `null','{"CannedAcl": ""}`
+		o.CustomAttributes = nil
+		aclStr := attrs[7:]
+		err = json.Unmarshal(aclStr, &o.ACL)
+		if err != nil {
+			return fmt.Errorf("json.Unmarshal o.ACL err: %s", err.Error())
+		}
 	} else {
 		err = json.Unmarshal(attrs, &o.CustomAttributes)
 		if err != nil {
-			return
+			return fmt.Errorf("json.Unmarshal o.CustomAttributes %s err: %s", toString(attrs), err.Error())
+		}
+		aclStr := extractJson(&remain)
+		err = json.Unmarshal(aclStr, &o.ACL)
+		if err != nil {
+			return fmt.Errorf("json.Unmarshal o.ACL err: %s", err.Error())
 		}
 	}
 
-	aclStr := extractJson(&remain)
-	err = json.Unmarshal(aclStr, &o.ACL)
-	if err != nil {
-		return
-	}
 	//Ignore nullVersion
 	extractConstant(&remain)
 	deleteMarker := toString(extractConstant(&remain))
@@ -152,13 +165,13 @@ func parseObject(dml []byte, ref interface{}) (err error) {
 	tp := toString(extractConstant(&remain))
 	tpN, err := strconv.Atoi(tp)
 	if err != nil {
-		return err
+		return fmt.Errorf("strconv.Atoi o.Type %s err: %s", tp, err.Error())
 	}
 	o.Type = types.ObjectType(tpN)
 	storageClass := toString(extractConstant(&remain))
 	storageClassN, err := strconv.Atoi(storageClass)
 	if err != nil {
-		return err
+		return fmt.Errorf("strconv.Atoi o.StorageClass %s err: %s", storageClass, err.Error())
 	}
 	o.StorageClass = common.StorageClass(storageClassN)
 	cTime := toString(extractConstant(&remain))
@@ -177,6 +190,25 @@ func (_ ObjectConverter) Parse(dml []byte, ref interface{}) (err error) {
 
 func (_ ObjectConverter) Convert(ref interface{}) (err error) {
 	o := ref.(*types.Object)
+	if o.Type == types.ObjectTypeMultipart {
+		v := math.MaxUint64 - o.CreateTime
+		partStartKey := GenTempObjectPartKey(o.BucketName, o.Name, strconv.FormatUint(v, 10), 0)
+		partEndKey := GenTempObjectPartKey(o.BucketName, o.Name, strconv.FormatUint(v, 10), 10000)
+		kvs, err := c.TxScan(partStartKey, partEndKey, 10000, nil)
+		if err != nil {
+			return err
+		}
+		var parts = make(map[int]*types.Part)
+		for _, kv := range kvs {
+			var part types.Part
+			err = helper.MsgPackUnMarshal(kv.V, &part)
+			if err != nil {
+				return err
+			}
+			parts[part.PartNumber] = &part
+		}
+		o.Parts = parts
+	}
 	return c.PutObject(o, nil, false)
 }
 
@@ -482,6 +514,25 @@ func (_ RestoreConverter) Parse(dml []byte, ref interface{}) (err error) {
 
 func (_ RestoreConverter) Convert(ref interface{}) (err error) {
 	f := ref.(*types.Freezer)
+	if f.Type == types.ObjectTypeMultipart {
+		v := math.MaxUint64 - f.CreateTime
+		partStartKey := GenTempRestoreObjectPartKey(f.BucketName, f.Name, strconv.FormatUint(v, 10), 0)
+		partEndKey := GenTempRestoreObjectPartKey(f.BucketName, f.Name, strconv.FormatUint(v, 10), 10000)
+		kvs, err := c.TxScan(partStartKey, partEndKey, 10000, nil)
+		if err != nil {
+			return err
+		}
+		var parts = make(map[int]*types.Part)
+		for _, kv := range kvs {
+			var part types.Part
+			err = helper.MsgPackUnMarshal(kv.V, &part)
+			if err != nil {
+				return err
+			}
+			parts[part.PartNumber] = &part
+		}
+		f.Parts = parts
+	}
 	return c.CreateFreezer(f)
 }
 
@@ -533,26 +584,20 @@ func (_ ObjectPartConverter) Parse(dml []byte, ref interface{}) (err error) {
 	return parseObjectPart(dml, ref)
 }
 
+const TableTempObjectPartsPrefix = "op" // for convert
+
+// version = maxInt64 - object.CreateTime
+func GenTempObjectPartKey(bucketName, objectName, version string, partNum int) []byte {
+	return tikvclient.GenKey(TableTempObjectPartsPrefix, bucketName, objectName, version, fmt.Sprintf("%05d", partNum))
+}
+
 // fill in object meta
 func (_ ObjectPartConverter) Convert(ref interface{}) (err error) {
 	// TODO: Sure Part Version and Time
 	p := ref.(*types.Part)
 	version := strconv.FormatUint(p.Version, 10)
-	o, err := c.GetObject(p.BucketName, p.ObjectName, version, nil)
-	if err != nil && err != error2.ErrNoSuchKey {
-		return err
-	}
-	if err == error2.ErrNoSuchKey {
-		o, err = c.GetObject(p.BucketName, p.ObjectName, types.NullVersion, nil)
-		if err != nil {
-			return err
-		}
-	}
-	if o.Parts == nil {
-		o.Parts = make(map[int]*types.Part)
-	}
-	o.Parts[p.PartNumber] = p
-	return c.PutObject(o, nil, false)
+	key := GenTempObjectPartKey(p.BucketName, p.ObjectName, version, p.PartNumber)
+	return c.TxPut(key, *p)
 }
 
 type RestoreObjectPartConverter struct{}
@@ -561,24 +606,19 @@ func (_ RestoreObjectPartConverter) Parse(dml []byte, ref interface{}) (err erro
 	return parseObjectPart(dml, ref)
 }
 
+const TableTempRestoreObjectPartsPrefix = "rp" // for convert
+
+// version = maxInt64 - object.CreateTime
+func GenTempRestoreObjectPartKey(bucketName, objectName, version string, partNum int) []byte {
+	return tikvclient.GenKey(TableTempRestoreObjectPartsPrefix, bucketName, objectName, version, fmt.Sprintf("%05d", partNum))
+}
+
 func (_ RestoreObjectPartConverter) Convert(ref interface{}) (err error) {
+	// TODO: Sure Part Version and Time
 	p := ref.(*types.Part)
 	version := strconv.FormatUint(p.Version, 10)
-	f, err := c.GetFreezer(p.BucketName, p.ObjectName, version)
-	if err != nil && err != error2.ErrNoSuchKey {
-		return err
-	}
-	if err == error2.ErrNoSuchKey {
-		f, err = c.GetFreezer(p.BucketName, p.ObjectName, types.NullVersion)
-		if err != nil {
-			return err
-		}
-	}
-	if f.Parts == nil {
-		f.Parts = make(map[int]*types.Part)
-	}
-	f.Parts[p.PartNumber] = p
-	return c.CreateFreezer(f)
+	key := GenTempRestoreObjectPartKey(p.BucketName, p.ObjectName, version, p.PartNumber)
+	return c.TxPut(key, *p)
 }
 
 func ConvertByDMLFile(dir, database, table string) {
@@ -589,7 +629,6 @@ func ConvertByDMLFile(dir, database, table string) {
 	dir = strings.TrimRight(dir, "/")
 	for i := 0; ; i++ {
 		dmlFilePath := dir + "/" + database + "." + table + "." + strconv.Itoa(i) + ".sql"
-		fmt.Println("==============" + table + "." + strconv.Itoa(i) + "==============")
 		f, err := os.Open(dmlFilePath)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -602,7 +641,7 @@ func ConvertByDMLFile(dir, database, table string) {
 			return
 		}
 		defer f.Close()
-
+		fmt.Println("==============" + table + "." + strconv.Itoa(i) + "==============")
 		var lineCount int
 		rd := bufio.NewReader(f)
 		for {
@@ -616,6 +655,7 @@ func ConvertByDMLFile(dir, database, table string) {
 				continue
 			}
 			line = bytes.TrimSuffix(line, []byte("\n"))
+			line = bytes.ReplaceAll(line, []byte("\\"), []byte(""))
 			ref := newRef(table)
 			err = t.Converter.Parse(line, ref)
 			if err != nil {

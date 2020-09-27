@@ -54,6 +54,12 @@ func trimLineSides(s []byte) []byte {
 }
 
 func trimSides(s []byte) []byte {
+	// Blob
+	if s[0] == 'x' && s[1] == '\'' {
+		s = s[2:]
+		s = s[:len(s)-1]
+		return s
+	}
 	if s[0] != '\'' {
 		return s
 	}
