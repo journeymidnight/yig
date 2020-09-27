@@ -27,6 +27,7 @@ import (
 
 	. "github.com/journeymidnight/yig/brand"
 	"github.com/journeymidnight/yig/crypto"
+	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/storage"
 )
 
@@ -110,7 +111,7 @@ func CheckValidBucketName(bucketName string) (err error) {
 func xmlFormat(data interface{}) ([]byte, error) {
 	buffer, err := xml.Marshal(data)
 	if err != nil {
-		return nil, err
+		return nil, NewError(InternalFatalError, "xmlFormat marshal err: ", err)
 	}
 	// add XML header
 	headerBytes := []byte(xml.Header)

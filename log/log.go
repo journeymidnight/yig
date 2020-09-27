@@ -12,10 +12,11 @@ import (
 type Level int
 
 const (
-	ErrorLevel Level = 0 // Errors should be properly handled
-	WarnLevel  Level = 1 // Errors could be ignored; messages might need noticed
-	InfoLevel  Level = 2 // Informational messages
-	DebugLevel Level = 3 // Debug messages
+	FatalLevel Level = 0 // Errors must be properly handled
+	ErrorLevel Level = 1 // Errors should be handled, maybe not too urgent
+	WarnLevel  Level = 2 // Errors could be ignored; messages might need noticed
+	InfoLevel  Level = 3 // Informational messages
+	DebugLevel Level = 4 // Debug messages
 )
 
 func ParseLevel(levelString string) Level {
@@ -26,6 +27,8 @@ func ParseLevel(levelString string) Level {
 		return WarnLevel
 	case "error":
 		return ErrorLevel
+	case "fatal":
+		return FatalLevel
 	case "debug":
 		return DebugLevel
 	default:
@@ -77,7 +80,7 @@ func getCaller(skipCallDepth int) string {
 		return ""
 	}
 	fileParts := strings.Split(fullPath, "/")
-	file := fileParts[len(fileParts)-1]
+	file := fileParts[len(fileParts)-2] + "/" + fileParts[len(fileParts)-1]
 	return fmt.Sprintf("%s:%d", file, line)
 }
 
@@ -88,6 +91,43 @@ func (l Logger) prefixArray() []interface{} {
 		array = append(array, l.requestID)
 	}
 	return array
+}
+
+func (l Logger) Log(level Level, args ...interface{}) {
+	prefixArray := l.prefixArray()
+	switch level {
+	case InfoLevel:
+		if l.level < InfoLevel {
+			return
+		}
+		prefixArray = append(prefixArray, "[INFO]")
+		break
+	case WarnLevel:
+		if l.level < WarnLevel {
+			return
+		}
+		prefixArray = append(prefixArray, "[WARN]")
+		break
+	case ErrorLevel:
+		if l.level < ErrorLevel {
+			return
+		}
+		prefixArray = append(prefixArray, "[ERROR]")
+		break
+	case FatalLevel:
+		if l.level < FatalLevel {
+			return
+		}
+		prefixArray = append(prefixArray, "[FATAl]")
+		break
+	case DebugLevel:
+		if l.level < DebugLevel {
+			return
+		}
+		prefixArray = append(prefixArray, "[DEBUG]")
+	}
+	args = append(prefixArray, args...)
+	l.logger.Println(args...)
 }
 
 func (l Logger) Info(args ...interface{}) {
@@ -116,6 +156,16 @@ func (l Logger) Error(args ...interface{}) {
 	}
 	prefixArray := l.prefixArray()
 	prefixArray = append(prefixArray, "[ERROR]")
+	args = append(prefixArray, args...)
+	l.logger.Println(args...)
+}
+
+func (l Logger) Fatal(args ...interface{}) {
+	if l.level < FatalLevel {
+		return
+	}
+	prefixArray := l.prefixArray()
+	prefixArray = append(prefixArray, "[FATAl]")
 	args = append(prefixArray, args...)
 	l.logger.Println(args...)
 }

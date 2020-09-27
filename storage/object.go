@@ -585,7 +585,7 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
 	defer data.Close()
 	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, bucketName, objectName)
-	helper.Logger.Debug("get encryptionKey:", encryptionKey, "cipherKey:", cipherKey, "err:", err)
+	reqCtx.Logger.Debug("get encryptionKey:", encryptionKey, "cipherKey:", cipherKey, "err:", err)
 	if err != nil {
 		return
 	}
@@ -660,13 +660,13 @@ func (yig *YigStorage) PutObject(reqCtx RequestContext, credential common.Creden
 	}
 	if int64(bytesWritten) < size {
 		RecycleQueue <- maybeObjectToRecycle
-		helper.Logger.Error("Failed to write objects, already written",
+		reqCtx.Logger.Error("Failed to write objects, already written",
 			bytesWritten, "total size", size)
 		return result, ErrIncompleteBody
 	}
 
 	calculatedMd5 := hex.EncodeToString(md5Writer.Sum(nil))
-	helper.Logger.Info("CalculatedMd5:", calculatedMd5, "userMd5:", metadata["md5Sum"])
+	reqCtx.Logger.Info("CalculatedMd5:", calculatedMd5, "userMd5:", metadata["md5Sum"])
 	if userMd5, ok := metadata["md5Sum"]; ok {
 		if userMd5 != "" && userMd5 != calculatedMd5 {
 			RecycleQueue <- maybeObjectToRecycle
@@ -765,8 +765,8 @@ func (yig *YigStorage) PutObjectMeta(bucket *meta.Bucket, targetObject *meta.Obj
 
 	err = yig.MetaStorage.UpdateObjectAttrs(targetObject)
 	if err != nil {
-		helper.Logger.Error("Update Object Attrs, sql fails:", err)
-		return ErrInternalError
+		helper.Logger.Debug("Update Object Attrs, sql fails:", err)
+		return err
 	}
 
 	yig.MetaStorage.Cache.Remove(redis.ObjectTable, targetObject.BucketName+":"+targetObject.Name+":"+targetObject.VersionId)
@@ -791,8 +791,8 @@ func (yig *YigStorage) RenameObject(reqCtx RequestContext, targetObject *meta.Ob
 
 	err = yig.MetaStorage.RenameObject(targetObject, sourceObject)
 	if err != nil {
-		helper.Logger.Error("Update Object Attrs, sql fails:", err)
-		return result, ErrInternalError
+		reqCtx.Logger.Debug("Update Object Attrs, sql fails:", err)
+		return result, err
 
 	}
 
@@ -842,13 +842,13 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 		if sourceObject.StorageClass == ObjectStorageClassGlacier {
 			err = yig.MetaStorage.UpdateGlacierObject(reqCtx, targetObject, sourceObject, true, false)
 			if err != nil {
-				helper.Logger.Error("Copy Object with same source and target with GLACIER object, sql fails:", err)
+				reqCtx.Logger.Error("Copy Object with same source and target with GLACIER object, sql fails:", err)
 				return result, ErrInternalError
 			}
 		} else {
 			err = yig.MetaStorage.ReplaceObjectMetas(targetObject)
 			if err != nil {
-				helper.Logger.Error("Copy Object with same source and target, sql fails:", err)
+				reqCtx.Logger.Error("Copy Object with same source and target, sql fails:", err)
 				return result, ErrInternalError
 			}
 		}
@@ -909,7 +909,7 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 				}
 				if bytesW < uint64(part.Size) {
 					RecycleQueue <- maybeObjectToRecycle
-					helper.Logger.Error("Copy part", i, "error:", bytesW, part.Size)
+					reqCtx.Logger.Error("Copy part", i, "error:", bytesW, part.Size)
 					return result, ErrIncompleteBody
 				}
 				if err != nil {
@@ -969,7 +969,7 @@ func (yig *YigStorage) CopyObject(reqCtx RequestContext, targetObject *meta.Obje
 		}
 		if int64(bytesWritten) < targetObject.Size {
 			RecycleQueue <- maybeObjectToRecycle
-			helper.Logger.Error("Copy ", "error:", bytesWritten, targetObject.Size)
+			reqCtx.Logger.Error("Copy ", "error:", bytesWritten, targetObject.Size)
 			return result, ErrIncompleteBody
 		}
 
@@ -1062,13 +1062,13 @@ func (yig *YigStorage) CopyObjectWithRestoreDeceiver(reqCtx RequestContext, targ
 		if sourceObject.StorageClass == ObjectStorageClassGlacier {
 			err = yig.MetaStorage.UpdateGlacierObjectDeceiver(targetObject, sourceObject)
 			if err != nil {
-				helper.Logger.Error("Copy Object with same source and target with GLACIER object, sql fails:", err)
+				reqCtx.Logger.Error("Copy Object with same source and target with GLACIER object, sql fails:", err)
 				return result, ErrInternalError
 			}
 		} else {
 			err = yig.MetaStorage.ReplaceObjectMetas(targetObject)
 			if err != nil {
-				helper.Logger.Error("Copy Object with same source and target, sql fails:", err)
+				reqCtx.Logger.Error("Copy Object with same source and target, sql fails:", err)
 				return result, ErrInternalError
 			}
 		}
@@ -1129,7 +1129,7 @@ func (yig *YigStorage) CopyObjectWithRestoreDeceiver(reqCtx RequestContext, targ
 				}
 				if bytesW < uint64(part.Size) {
 					RecycleQueue <- maybeObjectToRecycle
-					helper.Logger.Error("Copy part", i, "error:", bytesW, part.Size)
+					reqCtx.Logger.Error("Copy part", i, "error:", bytesW, part.Size)
 					return result, ErrIncompleteBody
 				}
 				if err != nil {
@@ -1189,7 +1189,7 @@ func (yig *YigStorage) CopyObjectWithRestoreDeceiver(reqCtx RequestContext, targ
 		}
 		if int64(bytesWritten) < targetObject.Size {
 			RecycleQueue <- maybeObjectToRecycle
-			helper.Logger.Error("Copy ", "error:", bytesWritten, targetObject.Size)
+			reqCtx.Logger.Error("Copy ", "error:", bytesWritten, targetObject.Size)
 			return result, ErrIncompleteBody
 		}
 
@@ -1278,7 +1278,7 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 	bucketName, objectName := reqCtx.BucketName, reqCtx.ObjectName
 	defer data.Close()
 	encryptionKey, cipherKey, err := yig.encryptionKeyFromSseRequest(sseRequest, bucketName, objectName)
-	helper.Logger.Info("get encryptionKey:", encryptionKey, "cipherKey:", cipherKey, "err:", err)
+	reqCtx.Logger.Info("get encryptionKey:", encryptionKey, "cipherKey:", cipherKey, "err:", err)
 	if err != nil {
 		return
 	}
@@ -1346,16 +1346,16 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 		storageClass = objInfo.StorageClass
 		md5Writer, err = helper.Md5WriterFromEtag(objInfo.Etag)
 		if err != nil {
-			helper.Logger.Error("Md5WriterFromEtag:", err)
+			reqCtx.Logger.Error("Md5WriterFromEtag:", err)
 			return result, ErrInternalError
 		}
-		helper.Logger.Info("request append oid:", oid, "iv:", initializationVector, "size:", objSize)
+		reqCtx.Logger.Info("request append oid:", oid, "iv:", initializationVector, "size:", objSize)
 	} else {
 		// New appendable object
 		md5Writer = md5.New()
 		cephCluster, poolName = yig.pickClusterAndPool(bucketName, objectName, storageClass, size, true)
 		if cephCluster == nil {
-			helper.Logger.Warn("PickOneClusterAndPool error")
+			reqCtx.Logger.Warn("PickOneClusterAndPool error")
 			return result, ErrInternalError
 		}
 		if len(encryptionKey) != 0 {
@@ -1364,7 +1364,7 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 				return
 			}
 		}
-		helper.Logger.Info("request first append oid:", oid, "iv:", initializationVector, "size:", objSize)
+		reqCtx.Logger.Info("request first append oid:", oid, "iv:", initializationVector, "size:", objSize)
 	}
 
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
@@ -1379,7 +1379,7 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 	prepareEnd := time.Now()
 	oid, bytesWritten, err := cephCluster.Append(poolName, oid, throttleReader, int64(offset), size)
 	if err != nil {
-		helper.Logger.Error("cephCluster.Append err:", err, poolName, oid, offset)
+		reqCtx.Logger.Error("cephCluster.Append err:", err, poolName, oid, offset)
 		return
 	}
 	appendEnd := time.Now()
@@ -1442,7 +1442,7 @@ func (yig *YigStorage) AppendObject(reqCtx RequestContext, credential common.Cre
 		yig.DataCache.Remove(bucketName + ":" + objectName + ":" + object.VersionId)
 	}
 	redisEnd := time.Now()
-	helper.Logger.Info("Append info.", "bucket:", bucketName, "objName:", objectName, "oid:", oid,
+	reqCtx.Logger.Info("Append info.", "bucket:", bucketName, "objName:", objectName, "oid:", oid,
 		"objSize:", object.Size, "bytesWritten:", bytesWritten, "storageClass:", storageClass,
 		"prepareCost:", prepareEnd.Sub(prepareStart).Milliseconds(),
 		"appendCost:", appendEnd.Sub(prepareEnd).Milliseconds(),
@@ -1490,7 +1490,7 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 					err = yig.MetaStorage.DeleteFreezer(freezer, true)
 				}
 			} else if err != ErrNoSuchKey {
-				helper.Logger.Warn("DeleteObject err with freezer delete err:", err)
+				reqCtx.Logger.Warn("DeleteObject err with freezer delete err:", err)
 				return result, err
 			}
 		}
@@ -1580,7 +1580,7 @@ func (yig *YigStorage) DeleteObject(reqCtx RequestContext,
 
 		}
 	default:
-		helper.Logger.Error("Invalid bucket versioning:", bucketName)
+		reqCtx.Logger.Error("Invalid bucket versioning:", bucketName)
 		return result, ErrInternalError
 	}
 
@@ -1655,7 +1655,7 @@ func (yig *YigStorage) DeleteObjects(reqCtx RequestContext, credential common.Cr
 					err = yig.MetaStorage.DeleteFreezer(freezer, true)
 				}
 			} else if err != ErrNoSuchKey {
-				helper.Logger.Warn("DeleteObject err with freezer delete err:", err)
+				reqCtx.Logger.Warn("DeleteObject err with freezer delete err:", err)
 				return result, err
 			}
 		}
@@ -1745,7 +1745,7 @@ func (yig *YigStorage) DeleteObjects(reqCtx RequestContext, credential common.Cr
 				}
 			}
 		default:
-			helper.Logger.Error("Invalid bucket versioning:", bucketName)
+			reqCtx.Logger.Error("Invalid bucket versioning:", bucketName)
 			return result, ErrInternalError
 		}
 		return result, nil
@@ -1789,7 +1789,7 @@ func (yig *YigStorage) DeleteObjects(reqCtx RequestContext, credential common.Cr
 						delResult.VersionId, "").(string),
 				})
 			} else {
-				helper.Logger.Error("Unable to delete object:", err)
+				reqCtx.Logger.Error("Unable to delete object:", err)
 				apiErrorCode, ok := err.(ApiErrorCode)
 				if ok {
 					deleteErrors = append(deleteErrors, datatype.DeleteError{

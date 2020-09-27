@@ -16,12 +16,12 @@ import (
 )
 
 func (api ObjectAPIHandlers) PutBucketWebsiteHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := GetRequestContext(r)
-	logger := ctx.Logger
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 
 	var credential common.Credential
 	var err error
-	switch ctx.AuthType {
+	switch reqCtx.AuthType {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -31,16 +31,18 @@ func (api ObjectAPIHandlers) PutBucketWebsiteHandler(w http.ResponseWriter, r *h
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
+			e, logLevel := ParseError(err)
+			logger.Log(logLevel, "PutBucketWebsiteHandler signature authenticate err:", err)
+			WriteErrorResponse(w, r, e)
 			return
 		}
 	}
 
-	if ctx.BucketInfo == nil {
+	if reqCtx.BucketInfo == nil {
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return
 	}
-	if credential.UserId != ctx.BucketInfo.OwnerId {
+	if credential.UserId != reqCtx.BucketInfo.OwnerId {
 		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
 		return
 	}
@@ -53,26 +55,28 @@ func (api ObjectAPIHandlers) PutBucketWebsiteHandler(w http.ResponseWriter, r *h
 
 	websiteConfig, err := ParseWebsiteConfig(io.LimitReader(r.Body, r.ContentLength))
 	if err != nil {
-		WriteErrorResponse(w, r, err)
-		return
+		e, logLevel := ParseError(err)
+		logger.Log(logLevel, "Unable to parse encryption config:", err)
+		WriteErrorResponse(w, r, e)
 	}
 
-	err = api.ObjectAPI.SetBucketWebsite(ctx.BucketInfo, *websiteConfig)
+	err = api.ObjectAPI.SetBucketWebsite(reqCtx.BucketInfo, *websiteConfig)
 	if err != nil {
-		logger.Error("Unable to set website for bucket:", err)
-		WriteErrorResponse(w, r, err)
+		e, logLevel := ParseError(err)
+		logger.Log(logLevel, "Unable to set website for bucket:", err)
+		WriteErrorResponse(w, r, e)
 		return
 	}
 	WriteSuccessResponse(w, r, nil)
 }
 
 func (api ObjectAPIHandlers) GetBucketWebsiteHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := GetRequestContext(r)
-	logger := ctx.Logger
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 
 	var credential common.Credential
 	var err error
-	switch ctx.AuthType {
+	switch reqCtx.AuthType {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -82,32 +86,36 @@ func (api ObjectAPIHandlers) GetBucketWebsiteHandler(w http.ResponseWriter, r *h
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
+			e, logLevel := ParseError(err)
+			logger.Log(logLevel, "GetBucketWebsiteHandler signature authenticate err:", err)
+			WriteErrorResponse(w, r, e)
 			return
 		}
 	}
 
-	if ctx.BucketInfo == nil {
+	if reqCtx.BucketInfo == nil {
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return
 	}
-	if credential.UserId != ctx.BucketInfo.OwnerId {
+	if credential.UserId != reqCtx.BucketInfo.OwnerId {
 		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
 		return
 	}
 
 	// Read bucket access policy.
-	bucketWebsite, err := api.ObjectAPI.GetBucketWebsite(ctx.BucketName)
+	bucketWebsite, err := api.ObjectAPI.GetBucketWebsite(reqCtx.BucketName)
 	if err != nil {
-		WriteErrorResponse(w, r, err)
+		e, logLevel := ParseError(err)
+		logger.Log(logLevel, "Unable to get website from bucket:", err)
+		WriteErrorResponse(w, r, e)
 		return
 	}
 
 	encodedSuccessResponse, err := xmlFormat(bucketWebsite)
 	if err != nil {
-		logger.Error("Failed to marshal Website XML for bucket", ctx.BucketName,
-			"error:", err)
-		WriteErrorResponse(w, r, ErrInternalError)
+		e, logLevel := ParseError(err)
+		logger.Log(logLevel, "Failed to marshal Website XML for bucket:", reqCtx.BucketName, "error:", err)
+		WriteErrorResponse(w, r, e)
 		return
 	}
 
@@ -117,11 +125,12 @@ func (api ObjectAPIHandlers) GetBucketWebsiteHandler(w http.ResponseWriter, r *h
 }
 
 func (api ObjectAPIHandlers) DeleteBucketWebsiteHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := GetRequestContext(r)
+	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 
 	var credential common.Credential
 	var err error
-	switch ctx.AuthType {
+	switch reqCtx.AuthType {
 	default:
 		// For all unknown auth types return error.
 		WriteErrorResponse(w, r, ErrAccessDenied)
@@ -131,22 +140,26 @@ func (api ObjectAPIHandlers) DeleteBucketWebsiteHandler(w http.ResponseWriter, r
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
+			e, logLevel := ParseError(err)
+			logger.Log(logLevel, "DeleteBucketWebsiteHandler signature authenticate err:", err)
+			WriteErrorResponse(w, r, e)
 			return
 		}
 	}
 
-	if ctx.BucketInfo == nil {
+	if reqCtx.BucketInfo == nil {
 		WriteErrorResponse(w, r, ErrNoSuchBucket)
 		return
 	}
-	if credential.UserId != ctx.BucketInfo.OwnerId {
+	if credential.UserId != reqCtx.BucketInfo.OwnerId {
 		WriteErrorResponse(w, r, ErrBucketAccessForbidden)
 		return
 	}
 
-	if err := api.ObjectAPI.DeleteBucketWebsite(ctx.BucketInfo); err != nil {
-		WriteErrorResponse(w, r, err)
+	if err := api.ObjectAPI.DeleteBucketWebsite(reqCtx.BucketInfo); err != nil {
+		e, logLevel := ParseError(err)
+		logger.Log(logLevel, "Unable to delete website for bucket:", err)
+		WriteErrorResponse(w, r, e)
 		return
 	}
 	// Success.
@@ -201,9 +214,10 @@ func (api ObjectAPIHandlers) HandledByWebsite(w http.ResponseWriter, r *http.Req
 			indexName := reqCtx.ObjectName + id.Suffix
 			credential := common.Credential{}
 			isAllow, err := IsBucketPolicyAllowed(credential.UserId, reqCtx.BucketInfo, r, policy.GetObjectAction, indexName)
-
 			if err != nil {
-				WriteErrorResponse(w, r, err)
+				e, logLevel := ParseError(err)
+				logger.Log(logLevel, "HandledByWebsite IsBucketPolicyAllowed err:", err)
+				WriteErrorResponse(w, r, e)
 				return true
 			}
 			credential.AllowOtherUserAccess = isAllow
@@ -213,19 +227,22 @@ func (api ObjectAPIHandlers) HandledByWebsite(w http.ResponseWriter, r *http.Req
 					api.errAllowableObjectNotFound(w, r, credential)
 					return true
 				}
-				WriteErrorResponse(w, r, err)
+				e, logLevel := ParseError(err)
+				logger.Log(logLevel, "Unable to fetch object info:", err)
+				WriteErrorResponse(w, r, e)
 				return true
 			}
 			writer := newGetObjectResponseWriter(w, r, index, nil, http.StatusOK, "", reqCtx.AuthType)
 			// Reads the object at startOffset and writes to mw.
 			if err := api.ObjectAPI.GetObject(index, 0, index.Size, writer, datatype.SseRequest{}); err != nil {
-				logger.Error("Unable to write to client:", err)
+				e, logLevel := ParseError(err)
+				logger.Log(logLevel, "Unable to write to client:", err)
 				if !writer.dataWritten {
 					// Error response only if no data has been written to client yet. i.e if
 					// partial data has already been written before an error
 					// occurred then no point in setting StatusCode and
 					// sending error XML.
-					WriteErrorResponse(w, r, err)
+					WriteErrorResponse(w, r, e)
 				}
 				return true
 			}
@@ -256,25 +273,30 @@ func (api ObjectAPIHandlers) ReturnWebsiteErrorDocument(w http.ResponseWriter, r
 		credential := common.Credential{}
 		isAllow, err := IsBucketPolicyAllowed(credential.UserId, reqCtx.BucketInfo, r, policy.GetObjectAction, indexName)
 		if err != nil {
-			WriteErrorResponse(w, r, err)
+			e, logLevel := ParseError(err)
+			logger.Log(logLevel, "ReturnWebsiteErrorDocument IsBucketPolicyAllowed err:", err)
+			WriteErrorResponse(w, r, e)
 			return true
 		}
 		credential.AllowOtherUserAccess = isAllow
 		index, err := api.ObjectAPI.GetObjectInfo(reqCtx.BucketName, indexName, "", credential)
 		if err != nil {
-			WriteErrorResponse(w, r, err)
+			e, logLevel := ParseError(err)
+			logger.Log(logLevel, "Unable to fetch object info:", err)
+			WriteErrorResponse(w, r, e)
 			return true
 		}
 		writer := newGetObjectResponseWriter(w, r, index, nil, http.StatusNotFound, "", reqCtx.AuthType)
 		// Reads the object at startOffset and writes to mw.
 		if err := api.ObjectAPI.GetObject(index, 0, index.Size, writer, datatype.SseRequest{}); err != nil {
-			logger.Error("Unable to write to client:", err)
+			e, logLevel := ParseError(err)
+			logger.Log(logLevel, "Unable to write to client:", err)
 			if !writer.dataWritten {
 				// Error response only if no data has been written to client yet. i.e if
 				// partial data has already been written before an error
 				// occurred then no point in setting StatusCode and
 				// sending error XML.
-				WriteErrorResponse(w, r, err)
+				WriteErrorResponse(w, r, e)
 			}
 			return true
 		}

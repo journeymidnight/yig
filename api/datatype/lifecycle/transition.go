@@ -33,7 +33,7 @@ func (tDays *TransitionDays) UnmarshalXML(d *xml.Decoder, startElement xml.Start
 	var numDays int
 	err := d.DecodeElement(&numDays, &startElement)
 	if err != nil {
-		return err
+		return NewError(InDatatypeFatalError, "UnmarshalXML err", err)
 	}
 	if numDays <= 0 {
 		return ErrInvalidLcDays
@@ -62,7 +62,7 @@ func (tDate *TransitionDate) UnmarshalXML(d *xml.Decoder, startElement xml.Start
 	var dateStr string
 	err := d.DecodeElement(&dateStr, &startElement)
 	if err != nil {
-		return err
+		return NewError(InDatatypeFatalError, "UnmarshalXML err", err)
 	}
 	helper.Logger.Info("dateStr:", dateStr)
 	// While AWS documentation mentions that the date specified

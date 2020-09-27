@@ -3,7 +3,6 @@ package ceph
 import (
 	"bytes"
 	"container/list"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/journeymidnight/radoshttpd/rados"
 	"github.com/journeymidnight/yig/backend"
+	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 )
 
@@ -220,18 +220,18 @@ func (cluster *CephCluster) Shutdown() {
 func (cluster *CephCluster) doSmallPut(poolname string, oid string, data io.Reader) (size uint64, err error) {
 	pool, err := cluster.Conn.OpenPool(poolname)
 	if err != nil {
-		return 0, errors.New("Bad poolname")
+		return 0, NewError(InCephFatalError, "doSmallPut bad pool name", nil)
 	}
 	defer pool.Destroy()
 
 	buf, err := ioutil.ReadAll(data)
 	size = uint64(len(buf))
 	if err != nil {
-		return 0, errors.New("Read from client failed")
+		return 0, NewError(InCephFatalError, "doSmallPut r ead from client failed", nil)
 	}
 	err = pool.WriteSmallObject(oid, buf)
 	if err != nil {
-		return 0, err
+		return 0, NewError(InCephFatalError, "doSmallPut WriteSmallObject err", err)
 	}
 
 	return size, nil
@@ -256,18 +256,18 @@ func readAll(r io.Reader, capacity int64) (b []byte, err error) {
 		buf.Grow(int(capacity))
 	}
 	_, err = buf.ReadFrom(r)
-	return buf.Bytes(), err
+	return buf.Bytes(), NewError(InCephFatalError, "readAll WriteSmallObject err", err)
 }
 
 func (cluster *CephCluster) doSmallAppend(poolname string, oid string, offset uint64, length int64, data io.Reader) (size uint64, err error) {
 	pool, err := cluster.Conn.OpenPool(poolname)
 	if err != nil {
-		return 0, errors.New("Bad poolname")
+		return 0, NewError(InCephFatalError, "doSmallAppend bad pool name", nil)
 	}
 	defer pool.Destroy()
 	striper, err := pool.CreateStriper()
 	if err != nil {
-		return 0, fmt.Errorf("Bad ioctx of pool %s", poolname)
+		return 0, NewError(InCephFatalError, "doSmallAppend bad ioctx of pool "+poolname, nil)
 	}
 	defer striper.Destroy()
 
@@ -283,7 +283,7 @@ func (cluster *CephCluster) doSmallAppend(poolname string, oid string, offset ui
 		count, err := data.Read(slice)
 		singltReadEnd := time.Now()
 		if err != io.EOF && err != nil {
-			return 0, errors.New("Read from client failed")
+			return 0, NewError(InCephFatalError, "doSmallAppend read from client failed", nil)
 		}
 		helper.Logger.Debug("Append info doSmallAppend oid:", oid, " count: ", count, " spend: ", singltReadEnd.Sub(singltReadStart).Milliseconds())
 		// it's used to calculate next upload window
@@ -295,8 +295,7 @@ func (cluster *CephCluster) doSmallAppend(poolname string, oid string, offset ui
 	}
 
 	if slice_offset < int(length) {
-		helper.Logger.Error("Append info doSmallAppend read data less than content-length", slice_offset, length)
-		return 0, errors.New("Read data less than content-length")
+		return 0, NewError(InCephFatalError, fmt.Sprintf("Append info doSmallAppend read data less than content-length %d %d", slice_offset, length), nil)
 	}
 
 	readEnd := time.Now()
@@ -306,7 +305,7 @@ func (cluster *CephCluster) doSmallAppend(poolname string, oid string, offset ui
 	_, err = striper.Write(oid, wBuf, uint64(offset))
 	writeEnd := time.Now()
 	if err != nil {
-		return 0, err
+		return 0, NewError(InCephFatalError, "doSmallAppend striper write failed", err)
 	}
 	helper.Logger.Info("Append info doSmallAppend oid:", oid, " offset:", offset, " sise:", size, " make cost:", makePoint.Sub(readStart).Milliseconds(), " read cost:", readEnd.Sub(readStart).Milliseconds(), " write cost:", writeEnd.Sub(writeStart).Milliseconds())
 	return size, nil
@@ -363,13 +362,13 @@ func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
 
 	pool, err := cluster.Conn.OpenPool(poolname)
 	if err != nil {
-		return oid, 0, fmt.Errorf("Bad poolname %s", poolname)
+		return oid, 0, NewError(InCephFatalError, "Put bad pool name "+poolname, nil)
 	}
 	defer pool.Destroy()
 
 	striper, err := pool.CreateStriper()
 	if err != nil {
-		return oid, 0, fmt.Errorf("Bad ioctx of pool %s", poolname)
+		return oid, 0, NewError(InCephFatalError, "Put bad ioctx of pool "+poolname, nil)
 	}
 	defer striper.Destroy()
 
@@ -395,8 +394,7 @@ func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
 		count, err := data.Read(slice)
 		if err != nil && err != io.EOF {
 			drain_pending(pending)
-			return oid, 0,
-				fmt.Errorf("Read from client failed. pool:%s oid:%s", poolname, oid)
+			return oid, 0, NewError(InCephFatalError, fmt.Sprintf("Put read from client failed. pool:%s oid:%s", poolname, oid), nil)
 		}
 		if count == 0 {
 			break
@@ -417,24 +415,21 @@ func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
 		if err != nil {
 			c.Release()
 			drain_pending(pending)
-			return oid, 0,
-				fmt.Errorf("Bad io. pool:%s oid:%s", poolname, oid)
+			return oid, 0, NewError(InCephFatalError, fmt.Sprintf("Put bad io. pool:%s oid:%s", poolname, oid), nil)
 		}
 		pending.PushBack(c)
 
 		for pending_has_completed(pending) {
 			if ret := wait_pending_front(pending); ret < 0 {
 				drain_pending(pending)
-				return oid, 0,
-					fmt.Errorf("Error drain_pending in pending_has_completed. pool:%s oid:%s", poolname, oid)
+				return oid, 0, NewError(InCephFatalError, fmt.Sprintf("Put error drain_pending in pending_has_completed. pool:%s oid:%s", poolname, oid), nil)
 			}
 		}
 
 		if pending.Len() > AIO_CONCURRENT {
 			if ret := wait_pending_front(pending); ret < 0 {
 				drain_pending(pending)
-				return oid, 0,
-					fmt.Errorf("Error wait_pending_front. pool:%s oid:%s", poolname, oid)
+				return oid, 0, NewError(InCephFatalError, fmt.Sprintf("Put error wait_pending_front. pool:%s oid:%s", poolname, oid), nil)
 			}
 		}
 		offset += uint64(len(pending_data))
@@ -470,16 +465,14 @@ func (cluster *CephCluster) Put(poolname string, data io.Reader) (oid string,
 		c, err = striper.WriteAIO(oid, pending_data[:slice_offset], offset)
 		if err != nil {
 			c.Release()
-			return oid, 0, fmt.Errorf("error writing remaining data, pool:%s oid:%s",
-				poolname, oid)
+			return oid, 0, NewError(InCephFatalError, fmt.Sprintf("Put error writing remaining data, pool:%s oid:%s", poolname, oid), nil)
 		}
 		pending.PushBack(c)
 	}
 
 	//drain_pending
 	if ret := drain_pending(pending); ret < 0 {
-		return oid, 0,
-			fmt.Errorf("Error wait_pending_front. pool:%s oid:%s", poolname, oid)
+		return oid, 0, NewError(InCephFatalError, fmt.Sprintf("Put error wait_pending_front. pool:%s oid:%s", poolname, oid), nil)
 	}
 	return oid, size, nil
 }
@@ -506,15 +499,13 @@ func (cluster *CephCluster) Append(poolname string, existName string, data io.Re
 
 	pool, err := cluster.Conn.OpenPool(poolname)
 	if err != nil {
-		return oid, 0,
-			fmt.Errorf("Bad poolname %s", poolname)
+		return oid, 0, NewError(InCephFatalError, fmt.Sprintf("Append bad poolname %s", poolname), nil)
 	}
 	defer pool.Destroy()
 
 	striper, err := pool.CreateStriper()
 	if err != nil {
-		return oid, 0,
-			fmt.Errorf("Bad ioctx of pool %s", poolname)
+		return oid, 0, NewError(InCephFatalError, fmt.Sprintf("Append bad ioctx of pool %s", poolname), nil)
 	}
 	defer striper.Destroy()
 
@@ -549,8 +540,7 @@ func (cluster *CephCluster) Append(poolname string, existName string, data io.Re
 		/* pending data is full now */
 		_, err = striper.Write(oid, pending_data, uint64(offset))
 		if err != nil {
-			return oid, 0,
-				fmt.Errorf("Bad io. pool:%s oid:%s", poolname, oid)
+			return oid, 0, NewError(InCephFatalError, fmt.Sprintf("Append bad io. pool:%s oid:%s", poolname, oid), nil)
 		}
 
 		offset += int64(len(pending_data))
@@ -585,8 +575,7 @@ func (cluster *CephCluster) Append(poolname string, existName string, data io.Re
 	if slice_offset > 0 {
 		_, err = striper.Write(oid, pending_data, uint64(offset))
 		if err != nil {
-			return oid, 0,
-				fmt.Errorf("Bad io. pool:%s oid:%s", poolname, oid)
+			return oid, 0, NewError(InCephFatalError, fmt.Sprintf("Append bad io. pool:%s oid:%s", poolname, oid), nil)
 		}
 	}
 
@@ -641,7 +630,7 @@ func (cluster *CephCluster) GetReader(poolName string, oid string, startOffset i
 	if poolName == backend.SMALL_FILE_POOLNAME {
 		pool, e := cluster.Conn.OpenPool(poolName)
 		if e != nil {
-			err = errors.New("bad poolname")
+			err = NewError(InCephFatalError, "bad pool name", nil)
 			return
 		}
 		_, _, _, striped := splitOid(oid)
@@ -656,7 +645,7 @@ func (cluster *CephCluster) GetReader(poolName string, oid string, startOffset i
 		} else {
 			striper, err := pool.CreateStriper()
 			if err != nil {
-				err = errors.New("bad ioctx")
+				err = NewError(InCephFatalError, "bad ioctx", nil)
 				return reader, err
 			}
 
@@ -675,13 +664,13 @@ func (cluster *CephCluster) GetReader(poolName string, oid string, startOffset i
 
 	pool, err := cluster.Conn.OpenPool(poolName)
 	if err != nil {
-		err = errors.New("bad poolname")
+		err = NewError(InCephFatalError, "bad pool name", nil)
 		return
 	}
 
 	striper, err := pool.CreateStriper()
 	if err != nil {
-		err = errors.New("bad ioctx")
+		err = NewError(InCephFatalError, "bad ioctx", nil)
 		return
 	}
 
@@ -699,7 +688,7 @@ func (cluster *CephCluster) GetReader(poolName string, oid string, startOffset i
 func (cluster *CephCluster) doSmallRemove(poolname string, oid string) error {
 	pool, err := cluster.Conn.OpenPool(poolname)
 	if err != nil {
-		return errors.New("Bad poolname")
+		return NewError(InCephFatalError, "bad pool name", nil)
 	}
 	defer pool.Destroy()
 	return pool.Delete(oid)
@@ -714,13 +703,13 @@ func (cluster *CephCluster) Remove(poolname string, oid string) error {
 		} else {
 			pool, err := cluster.Conn.OpenPool(poolname)
 			if err != nil {
-				return errors.New("Bad poolname")
+				return NewError(InCephFatalError, "bad pool name", nil)
 			}
 			defer pool.Destroy()
 
 			striper, err := pool.CreateStriper()
 			if err != nil {
-				return errors.New("Bad ioctx")
+				return NewError(InCephFatalError, "Bad ioctx", nil)
 			}
 			defer striper.Destroy()
 			// if we do not set our custom layout, rados will infer all objects filename from default layout setting,
@@ -733,13 +722,13 @@ func (cluster *CephCluster) Remove(poolname string, oid string) error {
 
 	pool, err := cluster.Conn.OpenPool(poolname)
 	if err != nil {
-		return errors.New("Bad poolname")
+		return NewError(InCephFatalError, "bad pool name", nil)
 	}
 	defer pool.Destroy()
 
 	striper, err := pool.CreateStriper()
 	if err != nil {
-		return errors.New("Bad ioctx")
+		return NewError(InCephFatalError, "Bad ioctx", nil)
 	}
 	defer striper.Destroy()
 	// if we do not set our custom layout, rados will infer all objects filename from default layout setting,

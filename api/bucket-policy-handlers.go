@@ -42,6 +42,7 @@ const (
 // https://docs.aws.amazon.com/AmazonS3/latest/dev/access-policy-language-overview.html
 func (api ObjectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *http.Request) {
 	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 
 	var credential common.Credential
 	var err error
@@ -55,7 +56,9 @@ func (api ObjectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *ht
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
+			e, logLevel := ParseError(err)
+			logger.Log(logLevel, "PutBucketPolicyHandler signature authenticate err:", err)
+			WriteErrorResponse(w, r, e)
 			return
 		}
 	}
@@ -86,7 +89,9 @@ func (api ObjectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *ht
 	}
 
 	if err = api.ObjectAPI.SetBucketPolicy(credential, reqCtx.BucketName, *bucketPolicy); err != nil {
-		WriteErrorResponse(w, r, err)
+		e, logLevel := ParseError(err)
+		logger.Log(logLevel, "PutBucketPolicyHandler set policy err:", err)
+		WriteErrorResponse(w, r, e)
 		return
 	}
 
@@ -99,6 +104,7 @@ func (api ObjectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *ht
 // DeleteBucketPolicyHandler - This HTTP handler removes bucket policy configuration.
 func (api ObjectAPIHandlers) DeleteBucketPolicyHandler(w http.ResponseWriter, r *http.Request) {
 	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 	bucket := reqCtx.BucketName
 	var credential common.Credential
 	var err error
@@ -112,13 +118,17 @@ func (api ObjectAPIHandlers) DeleteBucketPolicyHandler(w http.ResponseWriter, r 
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
+			e, logLevel := ParseError(err)
+			logger.Log(logLevel, "DeleteBucketPolicyHandler signature authenticate err:", err)
+			WriteErrorResponse(w, r, e)
 			return
 		}
 	}
 
 	if err := api.ObjectAPI.DeleteBucketPolicy(credential, bucket); err != nil {
-		WriteErrorResponse(w, r, err)
+		e, logLevel := ParseError(err)
+		logger.Log(logLevel, "Failed to delete bucket policy", err)
+		WriteErrorResponse(w, r, e)
 		return
 	}
 
@@ -131,6 +141,7 @@ func (api ObjectAPIHandlers) DeleteBucketPolicyHandler(w http.ResponseWriter, r 
 // GetBucketPolicyHandler - This HTTP handler returns bucket policy configuration.
 func (api ObjectAPIHandlers) GetBucketPolicyHandler(w http.ResponseWriter, r *http.Request) {
 	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 	bucket := reqCtx.BucketName
 	var credential common.Credential
 	var err error
@@ -144,7 +155,9 @@ func (api ObjectAPIHandlers) GetBucketPolicyHandler(w http.ResponseWriter, r *ht
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
+			e, logLevel := ParseError(err)
+			logger.Log(logLevel, "DeleteBucketPolicyHandler signature authenticate err:", err)
+			WriteErrorResponse(w, r, e)
 			return
 		}
 	}
@@ -152,12 +165,16 @@ func (api ObjectAPIHandlers) GetBucketPolicyHandler(w http.ResponseWriter, r *ht
 	// Read bucket access policy.
 	bucketPolicy, err := api.ObjectAPI.GetBucketPolicy(credential, bucket)
 	if err != nil {
-		WriteErrorResponse(w, r, err)
+		e, logLevel := ParseError(err)
+		logger.Log(logLevel, "Failed to get bucket policy", err)
+		WriteErrorResponse(w, r, e)
 		return
 	}
 
 	policyData, err := json.Marshal(bucketPolicy)
 	if err != nil {
+		logger.Fatal("Failed to marshal policy XML for bucket", reqCtx.BucketName,
+			"error:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}

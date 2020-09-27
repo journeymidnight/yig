@@ -1,7 +1,5 @@
 package common
 
-import "errors"
-
 // credential container for access and secret keys.
 type Credential struct {
 	UserId               string
@@ -17,5 +15,3 @@ func (a Credential) String() string {
 	secretStr := "SecretKey: " + a.SecretAccessKey
 	return userId + " " + accessStr + " " + secretStr
 }
-
-var ErrAccessKeyNotExist = errors.New("Access key does not exist")

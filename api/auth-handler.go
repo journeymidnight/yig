@@ -10,7 +10,6 @@ import (
 	"github.com/journeymidnight/yig/api/datatype/policy"
 	"github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
-	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
 	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/signature"
@@ -32,12 +31,11 @@ func checkRequestAuth(r *http.Request, action policy.Action) (c common.Credentia
 		return c, ErrSignatureVersionNotSupported
 	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
 		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
-		helper.Logger.Info("AuthTypeSigned:", authType)
+		logger.Info("AuthTypeSigned:", authType)
 		if c, err := signature.IsReqAuthenticated(r); err != nil {
-			helper.Logger.Info("ErrAccessDenied: IsReqAuthenticated return false:", err)
 			return c, err
 		} else {
-			helper.Logger.Info("Credential:", c)
+			logger.Info("Credential:", c)
 			// check bucket policy
 			isAllow, err := IsBucketPolicyAllowed(c.UserId, ctx.BucketInfo, r, action, ctx.ObjectName)
 			c.AllowOtherUserAccess = isAllow
@@ -61,7 +59,7 @@ func IsBucketPolicyAllowed(userId string, bucket *meta.Bucket, r *http.Request, 
 	var p policy.Policy
 	err = json.Unmarshal(bucket.Policy, &p)
 	if err != nil {
-		return false, err
+		return false, NewError(InDatatypeFatalError, "IsBucketPolicyAllowed unmarshal err", err)
 	}
 	policyResult := p.IsAllowed(policy.Args{
 		// TODO: Add IAM policy. Current account name is always useless.

@@ -93,7 +93,7 @@ func (m *enabledSimpleMetaCache) Get(table redis.RedisDatabase, key string,
 		if willNeed == true {
 			err = redis.RedisConn.Set(table, key, value)
 			if err != nil {
-				helper.Logger.Warn("redis is down!")
+				helper.Logger.Error("redis is down!")
 				//do nothing, even if redis is down.
 			}
 		}

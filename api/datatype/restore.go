@@ -4,6 +4,8 @@ import (
 	"encoding/xml"
 	"io/ioutil"
 	"net/http"
+
+	. "github.com/journeymidnight/yig/error"
 )
 
 type Restore struct {
@@ -22,9 +24,12 @@ func GetRestoreInfo(r *http.Request) (*Restore, error) {
 
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		return nil, err
+		return nil, NewError(InDatatypeFatalError, "Unable to read metadata setting body", err)
 	}
 	err = xml.Unmarshal(body, restoreInfo)
+	if err != nil {
+		return nil, ErrMalformedEncryptionConfiguration
+	}
 
 	return restoreInfo, err
 }

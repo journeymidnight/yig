@@ -51,6 +51,7 @@ const (
 	ErrInvalidBucketName
 	ErrInvalidObjectName
 	ErrInvalidDigest
+	ErrInvalidRangeFormat
 	ErrInvalidRange
 	ErrInvalidEncodingType
 	ErrInvalidContinuationToken
@@ -192,6 +193,7 @@ const (
 	ErrInvalidErrorDocumentKey
 	ErrMalformedMetadataConfiguration
 	ErrMalformedEncryptionConfiguration
+	ErrMalformedRestoreConfiguration
 	ErrMissingRuleInEncryption
 	ErrExceededEncryptionRulesLimit
 	ErrMissingEncryptionByDefaultInEncryptionRule
@@ -369,6 +371,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "InvalidDigest",
 		Description:    "The Content-Md5 you specified is not valid.",
 		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidRangeFormat: {
+		AwsErrorCode:   "InvalidRangeFormat",
+		Description:    "The requested range format is not canonical, should be like 'bytes=10-100' ",
+		HttpStatusCode: http.StatusRequestedRangeNotSatisfiable,
 	},
 	ErrInvalidRange: {
 		AwsErrorCode:   "InvalidRange",
@@ -923,8 +930,13 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrMalformedEncryptionConfiguration: {
-		AwsErrorCode:   "MalformedEncryptionConfiguration",
+		AwsErrorCode:   "InvalidEncryptionConfiguration",
 		Description:    "Cannot Marshal/Unmarshal XML of encryption configuration.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMalformedRestoreConfiguration: {
+		AwsErrorCode:   "InvalidRestoreConfiguration",
+		Description:    "Cannot Marshal/Unmarshal XML of restore configuration.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrMissingRuleInEncryption: {

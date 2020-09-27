@@ -526,7 +526,7 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 
 	md5Writer := md5.New()
 	var totalSize int64 = 0
-	helper.Logger.Info("Upload parts:", uploadedParts, "uploadId:", uploadId)
+	reqCtx.Logger.Info("Upload parts:", uploadedParts, "uploadId:", uploadId)
 	for i := 0; i < len(uploadedParts); i++ {
 		if uploadedParts[i].PartNumber != i+1 {
 			helper.Logger.Error("uploadedParts[i].PartNumber != i+1; i:", i,

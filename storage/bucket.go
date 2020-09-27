@@ -29,7 +29,7 @@ func (yig *YigStorage) MakeBucket(reqCtx RequestContext, acl datatype.Acl,
 	// Input validation.
 
 	if reqCtx.BucketInfo != nil {
-		helper.Logger.Info("Error get bucket:", reqCtx.BucketName, "with error:", ErrBucketAlreadyExists)
+		reqCtx.Logger.Info("Error get bucket:", reqCtx.BucketName, "with error:", ErrBucketAlreadyExists)
 		return ErrBucketAlreadyExists
 	}
 
@@ -52,7 +52,7 @@ func (yig *YigStorage) MakeBucket(reqCtx RequestContext, acl datatype.Acl,
 	}
 	err = yig.MetaStorage.Client.PutNewBucket(bucket)
 	if err != nil {
-		helper.Logger.Error("Error Put New Bucket:", err)
+		reqCtx.Logger.Fatal("Error Put New Bucket:", err)
 		return err
 	}
 
@@ -183,6 +183,7 @@ func (yig *YigStorage) DelBucketLifecycle(reqCtx RequestContext, credential comm
 		helper.Logger.Error("Remove bucket From lifecycle table error:", err)
 		return err
 	}
+	yig.MetaStorage.Cache.Remove(redis.BucketTable, reqCtx.BucketName)
 	return nil
 }
 
@@ -688,6 +689,7 @@ func (yig *YigStorage) ListVersionedObjects(reqCtx RequestContext, credential co
 			Size:         o.Size,
 			StorageClass: o.StorageClass,
 			Key:          o.Key,
+			DeleteMarker: o.DeleteMarker,
 		}
 		if request.EncodingType != "" { // only support "url" encoding for now
 			object.Key = url.QueryEscape(object.Key)

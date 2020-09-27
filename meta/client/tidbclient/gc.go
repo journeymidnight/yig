@@ -6,6 +6,7 @@ import (
 	"math"
 	"time"
 
+	. "github.com/journeymidnight/yig/error"
 	. "github.com/journeymidnight/yig/meta/types"
 )
 
@@ -14,7 +15,7 @@ func (t *TidbClient) PutObjectToGarbageCollection(object *Object, tx Tx) (err er
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		if err != nil {
-			return err
+			return NewError(InTidbFatalError, "PutObjectToGarbageCollection transaction starts err", err)
 		}
 		defer func() {
 			if err == nil {
@@ -35,14 +36,14 @@ func (t *TidbClient) PutObjectToGarbageCollection(object *Object, tx Tx) (err er
 	sqltext := "insert ignore into gc(bucketname,objectname,version,location,pool,objectid,status,mtime,part,triedtimes) values(?,?,?,?,?,?,?,?,?,?);"
 	_, err = tx.(*sql.Tx).Exec(sqltext, o.BucketName, o.ObjectName, object.VersionId, o.Location, o.Pool, o.ObjectId, o.Status, mtime, hasPart, o.TriedTimes)
 	if err != nil {
-		return err
+		return NewError(InTidbFatalError, "PutObjectToGarbageCollection transaction executes err", err)
 	}
 	partVersion := math.MaxUint64 - object.CreateTime
 	for _, p := range object.Parts {
 		psql, args := p.GetCreateGcSql(o.BucketName, o.ObjectName, partVersion)
 		_, err = tx.(*sql.Tx).Exec(psql, args...)
 		if err != nil {
-			return err
+			return NewError(InTidbFatalError, "PutObjectToGarbageCollection transaction executes err", err)
 		}
 	}
 
@@ -53,7 +54,7 @@ func (t *TidbClient) PutFreezerToGarbageCollection(object *Freezer, tx Tx) (err 
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		if err != nil {
-			return err
+			return NewError(InTidbFatalError, "PutFreezerToGarbageCollection transaction starts err", err)
 		}
 		defer func() {
 			if err == nil {
@@ -73,9 +74,8 @@ func (t *TidbClient) PutFreezerToGarbageCollection(object *Freezer, tx Tx) (err 
 	mtime := o.MTime.Format(TIME_LAYOUT_TIDB)
 	sqltext := "insert ignore into gc(bucketname,objectname,version,location,pool,objectid,status,mtime,part,triedtimes) values(?,?,?,?,?,?,?,?,?,?);"
 	_, err = txn.Exec(sqltext, o.BucketName, o.ObjectName, o.VersionId, o.Location, o.Pool, o.ObjectId, o.Status, mtime, hasPart, o.TriedTimes)
-
 	if err != nil {
-		return err
+		return NewError(InTidbFatalError, "PutFreezerToGarbageCollection transaction executes err", err)
 	}
 
 	partVersion := math.MaxUint64 - uint64(o.MTime.UnixNano())
@@ -83,7 +83,7 @@ func (t *TidbClient) PutFreezerToGarbageCollection(object *Freezer, tx Tx) (err 
 		psql, args := p.GetCreateGcSql(o.BucketName, o.ObjectName, partVersion)
 		_, err = txn.Exec(psql, args...)
 		if err != nil {
-			return err
+			return NewError(InTidbFatalError, "PutFreezerToGarbageCollection transaction executes err", err)
 		}
 	}
 	return
@@ -96,7 +96,7 @@ func (t *TidbClient) ScanGarbageCollection(limit int) (gcs []GarbageCollection, 
 	sqltext = "select bucketname,objectname,version from gc  order by bucketname,objectname,version limit ?;"
 	rows, err = t.Client.Query(sqltext, limit)
 	if err != nil {
-		return
+		return nil, NewError(InTidbFatalError, "ScanGarbageCollection query err", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
@@ -124,7 +124,7 @@ func (t *TidbClient) RemoveGarbageCollection(garbage GarbageCollection) (err err
 	var tx *sql.Tx
 	tx, err = t.Client.Begin()
 	if err != nil {
-		return err
+		return NewError(InTidbFatalError, "RemoveGarbageCollection transaction starts err", err)
 	}
 	defer func() {
 		if err == nil {
@@ -138,13 +138,13 @@ func (t *TidbClient) RemoveGarbageCollection(garbage GarbageCollection) (err err
 	sqltext := "delete from gc where bucketname=? and objectname=? and version=?;"
 	_, err = tx.Exec(sqltext, garbage.BucketName, garbage.ObjectName, garbage.VersionId)
 	if err != nil {
-		return err
+		return NewError(InTidbFatalError, "RemoveGarbageCollection transaction executes err", err)
 	}
 	if len(garbage.Parts) > 0 {
 		sqltext := "delete from gcpart where bucketname=? and objectname=? and version=?;"
 		_, err := tx.Exec(sqltext, garbage.BucketName, garbage.ObjectName, garbage.VersionId)
 		if err != nil {
-			return err
+			return NewError(InTidbFatalError, "RemoveGarbageCollection transaction executes err", err)
 		}
 	}
 	return nil
@@ -168,15 +168,18 @@ func (t *TidbClient) GetGarbageCollection(bucketName, objectName, version string
 		&hasPart,
 		&gc.TriedTimes,
 	)
+	if err != nil {
+		return gc, NewError(InTidbFatalError, "GetGarbageCollection scan row err", err)
+	}
 	gc.MTime, err = time.Parse(TIME_LAYOUT_TIDB, mtime)
 	if err != nil {
-		return
+		return gc, NewError(InTidbFatalError, "GetGarbageCollection parse time err", err)
 	}
 	if hasPart {
 		var p map[int]*Part
 		p, err = getGcParts(bucketName, objectName, version, t.Client)
 		if err != nil {
-			return
+			return gc, NewError(InTidbFatalError, "GetGarbageCollection getGcParts err", err)
 		}
 		gc.Parts = p
 	}

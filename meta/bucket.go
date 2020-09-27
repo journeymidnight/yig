@@ -12,13 +12,12 @@ import (
 func (m *Meta) GetBucket(bucketName string, willNeed bool) (bucket *Bucket, err error) {
 	getBucket := func() (b interface{}, err error) {
 		b, err = m.Client.GetBucket(bucketName)
-		helper.Logger.Info("GetBucket CacheMiss. bucket:", bucketName)
 		return b, err
 	}
 	unmarshaller := func(in []byte) (interface{}, error) {
 		var bucket Bucket
 		err := helper.MsgPackUnMarshal(in, &bucket)
-		return &bucket, err
+		return &bucket, NewError(InMetaWarn, "Bucket unmarshal err", err)
 	}
 	b, err := m.Cache.Get(redis.BucketTable, bucketName, getBucket, unmarshaller, willNeed)
 	if err != nil {
@@ -26,8 +25,8 @@ func (m *Meta) GetBucket(bucketName string, willNeed bool) (bucket *Bucket, err 
 	}
 	bucket, ok := b.(*Bucket)
 	if !ok {
-		helper.Logger.Info("Cast b failed:", b)
-		err = ErrInternalError
+		err = NewError(InMetaFatalError, "Cast bucket failed", nil)
+		helper.Logger.Info(err.Error(), b)
 		return
 	}
 	return bucket, nil

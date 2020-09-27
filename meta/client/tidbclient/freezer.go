@@ -3,7 +3,6 @@ package tidbclient
 import (
 	"database/sql"
 	. "database/sql/driver"
-	"github.com/journeymidnight/yig/helper"
 	"math"
 	"strconv"
 	"time"
@@ -15,14 +14,17 @@ import (
 func (t *TidbClient) CreateFreezer(freezer *Freezer) (err error) {
 	sql, args := freezer.GetCreateSql()
 	_, err = t.Client.Exec(sql, args...)
-	return
+	if err != nil {
+		return NewError(InTidbFatalError, "CreateFreezer err", err)
+	}
+	return nil
 }
 
 func (t *TidbClient) CreateFreezerWithoutMigrate(freezer *Freezer, tx Tx) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		if err != nil {
-			return err
+			return NewError(InTidbFatalError, "CreateFreezerWithoutMigrate transaction starts err", err)
 		}
 		defer func() {
 			if err == nil {
@@ -37,6 +39,9 @@ func (t *TidbClient) CreateFreezerWithoutMigrate(freezer *Freezer, tx Tx) (err e
 	txn := tx.(*sql.Tx)
 	sql, args := freezer.GetCreateWithoutMigrateSql()
 	_, err = txn.Exec(sql, args...)
+	if err != nil {
+		return NewError(InTidbFatalError, "CreateFreezerWithoutMigrate transaction executes err", err)
+	}
 	if freezer.Parts != nil {
 		v := math.MaxUint64 - freezer.CreateTime
 		version := strconv.FormatUint(v, 10)
@@ -44,11 +49,11 @@ func (t *TidbClient) CreateFreezerWithoutMigrate(freezer *Freezer, tx Tx) (err e
 			psql, args := p.GetCreateFreezerSql(freezer.BucketName, freezer.Name, version)
 			_, err = txn.Exec(psql, args...)
 			if err != nil {
-				return err
+				return NewError(InTidbFatalError, "CreateFreezerWithoutMigrate transaction executes err", err)
 			}
 		}
 	}
-	return err
+	return nil
 }
 
 func (t *TidbClient) GetFreezer(bucketName, objectName, version string) (freezer *Freezer, err error) {
@@ -75,19 +80,21 @@ func (t *TidbClient) GetFreezer(bucketName, objectName, version string) (freezer
 		&freezer.CreateTime,
 	)
 	if err == sql.ErrNoRows {
-		helper.Logger.Info("----------", err)
 		err = ErrNoSuchKey
 		return
 	} else if err != nil {
-		return
+		return nil, NewError(InTidbFatalError, "GetFreezer scan row err", err)
 	}
 	freezer.LastModifiedTime, err = time.Parse(TIME_LAYOUT_TIDB, lastmodifiedtime)
 	if err != nil {
-		return nil, err
+		return nil, NewError(InTidbFatalError, "GetFreezer parse time err", err)
 	}
 	if freezer.Type == ObjectTypeMultipart {
 		iversion = math.MaxUint64 - freezer.CreateTime
 		freezer.Parts, err = getFreezerParts(freezer.BucketName, freezer.Name, iversion, t.Client)
+		if err != nil {
+			return nil, NewError(InTidbFatalError, "GetFreezer getFreezerParts err", err)
+		}
 		//build simple index for multipart
 		if len(freezer.Parts) != 0 {
 			var sortedPartNum = make([]int64, len(freezer.Parts))
@@ -113,6 +120,8 @@ func (t *TidbClient) GetFreezerStatus(bucketName, objectName, version string) (f
 	if err == sql.ErrNoRows || freezer.Name != objectName {
 		err = ErrNoSuchKey
 		return
+	} else if err != nil {
+		return nil, NewError(InTidbFatalError, "GetFreezerStatus scan row err", err)
 	}
 	return
 }
@@ -121,7 +130,7 @@ func (t *TidbClient) UpdateFreezerDate(bucketName, objectName, version string, l
 	sqltext := "update restoreobjects set lifetime=? where bucketname=? and objectname=? and version=?;"
 	_, err = t.Client.Exec(sqltext, lifetime, bucketName, objectName, version)
 	if err != nil {
-		return err
+		return NewError(InTidbFatalError, "UpdateFreezerDate transaction executes err", err)
 	}
 	return nil
 }
@@ -130,7 +139,7 @@ func (t *TidbClient) DeleteFreezer(bucketName, objectName, versionId string, obj
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		if err != nil {
-			return err
+			return NewError(InTidbFatalError, "DeleteFreezer transaction starts err", err)
 		}
 		defer func() {
 			if err == nil {
@@ -145,12 +154,14 @@ func (t *TidbClient) DeleteFreezer(bucketName, objectName, versionId string, obj
 	txn := tx.(*sql.Tx)
 	sqltext := "delete from restoreobjects where bucketname=? and objectname=? and version=?;"
 	_, err = txn.Exec(sqltext, bucketName, objectName, versionId)
-
 	if err != nil {
-		return err
+		return NewError(InTidbFatalError, "DeleteFreezer transaction executes err", err)
 	}
 	if objectType == ObjectTypeMultipart {
 		err = t.DeleteFreezerPart(bucketName, objectName, createTime, tx)
+		if err != nil {
+			return NewError(InTidbFatalError, "DeleteFreezer DeleteFreezerPart err", err)
+		}
 	}
 	return err
 }

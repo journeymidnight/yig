@@ -49,27 +49,27 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (*Object,
 		err = ErrNoSuchKey
 		return nil, ErrNoSuchKey
 	} else if err != nil {
-		return nil, err
+		return nil, NewError(InTidbFatalError, "GetObject scan row error", err)
 	}
 	object.LastModifiedTime, err = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
 	if err != nil {
-		return nil, err
+		return nil, NewError(InTidbFatalError, "GetObject parse time error", err)
 	}
 	object.Name = objectName
 	object.BucketName = bucketName
 	err = json.Unmarshal([]byte(acl), &object.ACL)
 	if err != nil {
-		return nil, err
+		return nil, NewError(InTidbFatalError, "GetObject unmarshal acl error", err)
 	}
 	err = json.Unmarshal([]byte(customattributes), &object.CustomAttributes)
 	if err != nil {
-		return nil, err
+		return nil, NewError(InTidbFatalError, "GetObject unmarshal customattributes error", err)
 	}
 	if object.Type == ObjectTypeMultipart {
 		partVersion := math.MaxUint64 - object.CreateTime
 		object.Parts, err = getParts(object.BucketName, object.Name, partVersion, t.Client)
 		if err != nil {
-			return nil, err
+			return nil, NewError(InTidbFatalError, "GetObject getParts error", err)
 		}
 		//build simple index for multipart
 		if len(object.Parts) != 0 {
@@ -90,7 +90,7 @@ func (t *TidbClient) GetLatestObjectVersion(bucketName, objectName string) (*Obj
 	var nullObjExists bool
 	tx, err := t.Client.Begin()
 	if err != nil {
-		return nil, err
+		return nil, NewError(InTidbFatalError, "GetLatestObjectVersion transaction starts err", err)
 	}
 	defer func() {
 		if err == nil {
@@ -129,7 +129,7 @@ func (t *TidbClient) GetLatestObjectVersion(bucketName, objectName string) (*Obj
 		&nullObject.CreateTime,
 	)
 	if err != nil && err != sql.ErrNoRows {
-		return nil, err
+		return nil, NewError(InTidbFatalError, "GetLatestObjectVersion transaction starts err", err)
 	}
 	if err != sql.ErrNoRows {
 		nullObjExists = true
@@ -137,21 +137,21 @@ func (t *TidbClient) GetLatestObjectVersion(bucketName, objectName string) (*Obj
 	if nullObjExists {
 		nullObject.LastModifiedTime, err = time.Parse("2006-01-02 15:04:05", lastModifiedTime)
 		if err != nil {
-			return nil, err
+			return nil, NewError(InTidbFatalError, "GetLatestObjectVersion parse time error", err)
 		}
 		err = json.Unmarshal([]byte(acl), &nullObject.ACL)
 		if err != nil {
-			return nil, err
+			return nil, NewError(InTidbFatalError, "GetLatestObjectVersion unmarshal acl error", err)
 		}
 		err = json.Unmarshal([]byte(customattributes), &nullObject.CustomAttributes)
 		if err != nil {
-			return nil, err
+			return nil, NewError(InTidbFatalError, "GetLatestObjectVersion unmarshal customattributes error", err)
 		}
 		if nullObject.Type == ObjectTypeMultipart {
 			partVersion := math.MaxUint64 - nullObject.CreateTime
 			nullObject.Parts, err = getParts(nullObject.BucketName, nullObject.Name, partVersion, t.Client)
 			if err != nil {
-				return nil, err
+				return nil, NewError(InTidbFatalError, "GetLatestObjectVersion getParts error", err)
 			}
 			//build simple index for multipart
 			if len(nullObject.Parts) != 0 {
@@ -169,7 +169,7 @@ func (t *TidbClient) GetLatestObjectVersion(bucketName, objectName string) (*Obj
 		"from objects where bucketname=? and name=? and version>0 order by version limit 1"
 	rows, err := tx.Query(sqltext, bucketName, objectName)
 	if err != nil {
-		return nil, err
+		return nil, NewError(InTidbFatalError, "GetLatestObjectVersion query error", err)
 	}
 	var object *Object
 	for rows.Next() {
@@ -198,25 +198,25 @@ func (t *TidbClient) GetLatestObjectVersion(bucketName, objectName string) (*Obj
 			&object.CreateTime,
 		)
 		if err != nil {
-			return nil, err
+			return nil, NewError(InTidbFatalError, "GetLatestObjectVersion scan rows error", err)
 		}
 		object.LastModifiedTime, err = time.Parse("2006-01-02 15:04:05", lastModifiedTime)
 		if err != nil {
-			return nil, err
+			return nil, NewError(InTidbFatalError, "GetLatestObjectVersion parse time error", err)
 		}
 		err = json.Unmarshal([]byte(acl), &object.ACL)
 		if err != nil {
-			return nil, err
+			return nil, NewError(InTidbFatalError, "GetLatestObjectVersion unmarshal acl error", err)
 		}
 		err = json.Unmarshal([]byte(customattributes), &object.CustomAttributes)
 		if err != nil {
-			return nil, err
+			return nil, NewError(InTidbFatalError, "GetLatestObjectVersion unmarshal customattributes error", err)
 		}
 		if object.Type == ObjectTypeMultipart {
 			partVersion := math.MaxUint64 - object.CreateTime
 			object.Parts, err = getParts(object.BucketName, object.Name, partVersion, t.Client)
 			if err != nil {
-				return nil, err
+				return nil, NewError(InTidbFatalError, "GetLatestObjectVersion getParts error", err)
 			}
 			//build simple index for multipart
 			if len(object.Parts) != 0 {
@@ -246,13 +246,19 @@ func (t *TidbClient) GetLatestObjectVersion(bucketName, objectName string) (*Obj
 func (t *TidbClient) UpdateObjectAttrs(object *Object) error {
 	sql, args := object.GetUpdateAttrsSql()
 	_, err := t.Client.Exec(sql, args...)
-	return err
+	if err != nil {
+		return NewError(InTidbFatalError, "UpdateObjectAttrs err", err)
+	}
+	return nil
 }
 
 func (t *TidbClient) UpdateObjectAcl(object *Object) error {
 	sql, args := object.GetUpdateAclSql()
 	_, err := t.Client.Exec(sql, args...)
-	return err
+	if err != nil {
+		return NewError(InTidbFatalError, "UpdateObjectAcl err", err)
+	}
+	return nil
 }
 
 func (t *TidbClient) RenameObject(object *Object, sourceObject string) (err error) {
@@ -260,7 +266,7 @@ func (t *TidbClient) RenameObject(object *Object, sourceObject string) (err erro
 	if len(object.Parts) != 0 {
 		tx, err := t.Client.Begin()
 		if err != nil {
-			return err
+			return NewError(InTidbFatalError, "RenameObject transaction starts err", err)
 		}
 		defer func() {
 			if err == nil {
@@ -272,28 +278,34 @@ func (t *TidbClient) RenameObject(object *Object, sourceObject string) (err erro
 		}()
 		_, err = tx.Exec(sql, args...)
 		if err != nil {
-			return err
+			return NewError(InTidbFatalError, "RenameObject transaction executes err", err)
 		}
 
 		// rename parts
 		sql, args = object.GetUpdateObjectPartNameSql(sourceObject)
 		_, err = tx.Exec(sql, args...)
-		return err
+		return NewError(InTidbFatalError, "RenameObject transaction executes err", err)
 	}
 	_, err = t.Client.Exec(sql, args...)
+	if err != nil {
+		return NewError(InTidbFatalError, "RenameObject transaction executes err", err)
+	}
 	return
 }
 
 func (t *TidbClient) ReplaceObjectMetas(object *Object, tx Tx) (err error) {
 	sql, args := object.GetReplaceObjectMetasSql()
 	_, err = t.Client.Exec(sql, args...)
+	if err != nil {
+		return NewError(InTidbFatalError, "ReplaceObjectMetas err", err)
+	}
 	return
 }
 
 func (t *TidbClient) AppendObject(object *Object, updateUsage bool) (err error) {
 	tx, err := t.Client.Begin()
 	if err != nil {
-		return err
+		return NewError(InTidbFatalError, "AppendObject transaction starts err", err)
 	}
 	defer func() {
 		if err == nil {
@@ -315,7 +327,7 @@ func (t *TidbClient) AppendObject(object *Object, updateUsage bool) (err error) 
 	if updateUsage {
 		err = t.UpdateUsage(object.BucketName, object.Size, tx)
 		if err != nil {
-			return err
+			return NewError(InTidbFatalError, "AppendObject update usage err", err)
 		}
 	}
 
@@ -325,7 +337,7 @@ func (t *TidbClient) AppendObject(object *Object, updateUsage bool) (err error) 
 func (t *TidbClient) UpdateAppendObject(object *Object) (err error) {
 	tx, err := t.Client.Begin()
 	if err != nil {
-		return err
+		return NewError(InTidbFatalError, "UpdateAppendObject transaction starts err", err)
 	}
 	defer func() {
 		if err == nil {
@@ -343,14 +355,17 @@ func (t *TidbClient) UpdateAppendObject(object *Object) (err error) {
 		sql, args = object.GetUpdateHotSql()
 		_, err = tx.Exec(sql, args...)
 	}
-
-	return t.UpdateUsage(object.BucketName, object.Size, tx)
+	err = t.UpdateUsage(object.BucketName, object.Size, tx)
+	if err != nil {
+		return NewError(InTidbFatalError, "UpdateAppendObject update usage err", err)
+	}
+	return nil
 }
 
 func (t *TidbClient) MigrateObject(object *Object) (err error) {
 	tx, err := t.Client.Begin()
 	if err != nil {
-		return err
+		return NewError(InTidbFatalError, "MigrateObject transaction starts err", err)
 	}
 	defer func() {
 		if err == nil {
@@ -366,8 +381,10 @@ func (t *TidbClient) MigrateObject(object *Object) (err error) {
 
 	sql, args = object.GetRemoveHotSql()
 	_, err = tx.Exec(sql, args...)
-
-	return
+	if err != nil {
+		return NewError(InTidbFatalError, "MigrateObject err", err)
+	}
+	return nil
 }
 
 func (t *TidbClient) RemoveHotObject(object *Object, tx Tx) (err error) {
@@ -379,13 +396,16 @@ func (t *TidbClient) RemoveHotObject(object *Object, tx Tx) (err error) {
 		sql, args := object.GetRemoveHotSql()
 		_, err = txn.Exec(sql, args...)
 	}
-	return
+	if err != nil {
+		return NewError(InTidbFatalError, "RemoveHotObject err", err)
+	}
+	return nil
 }
 
 func (t *TidbClient) PutObject(object *Object, multipart *Multipart, updateUsage bool) (err error) {
 	tx, err := t.Client.Begin()
 	if err != nil {
-		return err
+		return NewError(InTidbFatalError, "PutObject transaction starts err", err)
 	}
 	defer func() {
 		if err == nil {
@@ -403,7 +423,7 @@ func (t *TidbClient) PutObject(object *Object, multipart *Multipart, updateUsage
 			psql, args := p.GetCreateSql(object.BucketName, object.Name, version)
 			_, err = tx.Exec(psql, args...)
 			if err != nil {
-				return err
+				return NewError(InTidbFatalError, "PutObject transaction executes err", err)
 			}
 		}
 	}
@@ -414,14 +434,14 @@ func (t *TidbClient) PutObject(object *Object, multipart *Multipart, updateUsage
 	if multipart != nil {
 		err = t.DeleteMultipart(multipart, tx)
 		if err != nil {
-			return err
+			return NewError(InTidbFatalError, "PutObject delete multipart err", err)
 		}
 	}
 
 	if updateUsage {
 		err = t.UpdateUsage(object.BucketName, object.Size, tx)
 		if err != nil {
-			return err
+			return NewError(InTidbFatalError, "PutObject update usage err", err)
 		}
 	}
 
@@ -432,7 +452,7 @@ func (t *TidbClient) UpdateObject(object *Object, multipart *Multipart, updateUs
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		if err != nil {
-			return err
+			return NewError(InTidbFatalError, "UpdateObject transaction starts err", err)
 		}
 		defer func() {
 			if err == nil {
@@ -452,7 +472,7 @@ func (t *TidbClient) UpdateObject(object *Object, multipart *Multipart, updateUs
 			psql, args := p.GetCreateSql(object.BucketName, object.Name, partVersion)
 			_, err = txn.Exec(psql, args...)
 			if err != nil {
-				return err
+				return NewError(InTidbFatalError, "UpdateObject transaction executes err", err)
 			}
 		}
 	}
@@ -463,14 +483,14 @@ func (t *TidbClient) UpdateObject(object *Object, multipart *Multipart, updateUs
 	if multipart != nil {
 		err = t.DeleteMultipart(multipart, tx)
 		if err != nil {
-			return err
+			return NewError(InTidbFatalError, "UpdateObject delete multipart err", err)
 		}
 	}
 
 	if updateUsage {
 		err = t.UpdateUsage(object.BucketName, object.Size, tx)
 		if err != nil {
-			return err
+			return NewError(InTidbFatalError, "UpdateObject update usage err", err)
 		}
 	}
 
@@ -481,7 +501,7 @@ func (t *TidbClient) UpdateFreezerObject(object *Object, tx Tx) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		if err != nil {
-			return err
+			return NewError(InTidbFatalError, "UpdateFreezerObject transaction starts err", err)
 		}
 		defer func() {
 			if err == nil {
@@ -496,7 +516,7 @@ func (t *TidbClient) UpdateFreezerObject(object *Object, tx Tx) (err error) {
 	sqltext := "delete from objectpart where objectname=? and bucketname=? and version=?;"
 	_, err = txn.Exec(sqltext, object.Name, object.BucketName, object.VersionId)
 	if err != nil {
-		return err
+		return NewError(InTidbFatalError, "UpdateFreezerObject transaction executes err", err)
 	}
 
 	sql, args := object.GetGlacierUpdateSql()
@@ -508,7 +528,7 @@ func (t *TidbClient) UpdateFreezerObject(object *Object, tx Tx) (err error) {
 			psql, args := p.GetCreateSql(object.BucketName, object.Name, v)
 			_, err = txn.Exec(psql, args...)
 			if err != nil {
-				return err
+				return NewError(InTidbFatalError, "UpdateFreezerObject transaction executes err", err)
 			}
 		}
 	}
@@ -519,7 +539,7 @@ func (t *TidbClient) DeleteObject(object *Object, tx Tx) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		if err != nil {
-			return err
+			return NewError(InTidbFatalError, "DeleteObject transaction starts err", err)
 		}
 		defer func() {
 			if err == nil {
@@ -534,7 +554,7 @@ func (t *TidbClient) DeleteObject(object *Object, tx Tx) (err error) {
 	sqltext := "delete from objects where name=? and bucketname=? and version=?;"
 	_, err = tx.(*sql.Tx).Exec(sqltext, object.Name, object.BucketName, object.VersionId)
 	if err != nil {
-		return err
+		return NewError(InTidbFatalError, "DeleteObject transaction executes err", err)
 	}
 
 	return t.DeleteObjectPart(object, tx)
@@ -547,7 +567,7 @@ func (t *TidbClient) DeleteObjectPart(object *Object, tx Tx) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		if err != nil {
-			return err
+			return NewError(InTidbFatalError, "DeleteObjectPart transaction starts err", err)
 		}
 		defer func() {
 			if err == nil {
@@ -563,7 +583,7 @@ func (t *TidbClient) DeleteObjectPart(object *Object, tx Tx) (err error) {
 	sqltext := "delete from objectpart where objectname=? and bucketname=? and version=?;"
 	_, err = tx.(*sql.Tx).Exec(sqltext, object.Name, object.BucketName, partVersion)
 	if err != nil {
-		return err
+		return NewError(InTidbFatalError, "DeleteObjectPart transaction executes err", err)
 	}
 	return nil
 }

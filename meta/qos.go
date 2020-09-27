@@ -115,12 +115,10 @@ func (m *QosMeta) inMemoryCacheSync() {
 	for {
 		bucketUser, err := m.client.GetAllUserBuckets()
 		if err != nil {
-			helper.Logger.Error("GetAllUserBuckets error:", err)
 			bucketUser = nil
 		}
 		userQosLimit, err := m.client.GetAllUserQos()
 		if err != nil {
-			helper.Logger.Error("GetAllUserQos error:", err)
 			userQosLimit = nil
 		}
 		if bucketUser != nil {

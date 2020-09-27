@@ -43,8 +43,9 @@ func (h resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if name == "lifecycle" && r.Method == "PUT" {
 				lifecycle, isUnsupportedLifecycleXml, err := ignoreLifecycleUnsupported(h, r)
 				if err != nil {
-					helper.Logger.Error("Unable to parse lifecycle body:", err)
-					WriteErrorResponse(w, r, err)
+					e, logLevel := ParseError(err)
+					logger.Log(logLevel, "Unable to parse lifecycle body:", err)
+					WriteErrorResponse(w, r, e)
 					return
 				}
 				if isUnsupportedLifecycleXml {

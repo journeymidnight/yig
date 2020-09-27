@@ -24,7 +24,9 @@ func (api ObjectAPIHandlers) PutBucketEncryptionHandler(w http.ResponseWriter, r
 		return
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
+			e, logLevel := ParseError(err)
+			logger.Log(logLevel, "PutBucketEncryptionHandler signature authenticate err:", err)
+			WriteErrorResponse(w, r, e)
 			return
 		}
 	}
@@ -46,14 +48,17 @@ func (api ObjectAPIHandlers) PutBucketEncryptionHandler(w http.ResponseWriter, r
 
 	encryptionConfig, err := datatype.ParseEncryptionConfig(io.LimitReader(r.Body, r.ContentLength))
 	if err != nil {
-		WriteErrorResponse(w, r, err)
+		e, logLevel := ParseError(err)
+		logger.Log(logLevel, "Unable to parse encryption config:", err)
+		WriteErrorResponse(w, r, e)
 		return
 	}
 
 	err = api.ObjectAPI.SetBucketEncryption(ctx.BucketInfo, *encryptionConfig)
 	if err != nil {
-		logger.Error("Unable to set encryption for bucket:", err)
-		WriteErrorResponse(w, r, err)
+		e, logLevel := ParseError(err)
+		logger.Log(logLevel, "Unable to set encryption for bucket:", err)
+		WriteErrorResponse(w, r, e)
 		return
 	}
 
@@ -76,7 +81,9 @@ func (api ObjectAPIHandlers) GetBucketEncryptionHandler(w http.ResponseWriter, r
 		return
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
+			e, logLevel := ParseError(err)
+			logger.Log(logLevel, "GetBucketEncryptionHandler signature authenticate err:", err)
+			WriteErrorResponse(w, r, e)
 			return
 		}
 	}
@@ -92,15 +99,17 @@ func (api ObjectAPIHandlers) GetBucketEncryptionHandler(w http.ResponseWriter, r
 
 	bucketEncryption, err := api.ObjectAPI.GetBucketEncryption(ctx.BucketName)
 	if err != nil {
-		WriteErrorResponse(w, r, err)
+		e, logLevel := ParseError(err)
+		logger.Log(logLevel, "Unable to get encryption from bucket:", err)
+		WriteErrorResponse(w, r, e)
 		return
 	}
 
 	encodedSuccessResponse, err := xmlFormat(bucketEncryption)
 	if err != nil {
-		logger.Error("Failed to marshal Encryption XML for bucket", ctx.BucketName,
-			"error:", err)
-		WriteErrorResponse(w, r, ErrInternalError)
+		e, logLevel := ParseError(err)
+		logger.Log(logLevel, "Failed to marshal Encryption XML for bucket:", ctx.BucketName, "error:", err)
+		WriteErrorResponse(w, r, e)
 		return
 	}
 
@@ -113,6 +122,7 @@ func (api ObjectAPIHandlers) GetBucketEncryptionHandler(w http.ResponseWriter, r
 
 func (api ObjectAPIHandlers) DeleteBucketEncryptionHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := GetRequestContext(r)
+	logger := ctx.Logger
 
 	var credential common.Credential
 	var err error
@@ -123,7 +133,9 @@ func (api ObjectAPIHandlers) DeleteBucketEncryptionHandler(w http.ResponseWriter
 		return
 	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4:
 		if credential, err = signature.IsReqAuthenticated(r); err != nil {
-			WriteErrorResponse(w, r, err)
+			e, logLevel := ParseError(err)
+			logger.Log(logLevel, "DeleteBucketEncryptionHandler signature authenticate err:", err)
+			WriteErrorResponse(w, r, e)
 			return
 		}
 	}
@@ -138,7 +150,9 @@ func (api ObjectAPIHandlers) DeleteBucketEncryptionHandler(w http.ResponseWriter
 	}
 
 	if err := api.ObjectAPI.DeleteBucketEncryption(ctx.BucketInfo); err != nil {
-		WriteErrorResponse(w, r, err)
+		e, logLevel := ParseError(err)
+		logger.Log(logLevel, "Unable to delete encryption for bucket:", err)
+		WriteErrorResponse(w, r, e)
 		return
 	}
 	// ResponseRecorder
