@@ -22,16 +22,15 @@ require (
 	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/gorilla/mux v1.7.4
 	github.com/journeymidnight/aws-sdk-go v1.18.2
-	github.com/journeymidnight/client-go v0.0.0-20200729060155-b153ed4551ed
+	github.com/journeymidnight/client-go v0.0.4
 	github.com/journeymidnight/radoshttpd v0.0.0-20190911073816-6df3523aa9e3
 	github.com/minio/highwayhash v1.0.0
-	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
+	github.com/prometheus/client_golang v1.0.0
 	github.com/robfig/cron/v3 v3.0.0
 	github.com/stretchr/testify v1.4.0
 	github.com/ugorji/go/codec v1.1.7
 	github.com/urfave/cli v1.22.4
 	github.com/xxtea/xxtea-go v0.0.0-20170828040851-35c4b17eecf6
-	golang.org/x/net v0.0.0-20200707034311-ab3426394381
 	golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd
 	gopkg.in/bufio.v1 v1.0.0-20140618132640-567b2bfa514e
 )
