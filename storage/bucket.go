@@ -1281,6 +1281,7 @@ func (yig *YigStorage) ListVersionedObjects(reqCtx RequestContext, credential co
 			Size:         o.Size,
 			StorageClass: o.StorageClass,
 			Key:          o.Key,
+			DeleteMarker: o.DeleteMarker,
 		}
 		if request.EncodingType != "" { // only support "url" encoding for now
 			object.Key = url.QueryEscape(object.Key)
