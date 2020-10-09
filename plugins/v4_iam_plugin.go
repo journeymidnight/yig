@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"hash"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"sort"
