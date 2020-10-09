@@ -9,6 +9,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	router "github.com/gorilla/mux"
 	"github.com/journeymidnight/yig/api"
+	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam"
 	"github.com/journeymidnight/yig/iam/common"
@@ -56,7 +57,9 @@ func getUsage(w http.ResponseWriter, r *http.Request) {
 
 	usage, err := adminServer.Yig.MetaStorage.GetUsage(bucketName)
 	if err != nil {
-		api.WriteErrorResponseWithoutContext(w, r, err)
+		e, logLevel := ParseError(err)
+		helper.Logger.Log(logLevel, "Unable to get usage:", err)
+		api.WriteErrorResponseWithoutContext(w, r, e)
 		return
 	}
 	b, err := json.Marshal(usageJson{Usage: usage})
@@ -71,7 +74,9 @@ func getBucketInfo(w http.ResponseWriter, r *http.Request) {
 	helper.Logger.Info("bucketName:", bucketName)
 	bucket, err := adminServer.Yig.MetaStorage.GetBucketInfo(bucketName)
 	if err != nil {
-		api.WriteErrorResponseWithoutContext(w, r, err)
+		e, logLevel := ParseError(err)
+		helper.Logger.Log(logLevel, "Unable to get bucket info:", err)
+		api.WriteErrorResponseWithoutContext(w, r, e)
 		return
 	}
 
@@ -86,7 +91,9 @@ func getUserInfo(w http.ResponseWriter, r *http.Request) {
 
 	buckets, err := adminServer.Yig.MetaStorage.GetUserInfo(uid)
 	if err != nil {
-		api.WriteErrorResponseWithoutContext(w, r, err)
+		e, logLevel := ParseError(err)
+		helper.Logger.Log(logLevel, "Unable to get user info:", err)
+		api.WriteErrorResponseWithoutContext(w, r, e)
 		return
 	}
 	helper.Logger.Info("enter getUserInfo", uid, buckets)
@@ -94,7 +101,9 @@ func getUserInfo(w http.ResponseWriter, r *http.Request) {
 	var keys []common.Credential
 	keys, err = iam.GetKeysByUid(uid)
 	if err != nil {
-		api.WriteErrorResponseWithoutContext(w, r, err)
+		e, logLevel := ParseError(err)
+		helper.Logger.Log(logLevel, "Unable to get keys:", err)
+		api.WriteErrorResponseWithoutContext(w, r, e)
 		return
 	}
 	b, err := json.Marshal(userJson{Buckets: buckets, Keys: keys})
@@ -111,7 +120,9 @@ func getObjectInfo(w http.ResponseWriter, r *http.Request) {
 
 	object, err := adminServer.Yig.MetaStorage.GetObject(bucketName, objectName, version, true)
 	if err != nil {
-		api.WriteErrorResponseWithoutContext(w, r, err)
+		e, logLevel := ParseError(err)
+		helper.Logger.Log(logLevel, "Unable to get object:", err)
+		api.WriteErrorResponseWithoutContext(w, r, e)
 		return
 	}
 	b, err := json.Marshal(objectJson{Object: object})

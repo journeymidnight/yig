@@ -18,12 +18,13 @@ package lifecycle
 
 import (
 	"encoding/xml"
-	. "github.com/journeymidnight/yig/error"
-	"github.com/journeymidnight/yig/helper"
-	meta "github.com/journeymidnight/yig/meta/common"
 	"io"
 	"strings"
 	"time"
+
+	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/helper"
+	meta "github.com/journeymidnight/yig/meta/common"
 )
 
 const (

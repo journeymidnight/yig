@@ -19,7 +19,6 @@ package signature
 import (
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -61,7 +60,7 @@ func toInteger(val interface{}) (int64, error) {
 		i, err := strconv.Atoi(v)
 		return int64(i), err
 	default:
-		return 0, errors.New("Invalid number format")
+		return 0, NewError(InSignatureFatalError, "Invalid number format", nil)
 	}
 }
 
@@ -111,7 +110,7 @@ func parsePostPolicyForm(policy string) (PostPolicyForm, error) {
 
 	err := json.Unmarshal([]byte(policy), &rawPolicy)
 	if err != nil {
-		return PostPolicyForm{}, err
+		return PostPolicyForm{}, NewError(InSignatureFatalError, "parsePostPolicyForm unmarshal err", err)
 	}
 
 	parsedPolicy := PostPolicyForm{}
@@ -119,7 +118,7 @@ func parsePostPolicyForm(policy string) (PostPolicyForm, error) {
 	// Parse expiry time.
 	parsedPolicy.Expiration, err = time.Parse(time.RFC3339Nano, rawPolicy.Expiration)
 	if err != nil {
-		return PostPolicyForm{}, err
+		return PostPolicyForm{}, NewError(InSignatureFatalError, "parsePostPolicyForm parse time err", err)
 	}
 
 	// Parse conditions.
@@ -129,9 +128,8 @@ func parsePostPolicyForm(policy string) (PostPolicyForm, error) {
 			for k, v := range condt {
 				if !isString(v) { // Pre-check value type.
 					// All values must be of type string.
-					return parsedPolicy,
-						fmt.Errorf("Unknown type %s of conditional field value %s found in POST policy form.",
-							reflect.TypeOf(condt).String(), condt)
+					return parsedPolicy, NewError(InSignatureFatalError, fmt.Sprintf("Unknown type %s of conditional field value %s found in POST policy form.",
+						reflect.TypeOf(condt).String(), condt), nil)
 				}
 
 				// {"acl": "public-read" } is an alternate way to indicate - [ "eq", "$acl", "public-read" ]
@@ -146,23 +144,22 @@ func parsePostPolicyForm(policy string) (PostPolicyForm, error) {
 			}
 		case []interface{}: // Handle array types.
 			if len(condt) != 3 { // Return error if we have insufficient elements.
-				return parsedPolicy,
-					fmt.Errorf("Malformed conditional fields %s of type %s found in POST policy form.",
-						condt, reflect.TypeOf(condt).String())
+				return parsedPolicy, NewError(InSignatureFatalError, fmt.Sprintf("Malformed conditional fields %s of type %s found in POST policy form.",
+					condt, reflect.TypeOf(condt).String()), nil)
 			}
 			switch toLowerString(condt[0]) {
 			case policyCondEqual, policyCondStartsWith:
 				for _, v := range condt { // Pre-check all values for type.
 					if !isString(v) {
 						// All values must be of type string.
-						return parsedPolicy,
-							fmt.Errorf("Unknown type %s of conditional field value %s found in POST policy form.",
-								reflect.TypeOf(condt).String(), condt)
+						return parsedPolicy, NewError(InSignatureFatalError, fmt.Sprintf("Unknown type %s of conditional field value %s found in POST policy form.",
+							reflect.TypeOf(condt).String(), condt), nil)
 					}
 				}
 				operator, matchType, value := toLowerString(condt[0]), toLowerString(condt[1]), toString(condt[2])
 				if !strings.HasPrefix(matchType, "$") {
-					return parsedPolicy, fmt.Errorf("Invalid according to Policy: Policy Condition failed: [%s, %s, %s]", operator, matchType, value)
+					return parsedPolicy, NewError(InSignatureFatalError,
+						fmt.Sprintf("Invalid according to Policy: Policy Condition failed: [%s, %s, %s]", operator, matchType, value), nil)
 				}
 				parsedPolicy.Conditions.Policies = append(parsedPolicy.Conditions.Policies, struct {
 					Operator string
@@ -189,14 +186,12 @@ func parsePostPolicyForm(policy string) (PostPolicyForm, error) {
 				}
 			default:
 				// Condition should be valid.
-				return parsedPolicy,
-					fmt.Errorf("Unknown type %s of conditional field value %s found in POST policy form.",
-						reflect.TypeOf(condt).String(), condt)
+				return parsedPolicy, NewError(InSignatureFatalError,
+					fmt.Sprintf("Unknown type %s of conditional field value %s found in POST policy form.", reflect.TypeOf(condt).String(), condt), nil)
 			}
 		default:
-			return parsedPolicy,
-				fmt.Errorf("Unknown field %s of type %s found in POST policy form.",
-					condt, reflect.TypeOf(condt).String())
+			return parsedPolicy, NewError(InSignatureFatalError,
+				fmt.Sprintf("Unknown field %s of type %s found in POST policy form.", condt, reflect.TypeOf(condt).String()), nil)
 		}
 	}
 	return parsedPolicy, nil
@@ -244,12 +239,12 @@ func CheckPostPolicy(formValues map[string]string, brand Brand) error {
 		if startsWithSupported, condFound := StartsWithConds[policy.Key]; condFound {
 			// Check if the current condition supports starts-with operator
 			if op == policyCondStartsWith && !startsWithSupported {
-				return fmt.Errorf("Invalid according to Policy: Policy Condition failed")
+				return NewError(InSignatureFatalError, "CheckPostPolicy Invalid according to Policy: Policy Condition failed", nil)
 			}
 			// Check if current policy condition is satisfied
 			condPassed = checkPolicyCond(op, formValues[formCanonicalName], policy.Value)
 			if !condPassed {
-				return fmt.Errorf("Invalid according to Policy: Policy Condition failed")
+				return NewError(InSignatureFatalError, "Invalid according to Policy: Policy Condition failed", nil)
 			}
 		} else {
 			// This covers all conditions X-***-Meta-* and X-***-*
@@ -258,13 +253,13 @@ func CheckPostPolicy(formValues map[string]string, brand Brand) error {
 				// Check if policy condition is satisfied
 				condPassed = checkPolicyCond(op, formValues[formCanonicalName], policy.Value)
 				if !condPassed {
-					return fmt.Errorf("Invalid according to Policy: Policy Condition failed: [%s, %s, %s]", op, policy.Key, policy.Value)
+					return NewError(InSignatureFatalError, fmt.Sprintf("Invalid according to Policy: Policy Condition failed: [%s, %s, %s]", op, policy.Key, policy.Value), nil)
 				}
 			} else {
 				// check custom form fields
 				condPassed = checkPolicyCond(op, formValues[formCanonicalName], policy.Value)
 				if !condPassed {
-					return fmt.Errorf("Invalid according to Policy: Policy Condition failed: [%s, %s, %s]", op, policy.Key, policy.Value)
+					return NewError(InSignatureFatalError, fmt.Sprintf("Invalid according to Policy: Policy Condition failed: [%s, %s, %s]", op, policy.Key, policy.Value), err)
 				}
 			}
 		}

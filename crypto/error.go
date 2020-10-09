@@ -14,7 +14,11 @@
 
 package crypto
 
-import "errors"
+import (
+	"errors"
+
+	error2 "github.com/journeymidnight/yig/error"
+)
 
 // Error is the generic type for any error happening during decrypting
 // an object. It indicates that the object itself or its metadata was
@@ -26,34 +30,35 @@ func (e Error) Error() string { return e.msg }
 var (
 	// ErrInvalidEncryptionMethod indicates that the specified SSE encryption method
 	// is not supported.
-	ErrInvalidEncryptionMethod = errors.New("The encryption method is not supported")
+	ErrInvalidEncryptionMethod = error2.NewError(error2.InCryptoWarn, "The encryption method is not supported", nil)
 
 	// ErrInvalidCustomerAlgorithm indicates that the specified SSE-C algorithm
 	// is not supported.
-	ErrInvalidCustomerAlgorithm = errors.New("The SSE-C algorithm is not supported")
+	ErrInvalidCustomerAlgorithm = error2.NewError(error2.InCryptoWarn, "The SSE-C algorithm is not supported", nil)
 
 	// ErrMissingCustomerKey indicates that the HTTP headers contains no SSE-C client key.
-	ErrMissingCustomerKey = errors.New("The SSE-C request is missing the customer key")
+	ErrMissingCustomerKey = error2.NewError(error2.InCryptoWarn, "The SSE-C request is missing the customer key", nil)
 
 	// ErrMissingCustomerKeyMD5 indicates that the HTTP headers contains no SSE-C client key
 	// MD5 checksum.
-	ErrMissingCustomerKeyMD5 = errors.New("The SSE-C request is missing the customer key MD5")
+	ErrMissingCustomerKeyMD5 = error2.NewError(error2.InCryptoWarn, "The SSE-C request is missing the customer key MD5", nil)
 
 	// ErrInvalidCustomerKey indicates that the SSE-C client key is not valid - e.g. not a
 	// base64-encoded string or not 256 bits long.
-	ErrInvalidCustomerKey = errors.New("The SSE-C client key is invalid")
+	ErrInvalidCustomerKey = error2.NewError(error2.InCryptoWarn, "The SSE-C client key is invalid", nil)
 
 	// ErrSecretKeyMismatch indicates that the provided secret key (SSE-C client key / SSE-S3 KMS key)
 	// does not match the secret key used during encrypting the object.
-	ErrSecretKeyMismatch = errors.New("The secret key does not match the secret key used during upload")
+	ErrSecretKeyMismatch = error2.NewError(error2.InCryptoWarn, "The secret key does not match the secret key used during upload", nil)
 
 	// ErrCustomerKeyMD5Mismatch indicates that the SSE-C key MD5 does not match the
 	// computed MD5 sum. This means that the client provided either the wrong key for
 	// a certain MD5 checksum or the wrong MD5 for a certain key.
-	ErrCustomerKeyMD5Mismatch = errors.New("The provided SSE-C key MD5 does not match the computed MD5 of the SSE-C key")
+	ErrCustomerKeyMD5Mismatch = error2.NewError(error2.InCryptoWarn, "The provided SSE-C key MD5 does not match the computed MD5 of the SSE-C key", nil)
+
 	// ErrIncompatibleEncryptionMethod indicates that both SSE-C headers and SSE-S3 headers were specified, and are incompatible
 	// The client needs to remove the SSE-S3 header or the SSE-C headers
-	ErrIncompatibleEncryptionMethod = errors.New("Server side encryption specified with both SSE-C and SSE-S3 headers")
+	ErrIncompatibleEncryptionMethod = error2.NewError(error2.InCryptoWarn, "Server side encryption specified with both SSE-C and SSE-S3 headers", nil)
 )
 
 var (

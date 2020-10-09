@@ -223,6 +223,36 @@ func Test_GetEncryptedObjectByRange(t *testing.T) {
 	t.Log("GetEncryptedObject by range success!")
 }
 
+func Test_DeleteObjects(t *testing.T) {
+	sc := NewS3()
+	err := sc.MakeBucket(TestBucket)
+	if err != nil {
+		t.Fatal("MakeBucket err:", err)
+		panic(err)
+	}
+	defer sc.CleanEnv()
+	key1 := TestKey + "1"
+	key2 := TestKey + "2"
+	err = sc.PutObject(TestBucket, key1, TestValue)
+	if err != nil {
+		t.Fatal("PutObject err:", err)
+	}
+	defer sc.DeleteObject(TestBucket, key1)
+	err = sc.PutObject(TestBucket, key2, TestValue)
+	if err != nil {
+		t.Fatal("PutObject err:", err)
+	}
+	defer sc.DeleteObject(TestBucket, key2)
+	keys := make(map[string]string)
+	keys[key1] = ""
+	keys[key2] = ""
+	err = sc.DeleteObjects(TestBucket, keys)
+	if err != nil {
+		t.Fatal("DeleteObjects err:", err)
+	}
+	t.Log("DeleteObjects Success.")
+}
+
 func Test_CopyObjectWithoutMD5(t *testing.T) {
 	TEST_COPY_KEY := "COPYED:" + TestKey
 	svc := NewS3WithoutMD5()

@@ -109,7 +109,7 @@ func CorsFromXml(corsBuffer []byte) (cors Cors, err error) {
 	helper.Logger.Info("Incoming CORS XML:", string(corsBuffer))
 	err = xml.Unmarshal(corsBuffer, &cors)
 	if err != nil {
-		helper.Logger.Error("Unable to unmarshal CORS XML:", err)
+		helper.Logger.Warn("Unable to unmarshal CORS XML:", err)
 		return cors, ErrInvalidCorsDocument
 	}
 	if len(cors.CorsRules) == 0 {

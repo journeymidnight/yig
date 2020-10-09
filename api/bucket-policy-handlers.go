@@ -18,7 +18,6 @@ package api
 
 import (
 	"encoding/json"
-	"github.com/journeymidnight/yig/helper"
 	"io"
 	"net/http"
 
@@ -26,6 +25,7 @@ import (
 	"github.com/journeymidnight/yig/api/datatype/policy"
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
 )
 
@@ -43,11 +43,14 @@ const (
 func (api ObjectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *http.Request) {
 	SetOperationName(w, OpPutBucketPolicy)
 	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.PutBucketPolicyAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		e, logLevel := ParseError(err)
+		logger.Log(logLevel, "PutBucketPolicyHandler checkRequestAuth err:", err)
+		WriteErrorResponse(w, r, e)
 		return
 	}
 
@@ -78,7 +81,9 @@ func (api ObjectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *ht
 	}
 
 	if err = api.ObjectAPI.SetBucketPolicy(credential, reqCtx.BucketName, *bucketPolicy); err != nil {
-		WriteErrorResponse(w, r, err)
+		e, logLevel := ParseError(err)
+		logger.Log(logLevel, "PutBucketPolicyHandler set policy err:", err)
+		WriteErrorResponse(w, r, e)
 		return
 	}
 
@@ -90,16 +95,21 @@ func (api ObjectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *ht
 func (api ObjectAPIHandlers) DeleteBucketPolicyHandler(w http.ResponseWriter, r *http.Request) {
 	SetOperationName(w, OpDeleteBucketPolicy)
 	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 	bucket := reqCtx.BucketName
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.DeleteBucketPolicyAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		e, logLevel := ParseError(err)
+		logger.Log(logLevel, "DeleteBucketPolicyHandler signature authenticate err:", err)
+		WriteErrorResponse(w, r, e)
 		return
 	}
 
 	if err := api.ObjectAPI.DeleteBucketPolicy(credential, bucket); err != nil {
-		WriteErrorResponse(w, r, err)
+		e, logLevel := ParseError(err)
+		logger.Log(logLevel, "Failed to delete bucket policy", err)
+		WriteErrorResponse(w, r, e)
 		return
 	}
 
@@ -111,24 +121,31 @@ func (api ObjectAPIHandlers) DeleteBucketPolicyHandler(w http.ResponseWriter, r 
 func (api ObjectAPIHandlers) GetBucketPolicyHandler(w http.ResponseWriter, r *http.Request) {
 	SetOperationName(w, OpGetBucketPolicy)
 	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 	bucket := reqCtx.BucketName
 	var credential common.Credential
 	var err error
 
 	if credential, err = checkRequestAuth(r, policy.GetBucketPolicyAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		e, logLevel := ParseError(err)
+		logger.Log(logLevel, "DeleteBucketPolicyHandler checkRequestAuth err:", err)
+		WriteErrorResponse(w, r, e)
 		return
 	}
 
 	// Read bucket access policy.
 	bucketPolicy, err := api.ObjectAPI.GetBucketPolicy(credential, bucket)
 	if err != nil {
-		WriteErrorResponse(w, r, err)
+		e, logLevel := ParseError(err)
+		logger.Log(logLevel, "Failed to get bucket policy", err)
+		WriteErrorResponse(w, r, e)
 		return
 	}
 
 	policyData, err := json.Marshal(bucketPolicy)
 	if err != nil {
+		logger.Fatal("Failed to marshal policy XML for bucket", reqCtx.BucketName,
+			"error:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}

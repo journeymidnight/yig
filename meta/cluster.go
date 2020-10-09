@@ -16,6 +16,9 @@ func (m *Meta) GetClusters() (cluster []Cluster, err error) {
 	unmarshaller := func(in []byte) (interface{}, error) {
 		var cluster Cluster
 		err := helper.MsgPackUnMarshal(in, &cluster)
+		if err != nil {
+			err = NewError(InTidbFatalError, "GetClusters err", err)
+		}
 		return cluster, err
 	}
 	c, err := m.Cache.Get(redis.ClusterTable, rowKey, getCluster, unmarshaller, true)

@@ -127,7 +127,7 @@ func sumMD5(data []byte) []byte {
 func IsReqAuthenticated(r *http.Request) (c common.Credential, e error) {
 	payload, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		return c, ErrInternalError
+		return c, NewError(InSignatureFatalError, "IsReqAuthenticated read body err", err)
 	}
 	// Verify Content-Md5, if payload is set.
 	if r.Header.Get("Content-Md5") != "" {

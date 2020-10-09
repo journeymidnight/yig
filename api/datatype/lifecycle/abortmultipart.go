@@ -13,7 +13,7 @@ func (aDays *DaysAfterInitiation) UnmarshalXML(d *xml.Decoder, startElement xml.
 	var numDays int
 	err := d.DecodeElement(&numDays, &startElement)
 	if err != nil {
-		return err
+		return NewError(InDatatypeFatalError, "Unmarshal err", err)
 	}
 	if numDays <= 0 {
 		return ErrInvalidLcDays

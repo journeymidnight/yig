@@ -30,15 +30,14 @@ import (
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/backend"
 	. "github.com/journeymidnight/yig/brand"
-	"github.com/journeymidnight/yig/meta"
-	"github.com/journeymidnight/yig/meta/types"
-	"github.com/journeymidnight/yig/redis"
-	"github.com/journeymidnight/yig/signature"
-
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/log"
+	"github.com/journeymidnight/yig/meta"
+	"github.com/journeymidnight/yig/meta/types"
+	"github.com/journeymidnight/yig/redis"
+	"github.com/journeymidnight/yig/signature"
 )
 
 // HandlerFunc - useful to chain different middleware http.Handler
@@ -73,6 +72,7 @@ type corsHandler struct {
 }
 
 func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	ctx := GetRequestContext(r)
 	w.Header().Add("Vary", "Origin")
 	origin := r.Header.Get("Origin")
 
@@ -83,7 +83,6 @@ func (h corsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Expose-Headers", strings.Join(CommonS3ResponseHeaders, ","))
 	}
 
-	ctx := GetRequestContext(r)
 	bucket := ctx.BucketInfo
 
 	// If bucket CORS exists, overwrite the in-reserved CORS Headers
@@ -225,7 +224,9 @@ func (h GenerateContextHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	reqCtx.VersionId = helper.Ternary(r.URL.Query().Get("versionId") == "null", types.NullVersion, r.URL.Query().Get("versionId")).(string)
 	err := FillBucketAndObjectInfo(&reqCtx, r, h.meta)
 	if err != nil {
-		WriteErrorResponse(w, r, err)
+		e, logLevel := ParseError(err)
+		logger.Log(logLevel, "FillBucketAndObjectInfo err:", err)
+		WriteErrorResponse(w, r, e)
 		return
 	}
 
