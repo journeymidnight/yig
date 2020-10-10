@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
 )
@@ -19,12 +20,13 @@ func (c *TiKVClient) GetClusters() (clusters []Cluster, err error) {
 	endKey := GenKey(TableClusterPrefix, TableMaxKeySuffix)
 	kvs, err := c.TxScan(startKey, endKey, MaxClusterKeyLimit, nil)
 	if err != nil {
+		err = NewError(InTikvFatalError, "GetClusters TxScan err", err)
 		return nil, err
 	}
 	for _, kv := range kvs {
 		cluster, err := getCluster(kv.K, kv.V)
 		if err != nil {
-			helper.Logger.Warn("get cluster err:", err)
+			helper.Logger.Error("get cluster err:", err)
 			continue
 		}
 		clusters = append(clusters, cluster)

@@ -58,7 +58,7 @@ func getUsage(w http.ResponseWriter, r *http.Request) {
 	usage, err := adminServer.Yig.MetaStorage.GetUsage(bucketName)
 	if err != nil {
 		e, logLevel := ParseError(err)
-		helper.Logger.Log(logLevel, "Unable to get usage:", err)
+		helper.Logger.Log(logLevel, 3, "Unable to get usage:", err)
 		api.WriteErrorResponseWithoutContext(w, r, e)
 		return
 	}
@@ -75,7 +75,7 @@ func getBucketInfo(w http.ResponseWriter, r *http.Request) {
 	bucket, err := adminServer.Yig.MetaStorage.GetBucketInfo(bucketName)
 	if err != nil {
 		e, logLevel := ParseError(err)
-		helper.Logger.Log(logLevel, "Unable to get bucket info:", err)
+		helper.Logger.Log(logLevel, 3, "Unable to get bucket info:", err)
 		api.WriteErrorResponseWithoutContext(w, r, e)
 		return
 	}
@@ -92,7 +92,7 @@ func getUserInfo(w http.ResponseWriter, r *http.Request) {
 	buckets, err := adminServer.Yig.MetaStorage.GetUserInfo(uid)
 	if err != nil {
 		e, logLevel := ParseError(err)
-		helper.Logger.Log(logLevel, "Unable to get user info:", err)
+		helper.Logger.Log(logLevel, 3, "Unable to get user info:", err)
 		api.WriteErrorResponseWithoutContext(w, r, e)
 		return
 	}
@@ -102,7 +102,7 @@ func getUserInfo(w http.ResponseWriter, r *http.Request) {
 	keys, err = iam.GetKeysByUid(uid)
 	if err != nil {
 		e, logLevel := ParseError(err)
-		helper.Logger.Log(logLevel, "Unable to get keys:", err)
+		helper.Logger.Log(logLevel, 3, "Unable to get keys:", err)
 		api.WriteErrorResponseWithoutContext(w, r, e)
 		return
 	}
@@ -121,7 +121,7 @@ func getObjectInfo(w http.ResponseWriter, r *http.Request) {
 	object, err := adminServer.Yig.MetaStorage.GetObject(bucketName, objectName, version, true)
 	if err != nil {
 		e, logLevel := ParseError(err)
-		helper.Logger.Log(logLevel, "Unable to get object:", err)
+		helper.Logger.Log(logLevel, 3, "Unable to get object:", err)
 		api.WriteErrorResponseWithoutContext(w, r, e)
 		return
 	}

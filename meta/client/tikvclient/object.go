@@ -43,6 +43,7 @@ func (c *TiKVClient) GetObject(bucketName, objectName, version string, tx Tx) (*
 	}
 	ok, err := c.TxGet(key, &o, txn)
 	if err != nil {
+		err = NewError(InTikvFatalError, "GetObject TxGet err", err)
 		return nil, err
 	}
 	if !ok {
@@ -62,6 +63,7 @@ func (c *TiKVClient) GetObject(bucketName, objectName, version string, tx Tx) (*
 func (c *TiKVClient) GetLatestObjectVersion(bucketName, objectName string) (object *Object, err error) {
 	tx, err := c.NewTrans()
 	if err != nil {
+		err = NewError(InTikvFatalError, "GetLatestObjectVersion NewTrans err", err)
 		return nil, err
 	}
 	defer func() {
@@ -69,6 +71,7 @@ func (c *TiKVClient) GetLatestObjectVersion(bucketName, objectName string) (obje
 			err = c.CommitTrans(tx)
 		}
 		if err != nil {
+			err = NewError(InTikvFatalError, "GetLatestObjectVersion err", err)
 			c.AbortTrans(tx)
 		}
 	}()
@@ -84,6 +87,9 @@ func (c *TiKVClient) GetLatestObjectVersion(bucketName, objectName string) (obje
 		defer wg.Done()
 		objKey := GenObjectKey(bucketName, objectName, NullVersion)
 		nullObjExist, e1 = c.TxGet(objKey, &o, txn)
+		if e1 != nil {
+			e1 = NewError(InTikvFatalError, "GetLatestObjectVersion err", err)
+		}
 	}()
 
 	go func() {
@@ -92,6 +98,7 @@ func (c *TiKVClient) GetLatestObjectVersion(bucketName, objectName string) (obje
 		versionEndKey := GenObjectKey(bucketName, objectName, TableMaxKeySuffix)
 		kvs, e2 = c.TxScan(key.Key(versionStartKey), key.Key(versionEndKey), 1, txn)
 		if e2 != nil {
+			e2 = NewError(InTikvFatalError, "GetLatestObjectVersion err", err)
 			return
 		}
 		if len(kvs) != 0 {
@@ -132,6 +139,7 @@ func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage
 
 	tx, err := c.NewTrans()
 	if err != nil {
+		err = NewError(InTikvFatalError, "PutObject NewTrans err", err)
 		return err
 	}
 	defer func() {
@@ -139,6 +147,7 @@ func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage
 			err = c.CommitTrans(tx)
 		}
 		if err != nil {
+			err = NewError(InTikvFatalError, "PutObject err", err)
 			c.AbortTrans(tx)
 		}
 	}()
@@ -154,11 +163,13 @@ func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage
 
 	objectVal, err := helper.MsgPackMarshal(object)
 	if err != nil {
+		err = NewError(InTikvFatalError, "PutObject MsgPackMarshal err", err)
 		return err
 	}
 
 	err = txn.Set(objectKey, objectVal)
 	if err != nil {
+		err = NewError(InTikvFatalError, "PutObject Set err", err)
 		return err
 	}
 
@@ -173,6 +184,7 @@ func (c *TiKVClient) UpdateObject(object *Object, multipart *Multipart, updateUs
 	if tx == nil {
 		tx, err = c.NewTrans()
 		if err != nil {
+			err = NewError(InTikvFatalError, "UpdateObject NewTrans err", err)
 			return err
 		}
 		defer func() {
@@ -180,6 +192,7 @@ func (c *TiKVClient) UpdateObject(object *Object, multipart *Multipart, updateUs
 				err = c.CommitTrans(tx)
 			}
 			if err != nil {
+				err = NewError(InTikvFatalError, "UpdateObject err", err)
 				c.AbortTrans(tx)
 			}
 		}()
@@ -196,11 +209,13 @@ func (c *TiKVClient) UpdateObject(object *Object, multipart *Multipart, updateUs
 
 	objectVal, err := helper.MsgPackMarshal(object)
 	if err != nil {
+		err = NewError(InTikvFatalError, "UpdateObject MsgPackMarshal err", err)
 		return err
 	}
 
 	err = txn.Set(objectKey, objectVal)
 	if err != nil {
+		err = NewError(InTikvFatalError, "UpdateObject Set err", err)
 		return err
 	}
 
@@ -216,6 +231,7 @@ func (c *TiKVClient) RenameObject(object *Object, sourceObject string) (err erro
 
 	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
+		err = NewError(InTikvFatalError, "RenameObject Begin err", err)
 		return err
 	}
 	defer func() {
@@ -223,20 +239,24 @@ func (c *TiKVClient) RenameObject(object *Object, sourceObject string) (err erro
 			err = tx.Commit(context.Background())
 		}
 		if err != nil {
+			err = NewError(InTikvFatalError, "RenameObject err", err)
 			tx.Rollback()
 		}
 	}()
 
 	v, err := helper.MsgPackMarshal(*object)
 	if err != nil {
+		err = NewError(InTikvFatalError, "RenameObject MsgPackMarshal err", err)
 		return err
 	}
 	err = tx.Set(newKey, v)
 	if err != nil {
+		err = NewError(InTikvFatalError, "RenameObject Set err", err)
 		return err
 	}
 	err = tx.Delete(oldKey)
 	if err != nil {
+		err = NewError(InTikvFatalError, "RenameObject Delete err", err)
 		return err
 	}
 	return nil
@@ -247,6 +267,7 @@ func (c *TiKVClient) DeleteObject(object *Object, tx Tx) (err error) {
 	if tx == nil {
 		tx, err = c.NewTrans()
 		if err != nil {
+			err = NewError(InTikvFatalError, "DeleteObject NewTrans err", err)
 			return err
 		}
 		defer func() {
@@ -254,13 +275,18 @@ func (c *TiKVClient) DeleteObject(object *Object, tx Tx) (err error) {
 				err = c.CommitTrans(tx)
 			}
 			if err != nil {
+				err = NewError(InTikvFatalError, "DeleteObject err", err)
 				c.AbortTrans(tx)
 			}
 		}()
 	}
 
 	txn := tx.(*TikvTx).tx
-	return txn.Delete(key)
+	err = txn.Delete(key)
+	if err != nil {
+		return NewError(InTikvFatalError, "DeleteObject Delete err", err)
+	}
+	return nil
 }
 
 func (c *TiKVClient) UpdateObjectAcl(object *Object) error {
@@ -290,6 +316,7 @@ func (c *TiKVClient) AppendObject(object *Object, updateUsage bool) (err error) 
 	hotKey := GenHotObjectKey(object.BucketName, object.Name, object.VersionId)
 	tx, err := c.NewTrans()
 	if err != nil {
+		err = NewError(InTikvFatalError, "AppendObject NewTrans err", err)
 		return err
 	}
 	defer func() {
@@ -297,6 +324,7 @@ func (c *TiKVClient) AppendObject(object *Object, updateUsage bool) (err error) 
 			err = c.CommitTrans(tx)
 		}
 		if err != nil {
+			err = NewError(InTikvFatalError, "AppendObject err", err)
 			c.AbortTrans(tx)
 		}
 	}()
@@ -305,16 +333,19 @@ func (c *TiKVClient) AppendObject(object *Object, updateUsage bool) (err error) 
 
 	v, err := helper.MsgPackMarshal(*object)
 	if err != nil {
+		err = NewError(InTikvFatalError, "AppendObject MsgPackMarshal err", err)
 		return err
 	}
 	err = txn.Set(objectKey, v)
 	if err != nil {
+		err = NewError(InTikvFatalError, "AppendObject Set err", err)
 		return err
 	}
 
 	if object.Pool == backend.SMALL_FILE_POOLNAME {
 		err = txn.Set(hotKey, v)
 		if err != nil {
+			err = NewError(InTikvFatalError, "AppendObject Set err", err)
 			return err
 		}
 	}
@@ -332,6 +363,7 @@ func (c *TiKVClient) MigrateObject(object *Object) (err error) {
 	hotKey := GenHotObjectKey(object.BucketName, object.Name, object.VersionId)
 	tx, err := c.NewTrans()
 	if err != nil {
+		err = NewError(InTikvFatalError, "MigrateObject NewTrans err", err)
 		return err
 	}
 	defer func() {
@@ -339,6 +371,7 @@ func (c *TiKVClient) MigrateObject(object *Object) (err error) {
 			err = c.CommitTrans(tx)
 		}
 		if err != nil {
+			err = NewError(InTikvFatalError, "MigrateObject err", err)
 			c.AbortTrans(tx)
 		}
 	}()
@@ -346,14 +379,17 @@ func (c *TiKVClient) MigrateObject(object *Object) (err error) {
 	txn := tx.(*TikvTx).tx
 	v, err := helper.MsgPackMarshal(*object)
 	if err != nil {
+		err = NewError(InTikvFatalError, "MigrateObject MsgPackMarshal err", err)
 		return err
 	}
 	err = txn.Set(objectKey, v)
 	if err != nil {
+		err = NewError(InTikvFatalError, "MigrateObject Set err", err)
 		return err
 	}
 	err = txn.Delete(hotKey)
 	if err != nil {
+		err = NewError(InTikvFatalError, "MigrateObject Delete err", err)
 		return err
 	}
 	return nil
@@ -362,10 +398,20 @@ func (c *TiKVClient) MigrateObject(object *Object) (err error) {
 func (c *TiKVClient) RemoveHotObject(object *Object, tx Tx) (err error) {
 	hotKey := GenHotObjectKey(object.BucketName, object.Name, object.VersionId)
 	if tx == nil {
-		return c.TxDelete(hotKey)
+		err = c.TxDelete(hotKey)
+		if err != nil {
+			err = NewError(InTikvFatalError, "RemoveHotObject TxDelete err", err)
+			return err
+		}
+		return nil
 	} else {
 		txn := tx.(*TikvTx).tx
-		return txn.Delete(hotKey)
+		err = txn.Delete(hotKey)
+		if err != nil {
+			err = NewError(InTikvFatalError, "RemoveHotObject Delete err", err)
+			return err
+		}
+		return nil
 	}
 }
 
@@ -374,6 +420,7 @@ func (c *TiKVClient) UpdateAppendObject(object *Object) (err error) {
 	hotKey := GenHotObjectKey(object.BucketName, object.Name, object.VersionId)
 	tx, err := c.NewTrans()
 	if err != nil {
+		err = NewError(InTikvFatalError, "UpdateAppendObject NewTrans err", err)
 		return err
 	}
 	defer func() {
@@ -381,6 +428,7 @@ func (c *TiKVClient) UpdateAppendObject(object *Object) (err error) {
 			err = c.CommitTrans(tx)
 		}
 		if err != nil {
+			err = NewError(InTikvFatalError, "UpdateAppendObject err", err)
 			c.AbortTrans(tx)
 		}
 	}()
@@ -388,15 +436,18 @@ func (c *TiKVClient) UpdateAppendObject(object *Object) (err error) {
 	txn := tx.(*TikvTx).tx
 	v, err := helper.MsgPackMarshal(*object)
 	if err != nil {
+		err = NewError(InTikvFatalError, "UpdateAppendObject MsgPackMarshal err", err)
 		return err
 	}
 	err = txn.Set(objectKey, v)
 	if err != nil {
+		err = NewError(InTikvFatalError, "UpdateAppendObject Set err", err)
 		return err
 	}
 	if object.Pool == backend.SMALL_FILE_POOLNAME {
 		err = txn.Set(hotKey, v)
 		if err != nil {
+			err = NewError(InTikvFatalError, "UpdateAppendObject Set err", err)
 			return err
 		}
 	}

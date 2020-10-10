@@ -19,24 +19,20 @@ func (api ObjectAPIHandlers) PutBucketLifeCycleHandler(w http.ResponseWriter, r 
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.PutBucketPolicyAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "PutBucketEncryptionHandler checkRequestAuth err:")
 		return
 	}
 
 	lifecycle, err := ParseLifecycleConfig(io.LimitReader(r.Body, r.ContentLength))
 	if err != nil {
-		e, logLevel := ParseError(err)
-		logger.Log(logLevel, "PutBucketLifeCycleHandler signature authenticate err:", err)
-		WriteErrorResponse(w, r, e)
+		WriteInternalErrorResponse(w, r, err, "Unable to parse lifecycle config:")
 		return
 	}
 
 	logger.Info("Setting lifecycle:", *lifecycle)
 	err = api.ObjectAPI.SetBucketLifecycle(reqCtx, *lifecycle, credential)
 	if err != nil {
-		e, logLevel := ParseError(err)
-		logger.Log(logLevel, "Unable to set lifecycle for bucket:", err)
-		WriteErrorResponse(w, r, e)
+		WriteInternalErrorResponse(w, r, err, "Unable to set lifecycle for bucket:")
 		return
 	}
 
@@ -51,17 +47,13 @@ func (api ObjectAPIHandlers) GetBucketLifeCycleHandler(w http.ResponseWriter, r 
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.GetBucketPolicyAction); err != nil {
-		e, logLevel := ParseError(err)
-		logger.Log(logLevel, "GetBucketLifeCycleHandler checkRequestAuth err:", err)
-		WriteErrorResponse(w, r, e)
+		WriteInternalErrorResponse(w, r, err, "GetBucketLifeCycleHandler checkRequestAuth err:")
 		return
 	}
 
 	lifecycle, err := api.ObjectAPI.GetBucketLifecycle(reqCtx, credential)
 	if err != nil {
-		e, logLevel := ParseError(err)
-		logger.Log(logLevel, "Failed to get bucket lifecycle for bucket", reqCtx.BucketName, "error:", err)
-		WriteErrorResponse(w, r, e)
+		WriteInternalErrorResponse(w, r, err, "Failed to get bucket lifecycle for bucket", reqCtx.BucketName, "error:")
 		return
 	}
 
@@ -73,9 +65,7 @@ func (api ObjectAPIHandlers) GetBucketLifeCycleHandler(w http.ResponseWriter, r 
 
 	lcBuffer, err := xmlFormat(lifecycle)
 	if err != nil {
-		e, logLevel := ParseError(err)
-		logger.Log(logLevel, "Failed to marshal lifecycle XML for bucket:", reqCtx.BucketName, "error:", err)
-		WriteErrorResponse(w, r, e)
+		WriteInternalErrorResponse(w, r, err, "Failed to marshal lifecycle XML for bucket:", reqCtx.BucketName, "error:")
 		return
 	}
 
@@ -87,22 +77,17 @@ func (api ObjectAPIHandlers) GetBucketLifeCycleHandler(w http.ResponseWriter, r 
 func (api ObjectAPIHandlers) DelBucketLifeCycleHandler(w http.ResponseWriter, r *http.Request) {
 	SetOperationName(w, OpDelBucketLifeCycle)
 	reqCtx := GetRequestContext(r)
-	logger := reqCtx.Logger
 
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.DeleteBucketPolicyAction); err != nil {
-		e, logLevel := ParseError(err)
-		logger.Log(logLevel, "DelBucketLifeCycleHandler checkRequestAuth err:", err)
-		WriteErrorResponse(w, r, e)
+		WriteInternalErrorResponse(w, r, err, "DelBucketLifeCycleHandler checkRequestAuth err:")
 		return
 	}
 
 	err = api.ObjectAPI.DelBucketLifecycle(reqCtx, credential)
 	if err != nil {
-		e, logLevel := ParseError(err)
-		logger.Log(logLevel, "Failed to delete bucket lifecycle for bucket", err)
-		WriteErrorResponse(w, r, e)
+		WriteInternalErrorResponse(w, r, err, "Failed to delete bucket lifecycle for bucket")
 		return
 	}
 

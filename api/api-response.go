@@ -265,6 +265,25 @@ func WriteErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
 	}
 }
 
+// WriteInternalErrorResponse parse internal error and write error headers
+func WriteInternalErrorResponse(w http.ResponseWriter, r *http.Request, err error, args ...interface{}) {
+	reqCtx := GetRequestContext(r)
+	if reqCtx.Mutex != nil {
+		releaseErr := reqCtx.Mutex.Release()
+		helper.Logger.Info("Release redis lock ", reqCtx.BucketName, reqCtx.ObjectName, reqCtx.ObjectInfo.ObjectId, reqCtx.RequestID, releaseErr)
+	}
+
+	// Parse error and log info
+	e, logLevel := ParseError(err)
+	args = append(args, err)
+	reqCtx.Logger.Log(logLevel, 4, args...)
+
+	handled := WriteErrorResponseHeaders(w, r, e)
+	if !handled {
+		WriteErrorResponseNoHeader(w, r, e, r.URL.Path)
+	}
+}
+
 // writeErrorResponse write error headers
 func WriteErrorResponseWithoutContext(w http.ResponseWriter, r *http.Request, err error) {
 	handled := WriteErrorResponseHeaders(w, r, err)

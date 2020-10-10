@@ -25,7 +25,11 @@ func GenFreezerKey(bucketName, objectName, version string) []byte {
 //freezer
 func (c *TiKVClient) CreateFreezer(freezer *Freezer) (err error) {
 	key := GenFreezerKey(freezer.BucketName, freezer.Name, freezer.VersionId)
-	return c.TxPut(key, *freezer)
+	err = c.TxPut(key, *freezer)
+	if err != nil {
+		return NewError(InTikvFatalError, "CreateFreezer TxPut err", err)
+	}
+	return nil
 }
 
 func (c *TiKVClient) GetFreezer(bucketName, objectName, version string) (freezer *Freezer, err error) {
@@ -33,6 +37,7 @@ func (c *TiKVClient) GetFreezer(bucketName, objectName, version string) (freezer
 	var f Freezer
 	ok, err := c.TxGet(key, &f, nil)
 	if err != nil {
+		err := NewError(InTikvFatalError, "GetFreezer TxGet err", err)
 		return nil, err
 	}
 	if !ok {
@@ -54,6 +59,7 @@ func (c *TiKVClient) GetFreezerStatus(bucketName, objectName, version string) (f
 	var f Freezer
 	ok, err := c.TxGet(key, &f, nil)
 	if err != nil {
+		err := NewError(InTikvFatalError, "GetFreezerStatus TxGet err", err)
 		return nil, err
 	}
 	if !ok {
@@ -66,13 +72,14 @@ func (c *TiKVClient) UpdateFreezerDate(bucketName, objectName, version string, l
 	key := GenFreezerKey(bucketName, objectName, version)
 	tx, err := c.NewTrans()
 	if err != nil {
-		return err
+		return NewError(InTikvFatalError, "UpdateFreezerDate NewTrans err", err)
 	}
 	defer func() {
 		if err == nil {
 			err = c.CommitTrans(tx)
 		}
 		if err != nil {
+			err = NewError(InTikvFatalError, "UpdateFreezerDate err", err)
 			c.AbortTrans(tx)
 		}
 	}()
@@ -80,7 +87,7 @@ func (c *TiKVClient) UpdateFreezerDate(bucketName, objectName, version string, l
 	txn := tx.(*TikvTx).tx
 	val, err := txn.Get(context.TODO(), key)
 	if err != nil && !kv.IsErrNotFound(err) {
-		return err
+		return NewError(InTikvFatalError, "UpdateFreezerDate Get err", err)
 	}
 	if kv.IsErrNotFound(err) {
 		return nil
@@ -88,26 +95,30 @@ func (c *TiKVClient) UpdateFreezerDate(bucketName, objectName, version string, l
 	var f Freezer
 	err = helper.MsgPackUnMarshal(val, &f)
 	if err != nil {
-		return err
+		return NewError(InTikvFatalError, "UpdateFreezerDate MsgPackUnMarshal err", err)
 	}
 
 	f.LifeTime = lifetime
 
 	newVal, err := helper.MsgPackMarshal(f)
 	if err != nil {
-		return err
+		return NewError(InTikvFatalError, "UpdateFreezerDate MsgPackMarshal err", err)
 	}
 
 	err = txn.Set(key, newVal)
 	if err != nil {
-		return err
+		return NewError(InTikvFatalError, "UpdateFreezerDate Set err", err)
 	}
 	return nil
 }
 
 func (c *TiKVClient) DeleteFreezer(bucketName, objectName, versionId string, objectType ObjectType, createTime uint64, tx Tx) (err error) {
 	key := GenFreezerKey(bucketName, objectName, versionId)
-	return c.TxDelete(key)
+	err = c.TxDelete(key)
+	if err != nil {
+		return NewError(InTikvFatalError, "DeleteFreezer TxDelete err", err)
+	}
+	return nil
 }
 
 func (c *TiKVClient) ListFreezersWithStatus(maxKeys int, status common.RestoreStatus) (retFreezers []Freezer, err error) {
@@ -115,10 +126,12 @@ func (c *TiKVClient) ListFreezersWithStatus(maxKeys int, status common.RestoreSt
 	endKey := GenFreezerKey(TableMaxKeySuffix, TableMaxKeySuffix, TableMaxKeySuffix)
 	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
+		err = NewError(InTikvFatalError, "ListFreezersWithStatus Begin err", err)
 		return nil, err
 	}
 	it, err := tx.Iter(context.TODO(), key.Key(startKey), key.Key(endKey))
 	if err != nil {
+		err = NewError(InTikvFatalError, "ListFreezersWithStatus Iter err", err)
 		return nil, err
 	}
 	defer it.Close()
@@ -127,10 +140,12 @@ func (c *TiKVClient) ListFreezersWithStatus(maxKeys int, status common.RestoreSt
 		var f Freezer
 		err = helper.MsgPackUnMarshal(v, &f)
 		if err != nil {
+			err = NewError(InTikvFatalError, "ListFreezersWithStatus MsgPackUnMarshal err", err)
 			return nil, err
 		}
 		if f.Status.ToString() != status.ToString() {
 			if err := it.Next(context.TODO()); err != nil && it.Valid() {
+				err = NewError(InTikvFatalError, "ListFreezersWithStatus get next err", err)
 				return nil, err
 			}
 			continue
@@ -143,6 +158,7 @@ func (c *TiKVClient) ListFreezersWithStatus(maxKeys int, status common.RestoreSt
 			}
 		}
 		if err := it.Next(context.TODO()); err != nil && it.Valid() {
+			err = NewError(InTikvFatalError, "ListFreezersWithStatus get next err", err)
 			return nil, err
 		}
 	}
@@ -154,13 +170,14 @@ func (c *TiKVClient) PutFreezer(freezer *Freezer, status common.RestoreStatus, t
 	if tx == nil {
 		tx, err = c.NewTrans()
 		if err != nil {
-			return err
+			return NewError(InTikvFatalError, "PutFreezer NewTrans err", err)
 		}
 		defer func() {
 			if err == nil {
 				err = c.CommitTrans(tx)
 			}
 			if err != nil {
+				err = NewError(InTikvFatalError, "PutFreezer err", err)
 				c.AbortTrans(tx)
 			}
 		}()
@@ -168,7 +185,7 @@ func (c *TiKVClient) PutFreezer(freezer *Freezer, status common.RestoreStatus, t
 	txn := tx.(*TikvTx).tx
 	val, err := txn.Get(context.TODO(), key)
 	if err != nil && !kv.IsErrNotFound(err) {
-		return err
+		return NewError(InTikvFatalError, "PutFreezer Get err", err)
 	}
 	if kv.IsErrNotFound(err) {
 		return nil
@@ -176,7 +193,7 @@ func (c *TiKVClient) PutFreezer(freezer *Freezer, status common.RestoreStatus, t
 	var f Freezer
 	err = helper.MsgPackUnMarshal(val, &f)
 	if err != nil {
-		return err
+		return NewError(InTikvFatalError, "PutFreezer MsgPackUnMarshal err", err)
 	}
 	f.Status = status
 	f.LastModifiedTime = freezer.LastModifiedTime
@@ -187,22 +204,27 @@ func (c *TiKVClient) PutFreezer(freezer *Freezer, status common.RestoreStatus, t
 	f.Parts = freezer.Parts
 	newVal, err := helper.MsgPackMarshal(f)
 	if err != nil {
-		return err
+		return NewError(InTikvFatalError, "PutFreezer MsgPackUnMarshal err", err)
 	}
-	return txn.Set(key, newVal)
+	err = txn.Set(key, newVal)
+	if err != nil {
+		return NewError(InTikvFatalError, "PutFreezer Set err", err)
+	}
+	return nil
 }
 
 func (c *TiKVClient) UpdateFreezerStatus(bucketName, objectName, version string, status, statusSetting common.RestoreStatus) (err error) {
 	key := GenFreezerKey(bucketName, objectName, version)
 	tx, err := c.NewTrans()
 	if err != nil {
-		return err
+		return NewError(InTikvFatalError, "UpdateFreezerStatus NewTrans err", err)
 	}
 	defer func() {
 		if err == nil {
 			err = c.CommitTrans(tx)
 		}
 		if err != nil {
+			err = NewError(InTikvFatalError, "UpdateFreezerStatus err", err)
 			c.AbortTrans(tx)
 		}
 	}()
@@ -210,7 +232,7 @@ func (c *TiKVClient) UpdateFreezerStatus(bucketName, objectName, version string,
 	txn := tx.(*TikvTx).tx
 	val, err := txn.Get(context.TODO(), key)
 	if err != nil && !kv.IsErrNotFound(err) {
-		return err
+		return NewError(InTikvFatalError, "UpdateFreezerStatus Get err", err)
 	}
 	if kv.IsErrNotFound(err) {
 		return nil
@@ -218,7 +240,7 @@ func (c *TiKVClient) UpdateFreezerStatus(bucketName, objectName, version string,
 	var f Freezer
 	err = helper.MsgPackUnMarshal(val, &f)
 	if err != nil {
-		return err
+		return NewError(InTikvFatalError, "UpdateFreezerStatus MsgPackUnMarshal err", err)
 	}
 
 	if f.Status != status {
@@ -228,12 +250,12 @@ func (c *TiKVClient) UpdateFreezerStatus(bucketName, objectName, version string,
 	f.Status = statusSetting
 	newVal, err := helper.MsgPackMarshal(f)
 	if err != nil {
-		return err
+		return NewError(InTikvFatalError, "UpdateFreezerStatus MsgPackMarshal err", err)
 	}
 
 	err = txn.Set(key, newVal)
 	if err != nil {
-		return err
+		return NewError(InTikvFatalError, "UpdateFreezerStatus Set err", err)
 	}
 	return nil
 }

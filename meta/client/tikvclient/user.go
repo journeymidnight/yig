@@ -4,6 +4,8 @@ import (
 	"errors"
 	"math"
 	"strings"
+
+	. "github.com/journeymidnight/yig/error"
 )
 
 func GenUserBucketKey(ownerId, bucketName string) []byte {
@@ -21,7 +23,7 @@ func (c *TiKVClient) GetUserBuckets(userId string) (buckets []string, err error)
 	endKey := GenUserBucketKey(userId, TableMaxKeySuffix)
 	kvs, err := c.TxScan(startKey, endKey, MaxUserBucketKey, nil)
 	if err != nil {
-		return nil, err
+		return nil, NewError(InTikvFatalError, "GetUserBuckets TxScan err", err)
 	}
 	for _, kv := range kvs {
 		k := strings.Split(string(kv.K), TableSeparator)
@@ -41,7 +43,7 @@ func (c *TiKVClient) GetAllUserBuckets() (bucketUser map[string]string, err erro
 	for _, kv := range kvs {
 		k := strings.Split(string(kv.K), TableSeparator)
 		if len(k) != 3 {
-			return nil, errors.New("Invalid user bucket key:" + string(kv.K))
+			return nil, NewError(InTikvFatalError, "Invalid user bucket key:"+string(kv.K), nil)
 		}
 		bucketUser[k[2]] = k[1]
 	}

@@ -43,14 +43,11 @@ const (
 func (api ObjectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *http.Request) {
 	SetOperationName(w, OpPutBucketPolicy)
 	reqCtx := GetRequestContext(r)
-	logger := reqCtx.Logger
 
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.PutBucketPolicyAction); err != nil {
-		e, logLevel := ParseError(err)
-		logger.Log(logLevel, "PutBucketPolicyHandler checkRequestAuth err:", err)
-		WriteErrorResponse(w, r, e)
+		WriteInternalErrorResponse(w, r, err, "PutBucketPolicyHandler checkRequestAuth err:")
 		return
 	}
 
@@ -81,9 +78,7 @@ func (api ObjectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *ht
 	}
 
 	if err = api.ObjectAPI.SetBucketPolicy(credential, reqCtx.BucketName, *bucketPolicy); err != nil {
-		e, logLevel := ParseError(err)
-		logger.Log(logLevel, "PutBucketPolicyHandler set policy err:", err)
-		WriteErrorResponse(w, r, e)
+		WriteInternalErrorResponse(w, r, err, "PutBucketPolicyHandler set policy err:")
 		return
 	}
 
@@ -95,21 +90,16 @@ func (api ObjectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *ht
 func (api ObjectAPIHandlers) DeleteBucketPolicyHandler(w http.ResponseWriter, r *http.Request) {
 	SetOperationName(w, OpDeleteBucketPolicy)
 	reqCtx := GetRequestContext(r)
-	logger := reqCtx.Logger
 	bucket := reqCtx.BucketName
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.DeleteBucketPolicyAction); err != nil {
-		e, logLevel := ParseError(err)
-		logger.Log(logLevel, "DeleteBucketPolicyHandler signature authenticate err:", err)
-		WriteErrorResponse(w, r, e)
+		WriteInternalErrorResponse(w, r, err, "DeleteBucketPolicyHandler signature authenticate err:")
 		return
 	}
 
 	if err := api.ObjectAPI.DeleteBucketPolicy(credential, bucket); err != nil {
-		e, logLevel := ParseError(err)
-		logger.Log(logLevel, "Failed to delete bucket policy", err)
-		WriteErrorResponse(w, r, e)
+		WriteInternalErrorResponse(w, r, err, "Failed to delete bucket policy")
 		return
 	}
 
@@ -127,18 +117,14 @@ func (api ObjectAPIHandlers) GetBucketPolicyHandler(w http.ResponseWriter, r *ht
 	var err error
 
 	if credential, err = checkRequestAuth(r, policy.GetBucketPolicyAction); err != nil {
-		e, logLevel := ParseError(err)
-		logger.Log(logLevel, "DeleteBucketPolicyHandler checkRequestAuth err:", err)
-		WriteErrorResponse(w, r, e)
+		WriteInternalErrorResponse(w, r, err, "DeleteBucketPolicyHandler checkRequestAuth err:")
 		return
 	}
 
 	// Read bucket access policy.
 	bucketPolicy, err := api.ObjectAPI.GetBucketPolicy(credential, bucket)
 	if err != nil {
-		e, logLevel := ParseError(err)
-		logger.Log(logLevel, "Failed to get bucket policy", err)
-		WriteErrorResponse(w, r, e)
+		WriteInternalErrorResponse(w, r, err, "Failed to get bucket policy")
 		return
 	}
 

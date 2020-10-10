@@ -88,17 +88,17 @@ func getCaller(skipCallDepth int) string {
 	return fmt.Sprintf("%s:%d", file, line)
 }
 
-func (l Logger) prefixArray() []interface{} {
+func (l Logger) prefixArray(skipCallDepth int) []interface{} {
 	array := make([]interface{}, 0, 3)
-	array = append(array, getCaller(3))
+	array = append(array, getCaller(skipCallDepth))
 	if len(l.requestID) > 0 {
 		array = append(array, l.requestID)
 	}
 	return array
 }
 
-func (l Logger) Log(level Level, args ...interface{}) {
-	prefixArray := l.prefixArray()
+func (l Logger) Log(level Level, skipCallDepth int, args ...interface{}) {
+	prefixArray := l.prefixArray(skipCallDepth)
 	switch level {
 	case InfoLevel:
 		if l.level < InfoLevel {
@@ -122,7 +122,7 @@ func (l Logger) Log(level Level, args ...interface{}) {
 		if l.level < FatalLevel {
 			return
 		}
-		prefixArray = append(prefixArray, "[FATAl]")
+		prefixArray = append(prefixArray, "[FATAL]")
 		break
 	case DebugLevel:
 		if l.level < DebugLevel {
@@ -138,7 +138,7 @@ func (l Logger) Info(args ...interface{}) {
 	if l.level < InfoLevel {
 		return
 	}
-	prefixArray := l.prefixArray()
+	prefixArray := l.prefixArray(3)
 	prefixArray = append(prefixArray, "[INFO]")
 	args = append(prefixArray, args...)
 	l.logger.Println(args...)
@@ -148,7 +148,7 @@ func (l Logger) Warn(args ...interface{}) {
 	if l.level < WarnLevel {
 		return
 	}
-	prefixArray := l.prefixArray()
+	prefixArray := l.prefixArray(3)
 	prefixArray = append(prefixArray, "[WARN]")
 	args = append(prefixArray, args...)
 	l.logger.Println(args...)
@@ -158,7 +158,7 @@ func (l Logger) Error(args ...interface{}) {
 	if l.level < ErrorLevel {
 		return
 	}
-	prefixArray := l.prefixArray()
+	prefixArray := l.prefixArray(3)
 	prefixArray = append(prefixArray, "[ERROR]")
 	args = append(prefixArray, args...)
 	l.logger.Println(args...)
@@ -168,8 +168,8 @@ func (l Logger) Fatal(args ...interface{}) {
 	if l.level < FatalLevel {
 		return
 	}
-	prefixArray := l.prefixArray()
-	prefixArray = append(prefixArray, "[FATAl]")
+	prefixArray := l.prefixArray(3)
+	prefixArray = append(prefixArray, "[FATAL]")
 	args = append(prefixArray, args...)
 	l.logger.Println(args...)
 }
@@ -178,7 +178,7 @@ func (l Logger) Debug(args ...interface{}) {
 	if l.level < DebugLevel {
 		return
 	}
-	prefixArray := l.prefixArray()
+	prefixArray := l.prefixArray(3)
 	prefixArray = append(prefixArray, "[DEBUG]")
 	args = append(prefixArray, args...)
 	l.logger.Println(args...)
