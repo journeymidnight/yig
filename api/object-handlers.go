@@ -1356,9 +1356,7 @@ func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http
 		WriteInternalErrorResponse(w, r, err, "Unable to get restore object status:", object.Name, "error:")
 	}
 	if err == ErrNoSuchKey || freezer.Name == "" {
-		// TiDB version is temporarily modified, TiKV version will be further adjusted
-		// status, err := MatchStatusIndex("READY")
-		status, err := MatchStatusIndex("FINISH")
+		status, err := MatchStatusIndex("READY")
 		if err != nil {
 			logger.Warn("Unable to get freezer status:", err)
 			WriteErrorResponse(w, r, ErrInvalidRestoreInfo)
