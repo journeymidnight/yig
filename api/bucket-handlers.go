@@ -328,13 +328,13 @@ func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *h
 	var bl BucketLoggingStatus
 	blBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 4096))
 	if err != nil {
-		logger.Fatal("Unable to read bucket logging body:", err)
-		WriteErrorResponse(w, r, ErrInternalError)
+		logger.Warn("Unable to read bucket logging body:", err)
+		WriteErrorResponse(w, r, ErrInvalidBucketLogging)
 		return
 	}
 	err = xml.Unmarshal(blBuffer, &bl)
 	if err != nil {
-		logger.Error("Unable to parse bucket logging XML body:", err)
+		logger.Warn("Unable to parse bucket logging XML body:", err)
 		WriteErrorResponse(w, r, ErrMalformedXML)
 		return
 	}
@@ -446,14 +446,14 @@ func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.
 	} else {
 		aclBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
 		if err != nil {
-			logger.Fatal("Unable to read ACL body:", err)
+			logger.Warn("Unable to read ACL body:", err)
 			WriteErrorResponse(w, r, ErrInvalidAcl)
 			return
 		}
 		err = xml.Unmarshal(aclBuffer, &acl.Policy)
 		if err != nil {
-			logger.Fatal("Unable to parse ACLs XML body:", err, aclBuffer)
-			WriteErrorResponse(w, r, ErrInternalError)
+			logger.Warn("Unable to parse ACLs XML body:", err)
+			WriteErrorResponse(w, r, ErrMalformedXML)
 			return
 		}
 	}
@@ -523,13 +523,14 @@ func (api ObjectAPIHandlers) PutBucketCorsHandler(w http.ResponseWriter, r *http
 
 	corsBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, MAX_CORS_SIZE))
 	if err != nil {
-		logger.Fatal("Unable to read CORS body:", err)
-		WriteErrorResponse(w, r, ErrInternalError)
+		logger.Warn("Unable to read CORS body:", err)
+		WriteErrorResponse(w, r, ErrInvalidCorsDocument)
 		return
 	}
 
 	cors, err := CorsFromXml(corsBuffer)
 	if err != nil {
+		logger.Warn("Unable to parse CORS XML body:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -648,13 +649,14 @@ func (api ObjectAPIHandlers) PutBucketVersioningHandler(w http.ResponseWriter, r
 
 	versioningBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 1024))
 	if err != nil {
-		logger.Fatal("Unable to read versioning body:", err)
-		WriteErrorResponse(w, r, ErrInternalError)
+		logger.Warn("Unable to read versioning body:", err)
+		WriteErrorResponse(w, r, ErrInvalidVersioning)
 		return
 	}
 
 	versioning, err := VersioningFromXml(versioningBuffer)
 	if err != nil {
+		logger.Warn("Unable to parse versioning XML body:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}

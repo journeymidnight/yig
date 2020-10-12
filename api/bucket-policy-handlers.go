@@ -130,7 +130,7 @@ func (api ObjectAPIHandlers) GetBucketPolicyHandler(w http.ResponseWriter, r *ht
 
 	policyData, err := json.Marshal(bucketPolicy)
 	if err != nil {
-		logger.Fatal("Failed to marshal policy XML for bucket", reqCtx.BucketName,
+		logger.Warn("Failed to marshal policy XML for bucket", reqCtx.BucketName,
 			"error:", err)
 		WriteErrorResponse(w, r, err)
 		return

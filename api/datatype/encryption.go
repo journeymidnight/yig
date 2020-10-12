@@ -62,7 +62,7 @@ func ParseEncryptionConfig(reader io.Reader) (*EncryptionConfiguration, error) {
 	encryptionConfiguration := new(EncryptionConfiguration)
 	encryptionBuffer, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return nil, NewError(InDatatypeGeneralError, "Unable to read encryption config body", err)
+		return nil, NewError(InDatatypeWarn, "Unable to read encryption config body", err)
 	}
 	size := len(encryptionBuffer)
 	if size > MaxBucketEncryptionConfigurationSize {

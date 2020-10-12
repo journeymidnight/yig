@@ -77,7 +77,7 @@ func ParseMetaConfig(reader io.Reader, brand Brand) (metaDataReq MetaDataReq, er
 	metaConfig := new(MetaConfiguration)
 	metaBuffer, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return metaDataReq, NewError(InDatatypeFatalError, "Unable to read metadata setting body", err)
+		return metaDataReq, NewError(InDatatypeWarn, "Unable to read metadata setting body", err)
 	}
 	err = xml.Unmarshal(metaBuffer, metaConfig)
 	if err != nil {

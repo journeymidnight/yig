@@ -163,7 +163,7 @@ func ParseWebsiteConfig(reader io.Reader) (*WebsiteConfiguration, error) {
 	websiteConfig := new(WebsiteConfiguration)
 	websiteBuffer, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return nil, NewError(InDatatypeFatalError, "Unable to read website config body", err)
+		return nil, NewError(InDatatypeWarn, "Unable to read website config body", err)
 	}
 	size := len(websiteBuffer)
 	if size > MaxBucketWebsiteConfigurationSize {

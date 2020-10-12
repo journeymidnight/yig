@@ -305,7 +305,7 @@ func (cluster *CephCluster) doSmallPut(poolname string, oid string, data io.Read
 	buf, err := ioutil.ReadAll(data)
 	size = uint64(len(buf))
 	if err != nil {
-		return 0, NewError(InCephFatalError, "doSmallPut r ead from client failed", nil)
+		return 0, NewError(InCephFatalError, "doSmallPut read from client failed", nil)
 	}
 	err = pool.WriteSmallObject(oid, buf)
 	if err != nil {

@@ -73,12 +73,14 @@ const (
 	ErrInvalidCorsDocument
 	ErrInvalidVersioning
 	ErrMalformedXML
+	ErrInvalidContentLength
 	ErrMissingContentLength
 	ErrMissingContentMD5
 	ErrMissingRequestBodyError
 	ErrNoSuchBucket
 	ErrNoSuchBucketPolicy
 	ErrNoSuchKey
+	ErrInvalidForbiddenOverWriteArgument
 	ErrForbiddenOverwriteKey
 	ErrNoSuchUpload
 	ErrNoSuchVersion
@@ -264,7 +266,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrInvalidRequestBody: {
 		AwsErrorCode:   "InvalidArgument",
-		Description:    "Body shouldn't be set for this request.",
+		Description:    "The Body provided is not valid to be read.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidEncodingType: {
@@ -392,6 +394,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		Description:    "The XML you provided was not well-formed or did not validate against our published schema.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
+	ErrInvalidContentLength: {
+		AwsErrorCode:   "InvalidContentLength",
+		Description:    "The Content-Length provided was not valid.",
+		HttpStatusCode: http.StatusLengthRequired,
+	},
 	ErrMissingContentLength: {
 		AwsErrorCode:   "MissingContentLength",
 		Description:    "You must provide the Content-Length HTTP header.",
@@ -421,6 +428,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "NoSuchKey",
 		Description:    "The specified key does not exist.",
 		HttpStatusCode: http.StatusNotFound,
+	},
+	ErrInvalidForbiddenOverWriteArgument: {
+		AwsErrorCode:   "InvalidForbiddenOverWriteArgument",
+		Description:    "The Forbidden OverWrite Argument provided is not valid",
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrForbiddenOverwriteKey: {
 		AwsErrorCode:   "ForbiddenOverwriteKey",
@@ -736,7 +748,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidBucketLogging: {
 		AwsErrorCode:   "InvalidBucketLogging",
 		Description:    "The bucket logging you set is invalid.",
-		HttpStatusCode: http.StatusNotFound,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidTargetBucket: {
 		AwsErrorCode:   "InvalidTargetBucket",

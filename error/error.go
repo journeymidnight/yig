@@ -56,6 +56,7 @@ const (
 	// Warn
 	InCryptoWarn
 	InMetaWarn
+	InDatatypeWarn
 	FlagOfWarn
 )
 
@@ -78,9 +79,10 @@ var ErrorCode = map[InternalErrorCode]string{
 	InSignatureGeneralError: "InternalSignatureGeneralError",
 	FlagOfGeneralError:      "InternalFlagOfGeneralException",
 
-	InCryptoWarn: "InternalCryptoWarn",
-	InMetaWarn:   "InternalMetaWarn",
-	FlagOfWarn:   "InternalFlagOfWarnException",
+	InCryptoWarn:   "InternalCryptoWarn",
+	InMetaWarn:     "InternalMetaWarn",
+	InDatatypeWarn: "InternalDatatypeWarn",
+	FlagOfWarn:     "InternalFlagOfWarnException",
 }
 
 type internalError struct {

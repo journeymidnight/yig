@@ -102,8 +102,8 @@ func (api ObjectAPIHandlers) errAllowableObjectNotFound(w http.ResponseWriter, r
 	var p policy.Policy
 	err := json.Unmarshal(ctx.BucketInfo.Policy, &p)
 	if err != nil {
-		helper.Logger.Fatal("errAllowableObjectNotFound unmarshal err", err)
-		WriteErrorResponse(w, r, ErrInternalError)
+		helper.Logger.Warn("errAllowableObjectNotFound unmarshal err", err)
+		WriteErrorResponse(w, r, ErrMalformedXML)
 		return
 	}
 	if p.IsAllowed(policy.Args{
@@ -500,8 +500,8 @@ func (api ObjectAPIHandlers) CopyObjectHandler(w http.ResponseWriter, r *http.Re
 	if forbidOverwriteStr, ok := r.Header[reqCtx.Brand.GetHeaderFieldKey(XForbidOverwrite)]; ok {
 		forbidOverwrite, err := strconv.ParseBool(forbidOverwriteStr[0])
 		if err != nil {
-			logger.Fatal("CopyObjectHandler parse forbidOverwriteStr err: ", err)
-			WriteErrorResponse(w, r, ErrInternalError)
+			logger.Warn("CopyObjectHandler parse forbidOverwriteStr err: ", err)
+			WriteErrorResponse(w, r, ErrInvalidForbiddenOverWriteArgument)
 			return
 		}
 		reqCtx.IsObjectForbidOverwrite = forbidOverwrite
@@ -866,8 +866,8 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 	if forbidOverwriteStr, ok := r.Header[reqCtx.Brand.GetHeaderFieldKey(XForbidOverwrite)]; ok {
 		forbidOverwrite, err := strconv.ParseBool(forbidOverwriteStr[0])
 		if err != nil {
-			logger.Fatal("PutObjectHandler parse forbidOverwriteStr err: ", err)
-			WriteErrorResponse(w, r, ErrInternalError)
+			logger.Warn("PutObjectHandler parse forbidOverwriteStr err: ", err)
+			WriteErrorResponse(w, r, ErrInvalidForbiddenOverWriteArgument)
 			return
 		}
 		reqCtx.IsObjectForbidOverwrite = forbidOverwrite
@@ -882,8 +882,8 @@ func (api ObjectAPIHandlers) PutObjectHandler(w http.ResponseWriter, r *http.Req
 			}
 			size, err = strconv.ParseInt(sizeStr[0], 10, 64)
 			if err != nil {
-				reqCtx.Logger.Fatal("PutObjectHandler parse size err: ", err)
-				WriteErrorResponse(w, r, ErrInternalError)
+				reqCtx.Logger.Warn("PutObjectHandler parse size err: ", err)
+				WriteErrorResponse(w, r, ErrInvalidContentLength)
 				return
 			}
 		}
@@ -1088,8 +1088,8 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 		if sizeStr := r.Header.Get(reqCtx.Brand.GetHeaderFieldKey(XDecodedContentLength)); sizeStr != "" {
 			size, err = strconv.ParseInt(sizeStr, 10, 64)
 			if err != nil {
-				reqCtx.Logger.Fatal("AppendObjectHandler parse size err: ", err)
-				WriteErrorResponse(w, r, ErrInternalError)
+				reqCtx.Logger.Warn("AppendObjectHandler parse size err: ", err)
+				WriteErrorResponse(w, r, ErrInvalidContentLength)
 				return
 			}
 		} else {
@@ -1462,14 +1462,14 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 		aclBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 1024))
 		logger.Info("ACL body:", string(aclBuffer))
 		if err != nil {
-			logger.Fatal("Unable to read ACLs body:", err)
+			logger.Warn("Unable to read ACLs body:", err)
 			WriteErrorResponse(w, r, ErrInvalidAcl)
 			return
 		}
 		err = xml.Unmarshal(aclBuffer, &acl.Policy)
 		if err != nil {
-			logger.Fatal("Unable to Unmarshal XML for ACL:", err)
-			WriteErrorResponse(w, r, ErrInternalError)
+			logger.Warn("Unable to Unmarshal XML for ACL:", err)
+			WriteErrorResponse(w, r, ErrMalformedXML)
 			return
 		}
 	}
@@ -1537,8 +1537,8 @@ func (api ObjectAPIHandlers) NewMultipartUploadHandler(w http.ResponseWriter, r 
 	if forbidOverwriteStr, ok := r.Header[reqCtx.Brand.GetHeaderFieldKey(XForbidOverwrite)]; ok {
 		forbidOverwrite, err := strconv.ParseBool(forbidOverwriteStr[0])
 		if err != nil {
-			logger.Fatal("NewMultipartUploadHandler parse forbidOverwriteStr err: ", err)
-			WriteErrorResponse(w, r, ErrInternalError)
+			logger.Warn("NewMultipartUploadHandler parse forbidOverwriteStr err: ", err)
+			WriteErrorResponse(w, r, ErrInvalidForbiddenOverWriteArgument)
 			return
 		}
 		reqCtx.IsObjectForbidOverwrite = forbidOverwrite
@@ -1632,8 +1632,8 @@ func (api ObjectAPIHandlers) PutObjectPartHandler(w http.ResponseWriter, r *http
 			}
 			size, err = strconv.ParseInt(sizeStr[0], 10, 64)
 			if err != nil {
-				reqCtx.Logger.Fatal("PutObjectPartHandler parse size err: ", err)
-				WriteErrorResponse(w, r, ErrInternalError)
+				reqCtx.Logger.Warn("PutObjectPartHandler parse size err: ", err)
+				WriteErrorResponse(w, r, ErrInvalidContentLength)
 				return
 			}
 		}
@@ -1996,13 +1996,13 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 
 	completeMultipartBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		logger.Fatal("Unable to complete multipart upload when read request body:", err)
-		WriteErrorResponse(w, r, ErrInternalError)
+		logger.Warn("Unable to complete multipart upload when read request body:", err)
+		WriteErrorResponse(w, r, ErrInvalidRequestBody)
 		return
 	}
 	complMultipartUpload := &meta.CompleteMultipartUpload{}
 	if err = xml.Unmarshal(completeMultipartBytes, complMultipartUpload); err != nil {
-		logger.Error("Unable to parse complete multipart upload XML. data:",
+		logger.Warn("Unable to parse complete multipart upload XML. data:",
 			string(completeMultipartBytes), "error:", err)
 		WriteErrorResponse(w, r, ErrMalformedXML)
 		return
@@ -2176,8 +2176,8 @@ func (api ObjectAPIHandlers) PostObjectHandler(w http.ResponseWriter, r *http.Re
 	if forbidOverwriteStr, ok := formValues[reqCtx.Brand.GetHeaderFieldKey(XForbidOverwrite)]; ok {
 		forbidOverwrite, err := strconv.ParseBool(forbidOverwriteStr)
 		if err != nil {
-			logger.Fatal("PostObjectHandler parse forbidOverwriteStr err: ", err)
-			WriteErrorResponse(w, r, ErrInternalError)
+			logger.Warn("PostObjectHandler parse forbidOverwriteStr err: ", err)
+			WriteErrorResponse(w, r, ErrInvalidForbiddenOverWriteArgument)
 			return
 		}
 		reqCtx.IsObjectForbidOverwrite = forbidOverwrite

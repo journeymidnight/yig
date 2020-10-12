@@ -53,7 +53,7 @@ func (yig *YigStorage) MakeBucket(reqCtx RequestContext, acl datatype.Acl,
 	}
 	err = yig.MetaStorage.Client.PutNewBucket(bucket)
 	if err != nil {
-		reqCtx.Logger.Fatal("Error Put New Bucket:", err)
+		reqCtx.Logger.Error("Error Put New Bucket:", err)
 		return err
 	}
 
