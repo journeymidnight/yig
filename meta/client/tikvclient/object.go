@@ -69,9 +69,11 @@ func (c *TiKVClient) GetLatestObjectVersion(bucketName, objectName string) (obje
 	defer func() {
 		if err == nil {
 			err = c.CommitTrans(tx)
+			if err != nil {
+				err = NewError(InTikvFatalError, "GetLatestObjectVersion err", err)
+			}
 		}
 		if err != nil {
-			err = NewError(InTikvFatalError, "GetLatestObjectVersion err", err)
 			c.AbortTrans(tx)
 		}
 	}()
@@ -145,9 +147,11 @@ func (c *TiKVClient) PutObject(object *Object, multipart *Multipart, updateUsage
 	defer func() {
 		if err == nil {
 			err = c.CommitTrans(tx)
+			if err != nil {
+				err = NewError(InTikvFatalError, "PutObject err", err)
+			}
 		}
 		if err != nil {
-			err = NewError(InTikvFatalError, "PutObject err", err)
 			c.AbortTrans(tx)
 		}
 	}()
@@ -190,9 +194,11 @@ func (c *TiKVClient) UpdateObject(object *Object, multipart *Multipart, updateUs
 		defer func() {
 			if err == nil {
 				err = c.CommitTrans(tx)
+				if err != nil {
+					err = NewError(InTikvFatalError, "UpdateObject err", err)
+				}
 			}
 			if err != nil {
-				err = NewError(InTikvFatalError, "UpdateObject err", err)
 				c.AbortTrans(tx)
 			}
 		}()
@@ -273,9 +279,11 @@ func (c *TiKVClient) DeleteObject(object *Object, tx Tx) (err error) {
 		defer func() {
 			if err == nil {
 				err = c.CommitTrans(tx)
+				if err != nil {
+					err = NewError(InTikvFatalError, "DeleteObject err", err)
+				}
 			}
 			if err != nil {
-				err = NewError(InTikvFatalError, "DeleteObject err", err)
 				c.AbortTrans(tx)
 			}
 		}()
@@ -322,9 +330,11 @@ func (c *TiKVClient) AppendObject(object *Object, updateUsage bool) (err error) 
 	defer func() {
 		if err == nil {
 			err = c.CommitTrans(tx)
+			if err != nil {
+				err = NewError(InTikvFatalError, "AppendObject err", err)
+			}
 		}
 		if err != nil {
-			err = NewError(InTikvFatalError, "AppendObject err", err)
 			c.AbortTrans(tx)
 		}
 	}()
@@ -369,9 +379,11 @@ func (c *TiKVClient) MigrateObject(object *Object) (err error) {
 	defer func() {
 		if err == nil {
 			err = c.CommitTrans(tx)
+			if err != nil {
+				err = NewError(InTikvFatalError, "MigrateObject err", err)
+			}
 		}
 		if err != nil {
-			err = NewError(InTikvFatalError, "MigrateObject err", err)
 			c.AbortTrans(tx)
 		}
 	}()
@@ -426,9 +438,11 @@ func (c *TiKVClient) UpdateAppendObject(object *Object) (err error) {
 	defer func() {
 		if err == nil {
 			err = c.CommitTrans(tx)
+			if err != nil {
+				err = NewError(InTikvFatalError, "UpdateAppendObject err", err)
+			}
 		}
 		if err != nil {
-			err = NewError(InTikvFatalError, "UpdateAppendObject err", err)
 			c.AbortTrans(tx)
 		}
 	}()

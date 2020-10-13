@@ -77,9 +77,11 @@ func (c *TiKVClient) UpdateFreezerDate(bucketName, objectName, version string, l
 	defer func() {
 		if err == nil {
 			err = c.CommitTrans(tx)
+			if err != nil {
+				err = NewError(InTikvFatalError, "UpdateFreezerDate err", err)
+			}
 		}
 		if err != nil {
-			err = NewError(InTikvFatalError, "UpdateFreezerDate err", err)
 			c.AbortTrans(tx)
 		}
 	}()
@@ -175,9 +177,11 @@ func (c *TiKVClient) PutFreezer(freezer *Freezer, status common.RestoreStatus, t
 		defer func() {
 			if err == nil {
 				err = c.CommitTrans(tx)
+				if err != nil {
+					err = NewError(InTikvFatalError, "PutFreezer err", err)
+				}
 			}
 			if err != nil {
-				err = NewError(InTikvFatalError, "PutFreezer err", err)
 				c.AbortTrans(tx)
 			}
 		}()
@@ -222,9 +226,11 @@ func (c *TiKVClient) UpdateFreezerStatus(bucketName, objectName, version string,
 	defer func() {
 		if err == nil {
 			err = c.CommitTrans(tx)
+			if err != nil {
+				err = NewError(InTikvFatalError, "UpdateFreezerStatus err", err)
+			}
 		}
 		if err != nil {
-			err = NewError(InTikvFatalError, "UpdateFreezerStatus err", err)
 			c.AbortTrans(tx)
 		}
 	}()

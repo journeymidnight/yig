@@ -46,9 +46,11 @@ func (c *TiKVClient) GetMultipart(bucketName, objectName, uploadId string) (mult
 	defer func() {
 		if err == nil {
 			err = c.CommitTrans(tx)
+			if err != nil {
+				err = NewError(InTikvFatalError, "GetMultipart err", err)
+			}
 		}
 		if err != nil {
-			err = NewError(InTikvFatalError, "GetMultipart err", err)
 			c.AbortTrans(tx)
 		}
 	}()
@@ -107,9 +109,11 @@ func (c *TiKVClient) PutObjectPart(multipart *Multipart, part *Part) (deltaSize 
 	defer func() {
 		if err == nil {
 			err = c.CommitTrans(tx)
+			if err != nil {
+				err = NewError(InTikvFatalError, "PutObjectPart err", err)
+			}
 		}
 		if err != nil {
-			err = NewError(InTikvFatalError, "PutObjectPart err", err)
 			c.AbortTrans(tx)
 		}
 	}()
@@ -153,9 +157,11 @@ func (c *TiKVClient) DeleteMultipart(multipart *Multipart, tx Tx) (err error) {
 		defer func() {
 			if err == nil {
 				err = c.CommitTrans(tx)
+				if err != nil {
+					err = NewError(InTikvFatalError, "DeleteMultipart err", err)
+				}
 			}
 			if err != nil {
-				err = NewError(InTikvFatalError, "DeleteMultipart err", err)
 				c.AbortTrans(tx)
 			}
 		}()

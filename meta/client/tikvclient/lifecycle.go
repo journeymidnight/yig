@@ -49,9 +49,11 @@ func (c *TiKVClient) RemoveBucketFromLifeCycle(bucket Bucket) (err error) {
 	defer func() {
 		if err == nil {
 			err = c.CommitTrans(tx)
+			if err != nil {
+				err = NewError(InTikvFatalError, "RemoveBucketFromLifeCycle err", err)
+			}
 		}
 		if err != nil {
-			err = NewError(InTikvFatalError, "RemoveBucketFromLifeCycle err", err)
 			c.AbortTrans(tx)
 		}
 	}()
