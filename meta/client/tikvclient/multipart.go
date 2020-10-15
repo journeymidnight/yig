@@ -154,6 +154,9 @@ func (c *TiKVClient) DeleteMultipart(multipart *Multipart, tx Tx) (err error) {
 	endKey := GenObjectPartKey(multipart.BucketName, multipart.ObjectName, multipart.UploadId, MaxPartLimit)
 	if tx == nil {
 		tx, err := c.NewTrans()
+		if err != nil {
+			return err
+		}
 		defer func() {
 			if err == nil {
 				err = c.CommitTrans(tx)
