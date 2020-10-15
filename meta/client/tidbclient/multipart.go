@@ -50,27 +50,27 @@ func (t *TidbClient) GetMultipart(bucketName, objectName, uploadId string) (mult
 		err = ErrNoSuchUpload
 		return
 	} else if err != nil {
-		return
+		return multipart, NewError(InTidbFatalError, "GetMultipart scan row err", err)
 	}
 
 	multipart.InitialTime = math.MaxUint64 - multipart.InitialTime
 	err = json.Unmarshal([]byte(acl), &multipart.Metadata.Acl)
 	if err != nil {
-		return
+		return multipart, NewError(InTidbFatalError, "GetMultipart unmarshal acl err", err)
 	}
 	err = json.Unmarshal([]byte(sseRequest), &multipart.Metadata.SseRequest)
 	if err != nil {
-		return
+		return multipart, NewError(InTidbFatalError, "GetMultipart unmarshal sseRequest err", err)
 	}
 	err = json.Unmarshal([]byte(attrs), &multipart.Metadata.Attrs)
 	if err != nil {
-		return
+		return multipart, NewError(InTidbFatalError, "GetMultipart unmarshal attrs err", err)
 	}
 
 	sqltext = "select partnumber,size,objectid,offset,etag,lastmodified,initializationvector from multipartpart where bucketname=? and objectname=? and uploadtime=?;"
 	rows, err := t.Client.Query(sqltext, bucketName, objectName, uploadTime)
 	if err != nil {
-		return
+		return multipart, NewError(InTidbFatalError, "GetMultipart query err", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
@@ -84,15 +84,15 @@ func (t *TidbClient) GetMultipart(bucketName, objectName, uploadId string) (mult
 			&p.LastModified,
 			&p.InitializationVector,
 		)
+		if err != nil {
+			return multipart, NewError(InTidbFatalError, "GetMultipart scan row err", err)
+		}
 		ts, e := time.Parse(TIME_LAYOUT_TIDB, p.LastModified)
 		if e != nil {
-			return
+			return multipart, NewError(InTidbFatalError, "GetMultipart parse time err", err)
 		}
 		p.LastModified = ts.Format(CREATE_TIME_LAYOUT)
 		multipart.Parts[p.PartNumber] = p
-		if err != nil {
-			return
-		}
 	}
 	return
 }
@@ -106,13 +106,16 @@ func (t *TidbClient) CreateMultipart(multipart Multipart) (err error) {
 	sqltext := "insert into multiparts(bucketname,objectname,uploadtime,initiatorid,ownerid,contenttype,location,pool,acl,sserequest,encryption,cipher,attrs,storageclass) " +
 		"values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
 	_, err = t.Client.Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime, m.InitiatorId, m.OwnerId, m.ContentType, m.Location, m.Pool, acl, sseRequest, m.EncryptionKey, m.CipherKey, attrs, m.StorageClass)
-	return
+	if err != nil {
+		return NewError(InTidbFatalError, "CreateMultipart transaction executes err", err)
+	}
+	return nil
 }
 
 func (t *TidbClient) PutObjectPart(multipart *Multipart, part *Part) (deltaSize int64, err error) {
 	tx, err := t.Client.Begin()
 	if err != nil {
-		return 0, err
+		return 0, NewError(InTidbFatalError, "PutObjectPart transaction starts err", err)
 	}
 	defer func() {
 		if err == nil {
@@ -125,7 +128,7 @@ func (t *TidbClient) PutObjectPart(multipart *Multipart, part *Part) (deltaSize 
 	uploadtime := math.MaxUint64 - multipart.InitialTime
 	lastt, err := time.Parse(CREATE_TIME_LAYOUT, part.LastModified)
 	if err != nil {
-		return 0, err
+		return 0, NewError(InTidbFatalError, "PutObjectPart parse time err", err)
 	}
 	lastModified := lastt.Format(TIME_LAYOUT_TIDB)
 	sqltext := "insert into multipartpart(partnumber,size,objectid,offset,etag,lastmodified,initializationvector,bucketname,objectname,uploadtime) " +
@@ -139,16 +142,16 @@ func (t *TidbClient) PutObjectPart(multipart *Multipart, part *Part) (deltaSize 
 	deltaSize = part.Size - removedSize
 	err = t.UpdateUsage(multipart.BucketName, deltaSize, tx)
 	if err != nil {
-		return
+		return 0,NewError(InTidbFatalError, "PutObjectPart transaction executes err", err)
 	}
-	return deltaSize, nil
+	return deltaSize,nil
 }
 
 func (t *TidbClient) DeleteMultipart(multipart *Multipart, tx Tx) (err error) {
 	if tx == nil {
 		tx, err = t.Client.Begin()
 		if err != nil {
-			return err
+			return NewError(InTidbFatalError, "DeleteMultipart transaction starts err", err)
 		}
 		defer func() {
 			if err == nil {
@@ -163,11 +166,14 @@ func (t *TidbClient) DeleteMultipart(multipart *Multipart, tx Tx) (err error) {
 	sqltext := "delete from multiparts where bucketname=? and objectname=? and uploadtime=?;"
 	_, err = tx.(*sql.Tx).Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime)
 	if err != nil {
-		return
+		return NewError(InTidbFatalError, "DeleteMultipart transaction executes err", err)
 	}
 	sqltext = "delete from multipartpart where bucketname=? and objectname=? and uploadtime=?;"
 	_, err = tx.(*sql.Tx).Exec(sqltext, multipart.BucketName, multipart.ObjectName, uploadtime)
-	return err
+	if err != nil {
+		return NewError(InTidbFatalError, "DeleteMultipart transaction executes err", err)
+	}
+	return nil
 }
 
 func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker, prefix, delimiter, encodingType string, maxUploads int) (result datatype.ListMultipartUploadsResponse, err error) {
@@ -182,7 +188,7 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 		uploadNum, err = strconv.ParseUint(uploadIdMarker, 10, 64)
 	}
 	if err != nil {
-		return
+		return result, NewError(InTidbFatalError, "ListMultipartUploads parse uploadIdMarker err", err)
 	}
 	var objnum map[string]int = make(map[string]int)
 	var currentMarker string = keyMarker
@@ -203,7 +209,7 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 			rows, err = t.Client.Query(sqltext, bucketName, currentMarker, objnum[currentMarker], objnum[currentMarker]+maxUploads)
 		}
 		if err != nil {
-			return
+			return result, NewError(InTidbFatalError, "ListMultipartUploads query err", err)
 		}
 		defer rows.Close()
 		for rows.Next() {
@@ -219,7 +225,7 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 				&storageClass,
 			)
 			if err != nil {
-				return
+				return result, NewError(InTidbFatalError, "ListMultipartUploads scan row err", err)
 			}
 			if _, ok := objnum[name]; !ok {
 				objnum[name] = 0
@@ -268,13 +274,13 @@ func (t *TidbClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 			var user common.Credential
 			user, err = iam.GetCredentialByUserId(ownerid)
 			if err != nil {
-				return
+				return result, NewError(InTidbFatalError, "ListMultipartUploads GetCredentialByUserId err", err)
 			}
 			upload.Owner.ID = user.ExternUserId
 			upload.Owner.DisplayName = user.DisplayName
 			user, err = iam.GetCredentialByUserId(initiatorid)
 			if err != nil {
-				return
+				return result, NewError(InTidbFatalError, "ListMultipartUploads GetCredentialByUserId err", err)
 			}
 			upload.Initiator.ID = user.ExternUserId
 			upload.Initiator.DisplayName = user.DisplayName

@@ -24,6 +24,7 @@ func (c *TiKVClient) GetBucket(bucketName string) (*Bucket, error) {
 	var b Bucket
 	ok, err := c.TxGet(bucketKey, &b, nil)
 	if err != nil {
+		err = NewError(InTikvFatalError, "GetBucket TxGet err", err)
 		return nil, err
 	}
 	if !ok {
@@ -41,6 +42,7 @@ func (c *TiKVClient) GetBuckets() (buckets []Bucket, err error) {
 		var b Bucket
 		err = helper.MsgPackUnMarshal(kv.V, &b)
 		if err != nil {
+			err = NewError(InTikvFatalError, "GetBuckets MsgPackUnMarshal err", err)
 			return nil, err
 		}
 		buckets = append(buckets, b)
@@ -50,7 +52,11 @@ func (c *TiKVClient) GetBuckets() (buckets []Bucket, err error) {
 
 func (c *TiKVClient) PutBucket(bucket Bucket) error {
 	bucketKey := GenBucketKey(bucket.Name)
-	return c.TxPut(bucketKey, bucket)
+	err := c.TxPut(bucketKey, bucket)
+	if err != nil {
+		return NewError(InTikvFatalError, "PutBucket TxPut err", err)
+	}
+	return nil
 }
 
 // for commercial billing now
@@ -65,24 +71,33 @@ func (c *TiKVClient) PutNewBucket(bucket Bucket) error {
 	userBucketKey := GenUserBucketKey(bucket.OwnerId, bucket.Name)
 	existBucket, err := c.TxExist(bucketKey)
 	if err != nil {
+		err = NewError(InTikvFatalError, "PutNewBucket TxExist err", err)
 		return err
 	}
 	existUserBucket, err := c.TxExist(userBucketKey)
 	if err != nil {
+		err = NewError(InTikvFatalError, "PutNewBucket TxExist err", err)
 		return err
 	}
 	if existBucket && existUserBucket {
 		return ErrBucketAlreadyExists
 	}
-
-	return c.TxPut(bucketKey, bucket, userBucketKey, BucketUsage{0, 0, 0})
+	err = c.TxPut(bucketKey, bucket, userBucketKey, BucketUsage{0, 0, 0})
+	if err != nil {
+		return NewError(InTikvFatalError, "PutNewBucket TxPut err", err)
+	}
+	return nil
 }
 
 func (c *TiKVClient) DeleteBucket(bucket Bucket) error {
 	bucketKey := GenBucketKey(bucket.Name)
 	userBucketKey := GenUserBucketKey(bucket.OwnerId, bucket.Name)
 	lifeCycleKey := GenLifecycleKey(bucket.Name)
-	return c.TxDelete(bucketKey, userBucketKey, lifeCycleKey)
+	err := c.TxDelete(bucketKey, userBucketKey, lifeCycleKey)
+	if err != nil {
+		return NewError(InTikvFatalError, "DeleteBucket TxDelete err", err)
+	}
+	return nil
 }
 
 func (c *TiKVClient) ListHotObjects(marker string, maxKeys int) (listInfo ListHotObjectsInfo, err error) {
@@ -96,10 +111,12 @@ func (c *TiKVClient) ListHotObjects(marker string, maxKeys int) (listInfo ListHo
 	endKey := GenHotObjectKey(TableMaxKeySuffix, TableMaxKeySuffix, TableMaxKeySuffix)
 	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
+		err := NewError(InTikvFatalError, "ListHotObjects TCBegin err", err)
 		return listInfo, err
 	}
 	it, err := tx.Iter(context.TODO(), key.Key(startKey), key.Key(endKey))
 	if err != nil {
+		err := NewError(InTikvFatalError, "ListHotObjects Iter err", err)
 		return listInfo, err
 	}
 	defer it.Close()
@@ -116,6 +133,7 @@ func (c *TiKVClient) ListHotObjects(marker string, maxKeys int) (listInfo ListHo
 		var o Object
 		err = helper.MsgPackUnMarshal(v, &o)
 		if err != nil {
+			err := NewError(InTikvFatalError, "ListHotObjects MsgPackUnMarshal err", err)
 			return listInfo, err
 		}
 		count++
@@ -128,6 +146,7 @@ func (c *TiKVClient) ListHotObjects(marker string, maxKeys int) (listInfo ListHo
 		}
 		listInfo.Objects = append(listInfo.Objects, &o)
 		if err := it.Next(context.TODO()); err != nil && it.Valid() {
+			err := NewError(InTikvFatalError, "ListHotObjects get next err", err)
 			return listInfo, err
 		}
 	}
@@ -162,10 +181,12 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 	endKey := GenObjectKey(bucketName, prefix+TableMaxKeySuffix, NullVersion)
 	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
+		err := NewError(InTikvFatalError, "ListObjects TCBegin err", err)
 		return listInfo, err
 	}
 	it, err := tx.Iter(context.TODO(), key.Key(startKey), key.Key(endKey))
 	if err != nil {
+		err := NewError(InTikvFatalError, "ListObjects Iter err", err)
 		return listInfo, err
 	}
 	defer it.Close()
@@ -186,6 +207,7 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 					it.Close()
 					it, err = tx.Iter(context.TODO(), startKey, endKey)
 					if err != nil {
+						err := NewError(InTikvFatalError, "ListObjects Iter err", err)
 						return listInfo, err
 					}
 					continue
@@ -205,6 +227,7 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 				it.Close()
 				it, err = tx.Iter(context.TODO(), startKey, endKey)
 				if err != nil {
+					err := NewError(InTikvFatalError, "ListObjects Iter err", err)
 					return listInfo, err
 				}
 				continue
@@ -213,6 +236,7 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 		var o Object
 		err = helper.MsgPackUnMarshal(v, &o)
 		if err != nil {
+			err := NewError(InTikvFatalError, "ListObjects MsgPackUnMarshal err", err)
 			return listInfo, err
 		}
 
@@ -227,6 +251,7 @@ func (c *TiKVClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 		}
 		listInfo.Objects = append(listInfo.Objects, info_o)
 		if err := it.Next(context.TODO()); err != nil && it.Valid() {
+			err := NewError(InTikvFatalError, "ListObjects get next err", err)
 			return listInfo, err
 		}
 	}
@@ -243,6 +268,7 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			//       set version to `NullVersion`
 			startVersion = NullVersion
 		} else if !strings.HasPrefix(marker, prefix) && strings.Compare(marker, prefix) > 0 {
+			err := NewError(InTikvFatalError, "ListLatestObjects HasPrefix err", err)
 			return listInfo, err
 		}
 	}
@@ -252,10 +278,12 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 
 	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
+		err := NewError(InTikvFatalError, "ListLatestObjects TCBegin err", err)
 		return listInfo, err
 	}
 	it, err := tx.Iter(context.TODO(), key.Key(startKey), key.Key(endKey))
 	if err != nil {
+		err := NewError(InTikvFatalError, "ListLatestObjects Iter err", err)
 		return listInfo, err
 	}
 	defer it.Close()
@@ -268,6 +296,7 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 		var objMeta Object
 		err = helper.MsgPackUnMarshal(v, &objMeta)
 		if err != nil {
+			err := NewError(InTikvFatalError, "ListLatestObjects MsgPackUnMarshal err", err)
 			return listInfo, err
 		}
 
@@ -308,6 +337,7 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				it.Close()
 				it, err = tx.Iter(context.TODO(), startKey, endKey)
 				if err != nil {
+					err := NewError(InTikvFatalError, "ListLatestObjects Iter err", err)
 					return listInfo, err
 				}
 				continue
@@ -328,6 +358,7 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 					it.Close()
 					it, err = tx.Iter(context.TODO(), startKey, endKey)
 					if err != nil {
+						err := NewError(InTikvFatalError, "ListLatestObjects Iter err", err)
 						return listInfo, err
 					}
 					continue
@@ -347,6 +378,7 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				it.Close()
 				it, err = tx.Iter(context.TODO(), startKey, endKey)
 				if err != nil {
+					err := NewError(InTikvFatalError, "ListLatestObjects Iter err", err)
 					return listInfo, err
 				}
 				continue
@@ -357,6 +389,7 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 		if len(keySp) == 2 {
 			previousNullObjectMeta = &objMeta
 			if err := it.Next(context.TODO()); err != nil && it.Valid() {
+				err := NewError(InTikvFatalError, "ListLatestObjects get next err", err)
 				return listInfo, err
 			}
 			continue
@@ -367,6 +400,7 @@ func (c *TiKVClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 		it.Close()
 		it, err = tx.Iter(context.TODO(), startKey, endKey)
 		if err != nil {
+			err := NewError(InTikvFatalError, "ListLatestObjects Iter err", err)
 			return listInfo, err
 		}
 
@@ -417,6 +451,7 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 			marker = prefix
 			verIdMarker = ""
 		} else if !strings.HasPrefix(marker, prefix) && strings.Compare(marker, prefix) > 0 {
+			err := NewError(InTikvFatalError, "ListVersionedObjects HasPrefix err", err)
 			return listInfo, err
 		}
 	}
@@ -433,6 +468,7 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 		var nullObjMeta *Object
 		txn, err := c.NewTrans()
 		if err != nil {
+			err := NewError(InTikvFatalError, "ListVersionedObjects NewTrans err", err)
 			return listInfo, err
 		}
 		nullObjMeta, err = c.GetObject(bucketName, marker, NullVersion, txn)
@@ -468,6 +504,7 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 		tx := txn.(*TikvTx).tx
 		it, err := tx.Iter(context.TODO(), key.Key(startKey), key.Key(endKey))
 		if err != nil {
+			err := NewError(InTikvFatalError, "ListVersionedObjects Iter err", err)
 			return listInfo, err
 		}
 		defer it.Close()
@@ -477,10 +514,12 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 			var VerObjMeta Object
 			err = helper.MsgPackUnMarshal(v, &VerObjMeta)
 			if err != nil {
+				err := NewError(InTikvFatalError, "ListVersionedObjects MsgPackUnMarshal err", err)
 				return listInfo, err
 			}
 			if VerObjMeta.Name == marker && VerObjMeta.VersionId == verIdMarker {
 				if err := it.Next(context.TODO()); err != nil && it.Valid() {
+					err := NewError(InTikvFatalError, "ListVersionedObjects get next err", err)
 					return listInfo, err
 				}
 				continue
@@ -504,6 +543,7 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 			}
 			listInfo.Objects = append(listInfo.Objects, o)
 			if err := it.Next(context.TODO()); err != nil && it.Valid() {
+				err := NewError(InTikvFatalError, "ListVersionedObjects get next err", err)
 				return listInfo, err
 			}
 		}
@@ -517,10 +557,12 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 	endKey = GenObjectKey(bucketName, prefix+TableMaxKeySuffix, TableMaxKeySuffix)
 	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
+		err := NewError(InTikvFatalError, "ListVersionedObjects TCBegin err", err)
 		return listInfo, err
 	}
 	it, err := tx.Iter(context.TODO(), key.Key(startKey), key.Key(endKey))
 	if err != nil {
+		err := NewError(InTikvFatalError, "ListVersionedObjects Iter err", err)
 		return listInfo, err
 	}
 	defer it.Close()
@@ -529,6 +571,7 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 		var objMeta Object
 		err = helper.MsgPackUnMarshal(v, &objMeta)
 		if err != nil {
+			err := NewError(InTikvFatalError, "ListVersionedObjects MsgPackUnMarshal err", err)
 			return listInfo, err
 		}
 		if previousNullObjectMeta != nil {
@@ -577,6 +620,7 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 
 				if !nullIsLatest {
 					if err := it.Next(context.TODO()); err != nil && it.Valid() {
+						err := NewError(InTikvFatalError, "ListVersionedObjects get next err", err)
 						return listInfo, err
 					}
 					continue
@@ -595,6 +639,7 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 					it.Close()
 					it, err = tx.Iter(context.TODO(), startKey, endKey)
 					if err != nil {
+						err := NewError(InTikvFatalError, "ListVersionedObjects Iter err", err)
 						return listInfo, err
 					}
 					continue
@@ -618,6 +663,7 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 				it.Close()
 				it, err = tx.Iter(context.TODO(), startKey, endKey)
 				if err != nil {
+					err := NewError(InTikvFatalError, "ListVersionedObjects Iter err", err)
 					return listInfo, err
 				}
 				continue
@@ -627,6 +673,7 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 		if objMeta.VersionId == NullVersion {
 			previousNullObjectMeta = &objMeta
 			if err := it.Next(context.TODO()); err != nil && it.Valid() {
+				err := NewError(InTikvFatalError, "ListVersionedObjects get next err", err)
 				return listInfo, err
 			}
 			continue
@@ -646,6 +693,7 @@ func (c *TiKVClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 		}
 		listInfo.Objects = append(listInfo.Objects, o)
 		if err := it.Next(context.TODO()); err != nil && it.Valid() {
+			err := NewError(InTikvFatalError, "ListVersionedObjects get next err", err)
 			return listInfo, err
 		}
 	}

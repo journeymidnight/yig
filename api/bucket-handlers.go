@@ -44,12 +44,12 @@ func (api ObjectAPIHandlers) GetBucketLocationHandler(w http.ResponseWriter, r *
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.GetBucketLocationAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "GetBucketLocationHandler checkRequestAuth err:")
 		return
 	}
 
 	if _, err = api.ObjectAPI.GetBucketInfo(reqCtx, credential); err != nil {
-		logger.Error("Unable to fetch bucket info:", err)
+		logger.Warn("Unable to fetch bucket info:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -73,25 +73,23 @@ func (api ObjectAPIHandlers) GetBucketLocationHandler(w http.ResponseWriter, r *
 func (api ObjectAPIHandlers) ListMultipartUploadsHandler(w http.ResponseWriter, r *http.Request) {
 	SetOperationName(w, OpListMultipartUploads)
 	reqCtx := GetRequestContext(r)
-	logger := reqCtx.Logger
 
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.ListBucketMultipartUploadsAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "ListMultipartUploadsHandler checkRequestAuth err:")
 		return
 	}
 
 	request, err := parseListUploadsQuery(r.URL.Query())
 	if err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "ListMultipartUploadsHandler parseListUploadsQuery err:")
 		return
 	}
 
 	listMultipartsResponse, err := api.ObjectAPI.ListMultipartUploads(reqCtx, credential, request)
 	if err != nil {
-		logger.Error("Unable to list multipart uploads:", err)
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "Unable to list multipart uploads:")
 		return
 	}
 	encodedSuccessResponse := EncodeResponse(listMultipartsResponse)
@@ -109,7 +107,6 @@ func (api ObjectAPIHandlers) ListMultipartUploadsHandler(w http.ResponseWriter, 
 func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.Request) {
 	SetOperationName(w, OpListObjects)
 	reqCtx := GetRequestContext(r)
-	logger := reqCtx.Logger
 
 	var credential common.Credential
 	var err error
@@ -119,20 +116,19 @@ func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 	}
 
 	if credential, err = checkRequestAuth(r, policy.ListBucketAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "ListObjectsHandler checkRequestAuth err:")
 		return
 	}
 
 	request, err := parseListObjectsQuery(r.URL.Query())
 	if err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "ListObjectsHandler parseListObjectsQuery err:")
 		return
 	}
 
 	listObjectsInfo, err := api.ObjectAPI.ListObjects(reqCtx, credential, request)
 	if err != nil {
-		logger.Error("Unable to list objects:", err)
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "Unable to list objects:")
 		return
 	}
 
@@ -147,26 +143,24 @@ func (api ObjectAPIHandlers) ListObjectsHandler(w http.ResponseWriter, r *http.R
 func (api ObjectAPIHandlers) ListVersionedObjectsHandler(w http.ResponseWriter, r *http.Request) {
 	SetOperationName(w, OpListVersionedObjects)
 	reqCtx := GetRequestContext(r)
-	logger := reqCtx.Logger
 
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.ListBucketAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "ListVersionedObjectsHandler checkRequestAuth err:")
 		return
 	}
 
 	request, err := parseListObjectsQuery(r.URL.Query())
 	if err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "ListVersionedObjectsHandler parseListObjectsQuery err:")
 		return
 	}
 	request.Versioned = true
 
 	listObjectsInfo, err := api.ObjectAPI.ListVersionedObjects(reqCtx, credential, request)
 	if err != nil {
-		logger.Error("Unable to list objects:", err)
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "Unable to list objects:")
 		return
 	}
 
@@ -184,19 +178,17 @@ func (api ObjectAPIHandlers) ListVersionedObjectsHandler(w http.ResponseWriter, 
 // owned by the authenticated sender of the request.
 func (api ObjectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.Request) {
 	SetOperationName(w, OpListBuckets)
-	logger := GetContextLogger(r)
 	// List buckets does not support bucket policies.
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.ListAllMyBucketsAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "ListBucketsHandler checkRequestAuth err:")
 		return
 	}
 
 	bucketsInfo, err := api.ObjectAPI.ListBuckets(credential)
 	if err != nil {
-		logger.Error("Unable to list buckets:", err)
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "Unable to list buckets:")
 		return
 	}
 
@@ -217,7 +209,7 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.DeleteObjectAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "DeleteMultipleObjectsHandler checkRequestAuth err:")
 		return
 	}
 
@@ -257,7 +249,7 @@ func (api ObjectAPIHandlers) DeleteMultipleObjectsHandler(w http.ResponseWriter,
 	}
 	result, err := api.ObjectAPI.DeleteObjects(reqCtx, credential, deleteObjects.Objects)
 	if err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "Unable to delete objects:")
 		return
 	}
 
@@ -291,7 +283,7 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.CreateBucketAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "PutBucketHandler checkRequestAuth err:")
 		return
 	}
 
@@ -312,8 +304,7 @@ func (api ObjectAPIHandlers) PutBucketHandler(w http.ResponseWriter, r *http.Req
 	// Make bucket.
 	err = api.ObjectAPI.MakeBucket(reqCtx, acl, credential)
 	if err != nil {
-		logger.Error("Unable to create bucket", bucketName, "error:", err)
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "Unable to create bucket", bucketName, "error:")
 		return
 	}
 	// Make sure to add Location information here only for bucket
@@ -330,21 +321,21 @@ func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *h
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.PutBucketPolicyAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "PutBucketLoggingHandler checkRequestAuth err:")
 		return
 	}
 
 	var bl BucketLoggingStatus
 	blBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 4096))
 	if err != nil {
-		logger.Error("Unable to read bucket logging body:", err)
-		WriteErrorResponse(w, r, ErrInternalError)
+		logger.Warn("Unable to read bucket logging body:", err)
+		WriteErrorResponse(w, r, ErrInvalidBucketLogging)
 		return
 	}
 	err = xml.Unmarshal(blBuffer, &bl)
 	if err != nil {
-		logger.Error("Unable to parse bucket logging XML body:", err)
-		WriteErrorResponse(w, r, ErrInternalError)
+		logger.Warn("Unable to parse bucket logging XML body:", err)
+		WriteErrorResponse(w, r, ErrMalformedXML)
 		return
 	}
 	logger.Info("Setting bucket logging:", bl)
@@ -381,8 +372,7 @@ func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *h
 
 	err = api.ObjectAPI.SetBucketLogging(reqCtx, bl, credential)
 	if err != nil {
-		logger.Error(err, "Unable to set bucket logging for bucket:", err)
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "Unable to set bucket logging for bucket:")
 		return
 	}
 
@@ -392,13 +382,12 @@ func (api ObjectAPIHandlers) PutBucketLoggingHandler(w http.ResponseWriter, r *h
 func (api ObjectAPIHandlers) GetBucketLoggingHandler(w http.ResponseWriter, r *http.Request) {
 	SetOperationName(w, OpGetBucketLogging)
 	reqCtx := GetRequestContext(r)
-	logger := reqCtx.Logger
 	bucketName := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.GetBucketPolicyAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "GetBucketLoggingHandler checkRequestAuth err:")
 		return
 	}
 
@@ -414,9 +403,7 @@ func (api ObjectAPIHandlers) GetBucketLoggingHandler(w http.ResponseWriter, r *h
 
 	bl, err := api.ObjectAPI.GetBucketLogging(reqCtx, credential)
 	if err != nil {
-		logger.Error("Failed to get bucket ACL policy for bucket", bucketName,
-			"error:", err)
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "Failed to get bucket ACL policy for bucket", bucketName, " error:")
 		return
 	}
 
@@ -426,9 +413,7 @@ func (api ObjectAPIHandlers) GetBucketLoggingHandler(w http.ResponseWriter, r *h
 	}
 	blBuffer, err := xmlFormat(bl)
 	if err != nil {
-		logger.Error("Failed to marshal bucket logging XML for bucket", bucketName,
-			"error:", err)
-		WriteErrorResponse(w, r, ErrInternalError)
+		WriteInternalErrorResponse(w, r, err, "Failed to marshal bucket logging XML for bucket:", bucketName, "error:")
 		return
 	}
 
@@ -446,7 +431,7 @@ func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.PutBucketPolicyAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "PutBucketAclHandler checkRequestAuth err:")
 		return
 	}
 
@@ -461,22 +446,21 @@ func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.
 	} else {
 		aclBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
 		if err != nil {
-			logger.Error("Unable to read ACL body:", err)
+			logger.Warn("Unable to read ACL body:", err)
 			WriteErrorResponse(w, r, ErrInvalidAcl)
 			return
 		}
 		err = xml.Unmarshal(aclBuffer, &acl.Policy)
 		if err != nil {
-			logger.Error("Unable to parse ACLs XML body:", err, aclBuffer)
-			WriteErrorResponse(w, r, ErrInternalError)
+			logger.Warn("Unable to parse ACLs XML body:", err)
+			WriteErrorResponse(w, r, ErrMalformedXML)
 			return
 		}
 	}
 
 	err = api.ObjectAPI.SetBucketAcl(reqCtx, acl, credential)
 	if err != nil {
-		logger.Error("Unable to set ACL for bucket:", err)
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "Unable to set ACL for bucket:")
 		return
 	}
 
@@ -486,29 +470,24 @@ func (api ObjectAPIHandlers) PutBucketAclHandler(w http.ResponseWriter, r *http.
 func (api ObjectAPIHandlers) GetBucketAclHandler(w http.ResponseWriter, r *http.Request) {
 	SetOperationName(w, OpGetBucketAcl)
 	reqCtx := GetRequestContext(r)
-	logger := reqCtx.Logger
 	bucketName := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.GetBucketPolicyAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "GetBucketAclHandler checkRequestAuth err:")
 		return
 	}
 
 	policy, err := api.ObjectAPI.GetBucketAcl(reqCtx, credential)
 	if err != nil {
-		logger.Error("Failed to get ACL policy for bucket", bucketName,
-			"error:", err)
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "Failed to get ACL policy for bucket", bucketName, "error:")
 		return
 	}
 
 	aclBuffer, err := xmlFormat(policy)
 	if err != nil {
-		logger.Error("Failed to marshal ACL XML for bucket", bucketName,
-			"error:", err)
-		WriteErrorResponse(w, r, ErrInternalError)
+		WriteInternalErrorResponse(w, r, err, "Failed to marshal ACL XML for bucket", bucketName, "error:")
 		return
 	}
 
@@ -525,7 +504,7 @@ func (api ObjectAPIHandlers) PutBucketCorsHandler(w http.ResponseWriter, r *http
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.PutBucketPolicyAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "PutBucketCorsHandler checkRequestAuth err:")
 		return
 	}
 
@@ -544,19 +523,20 @@ func (api ObjectAPIHandlers) PutBucketCorsHandler(w http.ResponseWriter, r *http
 
 	corsBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, MAX_CORS_SIZE))
 	if err != nil {
-		logger.Error("Unable to read CORS body:", err)
-		WriteErrorResponse(w, r, ErrInternalError)
+		logger.Warn("Unable to read CORS body:", err)
+		WriteErrorResponse(w, r, ErrInvalidCorsDocument)
 		return
 	}
 
 	cors, err := CorsFromXml(corsBuffer)
 	if err != nil {
+		logger.Warn("Unable to parse CORS XML body:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
 	err = api.ObjectAPI.SetBucketCors(reqCtx, cors, credential)
 	if err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "PutBucketCorsHandler set cors err:")
 		return
 	}
 
@@ -570,13 +550,13 @@ func (api ObjectAPIHandlers) DeleteBucketCorsHandler(w http.ResponseWriter, r *h
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.PutBucketPolicyAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "DeleteBucketCorsHandler checkRequestAuth err:")
 		return
 	}
 
 	err = api.ObjectAPI.DeleteBucketCors(reqCtx, credential)
 	if err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "DeleteBucketCorsHandler delete cors err:")
 		return
 	}
 
@@ -586,27 +566,24 @@ func (api ObjectAPIHandlers) DeleteBucketCorsHandler(w http.ResponseWriter, r *h
 func (api ObjectAPIHandlers) GetBucketCorsHandler(w http.ResponseWriter, r *http.Request) {
 	SetOperationName(w, OpGetBucketCors)
 	reqCtx := GetRequestContext(r)
-	logger := reqCtx.Logger
 	bucketName := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.GetBucketPolicyAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "GetBucketCorsHandler checkRequestAuth err:")
 		return
 	}
 
 	cors, err := api.ObjectAPI.GetBucketCors(reqCtx, credential)
 	if err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "GetBucketCorsHandler get cors err:")
 		return
 	}
 
 	corsBuffer, err := xmlFormat(cors)
 	if err != nil {
-		logger.Error("Failed to marshal CORS XML for bucket", bucketName,
-			"error:", err)
-		WriteErrorResponse(w, r, ErrInternalError)
+		WriteInternalErrorResponse(w, r, err, "Failed to marshal CORS XML for bucket", bucketName, "error:")
 		return
 	}
 
@@ -618,27 +595,24 @@ func (api ObjectAPIHandlers) GetBucketCorsHandler(w http.ResponseWriter, r *http
 func (api ObjectAPIHandlers) GetBucketVersioningHandler(w http.ResponseWriter, r *http.Request) {
 	SetOperationName(w, OpGetBucketVersioning)
 	reqCtx := GetRequestContext(r)
-	logger := reqCtx.Logger
 	bucketName := reqCtx.BucketName
 
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.GetBucketPolicyAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "GetBucketVersioningHandler checkRequestAuth err:")
 		return
 	}
 
 	versioning, err := api.ObjectAPI.GetBucketVersioning(reqCtx, credential)
 	if err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "GetBucketVersioningHandler get versioning err:")
 		return
 	}
 
 	versioningBuffer, err := xmlFormat(versioning)
 	if err != nil {
-		logger.Error(err, "Failed to marshal versioning XML for bucket", bucketName,
-			"error:", err)
-		WriteErrorResponse(w, r, ErrInternalError)
+		WriteInternalErrorResponse(w, r, err, "Failed to marshal versioning XML for bucket:", bucketName, "error:")
 		return
 	}
 
@@ -655,7 +629,7 @@ func (api ObjectAPIHandlers) PutBucketVersioningHandler(w http.ResponseWriter, r
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.PutBucketPolicyAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "PutBucketVersioningHandler checkRequestAuth err:")
 		return
 	}
 
@@ -675,19 +649,20 @@ func (api ObjectAPIHandlers) PutBucketVersioningHandler(w http.ResponseWriter, r
 
 	versioningBuffer, err := ioutil.ReadAll(io.LimitReader(r.Body, 1024))
 	if err != nil {
-		logger.Error("Unable to read versioning body:", err)
-		WriteErrorResponse(w, r, ErrInternalError)
+		logger.Warn("Unable to read versioning body:", err)
+		WriteErrorResponse(w, r, ErrInvalidVersioning)
 		return
 	}
 
 	versioning, err := VersioningFromXml(versioningBuffer)
 	if err != nil {
+		logger.Warn("Unable to parse versioning XML body:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
 	err = api.ObjectAPI.SetBucketVersioning(reqCtx, versioning, credential)
 	if err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "PutBucketVersioningHandler set versioning err:")
 		return
 	}
 
@@ -708,12 +683,12 @@ func (api ObjectAPIHandlers) HeadBucketHandler(w http.ResponseWriter, r *http.Re
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.HeadBucketAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "HeadBucketHandler checkRequestAuth err:")
 		return
 	}
 
 	if _, err = api.ObjectAPI.GetBucketInfo(reqCtx, credential); err != nil {
-		logger.Error("Unable to fetch bucket info:", err)
+		logger.Warn("Unable to fetch bucket info:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}
@@ -725,18 +700,16 @@ func (api ObjectAPIHandlers) HeadBucketHandler(w http.ResponseWriter, r *http.Re
 func (api ObjectAPIHandlers) DeleteBucketHandler(w http.ResponseWriter, r *http.Request) {
 	SetOperationName(w, OpDeleteBucket)
 	reqCtx := GetRequestContext(r)
-	logger := reqCtx.Logger
 
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.DeleteBucketAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "DeleteBucketHandler checkRequestAuth err:")
 		return
 	}
 
 	if err = api.ObjectAPI.DeleteBucket(reqCtx, credential); err != nil {
-		logger.Error("Unable to delete a bucket:", err)
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "Unable to delete a bucket:")
 		return
 	}
 

@@ -37,42 +37,36 @@ func (t *TidbClient) GetBucket(bucketName string) (bucket *Bucket, err error) {
 		err = ErrNoSuchBucket
 		return
 	} else if err != nil {
-		return
+		return nil, NewError(InTidbFatalError, "GetBucket scan row error", err)
 	}
 	bucket.CreateTime, err = time.Parse(TIME_LAYOUT_TIDB, createTime)
 	if err != nil {
-		return
+		return nil, NewError(InTidbFatalError, "GetBucket parse time error", err)
 	}
 	err = json.Unmarshal([]byte(acl), &bucket.ACL)
 	if err != nil {
-		helper.Logger.Error("Unable to unmarshal acl:", acl)
-		return
+		return nil, NewError(InTidbFatalError, "GetBucket unmarshal acl error", err)
 	}
 	err = json.Unmarshal([]byte(cors), &bucket.CORS)
 	if err != nil {
-		helper.Logger.Error("Unable to unmarshal cors:", cors)
-		return
+		return nil, NewError(InTidbFatalError, "GetBucket unmarshal cors error", err)
 	}
 	err = json.Unmarshal([]byte(logging), &bucket.BucketLogging)
 	if err != nil {
-		helper.Logger.Error("Unable to unmarshal logging:", logging)
-		return
+		return nil, NewError(InTidbFatalError, "GetBucket unmarshal logging error", err)
 	}
 	err = json.Unmarshal([]byte(lc), &bucket.Lifecycle)
 	if err != nil {
-		helper.Logger.Error("Unable to unmarshal lc:", lc)
-		return
+		return nil, NewError(InTidbFatalError, "GetBucket unmarshal lifecycle error", err)
 	}
 	bucket.Policy = []byte(policy)
 	err = json.Unmarshal([]byte(website), &bucket.Website)
 	if err != nil {
-		helper.Logger.Error("Unable to unmarshal website:", website)
-		return
+		return nil, NewError(InTidbFatalError, "GetBucket unmarshal website error", err)
 	}
 	err = json.Unmarshal([]byte(encryption), &bucket.Encryption)
 	if err != nil {
-		helper.Logger.Error("Unable to unmarshal encryption:", encryption)
-		return
+		return nil, NewError(InTidbFatalError, "GetBucket unmarshal encryption error", err)
 	}
 	return
 }
@@ -84,7 +78,7 @@ func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
 		err = nil
 		return
 	} else if err != nil {
-		return
+		return nil, NewError(InTidbFatalError, "GetBuckets query error", err)
 	}
 	defer rows.Close()
 
@@ -105,36 +99,36 @@ func (t *TidbClient) GetBuckets() (buckets []Bucket, err error) {
 			&tmp.Usage,
 			&tmp.Versioning)
 		if err != nil {
-			return
+			return nil, NewError(InTidbFatalError, "GetBuckets scan rows error", err)
 		}
 		tmp.CreateTime, err = time.Parse(TIME_LAYOUT_TIDB, createTime)
 		if err != nil {
-			return
+			return nil, NewError(InTidbFatalError, "GetBuckets parse time error", err)
 		}
 		err = json.Unmarshal([]byte(acl), &tmp.ACL)
 		if err != nil {
-			return
+			return nil, NewError(InTidbFatalError, "GetBuckets unmarshal acl error", err)
 		}
 		err = json.Unmarshal([]byte(cors), &tmp.CORS)
 		if err != nil {
-			return
+			return nil, NewError(InTidbFatalError, "GetBuckets unmarshal cors error", err)
 		}
 		err = json.Unmarshal([]byte(logging), &tmp.BucketLogging)
 		if err != nil {
-			return
+			return nil, NewError(InTidbFatalError, "GetBuckets unmarshal logging error", err)
 		}
 		err = json.Unmarshal([]byte(lc), &tmp.Lifecycle)
 		if err != nil {
-			return
+			return nil, NewError(InTidbFatalError, "GetBuckets unmarshal lifecycle error", err)
 		}
 
 		err = json.Unmarshal([]byte(website), &tmp.Website)
 		if err != nil {
-			return
+			return nil, NewError(InTidbFatalError, "GetBuckets unmarshal website error", err)
 		}
 		err = json.Unmarshal([]byte(encryption), &tmp.Encryption)
 		if err != nil {
-			return
+			return nil, NewError(InTidbFatalError, "GetBuckets unmarshal encryption error", err)
 		}
 		buckets = append(buckets, tmp)
 	}
@@ -146,7 +140,7 @@ func (t *TidbClient) PutBucket(bucket Bucket) error {
 	sql, args := bucket.GetUpdateSql()
 	_, err := t.Client.Exec(sql, args...)
 	if err != nil {
-		return err
+		return NewError(InTidbFatalError, "PutBucket transaction executes error", err)
 	}
 	return nil
 }
@@ -154,7 +148,7 @@ func (t *TidbClient) PutBucket(bucket Bucket) error {
 func (t *TidbClient) PutNewBucket(bucket Bucket) error {
 	tx, err := t.Client.Begin()
 	if err != nil {
-		return err
+		return NewError(InTidbFatalError, "PutNewBucket transaction starts error", err)
 	}
 	defer func() {
 		if err == nil {
@@ -167,11 +161,14 @@ func (t *TidbClient) PutNewBucket(bucket Bucket) error {
 	sql, args := bucket.GetCreateSql()
 	_, err = tx.Exec(sql, args...)
 	if err != nil {
-		return err
+		return NewError(InTidbFatalError, "PutNewBucket transaction executes error", err)
 	}
 	user_sql := "insert into users(userid,bucketname) values(?,?)"
 	_, err = tx.Exec(user_sql, bucket.OwnerId, bucket.Name)
-	return err
+	if err != nil {
+		return NewError(InTidbFatalError, "PutNewBucket transaction executes error", err)
+	}
+	return nil
 }
 
 func (t *TidbClient) CheckAndPutBucket(bucket Bucket) (bool, error) {
@@ -188,7 +185,10 @@ func (t *TidbClient) CheckAndPutBucket(bucket Bucket) (bool, error) {
 	}
 	sql, args := bucket.GetCreateSql()
 	_, err = t.Client.Exec(sql, args...)
-	return processed, err
+	if err != nil {
+		return processed, NewError(InTidbFatalError, "CheckAndPutBucket transaction executes error", err)
+	}
+	return processed, nil
 }
 
 func (t *TidbClient) ListHotObjects(marker string, maxKeys int) (listInfo ListHotObjectsInfo, err error) {
@@ -246,7 +246,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 			}
 		}
 		if err != nil {
-			return
+			return listInfo, NewError(InTidbFatalError, "ListObjects error", err)
 		}
 		for rows.Next() {
 			loopcount += 1
@@ -270,7 +270,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 			)
 			if err != nil {
 				_ = rows.Close()
-				return
+				return listInfo, NewError(InTidbFatalError, "ListObjects scan rows error", err)
 			}
 			//prepare next marker
 			lastMarker = marker
@@ -323,7 +323,7 @@ func (t *TidbClient) ListObjects(bucketName, marker, prefix, delimiter string, m
 			lastt, err := time.Parse(TIME_LAYOUT_TIDB, lastModified)
 			if err != nil {
 				_ = rows.Close()
-				return listInfo, err
+				return listInfo, NewError(InTidbFatalError, "ListObjects parse time error", err)
 			}
 			o.LastModified = lastt.UTC().Format(CREATE_TIME_LAYOUT)
 			o.Size = size
@@ -389,7 +389,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 		}
 
 		if err != nil {
-			return
+			return listInfo, NewError(InTidbFatalError, "ListLatestObjects error", err)
 		}
 
 		var loopCount int
@@ -412,7 +412,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 			)
 			if err != nil {
 				_ = rows.Close()
-				return
+				return listInfo, NewError(InTidbFatalError, "ListLatestObjects scan row error", err)
 			}
 			lastMarker := currentMarker
 			currentMarker = objMeta.Name
@@ -542,7 +542,7 @@ func (t *TidbClient) ListLatestObjects(bucketName, marker, prefix, delimiter str
 				&objMeta.CreateTime,
 			)
 			if err != nil && err != sql.ErrNoRows {
-				return
+				return listInfo, NewError(InTidbFatalError, "ListLatestObjects scan row error", err)
 			}
 			objMeta.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
 			var meta Object
@@ -622,7 +622,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 			&nullObjMeta.CreateTime,
 		)
 		if err != nil && err != sql.ErrNoRows {
-			return listInfo, err
+			return listInfo, NewError(InTidbFatalError, "ListVersionedObjects scan row error", err)
 		}
 		nullObjMeta.LastModifiedTime, _ = time.Parse(TIME_LAYOUT_TIDB, lastModifiedTime)
 		if err == sql.ErrNoRows {
@@ -653,7 +653,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 				" from objects where bucketName=? and name=? and version>? order by bucketname,name,version limit ?;"
 			rows, err = t.Client.Query(sqltext, bucketName, currentKeyMarker, currentVerIdMarker, maxKeys)
 			if err != nil {
-				return
+				return listInfo, NewError(InTidbFatalError, "ListVersionedObjects query error", err)
 			}
 			for rows.Next() {
 				loopCount++
@@ -672,7 +672,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 				)
 				if err != nil {
 					_ = rows.Close()
-					return
+					return listInfo, NewError(InTidbFatalError, "ListVersionedObjects scan row error", err)
 				}
 
 				currentKeyMarker = VerObjMeta.Name
@@ -747,7 +747,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 		}
 
 		if err != nil {
-			return
+			return listInfo, NewError(InTidbFatalError, "ListVersionedObjects error", err)
 		}
 
 		var loopCount int
@@ -769,7 +769,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 			)
 			if err != nil {
 				_ = rows.Close()
-				return
+				return listInfo, NewError(InTidbFatalError, "ListVersionedObjects scan row error", err)
 			}
 
 			if currentKeyMarker == objMeta.Name && currentVerIdMarker == objMeta.VersionId {
@@ -922,7 +922,7 @@ func (t *TidbClient) ListVersionedObjects(bucketName, marker, verIdMarker, prefi
 func (t *TidbClient) DeleteBucket(bucket Bucket) error {
 	tx, err := t.Client.Begin()
 	if err != nil {
-		return err
+		return NewError(InTidbFatalError, "DeleteBucket transaction starts err", err)
 	}
 	defer func() {
 		if err == nil {
@@ -935,19 +935,19 @@ func (t *TidbClient) DeleteBucket(bucket Bucket) error {
 	sql_delete_bucket := "delete from buckets where bucketname=?;"
 	_, err = tx.Exec(sql_delete_bucket, bucket.Name)
 	if err != nil {
-		return err
+		return NewError(InTidbFatalError, "DeleteBucket transaction executes err", err)
 	}
 
 	sql_delete_user := "delete from users where userid=? and bucketname=?;"
 	_, err = tx.Exec(sql_delete_user, bucket.OwnerId, bucket.Name)
 	if err != nil {
-		return err
+		return NewError(InTidbFatalError, "DeleteBucket transaction executes err", err)
 	}
 
 	sql_delete_lifecycle := "delete from lifecycle where bucketname=?;"
 	_, err = tx.Exec(sql_delete_lifecycle, bucket.Name)
 	if err != nil {
-		return err
+		return NewError(InTidbFatalError, "DeleteBucket transaction executes err", err)
 	}
 	return nil
 }
@@ -990,8 +990,14 @@ func (t *TidbClient) UpdateUsage(bucketName string, size int64, tx Tx) (err erro
 	sqlStr := "update buckets set usages= usages + ? where bucketname=?;"
 	if tx == nil {
 		_, err = t.Client.Exec(sqlStr, size, bucketName)
+		if err != nil {
+			return NewError(InTidbFatalError, "UpdateUsage err", err)
+		}
 		return err
 	}
 	_, err = tx.(*sql.Tx).Exec(sqlStr, size, bucketName)
+	if err != nil {
+		return NewError(InTidbFatalError, "UpdateUsage err", err)
+	}
 	return err
 }

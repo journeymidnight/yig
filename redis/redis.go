@@ -13,6 +13,7 @@ import (
 	"github.com/cep21/circuit"
 	"github.com/go-redis/redis/v7"
 	"github.com/journeymidnight/yig/circuitbreak"
+	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/meta/types"
 	"github.com/minio/highwayhash"
@@ -148,11 +149,11 @@ func (s *SingleRedis) Set(table RedisDatabase, key string, value interface{}) er
 			defer conn.Close()
 			encodedValue, err := helper.MsgPackMarshal(value)
 			if err != nil {
-				return err
+				return NewError(InRedisGeneralError, "Singe Redis Set err", err)
 			}
 			hashkey, err := HashSum(key)
 			if err != nil {
-				return err
+				return NewError(InRedisGeneralError, "Singe Redis Set err", err)
 			}
 			// Use table.String() + hashkey as Redis key
 			r, err := conn.Set(table.String()+hashkey, string(encodedValue), 30*time.Second).Result()
@@ -160,11 +161,10 @@ func (s *SingleRedis) Set(table RedisDatabase, key string, value interface{}) er
 				return nil
 			}
 			if err != nil {
-				helper.Logger.Error(
-					fmt.Sprintf("Cmd: SET. Key: %s. Value: %s. Reply: %s.",
-						table.String()+key, string(encodedValue), r))
+				return NewError(InRedisGeneralError, fmt.Sprintf("Cmd: SET. Key: %s. Value: %s. Reply: %s.",
+					table.String()+key, string(encodedValue), r), err)
 			}
-			return err
+			return nil
 		},
 		nil,
 	)
@@ -181,7 +181,7 @@ func (s *SingleRedis) Get(table RedisDatabase, key string,
 			defer conn.Close()
 			hashkey, err := HashSum(key)
 			if err != nil {
-				return err
+				return NewError(InRedisGeneralError, "Singe Redis Get err", err)
 			}
 			// Use table.String() + hashkey as Redis key
 			encodedValue, err = conn.Get(table.String() + hashkey).Bytes()
@@ -189,14 +189,14 @@ func (s *SingleRedis) Get(table RedisDatabase, key string,
 				if err == redis.Nil {
 					return nil
 				}
-				return err
+				return NewError(InRedisGeneralError, "Singe Redis Get err", err)
 			}
 			return nil
 		},
 		nil,
 	)
 	if err != nil {
-		return nil, err
+		return nil, NewError(InRedisGeneralError, "Singe Redis Get err", err)
 	}
 	if len(encodedValue) == 0 {
 		return nil, nil
@@ -213,7 +213,7 @@ func (s *SingleRedis) Remove(table RedisDatabase, key string) error {
 			defer conn.Close()
 			hashkey, err := HashSum(key)
 			if err != nil {
-				return err
+				return NewError(InRedisGeneralError, "Singe Redis Remove err", err)
 			}
 			// Use table.String() + hashkey as Redis key
 			_, err = conn.Del(table.String() + hashkey).Result()
@@ -221,10 +221,9 @@ func (s *SingleRedis) Remove(table RedisDatabase, key string) error {
 				return nil
 			}
 			if err != nil {
-				helper.Logger.Error("Redis DEL", table.String()+key,
-					"error:", err)
+				return NewError(InRedisGeneralError, "Redis DEL "+table.String()+key+" err", err)
 			}
-			return err
+			return nil
 		},
 		nil,
 	)
@@ -243,14 +242,14 @@ func (s *SingleRedis) GetUsage(key string) (value string, err error) {
 				if err == redis.Nil {
 					return nil
 				}
-				return err
+				return NewError(InRedisGeneralError, "Singe Redis GetUsage err", err)
 			}
 			return nil
 		},
 		nil,
 	)
 	if err != nil {
-		return "", err
+		return "", NewError(InRedisGeneralError, "Singe Redis GetUsage err", err)
 	}
 	return encodedValue, nil
 }
@@ -264,7 +263,7 @@ func (s *SingleRedis) SetBytes(key string, value []byte) (err error) {
 			defer conn.Close()
 			hashkey, err := HashSum(key)
 			if err != nil {
-				return err
+				return NewError(InRedisGeneralError, "Singe Redis SetBytes err", err)
 			}
 			// Use table.String() + hashkey as Redis key
 			r, err := conn.Set(FileTable.String()+hashkey, value, 0).Result()
@@ -272,10 +271,10 @@ func (s *SingleRedis) SetBytes(key string, value []byte) (err error) {
 				return nil
 			}
 			if err != nil {
-				helper.Logger.Error(fmt.Sprintf("Cmd: SET. Key: %s. Value: %s. Reply: %s.",
-					FileTable.String()+key, string(value), r))
+				return NewError(InRedisGeneralError, fmt.Sprintf("Cmd: SET. Key: %s. Value: %s. Reply: %s.",
+					FileTable.String()+key, string(value), r), err)
 			}
-			return err
+			return nil
 		},
 		nil,
 	)
@@ -291,7 +290,7 @@ func (s *SingleRedis) GetBytes(key string, start int64, end int64) ([]byte, erro
 			defer conn.Close()
 			hashkey, err := HashSum(key)
 			if err != nil {
-				return err
+				return NewError(InRedisGeneralError, "Singe Redis GetBytes err", err)
 			}
 			// Use table.String() + hashkey as Redis key
 			value, err = conn.GetRange(FileTable.String()+hashkey, start, end).Bytes()
@@ -299,14 +298,14 @@ func (s *SingleRedis) GetBytes(key string, start int64, end int64) ([]byte, erro
 				if err == redis.Nil {
 					return nil
 				}
-				return err
+				return NewError(InRedisGeneralError, "Singe Redis GetBytes err", err)
 			}
 			return nil
 		},
 		nil,
 	)
 	if err != nil {
-		return nil, err
+		return nil, NewError(InRedisGeneralError, "Singe Redis GetBytes err", err)
 	}
 	return value, nil
 }
@@ -320,7 +319,7 @@ func (s *SingleRedis) Invalid(table RedisDatabase, key string) (err error) {
 			defer conn.Close()
 			hashkey, err := HashSum(key)
 			if err != nil {
-				return err
+				return NewError(InRedisGeneralError, "Singe Redis Invalid err", err)
 			}
 			// Use table.String() + hashkey as Redis key
 			r, err := conn.Publish(table.InvalidQueue(), hashkey).Result()
@@ -328,10 +327,10 @@ func (s *SingleRedis) Invalid(table RedisDatabase, key string) (err error) {
 				return nil
 			}
 			if err != nil {
-				helper.Logger.Error(fmt.Sprintf("Cmd: PUBLISH. Queue: %s. Key: %s. Reply: %s.",
-					table.InvalidQueue(), FileTable.String()+key, r))
+				return NewError(InRedisGeneralError,fmt.Sprintf("Cmd: PUBLISH. Queue: %s. Key: %s. Reply: %s.",
+					table.InvalidQueue(), FileTable.String()+key, r), err)
 			}
-			return err
+			return nil
 		},
 		nil,
 	)
@@ -405,11 +404,11 @@ func (c *ClusterRedis) Set(table RedisDatabase, key string, value interface{}) e
 			conn := c.cluster.WithContext(ctx)
 			encodedValue, err := helper.MsgPackMarshal(value)
 			if err != nil {
-				return err
+				return NewError(InRedisGeneralError, "Cluster Redis Set err", err)
 			}
 			hashkey, err := HashSum(key)
 			if err != nil {
-				return err
+				return NewError(InRedisGeneralError, "Cluster Redis Set err", err)
 			}
 			// Use table.String() + hashkey as Redis key
 			r, err := conn.Set(table.String()+hashkey, string(encodedValue), time.Duration(helper.CONFIG.MetaCacheTTL)*time.Second).Result()
@@ -417,11 +416,10 @@ func (c *ClusterRedis) Set(table RedisDatabase, key string, value interface{}) e
 				return nil
 			}
 			if err != nil {
-				helper.Logger.Error(
-					fmt.Sprintf("Cmd: SET. Key: %s. Value: %s. Reply: %s.",
-						table.String()+key, string(encodedValue), r))
+				return NewError(InRedisGeneralError, fmt.Sprintf("Cmd: SET. Key: %s. Value: %s. Reply: %s.",
+					table.String()+key, string(encodedValue), r), err)
 			}
-			return err
+			return nil
 		},
 		nil,
 	)
@@ -436,7 +434,7 @@ func (c *ClusterRedis) Get(table RedisDatabase, key string,
 			conn := c.cluster.WithContext(ctx)
 			hashkey, err := HashSum(key)
 			if err != nil {
-				return err
+				return NewError(InRedisGeneralError, "Cluster Redis Get err", err)
 			}
 			// Use table.String() + hashkey as Redis key
 			encodedValue, err = conn.Get(table.String() + hashkey).Bytes()
@@ -444,14 +442,14 @@ func (c *ClusterRedis) Get(table RedisDatabase, key string,
 				if err == redis.Nil {
 					return nil
 				}
-				return err
+				return NewError(InRedisGeneralError, "Cluster Redis Get err", err)
 			}
 			return nil
 		},
 		nil,
 	)
 	if err != nil {
-		return nil, err
+		return nil, NewError(InRedisGeneralError, "Cluster Redis Get err", err)
 	}
 	if len(encodedValue) == 0 {
 		return nil, nil
@@ -466,7 +464,7 @@ func (c *ClusterRedis) Remove(table RedisDatabase, key string) error {
 			conn := c.cluster.WithContext(ctx)
 			hashkey, err := HashSum(key)
 			if err != nil {
-				return err
+				return NewError(InRedisGeneralError, "Cluster Redis Remove err", err)
 			}
 			// Use table.String() + hashkey as Redis key
 			_, err = conn.Del(table.String() + hashkey).Result()
@@ -474,10 +472,9 @@ func (c *ClusterRedis) Remove(table RedisDatabase, key string) error {
 				return nil
 			}
 			if err != nil {
-				helper.Logger.Error("Redis DEL", table.String()+key,
-					"error:", err)
+				return NewError(InRedisGeneralError, "Redis DEL "+table.String()+key+" error", err)
 			}
-			return err
+			return nil
 		},
 		nil,
 	)
@@ -494,14 +491,14 @@ func (c *ClusterRedis) GetUsage(key string) (value string, err error) {
 				if err == redis.Nil {
 					return nil
 				}
-				return err
+				return NewError(InRedisGeneralError, "Cluster Redis GetUsage err", err)
 			}
 			return nil
 		},
 		nil,
 	)
 	if err != nil {
-		return "", err
+		return "", NewError(InRedisGeneralError, "Cluster Redis GetUsage err", err)
 	}
 	return encodedValue, nil
 }
@@ -513,7 +510,7 @@ func (c *ClusterRedis) SetBytes(key string, value []byte) (err error) {
 			conn := c.cluster.WithContext(ctx)
 			hashkey, err := HashSum(key)
 			if err != nil {
-				return err
+				return NewError(InRedisGeneralError, "Cluster Redis SetBytes err", err)
 			}
 			// Use table.String() + hashkey as Redis key
 			r, err := conn.Set(FileTable.String()+hashkey, value, 0).Result()
@@ -521,10 +518,10 @@ func (c *ClusterRedis) SetBytes(key string, value []byte) (err error) {
 				return nil
 			}
 			if err != nil {
-				helper.Logger.Error(fmt.Sprintf("Cmd: SET. Key: %s. Value: %s. Reply: %s.",
-					FileTable.String()+key, string(value), r))
+				return NewError(InRedisGeneralError, fmt.Sprintf("Cmd: SET. Key: %s. Value: %s. Reply: %s.",
+					FileTable.String()+key, string(value), r), err)
 			}
-			return err
+			return nil
 		},
 		nil,
 	)
@@ -538,7 +535,7 @@ func (c *ClusterRedis) GetBytes(key string, start int64, end int64) ([]byte, err
 			conn := c.cluster.WithContext(ctx)
 			hashkey, err := HashSum(key)
 			if err != nil {
-				return err
+				return NewError(InRedisGeneralError, "Cluster Redis GetBytes err", err)
 			}
 			// Use table.String() + hashkey as Redis key
 			value, err = conn.GetRange(FileTable.String()+hashkey, start, end).Bytes()
@@ -546,14 +543,14 @@ func (c *ClusterRedis) GetBytes(key string, start int64, end int64) ([]byte, err
 				if err == redis.Nil {
 					return nil
 				}
-				return err
+				return NewError(InRedisGeneralError, "Cluster Redis GetBytes err", err)
 			}
 			return nil
 		},
 		nil,
 	)
 	if err != nil {
-		return nil, err
+		return nil, NewError(InRedisGeneralError, "Cluster Redis GetBytes err", err)
 	}
 	return value, nil
 }
@@ -565,7 +562,7 @@ func (c *ClusterRedis) Invalid(table RedisDatabase, key string) (err error) {
 			conn := c.cluster.WithContext(ctx)
 			hashkey, err := HashSum(key)
 			if err != nil {
-				return err
+				return NewError(InRedisGeneralError, "Cluster Redis Invalid err", err)
 			}
 			// Use table.String() + hashkey as Redis key
 			r, err := conn.Publish(table.InvalidQueue(), hashkey).Result()
@@ -573,10 +570,10 @@ func (c *ClusterRedis) Invalid(table RedisDatabase, key string) (err error) {
 				return nil
 			}
 			if err != nil {
-				helper.Logger.Error(fmt.Sprintf("Cmd: PUBLISH. Queue: %s. Key: %s. Reply: %s.",
-					table.InvalidQueue(), FileTable.String()+key, r))
+				return NewError(InRedisGeneralError, fmt.Sprintf("Cmd: PUBLISH. Queue: %s. Key: %s. Reply: %s.",
+					table.InvalidQueue(), FileTable.String()+key, r), err)
 			}
-			return err
+			return nil
 		},
 		nil,
 	)

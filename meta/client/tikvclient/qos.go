@@ -3,6 +3,7 @@ package tikvclient
 import (
 	"math"
 
+	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
 )
@@ -22,6 +23,7 @@ func (c *TiKVClient) GetAllUserQos() (userQos map[string]UserQos, err error) {
 		var qos UserQos
 		err = helper.MsgPackUnMarshal(kv.V, &qos)
 		if err != nil {
+			err = NewError(InTikvFatalError, "GetAllUserQos MsgPackUnMarshal err", err)
 			return nil, err
 		}
 		userQos[qos.UserID] = qos

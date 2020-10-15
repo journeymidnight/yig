@@ -2,16 +2,17 @@ package tidbclient
 
 import (
 	"database/sql"
+
+	. "github.com/journeymidnight/yig/error"
 )
 
 func (t *TidbClient) GetUserBuckets(userId string) (buckets []string, err error) {
 	sqltext := "select bucketname from users where userid=?;"
 	rows, err := t.Client.Query(sqltext, userId)
 	if err == sql.ErrNoRows {
-		err = nil
-		return
+		return buckets, nil
 	} else if err != nil {
-		return
+		return buckets, NewError(InTidbFatalError, "GetUserBuckets query err", err)
 	}
 	defer rows.Close()
 
@@ -19,7 +20,7 @@ func (t *TidbClient) GetUserBuckets(userId string) (buckets []string, err error)
 		var tmp string
 		err = rows.Scan(&tmp)
 		if err != nil {
-			return
+			return buckets, NewError(InTidbFatalError, "GetUserBuckets scan row err", err)
 		}
 		buckets = append(buckets, tmp)
 	}
@@ -29,6 +30,9 @@ func (t *TidbClient) GetUserBuckets(userId string) (buckets []string, err error)
 func (t *TidbClient) RemoveBucketForUser(bucketName string, userId string) (err error) {
 	sql := "delete from users where userid=? and bucketname=?;"
 	_, err = t.Client.Exec(sql, userId, bucketName)
+	if err != nil {
+		return NewError(InTidbFatalError, "RemoveBucketForUser transactions executes err", err)
+	}
 	return
 }
 
@@ -37,7 +41,7 @@ func (t *TidbClient) GetAllUserBuckets() (bucketUser map[string]string, err erro
 	bucketUser = make(map[string]string)
 	rows, err := t.Client.Query("select userid, bucketname from users")
 	if err != nil {
-		return
+		return bucketUser, NewError(InTidbFatalError, "GetAllUserBuckets query err", err)
 	}
 	defer rows.Close()
 
@@ -45,7 +49,7 @@ func (t *TidbClient) GetAllUserBuckets() (bucketUser map[string]string, err erro
 		var userID, bucketName string
 		err = rows.Scan(&userID, &bucketName)
 		if err != nil {
-			return
+			return bucketUser, NewError(InTidbFatalError, "GetAllUserBuckets scan row err", err)
 		}
 		bucketUser[bucketName] = userID
 	}

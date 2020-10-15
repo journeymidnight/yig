@@ -3,14 +3,14 @@ package tidbclient
 import (
 	"database/sql"
 
-	"github.com/journeymidnight/yig/helper"
+	. "github.com/journeymidnight/yig/error"
 	. "github.com/journeymidnight/yig/meta/types"
 )
 
 func (t *TidbClient) PutBucketToLifeCycle(bucket Bucket, lifeCycle LifeCycle) error {
 	tx, err := t.Client.Begin()
 	if err != nil {
-		return err
+		return NewError(InTidbFatalError, "PutBucketToLifeCycle transaction starts err", err)
 	}
 	defer func() {
 		if err == nil {
@@ -27,8 +27,7 @@ func (t *TidbClient) PutBucketToLifeCycle(bucket Bucket, lifeCycle LifeCycle) er
 	sqltext, args := lifeCycle.GetCreateSql()
 	_, err = tx.Exec(sqltext, args...)
 	if err != nil {
-		helper.Logger.Error("Failed to execute:", sqltext, "err:", err)
-		return err
+		return NewError(InTidbFatalError, "PutBucketToLifeCycle transaction executes err", err)
 	}
 	return nil
 }
@@ -43,7 +42,7 @@ func (t *TidbClient) GetBucketLifeCycle(bucket Bucket) (*LifeCycle, error) {
 		&lc.EndTime,
 	)
 	if err != nil && err != sql.ErrNoRows {
-		return nil, err
+		return nil, NewError(InTidbFatalError, "GetBucketLifeCycle scan row err", err)
 	}
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -54,7 +53,7 @@ func (t *TidbClient) GetBucketLifeCycle(bucket Bucket) (*LifeCycle, error) {
 func (t *TidbClient) RemoveBucketFromLifeCycle(bucket Bucket) error {
 	tx, err := t.Client.Begin()
 	if err != nil {
-		return err
+		NewError(InTidbFatalError, "RemoveBucketFromLifeCycle transaction starts err", err)
 	}
 	defer func() {
 		if err == nil {
@@ -72,8 +71,7 @@ func (t *TidbClient) RemoveBucketFromLifeCycle(bucket Bucket) error {
 	_, err = tx.Exec(sqltext, bucket.Name)
 
 	if err != nil {
-		helper.Logger.Error("Failed to execute:", sqltext, "err:", err)
-		return nil
+		return NewError(InTidbFatalError, "RemoveBucketFromLifeCycle transaction executes err", err)
 	}
 	return nil
 }
@@ -83,11 +81,9 @@ func (t *TidbClient) ScanLifeCycle(limit int, marker string) (result ScanLifeCyc
 	sqltext := "select bucketname,status,starttime,endtime from lifecycle where bucketname > ? limit ?;"
 	rows, err := t.Client.Query(sqltext, marker, limit)
 	if err == sql.ErrNoRows {
-		helper.Logger.Error("Failed in sql.ErrNoRows:", sqltext, "err:", err)
-		err = nil
-		return
+		return result, nil
 	} else if err != nil {
-		return
+		return result, NewError(InTidbFatalError, "ScanLifeCycle query err", err)
 	}
 	defer rows.Close()
 	result.Lcs = make([]LifeCycle, 0, limit)
@@ -99,8 +95,7 @@ func (t *TidbClient) ScanLifeCycle(limit int, marker string) (result ScanLifeCyc
 			&lc.StartTime,
 			&lc.EndTime)
 		if err != nil {
-			helper.Logger.Error("Failed in scan LifeCycle:", err)
-			return
+			return result, NewError(InTidbFatalError, "ScanLifeCycle scan row err", err)
 		}
 		result.Lcs = append(result.Lcs, lc)
 	}

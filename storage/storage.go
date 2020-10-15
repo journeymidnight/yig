@@ -81,6 +81,9 @@ func newInitializationVector() (initializationVector []byte, err error) {
 
 	initializationVector = make([]byte, INITIALIZATION_VECTOR_LENGTH)
 	_, err = io.ReadFull(rand.Reader, initializationVector)
+	if err != nil {
+		err = NewError(InternalFatalError, "io read full err", err)
+	}
 	return
 }
 
@@ -95,6 +98,7 @@ func wrapEncryptionReader(reader io.Reader, encryptionKey []byte,
 	var block cipher.Block
 	block, err = aes.NewCipher(encryptionKey)
 	if err != nil {
+		err = NewError(InternalFatalError, "NewCipher err", err)
 		return
 	}
 	stream := cipher.NewCTR(block, initializationVector)

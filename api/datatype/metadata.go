@@ -5,7 +5,6 @@ import (
 	"github.com/dustin/go-humanize"
 	. "github.com/journeymidnight/yig/brand"
 	. "github.com/journeymidnight/yig/error"
-	"github.com/journeymidnight/yig/helper"
 	"io"
 	"io/ioutil"
 	"strings"
@@ -78,12 +77,10 @@ func ParseMetaConfig(reader io.Reader, brand Brand) (metaDataReq MetaDataReq, er
 	metaConfig := new(MetaConfiguration)
 	metaBuffer, err := ioutil.ReadAll(reader)
 	if err != nil {
-		helper.Logger.Error("Unable to read metadata setting body:", err)
-		return metaDataReq, err
+		return metaDataReq, NewError(InDatatypeWarn, "Unable to read metadata setting body", err)
 	}
 	err = xml.Unmarshal(metaBuffer, metaConfig)
 	if err != nil {
-		helper.Logger.Error("Unable to parse metadata XML body:", err)
 		return metaDataReq, ErrMalformedMetadataConfiguration
 	}
 	metaDataReq, err = metaConfig.parse(brand)

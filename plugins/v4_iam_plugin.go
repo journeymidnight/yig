@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"hash"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"sort"
@@ -186,36 +185,31 @@ func (a IamV4Client) GetCredential(accessKey string) (credential common.Credenti
 		request, _ := http.NewRequest("GET", signUrl, nil)
 		response, err := a.httpClient.Do(request)
 		if err != nil {
-			slog.Error("GetCredential send request failed", err)
-			return credential, ErrInternalError
+			err = NewError(InIamFatalError, "GetCredential send request failed", err)
+			slog.Error(err.Error())
+			return credential, err
 		}
 		slog.Info("GetCredential to IAM return status ", response.Status)
 		if response.StatusCode != 200 {
-			slog.Error("GetCredential to IAM failed return code = ", response.StatusCode, " UCO Exception!!")
-			return credential, ErrInternalError
+			err = NewError(InIamGeneralError, "GetCredential to IAM failed return code = "+string(response.StatusCode), err)
+			slog.Error(err.Error())
+			return credential, err
 		}
 		var resp = new(QueryResp)
-		body := response.Body
-		jsonBytes, err := ioutil.ReadAll(body)
+		err = helper.ReadJsonBody(response.Body, &resp)
 		if err != nil {
-			slog.Error("Read IAM response err:", err)
-			return credential, ErrInternalError
-		}
-		defer body.Close()
-		s := string(jsonBytes)
-		slog.Info("Read IAM JSON:", s)
-		err = json.Unmarshal(jsonBytes, resp)
-		if err != nil {
-			slog.Error(" IAM JSON:", s, "Read IAM JSON err:", err)
-			return credential, ErrInternalError
+			err = NewError(InIamFatalError, "Read IAM JSON err:", err)
+			slog.Error(err.Error())
+			return credential, err
 		}
 		switch resp.Code {
 		case "0":
 			// normal
 			break
 		case "1":
-			slog.Error("Get Error from OP")
-			return credential, ErrInternalError
+			err = NewError(InIamFatalError, "Get Error from OP", err)
+			slog.Error(err.Error())
+			return credential, err
 		case "3005":
 			// AK and SK have forbidden
 			return credential, ErrForbiddenAccessKeyID
@@ -229,8 +223,9 @@ func (a IamV4Client) GetCredential(accessKey string) (credential common.Credenti
 			// AK invalid
 			return credential, ErrInvalidAccessKeyID
 		default:
-			slog.Error("Get Error from UCO")
-			return credential, ErrInternalError
+			err = NewError(InIamFatalError, "Get Error from UCO", err)
+			slog.Error(err.Error())
+			return credential, err
 		}
 
 		value := resp.Res.Access

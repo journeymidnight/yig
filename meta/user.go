@@ -13,7 +13,7 @@ func (m *Meta) GetUserBuckets(userId string, willNeed bool) (buckets []string, e
 	unmarshaller := func(in []byte) (interface{}, error) {
 		buckets := make([]string, 0)
 		err := helper.MsgPackUnMarshal(in, &buckets)
-		return buckets, err
+		return buckets, NewError(InMetaFatalError, "GetUserBuckets MsgPackUnMarshal err", err)
 	}
 	bs, err := m.Cache.Get(redis.UserTable, userId, getUserBuckets, unmarshaller, willNeed)
 	if err != nil {

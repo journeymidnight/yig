@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/journeymidnight/yig/api"
 	"github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/context"
 	"github.com/journeymidnight/yig/crypto"
@@ -23,8 +22,13 @@ import (
 	"github.com/journeymidnight/yig/signature"
 )
 
+// http://docs.aws.amazon.com/AmazonS3/latest/dev/UploadingObjects.html
 const (
-	MAX_PART_SIZE   = 5 << 30 // 5GB
+	// minimum Part size for multipart upload is 100Kb
+	MIN_PART_SIZE = 100 << 10 // 100Kb
+	// maximum Part size per PUT request is 5GiB
+	MAX_PART_SIZE = 5 << 30 // 5GB
+	// maximum Part number for multipart upload is 10000 (Acceptable values range from 1 to 10000 inclusive)
 	MAX_PART_NUMBER = 10000
 )
 
@@ -741,22 +745,22 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 
 	md5Writer := md5.New()
 	var totalSize int64 = 0
-	helper.Logger.Info("Upload parts:", uploadedParts, "uploadId:", uploadId)
+	reqCtx.Logger.Info("Upload parts:", uploadedParts, "uploadId:", uploadId)
 	for i := 0; i < len(uploadedParts); i++ {
 		if uploadedParts[i].PartNumber != i+1 {
-			helper.Logger.Error("uploadedParts[i].PartNumber != i+1; i:", i,
+			reqCtx.Logger.Error("uploadedParts[i].PartNumber != i+1; i:", i,
 				"uploadId:", uploadId)
 			err = ErrInvalidPart
 			return
 		}
 		part, ok := multipart.Parts[i+1]
 		if !ok {
-			helper.Logger.Error("multipart.Parts[i+1] does not exist; i:", i,
+			reqCtx.Logger.Error("multipart.Parts[i+1] does not exist; i:", i,
 				"uploadId:", uploadId)
 			err = ErrInvalidPart
 			return
 		}
-		if part.Size < api.MIN_PART_SIZE && part.PartNumber != len(uploadedParts) {
+		if part.Size < MIN_PART_SIZE && part.PartNumber != len(uploadedParts) {
 			err = meta.PartTooSmall{
 				PartSize:   part.Size,
 				PartNumber: part.PartNumber,
@@ -765,7 +769,7 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 			return
 		}
 		if part.Etag != uploadedParts[i].ETag {
-			helper.Logger.Error("part.Etag != uploadedParts[i].ETag;",
+			reqCtx.Logger.Error("part.Etag != uploadedParts[i].ETag;",
 				"i:", i, "Etag:", part.Etag, "reqEtag:",
 				uploadedParts[i].ETag, "uploadId:", uploadId)
 			err = ErrInvalidPart
@@ -774,7 +778,7 @@ func (yig *YigStorage) CompleteMultipartUpload(reqCtx RequestContext, credential
 		var etagBytes []byte
 		etagBytes, err = hex.DecodeString(part.Etag)
 		if err != nil {
-			helper.Logger.Error("hex.DecodeString(part.Etag) err:", err,
+			reqCtx.Logger.Error("hex.DecodeString(part.Etag) err:", err,
 				"uploadId:", uploadId)
 			err = ErrInvalidPart
 			return

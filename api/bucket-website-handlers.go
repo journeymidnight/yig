@@ -18,12 +18,11 @@ import (
 func (api ObjectAPIHandlers) PutBucketWebsiteHandler(w http.ResponseWriter, r *http.Request) {
 	SetOperationName(w, OpPutBucketWebsite)
 	reqCtx := GetRequestContext(r)
-	logger := reqCtx.Logger
 
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.PutBucketPolicyAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "PutBucketWebsiteHandler checkRequestAuth err:")
 		return
 	}
 
@@ -44,14 +43,12 @@ func (api ObjectAPIHandlers) PutBucketWebsiteHandler(w http.ResponseWriter, r *h
 
 	websiteConfig, err := ParseWebsiteConfig(io.LimitReader(r.Body, r.ContentLength))
 	if err != nil {
-		WriteErrorResponse(w, r, err)
-		return
+		WriteInternalErrorResponse(w, r, err, "Unable to parse encryption config:")
 	}
 
 	err = api.ObjectAPI.SetBucketWebsite(reqCtx.BucketInfo, *websiteConfig)
 	if err != nil {
-		logger.Error("Unable to set website for bucket:", err)
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "Unable to set website for bucket:")
 		return
 	}
 	WriteSuccessResponse(w, r, nil)
@@ -60,12 +57,11 @@ func (api ObjectAPIHandlers) PutBucketWebsiteHandler(w http.ResponseWriter, r *h
 func (api ObjectAPIHandlers) GetBucketWebsiteHandler(w http.ResponseWriter, r *http.Request) {
 	SetOperationName(w, OpGetBucketWebsite)
 	reqCtx := GetRequestContext(r)
-	logger := reqCtx.Logger
 
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.GetBucketPolicyAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "GetBucketWebsiteHandler checkRequestAuth err:")
 		return
 	}
 
@@ -81,15 +77,13 @@ func (api ObjectAPIHandlers) GetBucketWebsiteHandler(w http.ResponseWriter, r *h
 	// Read bucket access policy.
 	bucketWebsite, err := api.ObjectAPI.GetBucketWebsite(reqCtx.BucketName)
 	if err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "Unable to get website from bucket:")
 		return
 	}
 
 	encodedSuccessResponse, err := xmlFormat(bucketWebsite)
 	if err != nil {
-		logger.Error("Failed to marshal Website XML for bucket", reqCtx.BucketName,
-			"error:", err)
-		WriteErrorResponse(w, r, ErrInternalError)
+		WriteInternalErrorResponse(w, r, err, "Failed to marshal Website XML for bucket:", reqCtx.BucketName, "error:")
 		return
 	}
 
@@ -105,7 +99,7 @@ func (api ObjectAPIHandlers) DeleteBucketWebsiteHandler(w http.ResponseWriter, r
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.DeleteBucketPolicyAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "DeleteBucketWebsiteHandler checkRequestAuth err:")
 		return
 	}
 
@@ -119,7 +113,7 @@ func (api ObjectAPIHandlers) DeleteBucketWebsiteHandler(w http.ResponseWriter, r
 	}
 
 	if err := api.ObjectAPI.DeleteBucketWebsite(reqCtx.BucketInfo); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "Unable to delete website for bucket:")
 		return
 	}
 	// Success.
@@ -175,7 +169,7 @@ func (api ObjectAPIHandlers) HandledByWebsite(w http.ResponseWriter, r *http.Req
 			credential := common.Credential{}
 			isAllow, err := IsBucketPolicyAllowed(&credential, reqCtx.BucketInfo, r, policy.GetObjectAction, indexName)
 			if err != nil {
-				WriteErrorResponse(w, r, err)
+				WriteInternalErrorResponse(w, r, err, "HandledByWebsite IsBucketPolicyAllowed err:")
 				return true
 			}
 			credential.AllowOtherUserAccess = isAllow
@@ -185,19 +179,20 @@ func (api ObjectAPIHandlers) HandledByWebsite(w http.ResponseWriter, r *http.Req
 					api.errAllowableObjectNotFound(w, r, credential)
 					return true
 				}
-				WriteErrorResponse(w, r, err)
+				WriteInternalErrorResponse(w, r, err, "Unable to fetch object info:")
 				return true
 			}
 			writer := newGetObjectResponseWriter(w, r, index, nil, http.StatusOK, "", reqCtx.AuthType)
 			// Reads the object at startOffset and writes to mw.
 			if err := api.ObjectAPI.GetObject(index, 0, index.Size, writer, datatype.SseRequest{}); err != nil {
-				logger.Error("Unable to write to client:", err)
+				e, logLevel := ParseError(err)
+				logger.Log(logLevel, 3, "Unable to write to client:", err)
 				if !writer.dataWritten {
 					// Error response only if no data has been written to client yet. i.e if
 					// partial data has already been written before an error
 					// occurred then no point in setting StatusCode and
 					// sending error XML.
-					WriteErrorResponse(w, r, err)
+					WriteErrorResponse(w, r, e)
 				}
 				return true
 			}
@@ -228,25 +223,26 @@ func (api ObjectAPIHandlers) ReturnWebsiteErrorDocument(w http.ResponseWriter, r
 		credential := common.Credential{}
 		isAllow, err := IsBucketPolicyAllowed(&credential, reqCtx.BucketInfo, r, policy.GetObjectAction, indexName)
 		if err != nil {
-			WriteErrorResponse(w, r, err)
+			WriteInternalErrorResponse(w, r, err, "ReturnWebsiteErrorDocument IsBucketPolicyAllowed err:")
 			return true
 		}
 		credential.AllowOtherUserAccess = isAllow
 		index, err := api.ObjectAPI.GetObjectInfo(reqCtx.BucketName, indexName, "", credential)
 		if err != nil {
-			WriteErrorResponse(w, r, err)
+			WriteInternalErrorResponse(w, r, err, "Unable to fetch object info:")
 			return true
 		}
 		writer := newGetObjectResponseWriter(w, r, index, nil, http.StatusNotFound, "", reqCtx.AuthType)
 		// Reads the object at startOffset and writes to mw.
 		if err := api.ObjectAPI.GetObject(index, 0, index.Size, writer, datatype.SseRequest{}); err != nil {
-			logger.Error("Unable to write to client:", err)
+			e, logLevel := ParseError(err)
+			logger.Log(logLevel, 3, "Unable to write to client:", err)
 			if !writer.dataWritten {
 				// Error response only if no data has been written to client yet. i.e if
 				// partial data has already been written before an error
 				// occurred then no point in setting StatusCode and
 				// sending error XML.
-				WriteErrorResponse(w, r, err)
+				WriteErrorResponse(w, r, e)
 			}
 			return true
 		}

@@ -103,7 +103,7 @@ func parseListUploadsQuery(query url.Values) (request ListUploadsRequest, err er
 	} else {
 		request.MaxUploads, err = strconv.Atoi(query.Get("max-uploads"))
 		if err != nil {
-			return
+			return request, NewError(InternalFatalError, "parseListUploadsQuery get max-uploads err: ", err)
 		}
 		if request.MaxUploads > MaxUploadsList || request.MaxUploads < 1 {
 			err = ErrInvalidMaxUploads

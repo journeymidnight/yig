@@ -18,7 +18,6 @@ package api
 
 import (
 	"encoding/json"
-	"github.com/journeymidnight/yig/helper"
 	"io"
 	"net/http"
 
@@ -26,6 +25,7 @@ import (
 	"github.com/journeymidnight/yig/api/datatype/policy"
 	. "github.com/journeymidnight/yig/context"
 	. "github.com/journeymidnight/yig/error"
+	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
 )
 
@@ -47,7 +47,7 @@ func (api ObjectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *ht
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.PutBucketPolicyAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "PutBucketPolicyHandler checkRequestAuth err:")
 		return
 	}
 
@@ -78,7 +78,7 @@ func (api ObjectAPIHandlers) PutBucketPolicyHandler(w http.ResponseWriter, r *ht
 	}
 
 	if err = api.ObjectAPI.SetBucketPolicy(credential, reqCtx.BucketName, *bucketPolicy); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "PutBucketPolicyHandler set policy err:")
 		return
 	}
 
@@ -94,12 +94,12 @@ func (api ObjectAPIHandlers) DeleteBucketPolicyHandler(w http.ResponseWriter, r 
 	var credential common.Credential
 	var err error
 	if credential, err = checkRequestAuth(r, policy.DeleteBucketPolicyAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "DeleteBucketPolicyHandler signature authenticate err:")
 		return
 	}
 
 	if err := api.ObjectAPI.DeleteBucketPolicy(credential, bucket); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "Failed to delete bucket policy")
 		return
 	}
 
@@ -111,24 +111,27 @@ func (api ObjectAPIHandlers) DeleteBucketPolicyHandler(w http.ResponseWriter, r 
 func (api ObjectAPIHandlers) GetBucketPolicyHandler(w http.ResponseWriter, r *http.Request) {
 	SetOperationName(w, OpGetBucketPolicy)
 	reqCtx := GetRequestContext(r)
+	logger := reqCtx.Logger
 	bucket := reqCtx.BucketName
 	var credential common.Credential
 	var err error
 
 	if credential, err = checkRequestAuth(r, policy.GetBucketPolicyAction); err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "DeleteBucketPolicyHandler checkRequestAuth err:")
 		return
 	}
 
 	// Read bucket access policy.
 	bucketPolicy, err := api.ObjectAPI.GetBucketPolicy(credential, bucket)
 	if err != nil {
-		WriteErrorResponse(w, r, err)
+		WriteInternalErrorResponse(w, r, err, "Failed to get bucket policy")
 		return
 	}
 
 	policyData, err := json.Marshal(bucketPolicy)
 	if err != nil {
+		logger.Warn("Failed to marshal policy XML for bucket", reqCtx.BucketName,
+			"error:", err)
 		WriteErrorResponse(w, r, err)
 		return
 	}

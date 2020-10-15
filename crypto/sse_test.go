@@ -15,7 +15,7 @@
 package crypto
 
 import (
-	"net/http"
+	_ "net/http"
 	"testing"
 )
 

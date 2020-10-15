@@ -2,7 +2,6 @@ package types
 
 import (
 	"encoding/binary"
-	"errors"
 	"math"
 	"strconv"
 
@@ -52,7 +51,7 @@ func (m *Multipart) GenUploadId() error {
 		return nil
 	}
 	if m.InitialTime == 0 {
-		return errors.New("Zero value InitialTime for Multipart")
+		return NewError(InMetaFatalError, "Zero value InitialTime for Multipart", nil)
 	}
 	m.UploadId = getMultipartUploadId(m.InitialTime)
 	return nil

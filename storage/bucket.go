@@ -30,7 +30,7 @@ func (yig *YigStorage) MakeBucket(reqCtx RequestContext, acl datatype.Acl,
 	// Input validation.
 
 	if reqCtx.BucketInfo != nil {
-		helper.Logger.Info("Error get bucket:", reqCtx.BucketName, "with error:", ErrBucketAlreadyExists)
+		reqCtx.Logger.Info("Error get bucket:", reqCtx.BucketName, "with error:", ErrBucketAlreadyExists)
 		return ErrBucketAlreadyExists
 	}
 
@@ -53,7 +53,7 @@ func (yig *YigStorage) MakeBucket(reqCtx RequestContext, acl datatype.Acl,
 	}
 	err = yig.MetaStorage.Client.PutNewBucket(bucket)
 	if err != nil {
-		helper.Logger.Error("Error Put New Bucket:", err)
+		reqCtx.Logger.Error("Error Put New Bucket:", err)
 		return err
 	}
 
@@ -136,7 +136,7 @@ func (yig *YigStorage) SetBucketAcl(reqCtx RequestContext, acl datatype.Acl,
 
 func (yig *YigStorage) SetBucketLogging(reqCtx RequestContext, bl datatype.BucketLoggingStatus,
 	credential common.Credential) error {
-	helper.Logger.Info("enter SetBucketLogging")
+	reqCtx.Logger.Info("enter SetBucketLogging")
 	bucket := reqCtx.BucketInfo
 	if bucket == nil {
 		return ErrNoSuchBucket
@@ -393,7 +393,7 @@ func (yig *YigStorage) DelBucketLifecycle(reqCtx RequestContext, credential comm
 
 	err := yig.MetaStorage.RemoveBucketFromLifeCycle(*bucket)
 	if err != nil {
-		helper.Logger.Error("Remove bucket From lifecycle table error:", err)
+		reqCtx.Logger.Error("Remove bucket From lifecycle table error:", err)
 		return err
 	}
 	return nil

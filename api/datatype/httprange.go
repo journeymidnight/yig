@@ -17,11 +17,12 @@
 package datatype
 
 import (
-	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
+
+	. "github.com/journeymidnight/yig/error"
 )
 
 const (
@@ -30,9 +31,6 @@ const (
 
 // Valid byte position regexp
 var validBytePos = regexp.MustCompile(`^[0-9]+$`)
-
-// ErrorInvalidRange - returned when given range value is not valid.
-var ErrorInvalidRange = errors.New("Invalid range")
 
 // HttpRange specifies the byte range to be sent to the client.
 type HttpRange struct {
@@ -57,7 +55,7 @@ func ParseRequestRange(rangeString string, resourceSize int64) (hrange *HttpRang
 
 	// Return error if given range string doesn't start with byte range prefix.
 	if !strings.HasPrefix(rangeString, byteRangePrefix) {
-		return nil, fmt.Errorf("'%s' does not start with '%s'", rangeString, byteRangePrefix)
+		return nil, ErrInvalidRangeFormat
 	}
 
 	// Trim byte range prefix.
@@ -66,7 +64,7 @@ func ParseRequestRange(rangeString string, resourceSize int64) (hrange *HttpRang
 	// Check if range string contains delimiter '-', else return error. eg. "bytes=8"
 	sepIndex := strings.Index(byteRangeString, "-")
 	if sepIndex == -1 {
-		return nil, fmt.Errorf("'%s' does not have a valid range value", rangeString)
+		return nil, ErrInvalidRangeFormat
 	}
 
 	offsetBeginString := byteRangeString[:sepIndex]
@@ -74,11 +72,11 @@ func ParseRequestRange(rangeString string, resourceSize int64) (hrange *HttpRang
 	// Convert offsetBeginString only if its not empty.
 	if len(offsetBeginString) > 0 {
 		if !validBytePos.MatchString(offsetBeginString) {
-			return nil, fmt.Errorf("'%s' does not have a valid first byte position value", rangeString)
+			return nil, ErrInvalidRangeFormat
 		}
 
 		if offsetBegin, err = strconv.ParseInt(offsetBeginString, 10, 64); err != nil {
-			return nil, fmt.Errorf("'%s' does not have a valid first byte position value", rangeString)
+			return nil, ErrInvalidRangeFormat
 		}
 	}
 
@@ -87,11 +85,11 @@ func ParseRequestRange(rangeString string, resourceSize int64) (hrange *HttpRang
 	// Convert offsetEndString only if its not empty.
 	if len(offsetEndString) > 0 {
 		if !validBytePos.MatchString(offsetEndString) {
-			return nil, fmt.Errorf("'%s' does not have a valid last byte position value", rangeString)
+			return nil, ErrInvalidRangeFormat
 		}
 
 		if offsetEnd, err = strconv.ParseInt(offsetEndString, 10, 64); err != nil {
-			return nil, fmt.Errorf("'%s' does not have a valid last byte position value", rangeString)
+			return nil, ErrInvalidRangeFormat
 		}
 	}
 
@@ -99,12 +97,12 @@ func ParseRequestRange(rangeString string, resourceSize int64) (hrange *HttpRang
 	if offsetBegin > -1 && offsetEnd > -1 {
 		if offsetBegin > offsetEnd {
 			// Last byte position is not greater than first byte position. eg. "bytes=5-2"
-			return nil, fmt.Errorf("'%s' does not have valid range value", rangeString)
+			return nil, ErrInvalidRange
 		}
 
 		// First and last byte positions should not be >= resourceSize.
 		if offsetBegin >= resourceSize {
-			return nil, ErrorInvalidRange
+			return nil, ErrInvalidRange
 		}
 
 		if offsetEnd >= resourceSize {
@@ -114,7 +112,7 @@ func ParseRequestRange(rangeString string, resourceSize int64) (hrange *HttpRang
 		// rangeString contains only first byte position. eg. "bytes=8-"
 		if offsetBegin >= resourceSize {
 			// First byte position should not be >= resourceSize.
-			return nil, ErrorInvalidRange
+			return nil, ErrInvalidRange
 		}
 
 		offsetEnd = resourceSize - 1
@@ -122,7 +120,7 @@ func ParseRequestRange(rangeString string, resourceSize int64) (hrange *HttpRang
 		// rangeString contains only last byte position. eg. "bytes=-3"
 		if offsetEnd == 0 {
 			// Last byte position should not be zero eg. "bytes=-0"
-			return nil, ErrorInvalidRange
+			return nil, ErrInvalidRange
 		}
 
 		if offsetEnd >= resourceSize {
@@ -134,7 +132,7 @@ func ParseRequestRange(rangeString string, resourceSize int64) (hrange *HttpRang
 		offsetEnd = resourceSize - 1
 	} else {
 		// rangeString contains first and last byte positions missing. eg. "bytes=-"
-		return nil, fmt.Errorf("'%s' does not have valid range value", rangeString)
+		return nil, ErrInvalidRange
 	}
 
 	return &HttpRange{offsetBegin, offsetEnd, resourceSize}, nil

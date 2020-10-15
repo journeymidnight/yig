@@ -2,11 +2,11 @@ package datatype
 
 import (
 	"encoding/xml"
-	"github.com/dustin/go-humanize"
-	. "github.com/journeymidnight/yig/error"
-	"github.com/journeymidnight/yig/helper"
 	"io"
 	"io/ioutil"
+
+	"github.com/dustin/go-humanize"
+	. "github.com/journeymidnight/yig/error"
 )
 
 const (
@@ -62,8 +62,7 @@ func ParseEncryptionConfig(reader io.Reader) (*EncryptionConfiguration, error) {
 	encryptionConfiguration := new(EncryptionConfiguration)
 	encryptionBuffer, err := ioutil.ReadAll(reader)
 	if err != nil {
-		helper.Logger.Error("Unable to read encryption config body:", err)
-		return nil, err
+		return nil, NewError(InDatatypeWarn, "Unable to read encryption config body", err)
 	}
 	size := len(encryptionBuffer)
 	if size > MaxBucketEncryptionConfigurationSize {
@@ -71,7 +70,6 @@ func ParseEncryptionConfig(reader io.Reader) (*EncryptionConfiguration, error) {
 	}
 	err = xml.Unmarshal(encryptionBuffer, encryptionConfiguration)
 	if err != nil {
-		helper.Logger.Error("Unable to parse encryption config XML body:", err)
 		return nil, ErrMalformedEncryptionConfiguration
 	}
 	err = encryptionConfiguration.Validate()

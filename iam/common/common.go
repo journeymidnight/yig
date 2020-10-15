@@ -1,8 +1,6 @@
 package common
 
 import (
-	"errors"
-
 	"github.com/journeymidnight/yig/api/datatype/policy"
 )
 
@@ -32,5 +30,3 @@ func (a Credential) String() string {
 	secretStr := "SecretKey: " + a.SecretAccessKey
 	return externUserId + " " + externRootId + " " + accessStr + " " + secretStr
 }
-
-var ErrAccessKeyNotExist = errors.New("Access key does not exist")

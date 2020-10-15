@@ -40,11 +40,15 @@ func (c *TiKVClient) GetMultipart(bucketName, objectName, uploadId string) (mult
 
 	tx, err := c.NewTrans()
 	if err != nil {
+		err = NewError(InTikvFatalError, "GetMultipart NewTrans err", err)
 		return multipart, err
 	}
 	defer func() {
 		if err == nil {
 			err = c.CommitTrans(tx)
+			if err != nil {
+				err = NewError(InTikvFatalError, "GetMultipart err", err)
+			}
 		}
 		if err != nil {
 			c.AbortTrans(tx)
@@ -55,6 +59,7 @@ func (c *TiKVClient) GetMultipart(bucketName, objectName, uploadId string) (mult
 	multipartKey := GenMultipartKey(bucketName, objectName, initialTime)
 	ok, err := c.TxGet(multipartKey, &multipart, txn)
 	if err != nil {
+		err = NewError(InTikvFatalError, "GetMultipart TxGet err", err)
 		return multipart, err
 	}
 	if !ok {
@@ -65,6 +70,7 @@ func (c *TiKVClient) GetMultipart(bucketName, objectName, uploadId string) (mult
 	objectPartEndKey := GenObjectPartKey(bucketName, objectName, uploadId, MaxPartLimit)
 	kvs, err := c.TxScan(objectPartStartKey, objectPartEndKey, MaxPartLimit, txn)
 	if err != nil {
+		err = NewError(InTikvFatalError, "GetMultipart TxScan err", err)
 		return multipart, err
 	}
 	if len(kvs) == 0 {
@@ -76,6 +82,7 @@ func (c *TiKVClient) GetMultipart(bucketName, objectName, uploadId string) (mult
 		var part Part
 		err = helper.MsgPackUnMarshal(kv.V, &part)
 		if err != nil {
+			err = NewError(InTikvFatalError, "GetMultipart MsgPackUnMarshal err", err)
 			return multipart, err
 		}
 		parts[part.PartNumber] = &part
@@ -86,17 +93,25 @@ func (c *TiKVClient) GetMultipart(bucketName, objectName, uploadId string) (mult
 
 func (c *TiKVClient) CreateMultipart(multipart Multipart) (err error) {
 	key := GenMultipartKey(multipart.BucketName, multipart.ObjectName, multipart.InitialTime)
-	return c.TxPut(key, multipart)
+	err = c.TxPut(key, multipart)
+	if err != nil {
+		return NewError(InTikvFatalError, "CreateMultipart TxPut err", err)
+	}
+	return nil
 }
 
 func (c *TiKVClient) PutObjectPart(multipart *Multipart, part *Part) (deltaSize int64, err error) {
 	tx, err := c.NewTrans()
 	if err != nil {
+		err = NewError(InTikvFatalError, "PutObjectPart NewTrans err", err)
 		return 0, err
 	}
 	defer func() {
 		if err == nil {
 			err = c.CommitTrans(tx)
+			if err != nil {
+				err = NewError(InTikvFatalError, "PutObjectPart err", err)
+			}
 		}
 		if err != nil {
 			c.AbortTrans(tx)
@@ -107,11 +122,13 @@ func (c *TiKVClient) PutObjectPart(multipart *Multipart, part *Part) (deltaSize 
 	partKey := GenObjectPartKey(multipart.BucketName, multipart.ObjectName, multipart.UploadId, part.PartNumber)
 	partVal, err := helper.MsgPackMarshal(part)
 	if err != nil {
+		err = NewError(InTikvFatalError, "PutObjectPart MsgPackMarshal err", err)
 		return 0, err
 	}
 
 	err = txn.Set(partKey, partVal)
 	if err != nil {
+		err = NewError(InTikvFatalError, "PutObjectPart Set err", err)
 		return 0, err
 	}
 	var removedSize int64 = 0
@@ -140,6 +157,9 @@ func (c *TiKVClient) DeleteMultipart(multipart *Multipart, tx Tx) (err error) {
 		defer func() {
 			if err == nil {
 				err = c.CommitTrans(tx)
+				if err != nil {
+					err = NewError(InTikvFatalError, "DeleteMultipart err", err)
+				}
 			}
 			if err != nil {
 				c.AbortTrans(tx)
@@ -149,20 +169,24 @@ func (c *TiKVClient) DeleteMultipart(multipart *Multipart, tx Tx) (err error) {
 	txn := tx.(*TikvTx).tx
 	it, err := txn.Iter(context.TODO(), key.Key(keyPrefix), key.Key(endKey))
 	if err != nil {
-		return err
+		return NewError(InTikvFatalError, "DeleteMultipart Iter err", err)
 	}
 	defer it.Close()
 	for it.Valid() {
 		err := txn.Delete(it.Key())
 		if err != nil {
 			txn.Rollback()
-			return err
+			return NewError(InTikvFatalError, "DeleteMultipart Delete err", err)
 		}
 		if err := it.Next(context.TODO()); err != nil && it.Valid() {
-			return err
+			return NewError(InTikvFatalError, "DeleteMultipart get next err", err)
 		}
 	}
-	return txn.Delete(multipartKey)
+	err = txn.Delete(multipartKey)
+	if err != nil {
+		return NewError(InTikvFatalError, "DeleteMultipart Delete err", err)
+	}
+	return nil
 }
 
 func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker, prefix, delimiter, encodingType string, maxUploads int) (result datatype.ListMultipartUploadsResponse, err error) {
@@ -185,10 +209,12 @@ func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 
 	tx, err := c.TxnCli.Begin(context.TODO())
 	if err != nil {
+		err = NewError(InTikvFatalError, "ListMultipartUploads TCBegin err", err)
 		return result, err
 	}
 	it, err := tx.Iter(context.TODO(), key.Key(startKey), key.Key(endKey))
 	if err != nil {
+		err = NewError(InTikvFatalError, "ListMultipartUploads Iter err", err)
 		return result, err
 	}
 	defer it.Close()
@@ -203,6 +229,7 @@ func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 		k, v := string(it.Key()), it.Value()
 		if k == string(startKey) {
 			if err := it.Next(context.TODO()); err != nil && it.Valid() {
+				err = NewError(InTikvFatalError, "ListMultipartUploads get next err", err)
 				return result, err
 			}
 			continue
@@ -211,6 +238,7 @@ func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 		if len(sp) != 4 {
 			helper.Logger.Error("Invalid multipart key:", k)
 			if err := it.Next(context.TODO()); err != nil && it.Valid() {
+				err = NewError(InTikvFatalError, "ListMultipartUploads get next err", err)
 				return result, err
 			}
 			continue
@@ -218,6 +246,7 @@ func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 		objectName := sp[2]
 		if !strings.HasPrefix(objectName, prefix) {
 			if err := it.Next(context.TODO()); err != nil && it.Valid() {
+				err = NewError(InTikvFatalError, "ListMultipartUploads get next err", err)
 				return result, err
 			}
 			continue
@@ -228,6 +257,7 @@ func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 			sp := strings.Split(subKey, delimiter)
 			if len(sp) > 2 {
 				if err := it.Next(context.TODO()); err != nil && it.Valid() {
+					err = NewError(InTikvFatalError, "ListMultipartUploads get next err", err)
 					return result, err
 				}
 				continue
@@ -240,11 +270,13 @@ func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 						break
 					}
 					if err := it.Next(context.TODO()); err != nil && it.Valid() {
+						err = NewError(InTikvFatalError, "ListMultipartUploads get next err", err)
 						return result, err
 					}
 					continue
 				} else {
 					if err := it.Next(context.TODO()); err != nil && it.Valid() {
+						err = NewError(InTikvFatalError, "ListMultipartUploads get next err", err)
 						return result, err
 					}
 					continue
@@ -256,6 +288,7 @@ func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 		var u datatype.Upload
 		err = helper.MsgPackUnMarshal(v, &m)
 		if err != nil {
+			err = NewError(InTikvFatalError, "ListMultipartUploads MsgPackUnMarshal err", err)
 			return result, err
 		}
 		lastKey = objectName
@@ -275,6 +308,7 @@ func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 			break
 		}
 		if err := it.Next(context.TODO()); err != nil && it.Valid() {
+			err = NewError(InTikvFatalError, "ListMultipartUploads get next err", err)
 			return result, err
 		}
 		continue
@@ -286,6 +320,7 @@ func (c *TiKVClient) ListMultipartUploads(bucketName, keyMarker, uploadIdMarker,
 		})
 	}
 	if err := it.Next(context.TODO()); err != nil && it.Valid() {
+		err = NewError(InTikvFatalError, "ListMultipartUploads get next err", err)
 		return result, err
 	}
 	if it.Valid() {

@@ -51,6 +51,7 @@ const (
 	ErrInvalidBucketName
 	ErrInvalidObjectName
 	ErrInvalidDigest
+	ErrInvalidRangeFormat
 	ErrInvalidRange
 	ErrInvalidEncodingType
 	ErrInvalidContinuationToken
@@ -72,12 +73,14 @@ const (
 	ErrInvalidCorsDocument
 	ErrInvalidVersioning
 	ErrMalformedXML
+	ErrInvalidContentLength
 	ErrMissingContentLength
 	ErrMissingContentMD5
 	ErrMissingRequestBodyError
 	ErrNoSuchBucket
 	ErrNoSuchBucketPolicy
 	ErrNoSuchKey
+	ErrInvalidForbiddenOverWriteArgument
 	ErrForbiddenOverwriteKey
 	ErrNoSuchUpload
 	ErrNoSuchVersion
@@ -193,6 +196,7 @@ const (
 	ErrInvalidErrorDocumentKey
 	ErrMalformedMetadataConfiguration
 	ErrMalformedEncryptionConfiguration
+	ErrMalformedRestoreConfiguration
 	ErrMissingRuleInEncryption
 	ErrExceededEncryptionRulesLimit
 	ErrMissingEncryptionByDefaultInEncryptionRule
@@ -232,7 +236,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrInvalidCopyRequest: {
 		AwsErrorCode:   "InvalidCopyRequest",
-		Description:    "X-Amz-Metadata-Directive can only be COPY or REPLACE",
+		Description:    "Metadata-Directive can only be COPY or REPLACE",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidCopyRequestWithSameObject: {
@@ -242,7 +246,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrInvalidRenameSourceKey: {
 		AwsErrorCode:   "InvalidRenameSourceKey",
-		Description:    "X-Amz-Rename-Source-Key must be a valid URL-encoded object name, renaming folders is not supported.",
+		Description:    "Rename-Source-Key must be a valid URL-encoded object name, renaming folders is not supported.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidRenameTarget: {
@@ -262,7 +266,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrInvalidRequestBody: {
 		AwsErrorCode:   "InvalidArgument",
-		Description:    "Body shouldn't be set for this request.",
+		Description:    "The Body provided is not valid to be read.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidEncodingType: {
@@ -375,6 +379,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		Description:    "The Content-Md5 you specified is not valid.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
+	ErrInvalidRangeFormat: {
+		AwsErrorCode:   "InvalidRangeFormat",
+		Description:    "The requested range format is not canonical, should be like 'bytes=10-100' ",
+		HttpStatusCode: http.StatusRequestedRangeNotSatisfiable,
+	},
 	ErrInvalidRange: {
 		AwsErrorCode:   "InvalidRange",
 		Description:    "The requested range is not satisfiable",
@@ -384,6 +393,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "MalformedXML",
 		Description:    "The XML you provided was not well-formed or did not validate against our published schema.",
 		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrInvalidContentLength: {
+		AwsErrorCode:   "InvalidContentLength",
+		Description:    "The Content-Length provided was not valid.",
+		HttpStatusCode: http.StatusLengthRequired,
 	},
 	ErrMissingContentLength: {
 		AwsErrorCode:   "MissingContentLength",
@@ -414,6 +428,11 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		AwsErrorCode:   "NoSuchKey",
 		Description:    "The specified key does not exist.",
 		HttpStatusCode: http.StatusNotFound,
+	},
+	ErrInvalidForbiddenOverWriteArgument: {
+		AwsErrorCode:   "InvalidForbiddenOverWriteArgument",
+		Description:    "The Forbidden OverWrite Argument provided is not valid",
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrForbiddenOverwriteKey: {
 		AwsErrorCode:   "ForbiddenOverwriteKey",
@@ -572,12 +591,12 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrMissingDateHeader: {
 		AwsErrorCode:   "AccessDenied",
-		Description:    "AWS authentication requires a valid Date or x-amz-date header",
+		Description:    "Authentication requires a valid Date or x-***-date header",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidQuerySignatureAlgo: {
 		AwsErrorCode:   "AuthorizationQueryParametersError",
-		Description:    "X-Amz-Algorithm only supports \"AWS4-HMAC-SHA256\".",
+		Description:    "Algorithm only supports BrandName +\"4-HMAC-SHA256\".",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrExpiredPresignRequest: {
@@ -587,7 +606,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	},
 	ErrInvalidQueryParams: {
 		AwsErrorCode:   "AuthorizationQueryParametersError",
-		Description:    "Query-string authentication version 4 requires the X-Amz-Algorithm, X-Amz-Credential, X-Amz-Signature, X-Amz-Date, X-Amz-SignedHeaders, and X-Amz-Expires parameters.",
+		Description:    "Query-string authentication version 4 requires the Algorithm, Credential, Signature, Date, SignedHeaders, and Expires parameters.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrBucketAlreadyOwnedByYou: {
@@ -677,7 +696,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	/// S3 extensions.
 	ErrContentSHA256Mismatch: {
 		AwsErrorCode:   "XAmzContentSHA256Mismatch",
-		Description:    "The provided 'x-amz-content-sha256' header does not match what was computed.",
+		Description:    "The provided 'content-sha256' header does not match what was computed.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidCannedAcl: {
@@ -729,7 +748,7 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 	ErrInvalidBucketLogging: {
 		AwsErrorCode:   "InvalidBucketLogging",
 		Description:    "The bucket logging you set is invalid.",
-		HttpStatusCode: http.StatusNotFound,
+		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrInvalidTargetBucket: {
 		AwsErrorCode:   "InvalidTargetBucket",
@@ -923,8 +942,13 @@ var ErrorCodeResponse = map[ApiErrorCode]ApiErrorStruct{
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrMalformedEncryptionConfiguration: {
-		AwsErrorCode:   "MalformedEncryptionConfiguration",
+		AwsErrorCode:   "InvalidEncryptionConfiguration",
 		Description:    "Cannot Marshal/Unmarshal XML of encryption configuration.",
+		HttpStatusCode: http.StatusBadRequest,
+	},
+	ErrMalformedRestoreConfiguration: {
+		AwsErrorCode:   "InvalidRestoreConfiguration",
+		Description:    "Cannot Marshal/Unmarshal XML of restore configuration.",
 		HttpStatusCode: http.StatusBadRequest,
 	},
 	ErrMissingRuleInEncryption: {
