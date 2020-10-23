@@ -198,3 +198,10 @@ Please refer our wiki for other information
 
 ## License
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fjourneymidnight%2Fyig.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fjourneymidnight%2Fyig?ref=badge_large)
+
+
+## Feedback & Contact
+- Github Issues：You are sincerely welcomed to issue any bugs you came across or any suggestions through Github. If you have any questions you can create issues or scan QR code below with wechat for more details.
+- User group：We use Wechat group currently.
+
+<img src="https://github.com/journeymidnight/yig/blob/master/doc/images/wechat_qr_code.png" style="zoom: 75%;" />  
