@@ -112,8 +112,8 @@ func MarshalTOMLConfig() error {
 	CONFIG.Region = c.Region
 	CONFIG.Plugins = c.Plugins
 	CONFIG.PiggybackUpdateUsage = c.PiggybackUpdateUsage
-	CONFIG.LogPath = logFilePathWithPid(c.LogPath)
-	CONFIG.AccessLogPath = logFilePathWithPid(c.AccessLogPath)
+	CONFIG.LogPath = c.LogPath
+	CONFIG.AccessLogPath = c.AccessLogPath
 	CONFIG.AccessLogFormat = c.AccessLogFormat
 	CONFIG.PanicLogPath = c.PanicLogPath
 	CONFIG.PidFile = c.PidFile

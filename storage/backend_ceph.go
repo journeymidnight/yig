@@ -3,6 +3,10 @@ package storage
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"io"
+	"sync"
+	"time"
+
 	"github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/backend"
 	"github.com/journeymidnight/yig/ceph"
@@ -14,9 +18,6 @@ import (
 	"github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
 	"github.com/journeymidnight/yig/signature"
-	"io"
-	"sync"
-	"time"
 )
 
 func New(metaCacheType int, enableDataCache bool, kms crypto.KMS) *YigStorage {
@@ -75,7 +76,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 		initializationVector = objInfo.InitializationVector
 		objSize = objInfo.Size
 		storageClass = objInfo.StorageClass
-		helper.Logger.Println(20, "request append oid:", oid, "iv:", initializationVector, "size:", objSize)
+		helper.Logger.Info("request append oid:", oid, "iv:", initializationVector, "size:", objSize)
 	} else {
 		// New appendable object
 		cephCluster, poolName = yig.pickClusterAndPool(bucketName, objectName, storageClass, size, true)
@@ -89,7 +90,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 				return
 			}
 		}
-		helper.Logger.Println(20, "request first append oid:", oid, "iv:", initializationVector, "size:", objSize)
+		helper.Logger.Info("request first append oid:", oid, "iv:", initializationVector, "size:", objSize)
 	}
 
 	dataReader := io.TeeReader(limitedDataReader, md5Writer)
@@ -149,7 +150,7 @@ func (yig *YigStorage) AppendObject(bucketName string, objectName string, creden
 
 	result.LastModified = object.LastModifiedTime
 	result.NextPosition = object.Size
-	helper.Logger.Println(20, "Append info.", "bucket:", bucketName, "objName:", objectName, "oid:", oid,
+	helper.Logger.Info("Append info.", "bucket:", bucketName, "objName:", objectName, "oid:", oid,
 		"objSize:", object.Size, "bytesWritten:", bytesWritten, "storageClass:", storageClass)
 	err = yig.MetaStorage.AppendObject(object, objInfo != nil)
 	if err != nil {
