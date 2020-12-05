@@ -33,6 +33,7 @@ type Object struct {
 	Parts            map[int]*Part
 	PartsIndex       *SimpleIndex
 	ACL              datatype.Acl
+	Tagging          datatype.TaggingData
 	NullVersion      bool   // if this entry has `null` version
 	DeleteMarker     bool   // if this entry is a delete marker
 	VersionId        string // version cache
@@ -175,6 +176,14 @@ func (o *Object) GetUpdateAclSql() (string, []interface{}) {
 	acl, _ := json.Marshal(o.ACL)
 	sql := "update objects set acl=? where bucketname=? and name=? and version=?"
 	args := []interface{}{acl, o.BucketName, o.Name, version}
+	return sql, args
+}
+
+func (o *Object) GetUpdateTaggingSql() (string, []interface{}) {
+	version := math.MaxUint64 - uint64(o.LastModifiedTime.UnixNano())
+	tagging, _ := json.Marshal(o.Tagging)
+	sql := "update objects set tagging=? where bucketname=? and name=? and version=?"
+	args := []interface{}{tagging, o.BucketName, o.Name, version}
 	return sql, args
 }
 

@@ -23,6 +23,7 @@ type Client interface {
 	DeleteObject(object *Object, tx DB) error
 	UpdateObject(object *Object, tx DB) (err error)
 	UpdateObjectAcl(object *Object) error
+	UpdateObjectTagging(object *Object) error
 	UpdateObjectAttrs(object *Object) error
 	//bucket
 	GetBucket(bucketName string) (bucket *Bucket, err error)

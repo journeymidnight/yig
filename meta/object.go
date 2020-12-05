@@ -130,6 +130,11 @@ func (m *Meta) UpdateObjectAcl(object *Object) error {
 	return err
 }
 
+func (m *Meta) UpdateObjectTagging(object *Object) error {
+	err := m.Client.UpdateObjectTagging(object)
+	return err
+}
+
 func (m *Meta) UpdateObjectAttrs(object *Object) error {
 	err := m.Client.UpdateObjectAttrs(object)
 	return err

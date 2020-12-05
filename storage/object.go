@@ -493,6 +493,118 @@ func (yig *YigStorage) SetObjectAcl(bucketName string, objectName string, versio
 	return nil
 }
 
+func (yig *YigStorage) GetObjectTagging(bucketName string, objectName string,
+	version string, credential common.Credential) (tagging datatype.TaggingData, err error) {
+
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
+	if err != nil {
+		return
+	}
+
+	var object *meta.Object
+	if version == "" {
+		object, err = yig.MetaStorage.GetObject(bucketName, objectName, true)
+	} else {
+		object, err = yig.getObjWithVersion(bucketName, objectName, version)
+	}
+	if err != nil {
+		return
+	}
+
+	switch object.ACL.CannedAcl {
+	case "bucket-owner-full-control":
+		if bucket.OwnerId != credential.UserId {
+			err = ErrAccessDenied
+			return
+		}
+	default:
+		if object.OwnerId != credential.UserId {
+			err = ErrAccessDenied
+			return
+		}
+	}
+	return object.Tagging, nil
+}
+
+func (yig *YigStorage) SetObjectTagging(bucketName string, objectName string, version string,
+	tagging datatype.TaggingData, credential common.Credential) error {
+
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
+	if err != nil {
+		return err
+	}
+	switch bucket.ACL.CannedAcl {
+	case "bucket-owner-full-control":
+		if bucket.OwnerId != credential.UserId {
+			return ErrAccessDenied
+		}
+	default:
+		if bucket.OwnerId != credential.UserId {
+			return ErrAccessDenied
+		}
+	} // TODO policy and fancy ACL
+	var object *meta.Object
+	if version == "" {
+		object, err = yig.MetaStorage.GetObject(bucketName, objectName, false)
+	} else {
+		object, err = yig.getObjWithVersion(bucketName, objectName, version)
+	}
+	if err != nil {
+		return err
+	}
+	object.Tagging = tagging
+	err = yig.MetaStorage.UpdateObjectTagging(object)
+	if err != nil {
+		return err
+	}
+	if err == nil {
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable,
+			bucketName+":"+objectName+":"+version)
+	}
+	return nil
+}
+
+func (yig *YigStorage) DeleteObjectTagging(bucketName string, objectName string, version string,
+	credential common.Credential) (result datatype.DeleteObjectTaggingResult, err error) {
+
+	bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
+	if err != nil {
+		return result, err
+	}
+	switch bucket.ACL.CannedAcl {
+	case "bucket-owner-full-control":
+		if bucket.OwnerId != credential.UserId {
+			return result, ErrAccessDenied
+		}
+	default:
+		if bucket.OwnerId != credential.UserId {
+			return result, ErrAccessDenied
+		}
+	} // TODO policy and fancy ACL
+	var object *meta.Object
+	if version == "" {
+		object, err = yig.MetaStorage.GetObject(bucketName, objectName, false)
+	} else {
+		object, err = yig.getObjWithVersion(bucketName, objectName, version)
+	}
+	if err != nil {
+		return result, err
+	}
+	object.Tagging = datatype.TaggingData{
+		Tagging: nil,
+	}
+	err = yig.MetaStorage.UpdateObjectTagging(object)
+	if err != nil {
+		return result, err
+	}
+	if err == nil {
+		yig.MetaStorage.Cache.Remove(redis.ObjectTable,
+			bucketName+":"+objectName+":"+version)
+	}
+	result.VersionId = object.VersionId
+	return result, nil
+}
+
 // Write path:
 //                                           +-----------+
 // PUT object/part                           |           |   Ceph

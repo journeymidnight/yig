@@ -325,6 +325,10 @@ type AppendObjectResult struct {
 	NextPosition int64
 }
 
+type DeleteObjectTaggingResult struct {
+	VersionId string
+}
+
 type DeleteObjectResult struct {
 	DeleteMarker bool
 	VersionId    string

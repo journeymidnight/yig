@@ -1235,6 +1235,54 @@ func (api ObjectAPIHandlers) PutObjectAclHandler(w http.ResponseWriter, r *http.
 	WriteSuccessResponse(w, nil)
 }
 
+func (api ObjectAPIHandlers) PutObjectTaggingHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+	objectName := vars["object"]
+
+	var credential common.Credential
+	var err error
+	switch signature.GetRequestAuthType(r) {
+	default:
+		// For all unknown auth types return error.
+		WriteErrorResponse(w, r, ErrAccessDenied)
+		return
+	case signature.AuthTypeAnonymous:
+		break
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
+		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
+		if credential, err = signature.IsReqAuthenticated(r); err != nil {
+			WriteErrorResponse(w, r, err)
+			return
+		}
+	}
+
+	tagging, err := ParseObjectTaggingConfig(io.LimitReader(r.Body, r.ContentLength))
+	if err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+
+	version := r.URL.Query().Get("versionId")
+	err = api.ObjectAPI.SetObjectTagging(bucketName, objectName, version, *tagging, credential)
+	if err != nil {
+		logger.Error("Unable to put tagging for object", objectName,
+			"error:", err)
+		WriteErrorResponse(w, r, err)
+		return
+	}
+
+	if version != "" {
+		w.Header().Set("x-amz-version-id", version)
+	}
+
+	// ResponseRecorder
+	w.(*ResponseRecorder).operationName = "PutObjectTagging"
+
+	WriteSuccessResponseWithStatus(w, nil, http.StatusNoContent)
+}
+
 func (api ObjectAPIHandlers) RestoreObjectHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := getRequestContext(r)
 	logger := ctx.Logger
@@ -1387,6 +1435,50 @@ func (api ObjectAPIHandlers) GetObjectAclHandler(w http.ResponseWriter, r *http.
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "GetObjectAcl"
 	WriteSuccessResponse(w, aclBuffer)
+}
+
+func (api ObjectAPIHandlers) GetObjectTaggingHandler(w http.ResponseWriter, r *http.Request) {
+	logger := ContextLogger(r)
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+	objectName := vars["object"]
+
+	var credential common.Credential
+	var err error
+	switch signature.GetRequestAuthType(r) {
+	default:
+		// For all unknown auth types return error.
+		WriteErrorResponse(w, r, ErrAccessDenied)
+		return
+	case signature.AuthTypeAnonymous:
+		break
+	case signature.AuthTypePresignedV4, signature.AuthTypeSignedV4,
+		signature.AuthTypePresignedV2, signature.AuthTypeSignedV2:
+		if credential, err = signature.IsReqAuthenticated(r); err != nil {
+			WriteErrorResponse(w, r, err)
+			return
+		}
+	}
+
+	version := r.URL.Query().Get("versionId")
+	tagging, err := api.ObjectAPI.GetObjectTagging(bucketName, objectName, version, credential)
+	if err != nil {
+		logger.Error("Unable to fetch object acl:", err)
+		WriteErrorResponse(w, r, err)
+		return
+	}
+
+	taggingBuffer, err := MarShalObjectTagging(tagging)
+
+	if version != "" {
+		w.Header().Set("x-amz-version-id", version)
+	}
+
+	setXmlHeader(w)
+
+	// ResponseRecorder
+	w.(*ResponseRecorder).operationName = "GetObjectTagging"
+	WriteSuccessResponseWithStatus(w, taggingBuffer, http.StatusNoContent)
 }
 
 // Multipart objectAPIHandlers
@@ -2032,6 +2124,44 @@ func (api ObjectAPIHandlers) DeleteObjectHandler(w http.ResponseWriter, r *http.
 	// ResponseRecorder
 	w.(*ResponseRecorder).operationName = "DeleteObject"
 	WriteSuccessNoContent(w)
+}
+
+func (api ObjectAPIHandlers) DeleteObjectTaggingHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	bucketName := vars["bucket"]
+	objectName := vars["object"]
+
+	var credential common.Credential
+	var err error
+	switch signature.GetRequestAuthType(r) {
+	default:
+		// For all unknown auth types return error.
+		WriteErrorResponse(w, r, ErrAccessDenied)
+		return
+	case signature.AuthTypeAnonymous:
+		break
+	case signature.AuthTypeSignedV4, signature.AuthTypePresignedV4,
+		signature.AuthTypeSignedV2, signature.AuthTypePresignedV2:
+		if credential, err = signature.IsReqAuthenticated(r); err != nil {
+			WriteErrorResponse(w, r, err)
+			return
+		}
+	}
+	version := r.URL.Query().Get("versionId")
+	// http://docs.aws.amazon.com/AmazonS3/latest/API/RESTObjectDELETE.html
+	// Ignore delete object errors, since we are supposed to reply only 204.
+	result, err := api.ObjectAPI.DeleteObjectTagging(bucketName, objectName, version, credential)
+	if err != nil {
+		WriteErrorResponse(w, r, err)
+		return
+	}
+
+	if result.VersionId != "" {
+		w.Header().Set("x-amz-version-id", result.VersionId)
+	}
+	// ResponseRecorder
+	w.(*ResponseRecorder).operationName = "DeleteObjectTagging"
+	WriteSuccessResponseWithStatus(w, nil, http.StatusNoContent)
 }
 
 // PostPolicyBucketHandler - POST policy upload
