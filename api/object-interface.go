@@ -89,6 +89,12 @@ type ObjectLayer interface {
 		acl datatype.Acl, credential common.Credential) error
 	GetObjectAcl(bucket string, object string, version string, credential common.Credential) (
 		policy datatype.AccessControlPolicyResponse, err error)
+	SetObjectTagging(bucketName string, objectName string, version string,
+		tagging datatype.TaggingData, credential common.Credential) error
+	GetObjectTagging(bucketName string, objectName string,
+		version string, credential common.Credential) (tagging datatype.TaggingData, err error)
+	DeleteObjectTagging(bucketName string, objectName string, version string,
+		credential common.Credential) (datatype.DeleteObjectTaggingResult, error)
 	DeleteObject(bucket, object, version string, credential common.Credential) (datatype.DeleteObjectResult,
 		error)
 

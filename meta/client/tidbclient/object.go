@@ -14,7 +14,7 @@ import (
 )
 
 func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *Object, err error) {
-	var ibucketname, iname, customattributes, acl, lastModifiedTime string
+	var ibucketname, iname, customattributes, acl, tagging, lastModifiedTime string
 	var iversion uint64
 
 	var row *sql.Row
@@ -42,6 +42,7 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 		&object.ContentType,
 		&customattributes,
 		&acl,
+		&tagging,
 		&object.NullVersion,
 		&object.DeleteMarker,
 		&object.SseType,
@@ -63,6 +64,10 @@ func (t *TidbClient) GetObject(bucketName, objectName, version string) (object *
 	object.Name = objectName
 	object.BucketName = bucketName
 	err = json.Unmarshal([]byte(acl), &object.ACL)
+	if err != nil {
+		return
+	}
+	err = json.Unmarshal([]byte(tagging), &object.Tagging)
 	if err != nil {
 		return
 	}
@@ -121,6 +126,12 @@ func (t *TidbClient) UpdateObjectAttrs(object *Object) error {
 
 func (t *TidbClient) UpdateObjectAcl(object *Object) error {
 	sql, args := object.GetUpdateAclSql()
+	_, err := t.Client.Exec(sql, args...)
+	return err
+}
+
+func (t *TidbClient) UpdateObjectTagging(object *Object) error {
+	sql, args := object.GetUpdateTaggingSql()
 	_, err := t.Client.Exec(sql, args...)
 	return err
 }
